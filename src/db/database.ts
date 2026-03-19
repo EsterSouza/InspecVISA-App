@@ -76,6 +76,44 @@ export async function deleteClient(clientId: string) {
     await supabase.from('inspections').delete().eq('client_id', clientId);
     await supabase.from('schedules').delete().eq('client_id', clientId);
   } catch (err) {
-    console.warn('Could not sync deletion to Supabase. It will likely return on next sync.', err);
+    console.warn('Could not sync client deletion to Supabase.', err);
+  }
+}
+
+export async function deleteInspection(inspectionId: string) {
+  await db.transaction('readwrite', [db.inspections, db.responses, db.photos], async () => {
+    // 1. Get all responses for this inspection
+    const responses = await db.responses.where('inspectionId').equals(inspectionId).toArray();
+    const responseIds = responses.map(r => r.id);
+
+    // 2. Delete all photos for these responses
+    await db.photos.where('responseId').anyOf(responseIds).delete();
+
+    // 3. Delete responses
+    await db.responses.bulkDelete(responseIds);
+
+    // 4. Delete the inspection
+    await db.inspections.delete(inspectionId);
+  });
+
+  // Attempt to delete from Supabase if online
+  try {
+    await supabase.from('inspections').delete().eq('id', inspectionId);
+    // Note: Responses and Photos in Supabase should ideally be deleted too
+    // In a full implementation, we'd have a 'photos' table in PG.
+    await supabase.from('responses').delete().eq('inspection_id', inspectionId);
+  } catch (err) {
+    console.warn('Could not sync inspection deletion to Supabase.', err);
+  }
+}
+
+export async function deleteSchedule(scheduleId: string) {
+  await db.schedules.delete(scheduleId);
+
+  // Attempt to delete from Supabase if online
+  try {
+    await supabase.from('schedules').delete().eq('id', scheduleId);
+  } catch (err) {
+    console.warn('Could not sync schedule deletion to Supabase.', err);
   }
 }

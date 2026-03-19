@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Plus, Calendar, Activity, CheckCircle, Trash2, Edit } from 'lucide-react';
-import { db } from '../db/database';
+import { db, deleteInspection } from '../db/database';
 import type { Inspection, Client } from '../types';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -49,15 +49,13 @@ export function Inspections() {
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     if (window.confirm('Tem certeza que deseja excluir esta inspeção? Todos os dados e fotos serão perdidos permanentemente.')) {
-      await db.inspections.delete(id);
-      
-      // Cascade delete responses and photos
-      const responses = await db.responses.where('inspectionId').equals(id).toArray();
-      const responseIds = responses.map(r => r.id);
-      await db.photos.where('responseId').anyOf(responseIds).delete();
-      await db.responses.bulkDelete(responseIds);
-      
-      loadInspections();
+      try {
+        await deleteInspection(id);
+        loadInspections();
+      } catch (err) {
+        console.error(err);
+        alert('Erro ao excluir inspeção.');
+      }
     }
   };
 

@@ -5,8 +5,9 @@ import type { Client, Schedule } from '../types';
 import { formatDateTime, generateId } from '../utils/imageUtils';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
-import { Calendar, Clock, Plus, Trash2, CheckCircle, AlertCircle, User, Play } from 'lucide-react';
+import { Calendar, Clock, Plus, Trash2, CheckCircle, AlertCircle, User, Play, Edit2 } from 'lucide-react';
 import { syncData } from '../services/syncService';
+import { deleteSchedule } from '../db/database';
 
 export function Schedules() {
   const navigate = useNavigate();
@@ -14,6 +15,8 @@ export function Schedules() {
   const [clients, setClients] = useState<Client[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // Form State
   const [selectedClientId, setSelectedClientId] = useState('');
@@ -63,22 +66,47 @@ export function Schedules() {
 
     try {
       const scheduledAt = new Date(`${scheduledDate}T${scheduledTime}`);
-      const newSchedule: Schedule = {
-        id: generateId(),
-        clientId: selectedClientId,
-        scheduledAt,
-        status: 'pending',
-        notes: notes
-      };
+      
+      if (isEditing && editingId) {
+        await db.schedules.update(editingId, {
+          clientId: selectedClientId,
+          scheduledAt,
+          notes: notes
+        });
+        
+        // Update on Supabase (syncService might handle this, but let's be proactive if needed)
+        // syncData handles updates by comparing timestamps, so local update + sync usually works.
+      } else {
+        const newSchedule: Schedule = {
+          id: generateId(),
+          clientId: selectedClientId,
+          scheduledAt,
+          status: 'pending',
+          notes: notes
+        };
+        await db.schedules.add(newSchedule);
+      }
 
-      await db.schedules.add(newSchedule);
       setIsModalOpen(false);
       resetForm();
       loadData();
       syncData().catch(console.error);
     } catch (err) {
-      alert('Erro ao agendar: ' + err);
+      alert('Erro ao salvar agendamento: ' + err);
     }
+  };
+
+  const handleEdit = (schedule: Schedule) => {
+    const date = schedule.scheduledAt.toISOString().split('T')[0];
+    const time = schedule.scheduledAt.toTimeString().split(' ')[0].substring(0, 5);
+    
+    setSelectedClientId(schedule.clientId);
+    setScheduledDate(date);
+    setScheduledTime(time);
+    setNotes(schedule.notes || '');
+    setIsEditing(true);
+    setEditingId(schedule.id);
+    setIsModalOpen(true);
   };
 
   const resetForm = () => {
@@ -86,13 +114,20 @@ export function Schedules() {
     setScheduledDate('');
     setScheduledTime('');
     setNotes('');
+    setIsEditing(false);
+    setEditingId(null);
   };
 
   const handleDelete = async (id: string) => {
     if (confirm('Deseja excluir este agendamento?')) {
-      await db.schedules.delete(id);
-      loadData();
-      syncData().catch(console.error);
+      try {
+        await deleteSchedule(id);
+        loadData();
+        syncData().catch(console.error);
+      } catch (err) {
+        console.error(err);
+        alert('Erro ao excluir agendamento.');
+      }
     }
   };
 
@@ -120,7 +155,7 @@ export function Schedules() {
           <h1 className="text-2xl font-bold text-gray-900">Agendamentos</h1>
           <p className="text-sm text-gray-500">Organize suas próximas inspeções e auditorias.</p>
         </div>
-        <Button onClick={() => setIsModalOpen(true)}>
+        <Button onClick={() => { resetForm(); setIsModalOpen(true); }}>
           <Plus className="mr-2 h-4 w-4" />
           Agendar Visita
         </Button>
@@ -169,6 +204,9 @@ export function Schedules() {
                        <Button variant="ghost" size="sm" onClick={() => handleComplete(schedule.id)}>
                          <CheckCircle className="h-4 w-4 text-green-600" />
                        </Button>
+                       <Button variant="ghost" size="sm" onClick={() => handleEdit(schedule)} className="text-gray-500 hover:bg-gray-50">
+                         <Edit2 className="h-4 w-4" />
+                       </Button>
                        <Button variant="ghost" size="sm" onClick={() => handleDelete(schedule.id)} className="text-red-500 hover:bg-red-50">
                          <Trash2 className="h-4 w-4" />
                        </Button>
@@ -207,7 +245,9 @@ export function Schedules() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <Card className="w-full max-w-lg shadow-2xl">
             <CardContent className="p-6">
-              <h3 className="text-xl font-bold text-gray-900 mb-6">Agendar Nova Inspeção</h3>
+              <h3 className="text-xl font-bold text-gray-900 mb-6">
+                {isEditing ? 'Editar Agendamento' : 'Agendar Nova Inspeção'}
+              </h3>
               <form onSubmit={handleSchedule} className="space-y-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700 flex items-center">
@@ -269,7 +309,7 @@ export function Schedules() {
                     Cancelar
                   </Button>
                   <Button type="submit" className="flex-1">
-                    Confirmar
+                    {isEditing ? 'Salvar Alterações' : 'Confirmar'}
                   </Button>
                 </div>
               </form>
