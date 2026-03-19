@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import type { Inspection, InspectionResponse, ChecklistTemplate, InspectionScore, ConsultantSettings } from '../types';
+import type { Inspection, InspectionResponse, ChecklistTemplate, InspectionScore, ConsultantSettings, FoodEstablishmentType } from '../types';
+import { FOOD_SEGMENT_LABELS } from '../types';
 import { classificationLabel, classificationColor } from './scoring';
 import { formatDate } from './imageUtils';
 import { enrichTemplate } from '../data/templates';
@@ -79,6 +80,11 @@ export async function generatePDF(
   drawField('Localização:', `${inspection.city || '—'} / ${inspection.state || '—'}`);
   drawField('Data da Visita:', formatDate(inspection.inspectionDate));
   drawField('Consultora:', inspection.consultantName);
+  
+  if (inspection.clientCategory === 'alimentos' && inspection.foodTypes && inspection.foodTypes.length > 0) {
+    const segments = inspection.foodTypes.map(ft => FOOD_SEGMENT_LABELS[ft] || ft).join(', ');
+    drawField('Segmentos:', segments);
+  }
 
   if (inspection.accompanistName) {
     drawField('Acompanhante:', `${inspection.accompanistName} ${inspection.accompanistRole ? `(${inspection.accompanistRole})` : ''}`);
@@ -143,15 +149,22 @@ export async function generatePDF(
   autoTable(doc, {
     startY: y,
     head: [['Seção', 'Total', 'Cumpre', 'Não Cumpre', 'NO', 'N/A', '%']],
-    body: score.scoreBySection.map(s => [
-      s.sectionTitle.length > 35 ? s.sectionTitle.substring(0, 33) + '…' : s.sectionTitle,
-      s.totalItems,
-      s.compliesCount,
-      s.notCompliesCount,
-      s.notObservedCount,
-      s.notApplicableCount,
-      `${Math.round(s.scorePercentage)}%`,
-    ]),
+    body: score.scoreBySection.map(s => {
+      const sectionDef = template.sections.find(sec => sec.id === s.sectionId);
+      const isExtra = sectionDef?.isExtraSection;
+      const segment = sectionDef?.segmentKey ? (FOOD_SEGMENT_LABELS[sectionDef.segmentKey as FoodEstablishmentType] || sectionDef.segmentKey) : '';
+      const title = isExtra ? `${s.sectionTitle} (ESPECÍFICO - ${segment.toUpperCase()})` : s.sectionTitle;
+      
+      return [
+        title.length > 45 ? title.substring(0, 43) + '…' : title,
+        s.totalItems,
+        s.compliesCount,
+        s.notCompliesCount,
+        s.notObservedCount,
+        s.notApplicableCount,
+        `${Math.round(s.scorePercentage)}%`,
+      ];
+    }),
     foot: [[
       'TOTAL',
       score.totalItems,

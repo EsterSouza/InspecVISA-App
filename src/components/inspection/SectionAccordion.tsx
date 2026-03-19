@@ -3,7 +3,7 @@ import { ChevronDown, ChevronUp, CheckCircle, AlertTriangle, HelpCircle } from '
 import { cn } from '../ui/Button';
 
 interface SectionAccordionProps {
-  title: string;
+  title: React.ReactNode;
   totalItems: number;
   evaluatedItems: number;
   compliesCount: number;

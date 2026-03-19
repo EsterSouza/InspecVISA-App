@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, FileCheck2, Loader2 } from 'lucide-react';
 import { db } from '../db/database';
 import { getTemplateById, enrichTemplate } from '../data/templates';
+import { FOOD_SEGMENT_LABELS, type FoodEstablishmentType } from '../types';
 import { useInspectionStore } from '../store/useInspectionStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { generateId, formatDateTime } from '../utils/imageUtils';
@@ -10,6 +11,7 @@ import type { InspectionResponse, InspectionPhoto } from '../types';
 
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
+import { Badge } from '../components/ui/Badge';
 import { SectionAccordion } from '../components/inspection/SectionAccordion';
 import { ChecklistItem } from '../components/inspection/ChecklistItem';
 import { ScorePanel } from '../components/inspection/ScorePanel';
@@ -290,7 +292,16 @@ export function InspectionExecution() {
             return (
               <SectionAccordion
                 key={section.id}
-                title={`${idx + 1}. ${section.title}`}
+                title={
+                  <div className="flex items-center gap-2">
+                    <span>{idx + 1}. {section.title}</span>
+                    {section.isExtraSection && (
+                      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] py-0 uppercase">
+                        Específico: {section.segmentKey ? (FOOD_SEGMENT_LABELS[section.segmentKey as FoodEstablishmentType] || section.segmentKey) : ''}
+                      </Badge>
+                    )}
+                  </div>
+                }
                 totalItems={section.items.length}
                 evaluatedItems={sectionResponses.length}
                 compliesCount={compliesCount}

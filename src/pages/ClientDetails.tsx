@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { db, deleteClient } from '../db/database';
-import type { Client, Inspection, InspectionScore } from '../types';
+import { type Client, type Inspection, type InspectionScore, FOOD_SEGMENT_LABELS } from '../types';
 import { calculateScore } from '../utils/scoring';
 import { formatDateTime } from '../utils/imageUtils';
 import { Button } from '../components/ui/Button';
@@ -282,7 +282,23 @@ export function ClientDetails() {
               </h3>
               <div className="space-y-4">
                 <div>
-                  <label className="text-xs opacity-60 block">Responsável</label>
+                  <label className="text-xs opacity-60 block text-primary-200">Categoria Principal</label>
+                  <p className="font-medium">{client.category.toUpperCase()}</p>
+                </div>
+                {client.category === 'alimentos' && client.foodTypes && client.foodTypes.length > 0 && (
+                  <div>
+                    <label className="text-xs opacity-60 block text-primary-200">Segmentos</label>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {client.foodTypes.map(ft => (
+                        <Badge key={ft} variant="outline" className="bg-white/10 text-white border-white/20 text-[10px] py-0">
+                          {FOOD_SEGMENT_LABELS[ft] || ft}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <label className="text-xs opacity-60 block text-primary-200">Responsável</label>
                   <p className="font-medium">{client.responsibleName || 'Não informado'}</p>
                 </div>
                 <div>

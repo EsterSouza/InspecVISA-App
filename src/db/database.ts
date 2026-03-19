@@ -7,6 +7,7 @@ import type {
   InspectionPhoto,
   Schedule,
 } from '../types';
+import { supabase } from '../lib/supabase';
 
 export class InspectionDatabase extends Dexie {
   clients!: Table<Client>;
@@ -66,4 +67,15 @@ export async function deleteClient(clientId: string) {
     // 7. Delete the client record
     await db.clients.delete(clientId);
   });
+
+  // Attempt to delete from Supabase if online
+  try {
+    await supabase.from('clients').delete().eq('id', clientId);
+    // Also delete inspections, responses and schedules from Supabase
+    // This is optional if RLS handles it, but better be explicit
+    await supabase.from('inspections').delete().eq('client_id', clientId);
+    await supabase.from('schedules').delete().eq('client_id', clientId);
+  } catch (err) {
+    console.warn('Could not sync deletion to Supabase. It will likely return on next sync.', err);
+  }
 }

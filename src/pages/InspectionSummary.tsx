@@ -9,6 +9,8 @@ import { useSettingsStore } from '../store/useSettingsStore';
 import type { Inspection, InspectionResponse, ChecklistTemplate } from '../types';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import { Badge } from '../components/ui/Badge';
+import { type FoodEstablishmentType, FOOD_SEGMENT_LABELS } from '../types';
 import { formatDateTime } from '../utils/imageUtils';
 
 export function InspectionSummary() {
@@ -167,24 +169,34 @@ export function InspectionSummary() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {scoreArea.scoreBySection.map((s) => (
-                <div key={s.sectionId} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg border border-gray-100 bg-gray-50/50">
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-gray-900 text-sm">{s.sectionTitle}</h4>
-                      <div className="text-xs text-gray-500 mt-1 flex gap-3">
-                        <span>{Math.round(s.scorePercentage)}% Conforme</span>
-                        <span className="text-red-500">{s.notCompliesCount} Irreg.</span>
-                        {s.notObservedCount > 0 && <span className="text-slate-500">{s.notObservedCount} Não Obs.</span>}
+              {scoreArea.scoreBySection.map((s) => {
+                const sectionDef = template.sections.find(sec => sec.id === s.sectionId);
+                return (
+                  <div key={s.sectionId} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg border border-gray-100 bg-gray-50/50">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-semibold text-gray-900 text-sm">{s.sectionTitle}</h4>
+                          {sectionDef?.isExtraSection && (
+                            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[9px] py-0 uppercase">
+                              Específico: {sectionDef.segmentKey ? (FOOD_SEGMENT_LABELS[sectionDef.segmentKey as FoodEstablishmentType] || sectionDef.segmentKey) : ''}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1 flex gap-3">
+                          <span>{Math.round(s.scorePercentage)}% Conforme</span>
+                          <span className="text-red-500">{s.notCompliesCount} Irreg.</span>
+                          {s.notObservedCount > 0 && <span className="text-slate-500">{s.notObservedCount} Não Obs.</span>}
+                        </div>
                       </div>
-                    </div>
-                    <div className="mt-3 sm:mt-0 w-full sm:w-48 h-2 bg-gray-200 rounded-full overflow-hidden flex">
-                      <div style={{ width: `${s.totalItems > 0 ? (s.compliesCount/s.totalItems)*100 : 0}%` }} className="bg-green-500 h-full" />
-                      <div style={{ width: `${s.totalItems > 0 ? (s.notCompliesCount/s.totalItems)*100 : 0}%` }} className="bg-red-500 h-full" />
-                      <div style={{ width: `${s.totalItems > 0 ? (s.notObservedCount/s.totalItems)*100 : 0}%` }} className="bg-slate-400 h-full" />
-                      <div style={{ width: `${s.totalItems > 0 ? (s.notApplicableCount/s.totalItems)*100 : 0}%` }} className="bg-gray-300 h-full" />
-                    </div>
-                </div>
-              ))}
+                      <div className="mt-3 sm:mt-0 w-full sm:w-48 h-2 bg-gray-200 rounded-full overflow-hidden flex">
+                        <div style={{ width: `${s.totalItems > 0 ? (s.compliesCount/s.totalItems)*100 : 0}%` }} className="bg-green-500 h-full" />
+                        <div style={{ width: `${s.totalItems > 0 ? (s.notCompliesCount/s.totalItems)*100 : 0}%` }} className="bg-red-500 h-full" />
+                        <div style={{ width: `${s.totalItems > 0 ? (s.notObservedCount/s.totalItems)*100 : 0}%` }} className="bg-slate-400 h-full" />
+                        <div style={{ width: `${s.totalItems > 0 ? (s.notApplicableCount/s.totalItems)*100 : 0}%` }} className="bg-gray-300 h-full" />
+                      </div>
+                  </div>
+                );
+              })}
             </div>
           </CardContent>
         </Card>

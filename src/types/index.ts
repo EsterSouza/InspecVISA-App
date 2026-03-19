@@ -17,6 +17,18 @@ export type FoodEstablishmentType =
   | 'catering_eventos'        // Buffet, catering, eventos
   | 'industria_artesanal';    // Produção artesanal registrada
 
+export const FOOD_SEGMENT_LABELS: Record<FoodEstablishmentType, string> = {
+  servico_alimentacao: 'Restaurante / Lanchonete',
+  panificacao_confeitaria: 'Padaria / Confeitaria',
+  mercado_varejo: 'Mercado / Hortifrúti',
+  manipulacao_carnes: 'Açougue / Peixaria',
+  pescados_crus: 'Japonês / Pescados Crus',
+  dark_kitchen: 'Dark Kitchen / Delivery',
+  bebidas_sorvetes: 'Sorveteria / Lanchonete / Café',
+  catering_eventos: 'Buffet / Catering',
+  industria_artesanal: 'Indústria Artesanal',
+};
+
 export interface Client {
   id: string;
   name: string;

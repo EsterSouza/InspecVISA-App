@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Search, Plus, Building2, Phone, MapPin, Edit2, Trash2 } from 'lucide-react';
 import { db, deleteClient } from '../db/database';
-import type { Client, ClientCategory, FoodEstablishmentType } from '../types';
+import { type Client, type ClientCategory, type FoodEstablishmentType, FOOD_SEGMENT_LABELS } from '../types';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
