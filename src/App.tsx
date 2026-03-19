@@ -1,0 +1,108 @@
+import React, { useEffect, useState } from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { db, initializeDatabase } from './db/database';
+import { getTemplates } from './data/templates';
+import { useSettingsStore } from './store/useSettingsStore';
+import { Loader2 } from 'lucide-react';
+
+// Layout
+import { Sidebar } from './components/layout/Sidebar';
+import { BottomNav } from './components/layout/BottomNav';
+
+// Pages
+import { Dashboard } from './pages/Dashboard';
+import { Clients } from './pages/Clients';
+import { Inspections } from './pages/Inspections';
+import { NewInspection } from './pages/NewInspection';
+import { InspectionExecution } from './pages/InspectionExecution';
+import { InspectionSummary } from './pages/InspectionSummary';
+import { Settings } from './pages/Settings';
+import { ClientDetails } from './pages/ClientDetails';
+import { Schedules } from './pages/Schedules';
+
+import { useAuthStore } from './store/useAuthStore';
+import { Login } from './pages/Login';
+
+function App() {
+  const [isInitializing, setIsInitializing] = useState(true);
+  const theme = useSettingsStore((s) => s.settings.theme);
+  const { user, initialized, initialize } = useAuthStore();
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
+
+  useEffect(() => {
+    // Initialize Auth and Database
+    const initApp = async () => {
+      try {
+        await initialize();
+        const templates = getTemplates();
+        await initializeDatabase(templates);
+      } catch (err) {
+        console.error('Initialization fail:', err);
+      } finally {
+        setIsInitializing(false);
+      }
+    };
+    initApp();
+  }, [initialize]);
+
+  if (!initialized || isInitializing) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center bg-gray-50">
+        <Loader2 className="h-10 w-10 animate-spin text-primary-600 mb-4" />
+        <p className="text-gray-500 font-medium">Iniciando InspecVISA...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Login />;
+  }
+
+  return (
+    <BrowserRouter>
+      <div className="flex h-screen overflow-hidden bg-gray-50 font-sans text-gray-900 antialiased selection:bg-primary-500 selection:text-white">
+        
+        {/* Desktop Sidebar hidden on execution screen */}
+        <div className="hidden lg:block">
+           <Routes>
+             <Route path="/execute" element={null} />
+             <Route path="*" element={<Sidebar />} />
+           </Routes>
+        </div>
+
+        {/* Main Workspace */}
+        <main className="flex-1 overflow-y-auto w-full relative">
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/clients" element={<Clients />} />
+            <Route path="/clients/:id" element={<ClientDetails />} />
+            <Route path="/inspections" element={<Inspections />} />
+            <Route path="/new" element={<NewInspection />} />
+            <Route path="/execute" element={<InspectionExecution />} />
+            <Route path="/summary" element={<InspectionSummary />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/schedules" element={<Schedules />} />
+          </Routes>
+        </main>
+
+        {/* Mobile Bottom Nav hidden on execution screen */}
+        <div className="lg:hidden">
+          <Routes>
+             <Route path="/execute" element={null} />
+             <Route path="*" element={<BottomNav />} />
+          </Routes>
+        </div>
+        
+      </div>
+    </BrowserRouter>
+  );
+}
+
+export default App;
