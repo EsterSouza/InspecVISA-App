@@ -5,8 +5,9 @@
 // Estética: V. atual (114 itens) | ILPI: V.11/2024 (81 itens)
 // ============================================================
 
-import type { ChecklistTemplate } from '../types';
+import type { ChecklistTemplate, Client } from '../types';
 import { alimentosTemplates } from './templates_alimentos';
+import { getExtraSections } from './templates_alimentos_segmentos';
 
 // ── MAPEAMENTO DE PESOS ──────────────────────────────────────
 // Estética:  Imprescindível=10 | Necessário=5 | Recomendado=2 | Sugerido=1
@@ -500,6 +501,21 @@ export function getTemplatesByCategory(category: string): ChecklistTemplate[] {
 
 export function getTemplateById(id: string): ChecklistTemplate | undefined {
   return templates.find(t => t.id === id);
+}
+
+/**
+ * Enriches a base template with extra segments if applicable
+ */
+export function enrichTemplate(template: ChecklistTemplate, client: Client): ChecklistTemplate {
+  if (template.category !== 'alimentos') return template;
+  
+  const extra = getExtraSections(client.foodTypes || [], client.state);
+  if (extra.length === 0) return template;
+
+  return {
+    ...template,
+    sections: [...template.sections, ...extra]
+  };
 }
 
 export function getTotalItems(template: ChecklistTemplate): number {

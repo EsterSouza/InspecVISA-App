@@ -8,7 +8,7 @@ import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { generateId } from '../utils/imageUtils';
-import { getTemplates } from '../data/templates';
+import { getTemplates, enrichTemplate } from '../data/templates';
 
 export function NewInspection() {
   const navigate = useNavigate();
@@ -72,6 +72,8 @@ export function NewInspection() {
         inspectionDate: new Date(),
         status: 'in_progress',
         createdAt: new Date(),
+        city: selectedClient.city,
+        state: selectedClient.state,
         // P2 Fields
         accompanistName,
         accompanistRole,

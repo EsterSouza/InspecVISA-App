@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { FileDown, ArrowLeft, Loader2, Share2 } from 'lucide-react';
 import { db } from '../db/database';
-import { getTemplateById } from '../data/templates';
+import { getTemplateById, enrichTemplate } from '../data/templates';
 import { calculateScore, classificationLabel, classificationColor } from '../utils/scoring';
 import { generatePDF } from '../utils/pdfGenerator';
 import { useSettingsStore } from '../store/useSettingsStore';
@@ -39,6 +39,8 @@ export function InspectionSummary() {
         if (client) {
           insp.clientName = client.name;
           insp.clientCategory = client.category;
+          insp.city = client.city;
+          insp.state = client.state;
         }
 
         const resps = await db.responses.where('inspectionId').equals(inspectionId).toArray();
@@ -50,7 +52,7 @@ export function InspectionSummary() {
 
         setInspection(insp);
         setResponses(resps);
-        setTemplate(tpl || null);
+        setTemplate(tpl ? enrichTemplate(tpl, client || (insp as any)) : null);
       } catch (err) {
         console.error(err);
         navigate('/inspections');

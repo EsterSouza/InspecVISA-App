@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, FileCheck2, Loader2 } from 'lucide-react';
 import { db } from '../db/database';
-import { getTemplateById } from '../data/templates';
+import { getTemplateById, enrichTemplate } from '../data/templates';
 import { useInspectionStore } from '../store/useInspectionStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { generateId, formatDateTime } from '../utils/imageUtils';
@@ -44,6 +44,8 @@ export function InspectionExecution() {
           insp.clientName = client.name;
           insp.clientCategory = client.category;
           insp.foodTypes = client.foodTypes;
+          insp.city = client.city;
+          insp.state = client.state;
         }
 
         const resps = await db.responses.where('inspectionId').equals(id).toArray();
@@ -74,7 +76,12 @@ export function InspectionExecution() {
   // Derived state
   const template = useMemo(() => {
     if (!currentInspection) return null;
-    return getTemplateById(currentInspection.templateId);
+    const tpl = getTemplateById(currentInspection.templateId);
+    if (!tpl) return null;
+    
+    // Convert currentInspection partially to Client for enrichment if it has enough data
+    // Or better, we know currentInspection has foodTypes and category cached.
+    return enrichTemplate(tpl, currentInspection as any);
   }, [currentInspection]);
 
   // Filter sections based on client foodTypes if category is alimentos

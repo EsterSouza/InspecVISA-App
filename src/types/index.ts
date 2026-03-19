@@ -46,6 +46,8 @@ export interface Section {
   order: number;
   // For alimentos: if set, section only shows when client has matching food types
   applicableFoodTypes?: FoodEstablishmentType[];
+  isExtraSection?: boolean;
+  segmentKey?: string;
   items: ChecklistItem[];
 }
 
@@ -58,6 +60,7 @@ export interface ChecklistItem {
   legislationUrl?: string;
   weight: number;
   isCritical: boolean;
+  isRJOnly?: boolean;
 }
 
 export interface Inspection {
@@ -74,6 +77,8 @@ export interface Inspection {
   clientName?: string;
   clientCategory?: ClientCategory;
   foodTypes?: FoodEstablishmentType[];
+  city?: string;
+  state?: string;
   // P2: Advanced Metadata
   accompanistName?: string;
   accompanistRole?: string;

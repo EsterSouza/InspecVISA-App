@@ -3,6 +3,7 @@ import autoTable from 'jspdf-autotable';
 import type { Inspection, InspectionResponse, ChecklistTemplate, InspectionScore, ConsultantSettings } from '../types';
 import { classificationLabel, classificationColor } from './scoring';
 import { formatDate } from './imageUtils';
+import { enrichTemplate } from '../data/templates';
 
 export async function generatePDF(
   inspection: Inspection,
@@ -75,6 +76,7 @@ export async function generatePDF(
   };
 
   drawField('Estabelecimento:', inspection.clientName || '');
+  drawField('Localização:', `${inspection.city || '—'} / ${inspection.state || '—'}`);
   drawField('Data da Visita:', formatDate(inspection.inspectionDate));
   drawField('Consultora:', inspection.consultantName);
 
