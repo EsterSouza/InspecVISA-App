@@ -22,6 +22,8 @@ export interface Client {
   name: string;
   cnpj?: string;
   address?: string;
+  city?: string;
+  state?: string;
   category: ClientCategory;
   foodTypes?: FoodEstablishmentType[]; // only for 'alimentos'
   responsibleName?: string;

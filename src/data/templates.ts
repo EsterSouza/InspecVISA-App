@@ -6,6 +6,7 @@
 // ============================================================
 
 import type { ChecklistTemplate } from '../types';
+import { alimentosTemplates } from './templates_alimentos';
 
 // ── MAPEAMENTO DE PESOS ──────────────────────────────────────
 // Estética:  Imprescindível=10 | Necessário=5 | Recomendado=2 | Sugerido=1
@@ -488,64 +489,7 @@ export const templates: ChecklistTemplate[] = [
       },
     ],
   },
-  
-  // ════════════════════════════════════════════════════════════
-  // TEMPLATE 3 — ALIMENTOS (RDC 216/2004)
-  // Base: RDC 216/2004 e Legislações Específicas
-  // ════════════════════════════════════════════════════════════
-  {
-    id: 'tpl-alimentos-v1',
-    name: 'Roteiro de Inspeção — Alimentos (RDC 216)',
-    category: 'alimentos',
-    version: '2024',
-    sections: [
-      {
-        id: 'sec-ali-01',
-        title: 'Responsabilidade e Documentação',
-        order: 1,
-        items: [
-          { id: 'ali-001', sectionId: 'sec-ali-01', order: 1, description: 'Possui Alvará de Funcionamento e Licença Sanitária.', legislation: 'Legislação Municipal', weight: 10, isCritical: true },
-          { id: 'ali-002', sectionId: 'sec-ali-01', order: 2, description: 'Possui Manual de Boas Práticas e POPs atualizados e implementados.', legislation: 'RDC 216/2004', weight: 10, isCritical: true },
-        ],
-      },
-      {
-        id: 'sec-ali-02',
-        title: 'Higienização e Produção (Geral)',
-        order: 2,
-        items: [
-          { id: 'ali-003', sectionId: 'sec-ali-02', order: 1, description: 'Instalações de produção limpas e organizadas.', legislation: 'RDC 216/2004', weight: 10, isCritical: true },
-        ],
-      },
-      // Setores Específicos (Filtrados por Subtipo)
-      {
-        id: 'sec-ali-panificacao',
-        title: 'Setor de Panificação e Confeitaria',
-        order: 3,
-        applicableFoodTypes: ['panificacao_confeitaria'],
-        items: [
-          { id: 'ali-pan-01', sectionId: 'sec-ali-panificacao', order: 1, description: 'Equipamentos de panificação (amassadeiras, fornos) limpos e protegidos.', legislation: 'RDC 216/2004', weight: 5, isCritical: false },
-        ],
-      },
-      {
-        id: 'sec-ali-japones',
-        title: 'Sushi Bar / Preparo de Pescados Crus',
-        order: 4,
-        applicableFoodTypes: ['pescados_crus'],
-        items: [
-          { id: 'ali-jap-01', sectionId: 'sec-ali-japones', order: 1, description: 'Controle de temperatura rigoroso para conservação de pescados crus.', legislation: 'RDC 216/2004', weight: 10, isCritical: true },
-        ],
-      },
-      {
-        id: 'sec-ali-carnes',
-        title: 'Açougue e Manipulação de Carnes',
-        order: 5,
-        applicableFoodTypes: ['manipulacao_carnes'],
-        items: [
-          { id: 'ali-car-01', sectionId: 'sec-ali-carnes', order: 1, description: 'Local exclusivo para manipulação de carnes com temperatura controlada.', legislation: 'RDC 216/2004', weight: 10, isCritical: true },
-        ],
-      },
-    ],
-  },
+  ...alimentosTemplates,
 ];
 
 // ── HELPERS ──────────────────────────────────────────────────

@@ -18,8 +18,8 @@ export class InspectionDatabase extends Dexie {
 
   constructor() {
     super('InspectionDB');
-    this.version(3).stores({
-      clients:     'id, category, name, createdAt',
+    this.version(4).stores({
+      clients:     'id, category, name, city, state, createdAt',
       templates:   'id, category',
       inspections: 'id, clientId, templateId, status, [clientId+status], inspectionDate, completedAt, createdAt',
       responses:   'id, inspectionId, itemId, result',

@@ -160,14 +160,29 @@ export function NewInspection() {
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Roteiros disponíveis para a categoria: <span className="uppercase text-primary-600">{selectedClient.category}</span></h2>
             
             <div className="grid gap-4">
-              {templates.filter(t => t.category === selectedClient.category).length === 0 ? (
-                 <div className="rounded-xl border border-dashed border-gray-300 p-8 text-center text-gray-500">
-                   Nenhum roteiro encontrado para esta categoria.
-                 </div>
-              ) : (
-                templates
-                  .filter(t => t.category === selectedClient.category)
-                  .map(t => (
+              {(() => {
+                let filtered = templates.filter(t => t.category === selectedClient.category);
+                
+                // Location-based filtering for Alimentos
+                if (selectedClient.category === 'alimentos') {
+                  const isRJ = selectedClient.state === 'RJ' || 
+                               selectedClient.city?.toLowerCase().includes('rio de janeiro');
+                  
+                  if (!isRJ) {
+                    // Hide RJ template if not in RJ
+                    filtered = filtered.filter(t => t.id !== 'tpl-alimentos-rj-v1');
+                  }
+                }
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="rounded-xl border border-dashed border-gray-300 p-8 text-center text-gray-500">
+                      Nenhum roteiro encontrado para esta categoria.
+                    </div>
+                  );
+                }
+
+                return filtered.map(t => (
                   <Card 
                     key={t.id}
                     className={`cursor-pointer p-4 transition-all hover:border-primary-300 hover:shadow-md ${selectedTemplate?.id === t.id ? 'border-primary-500 ring-1 ring-primary-500 bg-primary-50/50' : ''}`}
@@ -183,8 +198,8 @@ export function NewInspection() {
                         </div>
                      </div>
                   </Card>
-                ))
-              )}
+                ));
+              })()}
             </div>
 
             <div className="mt-8 flex justify-between space-x-4">
