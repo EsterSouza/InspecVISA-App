@@ -9,9 +9,12 @@ import { generateId, formatDateTime } from '../utils/imageUtils';
 import type { InspectionResponse, InspectionPhoto } from '../types';
 
 import { Button } from '../components/ui/Button';
+import { Card, CardContent } from '../components/ui/Card';
 import { SectionAccordion } from '../components/inspection/SectionAccordion';
 import { ChecklistItem } from '../components/inspection/ChecklistItem';
 import { ScorePanel } from '../components/inspection/ScorePanel';
+import { SignaturePad } from '../components/ui/SignaturePad';
+import { X } from 'lucide-react';
 
 export function InspectionExecution() {
   const location = useLocation();
@@ -193,6 +196,9 @@ export function InspectionExecution() {
     }
   };
 
+  const [showSignatureModal, setShowSignatureModal] = useState(false);
+  const [signature, setSignature] = useState<string | null>(null);
+
   const finishInspection = async () => {
     if (!currentInspection || !template) return;
     
@@ -206,20 +212,18 @@ export function InspectionExecution() {
       return;
     }
 
-    // Validade all items evaluated
-    const allItemsCount = visibleSections.reduce((acc, s) => acc + s.items.length, 0);
-    const evaluatedCount = responses.filter(r => r.result !== 'not_evaluated').length;
+    // open signature modal
+    setShowSignatureModal(true);
+  };
 
-    if (evaluatedCount < allItemsCount) {
-      if (!window.confirm(`Você avaliou ${evaluatedCount} de ${allItemsCount} itens. Tem certeza que deseja finalizar a inspeção mesmo incompleta?`)) {
-        return;
-      }
-    }
+  const handleConfirmFinish = async () => {
+    if (!currentInspection || !signature) return;
 
     if (window.confirm('Confirmar o encerramento da inspeção? Após finalizada ela não poderá ser alterada.')) {
       await db.inspections.update(currentInspection.id, {
         status: 'completed',
-        completedAt: new Date()
+        completedAt: new Date(),
+        signatureDataUrl: signature
       });
       navigate('/summary', { state: { inspectionId: currentInspection.id } });
     }
@@ -315,6 +319,43 @@ export function InspectionExecution() {
           </div>
         </div>
       </div>
+      {/* Signature Modal */}
+      {showSignatureModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <Card className="w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="bg-primary-600 px-6 py-4 flex items-center justify-between text-white">
+              <h3 className="font-bold text-lg">Assinatura do Acompanhante</h3>
+              <button onClick={() => setShowSignatureModal(false)} className="hover:bg-white/20 p-1 rounded-full transition-colors">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <CardContent className="p-6 space-y-6">
+              <div className="text-sm text-gray-500 bg-blue-50 p-4 rounded-lg border border-blue-100 italic">
+                Estabelecimento: <span className="font-bold text-blue-900">{currentInspection.clientName}</span><br/>
+                Acompanhante: <span className="font-bold text-blue-900">{currentInspection.accompanistName || 'Não identificado'}</span>
+              </div>
+              
+              <SignaturePad 
+                onSave={(dataUrl) => setSignature(dataUrl)}
+                onClear={() => setSignature(null)}
+              />
+
+              <div className="flex gap-4 pt-4">
+                <Button variant="outline" className="flex-1" onClick={() => setShowSignatureModal(false)}>
+                  Cancelar
+                </Button>
+                <Button 
+                  className="flex-1 bg-primary-600 hover:bg-primary-700 h-11" 
+                  disabled={!signature}
+                  onClick={handleConfirmFinish}
+                >
+                  Finalizar Tudo
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

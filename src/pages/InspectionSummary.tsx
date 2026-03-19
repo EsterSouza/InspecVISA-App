@@ -146,7 +146,11 @@ export function InspectionSummary() {
               </div>
               <div className="flex flex-col items-center">
                 <span className="text-3xl font-bold text-red-600">{scoreArea.notCompliesCount}</span>
-                <span className="text-xs font-semibold text-red-800 uppercase mt-1">Não Conformes</span>
+                <span className="text-xs font-semibold text-red-800 uppercase mt-1">Nãos Conf.</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-3xl font-bold text-slate-500">{scoreArea.notObservedCount}</span>
+                <span className="text-xs font-semibold text-slate-500 uppercase mt-1">N. Obs (NO)</span>
               </div>
               <div className="flex flex-col items-center">
                 <span className="text-3xl font-bold text-gray-400">{scoreArea.notApplicableCount}</span>
@@ -167,12 +171,14 @@ export function InspectionSummary() {
                       <h4 className="font-semibold text-gray-900 text-sm">{s.sectionTitle}</h4>
                       <div className="text-xs text-gray-500 mt-1 flex gap-3">
                         <span>{Math.round(s.scorePercentage)}% Conforme</span>
-                        <span className="text-red-500">{s.notCompliesCount} Irregularidades</span>
+                        <span className="text-red-500">{s.notCompliesCount} Irreg.</span>
+                        {s.notObservedCount > 0 && <span className="text-slate-500">{s.notObservedCount} Não Obs.</span>}
                       </div>
                     </div>
                     <div className="mt-3 sm:mt-0 w-full sm:w-48 h-2 bg-gray-200 rounded-full overflow-hidden flex">
                       <div style={{ width: `${s.totalItems > 0 ? (s.compliesCount/s.totalItems)*100 : 0}%` }} className="bg-green-500 h-full" />
                       <div style={{ width: `${s.totalItems > 0 ? (s.notCompliesCount/s.totalItems)*100 : 0}%` }} className="bg-red-500 h-full" />
+                      <div style={{ width: `${s.totalItems > 0 ? (s.notObservedCount/s.totalItems)*100 : 0}%` }} className="bg-slate-400 h-full" />
                       <div style={{ width: `${s.totalItems > 0 ? (s.notApplicableCount/s.totalItems)*100 : 0}%` }} className="bg-gray-300 h-full" />
                     </div>
                 </div>

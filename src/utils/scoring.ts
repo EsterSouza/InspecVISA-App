@@ -10,8 +10,9 @@ export function calculateScore(
   const compliesCount = responses.filter(r => r.result === 'complies').length;
   const notCompliesCount = responses.filter(r => r.result === 'not_complies').length;
   const notApplicableCount = responses.filter(r => r.result === 'not_applicable').length;
-  const notEvaluatedCount = allItems.length - responses.filter(r => r.result !== 'not_evaluated').length;
+  const notObservedCount = responses.filter(r => r.result === 'not_observed').length;
   const evaluatedItems = responses.filter(r => r.result !== 'not_evaluated').length;
+  const notEvaluatedCount = allItems.length - evaluatedItems;
 
   const denominator = compliesCount + notCompliesCount;
   const scorePercentage = denominator > 0 ? (compliesCount / denominator) * 100 : 0;
@@ -27,6 +28,7 @@ export function calculateScore(
     const sComplies = sectionResponses.filter(r => r.result === 'complies').length;
     const sNotComplies = sectionResponses.filter(r => r.result === 'not_complies').length;
     const sNA = sectionResponses.filter(r => r.result === 'not_applicable').length;
+    const sNO = sectionResponses.filter(r => r.result === 'not_observed').length;
     const sDenom = sComplies + sNotComplies;
     return {
       sectionId: section.id,
@@ -36,6 +38,7 @@ export function calculateScore(
       compliesCount: sComplies,
       notCompliesCount: sNotComplies,
       notApplicableCount: sNA,
+      notObservedCount: sNO,
       scorePercentage: sDenom > 0 ? (sComplies / sDenom) * 100 : 0,
     };
   });
@@ -46,6 +49,7 @@ export function calculateScore(
     compliesCount,
     notCompliesCount,
     notApplicableCount,
+    notObservedCount,
     notEvaluatedCount,
     scorePercentage,
     scoreBySection,

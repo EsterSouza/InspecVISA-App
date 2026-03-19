@@ -151,7 +151,42 @@ export async function syncData() {
       })));
     }
 
-    console.log('Sync completed at:', new Date().toLocaleTimeString());
+    // Sync Photos
+    const localPhotos = await db.photos.toArray();
+    for (const photo of localPhotos) {
+      // Only upload if it's base64 (dataUrl)
+      if (photo.dataUrl.startsWith('data:')) {
+        try {
+          const blob = (await import('../utils/imageUtils')).dataUrlToBlob(photo.dataUrl);
+          const fileName = `${user.id}/${photo.id}.jpg`;
+          
+          const { error: uploadError } = await supabase.storage
+            .from('photos')
+            .upload(fileName, blob, { 
+              contentType: 'image/jpeg',
+              upsert: true 
+            });
+
+          if (!uploadError) {
+             const { data: { publicUrl } } = supabase.storage
+               .from('photos')
+               .getPublicUrl(fileName);
+             
+             // Update local record to use remote URL and free space
+             await db.photos.update(photo.id, { dataUrl: publicUrl });
+          } else {
+            console.error('Photo Upload Error:', uploadError);
+          }
+        } catch (err) {
+          console.error('Photo Process Error:', err);
+        }
+      }
+    }
+
+    // Sync Photo records to DB metadata table (if it exists, for now we just handle Storage)
+    // In a full implementation, we'd also push/pull photo metadata to a 'photos' table in Postgres.
+
+    console.log('Sync completed at:', new Date().toLocaleString());
   } catch (err) {
     console.error('Sync unexpected error:', err);
   }

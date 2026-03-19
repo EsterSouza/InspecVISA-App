@@ -72,9 +72,21 @@ export interface Inspection {
   clientName?: string;
   clientCategory?: ClientCategory;
   foodTypes?: FoodEstablishmentType[];
+  // P2: Advanced Metadata
+  accompanistName?: string;
+  accompanistRole?: string;
+  // ILPI Specifics
+  ilpiCapacity?: number;
+  residentsTotal?: number;
+  residentsMale?: number;
+  residentsFemale?: number;
+  dependencyLevel1?: number;
+  dependencyLevel2?: number;
+  dependencyLevel3?: number;
+  signatureDataUrl?: string;
 }
 
-export type ResponseResult = 'complies' | 'not_complies' | 'not_applicable' | 'not_evaluated';
+export type ResponseResult = 'complies' | 'not_complies' | 'not_applicable' | 'not_observed' | 'not_evaluated';
 
 export interface InspectionResponse {
   id: string;
@@ -83,6 +95,8 @@ export interface InspectionResponse {
   result: ResponseResult;
   situationDescription?: string;
   correctiveAction?: string;
+  responsible?: string;
+  deadline?: string;
   photos: InspectionPhoto[];
   createdAt: Date;
   updatedAt: Date;
@@ -104,6 +118,7 @@ export interface SectionScore {
   compliesCount: number;
   notCompliesCount: number;
   notApplicableCount: number;
+  notObservedCount: number;
   scorePercentage: number;
 }
 
@@ -115,6 +130,7 @@ export interface InspectionScore {
   compliesCount: number;
   notCompliesCount: number;
   notApplicableCount: number;
+  notObservedCount: number;
   notEvaluatedCount: number;
   scorePercentage: number;
   scoreBySection: SectionScore[];

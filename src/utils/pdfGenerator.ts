@@ -77,8 +77,40 @@ export async function generatePDF(
   drawField('Estabelecimento:', inspection.clientName || '');
   drawField('Data da Visita:', formatDate(inspection.inspectionDate));
   drawField('Consultora:', inspection.consultantName);
+
+  if (inspection.accompanistName) {
+    drawField('Acompanhante:', `${inspection.accompanistName} ${inspection.accompanistRole ? `(${inspection.accompanistRole})` : ''}`);
+  }
+
   if (settings.professionalId) {
     drawField(`${settings.professionalIdLabel || 'Registro'}:`, settings.professionalId);
+  }
+
+  // ILPI Extra Information
+  if (inspection.ilpiCapacity || inspection.residentsTotal) {
+    y += 5;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(...primaryColor);
+    doc.text('DADOS TÉCNICOS ILPI', margin, y);
+    y += 5;
+    
+    autoTable(doc, {
+      startY: y,
+      head: [['Capacidade', 'Nº Residentes', 'Grau I', 'Grau II', 'Grau III']],
+      body: [[
+        inspection.ilpiCapacity || '—',
+        inspection.residentsTotal || '—',
+        inspection.dependencyLevel1 || '—',
+        inspection.dependencyLevel2 || '—',
+        inspection.dependencyLevel3 || '—',
+      ]],
+      headStyles: { fillColor: [240, 240, 240], textColor: [60, 60, 60], fontSize: 8 },
+      bodyStyles: { fontSize: 10, halign: 'center' },
+      margin: { left: margin, right: margin },
+      theme: 'grid',
+    });
+    y = (doc as any).lastAutoTable.finalY + 10;
   }
 
   // Score box
@@ -108,12 +140,13 @@ export async function generatePDF(
   // Summary table
   autoTable(doc, {
     startY: y,
-    head: [['Seção', 'Total', 'Cumpre', 'Não Cumpre', 'N/A', '%']],
+    head: [['Seção', 'Total', 'Cumpre', 'Não Cumpre', 'NO', 'N/A', '%']],
     body: score.scoreBySection.map(s => [
       s.sectionTitle.length > 35 ? s.sectionTitle.substring(0, 33) + '…' : s.sectionTitle,
       s.totalItems,
       s.compliesCount,
       s.notCompliesCount,
+      s.notObservedCount,
       s.notApplicableCount,
       `${Math.round(s.scorePercentage)}%`,
     ]),
@@ -122,6 +155,7 @@ export async function generatePDF(
       score.totalItems,
       score.compliesCount,
       score.notCompliesCount,
+      score.notObservedCount,
       score.notApplicableCount,
       `${Math.round(score.scorePercentage)}%`,
     ]],
@@ -280,6 +314,48 @@ export async function generatePDF(
       doc.line(margin, y - 2, margin + contentW, y - 2);
       ncNum++;
     }
+    
+    // ── PAGE: PLANO DE AÇÃO (SUMMARY TABLE) ─────────────────
+    doc.addPage();
+    y = margin;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(...primaryColor);
+    doc.text('PLANO DE AÇÃO CORRETIVA', margin, y);
+    y += 8;
+
+    autoTable(doc, {
+      startY: y,
+      head: [['Item', 'Irregularidade / Ação Corretiva', 'Responsável', 'Prazo']],
+      body: nonCompliant.map((r, idx) => {
+        const item = allItems.find(i => i.id === r.itemId);
+        return [
+          idx + 1,
+          { 
+            content: `ITEM: ${item?.description.substring(0, 100)}...\n\nSITUAÇÃO: ${r.situationDescription}\n\nAÇÃO: ${r.correctiveAction}`,
+            styles: { fontSize: 8 }
+          },
+          r.responsible || 'Direção',
+          r.deadline || 'Imediato'
+        ];
+      }),
+      headStyles: { fillColor: secondaryColor, fontSize: 9 },
+      columnStyles: {
+        0: { cellWidth: 10 },
+        1: { cellWidth: 100 },
+        2: { cellWidth: 35 },
+        3: { cellWidth: 25 },
+      },
+      theme: 'grid',
+      margin: { left: margin, right: margin },
+    });
+
+    y = (doc as any).lastAutoTable.finalY + 20;
+    doc.setDrawColor(200, 200, 200);
+    doc.line(margin, y, margin + 80, y);
+    y += 5;
+    doc.setFontSize(8);
+    doc.text(`Ciente do Plano de Ação: ${inspection.accompanistName || 'Representante do Estabelecimento'}`, margin, y);
   }
 
   // ── LAST PAGE: SIGNATURE ─────────────────────────────────
@@ -292,12 +368,23 @@ export async function generatePDF(
   const dLines = doc.splitTextToSize(disclaimer, contentW);
   doc.text(dLines, margin, y);
   y += 20;
-  doc.setDrawColor(30, 30, 30);
+  // Accomplice Signature
+  if (inspection.signatureDataUrl) {
+    try {
+      doc.addImage(inspection.signatureDataUrl, 'PNG', margin, y - 15, 60, 15);
+    } catch (_) { /* skip */ }
+  }
+
+  doc.text(inspection.accompanistName || '—', margin, y);
+  if (inspection.accompanistRole) {
+    y += 5;
+    doc.text(inspection.accompanistRole, margin, y);
+  }
+  
+  y += 10;
+  doc.setDrawColor(200, 200, 200);
   doc.line(margin, y, margin + 80, y);
   y += 5;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
-  doc.setTextColor(30, 30, 30);
   doc.text(settings.name, margin, y);
   if (settings.professionalId) {
     y += 5;

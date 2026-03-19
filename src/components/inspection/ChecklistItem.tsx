@@ -74,11 +74,11 @@ export function ChecklistItem({
       </div>
 
       {/* Action Buttons */}
-      <div className="mt-5 grid grid-cols-3 gap-3">
+      <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
         <button
           onClick={() => onChange('complies')}
           className={cn(
-            "flex h-[52px] items-center justify-center rounded-lg border-2 font-semibold transition-all active:scale-95",
+            "flex h-[52px] items-center justify-center rounded-lg border-2 text-[13px] font-semibold transition-all active:scale-95",
             response?.result === 'complies'
               ? "border-green-500 bg-green-50 text-green-700 ring-2 ring-green-500 ring-offset-1"
               : "border-gray-200 bg-white text-gray-700 hover:border-green-300 hover:bg-green-50"
@@ -89,7 +89,7 @@ export function ChecklistItem({
         <button
           onClick={() => onChange('not_complies')}
           className={cn(
-            "flex h-[52px] items-center justify-center rounded-lg border-2 font-semibold transition-all active:scale-95",
+            "flex h-[52px] items-center justify-center rounded-lg border-2 text-[13px] font-semibold transition-all active:scale-95",
             response?.result === 'not_complies'
               ? "border-red-500 bg-red-50 text-red-700 ring-2 ring-red-500 ring-offset-1"
               : "border-gray-200 bg-white text-gray-700 hover:border-red-300 hover:bg-red-50"
@@ -100,13 +100,24 @@ export function ChecklistItem({
         <button
           onClick={() => onChange('not_applicable')}
           className={cn(
-            "flex h-[52px] items-center justify-center rounded-lg border-2 font-semibold transition-all active:scale-95",
+            "flex h-[52px] items-center justify-center rounded-lg border-2 text-[13px] font-semibold transition-all active:scale-95",
             response?.result === 'not_applicable'
               ? "border-gray-500 bg-gray-100 text-gray-700 ring-2 ring-gray-400 ring-offset-1"
               : "border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:bg-gray-100"
           )}
         >
           N/A
+        </button>
+        <button
+          onClick={() => onChange('not_observed')}
+          className={cn(
+            "flex h-[52px] items-center justify-center rounded-lg border-2 border-dashed font-semibold transition-all active:scale-95 text-[13px]",
+            response?.result === 'not_observed'
+              ? "border-slate-500 bg-slate-100 text-slate-700 ring-2 ring-slate-400 ring-offset-1"
+              : "border-gray-300 bg-white text-gray-400 hover:border-slate-300 hover:bg-slate-50"
+          )}
+        >
+          NO
         </button>
       </div>
 
@@ -150,6 +161,29 @@ export function ChecklistItem({
               value={response?.correctiveAction || ''}
               onChange={(e) => onUpdateDetails({ correctiveAction: e.target.value })}
             />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-700">Responsável pela Correção</label>
+              <input
+                type="text"
+                className="w-full rounded-md border border-gray-300 p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                placeholder="Ex: Gerente, Nutricionista..."
+                value={response?.responsible || ''}
+                onChange={(e) => onUpdateDetails({ responsible: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-700">Prazo Sugerido</label>
+              <input
+                type="text"
+                className="w-full rounded-md border border-gray-300 p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                placeholder="Ex: Imediato, 15 dias..."
+                value={response?.deadline || ''}
+                onChange={(e) => onUpdateDetails({ deadline: e.target.value })}
+              />
+            </div>
           </div>
 
           <div className="pt-2">
