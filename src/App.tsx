@@ -22,6 +22,9 @@ import { Schedules } from './pages/Schedules';
 
 import { useAuthStore } from './store/useAuthStore';
 import { Login } from './pages/Login';
+import { AccessDenied } from './pages/AccessDenied';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { ClientRoute } from './components/ClientRoute';
 
 function App() {
   const [isInitializing, setIsInitializing] = useState(true);
@@ -80,15 +83,21 @@ function App() {
         {/* Main Workspace */}
         <main className="flex-1 overflow-y-auto w-full relative">
           <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/clients" element={<Clients />} />
-            <Route path="/clients/:id" element={<ClientDetails />} />
+            {/* Rotas staff (admin / consultant) */}
+            <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/clients" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
+            <Route path="/clients/:id" element={<ProtectedRoute><ClientDetails /></ProtectedRoute>} />
+            <Route path="/schedules" element={<ProtectedRoute><Schedules /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute requiredRole="admin"><Settings /></ProtectedRoute>} />
+
+            {/* Rotas compartilhadas (staff + client) */}
             <Route path="/inspections" element={<Inspections />} />
             <Route path="/new" element={<NewInspection />} />
             <Route path="/execute" element={<InspectionExecution />} />
             <Route path="/summary" element={<InspectionSummary />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/schedules" element={<Schedules />} />
+
+            {/* Utilitárias */}
+            <Route path="/access-denied" element={<AccessDenied />} />
           </Routes>
         </main>
 
