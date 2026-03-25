@@ -1,24 +1,35 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, Users, ClipboardCheck, PlusCircle, Settings, ShieldCheck, LogOut, RefreshCw, Calendar } from 'lucide-react';
+import {
+  Home, Users, ClipboardCheck, PlusCircle, Settings,
+  ShieldCheck, LogOut, RefreshCw, Calendar, User,
+} from 'lucide-react';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { syncData } from '../../services/syncService';
 
-const navItems = [
-  { to: '/', icon: Home, label: 'Início' },
-  { to: '/clients', icon: Users, label: 'Clientes' },
-  { to: '/new', icon: PlusCircle, label: 'Nova Inspeção', main: true },
-  { to: '/schedules', icon: Calendar, label: 'Agendamentos' },
-  { to: '/inspections', icon: ClipboardCheck, label: 'Inspeções' },
-  { to: '/settings', icon: Settings, label: 'Configurações' },
+const staffNavItems = [
+  { to: '/',            icon: Home,          label: 'Início' },
+  { to: '/clients',     icon: Users,         label: 'Clientes' },
+  { to: '/new',         icon: PlusCircle,    label: 'Nova Inspeção', main: true },
+  { to: '/schedules',   icon: Calendar,      label: 'Agendamentos' },
+  { to: '/inspections', icon: ClipboardCheck,label: 'Inspeções' },
+  { to: '/settings',    icon: Settings,      label: 'Configurações' },
 ];
 
+const clientNavItems = [
+  { to: '/inspections', icon: ClipboardCheck, label: 'Minhas Inspeções' },
+  { to: '/new',         icon: PlusCircle,     label: 'Nova Inspeção', main: true },
+  { to: '/profile',     icon: User,           label: 'Meu Perfil' },
+];
 
 export function Sidebar() {
   const settings = useSettingsStore((s) => s.settings);
-  const { signOut } = useAuthStore();
+  const { signOut, tenantInfo } = useAuthStore();
   const [isSyncing, setIsSyncing] = useState(false);
+
+  const isClient = tenantInfo?.role === 'client';
+  const navItems = isClient ? clientNavItems : staffNavItems;
 
   const handleSync = async () => {
     setIsSyncing(true);
@@ -33,14 +44,16 @@ export function Sidebar() {
           <ShieldCheck className="h-6 w-6 text-primary-600 mr-2" />
           <span className="text-xl font-bold tracking-tight text-gray-900">InspecVISA</span>
         </div>
-        <button 
-          onClick={handleSync}
-          disabled={isSyncing}
-          className={`p-2 rounded-lg hover:bg-gray-100 transition-colors ${isSyncing ? 'text-primary-600' : 'text-gray-400'}`}
-          title="Sincronizar agora"
-        >
-          <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
-        </button>
+        {!isClient && (
+          <button
+            onClick={handleSync}
+            disabled={isSyncing}
+            className={`p-2 rounded-lg hover:bg-gray-100 transition-colors ${isSyncing ? 'text-primary-600' : 'text-gray-400'}`}
+            title="Sincronizar agora"
+          >
+            <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+          </button>
+        )}
       </div>
 
       <nav className="flex-1 space-y-2 p-4">
@@ -65,11 +78,7 @@ export function Sidebar() {
             >
               {({ isActive }) => (
                 <>
-                  <Icon
-                    className={`h-5 w-5 ${
-                      item.main ? '' : isActive ? 'text-primary-600 stroke-2' : 'text-gray-400'
-                    }`}
-                  />
+                  <Icon className={`h-5 w-5 ${item.main ? '' : isActive ? 'text-primary-600 stroke-2' : 'text-gray-400'}`} />
                   <span>{item.label}</span>
                 </>
               )}
@@ -82,17 +91,21 @@ export function Sidebar() {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3 overflow-hidden">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-100 text-sm font-bold text-primary-700">
-              {settings.name ? settings.name.charAt(0).toUpperCase() : 'C'}
+              {isClient
+                ? (tenantInfo?.email?.charAt(0).toUpperCase() ?? 'C')
+                : (settings.name ? settings.name.charAt(0).toUpperCase() : 'C')}
             </div>
             <div className="truncate">
-              <p className="text-sm font-medium text-gray-900 truncate">{settings.name || 'Consultora'}</p>
-              <p className="text-xs text-gray-500 truncate">
-                {settings.professionalId ? `${settings.professionalIdLabel || 'Reg'}: ${settings.professionalId}` : 'Sem registro'}
+              <p className="text-sm font-medium text-gray-900 truncate">
+                {isClient ? tenantInfo?.email : (settings.name || 'Consultora')}
+              </p>
+              <p className="text-xs text-gray-500 truncate capitalize">
+                {tenantInfo?.role ?? 'staff'}
               </p>
             </div>
           </div>
-          <button 
-            onClick={signOut} 
+          <button
+            onClick={signOut}
             className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
             title="Sair"
           >

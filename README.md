@@ -1,73 +1,59 @@
-# React + TypeScript + Vite
+# InspecVISA — App de Inspeção Sanitária
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+PWA offline-first para roteiros de inspeção sanitária de campo — C&C Consultoria Sanitária.
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- React 19 + TypeScript + Vite
+- Tailwind CSS
+- Dexie.js (IndexedDB) — armazenamento offline
+- jsPDF — geração de PDF no cliente
+- Zustand — estado global
+- vite-plugin-pwa — suporte offline / instalável
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Desenvolvimento local
 
-## Expanding the ESLint configuration
+**Pré-requisitos:** Node.js 22+
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+A aplicação estará disponível em `http://localhost:5173`.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+```bash
+# Build de produção
+npm run build
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# Preview do build
+npm run preview
 ```
+
+---
+
+## Rodando com Podman (container)
+
+**Pré-requisitos:** Podman instalado.
+
+```bash
+# Build da imagem
+podman build -t inspecvisa .
+
+# Rodar na porta 8080
+podman run -p 8080:80 inspecvisa
+```
+
+A aplicação estará disponível em `http://localhost:8080`.
+
+O `Containerfile` usa build multi-stage:
+1. **Stage builder** — Node 22 Alpine compila o projeto com `npm run build`
+2. **Stage final** — nginx Alpine serve os arquivos estáticos do `dist/`
+
+---
+
+## PWA / Offline
+
+Após a primeira carga, o app funciona completamente offline. Fotos e inspeções são armazenadas localmente no IndexedDB do navegador. Para instalar como app nativo, use a opção "Adicionar à tela inicial" no navegador.

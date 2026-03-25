@@ -34,6 +34,8 @@ export function NewInspection() {
   const [dep2, setDep2] = useState('');
   const [dep3, setDep3] = useState('');
 
+  const [inspectionDate, setInspectionDate] = useState(new Date().toISOString().split('T')[0]);
+
   useEffect(() => {
     const init = async () => {
       const cList = await db.clients.orderBy('name').toArray();
@@ -69,7 +71,7 @@ export function NewInspection() {
         clientId: selectedClient.id,
         templateId: selectedTemplate.id,
         consultantName: settings.name || 'Consultor Não Identificado',
-        inspectionDate: new Date(),
+        inspectionDate: new Date(inspectionDate + 'T12:00:00'),
         status: 'in_progress',
         createdAt: new Date(),
         city: selectedClient.city,
@@ -192,8 +194,8 @@ export function NewInspection() {
                   >
                      <div className="flex justify-between items-center">
                         <div>
-                          <h3 className="font-semibold text-gray-900 text-lg">{t.name}</h3>
-                          <p className="text-sm text-gray-500 mt-1">{t.sections.length} seções • {t.sections.reduce((acc, s) => acc + s.items.length, 0)} itens</p>
+                           <h3 className="font-semibold text-gray-900 text-lg">{t.name}</h3>
+                           <p className="text-sm text-gray-500 mt-1">{t.sections.length} seções • {t.sections.reduce((acc, s) => acc + s.items.length, 0)} itens</p>
                         </div>
                         <div className="h-5 w-5 rounded-full border border-gray-300 bg-white flex items-center justify-center">
                            {selectedTemplate?.id === t.id && <div className="h-3 w-3 rounded-full bg-primary-600" />}
@@ -293,17 +295,25 @@ export function NewInspection() {
                  </div>
                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
                    <dt className="text-sm font-medium text-gray-500">Data de início</dt>
-                   <dd className="text-sm font-semibold text-gray-900 sm:col-span-2">{new Date().toLocaleDateString('pt-BR')}</dd>
+                   <dd className="sm:col-span-2">
+                     <input 
+                       type="date"
+                       className="rounded-md border border-gray-300 px-3 py-1 text-sm focus:border-primary-500 focus:outline-none bg-white font-semibold"
+                       value={inspectionDate}
+                       onChange={(e) => setInspectionDate(e.target.value)}
+                       max={new Date().toISOString().split('T')[0]}
+                     />
+                   </dd>
                  </div>
                </div>
              </div>
 
              <div className="flex flex-col sm:flex-row justify-between gap-4 pt-4">
-              <Button variant="outline" onClick={() => setStep(2)}>Voltar</Button>
-              <Button onClick={handleStart} className="bg-primary-600 hover:bg-primary-700 text-lg py-6 px-8 h-auto shadow-xl w-full sm:w-auto">
-                INICIAR INSPEÇÃO
-              </Button>
-            </div>
+               <Button variant="outline" onClick={() => setStep(2)}>Voltar</Button>
+               <Button onClick={handleStart} className="bg-primary-600 hover:bg-primary-700 text-lg py-6 px-8 h-auto shadow-xl w-full sm:w-auto">
+                 INICIAR INSPEÇÃO
+               </Button>
+             </div>
            </div>
         )}
       </div>

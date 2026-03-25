@@ -8,6 +8,7 @@
 import { type ChecklistTemplate, type Client } from '../types';
 import { alimentosTemplates } from './templates_alimentos';
 import { getExtraSections } from './templates_alimentos_segmentos';
+import { templateIlpiGoias } from './templates_ilpi_go';
 
 // ── MAPEAMENTO DE PESOS ──────────────────────────────────────
 // Estética:  Imprescindível=10 | Necessário=5 | Recomendado=2 | Sugerido=1

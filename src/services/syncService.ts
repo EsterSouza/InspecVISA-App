@@ -53,7 +53,9 @@ export async function syncData() {
         responsibleName: c.responsible_name,
         phone: c.phone,
         email: c.email,
-        createdAt: new Date(c.created_at)
+        createdAt: new Date(c.created_at),
+        city: c.city,
+        state: c.state
       })));
     }
 
@@ -158,7 +160,8 @@ export async function syncData() {
       if (photo.dataUrl.startsWith('data:')) {
         try {
           const blob = (await import('../utils/imageUtils')).dataUrlToBlob(photo.dataUrl);
-          const fileName = `${user.id}/${photo.id}.jpg`;
+          // NEW: Use shared folder instead of user-specific folder for multi-user sync
+          const fileName = `shared/${photo.id}.jpg`;
           
           const { error: uploadError } = await supabase.storage
             .from('photos')
