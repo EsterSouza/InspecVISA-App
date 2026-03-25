@@ -1,14 +1,14 @@
-import { ChecklistTemplate } from '../types';
+import { type ChecklistTemplate } from '../types';
 
 export const templateIlpiGoias: ChecklistTemplate = {
-  id: 'tpl-ilpi-goias-v1',
+  id: 'tpl-ilpi-go-v1',
   name: 'Roteiro de Inspeção — ILPI | Goiás / Senador Canedo',
   category: 'ilpi',
-  version: '2025',
+  version: '03/2026',
   sections: [
     {
       id: 'sec-go-01',
-      title: 'Documentação e Regularização',
+      title: 'Habilitação e Documentação Administrativa',
       order: 1,
       items: [
         {
@@ -662,6 +662,7 @@ export const templateIlpiGoias: ChecklistTemplate = {
           isCritical: true,
         },
       ],
+    },
     {
       id: 'sec-go-10',
       title: 'Controle de Pragas e Qualidade da Água',
