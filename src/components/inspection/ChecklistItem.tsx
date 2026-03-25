@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, ExternalLink } from 'lucide-react';
+import { AlertTriangle, ExternalLink, LogIn, FileCheck2 } from 'lucide-react';
 import { cn } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { PhotoCapture } from './PhotoCapture';
@@ -25,6 +25,8 @@ export function ChecklistItem({
   onAddPhoto,
   onRemovePhoto,
 }: ChecklistItemProps) {
+  const [showObs, setShowObs] = React.useState(!!response?.situationDescription || !!response?.correctiveAction || (response?.photos?.length ?? 0) > 0);
+  
   const isSelected = !!response?.result;
   const isNotCompliant = response?.result === 'not_complies';
   const hasError = isNotCompliant && (!response?.situationDescription || !response?.correctiveAction);
@@ -39,7 +41,7 @@ export function ChecklistItem({
   return (
     <div className={cn("rounded-xl border bg-white p-5 shadow-sm transition-all", getBorderColor())}>
       <div className="flex items-start justify-between">
-        <div className="space-y-2 pr-4">
+        <div className="space-y-2 pr-4 flex-1">
           {/* Header row with badges */}
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="neutral" className="font-mono">{`Item ${item.order}`}</Badge>
@@ -71,6 +73,27 @@ export function ChecklistItem({
             {item.description}
           </p>
         </div>
+
+        {/* Observation Toggle Button */}
+        {isSelected && (
+          <button
+            onClick={() => setShowObs(!showObs)}
+            className={cn(
+              "flex flex-col items-center justify-center p-2 rounded-xl border transition-all shrink-0 ml-2",
+              showObs 
+                ? "bg-primary-600 border-primary-600 text-white shadow-lg" 
+                : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-primary-300 hover:text-primary-600"
+            )}
+          >
+            <div className="relative">
+              <LogIn className={cn("h-5 w-5 rotate-90", showObs ? "text-white" : "text-gray-400")} />
+              {((response?.photos?.length ?? 0) > 0 || response?.situationDescription) && !showObs && (
+                <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 rounded-full bg-primary-500 ring-2 ring-white"></span>
+              )}
+            </div>
+            <span className="text-[10px] font-bold mt-1 uppercase tracking-tight">Obs</span>
+          </button>
+        )}
       </div>
 
       {/* Action Buttons */}
@@ -121,26 +144,35 @@ export function ChecklistItem({
         </button>
       </div>
 
-      {/* Expanded Non-Compliance Details */}
-      {isNotCompliant && (
-        <div className="mt-6 space-y-5 rounded-lg border border-red-100 bg-white p-5 shadow-inner">
-          <div className="flex items-center space-x-2 text-red-700">
-            <AlertTriangle className="h-5 w-5" />
-            <h4 className="font-semibold text-sm">Detalhes da Não Conformidade</h4>
+      {/* Expanded Details Section (For any status if toggled) */}
+      {showObs && isSelected && (
+        <div className={cn(
+          "mt-6 space-y-5 rounded-lg border p-5 shadow-inner animate-in slide-in-from-top-2 duration-200",
+          isNotCompliant ? "border-red-100 bg-red-50/10" : "border-indigo-100 bg-indigo-50/10"
+        )}>
+          <div className={cn(
+            "flex items-center space-x-2",
+            isNotCompliant ? "text-red-700" : "text-indigo-700"
+          )}>
+            {isNotCompliant ? <AlertTriangle className="h-5 w-5" /> : <FileCheck2 className="h-5 w-5" />}
+            <h4 className="font-semibold text-sm">
+              {isNotCompliant ? 'Detalhes da Não Conformidade' : 'Observações de Alto Padrão / Melhoria'}
+            </h4>
           </div>
           
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-gray-700">
-              Situação encontrada <span className="text-red-500">*</span>
+              {isNotCompliant ? 'Situação encontrada' : 'O que foi observado (Pontos de Excelência)'}
+              {isNotCompliant && <span className="text-red-500"> *</span>}
             </label>
             <textarea
               className={cn(
-                "w-full rounded-md border p-3 text-sm focus:outline-none focus:ring-2 disabled:opacity-50 min-h-[80px] resize-y",
+                "w-full rounded-md border p-3 text-sm focus:outline-none focus:ring-2 disabled:opacity-50 min-h-[100px] resize-y shadow-sm",
                 !response?.situationDescription && hasError 
                   ? "border-red-300 focus:border-red-500 focus:ring-red-500 ring-1 ring-red-100" 
                   : "border-gray-300 focus:border-primary-500 focus:ring-primary-500"
               )}
-              placeholder="Descreva o que foi observado..."
+              placeholder={isNotCompliant ? "Descreva a falha observada..." : "Descreva pontos positivos ou o que pode ser elevado para alto padrão..."}
               value={response?.situationDescription || ''}
               onChange={(e) => onUpdateDetails({ situationDescription: e.target.value })}
             />
@@ -148,16 +180,17 @@ export function ChecklistItem({
 
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-gray-700">
-              Ação corretiva necessária <span className="text-red-500">*</span>
+              {isNotCompliant ? 'Ação corretiva necessária' : 'Sugestões de melhoria profissional'}
+              {isNotCompliant && <span className="text-red-500"> *</span>}
             </label>
             <textarea
                className={cn(
-                "w-full rounded-md border p-3 text-sm focus:outline-none focus:ring-2 disabled:opacity-50 min-h-[80px] resize-y",
+                "w-full rounded-md border p-3 text-sm focus:outline-none focus:ring-2 disabled:opacity-50 min-h-[100px] resize-y shadow-sm",
                 !response?.correctiveAction && hasError 
                   ? "border-red-300 focus:border-red-500 focus:ring-red-500 ring-1 ring-red-100" 
                   : "border-gray-300 focus:border-primary-500 focus:ring-primary-500"
               )}
-              placeholder="O que precisa ser feito para adequação..."
+              placeholder={isNotCompliant ? "O que precisa ser feito para adequação..." : "Dê sugestões para que o local atinja a nota máxima ou mantenha o brilho..."}
               value={response?.correctiveAction || ''}
               onChange={(e) => onUpdateDetails({ correctiveAction: e.target.value })}
             />
@@ -165,20 +198,20 @@ export function ChecklistItem({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-gray-700">Responsável pela Correção</label>
+              <label className="text-sm font-medium text-gray-700">Responsável{isNotCompliant ? ' p/ Correção' : ''}</label>
               <input
                 type="text"
-                className="w-full rounded-md border border-gray-300 p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                placeholder="Ex: Gerente, Nutricionista..."
+                className="w-full rounded-md border border-gray-300 p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 shadow-sm"
+                placeholder="Ex: Gerente, RT..."
                 value={response?.responsible || ''}
                 onChange={(e) => onUpdateDetails({ responsible: e.target.value })}
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-gray-700">Prazo Sugerido</label>
+              <label className="text-sm font-medium text-gray-700">{isNotCompliant ? 'Prazo Sugerido' : 'Prazo de Implantação'}</label>
               <input
                 type="text"
-                className="w-full rounded-md border border-gray-300 p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full rounded-md border border-gray-300 p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 shadow-sm"
                 placeholder="Ex: Imediato, 15 dias..."
                 value={response?.deadline || ''}
                 onChange={(e) => onUpdateDetails({ deadline: e.target.value })}

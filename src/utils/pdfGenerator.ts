@@ -373,6 +373,121 @@ export async function generatePDF(
     doc.text(`Ciente do Plano de Ação: ${inspection.accompanistName || 'Representante do Estabelecimento'}`, margin, y);
   }
 
+  // ── PAGES: EXCELÊNCIA E MELHORIAS ──────────────────────
+  const excellenceItems = responses.filter(r => 
+    r.result === 'complies' && (r.situationDescription || r.correctiveAction || r.photos.length > 0)
+  );
+
+  if (excellenceItems.length > 0) {
+    doc.addPage();
+    y = margin;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(...secondaryColor);
+    doc.text('PONTOS DE EXCELÊNCIA E SUGESTÕES DE MELHORIA', margin, y);
+    y += 2;
+    doc.setDrawColor(...secondaryColor);
+    doc.line(margin, y, margin + contentW, y);
+    y += 8;
+
+    let exNum = 1;
+    for (const response of excellenceItems) {
+      const item = allItems.find(i => i.id === response.itemId);
+      if (!item) continue;
+
+      if (y > pageH - 50) { doc.addPage(); y = margin; }
+
+      // EX header
+      doc.setFillColor(240, 245, 250);
+      doc.rect(margin, y - 4, contentW, 7, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(30, 30, 30);
+      doc.text(`[EX-${String(exNum).padStart(3, '0')}] ${item.description.substring(0, 90)}`, margin + 2, y);
+      y += 5;
+      
+      if (item.description.length > 90) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        const rest = doc.splitTextToSize(item.description.substring(90), contentW - 4);
+        doc.text(rest, margin + 2, y);
+        y += rest.length * 4;
+      }
+
+      if (response.situationDescription) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.setTextColor(...secondaryColor);
+        doc.text('Destaque / Observação:', margin + 2, y);
+        y += 4;
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(30, 30, 30);
+        const lines = doc.splitTextToSize(response.situationDescription, contentW - 4);
+        doc.text(lines, margin + 2, y);
+        y += lines.length * 4 + 2;
+      }
+
+      if (response.correctiveAction) {
+        if (y > pageH - 30) { doc.addPage(); y = margin; }
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.setTextColor(30, 90, 60);
+        doc.text('Sugestão de Alto Padrão:', margin + 2, y);
+        y += 4;
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(30, 30, 30);
+        const lines = doc.splitTextToSize(response.correctiveAction, contentW - 4);
+        doc.text(lines, margin + 2, y);
+        y += lines.length * 4 + 2;
+      }
+
+      // Photos
+      if (response.photos.length > 0) {
+        if (y > pageH - 60) { doc.addPage(); y = margin; }
+        const maxImgW = (contentW - 5) / 2;
+        const maxImgH = maxImgW * 0.75;
+        let col = 0;
+        let currentRowMaxH = 0;
+        
+        for (const photo of response.photos) {
+          try {
+            const img = new Image();
+            img.src = photo.dataUrl;
+            await new Promise(resolve => img.onload = resolve);
+            
+            const ratio = img.height / img.width;
+            let drawW = maxImgW;
+            let drawH = drawW * ratio;
+            
+            if (drawH > maxImgH) {
+              drawH = maxImgH;
+              drawW = drawH / ratio;
+            }
+            
+            const x = margin + col * (maxImgW + 5) + (maxImgW - drawW) / 2; 
+            if (col === 0 && y + maxImgH > pageH - 20) { doc.addPage(); y = margin; }
+            
+            doc.addImage(photo.dataUrl, 'JPEG', x, y, drawW, drawH);
+            currentRowMaxH = Math.max(currentRowMaxH, drawH);
+            
+            col++;
+            if (col === 2) { 
+              col = 0; 
+              y += currentRowMaxH + 3; 
+              currentRowMaxH = 0;
+            }
+          } catch (_) { /* skip */ }
+        }
+        if (col > 0) y += currentRowMaxH + 3;
+      }
+
+      y += 6;
+      doc.setDrawColor(220, 230, 240);
+      doc.line(margin, y - 2, margin + contentW, y - 2);
+      exNum++;
+    }
+  }
+
   // ── LAST PAGE: SIGNATURE ─────────────────────────────────
   doc.addPage();
   y = pageH - 60;
