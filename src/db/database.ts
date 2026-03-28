@@ -35,16 +35,16 @@ export class InspectionDatabase extends Dexie {
     const tablesToHook = [this.clients, this.inspections, this.responses, this.schedules];
     tablesToHook.forEach(table => {
       table.hook('creating', (primaryKey, obj) => {
-        obj.synced = false;
+        obj.synced = 0; // 0 = pending
         obj.updatedAt = new Date();
       });
       table.hook('updating', (mods, primKey, obj) => {
-        // If the update itself is setting synced=true (from syncService), don't revert it
+        // If the update itself is setting synced=1 (from syncService), don't revert it
         if (mods.hasOwnProperty('synced')) return;
         
         return {
           ...mods,
-          synced: false,
+          synced: 0, // 0 = pending
           updatedAt: new Date()
         };
       });

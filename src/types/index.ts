@@ -43,7 +43,7 @@ export interface Client {
   email?: string;
   createdAt: Date;
   updatedAt?: Date;
-  synced?: boolean;
+  synced?: number; // 0=pending, 1=synced
 }
 
 export interface ChecklistTemplate {
@@ -106,7 +106,7 @@ export interface Inspection {
   dependencyLevel3?: number;
   signatureDataUrl?: string;
   updatedAt?: Date;
-  synced?: boolean;
+  synced?: number; // 0=pending, 1=synced
 }
 
 export type ResponseResult = 'complies' | 'not_complies' | 'not_applicable' | 'not_observed' | 'not_evaluated';
@@ -123,7 +123,7 @@ export interface InspectionResponse {
   photos: InspectionPhoto[];
   createdAt: Date;
   updatedAt: Date;
-  synced?: boolean;
+  synced?: number; // 0=pending, 1=synced
 }
 
 export interface InspectionPhoto {
@@ -132,6 +132,7 @@ export interface InspectionPhoto {
   dataUrl: string; // base64 JPEG
   caption?: string;
   takenAt: Date;
+  synced?: number; // 0=pending, 1=synced
 }
 
 export interface SectionScore {
@@ -180,7 +181,7 @@ export interface Schedule {
   notes?: string;
   user_id?: string;
   updatedAt?: Date;
-  synced?: boolean;
+  synced?: number; // 0=pending, 1=synced
 }
 
 export interface SyncLog {
@@ -190,4 +191,3 @@ export interface SyncLog {
   message: string;
   details?: any;
 }
-
