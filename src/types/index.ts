@@ -43,6 +43,7 @@ export interface Client {
   email?: string;
   createdAt: Date;
   updatedAt?: Date;
+  tenantId?: string;
   synced?: number; // 0=pending, 1=synced
 }
 
@@ -106,6 +107,7 @@ export interface Inspection {
   dependencyLevel3?: number;
   signatureDataUrl?: string;
   updatedAt?: Date;
+  tenantId?: string;
   synced?: number; // 0=pending, 1=synced
 }
 
@@ -124,6 +126,7 @@ export interface InspectionResponse {
   photos: InspectionPhoto[];
   createdAt: Date;
   updatedAt: Date;
+  tenantId?: string;
   synced?: number; // 0=pending, 1=synced
 }
 
@@ -134,6 +137,7 @@ export interface InspectionPhoto {
   caption?: string;
   takenAt: Date;
   updatedAt?: Date;
+  tenantId?: string;
   synced?: number; // 0=pending, 1=synced
 }
 
@@ -184,6 +188,7 @@ export interface Schedule {
   notes?: string;
   user_id?: string;
   updatedAt?: Date;
+  tenantId?: string;
   synced?: number; // 0=pending, 1=synced
 }
 

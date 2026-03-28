@@ -123,8 +123,9 @@ async function processPendingDeletions() {
 }
 
 export async function syncData(isManual: boolean = false) {
-  const user = useAuthStore.getState().user;
-  if (!user) return;
+  const { user, tenantInfo } = useAuthStore.getState();
+  if (!user || !tenantInfo) return;
+  const tenantId = tenantInfo.tenantId;
 
   if ((window as any).isSyncingGlobally) {
     if (isManual) alert('Uma sincronização já está em andamento.');
@@ -228,7 +229,8 @@ export async function syncData(isManual: boolean = false) {
         email: c.email, 
         created_at: c.createdAt, 
         updated_at: c.updatedAt || new Date(),
-        user_id: user.id
+        user_id: user.id,
+        tenant_id: tenantId
       }));
 
       const { error: pushError } = await withTimeout<any>(Promise.resolve(supabase.from('clients').upsert(clientsToPush)));
@@ -270,6 +272,7 @@ export async function syncData(isManual: boolean = false) {
             updatedAt: serverUpdate,
             city: rc.city, 
             state: rc.state,
+            tenantId: rc.tenant_id,
             synced: 1
           });
         }
@@ -303,7 +306,8 @@ export async function syncData(isManual: boolean = false) {
         residents_male: i.residentsMale, residents_female: i.residentsFemale,
         dependency_level1: i.dependencyLevel1, dependency_level2: i.dependencyLevel2,
         dependency_level3: i.dependencyLevel3, accompanist_name: i.accompanistName,
-        accompanist_role: i.accompanistRole, signature_data_url: i.signatureDataUrl
+        accompanist_role: i.accompanistRole, signature_data_url: i.signatureDataUrl,
+        tenant_id: tenantId
       }));
       const { successIds, errors } = await safeBatchUpsert('inspections', recordsToPush);
       if (successIds.length > 0) await db.inspections.where('id').anyOf(successIds).modify({ synced: 1 });
@@ -316,18 +320,23 @@ export async function syncData(isManual: boolean = false) {
       for (const ri of remoteInspec) {
         if (deletedIds.has(ri.id)) continue;
         const local = await db.inspections.get(ri.id);
-        if (!local || local.synced !== 0) {
+        
+        const serverUpdate = new Date(ri.updated_at || ri.created_at);
+        const localUpdate = local?.updatedAt ? new Date(local.updatedAt) : new Date(0);
+
+        if (!local || serverUpdate > localUpdate || (local.synced === 1)) {
           await db.inspections.put({
             id: ri.id, clientId: ri.client_id, templateId: ri.template_id,
             consultantName: ri.consultant_name, inspectionDate: new Date(ri.inspection_date),
             status: ri.status as any, observations: ri.observations,
-            createdAt: new Date(ri.created_at), synced: 1,
+            createdAt: new Date(ri.created_at), updatedAt: serverUpdate,
             completedAt: ri.completed_at ? new Date(ri.completed_at) : undefined,
             ilpiCapacity: ri.ilpi_capacity, residentsTotal: ri.residents_total,
             residentsMale: ri.residents_male, residentsFemale: ri.residents_female,
             dependencyLevel1: ri.dependency_level1, dependencyLevel2: ri.dependency_level2,
             dependencyLevel3: ri.dependency_level3, accompanistName: ri.accompanist_name,
-            accompanistRole: ri.accompanist_role, signatureDataUrl: ri.signature_data_url
+            accompanistRole: ri.accompanist_role, signatureDataUrl: ri.signature_data_url,
+            tenantId: ri.tenant_id, synced: 1
           });
         }
       }
@@ -352,7 +361,8 @@ export async function syncData(isManual: boolean = false) {
         id: r.id, inspection_id: r.inspectionId, item_id: r.itemId,
         result: r.result, situation_description: r.situationDescription,
         corrective_action: r.correctiveAction, created_at: r.createdAt,
-        updated_at: r.updatedAt, user_id: user.id, custom_description: r.customDescription
+        updated_at: r.updatedAt, user_id: user.id, custom_description: r.customDescription,
+        tenant_id: tenantId
       }));
       const { successIds, errors } = await safeBatchUpsert('responses', recordsToPush);
       if (successIds.length > 0) await db.responses.where('id').anyOf(successIds).modify({ synced: 1 });
@@ -364,12 +374,16 @@ export async function syncData(isManual: boolean = false) {
       for (const rr of remoteRes) {
         if (deletedIds.has(rr.id)) continue;
         const local = await db.responses.get(rr.id);
-        if (!local || local.synced !== 0) {
+        
+        const serverUpdate = new Date(rr.updated_at || rr.created_at);
+        const localUpdate = local?.updatedAt ? new Date(local.updatedAt) : new Date(0);
+
+        if (!local || serverUpdate > localUpdate || (local.synced === 1)) {
           await db.responses.put({
             id: rr.id, inspectionId: rr.inspection_id, itemId: rr.item_id,
             result: rr.result as any, situationDescription: rr.situation_description,
             correctiveAction: rr.corrective_action, createdAt: new Date(rr.created_at),
-            updatedAt: new Date(rr.updated_at), photos: [], synced: 1,
+            updatedAt: serverUpdate, photos: [], tenantId: rr.tenant_id, synced: 1,
             customDescription: rr.custom_description
           });
         }
@@ -393,7 +407,9 @@ export async function syncData(isManual: boolean = false) {
       await logSync('info', `Enviando ${pendingPhotos.length} fotos (com respostas validadas)...`);
       const recordsToPush = pendingPhotos.map(p => ({
         id: p.id, response_id: p.responseId, data_url: p.dataUrl,
-        caption: p.caption, taken_at: p.takenAt, user_id: user.id
+        caption: p.caption, taken_at: p.takenAt, user_id: user.id,
+        updated_at: p.updatedAt || new Date(),
+        tenant_id: tenantId
       }));
       const { successIds } = await safeBatchUpsert('photos', recordsToPush);
       if (successIds.length > 0) await db.photos.where('id').anyOf(successIds).modify({ synced: 1 });
@@ -405,10 +421,15 @@ export async function syncData(isManual: boolean = false) {
       for (const rp of remotePh) {
         if (deletedIds.has(rp.id)) continue;
         const local = await db.photos.get(rp.id);
-        if (!local || local.synced !== 0) {
+        
+        const serverUpdate = new Date(rp.updated_at || rp.taken_at || rp.created_at);
+        const localUpdate = local?.updatedAt ? new Date(local.updatedAt) : new Date(0);
+
+        if (!local || serverUpdate > localUpdate || (local.synced === 1)) {
           await db.photos.put({
             id: rp.id, responseId: rp.response_id, dataUrl: rp.data_url,
-            caption: rp.caption, takenAt: new Date(rp.taken_at), synced: 1
+            caption: rp.caption, takenAt: new Date(rp.taken_at), 
+            updatedAt: serverUpdate, tenantId: rp.tenant_id, synced: 1
           });
         }
       }
@@ -431,7 +452,9 @@ export async function syncData(isManual: boolean = false) {
       await logSync('info', `Enviando ${pendingSchedules.length} agendamentos (com clientes validados)...`);
       const recordsToPush = pendingSchedules.map(s => ({
         id: s.id, client_id: s.clientId, scheduled_at: s.scheduledAt,
-        status: s.status, notes: s.notes, user_id: user.id
+        status: s.status, notes: s.notes, user_id: user.id,
+        updated_at: s.updatedAt || new Date(),
+        tenant_id: tenantId
       }));
       const { successIds } = await safeBatchUpsert('schedules', recordsToPush);
       if (successIds.length > 0) await db.schedules.where('id').anyOf(successIds).modify({ synced: 1 });
@@ -443,10 +466,15 @@ export async function syncData(isManual: boolean = false) {
       for (const rs of remoteSch) {
         if (deletedIds.has(rs.id)) continue;
         const local = await db.schedules.get(rs.id);
-        if (!local || local.synced !== 0) {
+        
+        const serverUpdate = new Date(rs.updated_at || rs.created_at);
+        const localUpdate = local?.updatedAt ? new Date(local.updatedAt) : new Date(0);
+
+        if (!local || serverUpdate > localUpdate || (local.synced === 1)) {
           await db.schedules.put({
             id: rs.id, clientId: rs.client_id, scheduledAt: new Date(rs.scheduled_at),
-            status: rs.status as any, notes: rs.notes, user_id: rs.user_id, synced: 1
+            status: rs.status as any, notes: rs.notes, user_id: rs.user_id, 
+            updatedAt: serverUpdate, tenantId: rs.tenant_id, synced: 1
           });
         }
       }
@@ -468,8 +496,8 @@ export async function syncData(isManual: boolean = false) {
  * Sync especializado apenas para Clientes (rápido)
  */
 export async function syncClientsOnly() {
-  const user = useAuthStore.getState().user;
-  if (!user || (window as any).isSyncingGlobally) return;
+  const { user, tenantInfo } = useAuthStore.getState();
+  if (!user || !tenantInfo || (window as any).isSyncingGlobally) return;
   
   (window as any).isSyncingGlobally = true;
   try {
@@ -495,7 +523,7 @@ export async function syncClientsOnly() {
             category: rc.category as any, foodTypes: rc.food_types,
             responsibleName: rc.responsible_name, phone: rc.phone, email: rc.email,
             createdAt: new Date(rc.created_at), updatedAt: serverUpdate,
-            city: rc.city, state: rc.state, synced: 1
+            city: rc.city, state: rc.state, tenantId: rc.tenant_id, synced: 1
           });
         }
       }

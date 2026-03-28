@@ -9,6 +9,7 @@ import type {
   SyncLog,
 } from '../types';
 import { supabase } from '../lib/supabase';
+import { useAuthStore } from '../store/useAuthStore';
 
 export interface DeletionSync {
   id?: number;
@@ -29,13 +30,13 @@ export class InspectionDatabase extends Dexie {
 
   constructor() {
     super('InspectionDB');
-    this.version(8).stores({
-      clients:     'id, category, name, city, state, createdAt, updatedAt, synced',
+    this.version(9).stores({ // Bumped version from 8 to 9
+      clients:     'id, category, name, city, state, tenantId, createdAt, updatedAt, synced',
       templates:   'id, category',
-      inspections: 'id, clientId, templateId, status, [clientId+status], inspectionDate, completedAt, createdAt, updatedAt, synced',
-      responses:   'id, inspectionId, itemId, result, updatedAt, synced',
-      photos:      'id, responseId, synced',
-      schedules:   'id, clientId, scheduledAt, status, updatedAt, synced',
+      inspections: 'id, clientId, templateId, status, tenantId, [clientId+status], inspectionDate, completedAt, createdAt, updatedAt, synced',
+      responses:   'id, inspectionId, itemId, result, tenantId, updatedAt, synced',
+      photos:      'id, responseId, tenantId, synced',
+      schedules:   'id, clientId, scheduledAt, status, tenantId, updatedAt, synced',
       sync_logs:   '++id, timestamp, level',
       deletions_sync: '++id, table, recordId'
     });
@@ -46,6 +47,9 @@ export class InspectionDatabase extends Dexie {
       table.hook('creating', (primaryKey, obj) => {
         obj.synced = 0; // 0 = pending
         obj.updatedAt = new Date();
+        // Set tenantId automatically from store
+        const tenantId = useAuthStore.getState().tenantInfo?.tenantId;
+        if (tenantId) obj.tenantId = tenantId;
       });
       table.hook('updating', (mods, primKey, obj) => {
         // If the update itself is setting synced=1 (from syncService), don't revert it
