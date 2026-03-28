@@ -23,6 +23,7 @@ import { Schedules } from './pages/Schedules';
 import { useAuthStore } from './store/useAuthStore';
 import { Login } from './pages/Login';
 import { AccessDenied } from './pages/AccessDenied';
+import Debug from './pages/Debug';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ClientRoute } from './components/ClientRoute';
 
@@ -118,6 +119,7 @@ function App() {
             <Route path="/summary" element={<InspectionSummary />} />
 
             {/* Utilitárias */}
+            <Route path="/debug" element={<Debug />} />
             <Route path="/access-denied" element={<AccessDenied />} />
           </Routes>
         </main>

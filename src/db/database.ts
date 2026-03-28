@@ -6,6 +6,7 @@ import type {
   InspectionResponse,
   InspectionPhoto,
   Schedule,
+  SyncLog,
 } from '../types';
 import { supabase } from '../lib/supabase';
 
@@ -16,16 +17,18 @@ export class InspectionDatabase extends Dexie {
   responses!: Table<InspectionResponse>;
   photos!: Table<InspectionPhoto>;
   schedules!: Table<Schedule>;
+  sync_logs!: Table<SyncLog>;
 
   constructor() {
     super('InspectionDB');
-    this.version(5).stores({
+    this.version(6).stores({
       clients:     'id, category, name, city, state, createdAt, updatedAt, synced',
       templates:   'id, category',
       inspections: 'id, clientId, templateId, status, [clientId+status], inspectionDate, completedAt, createdAt, updatedAt, synced',
       responses:   'id, inspectionId, itemId, result, updatedAt, synced',
       photos:      'id, responseId',
-      schedules:   'id, clientId, scheduledAt, status, updatedAt, synced'
+      schedules:   'id, clientId, scheduledAt, status, updatedAt, synced',
+      sync_logs:   '++id, timestamp, level'
     });
 
     // Auto-manage sync metadata via hooks

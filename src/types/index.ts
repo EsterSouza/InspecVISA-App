@@ -183,3 +183,11 @@ export interface Schedule {
   synced?: boolean;
 }
 
+export interface SyncLog {
+  id?: number;
+  timestamp: Date;
+  level: 'info' | 'warn' | 'error';
+  message: string;
+  details?: any;
+}
+

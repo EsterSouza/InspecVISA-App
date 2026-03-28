@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { compressImage } from '../utils/imageUtils';
 import { db } from '../db/database';
 import { exportDatabase, importDatabase } from '../utils/backup';
-import { Save, Upload, Trash2, Moon, Sun, Monitor, Database, Download, RefreshCw } from 'lucide-react';
+import { Save, Upload, Trash2, Moon, Sun, Monitor, Database, Download, RefreshCw, Bug } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export function Settings() {
   const { settings, updateSettings, clearData } = useSettingsStore();
@@ -265,6 +266,25 @@ export function Settings() {
                <p>Ao importar os arquivos delas no seu computador "Mestre", o Dashboard mostrará a média e as recorrências de **todas** as inspeções somadas.</p>
              </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="bg-slate-50 border-slate-200">
+        <CardHeader>
+          <CardTitle className="flex items-center text-slate-700">
+            <Bug className="mr-2 h-5 w-5" />
+            Suporte e Diagnóstico
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-slate-600 mb-4">
+            Se a sincronização não estiver funcionando, use esta ferramenta para identificar o erro técnico.
+          </p>
+          <Link to="/debug">
+            <Button variant="outline" className="w-full">
+              Ver Logs de Sincronização
+            </Button>
+          </Link>
         </CardContent>
       </Card>
 

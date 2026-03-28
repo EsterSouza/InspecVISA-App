@@ -66,7 +66,7 @@ export function BottomNav() {
               setIsSyncing(true);
               try {
                 const { syncData } = await import('../../services/syncService');
-                await syncData();
+                await syncData(true); // isManual = true
               } finally {
                 setIsSyncing(false);
               }
@@ -78,6 +78,11 @@ export function BottomNav() {
             <span className={`text-[10px] font-medium ${isSyncing ? 'font-semibold' : ''}`}>Sincronizar</span>
           </button>
         )}
+
+        {/* Secret Debug Link */}
+        <NavLink to="/debug" className="hidden lg:flex p-2 text-gray-400 hover:text-gray-600">
+           <Settings size={16} />
+        </NavLink>
       </div>
     </nav>
   );

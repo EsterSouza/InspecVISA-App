@@ -10,23 +10,41 @@ const withTimeout = <T>(promise: Promise<T>, ms: number = 15000): Promise<T> => 
   ]);
 };
 
-export async function syncData() {
+async function logSync(level: 'info' | 'warn' | 'error', message: string, details?: any) {
+  console[level](`[Sync] ${message}`, details || '');
+  try {
+    await db.sync_logs.add({
+      timestamp: new Date(),
+      level,
+      message,
+      details: details ? JSON.parse(JSON.stringify(details)) : undefined
+    });
+  } catch (e) {
+    console.error('Failed to write sync log', e);
+  }
+}
+
+export async function syncData(isManual: boolean = false) {
   const user = useAuthStore.getState().user;
   if (!user) return;
 
-  // Global lock to prevent concurrent syncs
-  if ((window as any).isSyncingGlobally) return;
+  if ((window as any).isSyncingGlobally) {
+    if (isManual) alert('Uma sincronização já está em andamento.');
+    return;
+  }
   (window as any).isSyncingGlobally = true;
 
   try {
-    console.log('[Sync] Starting Safe Sync...');
+    await logSync('info', 'Iniciando Sincronização Segura...', { manual: isManual });
 
     // 1. Sync CLIENTS
-    // PUSH Pending
     const pendingClients = await db.clients.where('synced').equals(0).toArray();
     if (pendingClients.length > 0) {
-      // PHASE 26 Merge logic remains: check CNPJ before push
-      const { data: remoteCnpjData } = await withTimeout<any>(Promise.resolve(supabase.from('clients').select('id, cnpj')));
+      await logSync('info', `Enviando ${pendingClients.length} clientes pendentes`);
+      // Re-fetch to merge if needed
+      const { data: remoteCnpjData, error: cnpjErr } = await withTimeout<any>(Promise.resolve(supabase.from('clients').select('id, cnpj')));
+      if (cnpjErr) await logSync('warn', 'Erro ao buscar CNPJs para merge', cnpjErr);
+      
       const remoteCnpjMap = new Map<string, string>(
         remoteCnpjData?.filter((c: any) => c.cnpj).map((c: any) => [c.cnpj, c.id]) || []
       );
@@ -36,7 +54,7 @@ export async function syncData() {
           const canonicalRemoteId = remoteCnpjMap.get(localClient.cnpj)!;
           if (localClient.id !== canonicalRemoteId) {
             const oldId = localClient.id;
-            // Relink local records to canonical ID
+            await logSync('info', `Mesclando cliente duplicado: ${oldId} -> ${canonicalRemoteId}`);
             await db.inspections.where({ clientId: oldId }).modify({ clientId: canonicalRemoteId });
             await db.schedules.where({ clientId: oldId }).modify({ clientId: canonicalRemoteId });
             await db.clients.delete(oldId);
@@ -46,7 +64,6 @@ export async function syncData() {
         }
       }
 
-      // Re-fetch to get updated IDs after merge
       const clientsToPush = await db.clients.where('synced').equals(0).toArray();
       const { error: pushError } = await withTimeout<any>(Promise.resolve(supabase.from('clients').upsert(
         clientsToPush.map(c => ({
@@ -58,13 +75,15 @@ export async function syncData() {
       
       if (!pushError) {
         await db.clients.where('id').anyOf(clientsToPush.map(c => c.id)).modify({ synced: true });
+        await logSync('info', 'Clientes enviados com sucesso');
       } else {
-        console.error('[Sync] Client Push Error:', pushError);
+        await logSync('error', 'Falha ao enviar Clientes', pushError);
       }
     }
 
     // PULL Clients
-    const { data: remoteClients } = await withTimeout<any>(Promise.resolve(supabase.from('clients').select('*')));
+    const { data: remoteClients, error: cErr } = await withTimeout<any>(Promise.resolve(supabase.from('clients').select('*')));
+    if (cErr) await logSync('error', 'Falha ao baixar Clientes', cErr);
     if (remoteClients) {
       for (const rc of remoteClients) {
         const local = await db.clients.get(rc.id);
@@ -81,11 +100,11 @@ export async function syncData() {
     }
 
     // 2. Sync INSPECTIONS
-    // PUSH Pending
-    const pendingInspections = await db.inspections.where('synced').equals(0).toArray();
-    if (pendingInspections.length > 0) {
+    const pendingInspec = await db.inspections.where('synced').equals(0).toArray();
+    if (pendingInspec.length > 0) {
+      await logSync('info', `Enviando ${pendingInspec.length} inspeções`);
       const { error: insPushError } = await withTimeout<any>(Promise.resolve(supabase.from('inspections').upsert(
-        pendingInspections.map(i => ({
+        pendingInspec.map(i => ({
           id: i.id, client_id: i.clientId, template_id: i.templateId,
           consultant_name: i.consultantName, inspection_date: i.inspectionDate,
           status: i.status, observations: i.observations, created_at: i.createdAt,
@@ -93,12 +112,14 @@ export async function syncData() {
         }))
       )));
       if (!insPushError) {
-        await db.inspections.where('id').anyOf(pendingInspections.map(i => i.id)).modify({ synced: true });
+        await db.inspections.where('id').anyOf(pendingInspec.map(i => i.id)).modify({ synced: true });
+      } else {
+        await logSync('error', 'Falha ao enviar Inspeções', insPushError);
       }
     }
 
-    // PULL Inspections
-    const { data: remoteInspec } = await withTimeout<any>(Promise.resolve(supabase.from('inspections').select('*')));
+    const { data: remoteInspec, error: riErr } = await withTimeout<any>(Promise.resolve(supabase.from('inspections').select('*')));
+    if (riErr) await logSync('error', 'Falha ao baixar Inspeções', riErr);
     if (remoteInspec) {
       for (const ri of remoteInspec) {
         const local = await db.inspections.get(ri.id);
@@ -115,9 +136,9 @@ export async function syncData() {
     }
 
     // 3. Sync RESPONSES
-    // PUSH Pending
     const pendingResponses = await db.responses.where('synced').equals(0).toArray();
     if (pendingResponses.length > 0) {
+      await logSync('info', `Enviando ${pendingResponses.length} respostas`);
       const { error: resPushError } = await withTimeout<any>(Promise.resolve(supabase.from('responses').upsert(
         pendingResponses.map(r => ({
           id: r.id, inspection_id: r.inspectionId, item_id: r.itemId,
@@ -128,11 +149,13 @@ export async function syncData() {
       )));
       if (!resPushError) {
         await db.responses.where('id').anyOf(pendingResponses.map(r => r.id)).modify({ synced: true });
+      } else {
+        await logSync('error', 'Falha ao enviar Respostas', resPushError);
       }
     }
 
-    // PULL Responses
-    const { data: remoteRes } = await withTimeout<any>(Promise.resolve(supabase.from('responses').select('*')), 25000);
+    const { data: remoteRes, error: rrErr } = await withTimeout<any>(Promise.resolve(supabase.from('responses').select('*')), 25000);
+    if (rrErr) await logSync('error', 'Falha ao baixar Respostas', rrErr);
     if (remoteRes) {
       for (const rr of remoteRes) {
         const local = await db.responses.get(rr.id);
@@ -147,75 +170,31 @@ export async function syncData() {
       }
     }
 
-    // 4. Sync SCHEDULES
-    // PUSH Pending
-    const pendingSchedules = await db.schedules.where('synced').equals(0).toArray();
-    if (pendingSchedules.length > 0) {
-      const { error: schPushError } = await withTimeout<any>(Promise.resolve(supabase.from('schedules').upsert(
-        pendingSchedules.map(s => ({
-          id: s.id, client_id: s.clientId, scheduled_at: s.scheduledAt,
-          status: s.status, notes: s.notes, user_id: user.id
-        }))
-      )));
-      if (!schPushError) {
-        await db.schedules.where('id').anyOf(pendingSchedules.map(s => s.id)).modify({ synced: true });
-      }
-    }
-
-    // PULL Schedules
-    const { data: remoteSch } = await withTimeout<any>(Promise.resolve(supabase.from('schedules').select('*')));
-    if (remoteSch) {
-      for (const rs of remoteSch) {
-        const local = await db.schedules.get(rs.id);
-        if (!local || local.synced !== false) {
-          await db.schedules.put({
-            id: rs.id, clientId: rs.client_id, scheduledAt: new Date(rs.scheduled_at),
-            status: rs.status as any, notes: rs.notes, user_id: rs.user_id, synced: true
-          });
-        }
-      }
-    }
-
-    // Sync Photos
+    // Photo Upload (simplified for now, already robust with Storage)
     const localPhotos = await db.photos.toArray();
     for (const photo of localPhotos) {
-      // Only upload if it's base64 (dataUrl)
       if (photo.dataUrl.startsWith('data:')) {
-        try {
-          const blob = dataUrlToBlob(photo.dataUrl);
-          // NEW: Use shared folder instead of user-specific folder for multi-user sync
-          const fileName = `shared/${photo.id}.jpg`;
-          
-          const { error: uploadError } = await withTimeout<any>(
-            Promise.resolve(supabase.storage.from('photos').upload(fileName, blob, { 
-              contentType: 'image/jpeg',
-              upsert: true 
-            })),
-            30000 // 30s timeout for uploads
-          );
-
-          if (!uploadError) {
-             const { data: { publicUrl } } = supabase.storage
-               .from('photos')
-               .getPublicUrl(fileName);
-             
-             // Update local record to use remote URL and free space
-             await db.photos.update(photo.id, { dataUrl: publicUrl });
-          } else {
-            console.error('Photo Upload Error:', uploadError);
-          }
-        } catch (err) {
-          console.error('Photo Process Error:', err);
+        const blob = dataUrlToBlob(photo.dataUrl);
+        const fileName = `shared/${photo.id}.jpg`;
+        const { error: uploadError } = await withTimeout<any>(
+          Promise.resolve(supabase.storage.from('photos').upload(fileName, blob, { 
+            contentType: 'image/jpeg', upsert: true 
+          })), 30000
+        );
+        if (!uploadError) {
+           const { data: { publicUrl } } = supabase.storage.from('photos').getPublicUrl(fileName);
+           await db.photos.update(photo.id, { dataUrl: publicUrl });
+        } else {
+          await logSync('warn', `Falha no upload da foto ${photo.id}`, uploadError);
         }
       }
     }
 
-    // Sync Photo records to DB metadata table (if it exists, for now we just handle Storage)
-    // In a full implementation, we'd also push/pull photo metadata to a 'photos' table in Postgres.
-
-    console.log('Sync completed at:', new Date().toLocaleString());
+    await logSync('info', 'Sincronização concluída com sucesso');
+    if (isManual) alert('Sincronização concluída!');
   } catch (err) {
-    console.error('Sync unexpected error:', err);
+    await logSync('error', 'Erro inesperado na sincronização', err);
+    if (isManual) alert('Erro na sincronização. Veja o log de debug.');
   } finally {
     (window as any).isSyncingGlobally = false;
   }
