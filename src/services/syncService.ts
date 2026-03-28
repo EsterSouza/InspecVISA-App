@@ -20,9 +20,38 @@ export async function syncData() {
     const localClients = await db.clients.toArray();
     
     if (localClients.length > 0) {
+      // ---> PHASE 26: INTELLIGENT AUTO-MERGE BY CNPJ <---
+      // Fetch remote CNPJs to detect offline duplicates that got different UUIDs
+      const { data: remoteCnpjData } = await withTimeout<any>(Promise.resolve(supabase.from('clients').select('id, cnpj')));
+      const remoteCnpjMap = new Map<string, string>(
+        remoteCnpjData?.filter((c: any) => c.cnpj).map((c: any) => [c.cnpj, c.id]) || []
+      );
+
+      for (const localClient of localClients) {
+        if (localClient.cnpj && remoteCnpjMap.has(localClient.cnpj)) {
+          const canonicalRemoteId = remoteCnpjMap.get(localClient.cnpj)!;
+          if (localClient.id !== canonicalRemoteId) {
+            const oldId = localClient.id;
+            console.log(`[Sync] Merging local client ${oldId} -> ${canonicalRemoteId} (CNPJ: ${localClient.cnpj})`);
+            
+            // Re-link Inspections and Schedules to new ID
+            await db.inspections.where({ clientId: oldId }).modify({ clientId: canonicalRemoteId });
+            await db.schedules.where({ clientId: oldId }).modify({ clientId: canonicalRemoteId });
+            
+            // Delete old duplicate client entry and save it under the remote canonical ID
+            await db.clients.delete(oldId);
+            localClient.id = canonicalRemoteId;
+            await db.clients.put(localClient);
+          }
+        }
+      }
+
+      // Re-fetch local clients after potential ID merges
+      const updatedLocalClients = await db.clients.toArray();
+
       const { error: pushError } = await withTimeout<any>(
         Promise.resolve(supabase.from('clients').upsert(
-          localClients.map(c => ({
+          updatedLocalClients.map(c => ({
             id: c.id,
             name: c.name,
             cnpj: c.cnpj,

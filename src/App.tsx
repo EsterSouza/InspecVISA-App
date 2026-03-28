@@ -55,6 +55,27 @@ function App() {
     initApp();
   }, [initialize]);
 
+  // Background Auto-Sync Hook
+  useEffect(() => {
+    if (!initialized || !user) return;
+
+    const backgroundSync = () => {
+      if (navigator.onLine && !(window as any).isSyncingGlobally) {
+        import('./services/syncService').then(m => m.syncData().catch(console.error));
+      }
+    };
+
+    // Trigger on network reconnect
+    window.addEventListener('online', backgroundSync);
+    // Trigger automatically every 5 minutes
+    const interval = setInterval(backgroundSync, 5 * 60 * 1000);
+
+    return () => {
+      window.removeEventListener('online', backgroundSync);
+      clearInterval(interval);
+    };
+  }, [initialized, user]);
+
   if (!initialized || isInitializing) {
     return (
       <div className="flex h-screen flex-col items-center justify-center bg-gray-50">
@@ -81,7 +102,7 @@ function App() {
         </div>
 
         {/* Main Workspace */}
-        <main className="flex-1 overflow-y-auto w-full relative">
+        <main className="flex-1 overflow-y-auto w-full relative pb-24 lg:pb-0">
           <Routes>
             {/* Rotas staff (admin / consultant) */}
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
