@@ -278,8 +278,22 @@ export async function syncData(isManual: boolean = false) {
 
     // 2. Sync INSPECTIONS (PUSH)
     const inspecQuery = isManual ? db.inspections.filter(i => i.synced !== 1) : db.inspections.where('synced').equals(0);
-    const pendingInspec = await inspecQuery.toArray();
+    const allPendingInspec = await inspecQuery.toArray();
+    
+    // FILTRO: Só envia inspeção se o cliente já estiver sincronizado no servidor
+    const pendingInspec = [];
+    for (const i of allPendingInspec) {
+      const client = await db.clients.get(i.clientId);
+      if (client && client.synced === 1) {
+        pendingInspec.push(i);
+      } else if (client) {
+        // Log discreto para não poluir
+        console.warn(`[Sync] Inspeção ${i.id} aguardando sincronização do cliente ${i.clientId}`);
+      }
+    }
+
     if (pendingInspec.length > 0) {
+      await logSync('info', `Enviando ${pendingInspec.length} inspeções (com pais validados)...`);
       const recordsToPush = pendingInspec.map(i => ({
         id: i.id, client_id: i.clientId, template_id: i.templateId,
         consultant_name: i.consultantName, inspection_date: i.inspectionDate,
@@ -321,8 +335,19 @@ export async function syncData(isManual: boolean = false) {
 
     // 3. Sync RESPONSES (PUSH)
     const resQuery = isManual ? db.responses.filter(r => r.synced !== 1) : db.responses.where('synced').equals(0);
-    const pendingResponses = await resQuery.toArray();
+    const allPendingResponses = await resQuery.toArray();
+
+    // FILTRO: Só envia resposta se a inspeção pai estiver sincronizada
+    const pendingResponses = [];
+    for (const r of allPendingResponses) {
+      const parent = await db.inspections.get(r.inspectionId);
+      if (parent && parent.synced === 1) {
+        pendingResponses.push(r);
+      }
+    }
+
     if (pendingResponses.length > 0) {
+      await logSync('info', `Enviando ${pendingResponses.length} respostas (com inspeções validadas)...`);
       const recordsToPush = pendingResponses.map(r => ({
         id: r.id, inspection_id: r.inspectionId, item_id: r.itemId,
         result: r.result, situation_description: r.situationDescription,
@@ -353,8 +378,19 @@ export async function syncData(isManual: boolean = false) {
 
     // 4. Sync PHOTOS (PUSH)
     const photoQuery = isManual ? db.photos.filter(p => p.synced !== 1) : db.photos.where('synced').equals(0);
-    const pendingPhotos = await photoQuery.toArray();
+    const allPendingPhotos = await photoQuery.toArray();
+
+    // FILTRO: Só envia foto se a resposta estiver sincronizada
+    const pendingPhotos = [];
+    for (const p of allPendingPhotos) {
+      const parent = await db.responses.get(p.responseId);
+      if (parent && parent.synced === 1) {
+        pendingPhotos.push(p);
+      }
+    }
+
     if (pendingPhotos.length > 0) {
+      await logSync('info', `Enviando ${pendingPhotos.length} fotos (com respostas validadas)...`);
       const recordsToPush = pendingPhotos.map(p => ({
         id: p.id, response_id: p.responseId, data_url: p.dataUrl,
         caption: p.caption, taken_at: p.takenAt, user_id: user.id
@@ -380,8 +416,19 @@ export async function syncData(isManual: boolean = false) {
 
     // 5. Sync SCHEDULES (PUSH)
     const schQuery = isManual ? db.schedules.filter(s => s.synced !== 1) : db.schedules.where('synced').equals(0);
-    const pendingSchedules = await schQuery.toArray();
+    const allPendingSchedules = await schQuery.toArray();
+
+    // FILTRO: Só envia agendamento se o cliente estiver sincronizado
+    const pendingSchedules = [];
+    for (const s of allPendingSchedules) {
+      const client = await db.clients.get(s.clientId);
+      if (client && client.synced === 1) {
+        pendingSchedules.push(s);
+      }
+    }
+
     if (pendingSchedules.length > 0) {
+      await logSync('info', `Enviando ${pendingSchedules.length} agendamentos (com clientes validados)...`);
       const recordsToPush = pendingSchedules.map(s => ({
         id: s.id, client_id: s.clientId, scheduled_at: s.scheduledAt,
         status: s.status, notes: s.notes, user_id: user.id
