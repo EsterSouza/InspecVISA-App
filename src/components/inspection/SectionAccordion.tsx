@@ -25,13 +25,6 @@ export function SectionAccordion({
 
   const isComplete = evaluatedItems === totalItems && totalItems > 0;
   const isCritical = notCompliesCount > 0;
-  
-  // Auto collapse when complete, unless explicitly opened
-  React.useEffect(() => {
-    if (isComplete && isExpanded) {
-      setIsExpanded(false);
-    }
-  }, [isComplete]); // only run when complete state changes
 
   return (
     <div className="mb-4 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-all">

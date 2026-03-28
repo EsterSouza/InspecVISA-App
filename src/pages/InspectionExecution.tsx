@@ -26,6 +26,7 @@ export function InspectionExecution() {
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [prevNCIds, setPrevNCIds] = useState<string[]>([]);
+  const [expandedSectionIds, setExpandedSectionIds] = useState<string[]>([]);
 
   // Load inspection on mount
   useEffect(() => {
@@ -211,13 +212,30 @@ export function InspectionExecution() {
   const finishInspection = async () => {
     if (!currentInspection || !template) return;
     
-    // Validate missing fields in not_complies
     const invalidResponses = responses.filter(r => 
       r.result === 'not_complies' && (!r.situationDescription || !r.correctiveAction)
     );
 
     if (invalidResponses.length > 0) {
-      alert(`Você tem ${invalidResponses.length} item(ns) NÃO CONFORME(S) sem detalhamento ou ação corretiva preenchida. Por favor, verifique.`);
+      const firstInvalid = invalidResponses[0];
+      const sectionContaining = visibleSections.find(s => s.items.some(i => i.id === firstInvalid.itemId));
+      
+      if (sectionContaining) {
+        setExpandedSectionIds(prev => Array.from(new Set([...prev, sectionContaining.id])));
+        
+        setTimeout(() => {
+          const el = document.getElementById(`item-${firstInvalid.itemId}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('ring-2', 'ring-red-500', 'ring-offset-2', 'transition-shadow');
+            setTimeout(() => {
+              el.classList.remove('ring-2', 'ring-red-500', 'ring-offset-2');
+            }, 3000);
+          }
+        }, 300);
+      }
+
+      alert(`Você tem ${invalidResponses.length} item(ns) NÃO CONFORME(S) sem detalhamento ou ação corretiva preenchida. Rolando para o primeiro pendente.`);
       return;
     }
 
@@ -306,7 +324,7 @@ export function InspectionExecution() {
                 evaluatedItems={sectionResponses.length}
                 compliesCount={compliesCount}
                 notCompliesCount={notCompliesCount}
-                defaultExpanded={idx === 0} // Expand first section by default
+                defaultExpanded={idx === 0 || expandedSectionIds.includes(section.id)}
               >
                 <div className="space-y-4">
                   {section.items.map((item) => {

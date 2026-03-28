@@ -33,8 +33,13 @@ export function Sidebar() {
 
   const handleSync = async () => {
     setIsSyncing(true);
-    await syncData();
-    setIsSyncing(false);
+    try {
+      await syncData();
+    } catch (err) {
+      console.error('Manual sync failed:', err);
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   return (

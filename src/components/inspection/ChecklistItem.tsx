@@ -39,7 +39,7 @@ export function ChecklistItem({
   };
 
   return (
-    <div className={cn("rounded-xl border bg-white p-5 shadow-sm transition-all", getBorderColor())}>
+    <div id={`item-${item.id}`} className={cn("rounded-xl border bg-white p-5 shadow-sm transition-all", getBorderColor())}>
       <div className="flex items-start justify-between">
         <div className="space-y-2 pr-4 flex-1">
           {/* Header row with badges */}

@@ -47,7 +47,6 @@ export function PhotoCapture({ inputId, photos, onAddPhoto, onRemovePhoto }: Pho
           ref={fileInputRef}
           type="file"
           accept="image/*"
-          capture="environment"
           className="hidden"
           id={inputId}
           onChange={handleCapture}
