@@ -120,6 +120,7 @@ export interface InspectionResponse {
   correctiveAction?: string;
   responsible?: string;
   deadline?: string;
+  customDescription?: string; // For ad-hoc items added by consultant
   photos: InspectionPhoto[];
   createdAt: Date;
   updatedAt: Date;
@@ -164,11 +165,12 @@ export interface InspectionScore {
 
 export interface ConsultantSettings {
   name: string;
-  professionalId?: string; // CRF, CRBM, CRN, etc.
-  professionalIdLabel?: string; // e.g. "CRN"
+  professionalId?: string; // CRF, CRBM, CRN, Coren, etc.
+  professionalIdLabel?: string; // e.g. "CRN", "COREN"
   logoDataUrl?: string; // base64 PNG/JPG max 200KB
   theme: 'light' | 'dark';
   companyName?: string;
+  phone?: string;
   consultantRole?: 'saude' | 'nutricao' | 'ambos'; // role filter for ILPI
 }
 

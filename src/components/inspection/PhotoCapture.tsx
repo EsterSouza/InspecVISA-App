@@ -1,5 +1,5 @@
 import React from 'react';
-import { Camera, Trash2, Maximize, X } from 'lucide-react';
+import { Camera, Trash2, Maximize, X, PlusCircle } from 'lucide-react';
 import { compressImage, generateId } from '../../utils/imageUtils';
 import type { InspectionPhoto } from '../../types';
 import { Modal } from '../ui/Modal';
@@ -41,31 +41,52 @@ export function PhotoCapture({ inputId, photos, onAddPhoto, onRemovePhoto }: Pho
 
   return (
     <div className="space-y-4">
-      {/* Action Button */}
-      <div>
+      {/* Action Buttons */}
+      <div className="flex flex-col sm:flex-row gap-2">
         <input
           ref={fileInputRef}
           type="file"
           accept="image/*"
+          capture="environment"
           className="hidden"
-          id={inputId}
+          id={`${inputId}-camera`}
           onChange={handleCapture}
           disabled={isCompressing}
         />
+        <input
+          type="file"
+          accept="image/*"
+          className="hidden"
+          id={`${inputId}-gallery`}
+          onChange={handleCapture}
+          disabled={isCompressing}
+        />
+        
         <Button
           type="button"
           variant="outline"
-          className="w-full flex items-center justify-center space-x-2 border-dashed border-2 bg-gray-50 py-6 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-          onClick={() => document.getElementById(inputId)?.click()}
+          className="flex-1 flex items-center justify-center space-x-2 border-dashed border-2 bg-gray-50 py-4 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+          onClick={() => document.getElementById(`${inputId}-camera`)?.click()}
           disabled={isCompressing}
         >
-          <Camera className="h-5 w-5" />
-          <span>{isCompressing ? 'Processando...' : 'Registrar evidência fotográfica'}</span>
+          <Camera className="h-4 w-4" />
+          <span>Tirar Foto</span>
         </Button>
-        <p className="mt-2 text-xs text-gray-500 text-center">
-          {photos.length} foto{photos.length !== 1 && 's'} adicionada{photos.length !== 1 && 's'}
-        </p>
+
+        <Button
+          type="button"
+          variant="outline"
+          className="flex-1 flex items-center justify-center space-x-2 border-dashed border-2 bg-gray-50 py-4 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+          onClick={() => document.getElementById(`${inputId}-gallery`)?.click()}
+          disabled={isCompressing}
+        >
+          <PlusCircle className="h-4 w-4" />
+          <span>Galeria</span>
+        </Button>
       </div>
+      <p className="mt-2 text-[10px] text-gray-500 text-center italic">
+        {isCompressing ? 'Processando imagem...' : `${photos.length} foto(s) registrada(s)`}
+      </p>
 
       {/* Thumbnails */}
       {photos.length > 0 && (

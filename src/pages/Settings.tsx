@@ -117,6 +117,17 @@ export function Settings() {
                 />
               </div>
 
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Telefone de Contato</label>
+                <input
+                  type="text"
+                  value={settings.phone || ''}
+                  onChange={(e) => updateSettings({ phone: e.target.value })}
+                  className="w-full rounded-md border border-gray-300 p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  placeholder="(00) 00000-0000"
+                />
+              </div>
+
               <div className="space-y-2 col-span-1 sm:col-span-2">
                 <label className="text-sm font-medium text-gray-700">Perfil de Atuação (Filtro de Roteiro)</label>
                 <div className="flex flex-wrap gap-4 mt-1">

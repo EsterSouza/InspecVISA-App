@@ -70,7 +70,7 @@ export function ChecklistItem({
           </div>
           
           <p className="text-[15px] font-medium leading-relaxed text-gray-900 mt-2">
-            {item.description}
+            {item.id.startsWith('extra|') ? (response?.customDescription || item.description) : item.description}
           </p>
         </div>
 

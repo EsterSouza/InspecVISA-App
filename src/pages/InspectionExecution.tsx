@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, FileCheck2, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, FileCheck2, Loader2, PlusCircle, Info, Users2 } from 'lucide-react';
 import { db } from '../db/database';
 import { getTemplateById, enrichTemplate } from '../data/templates';
 import { FOOD_SEGMENT_LABELS, type FoodEstablishmentType } from '../types';
+import { ILPIStaffCalculator } from '../components/inspection/ILPIStaffCalculator';
 import { useInspectionStore } from '../store/useInspectionStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { generateId, formatDateTime } from '../utils/imageUtils';
@@ -31,6 +32,10 @@ export function InspectionExecution() {
   // Load inspection on mount
   useEffect(() => {
     const { inspectionId, previousInspectionId } = location.state || {};
+    
+    // Background sync to catch changes from other consultants (Ana/Ester)
+    import('../services/syncService').then(m => m.syncData().catch(console.error));
+
     if (!inspectionId && !currentInspection) {
       navigate('/inspections');
       return;
@@ -176,6 +181,25 @@ export function InspectionExecution() {
       console.error(err);
       alert('Erro ao atualizar resposta: ' + (err instanceof Error ? err.message : String(err)));
     }
+  };
+
+  const handleAddExtraItem = (sectionId: string) => {
+    if (!currentInspection) return;
+    const desc = window.prompt('Descreva a nova observação/não conformidade:');
+    if (!desc) return;
+
+    const newResponse: InspectionResponse = {
+      id: generateId(),
+      inspectionId: currentInspection.id,
+      itemId: `extra|${sectionId}|${generateId()}`,
+      result: 'not_complies',
+      customDescription: desc,
+      photos: [],
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    setResponses([...responses, newResponse]);
   };
 
   const handleUpdateDetails = (responseId: string, updates: Partial<InspectionResponse>) => {
@@ -327,6 +351,86 @@ export function InspectionExecution() {
                 defaultExpanded={idx === 0 || expandedSectionIds.includes(section.id)}
               >
                 <div className="space-y-4">
+                  {section.id === 'sec-ilpi-12' && (
+                    <div className="space-y-4 mb-6">
+                      <div className="bg-white border rounded-lg p-4 shadow-sm space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-sm font-bold text-gray-700">Dados de Residentes (ILPI)</h4>
+                          <span className="text-[10px] text-gray-400">Clique nos campos para editar</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-4">
+                          <div className="space-y-1">
+                            <label className="text-[10px] uppercase text-gray-400">Grau I</label>
+                            <input 
+                              type="number" 
+                              value={currentInspection.dependencyLevel1 || 0}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value) || 0;
+                                db.inspections.update(currentInspection.id, { dependencyLevel1: val });
+                                setCurrentInspection({...currentInspection, dependencyLevel1: val});
+                              }}
+                              className="w-full border rounded p-1 text-sm font-bold"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] uppercase text-gray-400">Grau II</label>
+                            <input 
+                              type="number" 
+                              value={currentInspection.dependencyLevel2 || 0}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value) || 0;
+                                db.inspections.update(currentInspection.id, { dependencyLevel2: val });
+                                setCurrentInspection({...currentInspection, dependencyLevel2: val});
+                              }}
+                              className="w-full border rounded p-1 text-sm font-bold"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] uppercase text-gray-400">Grau III</label>
+                            <input 
+                              type="number" 
+                              value={currentInspection.dependencyLevel3 || 0}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value) || 0;
+                                db.inspections.update(currentInspection.id, { dependencyLevel3: val });
+                                setCurrentInspection({...currentInspection, dependencyLevel3: val});
+                              }}
+                              className="w-full border rounded p-1 text-sm font-bold"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <ILPIStaffCalculator 
+                        level1={currentInspection.dependencyLevel1 || 0}
+                        level2={currentInspection.dependencyLevel2 || 0}
+                        level3={currentInspection.dependencyLevel3 || 0}
+                        currentStaff={
+                          // We sum technical staff + caregivers found in responses if they are 'complies'? 
+                          // No, the user should input how many they observed.
+                          // I'll add a 'Total Observado' field.
+                          (currentInspection as any).observedStaff || 0
+                        }
+                      />
+                      
+                      <div className="flex items-center gap-2 bg-slate-50 p-3 rounded-md border border-slate-200">
+                        <Users2 className="h-4 w-4 text-slate-500" />
+                        <span className="text-sm font-medium text-slate-700">Cuidadores/Técnicos em Turno:</span>
+                        <input 
+                          type="number" 
+                          placeholder="Qtd atual..."
+                          value={(currentInspection as any).observedStaff || ''}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value) || 0;
+                            db.inspections.update(currentInspection.id, { observedStaff: val } as any);
+                            setCurrentInspection({...currentInspection, observedStaff: val} as any);
+                          }}
+                          className="w-20 border rounded px-2 py-1 text-sm font-bold ml-auto"
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   {section.items.map((item) => {
                     const response = responses.find((r) => r.itemId === item.id);
                     return (
@@ -342,6 +446,36 @@ export function InspectionExecution() {
                       />
                     );
                   })}
+
+                  {/* Render Extra Items for this section */}
+                  {responses.filter(r => r.itemId.startsWith('extra|') && r.itemId.split('|')[1] === section.id).map(r => (
+                    <ChecklistItem
+                      key={r.id}
+                      item={{ 
+                        id: r.itemId, 
+                        sectionId: section.id, 
+                        order: 99, 
+                        description: r.customDescription || 'Item Extra', 
+                        weight: 1, 
+                        isCritical: false 
+                      }}
+                      response={r}
+                      onChange={(res) => handleResponseChange(r.itemId, res)}
+                      onUpdateDetails={(updates) => handleUpdateDetails(r.id, updates)}
+                      onAddPhoto={(photo) => handleAddPhoto(r.id, photo)}
+                      onRemovePhoto={(photoId) => handleRemovePhoto(r.id, photoId)}
+                    />
+                  ))}
+
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full mt-4 border-dashed border-primary-300 text-primary-600 bg-primary-50/30"
+                    onClick={() => handleAddExtraItem(section.id)}
+                  >
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Adicionar Item Extra / Observação nesta seção
+                  </Button>
                 </div>
               </SectionAccordion>
             );

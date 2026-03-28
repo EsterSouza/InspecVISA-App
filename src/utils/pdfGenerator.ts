@@ -109,16 +109,42 @@ export async function generatePDF(
       body: [[
         inspection.ilpiCapacity || '—',
         inspection.residentsTotal || '—',
-        inspection.dependencyLevel1 || '—',
-        inspection.dependencyLevel2 || '—',
-        inspection.dependencyLevel3 || '—',
+        inspection.dependencyLevel1 || '0',
+        inspection.dependencyLevel2 || '0',
+        inspection.dependencyLevel3 || '0',
       ]],
       headStyles: { fillColor: [240, 240, 240], textColor: [60, 60, 60], fontSize: 8 },
       bodyStyles: { fontSize: 10, halign: 'center' },
       margin: { left: margin, right: margin },
       theme: 'grid',
     });
-    y = (doc as any).lastAutoTable.finalY + 10;
+    y = (doc as any).lastAutoTable.finalY + 8;
+
+    // Staffing calculation summary
+    const l1 = inspection.dependencyLevel1 || 0;
+    const l2 = inspection.dependencyLevel2 || 0;
+    const l3 = inspection.dependencyLevel3 || 0;
+    const reqLei = Math.ceil(l1/20 + l2/10 + l3/5);
+    const reqRDC = Math.ceil(l1/20 + l2/8 + l3/6);
+    const maxReq = Math.max(reqLei, reqRDC);
+    const observed = (inspection as any).observedStaff || 0;
+    const isCompliant = observed >= maxReq;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    if (isCompliant) {
+      doc.setTextColor(30, 90, 60);
+    } else {
+      doc.setTextColor(180, 40, 40);
+    }
+    doc.text(`DIMENSIONAMENTO: ${observed} COLABORADORES EM TURNO (MÍNIMO EXIGIDO: ${maxReq})`, margin, y);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 100, 100);
+    y += 4;
+    doc.text(`Base legal: RDC 502/2021 e Lei 8049/2018. Status: ${isCompliant ? 'ADEQUADO' : 'INSUFICIENTE'}`, margin, y);
+
+    y += 10;
   }
 
   // Score box
@@ -344,10 +370,11 @@ export async function generatePDF(
       head: [['Item', 'Irregularidade / Ação Corretiva', 'Responsável', 'Prazo']],
       body: nonCompliant.map((r, idx) => {
         const item = allItems.find(i => i.id === r.itemId);
+        const itemDesc = r.itemId.startsWith('extra|') ? r.customDescription : item?.description;
         return [
           idx + 1,
           { 
-            content: `ITEM: ${item?.description.substring(0, 100)}...\n\nSITUAÇÃO: ${r.situationDescription}\n\nAÇÃO: ${r.correctiveAction}`,
+            content: `ITEM: ${itemDesc?.substring(0, 150)}${itemDesc && itemDesc.length > 150 ? '...' : ''}\n\nSITUAÇÃO: ${r.situationDescription}\n\nAÇÃO: ${r.correctiveAction}`,
             styles: { fontSize: 8 }
           },
           r.responsible || 'Direção',

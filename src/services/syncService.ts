@@ -26,37 +26,49 @@ async function logSync(level: 'info' | 'warn' | 'error', message: string, detail
 async function safeBatchUpsert(tableName: string, records: any[]): Promise<{ successIds: string[], errors: any[] }> {
   if (records.length === 0) return { successIds: [], errors: [] };
   
-  // Try bulk first
-  const { error: bulkError } = await withTimeout<any>(
-    Promise.resolve(supabase.from(tableName).upsert(records))
-  );
-
-  if (!bulkError) {
-    return { successIds: records.map(r => r.id), errors: [] };
-  }
-
-  // If bulk fails (e.g. FK violation 23503), try 1-by-1
-  await logSync('warn', `Bulk upsert falhou na tabela ${tableName}, processando 1 por 1. Erro:`, bulkError);
+  const CHUNK_SIZE = 50;
   const successIds: string[] = [];
   const errors: any[] = [];
 
-  for (const record of records) {
-    const { error } = await withTimeout<any>(
-      Promise.resolve(supabase.from(tableName).upsert([record]))
+  for (let i = 0; i < records.length; i += CHUNK_SIZE) {
+    const chunk = records.slice(i, i + CHUNK_SIZE);
+    
+    // Try bulk for the chunk
+    const { error: bulkError } = await withTimeout<any>(
+      Promise.resolve(supabase.from(tableName).upsert(chunk))
     );
-    if (!error) {
-      successIds.push(record.id);
-    } else {
-      errors.push({ id: record.id, error });
-      // Delete orphaned local records immediately to clear deadlock
-      if (error.code === '23503') {
-         await logSync('error', `Registro órfão removido localmente: ${tableName} ID ${record.id}`);
-         try {
-           if (tableName === 'inspections') await db.inspections.delete(record.id);
-           if (tableName === 'responses') await db.responses.delete(record.id);
-           if (tableName === 'photos') await db.photos.delete(record.id);
-           if (tableName === 'schedules') await db.schedules.delete(record.id);
-         } catch(e) {}
+
+    if (!bulkError) {
+      successIds.push(...chunk.map(r => r.id));
+      continue;
+    }
+
+    // If chunk fails, try 1-by-1 for this chunk
+    await logSync('warn', `Chunk upsert falhou na tabela ${tableName}, processando 1 por 1. Erro:`, bulkError);
+    
+    for (const record of chunk) {
+      const { error } = await withTimeout<any>(
+        Promise.resolve(supabase.from(tableName).upsert([record]))
+      );
+      if (!error) {
+        successIds.push(record.id);
+      } else {
+        errors.push({ id: record.id, error });
+        // Handle FK violation 23503
+        if (error.code === '23503') {
+           if (tableName === 'photos') {
+             // For photos, just SKIP and wait for the response to sync. Do NOT delete.
+             await logSync('warn', `Aguardando resposta pai para a foto: ${record.id}`);
+           } else {
+             // For others, delete orphaned local records if they are truly invalid
+             await logSync('error', `Registro órfão removido localmente: ${tableName} ID ${record.id}`);
+             try {
+               if (tableName === 'inspections') await db.inspections.delete(record.id);
+               if (tableName === 'responses') await db.responses.delete(record.id);
+               if (tableName === 'schedules') await db.schedules.delete(record.id);
+             } catch(e) {}
+           }
+        }
       }
     }
   }
@@ -76,6 +88,30 @@ export async function syncData(isManual: boolean = false) {
 
   try {
     await logSync('info', 'Iniciando Sincronização Segura...', { manual: isManual });
+
+    // 0. Sync PROFILE / SETTINGS
+    const { settings, updateSettings } = (await import('../store/useSettingsStore')).useSettingsStore.getState();
+    if (settings.name) {
+      await supabase.from('profiles').upsert({
+        id: user.id,
+        name: settings.name,
+        coren: settings.professionalId,
+        phone: settings.phone,
+        consultant_role: settings.consultantRole,
+        updated_at: new Date()
+      });
+    } else {
+      // Pull if local is empty (e.g. cache cleared)
+      const { data: profData } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+      if (profData) {
+        updateSettings({
+          name: profData.name,
+          consultantRole: profData.consultant_role,
+          professionalId: profData.coren,
+          phone: profData.phone,
+        });
+      }
+    }
 
     // 1. Sync CLIENTS
     // Fallback for isManual: catch anything not synced=1
@@ -183,7 +219,17 @@ export async function syncData(isManual: boolean = false) {
         id: i.id, client_id: i.clientId, template_id: i.templateId,
         consultant_name: i.consultantName, inspection_date: i.inspectionDate,
         status: i.status, observations: i.observations, created_at: i.createdAt,
-        completed_at: i.completedAt, user_id: user.id
+        completed_at: i.completedAt, user_id: user.id,
+        ilpi_capacity: i.ilpiCapacity,
+        residents_total: i.residentsTotal,
+        residents_male: i.residentsMale,
+        residents_female: i.residentsFemale,
+        dependency_level1: i.dependencyLevel1,
+        dependency_level2: i.dependencyLevel2,
+        dependency_level3: i.dependencyLevel3,
+        accompanist_name: i.accompanistName,
+        accompanist_role: i.accompanistRole,
+        signature_data_url: i.signatureDataUrl
       }));
 
       const { successIds, errors } = await safeBatchUpsert('inspections', recordsToPush);
@@ -206,7 +252,17 @@ export async function syncData(isManual: boolean = false) {
             consultantName: ri.consultant_name, inspectionDate: new Date(ri.inspection_date),
             status: ri.status as any, observations: ri.observations,
             createdAt: new Date(ri.created_at), synced: 1,
-            completedAt: ri.completed_at ? new Date(ri.completed_at) : undefined
+            completedAt: ri.completed_at ? new Date(ri.completed_at) : undefined,
+            ilpiCapacity: ri.ilpi_capacity,
+            residentsTotal: ri.residents_total,
+            residentsMale: ri.residents_male,
+            residentsFemale: ri.residents_female,
+            dependencyLevel1: ri.dependency_level1,
+            dependencyLevel2: ri.dependency_level2,
+            dependencyLevel3: ri.dependency_level3,
+            accompanistName: ri.accompanist_name,
+            accompanistRole: ri.accompanist_role,
+            signatureDataUrl: ri.signature_data_url
           });
         }
       }
@@ -222,7 +278,8 @@ export async function syncData(isManual: boolean = false) {
         id: r.id, inspection_id: r.inspectionId, item_id: r.itemId,
         result: r.result, situation_description: r.situationDescription,
         corrective_action: r.correctiveAction, created_at: r.createdAt,
-        updated_at: r.updatedAt, user_id: user.id
+        updated_at: r.updatedAt, user_id: user.id,
+        custom_description: r.customDescription
       }));
 
       const { successIds, errors } = await safeBatchUpsert('responses', recordsToPush);
@@ -234,7 +291,7 @@ export async function syncData(isManual: boolean = false) {
       }
     }
 
-    const { data: remoteRes, error: rrErr } = await withTimeout<any>(Promise.resolve(supabase.from('responses').select('*')), 60000);
+    const { data: remoteRes, error: rrErr } = await withTimeout<any>(Promise.resolve(supabase.from('responses').select('*').limit(500)), 60000);
     if (rrErr) await logSync('error', 'Falha ao baixar Respostas', rrErr);
     if (remoteRes) {
       for (const rr of remoteRes) {
@@ -244,7 +301,8 @@ export async function syncData(isManual: boolean = false) {
             id: rr.id, inspectionId: rr.inspection_id, itemId: rr.item_id,
             result: rr.result as any, situationDescription: rr.situation_description,
             correctiveAction: rr.corrective_action, createdAt: new Date(rr.created_at),
-            updatedAt: new Date(rr.updated_at), photos: [], synced: 1
+            updatedAt: new Date(rr.updated_at), photos: [], synced: 1,
+            customDescription: rr.custom_description
           });
         }
       }
