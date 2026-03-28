@@ -110,10 +110,6 @@ export function Dashboard() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-           <Button variant="outline" onClick={() => navigate('/settings')} className="h-14 lg:hidden">
-             <Settings className="mr-2 h-5 w-5" />
-             Ajustes
-           </Button>
            <Button variant="outline" onClick={() => navigate('/schedules')} className="h-14">
              <Calendar className="mr-2 h-5 w-5" />
              Agenda

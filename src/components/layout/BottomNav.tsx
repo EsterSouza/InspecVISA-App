@@ -1,7 +1,8 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, Users, ClipboardCheck, PlusCircle, Settings, Calendar, User } from 'lucide-react';
+import { Home, Users, ClipboardCheck, PlusCircle, Settings, RefreshCw, Bug, User, Calendar } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
+import { syncData } from '../../services/syncService';
 
 const staffNavItems = [
   { to: '/',            icon: Home,          label: 'Início' },
@@ -22,6 +23,18 @@ export function BottomNav() {
   const isClient = tenantInfo?.role === 'client';
   const navItems = isClient ? clientNavItems : staffNavItems;
   const [isSyncing, setIsSyncing] = React.useState(false);
+
+  const handleManualSync = async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    try {
+      await syncData(true);
+    } catch (err) {
+      console.error('Manual sync failed', err);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white pb-safe lg:hidden">
@@ -57,12 +70,27 @@ export function BottomNav() {
           );
         })}
         
-        {/* Mobile Sync Button - Moved logic, replaced with item in navItems */}
-
+        {/* Mobile Sync Button */}
+        <button
+          onClick={handleManualSync}
+          disabled={isSyncing}
+          className={`flex flex-col items-center justify-center space-y-1 p-2 ${
+            isSyncing ? 'text-primary-600' : 'text-gray-500 hover:text-gray-900'
+          }`}
+        >
+          <RefreshCw className={`h-5 w-5 ${isSyncing ? 'animate-spin text-primary-600' : ''}`} />
+          <span className="text-[10px] font-medium">Sync</span>
+        </button>
 
         {/* Secret Debug Link */}
-        <NavLink to="/debug" className="hidden lg:flex p-2 text-gray-400 hover:text-gray-600">
-           <Settings size={16} />
+        <NavLink 
+          to="/debug" 
+          className={({ isActive }) => `flex flex-col items-center justify-center space-y-1 p-2 ${
+            isActive ? 'text-primary-600' : 'text-gray-400 hover:text-gray-600'
+          }`}
+        >
+           <Bug size={18} />
+           <span className="text-[10px] font-medium">Logs</span>
         </NavLink>
       </div>
     </nav>
