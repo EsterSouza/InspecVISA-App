@@ -21,6 +21,7 @@ export function BottomNav() {
   const { tenantInfo } = useAuthStore();
   const isClient = tenantInfo?.role === 'client';
   const navItems = isClient ? clientNavItems : staffNavItems;
+  const [isSyncing, setIsSyncing] = React.useState(false);
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white pb-safe lg:hidden">
@@ -55,6 +56,28 @@ export function BottomNav() {
             </NavLink>
           );
         })}
+        
+        {/* Mobile Sync Button (Staff only) */}
+        {!isClient && (
+          <button
+            onClick={async (e) => {
+              e.preventDefault();
+              if (isSyncing) return;
+              setIsSyncing(true);
+              try {
+                const { syncData } = await import('../../services/syncService');
+                await syncData();
+              } finally {
+                setIsSyncing(false);
+              }
+            }}
+            disabled={isSyncing}
+            className={`flex flex-col items-center justify-center space-y-1 p-2 transition-colors ${isSyncing ? 'text-primary-600' : 'text-gray-500 hover:text-primary-600'}`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={isSyncing ? 'animate-spin text-primary-600' : ''}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+            <span className={`text-[10px] font-medium ${isSyncing ? 'font-semibold' : ''}`}>Sincronizar</span>
+          </button>
+        )}
       </div>
     </nav>
   );

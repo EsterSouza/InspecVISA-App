@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
@@ -59,5 +59,5 @@ export default defineConfig({
       thresholds: { lines: 80, functions: 80 },
     },
   },
-});
+} as any);
 

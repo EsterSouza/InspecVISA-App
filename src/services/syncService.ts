@@ -1,6 +1,14 @@
 import { db } from '../db/database';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/useAuthStore';
+import { dataUrlToBlob } from '../utils/imageUtils';
+
+const withTimeout = <T>(promise: Promise<T>, ms: number = 15000): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('SYNC_TIMEOUT')), ms))
+  ]);
+};
 
 export async function syncData() {
   const user = useAuthStore.getState().user;
@@ -12,9 +20,8 @@ export async function syncData() {
     const localClients = await db.clients.toArray();
     
     if (localClients.length > 0) {
-      const { error: pushError } = await supabase
-        .from('clients')
-        .upsert(
+      const { error: pushError } = await withTimeout<any>(
+        Promise.resolve(supabase.from('clients').upsert(
           localClients.map(c => ({
             id: c.id,
             name: c.name,
@@ -29,21 +36,22 @@ export async function syncData() {
             user_id: user.id
           })),
           { onConflict: 'id' }
-        );
+        )) // close Promise.resolve
+      );
       
       if (pushError) console.error('Sync Push Error (Clients):', pushError);
     }
 
     // 2. PULL remote changes from Supabase
-    const { data: remoteClients, error: pullError } = await supabase
-      .from('clients')
-      .select('*');
+    const { data: remoteClients, error: pullError } = await withTimeout<any>(
+      Promise.resolve(supabase.from('clients').select('*'))
+    );
 
     if (pullError) {
       console.error('Sync Pull Error (Clients):', pullError);
     } else if (remoteClients) {
       // Update local Dexie with remote data
-      await db.clients.bulkPut(remoteClients.map(c => ({
+      await db.clients.bulkPut(remoteClients.map((c: any) => ({
         id: c.id,
         name: c.name,
         cnpj: c.cnpj,
@@ -62,7 +70,8 @@ export async function syncData() {
     // --- REPEAT for Inspections and Responses ---
     const localInspections = await db.inspections.toArray();
     if (localInspections.length > 0) {
-      await supabase.from('inspections').upsert(
+      await withTimeout<any>(
+        Promise.resolve(supabase.from('inspections').upsert(
         localInspections.map(i => ({
           id: i.id,
           client_id: i.clientId,
@@ -75,12 +84,12 @@ export async function syncData() {
           completed_at: i.completedAt,
           user_id: user.id
         }))
-      );
+      )));
     }
 
-    const { data: remoteInspections } = await supabase.from('inspections').select('*');
+    const { data: remoteInspections } = await withTimeout<any>(Promise.resolve(supabase.from('inspections').select('*')));
     if (remoteInspections) {
-      await db.inspections.bulkPut(remoteInspections.map(i => ({
+      await db.inspections.bulkPut(remoteInspections.map((i: any) => ({
         id: i.id,
         clientId: i.client_id,
         templateId: i.template_id,
@@ -96,7 +105,8 @@ export async function syncData() {
     // Sync Responses
     const localResponses = await db.responses.toArray();
     if (localResponses.length > 0) {
-      await supabase.from('responses').upsert(
+      await withTimeout<any>(
+        Promise.resolve(supabase.from('responses').upsert(
         localResponses.map(r => ({
           id: r.id,
           inspection_id: r.inspectionId,
@@ -108,12 +118,12 @@ export async function syncData() {
           updated_at: r.updatedAt,
           user_id: user.id
         }))
-      );
+      )));
     }
 
-    const { data: remoteResponses } = await supabase.from('responses').select('*');
+    const { data: remoteResponses } = await withTimeout<any>(Promise.resolve(supabase.from('responses').select('*')), 25000); // 25s for large response sets
     if (remoteResponses) {
-      await db.responses.bulkPut(remoteResponses.map(r => ({
+      await db.responses.bulkPut(remoteResponses.map((r: any) => ({
         id: r.id,
         inspectionId: r.inspection_id,
         itemId: r.item_id,
@@ -129,7 +139,8 @@ export async function syncData() {
     // Sync schedules
     const localSchedules = await db.schedules.toArray();
     if (localSchedules.length > 0) {
-      await supabase.from('schedules').upsert(
+      await withTimeout<any>(
+        Promise.resolve(supabase.from('schedules').upsert(
         localSchedules.map(s => ({
           id: s.id,
           client_id: s.clientId,
@@ -138,12 +149,12 @@ export async function syncData() {
           notes: s.notes,
           user_id: user.id
         }))
-      );
+      )));
     }
 
-    const { data: remoteSchedules } = await supabase.from('schedules').select('*');
+    const { data: remoteSchedules } = await withTimeout<any>(Promise.resolve(supabase.from('schedules').select('*')));
     if (remoteSchedules) {
-      await db.schedules.bulkPut(remoteSchedules.map(s => ({
+      await db.schedules.bulkPut(remoteSchedules.map((s: any) => ({
         id: s.id,
         clientId: s.client_id,
         scheduledAt: new Date(s.scheduled_at),
@@ -159,16 +170,17 @@ export async function syncData() {
       // Only upload if it's base64 (dataUrl)
       if (photo.dataUrl.startsWith('data:')) {
         try {
-          const blob = (await import('../utils/imageUtils')).dataUrlToBlob(photo.dataUrl);
+          const blob = dataUrlToBlob(photo.dataUrl);
           // NEW: Use shared folder instead of user-specific folder for multi-user sync
           const fileName = `shared/${photo.id}.jpg`;
           
-          const { error: uploadError } = await supabase.storage
-            .from('photos')
-            .upload(fileName, blob, { 
+          const { error: uploadError } = await withTimeout<any>(
+            Promise.resolve(supabase.storage.from('photos').upload(fileName, blob, { 
               contentType: 'image/jpeg',
               upsert: true 
-            });
+            })),
+            30000 // 30s timeout for uploads
+          );
 
           if (!uploadError) {
              const { data: { publicUrl } } = supabase.storage
