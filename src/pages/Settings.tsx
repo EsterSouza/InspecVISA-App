@@ -5,11 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { compressImage } from '../utils/imageUtils';
 import { db } from '../db/database';
 import { exportDatabase, importDatabase } from '../utils/backup';
-import { Save, Upload, Trash2, Moon, Sun, Monitor, Database, Download, RefreshCw, Bug } from 'lucide-react';
+import { Save, Upload, Trash2, Moon, Sun, Monitor, Database, Download, RefreshCw, Bug, LogOut } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useAuthStore } from '../store/useAuthStore';
 
 export function Settings() {
   const { settings, updateSettings, clearData } = useSettingsStore();
+  const { signOut } = useAuthStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
 
@@ -315,6 +317,21 @@ export function Settings() {
               Iniciar Consolidação Inteligente
             </Button>
           </Link>
+        </CardContent>
+      </Card>
+
+      <Card className="border-amber-100 bg-amber-50">
+        <CardContent className="p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="font-semibold text-amber-900 text-lg">Sessão do Usuário</h3>
+              <p className="text-sm text-amber-700 mt-1">Encerrar sua sessão atual. Você precisará fazer login novamente para sincronizar.</p>
+            </div>
+            <Button variant="outline" onClick={() => signOut()} className="whitespace-nowrap shrink-0 border-amber-300 text-amber-700 hover:bg-amber-100">
+              <LogOut className="mr-2 h-4 w-4" />
+              Sair da Conta
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
