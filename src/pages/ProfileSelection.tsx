@@ -28,7 +28,7 @@ export function ProfileSelection() {
           >
             <div className="relative z-10">
               <h3 className="text-xl font-bold text-gray-900 group-hover:text-primary-700 transition-colors">Ester</h3>
-              <p className="text-sm text-gray-500 font-medium">Nutricionista</p>
+              <p className="text-sm text-gray-500 font-medium">Enfermeira</p>
             </div>
             <div className="w-10 h-10 rounded-full bg-primary-50 flex items-center justify-center group-hover:bg-primary-100 transition-colors">
                <span className="text-primary-600 font-bold text-lg">E</span>
@@ -41,7 +41,7 @@ export function ProfileSelection() {
           >
              <div className="relative z-10">
               <h3 className="text-xl font-bold text-gray-900 group-hover:text-purple-700 transition-colors">Ana</h3>
-              <p className="text-sm text-gray-500 font-medium">Assistente Social</p>
+              <p className="text-sm text-gray-500 font-medium">Nutricionista</p>
             </div>
              <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center group-hover:bg-purple-100 transition-colors">
                <span className="text-purple-600 font-bold text-lg">A</span>
