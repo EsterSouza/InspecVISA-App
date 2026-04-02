@@ -3,7 +3,8 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { db, initializeDatabase } from './db/database';
 import { getTemplates } from './data/templates';
 import { useSettingsStore } from './store/useSettingsStore';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
+import { Button } from './components/ui/Button';
 
 // Layout
 import { Sidebar } from './components/layout/Sidebar';
@@ -31,6 +32,7 @@ import { ProfileSelection } from './pages/ProfileSelection';
 
 function App() {
   const [isInitializing, setIsInitializing] = useState(true);
+  const [initError, setInitError] = useState(false);
   const theme = useSettingsStore((s) => s.settings.theme);
   const { user, initialized, initialize } = useAuthStore();
 
@@ -57,6 +59,7 @@ function App() {
         await initializeDatabase(templates);
       } catch (err) {
         console.error('Initialization fail:', err);
+        setInitError(true);
       } finally {
         clearTimeout(timeout);
         setIsInitializing(false);
@@ -93,71 +96,72 @@ function App() {
     };
   }, [initialized, user]);
 
-  if (!initialized || isInitializing) {
-    return (
-      <div className="flex h-screen flex-col items-center justify-center bg-gray-50">
-        <Loader2 className="h-10 w-10 animate-spin text-primary-600 mb-4" />
-        <p className="text-gray-500 font-medium">Iniciando InspecVISA...</p>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <Login />;
-  }
-
-  // ✅ Se não tem perfil selecionado, mostra seleção antes da aplicação em si
   const name = useSettingsStore((s) => s.settings.name);
-  if (!name) {
-    return <ProfileSelection />;
-  }
 
   return (
     <BrowserRouter>
-      <div className="flex h-screen overflow-hidden bg-gray-50 font-sans text-gray-900 antialiased selection:bg-primary-500 selection:text-white">
-        
-        {/* Desktop Sidebar hidden on execution screen */}
-        <div className="hidden lg:block">
-           <Routes>
-             <Route path="/execute" element={null} />
-             <Route path="*" element={<Sidebar />} />
-           </Routes>
+      {(initError) ? (
+        <div className="flex h-screen flex-col items-center justify-center bg-red-50 p-6 text-center">
+          <AlertCircle className="h-12 w-12 text-red-600 mb-4" />
+          <h2 className="text-xl font-bold text-red-900 mb-2">Erro ao Iniciar</h2>
+          <p className="text-red-700 mb-6 max-w-xs mx-auto">Não foi possível carregar o banco de dados. Tente atualizar a página ou limpar os dados.</p>
+          <Button onClick={() => window.location.reload()} className="bg-red-600 hover:bg-red-700">Tentar Novamente</Button>
         </div>
-
-        {/* Main Workspace */}
-        <main className="flex-1 overflow-y-auto w-full relative pb-24 lg:pb-0">
-          <Routes>
-            {/* Rotas staff (admin / consultant) */}
-            <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/clients" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
-            <Route path="/clients/:id" element={<ProtectedRoute><ClientDetails /></ProtectedRoute>} />
-            <Route path="/schedules" element={<ProtectedRoute><Schedules /></ProtectedRoute>} />
-            <Route path="/settings" element={<ProtectedRoute requiredRole="admin"><Settings /></ProtectedRoute>} />
-
-            {/* Rotas compartilhadas (staff + client) */}
-            <Route path="/inspections" element={<Inspections />} />
-            <Route path="/new" element={<NewInspection />} />
-            <Route path="/execute" element={<InspectionExecution />} />
-            <Route path="/summary" element={<InspectionSummary />} />
-
-            {/* Administração e Migração */}
-            <Route path="/importar-dados" element={<ProtectedRoute requiredRole="admin"><ImportLegacyData /></ProtectedRoute>} />
-
-            {/* Utilitárias */}
-            <Route path="/debug" element={<Debug />} />
-            <Route path="/access-denied" element={<AccessDenied />} />
-          </Routes>
-        </main>
-
-        {/* Mobile Bottom Nav hidden on execution screen */}
-        <div className="lg:hidden">
-          <Routes>
-             <Route path="/execute" element={null} />
-             <Route path="*" element={<BottomNav />} />
-          </Routes>
+      ) : (!initialized || isInitializing) ? (
+        <div className="flex h-screen flex-col items-center justify-center bg-gray-50">
+          <Loader2 className="h-10 w-10 animate-spin text-primary-600 mb-4" />
+          <p className="text-gray-500 font-medium">Iniciando InspecVISA...</p>
         </div>
-        
-      </div>
+      ) : !user ? (
+        <Login />
+      ) : !name ? (
+        <ProfileSelection />
+      ) : (
+        <div className="flex h-screen overflow-hidden bg-gray-50 font-sans text-gray-900 antialiased selection:bg-primary-500 selection:text-white">
+          
+          {/* Desktop Sidebar hidden on execution screen */}
+          <div className="hidden lg:block">
+             <Routes>
+               <Route path="/execute" element={null} />
+               <Route path="*" element={<Sidebar />} />
+             </Routes>
+          </div>
+
+          {/* Main Workspace */}
+          <main className="flex-1 overflow-y-auto w-full relative pb-24 lg:pb-0">
+            <Routes>
+              {/* Rotas staff (admin / consultant) */}
+              <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/clients" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
+              <Route path="/clients/:id" element={<ProtectedRoute><ClientDetails /></ProtectedRoute>} />
+              <Route path="/schedules" element={<ProtectedRoute><Schedules /></ProtectedRoute>} />
+              
+              {/* Administração e Migração */}
+              <Route path="/settings" element={<ProtectedRoute requiredRole="admin"><Settings /></ProtectedRoute>} />
+              <Route path="/importar-dados" element={<ProtectedRoute requiredRole="admin"><ImportLegacyData /></ProtectedRoute>} />
+
+              {/* Rotas compartilhadas (staff + client) */}
+              <Route path="/inspections" element={<Inspections />} />
+              <Route path="/new" element={<NewInspection />} />
+              <Route path="/execute" element={<InspectionExecution />} />
+              <Route path="/summary" element={<InspectionSummary />} />
+
+              {/* Utilitárias */}
+              <Route path="/debug" element={<Debug />} />
+              <Route path="/access-denied" element={<AccessDenied />} />
+            </Routes>
+          </main>
+
+          {/* Mobile Bottom Nav hidden on execution screen */}
+          <div className="lg:hidden">
+            <Routes>
+               <Route path="/execute" element={null} />
+               <Route path="*" element={<BottomNav />} />
+            </Routes>
+          </div>
+          
+        </div>
+      )}
     </BrowserRouter>
   );
 }
