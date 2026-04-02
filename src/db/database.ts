@@ -30,11 +30,11 @@ export class InspectionDatabase extends Dexie {
 
   constructor() {
     super('InspectionDB');
-    this.version(10).stores({ // ✅ Bumped to version 10
+    this.version(11).stores({ // ✅ Bumped to 11 for the new compound index
       clients:     'id, category, name, city, state, tenantId, deletedAt, createdAt, updatedAt, synced',
       templates:   'id, category',
       inspections: 'id, clientId, templateId, status, tenantId, deletedAt, [clientId+status], inspectionDate, completedAt, createdAt, updatedAt, synced',
-      responses:   'id, inspectionId, itemId, result, tenantId, deletedAt, updatedAt, synced',
+      responses:   'id, inspectionId, itemId, result, tenantId, deletedAt, updatedAt, synced, [inspectionId+itemId]', // ✅ Added [inspectionId+itemId]
       photos:      'id, responseId, tenantId, deletedAt, synced',
       schedules:   'id, clientId, scheduledAt, status, tenantId, deletedAt, updatedAt, synced',
       sync_logs:   '++id, timestamp, level',

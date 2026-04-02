@@ -201,6 +201,25 @@ export async function syncData(isManual: boolean = false) {
   try {
     await logSync('info', '🔄 Iniciando Sincronização com Soft Delete...', { manual: isManual });
 
+    // 0. CHECK TENANT MISMATCH (Fix for account switching)
+    const tenantId = useAuthStore.getState().tenantInfo?.tenantId;
+    const firstClient = await db.clients.limit(1).toArray();
+    
+    if (tenantId && firstClient.length > 0 && firstClient[0].tenantId !== tenantId) {
+      await logSync('warn', 'Detectada troca de conta! Limpando dados locais para carregar a nova conta...');
+      // Se houver dados de outro tenant, limpa o banco para evitar mistura de dados
+      await db.transaction('rw', [db.clients, db.inspections, db.responses, db.photos, db.schedules], async () => {
+        await Promise.all([
+          db.clients.clear(),
+          db.inspections.clear(),
+          db.responses.clear(),
+          db.photos.clear(),
+          db.schedules.clear()
+        ]);
+      });
+      await logSync('info', 'Banco local limpo com sucesso.');
+    }
+
     // 0. Sync PROFILE
     const { settings } = (await import('../store/useSettingsStore')).useSettingsStore.getState();
     if (settings.name) {
