@@ -78,7 +78,7 @@ export function Login() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full h-12 bg-white/10 border border-white/10 rounded-xl pl-10 pr-4 text-white placeholder-white/20 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400 transition-all"
-                    placeholder="ana@treinavisa.com.br"
+                    placeholder="alimentos@consultorasanitaria.com.br"
                   />
                 </div>
               </div>
@@ -131,7 +131,7 @@ export function Login() {
         </Card>
 
         <p className="mt-8 text-center text-primary-100/30 text-xs">
-          © 2024 C&C Consultoria Sanitária. Todos os direitos reservados.
+          © 2026 Consultora Sanitária. Todos os direitos reservados.
         </p>
       </div>
     </div>

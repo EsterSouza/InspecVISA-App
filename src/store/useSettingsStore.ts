@@ -42,9 +42,9 @@ export const useSettingsStore = create<SettingsState>()(
         if (consultant === 'ana') {
           set({
             settings: {
-              name: 'Ana Carolina',
+              name: 'Ana Roberta Ribeiro',
               professionalId: 'CRN/RJ 10324',
-              phone: '(62) 99999-9999',
+              phone: '(21) 99031-3823',
               consultantRole: 'nutricao',
               theme: 'light',
             },
@@ -52,9 +52,9 @@ export const useSettingsStore = create<SettingsState>()(
         } else if (consultant === 'ester') {
           set({
             settings: {
-              name: 'Ester Souza',
-              professionalId: 'COREN/RJ 5784',
-              phone: '(62) 99999-9999',
+              name: 'Ester Caiafa',
+              professionalId: 'COREN/RJ 759.561',
+              phone: '(21) 99339-7315',
               consultantRole: 'saude',
               theme: 'light',
             },
