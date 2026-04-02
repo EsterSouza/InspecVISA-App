@@ -43,7 +43,7 @@ export const useSettingsStore = create<SettingsState>()(
           set({
             settings: {
               name: 'Ana Carolina',
-              professionalId: 'CRN/GO 10324',
+              professionalId: 'CRN/RJ 10324',
               phone: '(62) 99999-9999',
               consultantRole: 'nutricao',
               theme: 'light',
@@ -53,7 +53,7 @@ export const useSettingsStore = create<SettingsState>()(
           set({
             settings: {
               name: 'Ester Souza',
-              professionalId: 'COREN/GO 5784',
+              professionalId: 'COREN/RJ 5784',
               phone: '(62) 99999-9999',
               consultantRole: 'saude',
               theme: 'light',
