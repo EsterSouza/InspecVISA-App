@@ -45,6 +45,12 @@ function App() {
   useEffect(() => {
     // Initialize Auth and Database
     const initApp = async () => {
+      // Safety timeout: forced initialize after 10 seconds to avoid indefinite loader
+      const timeout = setTimeout(() => {
+        console.warn('Initialization timeout hit. Forcing start.');
+        setIsInitializing(false);
+      }, 10000);
+
       try {
         await initialize();
         const templates = getTemplates();
@@ -52,6 +58,7 @@ function App() {
       } catch (err) {
         console.error('Initialization fail:', err);
       } finally {
+        clearTimeout(timeout);
         setIsInitializing(false);
       }
     };
@@ -134,7 +141,6 @@ function App() {
             <Route path="/summary" element={<InspectionSummary />} />
 
             {/* Administração e Migração */}
-            <Route path="/settings" element={<ProtectedRoute requiredRole="admin"><Settings /></ProtectedRoute>} />
             <Route path="/importar-dados" element={<ProtectedRoute requiredRole="admin"><ImportLegacyData /></ProtectedRoute>} />
 
             {/* Utilitárias */}

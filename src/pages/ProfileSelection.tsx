@@ -1,9 +1,10 @@
-import React from 'react';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { User } from 'lucide-react';
+import { useAuthStore } from '../store/useAuthStore';
+import { User, LogOut } from 'lucide-react';
 
 export function ProfileSelection() {
   const { setConsultant } = useSettingsStore();
+  const { signOut } = useAuthStore();
 
   const handleSelect = (consultant: 'ana' | 'ester') => {
     setConsultant(consultant);
@@ -49,9 +50,19 @@ export function ProfileSelection() {
           </button>
         </div>
 
-        <p className="text-center text-[11px] text-gray-400 mt-8">
-          Você poderá alterar essa opção depois em Ajustes.
-        </p>
+        <div className="mt-8 pt-6 border-t border-gray-100 flex flex-col items-center gap-4">
+          <p className="text-center text-[11px] text-gray-400">
+            Você poderá alterar essa opção depois em Ajustes.
+          </p>
+          
+          <button
+            onClick={() => signOut()}
+            className="flex items-center text-red-500 hover:text-red-700 text-xs font-bold transition-colors"
+          >
+            <LogOut className="w-3 h-3 mr-1" />
+            Sair da Conta
+          </button>
+        </div>
       </div>
     </div>
   );
