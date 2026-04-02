@@ -26,6 +26,7 @@ import { AccessDenied } from './pages/AccessDenied';
 import Debug from './pages/Debug';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ClientRoute } from './components/ClientRoute';
+import { ProfileSelection } from './pages/ProfileSelection';
 
 function App() {
   const [isInitializing, setIsInitializing] = useState(true);
@@ -95,6 +96,12 @@ function App() {
 
   if (!user) {
     return <Login />;
+  }
+
+  // ✅ Se não tem perfil selecionado, mostra seleção antes da aplicação em si
+  const { name } = useSettingsStore.getState().settings;
+  if (!name) {
+    return <ProfileSelection />;
   }
 
   return (

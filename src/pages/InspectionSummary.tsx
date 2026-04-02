@@ -130,7 +130,7 @@ export function InspectionSummary() {
     try {
        // Allow React state update to show spinner
        await new Promise(resolve => setTimeout(resolve, 100));
-       await generatePDF(currentInspection, responses, template, scoreArea, settings);
+       await generatePDF(currentInspection, responses, template, scoreArea, settings as any);
     } catch (err) {
        console.error('PDF Error:', err);
       alert('Erro ao gerar PDF. Verifique os dados e tente novamente.');

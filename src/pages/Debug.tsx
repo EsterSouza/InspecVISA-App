@@ -3,7 +3,7 @@ import { db } from '../db/database';
 import type { SyncLog } from '../types';
 import { ArrowLeft, Trash2, Copy, RefreshCw, Search, Wrench, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { diagnosticSync, repairMissingTenantIds, syncData } from '../services/syncService';
+import { syncData } from '../services/syncService';
 
 const Debug: React.FC = () => {
   const [logs, setLogs] = useState<SyncLog[]>([]);
@@ -38,20 +38,22 @@ const Debug: React.FC = () => {
   const runDiagnostic = async () => {
     setIsRunning(true);
     try {
-      const r = await diagnosticSync();
-      setReport(r);
-    } finally {
-      setIsRunning(false);
-    }
-  };
-
-  const runRepair = async () => {
-    if (!confirm('Isso vai corrigir registros sem tenantId e marcar como pendentes de sync. Continuar?')) return;
-    setIsRunning(true);
-    try {
-      await repairMissingTenantIds();
-      await runDiagnostic();
-      await loadLogs();
+      const allClients = await db.clients.toArray();
+      const allInspections = await db.inspections.toArray();
+      const allSchedules = await db.schedules.toArray();
+      
+      setReport({
+        'Totais Locais': {
+          'Clientes': allClients.length,
+          'Inspeções': allInspections.length,
+          'Schedules': allSchedules.length
+        },
+        'Pendentes de Sincronização': {
+          'Clientes': allClients.filter(c => c.synced !== 1).length,
+          'Inspeções': allInspections.filter(i => i.synced !== 1).length,
+          'Schedules': allSchedules.filter(s => s.synced !== 1).length
+        }
+      });
     } finally {
       setIsRunning(false);
     }
@@ -91,7 +93,7 @@ const Debug: React.FC = () => {
         </header>
 
         {/* Repair Actions */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
           <button
             onClick={runDiagnostic}
             disabled={isRunning}
@@ -99,14 +101,6 @@ const Debug: React.FC = () => {
           >
             <Search size={18} />
             Executar Diagnóstico
-          </button>
-          <button
-            onClick={runRepair}
-            disabled={isRunning}
-            className="flex items-center gap-2 justify-center px-4 py-3 bg-amber-500 text-white rounded-xl font-semibold hover:bg-amber-600 disabled:opacity-50"
-          >
-            <Wrench size={18} />
-            Recuperar Dados
           </button>
           <button
             onClick={runManualSync}
@@ -198,10 +192,9 @@ const Debug: React.FC = () => {
         <div className="mt-6 p-4 bg-amber-50 border border-amber-100 rounded-lg text-amber-800 text-sm">
           <p className="font-bold mb-1 flex items-center gap-2"><AlertTriangle size={16} /> Guia de Diagnóstico:</p>
           <ul className="list-disc list-inside space-y-1">
-            <li><strong>Registros sem tenantId</strong>: clique em "Recuperar Dados" para corrigir</li>
-            <li><strong>Erros 403/Forbidden</strong>: problema de permissão no Supabase (RLS)</li>
-            <li><strong>Erros de Timeout</strong>: internet instável — tente sync manual</li>
-            <li><strong>FK Violation</strong>: cliente ainda não sincronizado — faça sync manual completo</li>
+            <li><strong>Sem Sincronização</strong>: Execute o Aplicativo conectado na internet</li>
+            <li><strong>Erros de Timeout</strong>: Internet instável — tente sync manual</li>
+            <li><strong>Permissão Negada</strong>: Verifique regras RLS no BD</li>
           </ul>
         </div>
       </div>

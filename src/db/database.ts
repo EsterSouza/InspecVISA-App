@@ -47,14 +47,13 @@ export class InspectionDatabase extends Dexie {
       table.hook('creating', (primaryKey, obj) => {
         const tenantId = useAuthStore.getState().tenantInfo?.tenantId;
 
-        // ✅ FIX #8: Bloqueia criação sem tenantId para evitar dados quebrados
-        if (!tenantId) {
-          throw new Error('⚠️ Sistema ainda carregando. Aguarde e tente novamente.');
-        }
-
         obj.synced = 0; // 0 = pending
         obj.updatedAt = new Date();
-        obj.tenantId = tenantId;
+        
+        // ✅ OPCIONAL: Se o usuário tiver tenantId, insere (pra dados legados), mas não bloqueia se não tiver
+        if (tenantId) {
+          obj.tenantId = tenantId;
+        }
       });
 
       table.hook('updating', (mods: Record<string, any>, primKey, obj) => {

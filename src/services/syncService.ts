@@ -42,7 +42,7 @@ async function safeBatchUpsert(tableName: string, records: any[]): Promise<{ suc
       continue;
     }
 
-    await logSync('warn', `Chunk upsert falhou na tabela ${tableName}, processando 1 por 1. Erro:`, bulkError);
+    await logSync('warn', `Chunk upsert falhou na tabela ${tableName}, processando 1 por 1.`, bulkError);
     
     for (const record of chunk) {
       const { error } = await withTimeout<any>(
@@ -63,11 +63,17 @@ async function safeBatchUpsert(tableName: string, records: any[]): Promise<{ suc
 }
 
 /**
- * ✅ FIX #6: Paginação para evitar o limite de 1000 registros
+ * Merge inteligente: Servidor ganha SE for mais novo
+ * Local ganha SE for mais novo
+ * Evita perda de dados em concorrência
  */
+function shouldUpdateLocal(serverDate: Date, localDate: Date | undefined): boolean {
+  if (!localDate) return true; // Não existe local, baixa do servidor
+  return serverDate > localDate; // Servidor é mais atualizado
+}
+
 async function pullAllPages(
   tableName: string,
-  tenantId: string,
   orderBy: string = 'updated_at'
 ): Promise<any[]> {
   const all: any[] = [];
@@ -80,7 +86,7 @@ async function pullAllPages(
         supabase
           .from(tableName)
           .select('*')
-          .eq('tenant_id', tenantId) // ✅ FIX #3: Filtro de tenant em TODOS os pulls
+          // ✅ SEM FILTRO DE TENANT - CONTA UNificada
           .order(orderBy, { ascending: false })
           .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
       )
@@ -94,17 +100,13 @@ async function pullAllPages(
     if (!data || data.length === 0) break;
 
     all.push(...data);
-    if (data.length < PAGE_SIZE) break; // Última página
+    if (data.length < PAGE_SIZE) break;
     page++;
   }
 
   return all;
 }
 
-/**
- * ✅ FIX #4: cleanupOrphans movido para o FINAL do sync
- * Remove registros locais cujos pais não existem mais (Evita FK Violation no Supabase)
- */
 async function cleanupOrphans() {
   await logSync('info', 'Limpando registros órfãos locais...');
   
@@ -114,7 +116,7 @@ async function cleanupOrphans() {
     const parent = await db.inspections.get(r.inspectionId);
     if (!parent) {
       await db.responses.delete(r.id);
-      await logSync('warn', `Removida resposta órfã: ${r.id} (Inspeção ausente)`);
+      await logSync('warn', `Removida resposta órfã: ${r.id}`);
     }
   }
 
@@ -124,7 +126,7 @@ async function cleanupOrphans() {
     const parent = await db.responses.get(p.responseId);
     if (!parent) {
       await db.photos.delete(p.id);
-      await logSync('warn', `Removida foto órfã: ${p.id} (Resposta ausente)`);
+      await logSync('warn', `Removida foto órfã: ${p.id}`);
     }
   }
 
@@ -134,7 +136,17 @@ async function cleanupOrphans() {
     const parent = await db.clients.get(i.clientId);
     if (!parent) {
       await db.inspections.delete(i.id);
-      await logSync('warn', `Removida inspeção órfã: ${i.id} (Cliente ausente)`);
+      await logSync('warn', `Removida inspeção órfã: ${i.id}`);
+    }
+  }
+
+  // 4. Schedules sem Cliente
+  const schedules = await db.schedules.toArray();
+  for (const s of schedules) {
+    const parent = await db.clients.get(s.clientId);
+    if (!parent) {
+      await db.schedules.delete(s.id);
+      await logSync('warn', `Removido schedule órfão: ${s.id}`);
     }
   }
 }
@@ -148,10 +160,7 @@ async function processPendingDeletions() {
   for (const del of deletions) {
     try {
       const { error } = await supabase.from(del.table).delete().eq('id', del.recordId);
-      if (!error) {
-        await db.deletions_sync.delete(del.id!);
-      } else if (error.code === 'PGRST116' || error.code === '404') {
-        // Record already gone from server
+      if (!error || error.code === 'PGRST116' || error.code === '404') {
         await db.deletions_sync.delete(del.id!);
       }
     } catch (err) {
@@ -161,12 +170,11 @@ async function processPendingDeletions() {
 }
 
 export async function syncData(isManual: boolean = false) {
-  const { user, tenantInfo } = useAuthStore.getState();
-  if (!user || !tenantInfo) {
+  const { user } = useAuthStore.getState();
+  if (!user) {
     if (isManual) alert('Faça login antes de sincronizar.');
     return;
   }
-  const tenantId = tenantInfo.tenantId;
 
   if ((window as any).isSyncingGlobally) {
     if (isManual) alert('Uma sincronização já está em andamento.');
@@ -175,14 +183,14 @@ export async function syncData(isManual: boolean = false) {
   (window as any).isSyncingGlobally = true;
 
   try {
-    await logSync('info', 'Iniciando Sincronização Segura...', { manual: isManual });
+    await logSync('info', 'Iniciando Sincronização Compartilhada...', { manual: isManual });
 
     // A. Sync Deletions First
     await processPendingDeletions();
     const activeDeletions = await db.deletions_sync.toArray();
     const deletedIds = new Set(activeDeletions.map(d => d.recordId));
 
-    // 0. Sync PROFILE / SETTINGS
+    // 0. Sync PROFILE
     const { settings } = (await import('../store/useSettingsStore')).useSettingsStore.getState();
     if (settings.name) {
       await supabase.from('profiles').upsert({
@@ -196,168 +204,90 @@ export async function syncData(isManual: boolean = false) {
     }
 
     // ============================================================
-    // 1. CLIENTES — PUSH
+    // 1. CLIENTES
     // ============================================================
+    
+    // PUSH
     const clientQuery = isManual 
       ? db.clients.filter(c => c.synced !== 1)
       : db.clients.where('synced').equals(0);
     
     let pendingClients = await clientQuery.toArray();
-
-    // ✅ Validação: remove clientes sem tenantId (dados corrompidos)
-    const invalidClients = pendingClients.filter(c => !c.tenantId);
-    if (invalidClients.length > 0) {
-      await logSync('warn', `${invalidClients.length} clientes sem tenantId ignorados no push (rode a recuperação de dados)`);
-      pendingClients = pendingClients.filter(c => !!c.tenantId);
-    }
-
+    
     if (pendingClients.length > 0) {
       await logSync('info', `Enviando ${pendingClients.length} clientes pendentes...`);
-
-      // -- LOCAL DEDUPLICATION --
-      const localCnpjToId = new Map<string, string>();
-      for (const lc of pendingClients) {
-        if (lc.cnpj) {
-          const canonicalId = localCnpjToId.get(lc.cnpj);
-          if (!canonicalId) {
-            localCnpjToId.set(lc.cnpj, lc.id);
-          } else if (lc.id !== canonicalId) {
-            const canonicalRecord = await db.clients.get(canonicalId);
-            if (canonicalRecord) {
-              let changed = false;
-              if (!canonicalRecord.address && lc.address) { canonicalRecord.address = lc.address; changed = true; }
-              if (!canonicalRecord.city && lc.city) { canonicalRecord.city = lc.city; changed = true; }
-              if (!canonicalRecord.state && lc.state) { canonicalRecord.state = lc.state; changed = true; }
-              if (!canonicalRecord.phone && lc.phone) { canonicalRecord.phone = lc.phone; changed = true; }
-              if (!canonicalRecord.responsibleName && lc.responsibleName) { canonicalRecord.responsibleName = lc.responsibleName; changed = true; }
-              if (changed) {
-                canonicalRecord.updatedAt = new Date();
-                await db.clients.put(canonicalRecord);
-              }
-            }
-            await logSync('info', `Deduplicando localmente: ${lc.name}`);
-            await db.inspections.where({ clientId: lc.id }).modify({ clientId: canonicalId });
-            await db.schedules.where({ clientId: lc.id }).modify({ clientId: canonicalId });
-            await db.clients.delete(lc.id);
-          }
-        }
-      }
-
-      pendingClients = await clientQuery.toArray();
-
-      // -- REMOTE DEDUPLICATION (CNPJ Merge com filtro de tenant) --
-      const { data: remoteCnpjData } = await withTimeout<any>(
-        Promise.resolve(
-          supabase.from('clients').select('id, cnpj').eq('tenant_id', tenantId) // ✅ FIX #3
-        )
-      );
-      const remoteCnpjMap = new Map<string, string>(
-        remoteCnpjData?.filter((c: any) => c.cnpj).map((c: any) => [c.cnpj, c.id]) || []
-      );
-
-      for (const localClient of pendingClients) {
-        if (localClient.cnpj && remoteCnpjMap.has(localClient.cnpj)) {
-          const canonicalRemoteId = remoteCnpjMap.get(localClient.cnpj)!;
-          if (localClient.id !== canonicalRemoteId) {
-            await logSync('info', `Mesclando cliente com a nuvem (CNPJ duplicado): ${localClient.name}`);
-            await db.inspections.where({ clientId: localClient.id }).modify({ clientId: canonicalRemoteId });
-            await db.schedules.where({ clientId: localClient.id }).modify({ clientId: canonicalRemoteId });
-            await db.clients.delete(localClient.id);
-            localClient.id = canonicalRemoteId;
-            await db.clients.put(localClient);
-          }
-        }
-      }
-
-      const clientsToPush = (await clientQuery.toArray())
-        .filter(c => !!c.tenantId) // segurança extra
-        .map(c => ({
-          id: c.id, 
-          name: c.name, 
-          cnpj: c.cnpj, 
-          address: c.address, 
-          category: c.category,
-          food_types: c.foodTypes, 
-          responsible_name: c.responsibleName, 
-          phone: c.phone,
-          email: c.email, 
-          created_at: c.createdAt, 
-          updated_at: c.updatedAt || new Date(),
-          user_id: user.id,
-          tenant_id: tenantId
-        }));
+      
+      const clientsToPush = pendingClients.map(c => ({
+        id: c.id, name: c.name, cnpj: c.cnpj, address: c.address, category: c.category,
+        food_types: c.foodTypes, responsible_name: c.responsibleName, phone: c.phone,
+        email: c.email, created_at: c.createdAt, updated_at: c.updatedAt || new Date(),
+        user_id: user.id, city: c.city, state: c.state
+        // tenant_id removido
+      }));
 
       const { error: pushError } = await withTimeout<any>(
         Promise.resolve(supabase.from('clients').upsert(clientsToPush))
       );
-
+      
       if (!pushError) {
-        await db.clients.where('id').anyOf(pendingClients.map(c => c.id)).modify({ synced: 1 });
+        await db.clients.where('id').anyOf(clientsToPush.map(c => c.id)).modify({ synced: 1 });
         await logSync('info', 'Clientes enviados com sucesso');
       } else {
-        // ✅ FIX #5: NÃO aborta — continua o sync para não bloquear inspeções já enviadas
-        await logSync('error', 'Falha parcial ao enviar Clientes. Continuando sync...', pushError);
+        await logSync('error', 'Falha ao enviar Clientes', pushError);
       }
     }
 
-    // 1. PULL CLIENTS (com paginação e filtro de tenant)
-    const remoteClients = await pullAllPages('clients', tenantId);
-    await logSync('info', `Baixados ${remoteClients.length} clientes da nuvem`);
-
-    for (const rc of remoteClients) {
-      if (deletedIds.has(rc.id)) continue;
-      const local = await db.clients.get(rc.id);
+    // PULL CLIENTES
+    const remoteClients = await pullAllPages('clients');
+    if (remoteClients.length > 0) {
+      await logSync('info', `Baixados ${remoteClients.length} clientes da nuvem`);
       
-      const serverUpdate = new Date(rc.updated_at || rc.created_at);
-      const localUpdate = local?.updatedAt ? new Date(local.updatedAt) : new Date(0);
+      for (const rc of remoteClients) {
+        if (deletedIds.has(rc.id)) continue;
+        
+        const local = await db.clients.get(rc.id);
+        const serverUpdate = new Date(rc.updated_at || rc.created_at);
+        const localUpdate = local?.updatedAt ? new Date(local.updatedAt) : undefined;
 
-      // ✅ FIX #2: Removido || (local.synced === 1) — só sobrescreve se servidor mais novo
-      if (!local || serverUpdate > localUpdate) {
-        await db.clients.put({
-          id: rc.id, 
-          name: rc.name, 
-          cnpj: rc.cnpj, 
-          address: rc.address,
-          category: rc.category as any, 
-          foodTypes: rc.food_types,
-          responsibleName: rc.responsible_name, 
-          phone: rc.phone, 
-          email: rc.email,
-          createdAt: new Date(rc.created_at), 
-          updatedAt: serverUpdate,
-          city: rc.city, 
-          state: rc.state,
-          tenantId: rc.tenant_id,
-          synced: 1
-        });
+        if (shouldUpdateLocal(serverUpdate, localUpdate)) {
+          await db.clients.put({
+            id: rc.id, name: rc.name, cnpj: rc.cnpj, address: rc.address,
+            category: rc.category as any, foodTypes: rc.food_types,
+            responsibleName: rc.responsible_name, phone: rc.phone, email: rc.email,
+            createdAt: new Date(rc.created_at), updatedAt: serverUpdate,
+            city: rc.city, state: rc.state, tenantId: rc.tenant_id, synced: 1
+          });
+        } else if (local && localUpdate && serverUpdate <= localUpdate && local.synced === 0) {
+          // Local mais novo, mas servidor confirmou recepção (edge case, mantido safe)
+          await db.clients.update(rc.id, { synced: 1 });
+        }
       }
     }
 
     // ============================================================
-    // 2. INSPEÇÕES — PUSH
+    // 2. INSPEÇÕES
     // ============================================================
+    
+    // PUSH
     const inspecQuery = isManual 
       ? db.inspections.filter(i => i.synced !== 1) 
       : db.inspections.where('synced').equals(0);
+    
     const allPendingInspec = await inspecQuery.toArray();
-
-    // FILTRO: Só envia se cliente sincronizado AND tenantId existe
+    
     const pendingInspec = [];
     for (const i of allPendingInspec) {
-      if (!i.tenantId) {
-        console.warn(`[Sync] Inspeção ${i.id} sem tenantId — ignorando`);
-        continue;
-      }
       const client = await db.clients.get(i.clientId);
       if (client && client.synced === 1) {
         pendingInspec.push(i);
-      } else if (client) {
-        console.warn(`[Sync] Inspeção ${i.id} aguardando cliente ${i.clientId}`);
+      } else {
+        await logSync('warn', `Inspeção ${i.id} aguardando cliente ${i.clientId} sincronizar`);
       }
     }
 
     if (pendingInspec.length > 0) {
-      await logSync('info', `Enviando ${pendingInspec.length} inspeções (com pais validados)...`);
+      await logSync('info', `Enviando ${pendingInspec.length} inspeções...`);
+      
       const recordsToPush = pendingInspec.map(i => ({
         id: i.id, client_id: i.clientId, template_id: i.templateId,
         consultant_name: i.consultantName, inspection_date: i.inspectionDate,
@@ -368,49 +298,54 @@ export async function syncData(isManual: boolean = false) {
         dependency_level1: i.dependencyLevel1, dependency_level2: i.dependencyLevel2,
         dependency_level3: i.dependencyLevel3, accompanist_name: i.accompanistName,
         accompanist_role: i.accompanistRole, signature_data_url: i.signatureDataUrl,
-        tenant_id: tenantId
+        updated_at: i.updatedAt || new Date()
       }));
+      
       const { successIds, errors } = await safeBatchUpsert('inspections', recordsToPush);
       if (successIds.length > 0) await db.inspections.where('id').anyOf(successIds).modify({ synced: 1 });
       if (errors.length > 0) await logSync('error', 'Falha em algumas inspeções', errors[0].error);
     }
 
-    // 2. PULL INSPECTIONS (com paginação e filtro de tenant)
-    const remoteInspec = await pullAllPages('inspections', tenantId);
-    for (const ri of remoteInspec) {
-      if (deletedIds.has(ri.id)) continue;
-      const local = await db.inspections.get(ri.id);
+    // PULL INSPEÇÕES
+    const remoteInspec = await pullAllPages('inspections');
+    if (remoteInspec.length > 0) {
+      await logSync('info', `Baixados ${remoteInspec.length} inspeções da nuvem`);
       
-      const serverUpdate = new Date(ri.updated_at || ri.created_at);
-      const localUpdate = local?.updatedAt ? new Date(local.updatedAt) : new Date(0);
+      for (const ri of remoteInspec) {
+        if (deletedIds.has(ri.id)) continue;
+        
+        const local = await db.inspections.get(ri.id);
+        const serverUpdate = new Date(ri.updated_at || ri.created_at);
+        const localUpdate = local?.updatedAt ? new Date(local.updatedAt) : undefined;
 
-      // ✅ FIX #2: Sem || (local.synced === 1)
-      if (!local || serverUpdate > localUpdate) {
-        await db.inspections.put({
-          id: ri.id, clientId: ri.client_id, templateId: ri.template_id,
-          consultantName: ri.consultant_name, inspectionDate: new Date(ri.inspection_date),
-          status: ri.status as any, observations: ri.observations,
-          createdAt: new Date(ri.created_at), updatedAt: serverUpdate,
-          completedAt: ri.completed_at ? new Date(ri.completed_at) : undefined,
-          ilpiCapacity: ri.ilpi_capacity, residentsTotal: ri.residents_total,
-          residentsMale: ri.residents_male, residentsFemale: ri.residents_female,
-          dependencyLevel1: ri.dependency_level1, dependencyLevel2: ri.dependency_level2,
-          dependencyLevel3: ri.dependency_level3, accompanistName: ri.accompanist_name,
-          accompanistRole: ri.accompanist_role, signatureDataUrl: ri.signature_data_url,
-          tenantId: ri.tenant_id, synced: 1
-        });
+        if (shouldUpdateLocal(serverUpdate, localUpdate)) {
+          await db.inspections.put({
+            id: ri.id, clientId: ri.client_id, templateId: ri.template_id,
+            consultantName: ri.consultant_name, inspectionDate: new Date(ri.inspection_date),
+            status: ri.status as any, observations: ri.observations,
+            createdAt: new Date(ri.created_at), updatedAt: serverUpdate,
+            completedAt: ri.completed_at ? new Date(ri.completed_at) : undefined,
+            ilpiCapacity: ri.ilpi_capacity, residentsTotal: ri.residents_total,
+            residentsMale: ri.residents_male, residentsFemale: ri.residents_female,
+            dependencyLevel1: ri.dependency_level1, dependencyLevel2: ri.dependency_level2,
+            dependencyLevel3: ri.dependency_level3, accompanistName: ri.accompanist_name,
+            accompanistRole: ri.accompanist_role, signatureDataUrl: ri.signature_data_url,
+            tenantId: ri.tenant_id, synced: 1
+          });
+        } else if (local && localUpdate && serverUpdate <= localUpdate && local.synced === 0) {
+          await db.inspections.update(ri.id, { synced: 1 });
+        }
       }
     }
 
     // ============================================================
-    // 3. RESPOSTAS — PUSH
+    // 3. RESPOSTAS
     // ============================================================
-    const resQuery = isManual 
-      ? db.responses.filter(r => r.synced !== 1) 
-      : db.responses.where('synced').equals(0);
+    
+    // PUSH
+    const resQuery = isManual ? db.responses.filter(r => r.synced !== 1) : db.responses.where('synced').equals(0);
     const allPendingResponses = await resQuery.toArray();
 
-    // FILTRO: Só envia se inspeção pai sincronizada
     const pendingResponses = [];
     for (const r of allPendingResponses) {
       const parent = await db.inspections.get(r.inspectionId);
@@ -420,48 +355,54 @@ export async function syncData(isManual: boolean = false) {
     }
 
     if (pendingResponses.length > 0) {
-      await logSync('info', `Enviando ${pendingResponses.length} respostas (com inspeções validadas)...`);
+      await logSync('info', `Enviando ${pendingResponses.length} respostas...`);
+      
       const recordsToPush = pendingResponses.map(r => ({
         id: r.id, inspection_id: r.inspectionId, item_id: r.itemId,
         result: r.result, situation_description: r.situationDescription,
         corrective_action: r.correctiveAction, created_at: r.createdAt,
-        updated_at: r.updatedAt, user_id: user.id, custom_description: r.customDescription,
-        tenant_id: tenantId
+        updated_at: r.updatedAt || new Date(), user_id: user.id, 
+        custom_description: r.customDescription
       }));
+      
       const { successIds } = await safeBatchUpsert('responses', recordsToPush);
       if (successIds.length > 0) await db.responses.where('id').anyOf(successIds).modify({ synced: 1 });
     }
 
-    // 3. PULL RESPONSES (com paginação e filtro de tenant)
-    const remoteRes = await pullAllPages('responses', tenantId);
-    for (const rr of remoteRes) {
-      if (deletedIds.has(rr.id)) continue;
-      const local = await db.responses.get(rr.id);
+    // PULL RESPOSTAS
+    const remoteRes = await pullAllPages('responses');
+    if (remoteRes.length > 0) {
+      await logSync('info', `Baixados ${remoteRes.length} respostas da nuvem`);
       
-      const serverUpdate = new Date(rr.updated_at || rr.created_at);
-      const localUpdate = local?.updatedAt ? new Date(local.updatedAt) : new Date(0);
+      for (const rr of remoteRes) {
+        if (deletedIds.has(rr.id)) continue;
+        
+        const local = await db.responses.get(rr.id);
+        const serverUpdate = new Date(rr.updated_at || rr.created_at);
+        const localUpdate = local?.updatedAt ? new Date(local.updatedAt) : undefined;
 
-      // ✅ FIX #2: Sem || (local.synced === 1)
-      if (!local || serverUpdate > localUpdate) {
-        await db.responses.put({
-          id: rr.id, inspectionId: rr.inspection_id, itemId: rr.item_id,
-          result: rr.result as any, situationDescription: rr.situation_description,
-          correctiveAction: rr.corrective_action, createdAt: new Date(rr.created_at),
-          updatedAt: serverUpdate, photos: [], tenantId: rr.tenant_id, synced: 1,
-          customDescription: rr.custom_description
-        });
+        if (shouldUpdateLocal(serverUpdate, localUpdate)) {
+          await db.responses.put({
+            id: rr.id, inspectionId: rr.inspection_id, itemId: rr.item_id,
+            result: rr.result as any, situationDescription: rr.situation_description,
+            correctiveAction: rr.corrective_action, createdAt: new Date(rr.created_at),
+            updatedAt: serverUpdate, photos: [], tenantId: rr.tenant_id, synced: 1,
+            customDescription: rr.custom_description
+          });
+        } else if (local && localUpdate && serverUpdate <= localUpdate && local.synced === 0) {
+          await db.responses.update(rr.id, { synced: 1 });
+        }
       }
     }
 
     // ============================================================
-    // 4. FOTOS — PUSH
+    // 4. FOTOS
     // ============================================================
-    const photoQuery = isManual 
-      ? db.photos.filter(p => p.synced !== 1) 
-      : db.photos.where('synced').equals(0);
+    
+    // PUSH
+    const photoQuery = isManual ? db.photos.filter(p => p.synced !== 1) : db.photos.where('synced').equals(0);
     const allPendingPhotos = await photoQuery.toArray();
 
-    // FILTRO: Só envia se resposta pai sincronizada
     const pendingPhotos = [];
     for (const p of allPendingPhotos) {
       const parent = await db.responses.get(p.responseId);
@@ -471,134 +412,146 @@ export async function syncData(isManual: boolean = false) {
     }
 
     if (pendingPhotos.length > 0) {
-      await logSync('info', `Enviando ${pendingPhotos.length} fotos (com respostas validadas)...`);
+      await logSync('info', `Enviando ${pendingPhotos.length} fotos...`);
+      
       const recordsToPush = pendingPhotos.map(p => ({
         id: p.id, response_id: p.responseId, data_url: p.dataUrl,
         caption: p.caption, taken_at: p.takenAt, user_id: user.id,
-        updated_at: p.updatedAt || new Date(),
-        tenant_id: tenantId
+        updated_at: p.updatedAt || new Date()
       }));
+      
       const { successIds } = await safeBatchUpsert('photos', recordsToPush);
       if (successIds.length > 0) await db.photos.where('id').anyOf(successIds).modify({ synced: 1 });
     }
 
-    // 4. PULL PHOTOS (com paginação e filtro de tenant)
-    const remotePh = await pullAllPages('photos', tenantId, 'taken_at');
-    for (const rp of remotePh) {
-      if (deletedIds.has(rp.id)) continue;
-      const local = await db.photos.get(rp.id);
+    // PULL FOTOS
+    const remotePh = await pullAllPages('photos', 'taken_at');
+    if (remotePh.length > 0) {
+      await logSync('info', `Baixados ${remotePh.length} fotos da nuvem`);
       
-      const serverUpdate = new Date(rp.updated_at || rp.taken_at || rp.created_at);
-      const localUpdate = local?.updatedAt ? new Date(local.updatedAt) : new Date(0);
+      for (const rp of remotePh) {
+        if (deletedIds.has(rp.id)) continue;
+        
+        const local = await db.photos.get(rp.id);
+        const serverUpdate = new Date(rp.updated_at || rp.taken_at || rp.created_at);
+        const localUpdate = local?.updatedAt ? new Date(local.updatedAt) : undefined;
 
-      // ✅ FIX #2: Sem || (local.synced === 1)
-      if (!local || serverUpdate > localUpdate) {
-        await db.photos.put({
-          id: rp.id, responseId: rp.response_id, dataUrl: rp.data_url,
-          caption: rp.caption, takenAt: new Date(rp.taken_at), 
-          updatedAt: serverUpdate, tenantId: rp.tenant_id, synced: 1
-        });
+        if (shouldUpdateLocal(serverUpdate, localUpdate)) {
+          await db.photos.put({
+            id: rp.id, responseId: rp.response_id, dataUrl: rp.data_url,
+            caption: rp.caption, takenAt: new Date(rp.taken_at), 
+            updatedAt: serverUpdate, tenantId: rp.tenant_id, synced: 1
+          });
+        } else if (local && localUpdate && serverUpdate <= localUpdate && local.synced === 0) {
+          await db.photos.update(rp.id, { synced: 1 });
+        }
       }
     }
 
     // ============================================================
-    // 5. AGENDAMENTOS — PUSH
+    // 5. SCHEDULES
     // ============================================================
-    const schQuery = isManual 
-      ? db.schedules.filter(s => s.synced !== 1) 
-      : db.schedules.where('synced').equals(0);
+    
+    // PUSH
+    const schQuery = isManual ? db.schedules.filter(s => s.synced !== 1) : db.schedules.where('synced').equals(0);
     const allPendingSchedules = await schQuery.toArray();
 
-    // FILTRO: Só envia se cliente pai sincronizado
     const pendingSchedules = [];
     for (const s of allPendingSchedules) {
       const client = await db.clients.get(s.clientId);
       if (client && client.synced === 1) {
         pendingSchedules.push(s);
+      } else {
+        await logSync('warn', `Schedule ${s.id} aguardando cliente ${s.clientId} sincronizar`);
       }
     }
 
     if (pendingSchedules.length > 0) {
-      await logSync('info', `Enviando ${pendingSchedules.length} agendamentos (com clientes validados)...`);
+      await logSync('info', `Enviando ${pendingSchedules.length} agendamentos...`);
+      
       const recordsToPush = pendingSchedules.map(s => ({
         id: s.id, client_id: s.clientId, scheduled_at: s.scheduledAt,
-        status: s.status, notes: s.notes, user_id: user.id,
-        updated_at: s.updatedAt || new Date(),
-        tenant_id: tenantId
+        status: s.status, notes: s.notes, user_id: s.user_id || user.id,
+        updated_at: s.updatedAt || new Date()
       }));
+      
       const { successIds } = await safeBatchUpsert('schedules', recordsToPush);
       if (successIds.length > 0) await db.schedules.where('id').anyOf(successIds).modify({ synced: 1 });
     }
 
-    // 5. PULL SCHEDULES (com paginação e filtro de tenant)
-    const remoteSch = await pullAllPages('schedules', tenantId);
-    for (const rs of remoteSch) {
-      if (deletedIds.has(rs.id)) continue;
-      const local = await db.schedules.get(rs.id);
+    // PULL SCHEDULES
+    const remoteSch = await pullAllPages('schedules');
+    if (remoteSch.length > 0) {
+      await logSync('info', `Baixados ${remoteSch.length} schedules da nuvem`);
       
-      const serverUpdate = new Date(rs.updated_at || rs.created_at);
-      const localUpdate = local?.updatedAt ? new Date(local.updatedAt) : new Date(0);
+      for (const rs of remoteSch) {
+        if (deletedIds.has(rs.id)) continue;
+        
+        const local = await db.schedules.get(rs.id);
+        const serverUpdate = new Date(rs.updated_at || rs.created_at);
+        const localUpdate = local?.updatedAt ? new Date(local.updatedAt) : undefined;
 
-      // ✅ FIX #2: Sem || (local.synced === 1)
-      if (!local || serverUpdate > localUpdate) {
-        await db.schedules.put({
-          id: rs.id, clientId: rs.client_id, scheduledAt: new Date(rs.scheduled_at),
-          status: rs.status as any, notes: rs.notes, user_id: rs.user_id, 
-          updatedAt: serverUpdate, tenantId: rs.tenant_id, synced: 1
-        });
+        if (shouldUpdateLocal(serverUpdate, localUpdate)) {
+          await db.schedules.put({
+            id: rs.id, clientId: rs.client_id, scheduledAt: new Date(rs.scheduled_at),
+            status: rs.status as any, notes: rs.notes, user_id: rs.user_id, 
+            updatedAt: serverUpdate, tenantId: rs.tenant_id, synced: 1
+          });
+        } else if (local && localUpdate && serverUpdate <= localUpdate && local.synced === 0) {
+          await db.schedules.update(rs.id, { synced: 1 });
+        }
       }
     }
 
     // ============================================================
-    // 6. CLEANUP FINAL (✅ FIX #4: APÓS todos os pulls, não antes)
+    // 6. CLEANUP (FINAL)
     // ============================================================
     await cleanupOrphans();
 
-    await logSync('info', 'Sincronização concluída com sucesso');
+    await logSync('info', 'Sincronização Compartilhada concluída');
     if (isManual) alert('✅ Sincronização concluída!');
-
+    
   } catch (err: any) {
     await logSync('error', 'Erro inesperado na sincronização', err?.message || err);
-    if (isManual) alert('Erro na sincronização: ' + (err?.message || err));
+    if (isManual) alert('❌ Erro: ' + (err?.message || err));
   } finally {
     (window as any).isSyncingGlobally = false;
   }
 }
 
-/**
- * Sync especializado apenas para Clientes (rápido, com filtro de tenant)
- */
+// Sync rápido apenas clientes
 export async function syncClientsOnly() {
-  const { user, tenantInfo } = useAuthStore.getState();
-  if (!user || !tenantInfo || (window as any).isSyncingGlobally) return;
+  const { user } = useAuthStore.getState();
+  if (!user || (window as any).isSyncingGlobally) return;
   
-  const tenantId = tenantInfo.tenantId;
   (window as any).isSyncingGlobally = true;
-
   try {
     await logSync('info', 'Iniciando sync rápido de clientes...');
     
-    // A. Sync Deletions First
     await processPendingDeletions();
     const activeDeletions = await db.deletions_sync.toArray();
     const deletedIds = new Set(activeDeletions.map(d => d.recordId));
 
-    // B. PULL CLIENTS com filtro de tenant e paginação
-    const remoteClients = await pullAllPages('clients', tenantId);
-    for (const rc of remoteClients) {
-      if (deletedIds.has(rc.id)) continue;
-      const local = await db.clients.get(rc.id);
-      const serverUpdate = new Date(rc.updated_at || rc.created_at);
-      const localUpdate = local?.updatedAt ? new Date(local.updatedAt) : new Date(0);
+    const remoteClients = await pullAllPages('clients');
+    
+    if (remoteClients && remoteClients.length > 0) {
+      for (const rc of remoteClients) {
+        if (deletedIds.has(rc.id)) continue;
+        const local = await db.clients.get(rc.id);
+        const serverUpdate = new Date(rc.updated_at || rc.created_at);
+        const localUpdate = local?.updatedAt ? new Date(local.updatedAt) : undefined;
 
-      if (!local || serverUpdate > localUpdate) {
-        await db.clients.put({
-          id: rc.id, name: rc.name, cnpj: rc.cnpj, address: rc.address,
-          category: rc.category as any, foodTypes: rc.food_types,
-          responsibleName: rc.responsible_name, phone: rc.phone, email: rc.email,
-          createdAt: new Date(rc.created_at), updatedAt: serverUpdate,
-          city: rc.city, state: rc.state, tenantId: rc.tenant_id, synced: 1
-        });
+        if (shouldUpdateLocal(serverUpdate, localUpdate)) {
+          await db.clients.put({
+            id: rc.id, name: rc.name, cnpj: rc.cnpj, address: rc.address,
+            category: rc.category as any, foodTypes: rc.food_types,
+            responsibleName: rc.responsible_name, phone: rc.phone, email: rc.email,
+            createdAt: new Date(rc.created_at), updatedAt: serverUpdate,
+            city: rc.city, state: rc.state, tenantId: rc.tenant_id, synced: 1
+          });
+        } else if (local && localUpdate && serverUpdate <= localUpdate && local.synced === 0) {
+          await db.clients.update(rc.id, { synced: 1 });
+        }
       }
     }
     await logSync('info', 'Sync rápido de clientes concluído.');
@@ -607,77 +560,4 @@ export async function syncClientsOnly() {
   } finally {
     (window as any).isSyncingGlobally = false;
   }
-}
-
-/**
- * Diagnóstico: verifica integridade dos dados locais
- */
-export async function diagnosticSync() {
-  const { tenantInfo } = useAuthStore.getState();
-  
-  const [brokenClients, brokenInspections, brokenResponses] = await Promise.all([
-    db.clients.filter(c => !c.tenantId).toArray(),
-    db.inspections.filter(i => !i.tenantId).toArray(),
-    db.responses.filter(r => !r.tenantId).toArray(),
-  ]);
-
-  const orphanInspections = [];
-  for (const i of await db.inspections.toArray()) {
-    const parent = await db.clients.get(i.clientId);
-    if (!parent) orphanInspections.push(i);
-  }
-
-  const report = {
-    'Registros sem tenantId': {
-      clientes: brokenClients.length,
-      inspeções: brokenInspections.length,
-      respostas: brokenResponses.length
-    },
-    'Registros órfãos': {
-      inspeções: orphanInspections.length
-    },
-    'Pendentes de sync': {
-      clientes: await db.clients.where('synced').equals(0).count(),
-      inspeções: await db.inspections.where('synced').equals(0).count()
-    },
-    'TenantId atual': tenantInfo?.tenantId || '❌ NENHUM — faça login!'
-  };
-
-  console.table(report);
-  return report;
-}
-
-/**
- * Recuperação: corrige registros sem tenantId usando o tenantId atual do usuário logado
- */
-export async function repairMissingTenantIds() {
-  const { tenantInfo } = useAuthStore.getState();
-  if (!tenantInfo?.tenantId) {
-    alert('⚠️ Faça login antes de recuperar os dados!');
-    return;
-  }
-
-  const correctTenantId = tenantInfo.tenantId;
-  const tables = [
-    { store: db.clients,      name: 'clients' },
-    { store: db.inspections,  name: 'inspections' },
-    { store: db.responses,    name: 'responses' },
-    { store: db.photos,       name: 'photos' },
-    { store: db.schedules,    name: 'schedules' },
-  ];
-
-  let total = 0;
-  for (const { store, name } of tables) {
-    const count = await (store as any)
-      .filter((r: any) => !r.tenantId)
-      .modify({ tenantId: correctTenantId, synced: 0, updatedAt: new Date() });
-    if (count > 0) {
-      console.info(`[Repair] Corrigidos ${count} registros em ${name}`);
-      total += count;
-    }
-  }
-
-  await logSync('info', `Recuperação concluída: ${total} registros corrigidos com tenantId ${correctTenantId}`);
-  alert(`✅ ${total} registros recuperados! Agora faça uma sincronização manual.`);
-  return total;
 }

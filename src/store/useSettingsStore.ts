@@ -1,10 +1,23 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { ConsultantSettings } from '../types';
+
+export type ConsultantRole = 'nutricao' | 'assistencia_social' | 'ambos' | 'saude';
+
+export interface Settings {
+  name: string;
+  professionalId: string;
+  professionalIdLabel?: string;
+  phone: string;
+  consultantRole: ConsultantRole;
+  theme?: 'light' | 'dark';
+  logoDataUrl?: string;
+  companyName?: string;
+}
 
 interface SettingsState {
-  settings: ConsultantSettings;
-  updateSettings: (newSettings: Partial<ConsultantSettings>) => void;
+  settings: Settings;
+  updateSettings: (settings: Partial<Settings>) => void;
+  setConsultant: (consultant: 'ana' | 'ester') => void;
   clearData: () => Promise<void>;
 }
 
@@ -13,20 +26,44 @@ export const useSettingsStore = create<SettingsState>()(
     (set) => ({
       settings: {
         name: '',
+        professionalId: '',
+        phone: '',
+        consultantRole: 'nutricao',
         theme: 'light',
-        consultantRole: 'ambos',
       },
       updateSettings: (newSettings) =>
         set((state) => ({
           settings: { ...state.settings, ...newSettings },
         })),
       clearData: async () => {
-        // Clear all indexeddb data in a real app this would call db.delete() + re-init
-        set({ settings: { name: '', theme: 'light', consultantRole: 'ambos' } });
+        set({ settings: { name: '', theme: 'light', consultantRole: 'ambos', professionalId: '', phone: '' } });
+      },
+      setConsultant: (consultant) => {
+        if (consultant === 'ana') {
+          set({
+            settings: {
+              name: 'Ana Carolina',
+              professionalId: 'CRESS/GO 5784',
+              phone: '(62) 99999-9999',
+              consultantRole: 'assistencia_social',
+              theme: 'light',
+            },
+          });
+        } else if (consultant === 'ester') {
+          set({
+            settings: {
+              name: 'Ester Souza',
+              professionalId: 'CRN/GO 10324',
+              phone: '(62) 99999-9999',
+              consultantRole: 'nutricao',
+              theme: 'light',
+            },
+          });
+        }
       },
     }),
     {
-      name: 'inspecvisa-settings',
+      name: 'inspec-visa-settings',
     }
   )
 );
