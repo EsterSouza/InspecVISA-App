@@ -43,7 +43,10 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'inspec-visa-auth',
-      partialize: (state) => ({ user: state.user }),
+      partialize: (state) => ({ 
+        user: state.user,
+        tenantInfo: state.tenantInfo, // ✅ FIX #1: Persiste tenantInfo para evitar gap de 1-2s no reload
+      }),
     }
   )
 );

@@ -45,19 +45,26 @@ export class InspectionDatabase extends Dexie {
     const tablesToHook = [this.clients, this.inspections, this.responses, this.schedules, this.photos];
     tablesToHook.forEach(table => {
       table.hook('creating', (primaryKey, obj) => {
+        const tenantId = useAuthStore.getState().tenantInfo?.tenantId;
+
+        // ✅ FIX #8: Bloqueia criação sem tenantId para evitar dados quebrados
+        if (!tenantId) {
+          throw new Error('⚠️ Sistema ainda carregando. Aguarde e tente novamente.');
+        }
+
         obj.synced = 0; // 0 = pending
         obj.updatedAt = new Date();
-        // Set tenantId automatically from store
-        const tenantId = useAuthStore.getState().tenantInfo?.tenantId;
-        if (tenantId) obj.tenantId = tenantId;
+        obj.tenantId = tenantId;
       });
-      table.hook('updating', (mods, primKey, obj) => {
-        // If the update itself is setting synced=1 (from syncService), don't revert it
-        if (mods.hasOwnProperty('synced')) return;
-        
+
+      table.hook('updating', (mods: Record<string, any>, primKey, obj) => {
+        // ✅ FIX #7: Se o syncService está explicitamente marcando como sincronizado, retorna mods sem alterar
+        if (mods.synced === 1) return mods; // retorna objeto, não undefined
+
+        // Qualquer outra atualização do usuário reseta para pendente
         return {
           ...mods,
-          synced: 0, // 0 = pending
+          synced: 0,
           updatedAt: new Date()
         };
       });

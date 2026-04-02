@@ -1,15 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { db } from '../db/database';
 import type { SyncLog } from '../types';
-import { ArrowLeft, Trash2, Copy, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Trash2, Copy, RefreshCw, Search, Wrench, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { diagnosticSync, repairMissingTenantIds, syncData } from '../services/syncService';
 
 const Debug: React.FC = () => {
   const [logs, setLogs] = useState<SyncLog[]>([]);
+  const [report, setReport] = useState<Record<string, any> | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
   const navigate = useNavigate();
 
   const loadLogs = async () => {
-    const data = await db.sync_logs.orderBy('timestamp').reverse().limit(100).toArray();
+    const data = await db.sync_logs.orderBy('timestamp').reverse().limit(200).toArray();
     setLogs(data);
   };
 
@@ -32,6 +35,38 @@ const Debug: React.FC = () => {
     alert('Logs copiados!');
   };
 
+  const runDiagnostic = async () => {
+    setIsRunning(true);
+    try {
+      const r = await diagnosticSync();
+      setReport(r);
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
+  const runRepair = async () => {
+    if (!confirm('Isso vai corrigir registros sem tenantId e marcar como pendentes de sync. Continuar?')) return;
+    setIsRunning(true);
+    try {
+      await repairMissingTenantIds();
+      await runDiagnostic();
+      await loadLogs();
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
+  const runManualSync = async () => {
+    setIsRunning(true);
+    try {
+      await syncData(true);
+      await loadLogs();
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 p-4 pb-24">
       <div className="max-w-4xl mx-auto">
@@ -43,18 +78,77 @@ const Debug: React.FC = () => {
             <h1 className="text-2xl font-bold text-slate-800">Diagnóstico de Sincronização</h1>
           </div>
           <div className="flex gap-2">
-            <button onClick={loadLogs} className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200">
+            <button onClick={loadLogs} className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200" title="Atualizar logs">
               <RefreshCw size={20} />
             </button>
-            <button onClick={copyLogs} className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200">
+            <button onClick={copyLogs} className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200" title="Copiar logs">
               <Copy size={20} />
             </button>
-            <button onClick={clearLogs} className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200">
+            <button onClick={clearLogs} className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200" title="Limpar logs">
               <Trash2 size={20} />
             </button>
           </div>
         </header>
 
+        {/* Repair Actions */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+          <button
+            onClick={runDiagnostic}
+            disabled={isRunning}
+            className="flex items-center gap-2 justify-center px-4 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 disabled:opacity-50"
+          >
+            <Search size={18} />
+            Executar Diagnóstico
+          </button>
+          <button
+            onClick={runRepair}
+            disabled={isRunning}
+            className="flex items-center gap-2 justify-center px-4 py-3 bg-amber-500 text-white rounded-xl font-semibold hover:bg-amber-600 disabled:opacity-50"
+          >
+            <Wrench size={18} />
+            Recuperar Dados
+          </button>
+          <button
+            onClick={runManualSync}
+            disabled={isRunning}
+            className="flex items-center gap-2 justify-center px-4 py-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 disabled:opacity-50"
+          >
+            <RefreshCw size={18} className={isRunning ? 'animate-spin' : ''} />
+            Sync Manual
+          </button>
+        </div>
+
+        {/* Diagnostic Report */}
+        {report && (
+          <div className="mb-6 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+            <div className="px-4 py-3 bg-slate-50 border-b border-slate-200">
+              <h2 className="font-bold text-slate-700">📊 Relatório de Diagnóstico</h2>
+            </div>
+            <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {Object.entries(report).map(([section, values]) => (
+                <div key={section} className="space-y-1">
+                  <p className="text-xs font-bold text-slate-500 uppercase">{section}</p>
+                  {typeof values === 'object' ? (
+                    Object.entries(values).map(([k, v]) => (
+                      <div key={k} className="flex justify-between text-sm">
+                        <span className="text-slate-600">{k}</span>
+                        <span className={`font-bold ${Number(v) > 0 ? 'text-red-500' : 'text-green-600'}`}>
+                          {String(v)}
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <span className={`text-sm font-bold ${String(values).includes('NENHUM') ? 'text-red-500' : 'text-green-600'}`}>
+                      {String(values)}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Log Table */}
         <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-slate-200">
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
@@ -102,8 +196,13 @@ const Debug: React.FC = () => {
         </div>
 
         <div className="mt-6 p-4 bg-amber-50 border border-amber-100 rounded-lg text-amber-800 text-sm">
-          <p className="font-bold mb-1">Dica de Debug:</p>
-          <p>Se você vir erros de "403" ou "Forbidden", é um problema de permissão no servidor. Se vir "timeout", a internet está instável.</p>
+          <p className="font-bold mb-1 flex items-center gap-2"><AlertTriangle size={16} /> Guia de Diagnóstico:</p>
+          <ul className="list-disc list-inside space-y-1">
+            <li><strong>Registros sem tenantId</strong>: clique em "Recuperar Dados" para corrigir</li>
+            <li><strong>Erros 403/Forbidden</strong>: problema de permissão no Supabase (RLS)</li>
+            <li><strong>Erros de Timeout</strong>: internet instável — tente sync manual</li>
+            <li><strong>FK Violation</strong>: cliente ainda não sincronizado — faça sync manual completo</li>
+          </ul>
         </div>
       </div>
     </div>
