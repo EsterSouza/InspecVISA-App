@@ -408,9 +408,23 @@ export async function syncData(isManual: boolean = false) {
     // PULL RESPOSTAS
     const remoteRes = await pullAllPages('responses');
     if (remoteRes.length > 0) {
-      await logSync('info', `📥 Baixados ${remoteRes.length} respostas ativas`);
+      await logSync('info', `📥 Baixados ${remoteRes.length} respostas ativas. Deduplicando...`);
       
+      // ✅ Deduplicação local para evitar conflitos de dados corrompidos
+      const finalResToPut = new Map();
       for (const rr of remoteRes) {
+        const key = `${rr.inspection_id}-${rr.item_id}`;
+        const existing = finalResToPut.get(key);
+        const currentUpdate = new Date(rr.updated_at || rr.created_at);
+        
+        if (!existing || currentUpdate > new Date(existing.updated_at || existing.created_at)) {
+          finalResToPut.set(key, rr);
+        }
+      }
+
+      await logSync('info', `📥 Aplicando ${finalResToPut.size} respostas únicas...`);
+      
+      for (const rr of finalResToPut.values()) {
         const local = await db.responses.get(rr.id);
         const serverUpdate = new Date(rr.updated_at || rr.created_at);
         const localUpdate = local?.updatedAt ? new Date(local.updatedAt) : undefined;

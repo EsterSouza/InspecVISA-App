@@ -39,6 +39,31 @@ export class InspectionDatabase extends Dexie {
       schedules:   'id, clientId, scheduledAt, status, tenantId, deletedAt, updatedAt, synced',
       sync_logs:   '++id, timestamp, level',
       deletions_sync: '++id, table, recordId'
+    }).upgrade(async (trans) => {
+      // ✅ Limpeza de duplicatas antes de aplicar o novo índice
+      const responses = await trans.table('responses').toArray();
+      const seen = new Set();
+      const toDelete = [];
+
+      // Mantém apenas a resposta mais recente para cada par (inspeção + item)
+      // Ordenamos por updatedAt desc para garantir que o primeiro de cada par seja o mais novo
+      const sorted = responses.sort((a, b) => 
+        new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime()
+      );
+
+      for (const r of sorted) {
+        const key = `${r.inspectionId}-${r.itemId}`;
+        if (seen.has(key)) {
+          toDelete.push(r.id);
+        } else {
+          seen.add(key);
+        }
+      }
+
+      if (toDelete.length > 0) {
+        console.warn(`[Migration v11] Removendo ${toDelete.length} respostas duplicadas para novo índice.`);
+        await trans.table('responses').bulkDelete(toDelete);
+      }
     });
 
     // Auto-manage sync metadata via hooks
