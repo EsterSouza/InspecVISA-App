@@ -105,7 +105,23 @@ function App() {
           <AlertCircle className="h-12 w-12 text-red-600 mb-4" />
           <h2 className="text-xl font-bold text-red-900 mb-2">Erro ao Iniciar</h2>
           <p className="text-red-700 mb-6 max-w-xs mx-auto">Não foi possível carregar o banco de dados. Tente atualizar a página ou limpar os dados.</p>
-          <Button onClick={() => window.location.reload()} className="bg-red-600 hover:bg-red-700">Tentar Novamente</Button>
+          <div className="flex flex-col gap-3 w-full max-w-xs">
+            <Button onClick={() => window.location.reload()} className="bg-red-600 hover:bg-red-700 w-full">Tentar Novamente</Button>
+            
+            <button 
+              onClick={async () => {
+                if (window.confirm('CUIDADO: Isso apagará TODOS os dados salvos localmente (fotos e inspeções não sincronizadas) para tentar recuperar o app. Deseja prosseguir?')) {
+                  localStorage.clear();
+                  const req = indexedDB.deleteDatabase('InspectionDB');
+                  req.onsuccess = () => window.location.reload();
+                  req.onerror = () => window.location.reload();
+                }
+              }}
+              className="text-red-400 hover:text-red-500 text-xs font-medium underline"
+            >
+              Emergência: Limpar tudo e recomeçar
+            </button>
+          </div>
         </div>
       ) : (!initialized || isInitializing) ? (
         <div className="flex h-screen flex-col items-center justify-center bg-gray-50">
