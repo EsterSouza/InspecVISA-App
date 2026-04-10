@@ -1,11 +1,11 @@
-import { ChecklistTemplate, Client } from '../types';
+import type { ChecklistTemplate, Client } from '../types';
 import { templateIlpiGoiasSuplement } from './templates-ilpi-goias-supplement';
 
 export const templates: ChecklistTemplate[] = [
   {
     id: 'tpl-federal-v1',
     name: 'Roteiro de Inspeção Federal (Alimentos)',
-    category: 'Alimentos',
+    category: 'alimentos',
     version: '1.0.0',
     sections: [
       {
@@ -24,7 +24,7 @@ export const templates: ChecklistTemplate[] = [
   {
     id: 'tpl-ilpi-federal-v1',
     name: 'Roteiro ILPI Federal (RDC 502/2021)',
-    category: 'ILPI',
+    category: 'ilpi',
     version: '1.0.0',
     sections: [
       // SEÇÃO 1 _______________________________________
