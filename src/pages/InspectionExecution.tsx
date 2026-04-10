@@ -459,30 +459,58 @@ export function InspectionExecution() {
                         </div>
                       </div>
 
-                      <ILPIStaffCalculator 
-                        level1={currentInspection.dependencyLevel1 || 0}
-                        level2={currentInspection.dependencyLevel2 || 0}
-                        level3={currentInspection.dependencyLevel3 || 0}
-                        currentStaff={
-                          currentInspection.observedStaff || 0
-                        }
-                      />
-                      
-                      <div className="flex items-center gap-2 bg-slate-50 p-3 rounded-md border border-slate-200">
-                        <Users2 className="h-4 w-4 text-slate-500" />
-                        <span className="text-sm font-medium text-slate-700">Cuidadores/Técnicos em Turno:</span>
-                        <input 
-                          type="number" 
-                          placeholder="Qtd atual..."
-                          value={currentInspection.observedStaff || ''}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value) || 0;
-                            db.inspections.update(currentInspection.id, { observedStaff: val });
-                            setCurrentInspection({...currentInspection, observedStaff: val});
-                          }}
-                          className="w-20 border rounded px-2 py-1 text-sm font-bold ml-auto"
-                        />
-                      </div>
+                      {/* --- Calculadora de Dimensionamento --- */}
+                      {(() => {
+                        const isRJ = currentInspection.state === 'RJ';
+                        return (
+                          <>
+                            {/* Input: Cuidadores */}
+                            <div className="flex items-center gap-2 bg-slate-50 p-3 rounded-md border border-slate-200">
+                              <Users2 className="h-4 w-4 text-slate-500" />
+                              <span className="text-sm font-medium text-slate-700">Cuidadores em Turno:</span>
+                              <input
+                                type="number"
+                                placeholder="Qtd..."
+                                value={currentInspection.observedStaff || ''}
+                                onChange={(e) => {
+                                  const val = parseInt(e.target.value) || 0;
+                                  db.inspections.update(currentInspection.id, { observedStaff: val });
+                                  setCurrentInspection({...currentInspection, observedStaff: val});
+                                }}
+                                className="w-20 border rounded px-2 py-1 text-sm font-bold ml-auto"
+                              />
+                            </div>
+
+                            {/* Input: Técnicos de Enfermagem — apenas RJ */}
+                            {isRJ && (
+                              <div className="flex items-center gap-2 bg-slate-50 p-3 rounded-md border border-slate-200">
+                                <Users2 className="h-4 w-4 text-blue-500" />
+                                <span className="text-sm font-medium text-slate-700">Técnicos de Enfermagem em Turno:</span>
+                                <input
+                                  type="number"
+                                  placeholder="Qtd..."
+                                  value={currentInspection.observedStaff ? (currentInspection as any).observedNursingTechs || '' : ''}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value) || 0;
+                                    db.inspections.update(currentInspection.id, { observedNursingTechs: val } as any);
+                                    setCurrentInspection({...currentInspection, observedNursingTechs: val} as any);
+                                  }}
+                                  className="w-20 border rounded px-2 py-1 text-sm font-bold ml-auto"
+                                />
+                              </div>
+                            )}
+
+                            <ILPIStaffCalculator
+                              level1={currentInspection.dependencyLevel1 || 0}
+                              level2={currentInspection.dependencyLevel2 || 0}
+                              level3={currentInspection.dependencyLevel3 || 0}
+                              currentCaregivers={currentInspection.observedStaff || 0}
+                              currentNursingTechs={(currentInspection as any).observedNursingTechs || 0}
+                              isRJ={isRJ}
+                            />
+                          </>
+                        );
+                      })()}
                     </div>
                   )}
 

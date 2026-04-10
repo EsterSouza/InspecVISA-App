@@ -287,6 +287,34 @@ export const templateIlpiGoiasSuplement = {
       ],
     },
 
+    // ── BLOCO 2-B ─────────────────────────────────────────────
+    // Adições à seção federal: Banheiros
+    // Seção federal receptora: sec-fed-03
+    //
+    // O federal já cobre (NÃO repetir aqui):
+    //   fed-018 — área mínima de 3,60 m² (Art. 29)
+    //   fed-019 — bacia + lavatório + chuveiro (Art. 29 IV-a)
+    //   fed-020 — sem degrau no piso (Art. 29 IV-b)
+    //   fed-021 — barras de apoio (Art. 29 IV-c)
+    // ─────────────────────────────────────────────────────────
+    {
+      targetSectionId: 'sec-fed-03',
+      targetSectionTitle: 'Banheiros',
+      items: [
+
+        {
+          id: 'go-sup-banh-001',
+          sectionId: 'sec-fed-03',
+          order: 601,
+          description: 'Todas as instalações sanitárias de uso coletivo da ILPI (banheiros de residentes e de funcionários) dispõem de sabonete líquido e papel toalha descartável. É vedado o uso de sabonete sólido e toalhas coletivas reutilizáveis.',
+          legislation: 'Art. 151, Lei Estadual nº 16.140/2007 (Código Sanitário de Goiás); Art. 151, Lei Municipal nº 1.812/2014 (Código Sanitário de Senador Canedo)',
+          weight: 5,
+          isCritical: false,
+        },
+
+      ],
+    },
+
     // ── BLOCO 3 ───────────────────────────────────────────────
     // Adições à seção federal: Assistência Integral ao Residente
     // Seção federal receptora: sec-fed-08
@@ -547,6 +575,26 @@ export const templateIlpiGoiasSuplement = {
           order: 507,
           description: 'Fichas de notificação de Doenças de Notificação Compulsória (DNC) enviadas à Vigilância Epidemiológica estão arquivadas na ILPI, com protocolo de recebimento ou comprovante de envio.',
           legislation: 'Art. 54 da RDC 502/2021; Portaria de Consolidação MS nº 4/2017; Roteiro UTPSS/MPGO',
+          weight: 10,
+          isCritical: true,
+        },
+
+        {
+          id: 'go-sup-doc2-008',
+          sectionId: 'sec-fed-13',
+          order: 508,
+          description: 'A ILPI possui placa indicativa afixada em local visível ao público com o nome completo do Responsável Técnico e o número de inscrição no respectivo conselho de classe (ex.: COREN-GO nº XXXXX ou CRM-GO nº XXXXX).',
+          legislation: 'Art. 124, §2º, Lei Estadual nº 16.140/2007 (Código Sanitário de Goiás); Art. 124, §2º, Lei Municipal nº 1.812/2014 (Código Sanitário de Senador Canedo)',
+          weight: 10,
+          isCritical: true,
+        },
+
+        {
+          id: 'go-sup-doc2-009',
+          sectionId: 'sec-fed-13',
+          order: 509,
+          description: 'A ILPI mantém o Responsável Técnico ou substituto legal formalmente designado presente durante todo o horário de funcionamento da instituição, incluindo turnos noturnos, fins de semana e feriados.',
+          legislation: 'Art. 124, §1º, Lei Estadual nº 16.140/2007 (Código Sanitário de Goiás); Art. 124, §1º, Lei Municipal nº 1.812/2014 (Código Sanitário de Senador Canedo)',
           weight: 10,
           isCritical: true,
         },
