@@ -509,9 +509,16 @@ export function getTemplateById(id: string): ChecklistTemplate | undefined {
 function filterSectionsByRole(sections: any[], role: string, full: boolean) {
   if (full || !role || role === 'ambos') return sections;
 
+  // Identify sections that belong to Nutrition (Hardcoded for Federal ILPI)
+  const nutritionSectionIds = ['sec-fed-05', 'sec-fed-06'];
+  const templateHasNutrition = sections.some(s => nutritionSectionIds.includes(s.id));
+
+  // If the template doesn't have these nutrition sections (e.g. Estética),
+  // don't filter anything - show full template.
+  if (!templateHasNutrition) return sections;
+
   return sections.filter(section => {
-    // Nutrition Sections
-    const isNutrition = ['sec-fed-05', 'sec-fed-06'].includes(section.id);
+    const isNutrition = nutritionSectionIds.includes(section.id);
     
     if (role === 'nutricao') return isNutrition;
     if (role === 'saude') return !isNutrition;

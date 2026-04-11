@@ -1,7 +1,8 @@
 import React from 'react';
 import { useInspectionStore } from '../../store/useInspectionStore';
-import { getEffectiveTemplate } from '../../data/templates';
+import { getTemplates, getEffectiveTemplate } from '../../data/templates';
 import { useSettingsStore } from '../../store/useSettingsStore';
+import type { Client } from '../../types';
 import { ProgressBar } from '../ui/ProgressBar';
 import { Users2, Utensils, Activity } from 'lucide-react';
 
@@ -11,10 +12,13 @@ export function CollaborativeProgress() {
 
   if (!currentInspection) return null;
 
+  const baseTemplate = getTemplates().find(t => t.id === currentInspection.templateId);
+  if (!baseTemplate) return null;
+
   // Get full template (without role filtering)
   const fullTemplate = getEffectiveTemplate(
-    { id: currentInspection.templateId } as any, 
-    currentInspection as any,
+    baseTemplate,
+    currentInspection as any as Client,
     'ambos',
     true // full=true
   );

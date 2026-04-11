@@ -129,6 +129,7 @@ export interface Inspection {
   dependencyLevel2?: number;
   dependencyLevel3?: number;
   observedStaff?: number;
+  observedNursingTechs?: number; // RJ specific staff
   signatureDataUrl?: string;
   updatedAt?: Date;
   deletedAt?: Date | null;
