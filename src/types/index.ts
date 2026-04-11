@@ -180,6 +180,8 @@ export interface SectionScore {
   notApplicableCount: number;
   notObservedCount: number;
   scorePercentage: number;
+  urgentActionsCount: number;
+  importantActionsCount: number;
   // MARP metrics
   ic: number;
   inc: number;
@@ -201,6 +203,8 @@ export interface InspectionScore {
   scorePercentage: number;
   scoreBySection: SectionScore[];
   classification: ScoreClassification;
+  urgentActionsCount: number;
+  importantActionsCount: number;
   // MARP metrics
   ic: number;
   inc: number;

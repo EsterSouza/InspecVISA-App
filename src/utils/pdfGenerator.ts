@@ -147,46 +147,38 @@ export async function generatePDF(
     y += 10;
   }
 
-  // Score box
+  // ── PAGE 1: CAPA (Action Pro Design) ─────────────────────
   y += 5;
-  const classification = score.classification;
-  const classColor = classificationColor(classification);
-  const rgb = hexToRgb(classColor);
+  const scorePercent = Math.round(score.scorePercentage);
+  const getScoreColor = (p: number) => {
+    if (p >= 85) return [34, 197, 94]; // Green
+    if (p >= 70) return [245, 158, 11]; // Yellow
+    return [239, 68, 68]; // Red
+  };
+  const rgb = getScoreColor(scorePercent);
   
-  // Big Status Box
-  doc.setFillColor(rgb[0], rgb[1], rgb[2]);
-  doc.roundedRect(margin, y, contentW, 42, 4, 4, 'F');
+  // Score Box
+  doc.setFillColor(...(rgb as [number, number, number]));
+  doc.roundedRect(margin, y, contentW, 35, 3, 3, 'F');
   
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  
-  // RP (Risco Potencial)
   doc.setFontSize(32);
-  doc.text(`${score.rp?.toFixed(1) || '0.0'}`, margin + contentW / 2, y + 16, { align: 'center' });
+  doc.text(`${scorePercent}%`, margin + contentW / 2, y + 16, { align: 'center' });
   doc.setFontSize(10);
-  doc.text('RISCO POTENCIAL (0-15)', margin + contentW / 2, y + 22, { align: 'center' });
-  
-  // Status Label
-  doc.setFontSize(16);
-  doc.text(classificationLabel(classification).toUpperCase(), margin + contentW / 2, y + 32, { align: 'center' });
-  
-  // Detailed Indices
-  y += 45;
-  autoTable(doc, {
-    startY: y,
-    head: [['IC (Crítico)', 'INC (Não Crítico)', 'CR (Coef. Risco)', 'Conformidade']],
-    body: [[
-      score.ic?.toFixed(2) || '—',
-      score.inc?.toFixed(2) || '—',
-      score.cr?.toFixed(2) || '—',
-      `${Math.round(score.scorePercentage)}%`
-    ]],
-    headStyles: { fillColor: [240, 240, 240], textColor: [60, 60, 60], fontSize: 8, halign: 'center' },
-    bodyStyles: { fontSize: 11, fontStyle: 'bold', halign: 'center' },
-    margin: { left: margin, right: margin },
-    theme: 'grid'
-  });
-  y = (doc as any).lastAutoTable.finalY + 10;
+  doc.text('ADEQUAÇÃO SANITÁRIA GERAL', margin + contentW / 2, y + 24, { align: 'center' });
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`${score.evaluatedItems} de ${score.totalItems} itens avaliados nesta visita`, margin + contentW / 2, y + 30, { align: 'center' });
+
+  y += 42;
+  // Progress Bar under score box
+  doc.setDrawColor(230, 230, 230);
+  doc.setFillColor(240, 240, 240);
+  doc.roundedRect(margin, y, contentW, 3, 1.5, 1.5, 'F');
+  doc.setFillColor(...(rgb as [number, number, number]));
+  doc.roundedRect(margin, y, (contentW * scorePercent) / 100, 3, 1.5, 1.5, 'F');
+  y += 10;
 
 
   // ── PAGE 2: RESUMO ───────────────────────────────────────
@@ -235,6 +227,87 @@ export async function generatePDF(
     theme: 'striped',
   });
 
+  y = (doc as any).lastAutoTable.finalY + 15;
+
+  // ── NEW PAGE: PLANO DE AÇÃO RECOMENDADO ──────────────────
+  doc.addPage();
+  y = margin;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.setTextColor(...primaryColor);
+  doc.text('PLANO DE AÇÃO RECOMENDADO', margin, y);
+  y += 8;
+
+  const allItemsList = template.sections.flatMap(s => s.items);
+  const nonCompliantItems = responses.filter(r => r.result === 'not_complies');
+  
+  // Urgent Actions (Critical Weight 10)
+  const urgentItems = nonCompliantItems.filter(r => {
+    const it = allItemsList.find(i => i.id === r.itemId);
+    return it?.isCritical;
+  });
+
+  // Important Actions (Necessary Weight 5+)
+  const importantItems = nonCompliantItems.filter(r => {
+    const it = allItemsList.find(i => i.id === r.itemId);
+    return !it?.isCritical && (it?.weight || 0) >= 5;
+  });
+
+  const drawActionTable = (title: string, items: any[], rowColor: [number, number, number], defaultDeadline: string) => {
+    doc.setFontSize(10);
+    doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+    doc.text(title.toUpperCase(), margin, y);
+    y += 4;
+    
+    autoTable(doc, {
+      startY: y,
+      head: [['Nº', 'Descrição da Ação (O que resolver)', 'Seção', 'Prazo', 'Responsável']],
+      body: items.map((r, idx) => {
+        const it = allItemsList.find(i => i.id === r.itemId);
+        const section = template.sections.find(s => s.id === it?.sectionId);
+        return [
+          idx + 1,
+          it?.description || r.customDescription || '',
+          section?.title || '—',
+          r.deadline || defaultDeadline,
+          r.responsible || 'RT / Gestor'
+        ];
+      }),
+      headStyles: { fillColor: rgb as [number, number, number], fontSize: 8 },
+      bodyStyles: { fontSize: 8, fillColor: rowColor as [number, number, number] },
+      columnStyles: { 
+        0: { cellWidth: 8 }, 
+        1: { cellWidth: 90 },
+        2: { cellWidth: 30 },
+        3: { cellWidth: 20 },
+        4: { cellWidth: 22 }
+      },
+      margin: { left: margin, right: margin },
+      theme: 'grid'
+    });
+    y = (doc as any).lastAutoTable.finalY + 10;
+  };
+
+  if (urgentItems.length > 0) {
+    drawActionTable('GRUPO 1 — AÇÕES URGENTES (ITENS CRÍTICOS)', urgentItems, [254, 242, 242], '15 dias');
+  }
+
+  if (importantItems.length > 0) {
+    drawActionTable('GRUPO 2 — AÇÕES IMPORTANTES (NECESSÁRIO)', importantItems, [255, 251, 235], '60 dias');
+  }
+
+  // Summary of Conformance
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(34, 197, 94);
+  doc.text('GRUPO 3 — ITENS EM CONFORMIDADE', margin, y);
+  y += 5;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(60, 60, 60);
+  doc.text(`${score.compliesCount} itens foram verificados e encontram-se em conformidade na data desta inspeção.`, margin, y);
+  y += 15;
+
   y = (doc as any).lastAutoTable.finalY + 10;
 
   if (inspection.observations) {
@@ -251,9 +324,8 @@ export async function generatePDF(
 
   // ── PAGES 3+: NONCONFORMANCES ────────────────────────────
   const allItems = template.sections.flatMap(s => s.items);
-  const nonCompliant = responses.filter(r => r.result === 'not_complies');
 
-  if (nonCompliant.length > 0) {
+  if (nonCompliantItems.length > 0) {
     doc.addPage();
     y = margin;
     doc.setFont('helvetica', 'bold');
@@ -266,7 +338,7 @@ export async function generatePDF(
     y += 8;
 
     let ncNum = 1;
-    for (const response of nonCompliant) {
+    for (const response of nonCompliantItems) {
       const item = allItems.find(i => i.id === response.itemId);
       if (!item) continue;
 
@@ -383,45 +455,6 @@ export async function generatePDF(
       ncNum++;
     }
     
-    // ── PAGE: PLANO DE AÇÃO (SUMMARY TABLE) ─────────────────
-    doc.addPage();
-    y = margin;
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.setTextColor(...primaryColor);
-    doc.text('PLANO DE AÇÃO CORRETIVA', margin, y);
-    y += 8;
-
-    autoTable(doc, {
-      startY: y,
-      head: [['Item', 'Irregularidade / Ação Corretiva', 'Responsável', 'Prazo']],
-      body: nonCompliant.map((r, idx) => {
-        const item = allItems.find(i => i.id === r.itemId);
-        const itemDesc = r.itemId.startsWith('extra|') ? r.customDescription : item?.description;
-        return [
-          idx + 1,
-          { 
-            content: `ITEM: ${itemDesc?.substring(0, 150)}${itemDesc && itemDesc.length > 150 ? '...' : ''}\n\nSITUAÇÃO: ${r.situationDescription}\n\nAÇÃO: ${r.correctiveAction}`,
-            styles: { fontSize: 8 }
-          },
-          r.responsible || 'Direção',
-          r.deadline || 'Imediato'
-        ];
-      }),
-      headStyles: { fillColor: secondaryColor, fontSize: 9 },
-      columnStyles: {
-        0: { cellWidth: 10 },
-        1: { cellWidth: 100 },
-        2: { cellWidth: 35 },
-        3: { cellWidth: 25 },
-      },
-      theme: 'grid',
-      margin: { left: margin, right: margin },
-    });
-
-    y = (doc as any).lastAutoTable.finalY + 20;
-    doc.setDrawColor(200, 200, 200);
-    doc.line(margin, y, margin + 80, y);
     y += 5;
     doc.setFontSize(8);
     doc.text(`Ciente do Plano de Ação: ${inspection.accompanistName || 'Representante do Estabelecimento'}`, margin, y);
@@ -542,43 +575,14 @@ export async function generatePDF(
     }
   }
 
-  // ── LAST PAGE: SIGNATURE & METHODOLOGY ───────────────────
-  doc.addPage();
-  y = margin;
-  
-  // Methodology Section
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.setTextColor(...primaryColor);
-  doc.text('NOTAS TÉCNICAS E METODOLOGIA (MARP)', margin, y);
-  y += 6;
-  
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
-  doc.setTextColor(60, 60, 60);
-  
-  const methodologyText = [
-    'Este relatório utiliza a Metodologia de Avaliação de Risco Potencial (MARP), baseada no Roteiro de Inspeção Federal. ',
-    '',
-    '1. ÍNDICE CRÍTICO (IC): Calculado via MÉDIA GEOMÉTRICA das pontuações dos itens críticos (pesos binários 0 ou 3). Por ser geométrica, a falha em um único item crítico penaliza severamente o índice (Peso 0.6 no cálculo global).',
-    '2. ÍNDICE NÃO CRÍTICO (INC): Calculado via MÉDIA ARITMÉTICA PONDERADA dos itens não críticos, considerando pesos normatizados (1, 2, 5 e 10) conforme impacto na segurança sanitária (Peso 0.4 no cálculo global).',
-    '3. COEFICIENTE DE RISCO (CR): Média ponderada entre IC e INC.',
-    '4. RISCO POTENCIAL (RP): Valor final do CR escalonado de 0 a 15.',
-    '',
-    'CLASSIFICAÇÕES: Alto Padrão (RP ≥ 13.5) | Aceitável (12 ≤ RP < 13.5) | Tolerável (9 ≤ RP < 12) | Inaceitável (RP < 9).'
-  ].join('\n');
-
-  const methLines = doc.splitTextToSize(methodologyText, contentW);
-  doc.text(methLines, margin, y);
-  y += methLines.length * 4 + 10;
-
+  y += 10;
   doc.setFont('helvetica', 'italic');
   doc.setFontSize(9);
   doc.setTextColor(90, 90, 90);
   const disclaimer = 'Este relatório foi elaborado com base nas legislações sanitárias vigentes, durante visita técnica realizada na data indicada.';
   const dLines = doc.splitTextToSize(disclaimer, contentW);
   doc.text(dLines, margin, y);
-  y += 20;
+  y += 25;
   // Accomplice Signature
   if (inspection.signatureDataUrl) {
     try {

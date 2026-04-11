@@ -104,11 +104,21 @@ export function calculateScore(responses: InspectionResponse[], sections: Sectio
     const sEvaluated = sectionResponses.filter((r: InspectionResponse) => r.result && r.result !== 'not_evaluated');
     const sComplies = sEvaluated.filter((r: InspectionResponse) => r.result === 'complies').length;
     const sNotComplies = sEvaluated.filter((r: InspectionResponse) => r.result === 'not_complies').length;
-    const sCriticalNC = sEvaluated.filter((r: InspectionResponse) => {
+    
+    // Action-oriented counts
+    const sUrgent = sEvaluated.filter((r: InspectionResponse) => {
       if (r.result !== 'not_complies') return false;
       const item = sectionItems.find((i: ChecklistItem) => i.id === r.itemId);
-      return item?.isCritical;
+      return item?.isCritical; // Weight 10
     }).length;
+
+    const sImportant = sEvaluated.filter((r: InspectionResponse) => {
+      if (r.result !== 'not_complies') return false;
+      const item = sectionItems.find((i: ChecklistItem) => i.id === r.itemId);
+      return !item?.isCritical && (item?.weight || 0) >= 5; // Weight 5
+    }).length;
+
+    const sCriticalNC = sUrgent;
     
     const sDenom = sComplies + sNotComplies;
     
@@ -122,12 +132,18 @@ export function calculateScore(responses: InspectionResponse[], sections: Sectio
       compliesCount: sComplies,
       notCompliesCount: sNotComplies,
       criticalNotCompliesCount: sCriticalNC,
+      urgentActionsCount: sUrgent,
+      importantActionsCount: sImportant,
       notApplicableCount: sEvaluated.filter((r: InspectionResponse) => r.result === 'not_applicable').length,
       notObservedCount: sEvaluated.filter((r: InspectionResponse) => r.result === 'not_observed').length,
       scorePercentage: sDenom > 0 ? (sComplies / sDenom) * 100 : 0,
       ...sectionMarp
     };
   });
+
+  // Global counts
+  const urgentActionsCount = scoreBySection.reduce((acc, s) => acc + s.urgentActionsCount, 0);
+  const importantActionsCount = scoreBySection.reduce((acc, s) => acc + s.importantActionsCount, 0);
 
   // Classification based on RP (Risco Potencial)
   const classification: ScoreClassification =
@@ -141,6 +157,8 @@ export function calculateScore(responses: InspectionResponse[], sections: Sectio
     compliesCount,
     notCompliesCount,
     criticalNotCompliesCount,
+    urgentActionsCount,
+    importantActionsCount,
     notApplicableCount,
     notObservedCount,
     notEvaluatedCount,
