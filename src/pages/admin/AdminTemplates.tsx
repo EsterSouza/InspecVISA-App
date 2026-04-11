@@ -21,16 +21,20 @@ export function AdminTemplates() {
       setIsLoading(true);
       let data = await TemplateService.listTemplates();
       
-      // Automatic seeding if empty
-      if (data.length === 0) {
-        console.log('No templates found, seeding legacy templates...');
+      // Automatic seeding if empty AND not already seeded in this browser session
+      const hasSeeded = localStorage.getItem('templates_seeded');
+      if (data.length === 0 && !hasSeeded) {
+        console.log('No templates found and not seeded yet, triggered seeding...');
+        localStorage.setItem('templates_seeded', 'true');
         await TemplateService.seedLegacyTemplates();
         data = await TemplateService.listTemplates();
       }
       
       setTemplates(data);
     } catch (err) {
-      console.error(err);
+      console.error('Error loading templates:', err);
+      // If seeding failed, allow retry on next load
+      localStorage.removeItem('templates_seeded');
     } finally {
       setIsLoading(false);
     }

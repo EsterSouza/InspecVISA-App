@@ -74,37 +74,49 @@ export const TemplateService = {
     // 1. Create Template
     const template = await this.createTemplate({ name: templateName, category, version: new Date().getFullYear().toString() });
 
-    // 2. Group items by section
-    const sectionsMap = new Map<string, RawImportItem[]>();
+    // 2. Prepare Unique Sections
+    const sectionTitles = Array.from(new Set(rawData.map(it => it.section || 'Geral')));
+    const sectionsToInsert = sectionTitles.map((title, idx) => ({
+      template_id: template.id,
+      title,
+      order: idx + 1
+    }));
+
+    // 3. Batch insert sections and get IDs
+    const { data: createdSections, error: sError } = await supabase
+      .from('checklist_sections')
+      .insert(sectionsToInsert)
+      .select();
+    
+    if (sError) throw sError;
+    if (!createdSections) throw new Error('Failed to create sections');
+
+    // 4. Prepare all items for batch insertion
+    const itemsToInsert: any[] = [];
+    
     rawData.forEach(item => {
       const sectionTitle = item.section || 'Geral';
-      if (!sectionsMap.has(sectionTitle)) sectionsMap.set(sectionTitle, []);
-      sectionsMap.get(sectionTitle)?.push(item);
+      const section = createdSections.find(s => s.title === sectionTitle);
+      
+      if (section) {
+        itemsToInsert.push({
+          section_id: section.id,
+          description: item.description,
+          legislation_name: item.legislation,
+          weight: item.weight || 1,
+          is_critical: item.isCritical || false,
+          order: itemsToInsert.filter(it => it.section_id === section.id).length + 1
+        });
+      }
     });
 
-    // 3. Create Sections and Items
-    let sectionOrder = 1;
-    for (const [title, items] of sectionsMap.entries()) {
-      const { data: section, error: sError } = await supabase
-        .from('checklist_sections')
-        .insert({ template_id: template.id, title, order: sectionOrder++ })
-        .select()
-        .single();
-      
-      if (sError) throw sError;
-
-      const itemsToInsert = items.map((it, idx) => ({
-        section_id: section.id,
-        description: it.description,
-        legislation_name: it.legislation,
-        weight: it.weight || 1,
-        is_critical: it.isCritical || false,
-        order: idx + 1
-      }));
-
+    // 5. Batch insert all items in chunks of 50 (Supabase/PostgREST limit friendly)
+    const chunkSize = 50;
+    for (let i = 0; i < itemsToInsert.length; i += chunkSize) {
+      const chunk = itemsToInsert.slice(i, i + chunkSize);
       const { error: iError } = await supabase
         .from('checklist_items')
-        .insert(itemsToInsert);
+        .insert(chunk);
       
       if (iError) throw iError;
     }
@@ -122,17 +134,18 @@ export const TemplateService = {
       ...alimentosTemplates
     ];
 
+    // 1. Batch check existing names to avoid repeated queries
+    const namesToCheck = allLegacy.map(t => t.name);
+    const { data: existingTemplates } = await supabase
+      .from('checklist_templates')
+      .select('name')
+      .in('name', namesToCheck);
+    
+    const existingNames = new Set(existingTemplates?.map(t => t.name) || []);
     const seeded = [];
     
     for (const tpl of allLegacy) {
-      // Check if already exists by name
-      const { data: existing } = await supabase
-        .from('checklist_templates')
-        .select('id')
-        .eq('name', tpl.name)
-        .single();
-      
-      if (existing) {
+      if (existingNames.has(tpl.name)) {
         console.log(`Template "${tpl.name}" already exists, skipping.`);
         continue;
       }
