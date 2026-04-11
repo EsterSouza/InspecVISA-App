@@ -18,7 +18,16 @@ export function AdminTemplates() {
 
   const loadTemplates = async () => {
     try {
-      const data = await TemplateService.listTemplates();
+      setIsLoading(true);
+      let data = await TemplateService.listTemplates();
+      
+      // Automatic seeding if empty
+      if (data.length === 0) {
+        console.log('No templates found, seeding legacy templates...');
+        await TemplateService.seedLegacyTemplates();
+        data = await TemplateService.listTemplates();
+      }
+      
       setTemplates(data);
     } catch (err) {
       console.error(err);
@@ -70,11 +79,14 @@ export function AdminTemplates() {
             <div className="h-12 w-12 rounded-full bg-gray-50 flex items-center justify-center mb-4">
               <FileText className="h-6 w-6 text-gray-400" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900">Nenhum roteiro dinâmico</h3>
+            <h3 className="text-lg font-semibold text-gray-900">Nenhum roteiro encontrado</h3>
             <p className="text-sm text-gray-500 max-w-xs mx-auto mt-1 mb-6">
-              Você ainda não tem roteiros no banco de dados. Comece importando um arquivo ou criando um do zero.
+              Você ainda não tem roteiros personalizados. Comece importando um novo arquivo ou criando um do zero.
             </p>
-            <Button onClick={() => navigate('/admin/templates/import')} variant="outline">Importar Agora</Button>
+            <div className="flex space-x-3">
+              <Button onClick={() => navigate('/admin/templates/import')} variant="outline">Importar Agora</Button>
+              <Button onClick={() => loadTemplates()} variant="ghost">Recarregar</Button>
+            </div>
           </div>
         </Card>
       ) : (

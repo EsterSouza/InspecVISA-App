@@ -1,5 +1,8 @@
 import { supabase } from '../lib/supabase';
 import type { ChecklistTemplate, ClientCategory } from '../types';
+import { templates as legacyTemplates } from '../data/templates';
+import { templateIlpiGoias } from '../data/templates_ilpi_go';
+import { alimentosTemplates } from '../data/templates_alimentos';
 
 interface RawImportItem {
   section?: string;
@@ -107,5 +110,50 @@ export const TemplateService = {
     }
 
     return template;
+  },
+
+  async seedLegacyTemplates() {
+    console.log('Seeding legacy templates...');
+    
+    // Combine all legacy templates to seed
+    const allLegacy = [
+      ...legacyTemplates,
+      templateIlpiGoias,
+      ...alimentosTemplates
+    ];
+
+    const seeded = [];
+    
+    for (const tpl of allLegacy) {
+      // Check if already exists by name
+      const { data: existing } = await supabase
+        .from('checklist_templates')
+        .select('id')
+        .eq('name', tpl.name)
+        .single();
+      
+      if (existing) {
+        console.log(`Template "${tpl.name}" already exists, skipping.`);
+        continue;
+      }
+
+      console.log(`Seeding template: ${tpl.name}`);
+      
+      // We use our existing saveFullTemplate logic by mapping the legacy object to RawImportItem[]
+      const rawItems = tpl.sections.flatMap(sec => 
+        sec.items.map(it => ({
+          section: sec.title,
+          description: it.description,
+          legislation: it.legislation,
+          weight: it.weight,
+          isCritical: it.isCritical
+        }))
+      );
+
+      const result = await this.saveFullTemplate(tpl.name, tpl.category, rawItems);
+      seeded.push(result);
+    }
+
+    return seeded;
   }
 };
