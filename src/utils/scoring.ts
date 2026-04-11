@@ -56,23 +56,35 @@ function calcMARPValues(items: ChecklistItem[], responseMap: Map<string, Inspect
  * Main score calculation for the entire inspection
  */
 export function calculateScore(responses: InspectionResponse[], sections: Section[]): InspectionScore {
-  const responseMap = new Map<string, InspectionResponse>(
-    responses
-      .filter(r => r && r.itemId)
-      .map(r => [r.itemId, r] as [string, InspectionResponse])
-  );
   const allItems = sections.flatMap(s => s.items);
+  const itemIds = new Set(allItems.map(i => i.id));
+  
+  // ISOLATION: Only consider responses for items that exist in the CURRENT template sections
+  // This avoids "ghost" responses from other templates or versions.
+  const relevantResponses = responses.filter(r => r && r.itemId && itemIds.has(r.itemId));
 
-  // Global metrics
-  const evaluatedItems = responses.filter(r => r?.result && r.result !== 'not_evaluated').length;
-  const compliesCount = responses.filter(r => r?.result === 'complies').length;
-  const notCompliesCount = responses.filter(r => r?.result === 'not_complies').length;
-  const notApplicableCount = responses.filter(r => r?.result === 'not_applicable').length;
-  const notObservedCount = responses.filter(r => r?.result === 'not_observed').length;
-  const notEvaluatedCount = allItems.length - evaluatedItems;
+  const responseMap = new Map<string, InspectionResponse>(
+    relevantResponses.map(r => [r.itemId, r] as [string, InspectionResponse])
+  );
 
-  const denominator = compliesCount + notCompliesCount;
-  const scorePercentage = denominator > 0 ? (compliesCount / denominator) * 100 : 0;
+  // Global counts for valid responses (Bug 3: items with no response or 'not_evaluated' are ignored here)
+  const evaluatedResponses = relevantResponses.filter(r => r.result && r.result !== 'not_evaluated');
+  
+  const compliesCount = evaluatedResponses.filter(r => r.result === 'complies').length;
+  const notCompliesCount = evaluatedResponses.filter(r => r.result === 'not_complies').length;
+  const notApplicableCount = evaluatedResponses.filter(r => r.result === 'not_applicable').length;
+  const notObservedCount = evaluatedResponses.filter(r => r.result === 'not_observed').length;
+  
+  // Bug 1: totalItems is strictly the items present in the composed sections (the 97)
+  const totalItemsCount = allItems.length;
+  
+  // X / Y where X is the count of items with ANY definitive answer (C, NC, NA, NO)
+  const evaluatedCount = evaluatedResponses.length;
+  const notEvaluatedCount = totalItemsCount - evaluatedCount;
+
+  // Bug 2: scorePercentage denominator = only items that ARE C or NC (exclude NA/NO/Unanswered)
+  const scoreDenominator = compliesCount + notCompliesCount;
+  const scorePercentage = scoreDenominator > 0 ? (compliesCount / scoreDenominator) * 100 : 0;
 
   // Global MARP calculation
   const globalMarp = calcMARPValues(allItems, responseMap);
@@ -80,13 +92,13 @@ export function calculateScore(responses: InspectionResponse[], sections: Sectio
   // Section-by-section MARP calculation
   const scoreBySection: SectionScore[] = sections.map(s => {
     const sectionItems = s.items;
-    const itemIds = new Set(sectionItems.map(i => i.id));
-    const sectionResponses = responses.filter(r => itemIds.has(r.itemId));
+    const sItemIds = new Set(sectionItems.map(i => i.id));
+    const sectionResponses = relevantResponses.filter(r => sItemIds.has(r.itemId));
     
-    // Section basic metrics
-    const sectionComplies = sectionResponses.filter(r => r.result === 'complies').length;
-    const sectionNotComplies = sectionResponses.filter(r => r.result === 'not_complies').length;
-    const sectionDenom = sectionComplies + sectionNotComplies;
+    const sEvaluated = sectionResponses.filter(r => r.result && r.result !== 'not_evaluated');
+    const sComplies = sEvaluated.filter(r => r.result === 'complies').length;
+    const sNotComplies = sEvaluated.filter(r => r.result === 'not_complies').length;
+    const sDenom = sComplies + sNotComplies;
     
     const sectionMarp = calcMARPValues(sectionItems, responseMap);
 
@@ -94,26 +106,25 @@ export function calculateScore(responses: InspectionResponse[], sections: Sectio
       sectionId: s.id,
       sectionTitle: s.title,
       totalItems: sectionItems.length,
-      evaluatedItems: sectionResponses.length,
-      compliesCount: sectionComplies,
-      notCompliesCount: sectionNotComplies,
-      notApplicableCount: sectionResponses.filter(r => r.result === 'not_applicable').length,
-      notObservedCount: sectionResponses.filter(r => r.result === 'not_observed').length,
-      scorePercentage: sectionDenom > 0 ? (sectionComplies / sectionDenom) * 100 : 0,
+      evaluatedItems: sEvaluated.length,
+      compliesCount: sComplies,
+      notCompliesCount: sNotComplies,
+      notApplicableCount: sEvaluated.filter(r => r.result === 'not_applicable').length,
+      notObservedCount: sEvaluated.filter(r => r.result === 'not_observed').length,
+      scorePercentage: sDenom > 0 ? (sComplies / sDenom) * 100 : 0,
       ...sectionMarp
     };
   });
 
   // Classification based on RP (Risco Potencial)
-  // Escala: Aceitável (≥ 13.5), Tolerável (12 a 13.5), Crítico (9 a 12), Inaceitável (< 9)
   const classification: ScoreClassification =
     globalMarp.rp >= 13.5 ? 'excellent' :
     globalMarp.rp >= 12.0 ? 'good' :
     globalMarp.rp >= 9.0  ? 'regular' : 'critical';
 
   return {
-    totalItems: allItems.length,
-    evaluatedItems,
+    totalItems: totalItemsCount,
+    evaluatedItems: evaluatedCount,
     compliesCount,
     notCompliesCount,
     notApplicableCount,

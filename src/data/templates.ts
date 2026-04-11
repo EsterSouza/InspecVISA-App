@@ -572,10 +572,19 @@ export function getEffectiveTemplate(
     effective.name = `${baseTemplate.name} (+ Suplemento GO)`;
   }
 
-  // 3. Apply Multi-professional Filtering
+  // 3. Apply Food Segment Filtering (Alimentos)
+  if (baseTemplate.category === 'alimentos') {
+    const foodTypes = (client as any).foodTypes || [];
+    effective.sections = effective.sections.filter(section => {
+      if (!section.applicableFoodTypes || section.applicableFoodTypes.length === 0) return true;
+      return section.applicableFoodTypes.some(t => foodTypes.includes(t));
+    });
+  }
+
+  // 4. Apply Multi-professional Filtering (ILPI)
   effective.sections = filterSectionsByRole(effective.sections, role || '', full);
 
-  // 4. Final Sorting
+  // 5. Final Sorting
   effective.sections.sort((a: any, b: any) => a.order - b.order);
 
   return effective;

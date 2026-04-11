@@ -150,29 +150,11 @@ export function InspectionExecution() {
   const visibleSections = useMemo(() => {
     if (!template || !currentInspection) return [];
     
+    // Get effective template (handles segments, regions, and multi-professional filtering)
     const role = useSettingsStore.getState().settings.consultantRole || 'saude';
+    const effective = getEffectiveTemplate(template, currentInspection as any, role, false);
     
-    // Get effective template with role-based filtering for the Execution UI
-    const effective = enrichTemplate(template, currentInspection as any);
-    
-    // Still need additional filtering for 'alimentos' category if applicable
-    let sections = effective.sections;
-
-    if (template.category === 'alimentos') {
-       const clientTypes = currentInspection.foodTypes || [];
-       sections = sections.filter(section => {
-        if (!section.applicableFoodTypes || section.applicableFoodTypes.length === 0) return true;
-        return section.applicableFoodTypes.some(t => clientTypes.includes(t));
-      });
-    }
-
-    // Role filtering for ILPI
-    if (template.category === 'ilpi') {
-       const roleFiltered = getEffectiveTemplate(template, currentInspection as any, role, false);
-       sections = roleFiltered.sections;
-    }
-
-    return sections;
+    return effective.sections;
   }, [template, currentInspection]);
 
   // Auto-save debounced implementation
