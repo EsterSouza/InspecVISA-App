@@ -181,18 +181,15 @@ function App() {
               <Route path="/clients" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
               <Route path="/clients/:id" element={<ProtectedRoute><ClientDetails /></ProtectedRoute>} />
               <Route path="/schedules" element={<ProtectedRoute><Schedules /></ProtectedRoute>} />
-              <Route path="/settings" element={<ProtectedRoute requiredRole="admin"><Settings /></ProtectedRoute>} />
-              <Route path="/importar-dados" element={<ProtectedRoute requiredRole="admin"><ImportLegacyData /></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+              <Route path="/importar-dados" element={<ProtectedRoute><ImportLegacyData /></ProtectedRoute>} />
               <Route path="/inspections" element={<Inspections />} />
               <Route path="/new" element={<NewInspection />} />
               <Route path="/execute" element={<InspectionExecution />} />
               <Route path="/summary" element={<InspectionSummary />} />
-              <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
-                <Route index element={<AdminTemplates />} />
-                <Route path="templates" element={<AdminTemplates />} />
-                <Route path="templates/import" element={<SmartImporter />} />
-                <Route path="legislations" element={<LegislationsManager />} />
-              </Route>
+              <Route path="/templates" element={<ProtectedRoute><AdminTemplates /></ProtectedRoute>} />
+              <Route path="/templates/import" element={<ProtectedRoute><SmartImporter /></ProtectedRoute>} />
+              <Route path="/legislations" element={<ProtectedRoute><LegislationsManager /></ProtectedRoute>} />
               <Route path="/debug" element={<Debug />} />
               <Route path="/access-denied" element={<AccessDenied />} />
             </Routes>

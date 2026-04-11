@@ -7,7 +7,7 @@ import type { Inspection, InspectionResponse, ChecklistItem, Schedule } from '..
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
-import { PlusCircle, ClipboardCheck, ArrowRight, Activity, TrendingUp, AlertTriangle, Calendar, Clock, Settings } from 'lucide-react';
+import { PlusCircle, ClipboardCheck, ArrowRight, Activity, TrendingUp, AlertTriangle, Calendar, Clock, Settings, BookOpen, FileText, FilePlus } from 'lucide-react';
 import { formatDateTime } from '../utils/imageUtils';
 import { calculateScore } from '../utils/scoring';
 import { getTemplates } from '../data/templates';
@@ -213,6 +213,44 @@ export function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Quick Actions Management */}
+      <div className="mb-10">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Gestão e Biblioteca</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Card 
+            className="group cursor-pointer border-primary-100 hover:border-primary-300 hover:bg-primary-50 transition-all shadow-sm hover:shadow-md"
+            onClick={() => navigate('/templates')}
+          >
+            <CardContent className="p-6 flex items-center gap-5">
+              <div className="h-12 w-12 rounded-2xl bg-primary-100 flex items-center justify-center text-primary-600 group-hover:scale-110 transition-transform">
+                <FileText className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900">Roteiros Digitais</h3>
+                <p className="text-xs text-gray-500">Crie e edite seus roteiros de inspeção.</p>
+              </div>
+              <ArrowRight className="ml-auto h-5 w-5 text-gray-300 group-hover:text-primary-400" />
+            </CardContent>
+          </Card>
+
+          <Card 
+            className="group cursor-pointer border-secondary-100 hover:border-secondary-300 hover:bg-secondary-50 transition-all shadow-sm hover:shadow-md"
+            onClick={() => navigate('/legislations')}
+          >
+            <CardContent className="p-6 flex items-center gap-5">
+              <div className="h-12 w-12 rounded-2xl bg-secondary-100 flex items-center justify-center text-secondary-600 group-hover:scale-110 transition-transform">
+                <BookOpen className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900">Biblioteca de Leis</h3>
+                <p className="text-xs text-gray-500">Consulte e gerencie legislações oficiais.</p>
+              </div>
+              <ArrowRight className="ml-auto h-5 w-5 text-gray-300 group-hover:text-secondary-400" />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
         {/* Recent Inspections */}

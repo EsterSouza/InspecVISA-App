@@ -9,6 +9,7 @@ export function LegislationsManager() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [newLeg, setNewLeg] = useState({ name: '', summary: '', url: '' });
+  const [isSeeding, setIsSeeding] = useState(false);
 
   useEffect(() => {
     loadLegislations();
@@ -23,6 +24,19 @@ export function LegislationsManager() {
       console.error('Failed to load legislations:', err);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleSeed() {
+    if (!confirm('Deseja importar automaticamente as principais legislações sanitárias brasileiras para sua biblioteca?')) return;
+    try {
+      setIsSeeding(true);
+      await LegislationService.seedStandardLegislations();
+      await loadLegislations();
+    } catch (err) {
+      alert('Erro ao importar legislações sugeridas');
+    } finally {
+      setIsSeeding(false);
     }
   }
 
@@ -60,9 +74,20 @@ export function LegislationsManager() {
           <h1 className="text-2xl font-bold text-gray-900">Biblioteca de Legislação</h1>
           <p className="text-gray-500">Gerencie as leis que serão vinculadas aos itens de inspeção.</p>
         </div>
-        <Button onClick={() => setIsAdding(true)} className="gap-2">
-          <Plus className="h-4 w-4" /> Nova Legislação
-        </Button>
+        <div className="flex gap-3">
+          <Button 
+            variant="outline" 
+            onClick={handleSeed} 
+            disabled={isSeeding}
+            className="gap-2 border-primary-200 text-primary-700 hover:bg-primary-50"
+          >
+            {isSeeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <BookOpen className="h-4 w-4" />}
+            Sugerir Legislações Base
+          </Button>
+          <Button onClick={() => setIsAdding(true)} className="gap-2 shadow-lg shadow-primary-100">
+            <Plus className="h-4 w-4" /> Nova Legislação
+          </Button>
+        </div>
       </div>
 
       <div className="relative mb-6">

@@ -7,6 +7,7 @@ import { getTemplateById, enrichTemplate } from '../data/templates';
 import { calculateScore, classificationColor, classificationLabel } from '../utils/scoring';
 import { generatePDF } from '../utils/pdfGenerator';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { LegislationService, type Legislation } from '../services/legislationService';
 import type { Inspection, InspectionResponse, ChecklistTemplate } from '../types';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
@@ -24,6 +25,7 @@ export function InspectionSummary() {
   const [currentInspection, setInspection] = useState<Inspection | null>(null);
   const [responses, setResponses] = useState<InspectionResponse[]>([]);
   const [template, setTemplate] = useState<ChecklistTemplate | null>(null);
+  const [legislations, setLegislations] = useState<Legislation[]>([]);
   const [allClients, setAllClients] = useState<any[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [savingMeta, setSavingMeta] = useState(false);
@@ -83,9 +85,11 @@ export function InspectionSummary() {
         }
 
         const tpl = getTemplateById(insp.templateId);
+        const legs = await LegislationService.listLegislations();
 
         setInspection(insp);
         setResponses(localResps);
+        setLegislations(legs);
         setTemplate(tpl ? enrichTemplate(tpl, client || (insp as any)) : null);
       } catch (err) {
         console.error(err);
@@ -129,7 +133,7 @@ export function InspectionSummary() {
     try {
        // Allow React state update to show spinner
        await new Promise(resolve => setTimeout(resolve, 100));
-       await generatePDF(currentInspection, responses, template, scoreArea, settings as any);
+       await generatePDF(currentInspection, responses, template, scoreArea, settings as any, legislations);
     } catch (err) {
        console.error('PDF Error:', err);
       alert('Erro ao gerar PDF. Verifique os dados e tente novamente.');

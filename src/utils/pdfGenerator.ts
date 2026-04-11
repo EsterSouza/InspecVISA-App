@@ -11,7 +11,8 @@ export async function generatePDF(
   responses: InspectionResponse[],
   template: ChecklistTemplate,
   score: InspectionScore,
-  settings: ConsultantSettings
+  settings: ConsultantSettings,
+  legislations: any[] = []
 ): Promise<void> {
   const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
   const pageW = doc.internal.pageSize.getWidth();
@@ -614,14 +615,41 @@ export async function generatePDF(
   }
 
   // Draw Legislation References as a separate page at the very end (before saving)
-  drawLegislationPage(doc, responses);
+  drawLegislationPage(doc, template, legislations);
 
   const filename = `Inspecao_${(inspection.clientName || 'cliente').replace(/\s+/g, '_')}_${formatDate(inspection.inspectionDate).replace(/\//g, '-')}.pdf`;
   doc.save(filename);
 }
 
-function drawLegislationPage(doc: jsPDF, results: InspectionResponse[]) {
-  // Adding a new page for references
+function drawLegislationPage(doc: jsPDF, template: ChecklistTemplate, allLegislations: any[]) {
+  // Extract unique mentions of legislation in the template
+  const mentionedSet = new Set<string>();
+  template.sections.forEach(s => {
+    s.items.forEach(item => {
+      if (item.legislation) {
+        // Handle comma separated or single mentions
+        item.legislation.split(',').forEach(l => mentionedSet.add(l.trim().toUpperCase()));
+      }
+    });
+  });
+
+  if (mentionedSet.size === 0 && allLegislations.length === 0) return;
+
+  // Find matches in our library
+  const matchedLaws = allLegislations.filter(leg => {
+    const legName = leg.name.toUpperCase();
+    return Array.from(mentionedSet).some(mQuery => 
+      legName.includes(mQuery) || mQuery.includes(legName)
+    );
+  });
+
+  // If we have mentions but no matches in library, just list the mentions
+  const lawsToDisplay = matchedLaws.length > 0 
+    ? matchedLaws.map(l => `${l.name} - ${l.summary || ''}`)
+    : Array.from(mentionedSet).map(m => m);
+
+  if (lawsToDisplay.length === 0) return;
+
   doc.addPage();
   const pageWidth = doc.internal.pageSize.getWidth();
   
@@ -640,18 +668,7 @@ function drawLegislationPage(doc: jsPDF, results: InspectionResponse[]) {
 
   let y = 60;
   
-  // These are the most common laws in TreinaVISA ROIs
-  const uniqueLaws = [
-    'RDC Nº 63/2011 - Requisitos de Boas Práticas de Funcionamento para Serviços de Saúde',
-    'RDC Nº 15/2012 - Requisitos de Boas Práticas para o Processamento de Produtos para Saúde',
-    'RDC Nº 222/2018 - Boas Práticas de Gerenciamento dos Resíduos de Serviços de Saúde',
-    'RDC Nº 50/2002 - Regulamento Técnico para planejamento, programação... de EAS',
-    'RDC Nº 36/2013 - Institui ações para a segurança do paciente em serviços de saúde',
-    'NR 32 - Segurança e Saúde no Trabalho em Serviços de Saúde',
-    'Lei Federal nº 6.437/1977 - Configura infrações à legislação sanitária federal e estabelece sanções'
-  ];
-
-  uniqueLaws.forEach((law, idx) => {
+  lawsToDisplay.forEach((law, idx) => {
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(31, 41, 55);
