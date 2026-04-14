@@ -22,7 +22,7 @@ import { SignaturePad } from '../components/ui/SignaturePad';
 export function InspectionExecution() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { currentInspection, responses, setCurrentInspection, setResponses, updateResponse } = useInspectionStore();
+  const { currentInspection, responses, setCurrentInspection, setResponses, updateResponse, addResponse, mergeResponses } = useInspectionStore();
   
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
@@ -123,7 +123,6 @@ export function InspectionExecution() {
       if (!navigator.onLine) return;
       
       try {
-        // Fetch fresh responses for this inspection
         const { data: remoteResps, error } = await supabase
           .from('responses')
           .select('*')
@@ -133,48 +132,32 @@ export function InspectionExecution() {
         if (error) throw error;
         if (!remoteResps) return;
 
-        // Map to local types and update Dexie + Store
-        const now = new Date();
-        const updatedResponses = [...responses];
-        let hasChanges = false;
+        // Map to internal format
+        const mappedRemote: InspectionResponse[] = remoteResps.map(rr => ({
+          id: rr.id,
+          inspectionId: rr.inspection_id,
+          itemId: rr.item_id,
+          result: rr.result,
+          situationDescription: rr.situation_description,
+          correctiveAction: rr.corrective_action,
+          responsible: rr.responsible,
+          deadline: rr.deadline,
+          customDescription: rr.custom_description,
+          createdAt: new Date(rr.created_at),
+          updatedAt: new Date(rr.updated_at || rr.created_at),
+          synced: 1,
+          photos: [] // Photos are handled separately via Dexie cache
+        }));
 
-        for (const rr of remoteResps) {
-          const local = responses.find(r => r.id === rr.id);
-          const serverUpdate = new Date(rr.updated_at || rr.created_at);
-          const localUpdate = local?.updatedAt ? new Date(local.updatedAt) : undefined;
-
-          // Only update if server is newer
-          if (!local || (localUpdate && serverUpdate > localUpdate)) {
-            const mapped: InspectionResponse = {
-              id: rr.id,
-              inspectionId: rr.inspection_id,
-              itemId: rr.item_id,
-              result: rr.result,
-              situationDescription: rr.situation_description,
-              correctiveAction: rr.corrective_action,
-              responsible: rr.responsible,
-              deadline: rr.deadline,
-              customDescription: rr.custom_description,
-              createdAt: new Date(rr.created_at),
-              updatedAt: serverUpdate,
-              synced: 1,
-              photos: local?.photos || [] // Keep local photos cache
-            };
-            
-            await db.responses.put(mapped);
-            
-            const idx = updatedResponses.findIndex(r => r.id === rr.id);
-            if (idx >= 0) {
-              updatedResponses[idx] = mapped;
-            } else {
-              updatedResponses.push(mapped);
-            }
-            hasChanges = true;
-          }
-        }
-
-        if (hasChanges) {
-          setResponses(updatedResponses);
+        mergeResponses(mappedRemote);
+        
+        // Also update Dexie for local persistence of remote updates
+        for (const m of mappedRemote) {
+          await db.responses.put({
+            ...m,
+            // Keep local photos if they exist, as the remote select doesn't include them
+            photos: (await db.responses.get(m.id))?.photos || [] 
+          });
         }
       } catch (err) {
         console.warn('[Sync] Background pull failed:', err);
@@ -203,11 +186,11 @@ export function InspectionExecution() {
   }, [currentInspection, loading]);
 
 
-  const handleResponseChange = (itemId: string, result: InspectionResponse['result']) => {
+  const handleResponseChange = async (itemId: string, result: InspectionResponse['result']) => {
     if (!currentInspection) return;
     const existing = responses.find(r => r.itemId === itemId);
     if (existing) {
-      updateResponse(existing.id, { result, updatedAt: new Date() });
+      await updateResponse(existing.id, { result, updatedAt: new Date() });
     } else {
       const newResp: InspectionResponse = {
         id: generateId(),
@@ -218,7 +201,7 @@ export function InspectionExecution() {
         createdAt: new Date(),
         updatedAt: new Date()
       };
-      setResponses([...responses, newResp]);
+      await addResponse(newResp);
     }
   };
 

@@ -9,6 +9,7 @@ interface InspectionState {
   setResponses: (responses: InspectionResponse[]) => void;
   updateResponse: (responseId: string, updates: Partial<InspectionResponse>) => Promise<boolean>;
   addResponse: (response: InspectionResponse) => Promise<boolean>;
+  mergeResponses: (remoteResponses: InspectionResponse[]) => void;
   clearCurrentInspection: () => void;
 }
 
@@ -62,6 +63,36 @@ export const useInspectionStore = create<InspectionState>((set) => ({
       console.error('Error adding response:', error);
       return false;
     }
+  },
+
+  mergeResponses: (remoteResponses) => {
+    set((state) => {
+      const updated = [...state.responses];
+      let hasChanges = false;
+
+      for (const rr of remoteResponses) {
+        const localIdx = updated.findIndex(r => r.id === rr.id);
+        const local = updated[localIdx];
+        
+        // Safety check 1: Don't overwrite unsynced local changes
+        if (local && local.synced === 0) continue;
+
+        // Safety check 2: Compare timestamps robustly
+        const serverUpdate = new Date(rr.updatedAt || rr.createdAt).getTime();
+        const localUpdate = local?.updatedAt ? new Date(local.updatedAt).getTime() : 0;
+
+        if (!local || serverUpdate > localUpdate + 1000) {
+          if (localIdx >= 0) {
+            updated[localIdx] = { ...updated[localIdx], ...rr, synced: 1 };
+          } else {
+            updated.push({ ...rr, synced: 1 });
+          }
+          hasChanges = true;
+        }
+      }
+
+      return hasChanges ? { responses: updated } : state;
+    });
   },
 
   clearCurrentInspection: () => set({ currentInspection: null, responses: [] }),
