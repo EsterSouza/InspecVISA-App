@@ -24,43 +24,59 @@ export const useInspectionStore = create<InspectionState>((set) => ({
   updateResponse: async (responseId, updates) => {
     try {
       const now = new Date();
-      const existing = await db.responses.get(responseId);
-      if (!existing) return false;
-
-      const updatedRecord: InspectionResponse = {
-        ...existing,
-        ...updates,
-        updatedAt: now,
-        synced: 0 // Will be set to 1 by onlineUpsert if successful
-      };
-
-      // ✅ ONLINE-PRIMARY: Direct save to Cloud + Local Cache
-      await db.onlineUpsert('responses', updatedRecord, db.responses);
-
+      
+      // 1. OPTIMISTIC UPDATE: Update Zustand state IMMEDIATELY
       set((state) => ({
         responses: state.responses.map((r) =>
-          r.id === responseId ? { ...r, ...updates, updatedAt: now, synced: 1 } : r
+          r.id === responseId ? { ...r, ...updates, updatedAt: now, synced: 0 } : r
         ),
       }));
 
+      // 2. BACKGROUND SAVE: Persist to DB/Cloud without blocking UI
+      const existing = await db.responses.get(responseId);
+      if (existing) {
+        const updatedRecord: InspectionResponse = {
+          ...existing,
+          ...updates,
+          updatedAt: now,
+          synced: 0
+        };
+        
+        db.onlineUpsert('responses', updatedRecord, db.responses).then((res) => {
+          if (res.synced === 1) {
+             set((state) => ({
+               responses: state.responses.map(r => r.id === responseId ? { ...r, synced: 1 } : r)
+             }));
+          }
+        });
+      }
+
       return true;
     } catch (error) {
-      console.error('Error saving response:', error);
-      // We don't alert here because onlineUpsert already handles the "Cache-First" logic
-      // and failure to cloud doesn't mean failure to save locally.
+      console.error('Error in optimistic update:', error);
       return false;
     }
   },
 
   addResponse: async (response) => {
     try {
-      await db.onlineUpsert('responses', response, db.responses);
+      // 1. OPTIMISTIC UPDATE: Update UI first
       set((state) => ({
-        responses: [...state.responses, { ...response, synced: 1 }]
+        responses: [...state.responses, { ...response, synced: 0 }]
       }));
+
+      // 2. BACKGROUND SAVE
+      db.onlineUpsert('responses', response, db.responses).then((res) => {
+        if (res.synced === 1) {
+          set((state) => ({
+            responses: state.responses.map(r => r.id === response.id ? { ...r, synced: 1 } : r)
+          }));
+        }
+      });
+      
       return true;
     } catch (error) {
-      console.error('Error adding response:', error);
+      console.error('Error in optimistic add:', error);
       return false;
     }
   },

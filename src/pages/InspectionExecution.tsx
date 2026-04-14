@@ -186,11 +186,11 @@ export function InspectionExecution() {
   }, [currentInspection, loading]);
 
 
-  const handleResponseChange = async (itemId: string, result: InspectionResponse['result']) => {
+  const handleResponseChange = (itemId: string, result: InspectionResponse['result']) => {
     if (!currentInspection) return;
     const existing = responses.find(r => r.itemId === itemId);
     if (existing) {
-      await updateResponse(existing.id, { result, updatedAt: new Date() });
+      updateResponse(existing.id, { result, updatedAt: new Date() });
     } else {
       const newResp: InspectionResponse = {
         id: generateId(),
@@ -201,7 +201,7 @@ export function InspectionExecution() {
         createdAt: new Date(),
         updatedAt: new Date()
       };
-      await addResponse(newResp);
+      addResponse(newResp);
     }
   };
 
