@@ -1,14 +1,14 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, FileCheck2, Loader2, PlusCircle, Info, Users2, WifiOff, X } from 'lucide-react';
+import { ArrowLeft, Loader2, PlusCircle, WifiOff, X, RefreshCw } from 'lucide-react';
 import { db } from '../db/database';
 import { supabase } from '../lib/supabase';
 import { getTemplateById, getEffectiveTemplate } from '../data/templates';
-import { FOOD_SEGMENT_LABELS, type FoodEstablishmentType, type InspectionResponse, type InspectionPhoto } from '../types';
+import { type InspectionResponse, type InspectionPhoto } from '../types';
 import { ILPIStaffCalculator } from '../components/inspection/ILPIStaffCalculator';
 import { useInspectionStore } from '../store/useInspectionStore';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { generateId, formatDateTime } from '../utils/imageUtils';
+import { generateId } from '../utils/imageUtils';
 import { CollaborativeProgress } from '../components/inspection/CollaborativeProgress';
 
 import { Button } from '../components/ui/Button';
@@ -22,194 +22,256 @@ import { SignaturePad } from '../components/ui/SignaturePad';
 export function InspectionExecution() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { currentInspection, responses, setCurrentInspection, setResponses, updateResponse, addResponse, mergeResponses } = useInspectionStore();
-  
+  const {
+    currentInspection,
+    responses,
+    setCurrentInspection,
+    setResponses,
+    updateResponse,
+    addResponse,
+    mergeResponses,
+  } = useInspectionStore();
+
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [prevNCIds, setPrevNCIds] = useState<string[]>([]);
   const [expandedSectionIds, setExpandedSectionIds] = useState<string[]>([]);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   useEffect(() => {
-    const updateOnlineStatus = () => setIsOnline(navigator.onLine);
-    window.addEventListener('online', updateOnlineStatus);
-    window.addEventListener('offline', updateOnlineStatus);
-    return () => {
-      window.removeEventListener('online', updateOnlineStatus);
-      window.removeEventListener('offline', updateOnlineStatus);
-    };
+    const update = () => setIsOnline(navigator.onLine);
+    window.addEventListener('online', update);
+    window.addEventListener('offline', update);
+    return () => { window.removeEventListener('online', update); window.removeEventListener('offline', update); };
   }, []);
 
-  useEffect(() => {
-    const { inspectionId, previousInspectionId } = location.state || {};
-    
-    if (!inspectionId && !currentInspection) {
-      navigate('/inspections');
-      return;
-    }
+  // ─── LOAD DATA ────────────────────────────────────────────────────────────
+  // Runs when the page is opened, whether via navigation state or direct URL.
+  // Falls back to Supabase if the inspection is not in the local Dexie cache.
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const { inspectionId, previousInspectionId } = location.state || {};
+      const id = inspectionId || currentInspection?.id;
 
-    const loadData = async () => {
-      try {
-        const id = inspectionId || currentInspection?.id;
-        const insp = await db.inspections.get(id);
-        
-        if (!insp || insp.deletedAt) {
-          alert('Inspeção não encontrada.');
-          navigate('/inspections');
-          return;
-        }
-        
-        const client = await db.clients.get(insp.clientId);
-        if (client) {
-          insp.clientName = client.name;
-          insp.clientCategory = client.category;
-          insp.foodTypes = client.foodTypes;
-          insp.city = client.city;
-          insp.state = client.state;
-        }
-
-        let resps = await db.responses
-          .where('inspectionId').equals(id)
-          .filter(r => !r.deletedAt)
-          .toArray();
-        
-        for (const r of resps) {
-          r.photos = await db.photos
-            .where('responseId').equals(r.id)
-            .filter(p => !p.deletedAt)
-            .toArray();
-        }
-
-        setCurrentInspection(insp);
-        setResponses(resps);
-
-        if (previousInspectionId) {
-          const prevResps = await db.responses.where('inspectionId').equals(previousInspectionId).toArray();
-          setPrevNCIds(prevResps.filter(r => r.result === 'not_complies').map(r => r.itemId));
-        }
-      } catch (err) {
-        console.error(err);
+      if (!id) {
         navigate('/inspections');
-      } finally {
-        setLoading(false);
+        return;
       }
-    };
 
-    loadData();
-  }, [location.state?.inspectionId]);
+      // 1. Try local Dexie first
+      let insp = await db.inspections.get(id);
 
+      // 2. Fallback: fetch from Supabase if not found locally (e.g., other device)
+      if (!insp || insp.deletedAt) {
+        if (navigator.onLine) {
+          const { data: remoteInsp } = await supabase
+            .from('inspections')
+            .select('*')
+            .eq('id', id)
+            .is('deleted_at', null)
+            .single();
+
+          if (remoteInsp) {
+            // Map snake_case → camelCase and cache locally
+            insp = {
+              id: remoteInsp.id,
+              clientId: remoteInsp.client_id,
+              templateId: remoteInsp.template_id,
+              consultantName: remoteInsp.consultant_name,
+              inspectionDate: remoteInsp.inspection_date ? new Date(remoteInsp.inspection_date) : new Date(),
+              status: remoteInsp.status,
+              observations: remoteInsp.observations,
+              completedAt: remoteInsp.completed_at ? new Date(remoteInsp.completed_at) : undefined,
+              accompanistName: remoteInsp.accompanist_name,
+              accompanistRole: remoteInsp.accompanist_role,
+              ilpiCapacity: remoteInsp.ilpi_capacity,
+              residentsTotal: remoteInsp.residents_total,
+              dependencyLevel1: remoteInsp.dependency_level1 ?? remoteInsp.dependency_level_1,
+              dependencyLevel2: remoteInsp.dependency_level2 ?? remoteInsp.dependency_level_2,
+              dependencyLevel3: remoteInsp.dependency_level3 ?? remoteInsp.dependency_level_3,
+              observedStaff: remoteInsp.observed_staff,
+              observedNursingTechs: remoteInsp.observed_nursing_techs,
+              signatureDataUrl: remoteInsp.signature_data_url,
+              tenantId: remoteInsp.tenant_id,
+              createdAt: new Date(remoteInsp.created_at),
+              updatedAt: new Date(remoteInsp.updated_at || remoteInsp.created_at),
+              synced: 1,
+            } as any;
+            // Cache it
+            await db.inspections.put(insp!);
+          }
+        }
+      }
+
+      if (!insp || insp.deletedAt) {
+        setLoadError('Inspeção não encontrada. Verifique sua conexão e tente novamente.');
+        setLoading(false);
+        return;
+      }
+
+      // 3. Enrich with client data
+      const client = await db.clients.get(insp.clientId);
+      if (client) {
+        insp.clientName = client.name;
+        insp.clientCategory = client.category;
+        insp.foodTypes = client.foodTypes;
+        insp.city = client.city;
+        insp.state = client.state;
+      } else if (navigator.onLine) {
+        // Try fetching client from Supabase too
+        const { data: remoteClient } = await supabase
+          .from('clients')
+          .select('*')
+          .eq('id', insp.clientId)
+          .single();
+        if (remoteClient) {
+          insp.clientName = remoteClient.name;
+          insp.clientCategory = remoteClient.category;
+          insp.foodTypes = remoteClient.food_types;
+          insp.city = remoteClient.city;
+          insp.state = remoteClient.state;
+        }
+      }
+
+      // 4. Load responses from Dexie
+      let resps = await db.responses
+        .where('inspectionId').equals(id)
+        .filter(r => !r.deletedAt)
+        .toArray();
+
+      // 5. If no local responses, try Supabase fallback
+      if (resps.length === 0 && navigator.onLine) {
+        const { data: remoteResps } = await supabase
+          .from('responses')
+          .select('*')
+          .eq('inspection_id', id)
+          .is('deleted_at', null);
+
+        if (remoteResps && remoteResps.length > 0) {
+          resps = remoteResps.map(rr => ({
+            id: rr.id,
+            inspectionId: rr.inspection_id,
+            itemId: rr.item_id,
+            result: rr.result,
+            situationDescription: rr.situation_description,
+            correctiveAction: rr.corrective_action,
+            responsible: rr.responsible,
+            deadline: rr.deadline,
+            customDescription: rr.custom_description,
+            createdAt: new Date(rr.created_at),
+            updatedAt: new Date(rr.updated_at || rr.created_at),
+            synced: 1,
+            photos: [],
+          }));
+          // Cache locally
+          await db.responses.bulkPut(resps);
+        }
+      }
+
+      // 6. Attach photos
+      for (const r of resps) {
+        r.photos = await db.photos
+          .where('responseId').equals(r.id)
+          .filter(p => !p.deletedAt)
+          .toArray();
+      }
+
+      setCurrentInspection(insp);
+      setResponses(resps);
+
+      // 7. Load previous inspection non-compliances (for recurrence detection)
+      if (previousInspectionId) {
+        const prevResps = await db.responses.where('inspectionId').equals(previousInspectionId).toArray();
+        setPrevNCIds(prevResps.filter(r => r.result === 'not_complies').map(r => r.itemId));
+      }
+    } catch (err) {
+      console.error('[loadData] Error:', err);
+      setLoadError('Erro ao carregar inspeção. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  }, [location.state?.inspectionId, location.state?.previousInspectionId]);
+
+  // Re-run loadData whenever the inspectionId in navigation state changes
+  useEffect(() => { loadData(); }, [loadData]);
+
+  // ─── TEMPLATE RESOLUTION ──────────────────────────────────────────────────
   const template = useMemo(() => {
     if (!currentInspection) return null;
     const base = getTemplateById(currentInspection.templateId);
-    if (!base) {
-      console.warn('Template not found:', currentInspection.templateId);
-      return null;
-    }
+    if (!base) { console.warn('Template not found:', currentInspection.templateId); return null; }
     return base;
-  }, [currentInspection]);
+  }, [currentInspection?.templateId]);
 
   const visibleSections = useMemo(() => {
     if (!template || !currentInspection) return [];
     const role = useSettingsStore.getState().settings.consultantRole || 'saude';
-    
-    const clientContext = {
-      ...currentInspection,
-      category: (currentInspection as any).clientCategory || (currentInspection as any).category
-    };
-    
-    try {
-      return getEffectiveTemplate(template, clientContext as any, role, false).sections;
-    } catch (err) {
-      console.error('Error generating effective template:', err);
-      return template.sections;
-    }
-  }, [template, currentInspection]);
+    const ctx = { ...currentInspection, category: (currentInspection as any).clientCategory || (currentInspection as any).category };
+    try { return getEffectiveTemplate(template, ctx as any, role, false).sections; }
+    catch (err) { console.error('getEffectiveTemplate error:', err); return template.sections; }
+  }, [template, currentInspection?.templateId, currentInspection?.state]);
 
+  // ─── BACKGROUND SYNC: pull updates from other devices ─────────────────────
   useEffect(() => {
     if (!currentInspection || loading) return;
-
-    const pullInterval = setInterval(async () => {
+    const interval = setInterval(async () => {
       if (!navigator.onLine) return;
-      
       try {
         const { data: remoteResps, error } = await supabase
-          .from('responses')
-          .select('*')
-          .eq('inspection_id', currentInspection.id)
-          .is('deleted_at', null);
-
-        if (error) throw error;
-        if (!remoteResps) return;
-
-        const mappedRemote: InspectionResponse[] = remoteResps.map(rr => ({
-          id: rr.id,
-          inspectionId: rr.inspection_id,
-          itemId: rr.item_id,
-          result: rr.result,
-          situationDescription: rr.situation_description,
-          correctiveAction: rr.corrective_action,
-          responsible: rr.responsible,
-          deadline: rr.deadline,
-          customDescription: rr.custom_description,
-          createdAt: new Date(rr.created_at),
-          updatedAt: new Date(rr.updated_at || rr.created_at),
-          synced: 1,
-          photos: []
+          .from('responses').select('*')
+          .eq('inspection_id', currentInspection.id).is('deleted_at', null);
+        if (error || !remoteResps) return;
+        const mapped: InspectionResponse[] = remoteResps.map(rr => ({
+          id: rr.id, inspectionId: rr.inspection_id, itemId: rr.item_id,
+          result: rr.result, situationDescription: rr.situation_description,
+          correctiveAction: rr.corrective_action, responsible: rr.responsible,
+          deadline: rr.deadline, customDescription: rr.custom_description,
+          createdAt: new Date(rr.created_at), updatedAt: new Date(rr.updated_at || rr.created_at),
+          synced: 1, photos: [],
         }));
-
-        mergeResponses(mappedRemote);
-        
-        for (const m of mappedRemote) {
+        mergeResponses(mapped);
+        for (const m of mapped) {
           const local = await db.responses.get(m.id);
           if (local && local.synced === 0) continue;
-
-          await db.responses.put({
-            ...m,
-            photos: local?.photos || [] 
-          });
+          await db.responses.put({ ...m, photos: local?.photos || [] });
         }
-      } catch (err) {
-        console.warn('[Sync] Background pull failed:', err);
-      }
+      } catch (err) { console.warn('[Sync] pull failed:', err); }
     }, 15000);
+    return () => clearInterval(interval);
+  }, [currentInspection?.id, loading]);
 
-    return () => clearInterval(pullInterval);
-  }, [currentInspection?.id, responses.length, loading]);
-
+  // ─── AUTO-SAVE: immediate Dexie + debounced Supabase ─────────────────────
   useEffect(() => {
     if (loading || !currentInspection) return;
-    
-    const saveTimer = setTimeout(async () => {
+    // Immediate local save (no debounce — prevents refresh data loss)
+    db.inspections.put({ ...currentInspection, updatedAt: new Date(), synced: 0 });
+
+    // Debounced remote save
+    const timer = setTimeout(async () => {
       setSaveStatus('saving');
       try {
         await db.onlineUpsert('inspections', currentInspection, db.inspections);
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus('idle'), 2000);
-      } catch (err) {
-        console.error('Auto-save error', err);
-      }
-    }, 2000);
+      } catch (err) { console.error('Remote save error', err); setSaveStatus('idle'); }
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [currentInspection]);
 
-    return () => clearTimeout(saveTimer);
-  }, [currentInspection, loading]);
-
-
+  // ─── HANDLERS ─────────────────────────────────────────────────────────────
   const handleResponseChange = (itemId: string, result: InspectionResponse['result']) => {
     if (!currentInspection) return;
     const existing = responses.find(r => r.itemId === itemId);
     if (existing) {
       updateResponse(existing.id, { result, updatedAt: new Date() });
     } else {
-      const newResp: InspectionResponse = {
-        id: generateId(),
-        inspectionId: currentInspection.id,
-        itemId,
-        result,
-        photos: [],
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
-      addResponse(newResp);
+      addResponse({
+        id: generateId(), inspectionId: currentInspection.id, itemId, result,
+        photos: [], createdAt: new Date(), updatedAt: new Date(),
+      });
     }
   };
 
@@ -217,25 +279,17 @@ export function InspectionExecution() {
     if (!currentInspection) return;
     const desc = window.prompt('Descrição do item extra:');
     if (!desc) return;
-
-    const newResp: InspectionResponse = {
-      id: generateId(),
-      inspectionId: currentInspection.id,
+    await addResponse({
+      id: generateId(), inspectionId: currentInspection.id,
       itemId: `extra|${sectionId}|${generateId()}`,
-      result: 'not_observed',
-      customDescription: desc,
-      photos: [],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      synced: 0
-    };
-    await addResponse(newResp);
+      result: 'not_observed', customDescription: desc,
+      photos: [], createdAt: new Date(), updatedAt: new Date(), synced: 0,
+    });
   };
 
   const updateStaffData = (field: string, value: number) => {
     if (!currentInspection) return;
-    const updated = { ...currentInspection, [field]: value };
-    setCurrentInspection(updated);
+    setCurrentInspection({ ...currentInspection, [field]: value });
   };
 
   const [showSignatureModal, setShowSignatureModal] = useState(false);
@@ -243,23 +297,49 @@ export function InspectionExecution() {
 
   const handleConfirmFinish = async () => {
     if (!currentInspection || !signature) return;
-
     if (window.confirm('Encerrar Inspeção?')) {
-      const finalData = {
-        ...currentInspection,
-        status: 'completed' as const,
-        completedAt: new Date(),
-        signatureDataUrl: signature
-      };
-
+      const finalData = { ...currentInspection, status: 'completed' as const, completedAt: new Date(), signatureDataUrl: signature };
       await db.onlineUpsert('inspections', finalData, db.inspections);
       navigate('/summary', { state: { inspectionId: currentInspection.id } });
     }
   };
 
-  if (loading || !currentInspection || !template) {
-    return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-primary-600" /></div>;
+  // ─── RENDER STATES ────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-3 bg-gray-50">
+        <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+        <p className="text-sm text-gray-500 font-medium">Carregando inspeção...</p>
+      </div>
+    );
   }
+
+  if (loadError) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-gray-50 p-8 text-center">
+        <p className="text-red-600 font-semibold">{loadError}</p>
+        <Button onClick={loadData} variant="outline" className="gap-2">
+          <RefreshCw className="h-4 w-4" /> Tentar Novamente
+        </Button>
+        <Button variant="ghost" onClick={() => navigate('/inspections')}>
+          <ArrowLeft className="mr-2 h-4 w-4" /> Voltar para Inspeções
+        </Button>
+      </div>
+    );
+  }
+
+  if (!currentInspection || !template) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-gray-50 p-8 text-center">
+        <p className="text-gray-600 font-semibold">Template não encontrado para esta inspeção.</p>
+        <Button variant="ghost" onClick={() => navigate('/inspections')}>
+          <ArrowLeft className="mr-2 h-4 w-4" /> Voltar para Inspeções
+        </Button>
+      </div>
+    );
+  }
+
+  const isCompleted = currentInspection.status === 'completed';
 
   return (
     <div className="flex h-screen flex-col bg-gray-50 pb-safe pb-16 lg:pb-0">
@@ -272,15 +352,33 @@ export function InspectionExecution() {
             <div>
               <h1 className="text-lg font-bold text-gray-900 truncate max-w-[200px]">{currentInspection.clientName}</h1>
               <div className="flex items-center space-x-2 text-[10px] font-bold uppercase tracking-wider">
+                {isCompleted && <Badge variant="neutral" className="bg-green-100 text-green-700 border-green-200">Finalizada</Badge>}
                 {!isOnline && <span className="text-amber-600 flex items-center bg-amber-50 px-2 py-0.5 rounded-md"><WifiOff className="mr-1 h-3 w-3" /> Offline</span>}
                 {saveStatus === 'saving' && <span className="text-primary-600 animate-pulse">Sincronizando...</span>}
-                {saveStatus === 'saved' && <span className="text-green-600">Dados Protegidos na Nuvem</span>}
+                {saveStatus === 'saved' && <span className="text-green-600">Dados Protegidos</span>}
               </div>
             </div>
           </div>
-          <Button onClick={() => setShowSignatureModal(true)} disabled={!isOnline} className="shadow-lg shadow-primary-100">
-            Finalizar Visita
-          </Button>
+          {!isCompleted && (
+            <Button onClick={() => setShowSignatureModal(true)} disabled={!isOnline} className="shadow-lg shadow-primary-100">
+              Finalizar Visita
+            </Button>
+          )}
+          {isCompleted && (
+            <Button
+              variant="outline"
+              onClick={async () => {
+                if (window.confirm('Reabrir esta inspeção para edição?')) {
+                  const updated = { ...currentInspection, status: 'in_progress' as const, completedAt: undefined };
+                  await db.onlineUpsert('inspections', updated, db.inspections);
+                  setCurrentInspection(updated);
+                }
+              }}
+              className="border-amber-300 text-amber-700 hover:bg-amber-50"
+            >
+              Reabrir Inspeção
+            </Button>
+          )}
         </div>
       </header>
 
@@ -289,118 +387,128 @@ export function InspectionExecution() {
       <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 lg:grid lg:grid-cols-12 lg:gap-8 overflow-y-auto">
         <div className="lg:col-span-8 space-y-6">
           {visibleSections.map((section, idx) => {
-             const sectionResponses = section.items.map(i => responses.find(r => r.itemId === i.id)).filter(Boolean) as InspectionResponse[];
-             return (
-               <SectionAccordion
-                 key={section.id}
-                 title={`${idx + 1}. ${section.title}`}
-                 totalItems={section.items.length}
-                 evaluatedItems={sectionResponses.length}
-                 compliesCount={sectionResponses.filter(r => r.result === 'complies').length}
-                 notCompliesCount={sectionResponses.filter(r => r.result === 'not_complies').length}
-                 defaultExpanded={idx === 0 || expandedSectionIds.includes(section.id)}
-               >
-                 <div className="space-y-4">
-                    {section.id === 'sec-fed-12' && (
-                      <div className="space-y-4 mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                         <div className="flex items-center justify-between">
-                            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest text-slate-500">Dimensionamento ILPI</label>
-                            {currentInspection.state === 'RJ' && (
-                              <Badge variant="outline" className="text-[10px] border-blue-200 text-blue-600 bg-blue-50 font-bold">
-                                Rio de Janeiro (Lei 8.049/18)
-                              </Badge>
-                            )}
-                         </div>
-                         <div className="grid grid-cols-3 gap-4">
-                            {['Level1', 'Level2', 'Level3'].map((lvl, i) => (
-                              <div key={lvl}>
-                                <span className="text-[10px] text-slate-500 block mb-1 font-semibold uppercase tracking-tight">GRAU {i+1}</span>
-                                <input 
-                                  type="number" 
-                                  className="w-full bg-white border border-slate-200 rounded-lg p-2 font-bold focus:ring-2 focus:ring-primary-500 outline-none shadow-sm"
-                                  value={(currentInspection as any)[`dependencyLevel${i+1}`] || 0}
-                                  onChange={(e) => updateStaffData(`dependencyLevel${i+1}`, parseInt(e.target.value) || 0)}
-                                />
-                              </div>
-                            ))}
-                         </div>
-                         <div className="grid grid-cols-2 gap-4 pb-4 border-b border-slate-200">
-                            <div>
-                               <span className="text-[10px] text-primary-600 font-bold block mb-1 uppercase tracking-tight">Equipe Cuidadores Atual</span>
-                               <input 
-                                 type="number" 
-                                 placeholder="Qtd. Cuidadores..."
-                                 className="w-full bg-white border border-primary-100 rounded-lg p-2 font-bold text-primary-900 shadow-sm"
-                                 value={currentInspection.observedStaff || 0}
-                                 onChange={(e) => updateStaffData('observedStaff', parseInt(e.target.value) || 0)}
-                               />
-                            </div>
-                            <div>
-                               <span className="text-[10px] text-primary-600 font-bold block mb-1 uppercase tracking-tight">Equipe Técnica Atual</span>
-                               <input 
-                                 type="number" 
-                                 placeholder="Técnicos/Enf..."
-                                 className="w-full bg-white border border-primary-100 rounded-lg p-2 font-bold text-primary-900 shadow-sm"
-                                 value={currentInspection.observedNursingTechs || 0}
-                                 onChange={(e) => updateStaffData('observedNursingTechs', parseInt(e.target.value) || 0)}
-                               />
-                            </div>
-                         </div>
-                         <ILPIStaffCalculator 
-                           level1={currentInspection.dependencyLevel1 || 0}
-                           level2={currentInspection.dependencyLevel2 || 0}
-                           level3={currentInspection.dependencyLevel3 || 0}
-                           currentCaregivers={currentInspection.observedStaff || 0}
-                           currentNursingTechs={currentInspection.observedNursingTechs || 0}
-                           isRJ={currentInspection.state === 'RJ'}
-                         />
+            const sectionResponses = section.items
+              .map(i => responses.find(r => r.itemId === i.id))
+              .filter(Boolean) as InspectionResponse[];
+
+            return (
+              <SectionAccordion
+                key={section.id}
+                title={`${idx + 1}. ${section.title}`}
+                totalItems={section.items.length}
+                evaluatedItems={sectionResponses.length}
+                compliesCount={sectionResponses.filter(r => r.result === 'complies').length}
+                notCompliesCount={sectionResponses.filter(r => r.result === 'not_complies').length}
+                defaultExpanded={idx === 0 || expandedSectionIds.includes(section.id)}
+              >
+                <div className="space-y-4">
+                  {/* ILPI Dimensioning Block */}
+                  {section.id === 'sec-fed-12' && (
+                    <div className="space-y-4 mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Dimensionamento ILPI</label>
+                        {currentInspection.state === 'RJ' && (
+                          <Badge variant="outline" className="text-[10px] border-blue-200 text-blue-600 bg-blue-50 font-bold">
+                            Rio de Janeiro (Lei 8.049/18)
+                          </Badge>
+                        )}
                       </div>
-                    )}
+                      <div className="grid grid-cols-3 gap-4">
+                        {['Level1', 'Level2', 'Level3'].map((lvl, i) => (
+                          <div key={lvl}>
+                            <span className="text-[10px] text-slate-500 block mb-1 font-semibold uppercase tracking-tight">GRAU {i + 1}</span>
+                            <input
+                              type="number"
+                              className="w-full bg-white border border-slate-200 rounded-lg p-2 font-bold focus:ring-2 focus:ring-primary-500 outline-none shadow-sm"
+                              value={(currentInspection as any)[`dependencyLevel${i + 1}`] || 0}
+                              onChange={(e) => updateStaffData(`dependencyLevel${i + 1}`, parseInt(e.target.value) || 0)}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 pb-4 border-b border-slate-200">
+                        <div>
+                          <span className="text-[10px] text-primary-600 font-bold block mb-1 uppercase tracking-tight">Equipe Cuidadores Atual</span>
+                          <input
+                            type="number"
+                            placeholder="Qtd. Cuidadores..."
+                            className="w-full bg-white border border-primary-100 rounded-lg p-2 font-bold text-primary-900 shadow-sm"
+                            value={currentInspection.observedStaff || 0}
+                            onChange={(e) => updateStaffData('observedStaff', parseInt(e.target.value) || 0)}
+                          />
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-primary-600 font-bold block mb-1 uppercase tracking-tight">Equipe Técnica Atual</span>
+                          <input
+                            type="number"
+                            placeholder="Técnicos/Enf..."
+                            className="w-full bg-white border border-primary-100 rounded-lg p-2 font-bold text-primary-900 shadow-sm"
+                            value={currentInspection.observedNursingTechs || 0}
+                            onChange={(e) => updateStaffData('observedNursingTechs', parseInt(e.target.value) || 0)}
+                          />
+                        </div>
+                      </div>
+                      <ILPIStaffCalculator
+                        level1={currentInspection.dependencyLevel1 || 0}
+                        level2={currentInspection.dependencyLevel2 || 0}
+                        level3={currentInspection.dependencyLevel3 || 0}
+                        currentCaregivers={currentInspection.observedStaff || 0}
+                        currentNursingTechs={currentInspection.observedNursingTechs || 0}
+                        isRJ={currentInspection.state === 'RJ'}
+                      />
+                    </div>
+                  )}
 
-                    {section.items.map((item) => {
-                      const resp = responses.find(r => r.itemId === item.id);
-                      return (
-                        <ChecklistItem
-                          key={item.id}
-                          item={item}
-                          response={resp}
-                          wasNonCompliant={prevNCIds.includes(item.id)}
-                          onChange={(res) => handleResponseChange(item.id, res)}
-                          onUpdateDetails={(u) => resp && updateResponse(resp.id, u)}
-                          onAddPhoto={(p) => resp && updateResponse(resp.id, { photos: [...resp.photos, { ...p, id: generateId() }] })}
-                          onRemovePhoto={(pid) => resp && updateResponse(resp.id, { photos: resp.photos.filter(p => p.id !== pid) })}
-                        />
-                      );
-                    })}
+                  {/* Template Items */}
+                  {section.items.map((item) => {
+                    const resp = responses.find(r => r.itemId === item.id);
+                    return (
+                      <ChecklistItem
+                        key={item.id}
+                        item={item}
+                        response={resp}
+                        wasNonCompliant={prevNCIds.includes(item.id)}
+                        onChange={(res) => handleResponseChange(item.id, res)}
+                        onUpdateDetails={(u) => resp && updateResponse(resp.id, u)}
+                        onAddPhoto={(p) => resp && updateResponse(resp.id, { photos: [...resp.photos, { ...p, id: generateId() }] })}
+                        onRemovePhoto={(pid) => resp && updateResponse(resp.id, { photos: resp.photos.filter(p => p.id !== pid) })}
+                      />
+                    );
+                  })}
 
-                    {responses
-                      .filter(r => r.itemId?.startsWith(`extra|${section.id}|`))
-                      .map((resp) => (
-                        <ChecklistItem
-                          key={resp.id}
-                          item={{ 
-                            id: resp.itemId, 
-                            description: resp.customDescription || 'Item Extra',
-                            sectionId: section.id,
-                            weight: 1,
-                            isCritical: false,
-                            order: 999 
-                          }}
-                          response={resp}
-                          onChange={(res) => updateResponse(resp.id, { result: res })}
-                          onUpdateDetails={(u) => updateResponse(resp.id, u)}
-                          onEditDescription={(d) => updateResponse(resp.id, { customDescription: d })}
-                          onAddPhoto={(p) => updateResponse(resp.id, { photos: [...resp.photos, { ...p, id: generateId() }] })}
-                          onRemovePhoto={(pid) => updateResponse(resp.id, { photos: resp.photos.filter(p => p.id !== pid) })}
-                        />
-                      ))}
+                  {/* Extra Items */}
+                  {responses
+                    .filter(r => r.itemId?.startsWith(`extra|${section.id}|`))
+                    .map((resp) => (
+                      <ChecklistItem
+                        key={resp.id}
+                        item={{
+                          id: resp.itemId,
+                          description: resp.customDescription || 'Item Extra',
+                          sectionId: section.id,
+                          weight: 1,
+                          isCritical: false,
+                          order: 999,
+                        }}
+                        response={resp}
+                        onChange={(res) => updateResponse(resp.id, { result: res })}
+                        onUpdateDetails={(u) => updateResponse(resp.id, u)}
+                        onEditDescription={(d) => updateResponse(resp.id, { customDescription: d })}
+                        onAddPhoto={(p) => updateResponse(resp.id, { photos: [...resp.photos, { ...p, id: generateId() }] })}
+                        onRemovePhoto={(pid) => updateResponse(resp.id, { photos: resp.photos.filter(p => p.id !== pid) })}
+                      />
+                    ))}
 
-                    <Button variant="ghost" className="w-full border-2 border-dashed border-gray-100 text-gray-400 hover:text-primary-600 hover:bg-white" onClick={() => handleAddExtraItem(section.id)}>
-                      <PlusCircle className="mr-2 h-4 w-4" /> Observação Extra
-                    </Button>
-                 </div>
-               </SectionAccordion>
-             )
+                  <Button
+                    variant="ghost"
+                    className="w-full border-2 border-dashed border-gray-100 text-gray-400 hover:text-primary-600 hover:bg-white"
+                    onClick={() => handleAddExtraItem(section.id)}
+                  >
+                    <PlusCircle className="mr-2 h-4 w-4" /> Observação Extra
+                  </Button>
+                </div>
+              </SectionAccordion>
+            );
           })}
         </div>
 
@@ -412,20 +520,20 @@ export function InspectionExecution() {
       {showSignatureModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
           <Card className="w-full max-w-lg shadow-2xl rounded-3xl overflow-hidden animate-in zoom-in-95">
-             <div className="bg-primary-600 p-6 text-white flex justify-between">
-                <h3 className="font-bold text-lg">Assinatura de Encerramento</h3>
-                <button onClick={() => setShowSignatureModal(false)}><X className="h-6 w-6" /></button>
-             </div>
-             <CardContent className="p-6 space-y-6">
-                <div className="bg-primary-50 p-4 rounded-xl space-y-1">
-                   <p className="text-xs text-primary-400 font-bold uppercase">Acompanhante</p>
-                   <p className="text-primary-900 font-bold">{currentInspection.accompanistName || 'Não Informado'}</p>
-                </div>
-                <SignaturePad onSave={setSignature} onClear={() => setSignature(null)} />
-                <Button className="w-full h-12 bg-primary-600 font-bold text-lg" disabled={!signature} onClick={handleConfirmFinish}>
-                   CONFIRMAR E FINALIZAR
-                </Button>
-             </CardContent>
+            <div className="bg-primary-600 p-6 text-white flex justify-between">
+              <h3 className="font-bold text-lg">Assinatura de Encerramento</h3>
+              <button onClick={() => setShowSignatureModal(false)}><X className="h-6 w-6" /></button>
+            </div>
+            <CardContent className="p-6 space-y-6">
+              <div className="bg-primary-50 p-4 rounded-xl space-y-1">
+                <p className="text-xs text-primary-400 font-bold uppercase">Acompanhante</p>
+                <p className="text-primary-900 font-bold">{currentInspection.accompanistName || 'Não Informado'}</p>
+              </div>
+              <SignaturePad onSave={setSignature} onClear={() => setSignature(null)} />
+              <Button className="w-full h-12 bg-primary-600 font-bold text-lg" disabled={!signature} onClick={handleConfirmFinish}>
+                CONFIRMAR E FINALIZAR
+              </Button>
+            </CardContent>
           </Card>
         </div>
       )}

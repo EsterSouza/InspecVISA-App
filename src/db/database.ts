@@ -115,7 +115,10 @@ export class InspectionDatabase extends Dexie {
         accompanist_name: record.accompanistName, accompanist_role: record.accompanistRole,
         ilpi_capacity: record.ilpiCapacity, residents_total: record.residentsTotal,
         dependency_level1: record.dependencyLevel1, dependency_level2: record.dependencyLevel2,
-        dependency_level3: record.dependencyLevel3
+        dependency_level3: record.dependencyLevel3,
+        observed_staff: record.observedStaff ?? null,
+        observed_nursing_techs: record.observedNursingTechs ?? null,
+        signature_data_url: record.signatureDataUrl ?? null,
       };
     }
 
