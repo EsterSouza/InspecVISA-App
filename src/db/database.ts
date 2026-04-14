@@ -123,7 +123,10 @@ export class InspectionDatabase extends Dexie {
        return {
          id: record.id, inspection_id: record.inspectionId, item_id: record.itemId,
          result: record.result, situation_description: record.situationDescription,
-         corrective_action: record.correctiveAction, tenant_id: record.tenantId,
+         corrective_action: record.correctiveAction, 
+         responsible: record.responsible,
+         deadline: record.deadline,
+         tenant_id: record.tenantId,
          deleted_at: record.deletedAt, updated_at: record.updatedAt,
          created_at: record.createdAt, custom_description: record.customDescription
        };

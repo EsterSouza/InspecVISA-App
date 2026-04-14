@@ -54,6 +54,13 @@ export const useInspectionStore = create<InspectionState>((set) => ({
              }));
           }
         });
+
+        // 2b. CRITICAL: Persist photos to the dedicated 'photos' table
+        if (updates.photos) {
+          for (const photo of updates.photos) {
+            db.onlineUpsert('photos', { ...photo, responseId }, db.photos);
+          }
+        }
       }
 
       return true;
@@ -71,11 +78,18 @@ export const useInspectionStore = create<InspectionState>((set) => ({
       }));
 
       // 2. BACKGROUND SAVE
-      db.onlineUpsert('responses', response, db.responses).then((res) => {
+      db.onlineUpsert('responses', response, db.responses).then(async (res) => {
         if (res.synced === 1) {
           set((state) => ({
             responses: state.responses.map(r => r.id === response.id ? { ...r, synced: 1 } : r)
           }));
+        }
+        
+        // Ensure photos (if any were added in the initial response) are also saved to the photos table
+        if (response.photos && response.photos.length > 0) {
+          for (const photo of response.photos) {
+            await db.onlineUpsert('photos', { ...photo, responseId: response.id }, db.photos);
+          }
         }
       });
       
@@ -119,6 +133,15 @@ export const useInspectionStore = create<InspectionState>((set) => ({
             if (!mergedItem.correctiveAction) mergedItem.correctiveAction = rr.correctiveAction;
             if (!mergedItem.responsible) mergedItem.responsible = rr.responsible;
             if (!mergedItem.deadline) mergedItem.deadline = rr.deadline;
+
+            // 3. PROTECT PHOTOS: Do not let an empty server array wipe local photos
+            if ((!mergedItem.photos || mergedItem.photos.length === 0) && rr.photos && rr.photos.length > 0) {
+              mergedItem.photos = rr.photos;
+            }
+            // If the incoming rr.photos is empty (placeholder from sync), KEEP the local photos
+            if (rr.photos && rr.photos.length === 0 && mergedItem.photos && mergedItem.photos.length > 0) {
+              // Do nothing, preserve mergedItem.photos
+            }
             
             // 3. Update internal metadata
             mergedItem.updatedAt = new Date(serverUpdate);
