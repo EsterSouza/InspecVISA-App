@@ -24,25 +24,30 @@ export const useInspectionStore = create<InspectionState>((set) => ({
   updateResponse: async (responseId, updates) => {
     try {
       const now = new Date();
+      let recordToPersist: InspectionResponse | undefined;
       
-      // 1. OPTIMISTIC UPDATE: Update Zustand state IMMEDIATELY
-      set((state) => ({
-        responses: state.responses.map((r) =>
-          r.id === responseId ? { ...r, ...updates, updatedAt: now, synced: 0 } : r
-        ),
-      }));
+      // 1. ATOMIC SYNC UPDATE: Use functional set to ensure we have latest state
+      set((state) => {
+        const existing = state.responses.find(r => r.id === responseId);
+        if (!existing) return state;
 
-      // 2. BACKGROUND SAVE: Persist to DB/Cloud without blocking UI
-      const existing = await db.responses.get(responseId);
-      if (existing) {
-        const updatedRecord: InspectionResponse = {
+        recordToPersist = {
           ...existing,
           ...updates,
           updatedAt: now,
           synced: 0
         };
-        
-        db.onlineUpsert('responses', updatedRecord, db.responses).then((res) => {
+
+        return {
+          responses: state.responses.map((r) =>
+            r.id === responseId ? recordToPersist! : r
+          ),
+        };
+      });
+
+      // 2. BACKGROUND SAVE: Use the record we just built (no extra DB read needed)
+      if (recordToPersist) {
+        db.onlineUpsert('responses', recordToPersist, db.responses).then((res) => {
           if (res.synced === 1) {
              set((state) => ({
                responses: state.responses.map(r => r.id === responseId ? { ...r, synced: 1 } : r)
@@ -53,7 +58,7 @@ export const useInspectionStore = create<InspectionState>((set) => ({
 
       return true;
     } catch (error) {
-      console.error('Error in optimistic update:', error);
+      console.error('Error in atomic update:', error);
       return false;
     }
   },

@@ -153,10 +153,15 @@ export function InspectionExecution() {
         
         // Also update Dexie for local persistence of remote updates
         for (const m of mappedRemote) {
+          const local = await db.responses.get(m.id);
+          
+          // CRITICAL PROTECTION: Do not overwrite local database if there are unsynced changes
+          if (local && local.synced === 0) continue;
+
           await db.responses.put({
             ...m,
             // Keep local photos if they exist, as the remote select doesn't include them
-            photos: (await db.responses.get(m.id))?.photos || [] 
+            photos: local?.photos || [] 
           });
         }
       } catch (err) {
