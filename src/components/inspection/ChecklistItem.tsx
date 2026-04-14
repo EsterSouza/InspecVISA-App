@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import { AlertTriangle, ExternalLink, LogIn, FileCheck2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Badge } from '../ui/Badge';
@@ -16,7 +16,7 @@ interface ChecklistItemProps {
   onRemovePhoto: (id: string) => void;
 }
 
-export function ChecklistItem({
+export const ChecklistItem = memo(function ChecklistItem({
   item,
   response,
   wasNonCompliant,
@@ -25,8 +25,43 @@ export function ChecklistItem({
   onAddPhoto,
   onRemovePhoto,
 }: ChecklistItemProps) {
-  const [showObs, setShowObs] = React.useState(!!response?.situationDescription || !!response?.correctiveAction || (response?.photos?.length ?? 0) > 0);
+  const [showObs, setShowObs] = useState(!!response?.situationDescription || !!response?.correctiveAction || (response?.photos?.length ?? 0) > 0);
+
+  // Buffering local para performance (Evita re-render global por caractere)
+  const [localSituation, setLocalSituation] = useState(response?.situationDescription || '');
+  const [localAction, setLocalAction] = useState(response?.correctiveAction || '');
+  const [localResponsible, setLocalResponsible] = useState(response?.responsible || '');
+  const [localDeadline, setLocalDeadline] = useState(response?.deadline || '');
   
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isFocused, setIsFocused] = useState<string | null>(null);
+
+  // Sync local state if external state changes, BUT ONLY if not focused
+  useEffect(() => {
+    if (isFocused !== 'situation') setLocalSituation(response?.situationDescription || '');
+  }, [response?.situationDescription, isFocused]);
+
+  useEffect(() => {
+    if (isFocused !== 'action') setLocalAction(response?.correctiveAction || '');
+  }, [response?.correctiveAction, isFocused]);
+
+  useEffect(() => {
+    if (isFocused !== 'responsible') setLocalResponsible(response?.responsible || '');
+  }, [response?.responsible, isFocused]);
+
+  useEffect(() => {
+    if (isFocused !== 'deadline') setLocalDeadline(response?.deadline || '');
+  }, [response?.deadline, isFocused]);
+
+  const handleBlur = async (field: keyof InspectionResponse, value: string) => {
+    setIsFocused(null);
+    if (response?.[field] === value) return;
+    
+    setIsSyncing(true);
+    onUpdateDetails({ [field]: value });
+    setIsSyncing(false);
+  };
+
   const isSelected = !!response?.result;
   const isNotCompliant = response?.result === 'not_complies';
   const hasError = isNotCompliant && (!response?.situationDescription || !response?.correctiveAction);
@@ -68,7 +103,7 @@ export function ChecklistItem({
               </span>
             )}
           </div>
-          
+
           <p className="text-[15px] font-medium leading-relaxed text-gray-900 mt-2">
             {item.id.startsWith('extra|') ? (response?.customDescription || item.description) : item.description}
           </p>
@@ -80,8 +115,8 @@ export function ChecklistItem({
             onClick={() => setShowObs(!showObs)}
             className={cn(
               "flex flex-col items-center justify-center p-2 rounded-xl border transition-all shrink-0 ml-2",
-              showObs 
-                ? "bg-primary-600 border-primary-600 text-white shadow-lg" 
+              showObs
+                ? "bg-primary-600 border-primary-600 text-white shadow-lg"
                 : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-primary-300 hover:text-primary-600"
             )}
           >
@@ -159,23 +194,32 @@ export function ChecklistItem({
               {isNotCompliant ? 'Detalhes da Não Conformidade' : 'Observações de Alto Padrão / Melhoria'}
             </h4>
           </div>
-          
+
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-gray-700">
               {isNotCompliant ? 'Situação encontrada' : 'O que foi observado (Pontos de Excelência)'}
               {isNotCompliant && <span className="text-red-500"> *</span>}
             </label>
-            <textarea
-              className={cn(
-                "w-full rounded-md border p-3 text-sm focus:outline-none focus:ring-2 disabled:opacity-50 min-h-[100px] resize-y shadow-sm",
-                !response?.situationDescription && hasError 
-                  ? "border-red-300 focus:border-red-500 focus:ring-red-500 ring-1 ring-red-100" 
-                  : "border-gray-300 focus:border-primary-500 focus:ring-primary-500"
+            <div className="relative">
+              <textarea
+                className={cn(
+                  "w-full rounded-md border p-3 text-sm focus:outline-none focus:ring-2 disabled:opacity-50 min-h-[100px] resize-y shadow-sm",
+                  !response?.situationDescription && hasError
+                    ? "border-red-300 focus:border-red-500 focus:ring-red-500 ring-1 ring-red-100"
+                    : "border-gray-300 focus:border-primary-500 focus:ring-primary-500"
+                )}
+                placeholder={isNotCompliant ? "Descreva a falha observada..." : "Descreva pontos positivos ou o que pode ser elevado para alto padrão..."}
+                value={localSituation}
+                onChange={(e) => setLocalSituation(e.target.value)}
+                onFocus={() => setIsFocused('situation')}
+                onBlur={(e) => handleBlur('situationDescription', e.target.value)}
+              />
+              {isSyncing && isFocused !== 'situation' && (
+                <div className="absolute right-2 top-2">
+                   <div className="h-2 w-2 bg-blue-500 rounded-full animate-pulse" />
+                </div>
               )}
-              placeholder={isNotCompliant ? "Descreva a falha observada..." : "Descreva pontos positivos ou o que pode ser elevado para alto padrão..."}
-              value={response?.situationDescription || ''}
-              onChange={(e) => onUpdateDetails({ situationDescription: e.target.value })}
-            />
+            </div>
           </div>
 
           <div className="space-y-1.5">
@@ -189,9 +233,11 @@ export function ChecklistItem({
                   <button
                     key={verb}
                     onClick={() => {
-                      const current = (response?.correctiveAction || '').trim();
+                      const current = (localAction || '').trim();
                       const prefix = current ? `${current} \n- ` : '- ';
-                      onUpdateDetails({ correctiveAction: `${prefix}${verb} ` });
+                      const newVal = `${prefix}${verb} `;
+                      setLocalAction(newVal);
+                      onUpdateDetails({ correctiveAction: newVal });
                     }}
                     className="text-[11px] font-medium bg-white hover:bg-primary-50 text-gray-600 hover:text-primary-700 border border-gray-200 hover:border-primary-200 rounded-full px-2 py-0.5 transition-colors shadow-sm"
                   >
@@ -201,15 +247,17 @@ export function ChecklistItem({
               </div>
             )}
             <textarea
-               className={cn(
+              className={cn(
                 "w-full rounded-md border p-3 text-sm focus:outline-none focus:ring-2 disabled:opacity-50 min-h-[100px] resize-y shadow-sm",
-                !response?.correctiveAction && hasError 
-                  ? "border-red-300 focus:border-red-500 focus:ring-red-500 ring-1 ring-red-100" 
+                !response?.correctiveAction && hasError
+                  ? "border-red-300 focus:border-red-500 focus:ring-red-500 ring-1 ring-red-100"
                   : "border-gray-300 focus:border-primary-500 focus:ring-primary-500"
               )}
               placeholder={isNotCompliant ? "O que precisa ser feito para adequação..." : "Dê sugestões para que o local atinja a nota máxima ou mantenha o brilho..."}
-              value={response?.correctiveAction || ''}
-              onChange={(e) => onUpdateDetails({ correctiveAction: e.target.value })}
+              value={localAction}
+              onChange={(e) => setLocalAction(e.target.value)}
+              onFocus={() => setIsFocused('action')}
+              onBlur={(e) => handleBlur('correctiveAction', e.target.value)}
             />
           </div>
 
@@ -242,8 +290,10 @@ export function ChecklistItem({
                 list="responsables-list"
                 className="w-full rounded-md border border-gray-300 p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 shadow-sm"
                 placeholder="Ex: Gerente, RT..."
-                value={response?.responsible || ''}
-                onChange={(e) => onUpdateDetails({ responsible: e.target.value })}
+                value={localResponsible}
+                onChange={(e) => setLocalResponsible(e.target.value)}
+                onFocus={() => setIsFocused('responsible')}
+                onBlur={(e) => handleBlur('responsible', e.target.value)}
               />
             </div>
             <div className="space-y-1.5">
@@ -253,22 +303,24 @@ export function ChecklistItem({
                 list="deadlines-list"
                 className="w-full rounded-md border border-gray-300 p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 shadow-sm"
                 placeholder="Ex: Imediato, 15 dias..."
-                value={response?.deadline || ''}
-                onChange={(e) => onUpdateDetails({ deadline: e.target.value })}
+                value={localDeadline}
+                onChange={(e) => setLocalDeadline(e.target.value)}
+                onFocus={() => setIsFocused('deadline')}
+                onBlur={(e) => handleBlur('deadline', e.target.value)}
               />
             </div>
           </div>
 
           <div className="pt-2">
-            <PhotoCapture 
+            <PhotoCapture
               inputId={`photo-upload-${item.id}`}
-              photos={response?.photos || []} 
-              onAddPhoto={onAddPhoto} 
-              onRemovePhoto={onRemovePhoto} 
+              photos={response?.photos || []}
+              onAddPhoto={onAddPhoto}
+              onRemovePhoto={onRemovePhoto}
             />
           </div>
         </div>
       )}
     </div>
   );
-}
+})

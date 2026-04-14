@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, FileCheck2, Loader2, PlusCircle, Info, Users2, WifiOff, X } from 'lucide-react';
 import { db } from '../db/database';
+import { supabase } from '../lib/supabase';
 import { getTemplateById, getEffectiveTemplate } from '../data/templates';
 import { FOOD_SEGMENT_LABELS, type FoodEstablishmentType, type InspectionResponse, type InspectionPhoto } from '../types';
 import { ILPIStaffCalculator } from '../components/inspection/ILPIStaffCalculator';
@@ -114,6 +115,75 @@ export function InspectionExecution() {
     return getEffectiveTemplate(template, currentInspection as any, role, false).sections;
   }, [template, currentInspection]);
 
+  // ✅ BACKGROUND SYNC: Pull updates from other professionals (Nutrição/Saúde)
+  useEffect(() => {
+    if (!currentInspection || loading) return;
+
+    const pullInterval = setInterval(async () => {
+      if (!navigator.onLine) return;
+      
+      try {
+        // Fetch fresh responses for this inspection
+        const { data: remoteResps, error } = await supabase
+          .from('responses')
+          .select('*')
+          .eq('inspection_id', currentInspection.id)
+          .is('deleted_at', null);
+
+        if (error) throw error;
+        if (!remoteResps) return;
+
+        // Map to local types and update Dexie + Store
+        const now = new Date();
+        const updatedResponses = [...responses];
+        let hasChanges = false;
+
+        for (const rr of remoteResps) {
+          const local = responses.find(r => r.id === rr.id);
+          const serverUpdate = new Date(rr.updated_at || rr.created_at);
+          const localUpdate = local?.updatedAt ? new Date(local.updatedAt) : undefined;
+
+          // Only update if server is newer
+          if (!local || (localUpdate && serverUpdate > localUpdate)) {
+            const mapped: InspectionResponse = {
+              id: rr.id,
+              inspectionId: rr.inspection_id,
+              itemId: rr.item_id,
+              result: rr.result,
+              situationDescription: rr.situation_description,
+              correctiveAction: rr.corrective_action,
+              responsible: rr.responsible,
+              deadline: rr.deadline,
+              customDescription: rr.custom_description,
+              createdAt: new Date(rr.created_at),
+              updatedAt: serverUpdate,
+              synced: 1,
+              photos: local?.photos || [] // Keep local photos cache
+            };
+            
+            await db.responses.put(mapped);
+            
+            const idx = updatedResponses.findIndex(r => r.id === rr.id);
+            if (idx >= 0) {
+              updatedResponses[idx] = mapped;
+            } else {
+              updatedResponses.push(mapped);
+            }
+            hasChanges = true;
+          }
+        }
+
+        if (hasChanges) {
+          setResponses(updatedResponses);
+        }
+      } catch (err) {
+        console.warn('[Sync] Background pull failed:', err);
+      }
+    }, 15000); // 15 seconds
+
+    return () => clearInterval(pullInterval);
+  }, [currentInspection?.id, responses.length, loading]);
+
   // ✅ UPDATED AUTO-SAVE: ONLINE-DIRECT MODO
   useEffect(() => {
     if (loading || !currentInspection) return;
@@ -121,20 +191,7 @@ export function InspectionExecution() {
     const saveTimer = setTimeout(async () => {
       setSaveStatus('saving');
       try {
-        // 1. Salva a Inspeção (Metadados como Cuidadores/Dependency)
-        // Usamos onlineUpsert para garantir que os dados de dimensionamento vão pra nuvem
         await db.onlineUpsert('inspections', currentInspection, db.inspections);
-
-        // 2. Salva Respostas Pendentes
-        for (const r of responses) {
-          const { photos, ...respData } = r;
-          await db.onlineUpsert('responses', respData, db.responses);
-          
-          // Salva fotos (Localmente apenas por agora, syncService cuida do upload de arquivos)
-          for (const p of photos) {
-            await db.photos.put({ ...p, responseId: r.id });
-          }
-        }
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus('idle'), 2000);
       } catch (err) {
@@ -143,7 +200,7 @@ export function InspectionExecution() {
     }, 2000);
 
     return () => clearTimeout(saveTimer);
-  }, [responses, currentInspection, loading]);
+  }, [currentInspection, loading]);
 
 
   const handleResponseChange = (itemId: string, result: InspectionResponse['result']) => {
