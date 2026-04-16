@@ -187,9 +187,9 @@ function App() {
               <Route path="/new" element={<NewInspection />} />
               <Route path="/execute" element={<InspectionExecution />} />
               <Route path="/summary" element={<InspectionSummary />} />
-              <Route path="/templates" element={<ProtectedRoute><AdminTemplates /></ProtectedRoute>} />
-              <Route path="/templates/import" element={<ProtectedRoute><SmartImporter /></ProtectedRoute>} />
-              <Route path="/legislations" element={<ProtectedRoute><LegislationsManager /></ProtectedRoute>} />
+              <Route path="/templates" element={<AdminTemplates />} />
+              <Route path="/templates/import" element={<SmartImporter />} />
+              <Route path="/legislations" element={<LegislationsManager />} />
               <Route path="/debug" element={<Debug />} />
               <Route path="/access-denied" element={<AccessDenied />} />
             </Routes>

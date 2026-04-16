@@ -7,12 +7,16 @@ import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { formatDateTime } from '../utils/imageUtils';
+import { ProfileModal } from '../components/profile/ProfileModal';
+import { useSettingsStore } from '../store/useSettingsStore';
 
 export function Inspections() {
   const navigate = useNavigate();
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'in_progress' | 'completed'>('all');
+  const settings = useSettingsStore((s) => s.settings);
+  const [showProfileModal, setShowProfileModal] = useState(!settings.name);
 
   const loadInspections = async () => {
     let list = await db.inspections.orderBy('createdAt').reverse().toArray();
@@ -182,6 +186,10 @@ export function Inspections() {
           ))
         )}
       </div>
+
+      {showProfileModal && (
+        <ProfileModal onClose={() => setShowProfileModal(false)} />
+      )}
     </div>
   );
 }

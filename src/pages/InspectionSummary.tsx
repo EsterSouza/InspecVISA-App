@@ -39,7 +39,36 @@ export function InspectionSummary() {
 
     const loadData = async () => {
       try {
-        const insp = await db.inspections.get(inspectionId);
+        // 1. Load inspection from Dexie first
+        let insp = await db.inspections.get(inspectionId);
+
+        // 2. Fallback: fetch from Supabase if not local
+        if (!insp && navigator.onLine) {
+          const { data: remoteInsp } = await supabase
+            .from('inspections')
+            .select('*')
+            .eq('id', inspectionId)
+            .single();
+          if (remoteInsp) {
+            insp = {
+              id: remoteInsp.id, clientId: remoteInsp.client_id, templateId: remoteInsp.template_id,
+              consultantName: remoteInsp.consultant_name, inspectionDate: remoteInsp.inspection_date ? new Date(remoteInsp.inspection_date) : new Date(),
+              status: remoteInsp.status, observations: remoteInsp.observations,
+              completedAt: remoteInsp.completed_at ? new Date(remoteInsp.completed_at) : undefined,
+              accompanistName: remoteInsp.accompanist_name, accompanistRole: remoteInsp.accompanist_role,
+              ilpiCapacity: remoteInsp.ilpi_capacity, residentsTotal: remoteInsp.residents_total,
+              dependencyLevel1: remoteInsp.dependency_level1 ?? remoteInsp.dependency_level_1,
+              dependencyLevel2: remoteInsp.dependency_level2 ?? remoteInsp.dependency_level_2,
+              dependencyLevel3: remoteInsp.dependency_level3 ?? remoteInsp.dependency_level_3,
+              observedStaff: remoteInsp.observed_staff, observedNursingTechs: remoteInsp.observed_nursing_techs,
+              signatureDataUrl: remoteInsp.signature_data_url, tenantId: remoteInsp.tenant_id,
+              createdAt: new Date(remoteInsp.created_at), updatedAt: new Date(remoteInsp.updated_at || remoteInsp.created_at),
+              synced: 1,
+            } as any;
+            await db.inspections.put(insp!);
+          }
+        }
+
         if (!insp) throw new Error('Inspection not found');
         
         const client = await db.clients.get(insp.clientId);
@@ -53,46 +82,45 @@ export function InspectionSummary() {
         const clients = await db.clients.toArray();
         setAllClients(clients);
 
-        const localResps = await db.responses.where('inspectionId').equals(inspectionId).toArray();
+        // 3. Load local responses
+        const localResps = await db.responses.where('inspectionId').equals(inspectionId).filter(r => !r.deletedAt).toArray();
         for (const r of localResps) {
           r.photos = await db.photos.where('responseId').equals(r.id).toArray();
         }
 
-        // --- UNIFIED REPORT: Fetch remote responses to merge ---
-        const { data: remoteResps } = await supabase
-          .from('responses')
-          .select('*')
-          .eq('inspection_id', inspectionId);
+        // 4. Merge with remote responses (union)
+        if (navigator.onLine) {
+          const { data: remoteResps } = await supabase
+            .from('responses')
+            .select('*')
+            .eq('inspection_id', inspectionId);
 
-        if (remoteResps && remoteResps.length > 0) {
-          for (const rr of remoteResps) {
-            const existsLocally = localResps.find(lr => lr.id === rr.id);
-            if (!existsLocally) {
-              localResps.push({
-                id: rr.id,
-                inspectionId: rr.inspection_id,
-                itemId: rr.item_id,
-                result: rr.result as any,
-                situationDescription: rr.situation_description,
-                correctiveAction: rr.corrective_action,
-                createdAt: new Date(rr.created_at),
-                updatedAt: new Date(rr.updated_at),
-                photos: [], // Photos would need another pull if critical, but summary usually text + specific photos
-                synced: 1
-              });
+          if (remoteResps && remoteResps.length > 0) {
+            for (const rr of remoteResps) {
+              const existsLocally = localResps.find(lr => lr.id === rr.id);
+              if (!existsLocally) {
+                localResps.push({
+                  id: rr.id, inspectionId: rr.inspection_id, itemId: rr.item_id,
+                  result: rr.result as any, situationDescription: rr.situation_description,
+                  correctiveAction: rr.corrective_action, createdAt: new Date(rr.created_at),
+                  updatedAt: new Date(rr.updated_at), photos: [], synced: 1
+                });
+              }
             }
           }
         }
 
+        // 5. Try to resolve template — never crash if missing
         const tpl = getTemplateById(insp.templateId);
         const legs = await LegislationService.listLegislations();
 
         setInspection(insp);
         setResponses(localResps);
         setLegislations(legs);
+        // If tpl is null, set template to null but DON'T navigate away
         setTemplate(tpl ? enrichTemplate(tpl, client || (insp as any)) : null);
       } catch (err) {
-        console.error(err);
+        console.error('[InspectionSummary] loadData error:', err);
         navigate('/inspections');
       } finally {
         setLoading(false);
@@ -139,7 +167,8 @@ export function InspectionSummary() {
     }
   };
 
-  if (loading || !currentInspection || !template || !scoreArea) {
+  // Show spinner only while truly loading
+  if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
@@ -147,7 +176,57 @@ export function InspectionSummary() {
     );
   }
 
-  const scoreColor = classificationColor(scoreArea.classification);
+  // Guard: no inspection at all
+  if (!currentInspection) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-gray-50 p-8 text-center">
+        <p className="text-gray-600 font-semibold">Inspeção não encontrada.</p>
+        <button onClick={() => navigate('/inspections')} className="text-primary-600 underline text-sm">Voltar para Inspeções</button>
+      </div>
+    );
+  }
+
+  // Template missing: show summary with warning, don't block!
+  if (!template) {
+    return (
+      <div className="flex h-screen flex-col bg-gray-50 pb-16 lg:pb-0">
+        <header className="sticky top-0 z-30 border-b border-gray-200 bg-white px-4 py-3 shadow-sm sm:px-6">
+          <div className="mx-auto flex max-w-7xl items-center justify-between">
+            <button onClick={() => navigate('/inspections')} className="flex items-center text-gray-500 hover:text-gray-900 text-sm font-medium gap-2">
+              ← Voltar
+            </button>
+          </div>
+        </header>
+        <div className="mx-auto max-w-4xl p-6 space-y-6 flex-1 overflow-y-auto">
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-amber-800 text-sm">
+            <strong>⚠️ Roteiro original não encontrado</strong>
+            <p className="mt-1">O modelo de inspeção usado neste relatório não está disponível neste dispositivo. Os dados brutos foram preservados ({responses.length} respostas registradas).</p>
+          </div>
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center">
+            <h1 className="text-2xl font-extrabold text-gray-900">{currentInspection.clientName || 'Inspeção'}</h1>
+            <p className="mt-1 text-gray-500">Template ID: <code className="text-xs">{currentInspection.templateId}</code></p>
+            <p className="text-sm text-gray-400 mt-1 mb-6">Concluída em {formatDateTime(currentInspection.completedAt || currentInspection.createdAt)}</p>
+            <div className="grid grid-cols-3 gap-4 max-w-sm mx-auto">
+              <div className="bg-green-50 rounded-xl p-4 text-center">
+                <p className="text-2xl font-bold text-green-700">{responses.filter(r => r.result === 'complies').length}</p>
+                <p className="text-xs text-green-600 font-semibold mt-1">Cumpre</p>
+              </div>
+              <div className="bg-red-50 rounded-xl p-4 text-center">
+                <p className="text-2xl font-bold text-red-700">{responses.filter(r => r.result === 'not_complies').length}</p>
+                <p className="text-xs text-red-600 font-semibold mt-1">Não Cumpre</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-4 text-center">
+                <p className="text-2xl font-bold text-gray-700">{responses.length}</p>
+                <p className="text-xs text-gray-500 font-semibold mt-1">Total</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const scoreColor = scoreArea ? classificationColor(scoreArea.classification) : '#94a3b8';
 
   return (
     <div className="flex h-screen flex-col bg-gray-50 pb-safe pb-16 lg:pb-0">

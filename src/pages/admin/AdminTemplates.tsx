@@ -11,6 +11,7 @@ export function AdminTemplates() {
   const [templates, setTemplates] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     loadTemplates();
@@ -19,22 +20,28 @@ export function AdminTemplates() {
   const loadTemplates = async () => {
     try {
       setIsLoading(true);
+      setLoadError(null);
       let data = await TemplateService.listTemplates();
       
       // Automatic seeding if empty AND not already seeded in this browser session
       const hasSeeded = localStorage.getItem('templates_seeded');
       if (data.length === 0 && !hasSeeded) {
-        console.log('No templates found and not seeded yet, triggered seeding...');
+        console.log('No templates found, seeding...');
         localStorage.setItem('templates_seeded', 'true');
-        await TemplateService.seedLegacyTemplates();
+        try {
+          await TemplateService.seedLegacyTemplates();
+        } catch (seedErr) {
+          console.warn('Seeding failed:', seedErr);
+          localStorage.removeItem('templates_seeded');
+        }
         data = await TemplateService.listTemplates();
       }
       
       setTemplates(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error loading templates:', err);
-      // If seeding failed, allow retry on next load
       localStorage.removeItem('templates_seeded');
+      setLoadError(err?.message || 'Erro ao carregar roteiros. Verifique sua conexão.');
     } finally {
       setIsLoading(false);
     }
@@ -77,6 +84,14 @@ export function AdminTemplates() {
         <div className="flex justify-center py-12">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-500 border-t-transparent" />
         </div>
+      ) : loadError ? (
+        <Card className="border-red-200 bg-red-50 py-10">
+          <div className="flex flex-col items-center text-center px-6">
+            <p className="text-red-700 font-semibold mb-2">❌ {loadError}</p>
+            <p className="text-sm text-red-500 mb-4">Verifique se você está conectado à internet e tente novamente.</p>
+            <Button onClick={loadTemplates} variant="outline">Tentar Novamente</Button>
+          </div>
+        </Card>
       ) : filtered.length === 0 ? (
         <Card className="border-dashed border-2 py-12">
           <div className="flex flex-col items-center text-center">

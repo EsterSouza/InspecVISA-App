@@ -8,6 +8,7 @@ import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { generateId } from '../utils/imageUtils';
+import { ProfileModal } from '../components/profile/ProfileModal';
 
 export function NewInspection() {
   const navigate = useNavigate();
@@ -23,6 +24,7 @@ export function NewInspection() {
   
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<ChecklistTemplate | null>(null);
+  const [showProfileModal, setShowProfileModal] = useState(!settings.name);
 
   const [accompanistName, setAccompanistName] = useState('');
   const [accompanistRole, setAccompanistRole] = useState('');
@@ -245,6 +247,10 @@ export function NewInspection() {
           </div>
         )}
       </div>
+
+      {showProfileModal && (
+        <ProfileModal onClose={() => setShowProfileModal(false)} />
+      )}
     </div>
   );
 }

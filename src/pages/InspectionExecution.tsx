@@ -214,9 +214,51 @@ export function InspectionExecution() {
     catch (err) { console.error('getEffectiveTemplate error:', err); return template.sections; }
   }, [template, currentInspection?.templateId, currentInspection?.state]);
 
-  // ─── BACKGROUND SYNC: pull updates from other devices ─────────────────────
+  // ─── REALTIME SYNC: Listen for updates from Supabase ─────────────────────
   useEffect(() => {
     if (!currentInspection || loading) return;
+
+    // 1. Initial subscription
+    const channel = supabase
+      .channel(`inspection-responses:${currentInspection.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'responses',
+          filter: `inspection_id=eq.${currentInspection.id}`,
+        },
+        async (payload) => {
+          console.log('[Realtime] Change detected:', payload.eventType);
+          
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const rr = payload.new as any;
+            const mapped: InspectionResponse = {
+              id: rr.id, inspectionId: rr.inspection_id, itemId: rr.item_id,
+              result: rr.result, situationDescription: rr.situation_description,
+              correctiveAction: rr.corrective_action, responsible: rr.responsible,
+              deadline: rr.deadline, customDescription: rr.custom_description,
+              createdAt: new Date(rr.created_at), updatedAt: new Date(rr.updated_at || rr.created_at),
+              synced: 1, photos: [],
+            };
+            
+            // Update local Dexie first to avoid flash of old data
+            const local = await db.responses.get(mapped.id);
+            if (!local || local.synced === 1 || new Date(mapped.updatedAt) > new Date(local.updatedAt)) {
+              await db.responses.put({ ...mapped, photos: local?.photos || [] });
+              mergeResponses([mapped]);
+            }
+          } else if (payload.eventType === 'DELETE') {
+             // Handle delete if needed
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('[Realtime] Status:', status);
+      });
+
+    // 2. Keep a slower polling interval as fallback (every 30s)
     const interval = setInterval(async () => {
       if (!navigator.onLine) return;
       try {
@@ -233,14 +275,13 @@ export function InspectionExecution() {
           synced: 1, photos: [],
         }));
         mergeResponses(mapped);
-        for (const m of mapped) {
-          const local = await db.responses.get(m.id);
-          if (local && local.synced === 0) continue;
-          await db.responses.put({ ...m, photos: local?.photos || [] });
-        }
-      } catch (err) { console.warn('[Sync] pull failed:', err); }
-    }, 15000);
-    return () => clearInterval(interval);
+      } catch (err) { console.warn('[Sync] fallback pull failed:', err); }
+    }, 30000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(interval);
+    };
   }, [currentInspection?.id, loading]);
 
   // ─── AUTO-SAVE: immediate Dexie + debounced Supabase ─────────────────────
