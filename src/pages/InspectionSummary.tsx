@@ -111,14 +111,11 @@ export function InspectionSummary() {
     if (!currentInspection) return;
     setSavingMeta(true);
     try {
-      const { id, clientName, clientCategory, city, state, ...updates } = currentInspection;
-      const selectedClient = allClients.find(c => c.id === currentInspection.clientId);
-      if (selectedClient) {
-        (updates as any).clientName = selectedClient.name;
-        (updates as any).clientCategory = selectedClient.category;
-      }
-      
-      await db.inspections.update(id, updates);
+      // Strip UI-only fields before persisting
+      const { clientName, clientCategory, foodTypes, city, state: st, ...persistable } = currentInspection as any;
+
+      // Save to Dexie + Supabase
+      await db.onlineUpsert('inspections', { ...persistable, updatedAt: new Date() }, db.inspections);
       setIsEditing(false);
     } catch (err) {
       alert('Erro ao salvar: ' + err);

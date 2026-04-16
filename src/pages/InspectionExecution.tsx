@@ -246,14 +246,15 @@ export function InspectionExecution() {
   // ─── AUTO-SAVE: immediate Dexie + debounced Supabase ─────────────────────
   useEffect(() => {
     if (loading || !currentInspection) return;
-    // Immediate local save (no debounce — prevents refresh data loss)
-    db.inspections.put({ ...currentInspection, updatedAt: new Date(), synced: 0 });
+    // Immediate local save — strip UI-only fields that don't belong in schema
+    const { clientName, clientCategory, foodTypes, city, state: st, ...persistable } = currentInspection as any;
+    db.inspections.put({ ...persistable, updatedAt: new Date(), synced: 0 });
 
     // Debounced remote save
     const timer = setTimeout(async () => {
       setSaveStatus('saving');
       try {
-        await db.onlineUpsert('inspections', currentInspection, db.inspections);
+        await db.onlineUpsert('inspections', persistable, db.inspections);
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus('idle'), 2000);
       } catch (err) { console.error('Remote save error', err); setSaveStatus('idle'); }
@@ -295,12 +296,49 @@ export function InspectionExecution() {
   const [showSignatureModal, setShowSignatureModal] = useState(false);
   const [signature, setSignature] = useState<string | null>(null);
 
+  const [isFinishing, setIsFinishing] = useState(false);
+
   const handleConfirmFinish = async () => {
     if (!currentInspection || !signature) return;
-    if (window.confirm('Encerrar Inspeção?')) {
-      const finalData = { ...currentInspection, status: 'completed' as const, completedAt: new Date(), signatureDataUrl: signature };
-      await db.onlineUpsert('inspections', finalData, db.inspections);
+    if (!window.confirm('Encerrar Inspeção?')) return;
+
+    setIsFinishing(true);
+    try {
+      // 1. Flush all pending responses to Dexie immediately
+      const currentResponses = useInspectionStore.getState().responses;
+      for (const r of currentResponses) {
+        if (r.synced === 0) {
+          await db.responses.put(r);
+        }
+      }
+
+      // 2. Build final inspection record
+      const { clientName, clientCategory, foodTypes, city, state: st, ...baseInsp } = currentInspection as any;
+      const finalData = {
+        ...baseInsp,
+        status: 'completed' as const,
+        completedAt: new Date(),
+        signatureDataUrl: signature,
+        synced: 0,
+      };
+
+      // 3. Save locally first (never fails) then try remote
+      await db.inspections.put({ ...finalData, updatedAt: new Date() });
+      db.onlineUpsert('inspections', finalData, db.inspections).catch(err =>
+        console.warn('[finish] Remote sync failed, data is safe in Dexie:', err)
+      );
+
+      // 4. Update the store so that /summary loads without a refresh
+      setCurrentInspection({ ...currentInspection, ...finalData });
+
+      // 5. Navigate
       navigate('/summary', { state: { inspectionId: currentInspection.id } });
+    } catch (err) {
+      console.error('[handleConfirmFinish] Error:', err);
+      alert('Erro ao finalizar a inspeção. Tente novamente.');
+    } finally {
+      setIsFinishing(false);
+      setShowSignatureModal(false);
     }
   };
 
@@ -360,7 +398,7 @@ export function InspectionExecution() {
             </div>
           </div>
           {!isCompleted && (
-            <Button onClick={() => setShowSignatureModal(true)} disabled={!isOnline} className="shadow-lg shadow-primary-100">
+            <Button onClick={() => setShowSignatureModal(true)} className="shadow-lg shadow-primary-100">
               Finalizar Visita
             </Button>
           )}
@@ -530,8 +568,9 @@ export function InspectionExecution() {
                 <p className="text-primary-900 font-bold">{currentInspection.accompanistName || 'Não Informado'}</p>
               </div>
               <SignaturePad onSave={setSignature} onClear={() => setSignature(null)} />
-              <Button className="w-full h-12 bg-primary-600 font-bold text-lg" disabled={!signature} onClick={handleConfirmFinish}>
-                CONFIRMAR E FINALIZAR
+              <Button className="w-full h-12 bg-primary-600 font-bold text-lg" disabled={!signature || isFinishing} onClick={handleConfirmFinish}>
+                {isFinishing ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
+                {isFinishing ? 'FINALIZANDO...' : 'CONFIRMAR E FINALIZAR'}
               </Button>
             </CardContent>
           </Card>

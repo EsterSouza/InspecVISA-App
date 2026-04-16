@@ -240,11 +240,7 @@ export const ChecklistItem = memo(function ChecklistItem({
                 onFocus={() => setIsFocused('situation')}
                 onBlur={(e) => handleBlur('situationDescription', e.target.value)}
               />
-              {isSyncing && isFocused !== 'situation' && (
-                <div className="absolute right-2 top-2">
-                   <div className="h-2 w-2 bg-blue-500 rounded-full animate-pulse" />
-                </div>
-              )}
+
             </div>
           </div>
 

@@ -71,30 +71,33 @@ export const useInspectionStore = create<InspectionState>((set) => ({
 
   addResponse: async (response) => {
     try {
+      const record = { ...response, synced: 0 };
+
       // 1. OPTIMISTIC UPDATE: Update UI first
       set((state) => ({
-        responses: [...state.responses, { ...response, synced: 0 }]
+        responses: [...state.responses, record]
       }));
 
-      // 2. BACKGROUND SAVE
-      db.onlineUpsert('responses', response, db.responses).then(async (res) => {
+      // 2. IMMEDIATE DEXIE SAVE — protects against refresh (fire this first, never skip)
+      await db.responses.put(record);
+
+      // 3. BACKGROUND SUPABASE SYNC (fire-and-forget)
+      db.onlineUpsert('responses', record, db.responses).then(async (res) => {
         if (res.synced === 1) {
           set((state) => ({
             responses: state.responses.map(r => r.id === response.id ? { ...r, synced: 1 } : r)
           }));
         }
-        
-        // Ensure photos (if any were added in the initial response) are also saved to the photos table
         if (response.photos && response.photos.length > 0) {
           for (const photo of response.photos) {
             await db.onlineUpsert('photos', { ...photo, responseId: response.id }, db.photos);
           }
         }
-      });
-      
+      }).catch(err => console.warn('[addResponse] background sync failed:', err));
+
       return true;
     } catch (error) {
-      console.error('Error in optimistic add:', error);
+      console.error('Error in addResponse:', error);
       return false;
     }
   },
