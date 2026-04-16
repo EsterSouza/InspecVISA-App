@@ -28,6 +28,7 @@ const AdminLayout = lazy(() => import('./components/layout/AdminLayout').then(m 
 const AdminTemplates = lazy(() => import('./pages/admin/AdminTemplates').then(m => ({ default: m.AdminTemplates })));
 const SmartImporter = lazy(() => import('./pages/admin/SmartImporter').then(m => ({ default: m.SmartImporter })));
 const LegislationsManager = lazy(() => import('./pages/admin/LegislationsManager').then(m => ({ default: m.LegislationsManager })));
+const TemplateDetail = lazy(() => import('./pages/TemplateDetail').then(m => ({ default: m.TemplateDetail })));
 
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ProfileSelection } from './pages/ProfileSelection';
@@ -189,6 +190,7 @@ function App() {
               <Route path="/summary" element={<InspectionSummary />} />
               <Route path="/templates" element={<AdminTemplates />} />
               <Route path="/templates/import" element={<SmartImporter />} />
+              <Route path="/templates/:id" element={<TemplateDetail />} />
               <Route path="/legislations" element={<LegislationsManager />} />
               <Route path="/debug" element={<Debug />} />
               <Route path="/access-denied" element={<AccessDenied />} />

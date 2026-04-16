@@ -114,7 +114,11 @@ export function AdminTemplates() {
       ) : (
         <div className="grid gap-4">
           {filtered.map(template => (
-            <Card key={template.id} className="hover:border-primary-300 transition-all group overflow-hidden">
+            <Card
+              key={template.id}
+              className="hover:border-primary-300 transition-all group overflow-hidden cursor-pointer"
+              onClick={() => navigate(`/templates/${template.id}`)}
+            >
                <div className="flex p-4 items-center justify-between">
                   <div className="flex items-center">
                     <div className={`h-10 w-10 rounded-lg flex items-center justify-center mr-4 transition-colors ${
@@ -140,10 +144,19 @@ export function AdminTemplates() {
                   <div className="flex items-center space-x-2">
                     {!(template as any).isStatic ? (
                       <>
-                        <Button variant="ghost" size="sm" onClick={() => navigate(`/templates/${template.id}/edit`)} title="Editar roteiro customizado">
+                        <Button
+                          variant="ghost" size="sm"
+                          onClick={(e) => { e.stopPropagation(); navigate(`/templates/${template.id}/edit`); }}
+                          title="Editar roteiro customizado"
+                        >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="sm" className="text-gray-300 hover:text-red-500" title="Excluir">
+                        <Button
+                          variant="ghost" size="sm"
+                          className="text-gray-300 hover:text-red-500"
+                          title="Excluir"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </>
