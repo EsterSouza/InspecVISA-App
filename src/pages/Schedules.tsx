@@ -68,21 +68,24 @@ export function Schedules() {
       const scheduledAt = new Date(`${scheduledDate}T${scheduledTime}`);
       
       if (isEditing && editingId) {
-        await db.schedules.update(editingId, {
+        const existing = await db.schedules.get(editingId);
+        if (!existing) return;
+        const updated = {
+          ...existing,
           clientId: selectedClientId,
           scheduledAt,
-          notes: notes
-        });
-        
-        // Update on Supabase (syncService might handle this, but let's be proactive if needed)
-        // syncData handles updates by comparing timestamps, so local update + sync usually works.
+          notes: notes,
+          updatedAt: new Date(),
+        };
+        // Use onlineUpsert to sync to Supabase
+        await db.onlineUpsert('schedules', updated, db.schedules);
       } else {
         const newSchedule: Schedule = {
           id: generateId(),
           clientId: selectedClientId,
           scheduledAt,
           status: 'pending',
-          notes: notes
+          notes: notes,
         };
         await db.schedules.add(newSchedule);
       }

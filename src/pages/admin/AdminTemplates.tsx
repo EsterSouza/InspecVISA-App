@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, FileText, ChevronRight, Search, Trash2, Edit } from 'lucide-react';
+import { Plus, FileText, ChevronRight, Search, Trash2, Edit, Lock } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
 import { TemplateService } from '../../services/templateService';
 import { Badge } from '../../components/ui/Badge';
+import { getTemplates } from '../../data/templates';
 
 export function AdminTemplates() {
   const navigate = useNavigate();
@@ -21,27 +22,33 @@ export function AdminTemplates() {
     try {
       setIsLoading(true);
       setLoadError(null);
-      let data = await TemplateService.listTemplates();
-      
-      // Automatic seeding if empty AND not already seeded in this browser session
-      const hasSeeded = localStorage.getItem('templates_seeded');
-      if (data.length === 0 && !hasSeeded) {
-        console.log('No templates found, seeding...');
-        localStorage.setItem('templates_seeded', 'true');
-        try {
-          await TemplateService.seedLegacyTemplates();
-        } catch (seedErr) {
-          console.warn('Seeding failed:', seedErr);
-          localStorage.removeItem('templates_seeded');
-        }
-        data = await TemplateService.listTemplates();
+
+      // Always show static built-in templates
+      const staticData = getTemplates().map(t => ({
+        ...t,
+        isStatic: true,
+        updated_at: new Date().toISOString(),
+      }));
+
+      // Merge with remote templates (Supabase)
+      let remoteData: any[] = [];
+      try {
+        remoteData = await TemplateService.listTemplates();
+      } catch (remoteErr) {
+        console.warn('[AdminTemplates] Could not fetch remote templates:', remoteErr);
       }
-      
-      setTemplates(data);
+
+      // Merge: remote takes precedence if same ID
+      const remoteIds = new Set(remoteData.map((t: any) => t.id));
+      const merged = [
+        ...remoteData,
+        ...staticData.filter((t) => !remoteIds.has(t.id)),
+      ];
+
+      setTemplates(merged);
     } catch (err: any) {
       console.error('Error loading templates:', err);
-      localStorage.removeItem('templates_seeded');
-      setLoadError(err?.message || 'Erro ao carregar roteiros. Verifique sua conexão.');
+      setLoadError(err?.message || 'Erro ao carregar roteiros.');
     } finally {
       setIsLoading(false);
     }
@@ -60,11 +67,8 @@ export function AdminTemplates() {
           <p className="text-sm text-gray-500">Gerencie e importe novos modelos (ROIs) para as consultoras.</p>
         </div>
         <div className="flex space-x-3 w-full sm:w-auto">
-          <Button onClick={() => navigate('/admin/templates/import')} variant="outline">
+          <Button onClick={() => navigate('/templates/import')} variant="outline">
             Importar ROI
-          </Button>
-          <Button onClick={() => navigate('/admin/templates/new')}>
-            <Plus className="h-4 w-4 mr-2" /> Novo Roteiro
           </Button>
         </div>
       </div>
@@ -114,25 +118,39 @@ export function AdminTemplates() {
             <Card key={template.id} className="hover:border-primary-300 transition-all group overflow-hidden">
                <div className="flex p-4 items-center justify-between">
                   <div className="flex items-center">
-                    <div className="h-10 w-10 rounded-lg bg-primary-50 flex items-center justify-center mr-4 group-hover:bg-primary-100 transition-colors">
-                      <FileText className="h-5 w-5 text-primary-600" />
+                    <div className={`h-10 w-10 rounded-lg flex items-center justify-center mr-4 transition-colors ${
+                      (template as any).isStatic ? 'bg-gray-50 group-hover:bg-gray-100' : 'bg-primary-50 group-hover:bg-primary-100'
+                    }`}>
+                      <FileText className={`h-5 w-5 ${(template as any).isStatic ? 'text-gray-400' : 'text-primary-600'}`} />
                     </div>
                     <div>
-                      <h4 className="font-bold text-gray-900">{template.name}</h4>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-bold text-gray-900">{template.name}</h4>
+                        {(template as any).isStatic && (
+                          <span className="flex items-center gap-1 text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded font-semibold">
+                            <Lock className="h-2.5 w-2.5" /> Padrão
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center mt-0.5 space-x-2">
                         <Badge variant="neutral" className="uppercase text-[10px]">{template.category}</Badge>
                         <span className="text-[10px] text-gray-400">• v{template.version || '1.0'}</span>
-                        <span className="text-[10px] text-gray-400">• Atualizado em {new Date(template.updated_at).toLocaleDateString('pt-BR')}</span>
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Button variant="ghost" size="sm" onClick={() => navigate(`/admin/templates/${template.id}`)} title="Editar">
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm" className="text-gray-300 hover:text-red-500" title="Excluir">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {!(template as any).isStatic ? (
+                      <>
+                        <Button variant="ghost" size="sm" onClick={() => navigate(`/templates/${template.id}/edit`)} title="Editar roteiro customizado">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" className="text-gray-300 hover:text-red-500" title="Excluir">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </>
+                    ) : (
+                      <span className="text-[10px] text-gray-400 italic mr-2">Roteiro nativo — somente leitura</span>
+                    )}
                     <ChevronRight className="h-5 w-5 text-gray-300 group-hover:text-primary-400 transition-colors ml-2" />
                   </div>
                </div>

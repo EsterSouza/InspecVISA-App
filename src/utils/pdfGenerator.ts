@@ -81,7 +81,7 @@ export async function generatePDF(
   drawField('Localização:', `${inspection.city || '—'} / ${inspection.state || '—'}`);
   drawField('Data da Visita:', formatDate(inspection.inspectionDate));
   drawField('Consultora:', inspection.consultantName);
-  
+
   if (inspection.clientCategory === 'alimentos' && inspection.foodTypes && inspection.foodTypes.length > 0) {
     const segments = inspection.foodTypes.map(ft => FOOD_SEGMENT_LABELS[ft] || ft).join(', ');
     drawField('Segmentos:', segments);
@@ -103,7 +103,7 @@ export async function generatePDF(
     doc.setTextColor(...primaryColor);
     doc.text('DADOS TÉCNICOS ILPI', margin, y);
     y += 5;
-    
+
     autoTable(doc, {
       startY: y,
       head: [['Capacidade', 'Nº Residentes', 'Grau I', 'Grau II', 'Grau III']],
@@ -121,13 +121,18 @@ export async function generatePDF(
     });
     y = (doc as any).lastAutoTable.finalY + 8;
 
-    // Staffing calculation summary
+    // Staffing calculation summary — state-aware
     const l1 = inspection.dependencyLevel1 || 0;
     const l2 = inspection.dependencyLevel2 || 0;
     const l3 = inspection.dependencyLevel3 || 0;
-    const reqLei = Math.ceil(l1/20 + l2/10 + l3/5);
-    const reqRDC = Math.ceil(l1/20 + l2/8 + l3/6);
-    const maxReq = Math.max(reqLei, reqRDC);
+    const isRJ = (inspection as any).state === 'RJ';
+
+    // RDC 502/2021 (federal): Grau I 1:20, Grau II 1:10, Grau III 1:6
+    const reqFederal = Math.ceil(l1 / 20 + l2 / 10 + l3 / 6);
+    // Lei 8.049/2018 (RJ específico): Grau I 1:20, Grau II 1:8, Grau III 1:5
+    const reqRJ = isRJ ? Math.ceil(l1 / 20 + l2 / 8 + l3 / 5) : 0;
+    const maxReq = isRJ ? Math.max(reqFederal, reqRJ) : reqFederal;
+
     const observed = (inspection as any).observedStaff || 0;
     const isCompliant = observed >= maxReq;
 
@@ -143,12 +148,16 @@ export async function generatePDF(
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(100, 100, 100);
     y += 4;
-    doc.text(`Base legal: RDC 502/2021 e Lei 8049/2018. Status: ${isCompliant ? 'ADEQUADO' : 'INSUFICIENTE'}`, margin, y);
+
+    const baseLegal = isRJ
+      ? 'Base legal: RDC 502/2021 e Lei 8.049/2018 (RJ)'
+      : 'Base legal: RDC 502/2021';
+    doc.text(`${baseLegal}. Status: ${isCompliant ? 'ADEQUADO' : 'INSUFICIENTE'}`, margin, y);
 
     y += 10;
   }
 
-  // ── PAGE 1: CAPA (Action Pro Design) ─────────────────────
+  // ── PAGE 1: CAPA (Score Box) ─────────────────────────────
   y += 5;
   const scorePercent = Math.round(score.scorePercentage);
   const getScoreColor = (p: number) => {
@@ -157,11 +166,11 @@ export async function generatePDF(
     return [239, 68, 68]; // Red
   };
   const rgb = getScoreColor(scorePercent);
-  
+
   // Score Box
   doc.setFillColor(...(rgb as [number, number, number]));
   doc.roundedRect(margin, y, contentW, 35, 3, 3, 'F');
-  
+
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(32);
@@ -200,7 +209,7 @@ export async function generatePDF(
       const isExtra = sectionDef?.isExtraSection;
       const segment = sectionDef?.segmentKey ? (FOOD_SEGMENT_LABELS[sectionDef.segmentKey as FoodEstablishmentType] || sectionDef.segmentKey) : '';
       const title = isExtra ? `${s.sectionTitle} (ESPECÍFICO - ${segment.toUpperCase()})` : s.sectionTitle;
-      
+
       return [
         title.length > 45 ? title.substring(0, 43) + '…' : title,
         s.totalItems,
@@ -241,7 +250,7 @@ export async function generatePDF(
 
   const allItemsList = template.sections.flatMap(s => s.items);
   const nonCompliantItems = responses.filter(r => r.result === 'not_complies');
-  
+
   // Urgent Actions (Critical Weight 10)
   const urgentItems = nonCompliantItems.filter(r => {
     const it = allItemsList.find(i => i.id === r.itemId);
@@ -255,11 +264,12 @@ export async function generatePDF(
   });
 
   const drawActionTable = (title: string, items: any[], rowColor: [number, number, number], defaultDeadline: string) => {
+    if (y > pageH - 60) { doc.addPage(); y = margin; }
     doc.setFontSize(10);
     doc.setTextColor(rgb[0], rgb[1], rgb[2]);
     doc.text(title.toUpperCase(), margin, y);
     y += 4;
-    
+
     autoTable(doc, {
       startY: y,
       head: [['Nº', 'Descrição da Ação (O que resolver)', 'Seção', 'Prazo', 'Responsável']],
@@ -276,8 +286,8 @@ export async function generatePDF(
       }),
       headStyles: { fillColor: rgb as [number, number, number], fontSize: 8 },
       bodyStyles: { fontSize: 8, fillColor: rowColor as [number, number, number] },
-      columnStyles: { 
-        0: { cellWidth: 8 }, 
+      columnStyles: {
+        0: { cellWidth: 8 },
         1: { cellWidth: 90 },
         2: { cellWidth: 30 },
         3: { cellWidth: 20 },
@@ -298,6 +308,7 @@ export async function generatePDF(
   }
 
   // Summary of Conformance
+  if (y > pageH - 40) { doc.addPage(); y = margin; }
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
   doc.setTextColor(34, 197, 94);
@@ -309,9 +320,8 @@ export async function generatePDF(
   doc.text(`${score.compliesCount} itens foram verificados e encontram-se em conformidade na data desta inspeção.`, margin, y);
   y += 15;
 
-  y = (doc as any).lastAutoTable.finalY + 10;
-
   if (inspection.observations) {
+    if (y > pageH - 40) { doc.addPage(); y = margin; }
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
     doc.setTextColor(30, 30, 30);
@@ -321,6 +331,7 @@ export async function generatePDF(
     doc.setFontSize(10);
     const obsLines = doc.splitTextToSize(inspection.observations, contentW);
     doc.text(obsLines, margin, y);
+    y += obsLines.length * 5 + 5;
   }
 
   // ── PAGES 3+: NONCONFORMANCES ────────────────────────────
@@ -365,11 +376,12 @@ export async function generatePDF(
         doc.setFont('helvetica', 'italic');
         doc.setFontSize(8);
         doc.setTextColor(80, 80, 80);
+        // Show only citation abbreviation inline, full reference is in appendix
         const legText = `Base legal: ${item.legislation}`;
         const legLines = doc.splitTextToSize(legText, contentW - 4);
         doc.text(legLines, margin + 2, y);
         y += legLines.length * 4;
-        
+
         if (item.isCritical) {
           doc.setFillColor(254, 226, 226); // red-100
           doc.roundedRect(margin + 2, y, 30, 5, 2, 2, 'F');
@@ -417,32 +429,32 @@ export async function generatePDF(
         const maxImgH = maxImgW * 0.75;
         let col = 0;
         let currentRowMaxH = 0;
-        
+
         for (const photo of response.photos) {
           try {
             const img = new Image();
             img.src = photo.dataUrl;
             await new Promise(resolve => img.onload = resolve);
-            
+
             const ratio = img.height / img.width;
             let drawW = maxImgW;
             let drawH = drawW * ratio;
-            
+
             if (drawH > maxImgH) {
               drawH = maxImgH;
               drawW = drawH / ratio;
             }
-            
-            const x = margin + col * (maxImgW + 5) + (maxImgW - drawW) / 2; 
+
+            const x = margin + col * (maxImgW + 5) + (maxImgW - drawW) / 2;
             if (col === 0 && y + maxImgH > pageH - 20) { doc.addPage(); y = margin; }
-            
+
             doc.addImage(photo.dataUrl, 'JPEG', x, y, drawW, drawH);
             currentRowMaxH = Math.max(currentRowMaxH, drawH);
-            
+
             col++;
-            if (col === 2) { 
-              col = 0; 
-              y += currentRowMaxH + 3; 
+            if (col === 2) {
+              col = 0;
+              y += currentRowMaxH + 3;
               currentRowMaxH = 0;
             }
           } catch (_) { /* skip */ }
@@ -455,14 +467,15 @@ export async function generatePDF(
       doc.line(margin, y - 2, margin + contentW, y - 2);
       ncNum++;
     }
-    
+
     y += 5;
     doc.setFontSize(8);
+    doc.setTextColor(30, 30, 30);
     doc.text(`Ciente do Plano de Ação: ${inspection.accompanistName || 'Representante do Estabelecimento'}`, margin, y);
   }
 
   // ── PAGES: EXCELÊNCIA E MELHORIAS ──────────────────────
-  const excellenceItems = responses.filter(r => 
+  const excellenceItems = responses.filter(r =>
     r.result === 'complies' && (r.situationDescription || r.correctiveAction || r.photos.length > 0)
   );
 
@@ -493,7 +506,7 @@ export async function generatePDF(
       doc.setTextColor(30, 30, 30);
       doc.text(`[EX-${String(exNum).padStart(3, '0')}] ${item.description.substring(0, 90)}`, margin + 2, y);
       y += 5;
-      
+
       if (item.description.length > 90) {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(9);
@@ -536,32 +549,32 @@ export async function generatePDF(
         const maxImgH = maxImgW * 0.75;
         let col = 0;
         let currentRowMaxH = 0;
-        
+
         for (const photo of response.photos) {
           try {
             const img = new Image();
             img.src = photo.dataUrl;
             await new Promise(resolve => img.onload = resolve);
-            
+
             const ratio = img.height / img.width;
             let drawW = maxImgW;
             let drawH = drawW * ratio;
-            
+
             if (drawH > maxImgH) {
               drawH = maxImgH;
               drawW = drawH / ratio;
             }
-            
-            const x = margin + col * (maxImgW + 5) + (maxImgW - drawW) / 2; 
+
+            const x = margin + col * (maxImgW + 5) + (maxImgW - drawW) / 2;
             if (col === 0 && y + maxImgH > pageH - 20) { doc.addPage(); y = margin; }
-            
+
             doc.addImage(photo.dataUrl, 'JPEG', x, y, drawW, drawH);
             currentRowMaxH = Math.max(currentRowMaxH, drawH);
-            
+
             col++;
-            if (col === 2) { 
-              col = 0; 
-              y += currentRowMaxH + 3; 
+            if (col === 2) {
+              col = 0;
+              y += currentRowMaxH + 3;
               currentRowMaxH = 0;
             }
           } catch (_) { /* skip */ }
@@ -576,14 +589,17 @@ export async function generatePDF(
     }
   }
 
+  // ── SIGNATURE + DISCLAIMER ──────────────────────────────
+  if (y > pageH - 60) { doc.addPage(); y = margin; }
   y += 10;
   doc.setFont('helvetica', 'italic');
   doc.setFontSize(9);
   doc.setTextColor(90, 90, 90);
-  const disclaimer = 'Este relatório foi elaborado com base nas legislações sanitárias vigentes, durante visita técnica realizada na data indicada.';
+  const disclaimer = 'Este relatório foi elaborado com base nas legislações sanitárias vigentes, durante visita técnica realizada na data indicada. As referências legislativas completas constam na última seção deste documento.';
   const dLines = doc.splitTextToSize(disclaimer, contentW);
   doc.text(dLines, margin, y);
-  y += 25;
+  y += dLines.length * 5 + 15;
+
   // Accomplice Signature
   if (inspection.signatureDataUrl) {
     try {
@@ -591,12 +607,15 @@ export async function generatePDF(
     } catch (_) { /* skip */ }
   }
 
+  doc.setTextColor(30, 30, 30);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
   doc.text(inspection.accompanistName || '—', margin, y);
   if (inspection.accompanistRole) {
     y += 5;
     doc.text(inspection.accompanistRole, margin, y);
   }
-  
+
   y += 10;
   doc.setDrawColor(200, 200, 200);
   doc.line(margin, y, margin + 80, y);
@@ -614,87 +633,205 @@ export async function generatePDF(
     addFooter(i, totalPages);
   }
 
-  // Draw Legislation References as a separate page at the very end (before saving)
-  drawLegislationPage(doc, template, legislations);
+  // ── LAST PAGE: REFERÊNCIAS ABNT ─────────────────────────
+  drawReferencesABNT(doc, template, responses, legislations, inspection);
 
   const filename = `Inspecao_${(inspection.clientName || 'cliente').replace(/\s+/g, '_')}_${formatDate(inspection.inspectionDate).replace(/\//g, '-')}.pdf`;
   doc.save(filename);
 }
 
-function drawLegislationPage(doc: jsPDF, template: ChecklistTemplate, allLegislations: any[]) {
-  // Extract unique mentions of legislation in the template
+/**
+ * Gera página de referências legislativas no formato ABNT NBR 6023.
+ * Lista apenas as legislações citadas nos itens avaliados neste relatório.
+ */
+function drawReferencesABNT(
+  doc: jsPDF,
+  template: ChecklistTemplate,
+  responses: InspectionResponse[],
+  allLegislations: any[],
+  inspection: Inspection
+) {
+  const evaluatedItemIds = new Set(responses.map(r => r.itemId));
+  const allItems = template.sections.flatMap(s => s.items);
+
+  // Collect unique legislation mentions from evaluated items only
   const mentionedSet = new Set<string>();
-  template.sections.forEach(s => {
-    s.items.forEach(item => {
-      if (item.legislation) {
-        // Handle comma separated or single mentions
-        item.legislation.split(',').forEach(l => mentionedSet.add(l.trim().toUpperCase()));
-      }
-    });
-  });
-
-  if (mentionedSet.size === 0 && allLegislations.length === 0) return;
-
-  // Find matches in our library
-  const matchedLaws = allLegislations.filter(leg => {
-    const legName = leg.name.toUpperCase();
-    return Array.from(mentionedSet).some(mQuery => 
-      legName.includes(mQuery) || mQuery.includes(legName)
+  allItems.forEach(item => {
+    if (!evaluatedItemIds.has(item.id)) return;
+    if (!item.legislation) return;
+    item.legislation.split(';').forEach(part =>
+      part.split(',').forEach(l => {
+        const clean = l.trim();
+        if (clean) mentionedSet.add(clean);
+      })
     );
   });
 
-  // If we have mentions but no matches in library, just list the mentions
-  const lawsToDisplay = matchedLaws.length > 0 
-    ? matchedLaws.map(l => `${l.name} - ${l.summary || ''}`)
-    : Array.from(mentionedSet).map(m => m);
+  if (mentionedSet.size === 0) return;
 
-  if (lawsToDisplay.length === 0) return;
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margin = 20;
+  const contentW = pageW - margin * 2;
+  const primaryColor: [number, number, number] = [30, 107, 94];
 
   doc.addPage();
-  const pageWidth = doc.internal.pageSize.getWidth();
-  
+
+  // Header
   doc.setFillColor(243, 244, 246);
-  doc.rect(0, 0, pageWidth, 40, 'F');
-  
+  doc.rect(0, 0, pageW, 42, 'F');
+  doc.setFillColor(...primaryColor);
+  doc.rect(0, 0, 4, 42, 'F');
+
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(22);
+  doc.setFontSize(18);
   doc.setTextColor(17, 24, 39);
-  doc.text('REFERÊNCIAS LEGISLATIVAS', 20, 25);
-  
-  doc.setFontSize(10);
+  doc.text('REFERÊNCIAS LEGISLATIVAS', margin + 4, 22);
+
+  doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(107, 114, 128);
-  doc.text('Base legal utilizada para fundamentar os itens de inspeção avaliados.', 20, 34);
+  doc.text('Legislações que fundamentam os itens avaliados neste relatório.', margin + 4, 34);
 
-  let y = 60;
-  
-  lawsToDisplay.forEach((law, idx) => {
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(31, 41, 55);
-    doc.text(`${idx + 1}.`, 20, y);
-    
-    doc.setFont('helvetica', 'normal');
-    const splitLaw = doc.splitTextToSize(law, pageWidth - 60);
-    doc.text(splitLaw, 30, y);
-    y += (splitLaw.length * 6) + 4;
-    
-    if (y > 270) {
+  let y = 58;
+
+  // Format each mention as ABNT reference
+  const uniqueRefs = Array.from(mentionedSet).sort();
+
+  uniqueRefs.forEach((mention, idx) => {
+    if (y > pageH - 25) {
       doc.addPage();
-      y = 30;
+      y = margin;
     }
+
+    // Try to find in the library for enriched info
+    const libraryMatch = allLegislations.find(leg => {
+      const legUpper = leg.name.toUpperCase();
+      const mentionUpper = mention.toUpperCase();
+      return legUpper.includes(mentionUpper) || mentionUpper.includes(legUpper);
+    });
+
+    const abntRef = formatABNT(mention, libraryMatch);
+
+    // Reference number bullet
+    doc.setFillColor(30, 107, 94);
+    doc.circle(margin + 3, y - 1, 2.5, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(255, 255, 255);
+    doc.text(`${idx + 1}`, margin + 3, y + 0.5, { align: 'center' });
+
+    // Reference text
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(31, 41, 55);
+    const lines = doc.splitTextToSize(abntRef, contentW - 14);
+    doc.text(lines, margin + 10, y);
+    y += lines.length * 5.5 + 5;
+
+    // If has URL in library
+    if (libraryMatch?.url) {
+      doc.setFontSize(7.5);
+      doc.setTextColor(30, 107, 94);
+      doc.setFont('helvetica', 'italic');
+      const urlLine = `Disponível em: <${libraryMatch.url}>`;
+      const urlLines = doc.splitTextToSize(urlLine, contentW - 14);
+      doc.text(urlLines, margin + 10, y);
+      y += urlLines.length * 4.5 + 3;
+    }
+
+    // Separator
+    doc.setDrawColor(229, 231, 235);
+    doc.setLineWidth(0.3);
+    doc.line(margin + 10, y, margin + contentW, y);
+    y += 5;
   });
 
-  // Footer text
-  doc.setFontSize(8);
+  // Footer note
+  if (y < pageH - 25) {
+    y = pageH - 18;
+  } else {
+    if (y > pageH - 18) { doc.addPage(); y = pageH - 18; }
+  }
+  doc.setFontSize(7.5);
   doc.setFont('helvetica', 'italic');
   doc.setTextColor(156, 163, 175);
-  doc.text('Este relatório baseia-se nas normas vigentes na data da inspeção.', 20, 285);
+  doc.text('Legislações vigentes na data da inspeção.', margin, y);
 }
 
-function hexToRgb(hex: string): [number, number, number] {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return result
-    ? [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16)]
-    : [30, 107, 94];
+/**
+ * Formata uma citação legislativa no padrão ABNT NBR 6023.
+ */
+function formatABNT(mention: string, libraryEntry?: any): string {
+  const m = mention.trim();
+  const summary = libraryEntry?.summary || '';
+
+  // RDC ANVISA
+  if (/RDC\s*(?:ANVISA\s*)?n?[oº]?\s*(\d+)/i.test(m)) {
+    const match = m.match(/RDC\s*(?:ANVISA\s*)?n?[oº]?\s*(\d+)[\s,/]*(\d{4})?/i);
+    const num = match?.[1] || '';
+    const year = match?.[2] || '';
+    const yearStr = year ? `, de ${year}` : '';
+    const baseText = `BRASIL. Agência Nacional de Vigilância Sanitária (ANVISA). Resolução da Diretoria Colegiada – RDC n. ${num}${yearStr}.`;
+    return summary ? `${baseText} ${summary}.` : `${baseText} Brasília: ANVISA.`;
+  }
+
+  // Portaria
+  if (/Portaria/i.test(m)) {
+    const match = m.match(/Portaria\s+(?:(?:GM|SVS|MS|CVS)[\s/]*(?:MS|MS)?)?n?[oº]?\s*([\d.]+)[\s,/]*(\d{4})?/i);
+    const num = match?.[1] || '';
+    const year = match?.[2] || '';
+    const yearStr = year ? `, de ${year}` : '';
+    const org = /CVS/i.test(m) ? 'São Paulo. Centro de Vigilância Sanitária (CVS). Portaria CVS'
+      : 'BRASIL. Ministério da Saúde. Portaria';
+    const baseText = `${org} n. ${num}${yearStr}.`;
+    return summary ? `${baseText} ${summary}.` : `${baseText}`;
+  }
+
+  // Lei Federal
+  if (/Lei\s+Federal/i.test(m) || /Lei\s+n[oº\.]/i.test(m)) {
+    const match = m.match(/Lei\s+(?:Federal\s+)?n?[oº\.]?\s*([\d.]+)[\s,/]*(\d{4})?/i);
+    const num = match?.[1] || '';
+    const year = match?.[2] || '';
+    const yearStr = year ? `, de ${year}` : '';
+    const baseText = `BRASIL. Lei n. ${num}${yearStr}.`;
+    return summary ? `${baseText} ${summary}.` : `${baseText} Brasília: Presidência da República.`;
+  }
+
+  // Lei Estadual (ex: Lei 8.049/2018)
+  if (/Lei\s+[\d.]+[/](\d{4})/i.test(m)) {
+    const match = m.match(/Lei\s+([\d.]+)[/](\d{4})/i);
+    const num = match?.[1] || '';
+    const year = match?.[2] || '';
+    const isRJ = m.includes('8049') || m.includes('8.049');
+    const state = isRJ ? 'RIO DE JANEIRO (Estado)' : 'BRASIL';
+    const baseText = `${state}. Lei n. ${num}, de ${year}.`;
+    return summary ? `${baseText} ${summary}.` : `${baseText}`;
+  }
+
+  // NR (Norma Regulamentadora)
+  if (/^NR[\s-]?(\d+)/i.test(m)) {
+    const match = m.match(/^NR[\s-]?(\d+)/i);
+    const num = match?.[1] || '';
+    const baseText = `BRASIL. Ministério do Trabalho e Emprego. Norma Regulamentadora n. ${num} (NR-${num}).`;
+    return summary ? `${baseText} ${summary}.` : `${baseText}`;
+  }
+
+  // ABNT
+  if (/ABNT|NBR/i.test(m)) {
+    const match = m.match(/(?:ABNT\s*)?NBR\s*([\d]+)/i);
+    const num = match?.[1] || '';
+    const baseText = `ASSOCIAÇÃO BRASILEIRA DE NORMAS TÉCNICAS. ABNT NBR ${num}.`;
+    return summary ? `${baseText} ${summary}.` : `${baseText} Rio de Janeiro: ABNT.`;
+  }
+
+  // Nota Técnica
+  if (/Nota\s+Técnica/i.test(m)) {
+    const baseText = `BRASIL. Agência Nacional de Vigilância Sanitária (ANVISA). ${m}.`;
+    return summary ? `${baseText} ${summary}.` : `${baseText}`;
+  }
+
+  // Generic fallback
+  const baseText = `BRASIL. ${m}.`;
+  return summary ? `${baseText} ${summary}.` : baseText;
 }

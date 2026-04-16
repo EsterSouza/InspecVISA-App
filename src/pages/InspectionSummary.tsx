@@ -139,11 +139,30 @@ export function InspectionSummary() {
     if (!currentInspection) return;
     setSavingMeta(true);
     try {
-      // Strip UI-only fields before persisting
+      // Strip only transient UI-only fields (not ILPI data fields)
       const { clientName, clientCategory, foodTypes, city, state: st, ...persistable } = currentInspection as any;
 
-      // Save to Dexie + Supabase
+      // Enrich client data from latest selection
+      const client = allClients.find(c => c.id === persistable.clientId);
+      if (client) {
+        persistable.clientId = client.id;
+      }
+
+      // Save to Dexie + Supabase (includes all ILPI fields)
       await db.onlineUpsert('inspections', { ...persistable, updatedAt: new Date() }, db.inspections);
+
+      // Re-enrich the local state with client info for display
+      if (client) {
+        setInspection({
+          ...currentInspection,
+          clientId: persistable.clientId,
+          clientName: client.name,
+          clientCategory: client.category,
+          city: client.city,
+          state: client.state,
+        } as any);
+      }
+
       setIsEditing(false);
     } catch (err) {
       alert('Erro ao salvar: ' + err);
