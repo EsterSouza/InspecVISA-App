@@ -10,6 +10,7 @@ import { useSettingsStore } from '../store/useSettingsStore';
 import { LegislationService, type Legislation } from '../services/legislationService';
 import type { Inspection, InspectionResponse, ChecklistTemplate } from '../types';
 import { Button } from '../components/ui/Button';
+import { withTimeout } from '../utils/network';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { formatDateTime } from '../utils/imageUtils';
 import { ScorePanel } from '../components/inspection/ScorePanel';
@@ -44,11 +45,16 @@ export function InspectionSummary() {
 
         // 2. Fallback: fetch from Supabase if not local
         if (!insp && navigator.onLine) {
-          const { data: remoteInsp } = await supabase
-            .from('inspections')
-            .select('*')
-            .eq('id', inspectionId)
-            .single();
+          const { data: remoteInsp } = await withTimeout<any>(
+            supabase
+              .from('inspections')
+              .select('*')
+              .eq('id', inspectionId)
+              .single(),
+            15000,
+            'Summary_FetchInspection'
+          ).catch(() => ({ data: null }));
+
           if (remoteInsp) {
             insp = {
               id: remoteInsp.id, clientId: remoteInsp.client_id, templateId: remoteInsp.template_id,
@@ -90,10 +96,14 @@ export function InspectionSummary() {
 
         // 4. Merge with remote responses (union)
         if (navigator.onLine) {
-          const { data: remoteResps } = await supabase
-            .from('responses')
-            .select('*')
-            .eq('inspection_id', inspectionId);
+          const { data: remoteResps } = await withTimeout<any>(
+            supabase
+              .from('responses')
+              .select('*')
+              .eq('inspection_id', inspectionId),
+            20000,
+            'Summary_FetchResponses'
+          ).catch(() => ({ data: [] }));
 
           if (remoteResps && remoteResps.length > 0) {
             for (const rr of remoteResps) {

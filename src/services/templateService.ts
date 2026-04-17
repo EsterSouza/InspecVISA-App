@@ -3,6 +3,7 @@ import type { ChecklistTemplate, ClientCategory } from '../types';
 import { templates as legacyTemplates } from '../data/templates';
 import { templateIlpiGoias } from '../data/templates_ilpi_go';
 import { alimentosTemplates } from '../data/templates_alimentos';
+import { withTimeout } from '../utils/network';
 
 interface RawImportItem {
   section?: string;
@@ -14,14 +15,13 @@ interface RawImportItem {
 
 export const TemplateService = {
   async listTemplates() {
-    const withTimeout = <T>(promise: Promise<T> | PromiseLike<T>, ms = 15000) => 
-      Promise.race([Promise.resolve(promise), new Promise<T>((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), ms))]);
-
     const { data, error } = await withTimeout<any>(
       supabase
         .from('checklist_templates')
         .select('*')
-        .order('created_at', { ascending: false })
+        .order('created_at', { ascending: false }),
+      15000,
+      'ListTemplates'
     );
     
     if (error) throw error;
@@ -29,24 +29,47 @@ export const TemplateService = {
   },
 
   async syncAllTemplatesToDexie(): Promise<ChecklistTemplate[]> {
-    const withTimeout = <T>(promise: Promise<T> | PromiseLike<T>, ms = 15000) => 
-      Promise.race([Promise.resolve(promise), new Promise<T>((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), ms))]);
-
     try {
-      const [tplsObj, secsObj, itemsObj] = await Promise.all([
-        withTimeout<any>(supabase.from('checklist_templates').select('*')),
-        withTimeout<any>(supabase.from('checklist_sections').select('*')),
-        withTimeout<any>(supabase.from('checklist_items').select('*'))
+      // 1. Fetch templates and sections first (relatively lightweight)
+      const [tplsObj, secsObj] = await Promise.all([
+        withTimeout<any>(supabase.from('checklist_templates').select('*'), 15000, 'SyncTemplates'),
+        withTimeout<any>(supabase.from('checklist_sections').select('*'), 15000, 'SyncSections')
       ]);
 
       const tpls = tplsObj.data || [];
       const secs = secsObj.data || [];
-      const items = itemsObj.data || [];
+
+      if (!tpls.length) return [];
+
+      // 2. Fetch all items (heavier, but necessary for offline)
+      // We do one big fetch of items to keep it to 3 requests total
+      const { data: items, error: iError } = await withTimeout<any>(
+        supabase.from('checklist_items').select('*'),
+        30000, // Longer timeout for items
+        'SyncItems'
+      );
+
+      if (iError || !items) throw iError || new Error('No items found');
+
+      // 3. Optimized mapping (using Maps for O(1) lookups instead of O(N^2) filters)
+      const itemsBySection = new Map<string, any[]>();
+      items.forEach((i: any) => {
+        const list = itemsBySection.get(i.section_id) || [];
+        list.push(i);
+        itemsBySection.set(i.section_id, list);
+      });
+
+      const sectionsByTemplate = new Map<string, any[]>();
+      secs.forEach((s: any) => {
+        const list = sectionsByTemplate.get(s.template_id) || [];
+        list.push(s);
+        sectionsByTemplate.set(s.template_id, list);
+      });
 
       return tpls.map((t: any) => {
-        const tSecs = secs.filter((s: any) => s.template_id === t.id).sort((a: any, b: any) => a.order - b.order);
+        const tSecs = (sectionsByTemplate.get(t.id) || []).sort((a: any, b: any) => a.order - b.order);
         const fullSecs = tSecs.map((sec: any) => {
-          const sItems = items.filter((i: any) => i.section_id === sec.id).sort((a: any, b: any) => a.order - b.order);
+          const sItems = (itemsBySection.get(sec.id) || []).sort((a: any, b: any) => a.order - b.order);
           return {
             id: sec.id,
             title: sec.title,
@@ -187,13 +210,13 @@ export const TemplateService = {
     ];
 
     // 1. Batch check existing names to avoid repeated queries
-    const namesToCheck = allLegacy.map(t => t.name);
+    const namesToCheck = allLegacy.map((t: any) => t.name);
     const { data: existingTemplates } = await supabase
       .from('checklist_templates')
       .select('name')
       .in('name', namesToCheck);
     
-    const existingNames = new Set(existingTemplates?.map(t => t.name) || []);
+    const existingNames = new Set(existingTemplates?.map((t: any) => t.name) || []);
     const seeded = [];
     
     for (const tpl of allLegacy) {
@@ -205,8 +228,8 @@ export const TemplateService = {
       console.log(`Seeding template: ${tpl.name}`);
       
       // We use our existing saveFullTemplate logic by mapping the legacy object to RawImportItem[]
-      const rawItems = tpl.sections.flatMap(sec => 
-        sec.items.map(it => ({
+      const rawItems = tpl.sections.flatMap((sec: any) => 
+        sec.items.map((it: any) => ({
           section: sec.title,
           description: it.description,
           legislation: it.legislation,

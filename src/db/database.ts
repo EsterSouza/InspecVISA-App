@@ -10,6 +10,7 @@ import type {
 } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/useAuthStore';
+import { withTimeout } from '../utils/network';
 
 export interface DeletionSync {
   id?: number;
@@ -60,16 +61,13 @@ export class InspectionDatabase extends Dexie {
 
     const pgRecord = this.mapToPostgres(tableName, enrichedRecord);
 
-    const withTimeout = <T>(promise: Promise<T> | PromiseLike<T>, ms: number = 20000): Promise<T> => {
-      return Promise.race([
-        Promise.resolve(promise),
-        new Promise<T>((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), ms))
-      ]);
-    };
-
     if (navigator.onLine) {
       try {
-        const { error } = await withTimeout<any>(supabase.from(tableName).upsert(pgRecord));
+        const { error } = await withTimeout<any>(
+          supabase.from(tableName).upsert(pgRecord),
+          20000,
+          `Upsert_${tableName}`
+        );
         if (!error) {
           enrichedRecord.synced = 1;
         } else {
@@ -182,6 +180,11 @@ export const db = new InspectionDatabase();
  * Deduplication is done by NAME to prevent duplicates when seeds and statics overlap.
  */
 export async function initializeDatabase(templates: ChecklistTemplate[]) {
+  if (!templates || !Array.isArray(templates)) {
+    console.warn('[DB] initializeDatabase called with invalid templates array');
+    return;
+  }
+  
   // Separate remote (have Supabase UUIDs) from static (have tpl-* IDs)
   const remoteTemplates = templates.filter(t => !t.id.startsWith('tpl-'));
   const staticTemplates = templates.filter(t => t.id.startsWith('tpl-'));

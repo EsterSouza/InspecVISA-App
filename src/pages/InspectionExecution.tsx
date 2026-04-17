@@ -10,6 +10,7 @@ import { useInspectionStore } from '../store/useInspectionStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { generateId } from '../utils/imageUtils';
 import { CollaborativeProgress } from '../components/inspection/CollaborativeProgress';
+import { withTimeout } from '../utils/network';
 
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
@@ -69,12 +70,16 @@ export function InspectionExecution() {
       // 2. Fallback: fetch from Supabase if not found locally (e.g., other device)
       if (!insp || insp.deletedAt) {
         if (navigator.onLine) {
-          const { data: remoteInsp } = await supabase
-            .from('inspections')
-            .select('*')
-            .eq('id', id)
-            .is('deleted_at', null)
-            .single();
+          const { data: remoteInsp } = await withTimeout<any>(
+            supabase
+              .from('inspections')
+              .select('*')
+              .eq('id', id)
+              .is('deleted_at', null)
+              .single(),
+            20000,
+            'FetchInspection'
+          ).catch(() => ({ data: null }));
 
           if (remoteInsp) {
             // Map snake_case → camelCase and cache locally
@@ -115,11 +120,17 @@ export function InspectionExecution() {
       }
 
       // 2.5 LOAD TEMPLATE FROM DEXIE
-      const tpl = await db.templates.get(insp.templateId);
+      let tpl = await db.templates.get(insp.templateId);
+      if (!tpl) {
+        // FALLBACK: Last resort check static templates before giving up
+        console.warn('Template missing in Dexie, checking statics:', insp.templateId);
+        tpl = getTemplateById(insp.templateId);
+      }
+
       if (tpl) {
         setTemplate(tpl);
       } else {
-        console.warn('Template offline missing:', insp.templateId);
+        console.error('CRITICAL: Template NOT found anywhere:', insp.templateId);
       }
 
       // 3. Enrich with client data
@@ -132,11 +143,16 @@ export function InspectionExecution() {
         insp.state = client.state;
       } else if (navigator.onLine) {
         // Try fetching client from Supabase too
-        const { data: remoteClient } = await supabase
-          .from('clients')
-          .select('*')
-          .eq('id', insp.clientId)
-          .single();
+        const { data: remoteClient } = await withTimeout<any>(
+          supabase
+            .from('clients')
+            .select('*')
+            .eq('id', insp.clientId)
+            .single(),
+          15000,
+          'FetchClient'
+        ).catch(() => ({ data: null }));
+
         if (remoteClient) {
           insp.clientName = remoteClient.name;
           insp.clientCategory = remoteClient.category;
@@ -154,14 +170,18 @@ export function InspectionExecution() {
 
       // 5. If no local responses, try Supabase fallback
       if (resps.length === 0 && navigator.onLine) {
-        const { data: remoteResps } = await supabase
-          .from('responses')
-          .select('*')
-          .eq('inspection_id', id)
-          .is('deleted_at', null);
+        const { data: remoteResps } = await withTimeout<any>(
+          supabase
+            .from('responses')
+            .select('*')
+            .eq('inspection_id', id)
+            .is('deleted_at', null),
+          20000,
+          'FetchResponses'
+        ).catch(() => ({ data: [] }));
 
         if (remoteResps && remoteResps.length > 0) {
-          resps = remoteResps.map(rr => ({
+          resps = remoteResps.map((rr: any) => ({
             id: rr.id,
             inspectionId: rr.inspection_id,
             itemId: rr.item_id,
