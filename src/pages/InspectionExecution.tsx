@@ -10,6 +10,7 @@ import { useInspectionStore } from '../store/useInspectionStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { generateId } from '../utils/imageUtils';
 import { CollaborativeProgress } from '../components/inspection/CollaborativeProgress';
+import { MobileScoreBar } from '../components/inspection/MobileScoreBar';
 import { withTimeout } from '../utils/network';
 
 import { Button } from '../components/ui/Button';
@@ -451,8 +452,8 @@ export function InspectionExecution() {
             <Button variant="ghost" size="icon" onClick={() => navigate('/inspections')} className="rounded-xl">
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div>
-              <h1 className="text-lg font-bold text-gray-900 truncate max-w-[200px]">{currentInspection.clientName}</h1>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-lg font-bold text-gray-900 truncate max-w-xs sm:max-w-sm md:max-w-lg">{currentInspection.clientName}</h1>
               <div className="flex items-center space-x-2 text-[10px] font-bold uppercase tracking-wider">
                 {isCompleted && <Badge variant="neutral" className="bg-green-100 text-green-700 border-green-200">Finalizada</Badge>}
                 {!isOnline && <span className="text-amber-600 flex items-center bg-amber-50 px-2 py-0.5 rounded-md"><WifiOff className="mr-1 h-3 w-3" /> Offline</span>}
@@ -485,6 +486,9 @@ export function InspectionExecution() {
       </header>
 
       {currentInspection.templateId === 'tpl-ilpi-federal-v1' && <CollaborativeProgress />}
+
+      {/* Mobile Score Bar - shown only on small screens */}
+      <MobileScoreBar template={template} />
 
       <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 lg:grid lg:grid-cols-12 lg:gap-8 overflow-y-auto">
         <div className="lg:col-span-8 space-y-6">
@@ -615,7 +619,7 @@ export function InspectionExecution() {
         </div>
 
         <div className="hidden lg:block lg:col-span-4 sticky top-24 h-fit">
-          <ScorePanel />
+          <ScorePanel template={template} />
         </div>
       </div>
 

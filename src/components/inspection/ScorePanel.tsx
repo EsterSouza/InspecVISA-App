@@ -2,21 +2,23 @@ import React from 'react';
 import { calculateScore } from '../../utils/scoring';
 import { useInspectionStore } from '../../store/useInspectionStore';
 import { getTemplateById } from '../../data/templates';
-import type { Inspection, InspectionResponse } from '../../types';
+import type { Inspection, InspectionResponse, ChecklistTemplate } from '../../types';
 
 interface ScorePanelProps {
   inspection?: Inspection;
   responses?: InspectionResponse[];
+  template?: ChecklistTemplate | any;
 }
 
-export function ScorePanel({ inspection, responses: propResponses }: ScorePanelProps) {
+export function ScorePanel({ inspection, responses: propResponses, template: propTemplate }: ScorePanelProps) {
   const store = useInspectionStore();
   
   const currentInspection = inspection || store.currentInspection;
   const responses = propResponses || store.responses;
   
   if (!currentInspection) return null;
-  const template = getTemplateById(currentInspection.templateId);
+  // Use prop template first, then try static lookup as fallback
+  const template = propTemplate || getTemplateById(currentInspection.templateId);
   if (!template) return null;
 
   const score = calculateScore(responses, template.sections);
