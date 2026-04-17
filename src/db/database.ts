@@ -58,15 +58,18 @@ export class InspectionDatabase extends Dexie {
       synced: 0 // Iniciamos como 0, mudamos para 1 se o Supabase aceitar
     };
 
-    // Prepare for Postgres (map camelCase to snake_case if necessary)
-    // For now, assume Supabase tables match the record structure OR we map them
-    // Note: Our types use camelCase, but PG uses snake_case. 
-    // We need a mapper if we are going to go direct.
     const pgRecord = this.mapToPostgres(tableName, enrichedRecord);
+
+    const withTimeout = <T>(promise: Promise<T> | PromiseLike<T>, ms: number = 20000): Promise<T> => {
+      return Promise.race([
+        Promise.resolve(promise),
+        new Promise<T>((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), ms))
+      ]);
+    };
 
     if (navigator.onLine) {
       try {
-        const { error } = await supabase.from(tableName).upsert(pgRecord);
+        const { error } = await withTimeout<any>(supabase.from(tableName).upsert(pgRecord));
         if (!error) {
           enrichedRecord.synced = 1;
         } else {

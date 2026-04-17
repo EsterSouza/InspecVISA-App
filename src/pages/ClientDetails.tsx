@@ -118,6 +118,8 @@ export function ClientDetails() {
       const updatedClient: Client = {
         ...client,
         ...data,
+        synced: 0,
+        updatedAt: new Date()
       };
 
       if (updatedClient.category !== 'alimentos') {
@@ -155,7 +157,7 @@ export function ClientDetails() {
     .filter(i => i.status === 'completed')
     .map(i => ({
       date: new Date(i.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-      score: Math.round(i.score.scorePercentage),
+      score: Math.round(i.score?.scorePercentage || 0),
     }));
 
   const latestInspection = inspections.find(i => i.status === 'completed');
@@ -171,7 +173,7 @@ export function ClientDetails() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{client.name}</h1>
             <div className="mt-1 flex items-center gap-2">
-              <Badge variant="default">{client.category.toUpperCase()}</Badge>
+              <Badge variant="default">{client.category?.toUpperCase() || 'SEM CATEGORIA'}</Badge>
               <span className="text-sm text-gray-500">Cód: {client.id.substring(0, 8)}</span>
             </div>
           </div>
@@ -347,7 +349,7 @@ export function ClientDetails() {
               <div className="space-y-4">
                 <div>
                   <label className="text-xs opacity-60 block text-primary-200">Categoria Principal</label>
-                  <p className="font-medium">{client.category.toUpperCase()}</p>
+                  <p className="font-medium">{client.category?.toUpperCase() || 'SEM CATEGORIA'}</p>
                 </div>
                 {client.category === 'alimentos' && client.foodTypes && client.foodTypes.length > 0 && (
                   <div>

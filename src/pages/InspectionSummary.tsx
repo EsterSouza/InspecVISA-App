@@ -111,7 +111,11 @@ export function InspectionSummary() {
         }
 
         // 5. Try to resolve template — never crash if missing
-        const tpl = getTemplateById(insp.templateId);
+        let tpl = await db.templates.get(insp.templateId);
+        if (!tpl) {
+          tpl = getTemplateById(insp.templateId);
+        }
+        
         const legs = await LegislationService.listLegislations();
 
         setInspection(insp);

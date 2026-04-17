@@ -14,13 +14,65 @@ interface RawImportItem {
 
 export const TemplateService = {
   async listTemplates() {
-    const { data, error } = await supabase
-      .from('checklist_templates')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const withTimeout = <T>(promise: Promise<T> | PromiseLike<T>, ms = 15000) => 
+      Promise.race([Promise.resolve(promise), new Promise<T>((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), ms))]);
+
+    const { data, error } = await withTimeout<any>(
+      supabase
+        .from('checklist_templates')
+        .select('*')
+        .order('created_at', { ascending: false })
+    );
     
     if (error) throw error;
     return data;
+  },
+
+  async syncAllTemplatesToDexie(): Promise<ChecklistTemplate[]> {
+    const withTimeout = <T>(promise: Promise<T> | PromiseLike<T>, ms = 15000) => 
+      Promise.race([Promise.resolve(promise), new Promise<T>((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), ms))]);
+
+    try {
+      const [tplsObj, secsObj, itemsObj] = await Promise.all([
+        withTimeout<any>(supabase.from('checklist_templates').select('*')),
+        withTimeout<any>(supabase.from('checklist_sections').select('*')),
+        withTimeout<any>(supabase.from('checklist_items').select('*'))
+      ]);
+
+      const tpls = tplsObj.data || [];
+      const secs = secsObj.data || [];
+      const items = itemsObj.data || [];
+
+      return tpls.map((t: any) => {
+        const tSecs = secs.filter((s: any) => s.template_id === t.id).sort((a: any, b: any) => a.order - b.order);
+        const fullSecs = tSecs.map((sec: any) => {
+          const sItems = items.filter((i: any) => i.section_id === sec.id).sort((a: any, b: any) => a.order - b.order);
+          return {
+            id: sec.id,
+            title: sec.title,
+            order: sec.order,
+            items: sItems.map((i: any) => ({
+               id: i.id,
+               description: i.description,
+               legislation: i.legislation_name,
+               weight: i.weight,
+               isCritical: i.is_critical,
+               order: i.order
+            }))
+          };
+        });
+        return {
+          id: t.id,
+          name: t.name,
+          category: t.category,
+          version: t.version,
+          sections: fullSecs
+        } as ChecklistTemplate;
+      });
+    } catch (err) {
+      console.warn('Failed to sync full remote templates:', err);
+      return [];
+    }
   },
 
   async getFullTemplate(templateId: string): Promise<ChecklistTemplate> {
@@ -96,7 +148,7 @@ export const TemplateService = {
     
     rawData.forEach(item => {
       const sectionTitle = item.section || 'Geral';
-      const section = createdSections.find(s => s.title === sectionTitle);
+      const section = (createdSections as any[]).find((s: any) => s.title === sectionTitle);
       
       if (section) {
         itemsToInsert.push({

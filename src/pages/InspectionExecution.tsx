@@ -46,6 +46,8 @@ export function InspectionExecution() {
     return () => { window.removeEventListener('online', update); window.removeEventListener('offline', update); };
   }, []);
 
+  const [template, setTemplate] = useState<any>(null);
+
   // ─── LOAD DATA ────────────────────────────────────────────────────────────
   // Runs when the page is opened, whether via navigation state or direct URL.
   // Falls back to Supabase if the inspection is not in the local Dexie cache.
@@ -110,6 +112,14 @@ export function InspectionExecution() {
         setLoadError('Inspeção não encontrada. Verifique sua conexão e tente novamente.');
         setLoading(false);
         return;
+      }
+
+      // 2.5 LOAD TEMPLATE FROM DEXIE
+      const tpl = await db.templates.get(insp.templateId);
+      if (tpl) {
+        setTemplate(tpl);
+      } else {
+        console.warn('Template offline missing:', insp.templateId);
       }
 
       // 3. Enrich with client data
@@ -199,13 +209,6 @@ export function InspectionExecution() {
   useEffect(() => { loadData(); }, [loadData]);
 
   // ─── TEMPLATE RESOLUTION ──────────────────────────────────────────────────
-  const template = useMemo(() => {
-    if (!currentInspection) return null;
-    const base = getTemplateById(currentInspection.templateId);
-    if (!base) { console.warn('Template not found:', currentInspection.templateId); return null; }
-    return base;
-  }, [currentInspection?.templateId]);
-
   const visibleSections = useMemo(() => {
     if (!template || !currentInspection) return [];
     const role = useSettingsStore.getState().settings.consultantRole || 'saude';
@@ -465,9 +468,9 @@ export function InspectionExecution() {
 
       <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 lg:grid lg:grid-cols-12 lg:gap-8 overflow-y-auto">
         <div className="lg:col-span-8 space-y-6">
-          {visibleSections.map((section, idx) => {
+          {visibleSections.map((section: any, idx: number) => {
             const sectionResponses = section.items
-              .map(i => responses.find(r => r.itemId === i.id))
+              .map((i: any) => responses.find(r => r.itemId === i.id))
               .filter(Boolean) as InspectionResponse[];
 
             return (
@@ -539,7 +542,7 @@ export function InspectionExecution() {
                   )}
 
                   {/* Template Items */}
-                  {section.items.map((item) => {
+                  {section.items.map((item: any) => {
                     const resp = responses.find(r => r.itemId === item.id);
                     return (
                       <ChecklistItem

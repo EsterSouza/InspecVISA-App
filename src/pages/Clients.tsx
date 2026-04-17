@@ -162,7 +162,7 @@ export function Clients() {
                        client.category === 'estetica' ? 'success' : 
                        client.category === 'ilpi' ? 'warning' : 'default'
                      }>
-                       {client.category.toUpperCase()}
+                       {client.category?.toUpperCase() || 'SEM CATEGORIA'}
                      </Badge>
                      {client.category === 'alimentos' && client.foodTypes?.map(ft => (
                        <Badge key={ft} variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">

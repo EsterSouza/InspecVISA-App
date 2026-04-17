@@ -85,7 +85,7 @@ function App() {
       if (navigator.onLine) {
         import('./services/templateService').then(async ({ TemplateService }) => {
           try {
-            const remoteTemplates = await TemplateService.listTemplates();
+            const remoteTemplates = await TemplateService.syncAllTemplatesToDexie();
             if (remoteTemplates?.length) {
               await initializeDatabase([...staticTemplates, ...remoteTemplates]);
             }

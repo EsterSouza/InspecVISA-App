@@ -172,7 +172,7 @@ export function NewInspection() {
 
         {step === 2 && selectedClient && (
           <div className="space-y-4 animate-in fade-in slide-in-from-right-8 duration-500">
-             <h2 className="text-xl font-bold text-gray-800 mb-6">Escolha o Roteiro <span className="text-primary-600">({selectedClient.category.toUpperCase()})</span></h2>
+             <h2 className="text-xl font-bold text-gray-800 mb-6">Escolha o Roteiro <span className="text-primary-600">({selectedClient.category?.toUpperCase() || 'GERAL'})</span></h2>
              <div className="grid gap-4">
                {templates.filter(t => t.category === selectedClient.category).map(t => (
                  <Card 
