@@ -10,11 +10,11 @@ interface ChecklistItemProps {
   item: ItemType;
   response?: InspectionResponse;
   wasNonCompliant?: boolean;
-  onChange: (result: InspectionResponse['result']) => void;
-  onUpdateDetails: (details: Partial<InspectionResponse>) => void;
-  onAddPhoto: (photo: Omit<InspectionPhoto, 'id'>) => void;
-  onRemovePhoto: (id: string) => void;
-  onEditDescription?: (description: string) => void;
+  onChange: (itemId: string, result: InspectionResponse['result']) => void;
+  onUpdateDetails: (itemId: string, details: Partial<InspectionResponse>) => void;
+  onAddPhoto: (itemId: string, photo: Omit<InspectionPhoto, 'id'>) => void;
+  onRemovePhoto: (itemId: string, id: string) => void;
+  onEditDescription?: (itemId: string, description: string) => void;
 }
 
 export const ChecklistItem = memo(function ChecklistItem({
@@ -47,25 +47,25 @@ export const ChecklistItem = memo(function ChecklistItem({
   // This guarantees data is saved even if the user never leaves the field.
   useEffect(() => {
     if (localSituation === (response?.situationDescription || '')) return;
-    const t = setTimeout(() => onUpdateDetails({ situationDescription: localSituation }), 1500);
+    const t = setTimeout(() => onUpdateDetails(item.id, { situationDescription: localSituation }), 1500);
     return () => clearTimeout(t);
   }, [localSituation]);
 
   useEffect(() => {
     if (localAction === (response?.correctiveAction || '')) return;
-    const t = setTimeout(() => onUpdateDetails({ correctiveAction: localAction }), 1500);
+    const t = setTimeout(() => onUpdateDetails(item.id, { correctiveAction: localAction }), 1500);
     return () => clearTimeout(t);
   }, [localAction]);
 
   useEffect(() => {
     if (localResponsible === (response?.responsible || '')) return;
-    const t = setTimeout(() => onUpdateDetails({ responsible: localResponsible }), 1500);
+    const t = setTimeout(() => onUpdateDetails(item.id, { responsible: localResponsible }), 1500);
     return () => clearTimeout(t);
   }, [localResponsible]);
 
   useEffect(() => {
     if (localDeadline === (response?.deadline || '')) return;
-    const t = setTimeout(() => onUpdateDetails({ deadline: localDeadline }), 1500);
+    const t = setTimeout(() => onUpdateDetails(item.id, { deadline: localDeadline }), 1500);
     return () => clearTimeout(t);
   }, [localDeadline]);
 
@@ -73,7 +73,7 @@ export const ChecklistItem = memo(function ChecklistItem({
   const handleBlur = (field: keyof InspectionResponse, value: string) => {
     setIsFocused(null);
     if ((response?.[field] || '') !== value) {
-      onUpdateDetails({ [field]: value });
+      onUpdateDetails(item.id, { [field]: value });
     }
   };
 
@@ -127,7 +127,7 @@ export const ChecklistItem = memo(function ChecklistItem({
             onClick={() => {
               if (item.id.startsWith('extra|') && onEditDescription) {
                 const newDesc = window.prompt('Editar item:', response?.customDescription || item.description);
-                if (newDesc !== null) onEditDescription(newDesc);
+                if (newDesc !== null) onEditDescription(item.id, newDesc);
               }
             }}
           >
@@ -160,7 +160,7 @@ export const ChecklistItem = memo(function ChecklistItem({
       {/* Action Buttons */}
       <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
         <button
-          onClick={() => onChange('complies')}
+          onClick={() => onChange(item.id, 'complies')}
           className={cn(
             "flex h-[52px] items-center justify-center rounded-lg border-2 text-[13px] font-semibold transition-all active:scale-95",
             response?.result === 'complies'
@@ -171,7 +171,7 @@ export const ChecklistItem = memo(function ChecklistItem({
           CUMPRE
         </button>
         <button
-          onClick={() => onChange('not_complies')}
+          onClick={() => onChange(item.id, 'not_complies')}
           className={cn(
             "flex h-[52px] items-center justify-center rounded-lg border-2 text-[13px] font-semibold transition-all active:scale-95",
             response?.result === 'not_complies'
@@ -182,7 +182,7 @@ export const ChecklistItem = memo(function ChecklistItem({
           NÃO CUMPRE
         </button>
         <button
-          onClick={() => onChange('not_applicable')}
+          onClick={() => onChange(item.id, 'not_applicable')}
           className={cn(
             "flex h-[52px] items-center justify-center rounded-lg border-2 text-[13px] font-semibold transition-all active:scale-95",
             response?.result === 'not_applicable'
@@ -193,7 +193,7 @@ export const ChecklistItem = memo(function ChecklistItem({
           N/A
         </button>
         <button
-          onClick={() => onChange('not_observed')}
+          onClick={() => onChange(item.id, 'not_observed')}
           className={cn(
             "flex h-[52px] items-center justify-center rounded-lg border-2 border-dashed font-semibold transition-all active:scale-95 text-[13px]",
             response?.result === 'not_observed'
@@ -259,7 +259,7 @@ export const ChecklistItem = memo(function ChecklistItem({
                       const prefix = current ? `${current} \n- ` : '- ';
                       const newVal = `${prefix}${verb} `;
                       setLocalAction(newVal);
-                      onUpdateDetails({ correctiveAction: newVal });
+                      onUpdateDetails(item.id, { correctiveAction: newVal });
                     }}
                     className="text-[11px] font-medium bg-white hover:bg-primary-50 text-gray-600 hover:text-primary-700 border border-gray-200 hover:border-primary-200 rounded-full px-2 py-0.5 transition-colors shadow-sm"
                   >
@@ -337,8 +337,8 @@ export const ChecklistItem = memo(function ChecklistItem({
             <PhotoCapture
               inputId={`photo-upload-${item.id}`}
               photos={response?.photos || []}
-              onAddPhoto={onAddPhoto}
-              onRemovePhoto={onRemovePhoto}
+              onAddPhoto={(p) => onAddPhoto(item.id, p)}
+              onRemovePhoto={(pid) => onRemovePhoto(item.id, pid)}
             />
           </div>
         </div>

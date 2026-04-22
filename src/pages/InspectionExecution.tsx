@@ -327,36 +327,74 @@ export function InspectionExecution() {
     return () => clearTimeout(timer);
   }, [currentInspection]);
 
-  // ─── HANDLERS ─────────────────────────────────────────────────────────────
-  const handleResponseChange = (itemId: string, result: InspectionResponse['result']) => {
-    if (!currentInspection) return;
-    const existing = responses.find(r => r.itemId === itemId);
+  const handleResponseChange = useCallback((itemId: string, result: InspectionResponse['result']) => {
+    const state = useInspectionStore.getState();
+    const existing = state.responses.find(r => r.itemId === itemId);
     if (existing) {
-      updateResponse(existing.id, { result, updatedAt: new Date() });
+      state.updateResponse(existing.id, { result, updatedAt: new Date() });
     } else {
-      addResponse({
-        id: generateId(), inspectionId: currentInspection.id, itemId, result,
-        photos: [], createdAt: new Date(), updatedAt: new Date(),
+      state.addResponse({
+        id: generateId(),
+        inspectionId: state.currentInspection!.id,
+        itemId,
+        result,
+        photos: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
       });
     }
-  };
+  }, []);
 
-  const handleAddExtraItem = async (sectionId: string) => {
-    if (!currentInspection) return;
+  const handleUpdateDetails = useCallback((itemId: string, details: Partial<InspectionResponse>) => {
+    const state = useInspectionStore.getState();
+    const existing = state.responses.find(r => r.itemId === itemId);
+    if (existing) {
+      state.updateResponse(existing.id, details);
+    }
+  }, []);
+
+  const handleAddPhoto = useCallback((itemId: string, photo: any) => {
+    const state = useInspectionStore.getState();
+    const existing = state.responses.find(r => r.itemId === itemId);
+    if (existing) {
+      state.updateResponse(existing.id, { photos: [...existing.photos, { ...photo, id: generateId() }] });
+    }
+  }, []);
+
+  const handleRemovePhoto = useCallback((itemId: string, photoId: string) => {
+    const state = useInspectionStore.getState();
+    const existing = state.responses.find(r => r.itemId === itemId);
+    if (existing) {
+      state.updateResponse(existing.id, { photos: existing.photos.filter((p: any) => p.id !== photoId) });
+    }
+  }, []);
+
+  const handleEditDescription = useCallback((itemId: string, customDescription: string) => {
+    const state = useInspectionStore.getState();
+    const existing = state.responses.find(r => r.itemId === itemId);
+    if (existing) {
+      state.updateResponse(existing.id, { customDescription });
+    }
+  }, []);
+
+  const handleAddExtraItem = useCallback(async (sectionId: string) => {
+    const state = useInspectionStore.getState();
+    if (!state.currentInspection) return;
     const desc = window.prompt('Descrição do item extra:');
     if (!desc) return;
-    await addResponse({
-      id: generateId(), inspectionId: currentInspection.id,
+    await state.addResponse({
+      id: generateId(), inspectionId: state.currentInspection.id,
       itemId: `extra|${sectionId}|${generateId()}`,
       result: 'not_observed', customDescription: desc,
       photos: [], createdAt: new Date(), updatedAt: new Date(), synced: 0,
     });
-  };
+  }, []);
 
-  const updateStaffData = (field: string, value: number) => {
-    if (!currentInspection) return;
-    setCurrentInspection({ ...currentInspection, [field]: value });
-  };
+  const updateStaffData = useCallback((field: string, value: number) => {
+    const state = useInspectionStore.getState();
+    if (!state.currentInspection) return;
+    state.setCurrentInspection({ ...state.currentInspection, [field]: value });
+  }, []);
 
   const [showSignatureModal, setShowSignatureModal] = useState(false);
   const [signature, setSignature] = useState<string | null>(null);
@@ -574,10 +612,10 @@ export function InspectionExecution() {
                         item={item}
                         response={resp}
                         wasNonCompliant={prevNCIds.includes(item.id)}
-                        onChange={(res) => handleResponseChange(item.id, res)}
-                        onUpdateDetails={(u) => resp && updateResponse(resp.id, u)}
-                        onAddPhoto={(p) => resp && updateResponse(resp.id, { photos: [...resp.photos, { ...p, id: generateId() }] })}
-                        onRemovePhoto={(pid) => resp && updateResponse(resp.id, { photos: resp.photos.filter(p => p.id !== pid) })}
+                        onChange={handleResponseChange}
+                        onUpdateDetails={handleUpdateDetails}
+                        onAddPhoto={handleAddPhoto}
+                        onRemovePhoto={handleRemovePhoto}
                       />
                     );
                   })}
@@ -597,11 +635,11 @@ export function InspectionExecution() {
                           order: 999,
                         }}
                         response={resp}
-                        onChange={(res) => updateResponse(resp.id, { result: res })}
-                        onUpdateDetails={(u) => updateResponse(resp.id, u)}
-                        onEditDescription={(d) => updateResponse(resp.id, { customDescription: d })}
-                        onAddPhoto={(p) => updateResponse(resp.id, { photos: [...resp.photos, { ...p, id: generateId() }] })}
-                        onRemovePhoto={(pid) => updateResponse(resp.id, { photos: resp.photos.filter(p => p.id !== pid) })}
+                        onChange={handleResponseChange}
+                        onUpdateDetails={handleUpdateDetails}
+                        onEditDescription={handleEditDescription}
+                        onAddPhoto={handleAddPhoto}
+                        onRemovePhoto={handleRemovePhoto}
                       />
                     ))}
 

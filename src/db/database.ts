@@ -198,6 +198,7 @@ export async function initializeDatabase(templates: ChecklistTemplate[]) {
   // Merge: remote first, then non-duplicate statics
   const deduped = [...remoteTemplates, ...uniqueStatics];
 
+  await db.templates.clear();
   await db.templates.bulkPut(deduped);
 }
 
