@@ -499,7 +499,11 @@ export function getTemplatesByCategory(category: string): ChecklistTemplate[] {
 }
 
 export function getTemplateById(id: string): ChecklistTemplate | undefined {
-  return templates.find((t: ChecklistTemplate) => t.id === id);
+  let mappedId = id;
+  if (id === 'tpl-estetica-federal' || id === 'tpl-estetica') mappedId = 'tpl-estetica-v1';
+  if (id === 'tpl-ilpi-federal') mappedId = 'tpl-ilpi-federal-v1';
+
+  return templates.find((t: ChecklistTemplate) => t.id === mappedId);
 }
 
 /**

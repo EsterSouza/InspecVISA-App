@@ -205,15 +205,24 @@ export async function initializeDatabase(templates: ChecklistTemplate[]) {
 // ✅ REFACTORED DELETE (ONLINE-FIRST)
 export async function deleteClient(clientId: string) {
   const now = new Date();
-  const tenantId = useAuthStore.getState().tenantInfo?.tenantId;
+  let syncSuccess = false;
 
   // 1. Tenta deletar no Supabase (Soft Delete)
   if (navigator.onLine) {
-    await supabase.from('clients').update({ deleted_at: now }).eq('id', clientId);
+    try {
+      const { error } = await withTimeout<any>(
+        Promise.resolve(supabase.from('clients').update({ deleted_at: now }).eq('id', clientId).select('id')),
+        10000,
+        'DeleteClient'
+      );
+      if (!error) syncSuccess = true;
+    } catch (err) {
+      console.warn('Falha ao deletar cliente no Supabase, cairá para o Dexie.', err);
+    }
   }
 
   // 2. Atualiza localmente
-  await db.clients.update(clientId, { deletedAt: now, synced: navigator.onLine ? 1 : 0, updatedAt: now });
+  await db.clients.update(clientId, { deletedAt: now, synced: syncSuccess ? 1 : 0, updatedAt: now });
   
   // Marca inspeções relacionadas
   await db.inspections.where('clientId').equals(clientId).modify({ deletedAt: now, synced: 0, updatedAt: now });
@@ -221,16 +230,40 @@ export async function deleteClient(clientId: string) {
 
 export async function deleteInspection(inspectionId: string) {
   const now = new Date();
+  let syncSuccess = false;
+
   if (navigator.onLine) {
-    await supabase.from('inspections').update({ deleted_at: now }).eq('id', inspectionId);
+    try {
+      const { error } = await withTimeout<any>(
+        Promise.resolve(supabase.from('inspections').update({ deleted_at: now }).eq('id', inspectionId).select('id')),
+        10000,
+        'DeleteInspection'
+      );
+      if (!error) syncSuccess = true;
+    } catch (err) {
+      console.warn('Falha ao deletar inspeção no Supabase, cairá para o Dexie.', err);
+    }
   }
-  await db.inspections.update(inspectionId, { deletedAt: now, synced: navigator.onLine ? 1 : 0, updatedAt: now });
+
+  await db.inspections.update(inspectionId, { deletedAt: now, synced: syncSuccess ? 1 : 0, updatedAt: now });
 }
 
 export async function deleteSchedule(scheduleId: string) {
   const now = new Date();
+  let syncSuccess = false;
+
   if (navigator.onLine) {
-    await supabase.from('schedules').update({ deleted_at: now }).eq('id', scheduleId);
+    try {
+      const { error } = await withTimeout<any>(
+        Promise.resolve(supabase.from('schedules').update({ deleted_at: now }).eq('id', scheduleId).select('id')),
+        10000,
+        'DeleteSchedule'
+      );
+      if (!error) syncSuccess = true;
+    } catch (err) {
+      console.warn('Falha ao deletar agendamento no Supabase, cairá para o Dexie.', err);
+    }
   }
-  await db.schedules.update(scheduleId, { deletedAt: now, synced: navigator.onLine ? 1 : 0, updatedAt: now });
+
+  await db.schedules.update(scheduleId, { deletedAt: now, synced: syncSuccess ? 1 : 0, updatedAt: now });
 }
