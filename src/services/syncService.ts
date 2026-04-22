@@ -1,17 +1,11 @@
 import { db } from '../db/database';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/useAuthStore';
+import { withTimeout } from '../utils/network';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 let realtimeChannel: RealtimeChannel | null = null;
 
-
-const withTimeout = <T>(promise: Promise<T>, ms: number = 45000): Promise<T> => {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('SYNC_TIMEOUT')), ms))
-  ]);
-};
 
 async function logSync(level: 'info' | 'warn' | 'error', message: string, details?: any) {
   console[level](`[Sync] ${message}`, details || '');
@@ -67,7 +61,9 @@ async function safeBatchUpsert(tableName: string, records: any[]): Promise<{ suc
     if (validChunk.length === 0) continue;
 
     const { error: bulkError } = await withTimeout<any>(
-      Promise.resolve(supabase.from(tableName).upsert(validChunk))
+      Promise.resolve(supabase.from(tableName).upsert(validChunk).select('id')),
+      30000,
+      `Upsert_${tableName}`
     );
 
     if (!bulkError) {
@@ -78,17 +74,19 @@ async function safeBatchUpsert(tableName: string, records: any[]): Promise<{ suc
     await logSync('warn', `Chunk upsert falhou na tabela ${tableName}, processando 1 por 1.`, bulkError);
     
     for (const record of validChunk) {
-      const { error } = await withTimeout<any>(
-        Promise.resolve(supabase.from(tableName).upsert([record]))
+      const { error: singleError } = await withTimeout<any>(
+        Promise.resolve(supabase.from(tableName).upsert([record]).select('id')),
+        15000,
+        `Upsert_${tableName}_single`
       );
-      if (!error) {
+      if (!singleError) {
         successIds.push(record.id);
       } else {
-        errors.push({ id: record.id, error, status: 'server_error' });
-        if (error.code === '23503') {
+        errors.push({ id: record.id, error: singleError, status: 'server_error' });
+        if (singleError.code === '23503') {
           await logSync('error', `Violacão de Chave Estrangeira em ${tableName} ID ${record.id}: Registro pai não existe no servidor.`);
         } else {
-          await logSync('error', `Erro ao salvar ${tableName} [${record.id}]: ${error.message}`, error);
+          await logSync('error', `Erro ao salvar ${tableName} [${record.id}]: ${singleError.message}`, singleError);
         }
       }
     }
@@ -229,12 +227,6 @@ async function cleanupOrphans() {
 }
 
 export async function syncData(isManual: boolean = false) {
-  const { user } = useAuthStore.getState();
-  if (!user) {
-    if (isManual) alert('Faça login antes de sincronizar.');
-    return;
-  }
-
   if ((window as any).isSyncingGlobally) {
     if (isManual) alert('Uma sincronização já está em andamento.');
     return;
@@ -242,6 +234,20 @@ export async function syncData(isManual: boolean = false) {
   (window as any).isSyncingGlobally = true;
 
   try {
+    const { user } = useAuthStore.getState();
+    if (!user) throw new Error('Usuário não autenticado');
+
+    // Ping check para evitar timeouts longos se a internet não alcança o banco
+    const { error: pingError } = await withTimeout(
+      Promise.resolve(supabase.from('profiles').select('id').limit(1)),
+      5000,
+      'Ping_Check'
+    ).catch(() => ({ error: new Error('PING_TIMEOUT') }));
+
+    if (pingError) {
+      throw new Error('Sem conexão com o banco de dados. Verifique a internet e tente novamente.');
+    }
+
     await logSync('info', '🔄 Iniciando Sincronização com Soft Delete...', { manual: isManual });
 
     // 0. CHECK TENANT MISMATCH (Fix for account switching)
@@ -276,9 +282,10 @@ export async function syncData(isManual: boolean = false) {
             phone: settings.phone,
             consultant_role: settings.consultantRole,
             updated_at: new Date()
-          })
+          }).select('id')
         ),
-        15000
+        15000,
+        'Profile_Upsert'
       ).catch(e => console.warn('Failed to sync profile', e));
     }
 
@@ -716,4 +723,5 @@ export function setupRealtime(_tenantId: string | undefined) {
   // Realtime desativado para estabilidade.
   return;
 }
+
 
