@@ -20,7 +20,7 @@ export const TemplateService = {
         .from('checklist_templates')
         .select('*')
         .order('created_at', { ascending: false }),
-      15000,
+      5000,
       'ListTemplates'
     );
     
@@ -32,8 +32,8 @@ export const TemplateService = {
     try {
       // 1. Fetch templates and sections first (relatively lightweight)
       const [tplsObj, secsObj] = await Promise.all([
-        withTimeout<any>(supabase.from('checklist_templates').select('*'), 15000, 'SyncTemplates'),
-        withTimeout<any>(supabase.from('checklist_sections').select('*'), 15000, 'SyncSections')
+        withTimeout<any>(supabase.from('checklist_templates').select('*'), 5000, 'SyncTemplates'),
+        withTimeout<any>(supabase.from('checklist_sections').select('*'), 5000, 'SyncSections')
       ]);
 
       const tpls = tplsObj.data || [];
@@ -45,7 +45,7 @@ export const TemplateService = {
       // We do one big fetch of items to keep it to 3 requests total
       const { data: items, error: iError } = await withTimeout<any>(
         supabase.from('checklist_items').select('*'),
-        30000, // Longer timeout for items
+        10000, // Longer timeout for items
         'SyncItems'
       );
 

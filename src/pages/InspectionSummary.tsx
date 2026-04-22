@@ -51,7 +51,7 @@ export function InspectionSummary() {
               .select('*')
               .eq('id', inspectionId)
               .single(),
-            15000,
+            3000,
             'Summary_FetchInspection'
           ).catch(() => ({ data: null }));
 
@@ -101,7 +101,7 @@ export function InspectionSummary() {
               .from('responses')
               .select('*')
               .eq('inspection_id', inspectionId),
-            20000,
+            3000,
             'Summary_FetchResponses'
           ).catch(() => ({ data: [] }));
 
