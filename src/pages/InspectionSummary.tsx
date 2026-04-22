@@ -125,6 +125,18 @@ export function InspectionSummary() {
         if (!tpl) {
           tpl = getTemplateById(insp.templateId);
         }
+
+        if (!tpl && navigator.onLine) {
+          try {
+            const { TemplateService } = await import('../services/templateService');
+            tpl = await TemplateService.getFullTemplate(insp.templateId);
+            if (tpl) {
+              await db.templates.put(tpl);
+            }
+          } catch (e) {
+            console.error('Failed to fetch template from Supabase in Summary:', e);
+          }
+        }
         
         const legs = await LegislationService.listLegislations();
 

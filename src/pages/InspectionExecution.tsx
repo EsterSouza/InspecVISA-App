@@ -128,6 +128,19 @@ export function InspectionExecution() {
         tpl = getTemplateById(insp.templateId);
       }
 
+      if (!tpl && navigator.onLine) {
+        console.warn('Template still missing, trying to fetch from Supabase:', insp.templateId);
+        try {
+          const { TemplateService } = await import('../services/templateService');
+          tpl = await TemplateService.getFullTemplate(insp.templateId);
+          if (tpl) {
+            await db.templates.put(tpl);
+          }
+        } catch (e) {
+          console.error('Failed to fetch template from Supabase:', e);
+        }
+      }
+
       if (tpl) {
         setTemplate(tpl);
       } else {

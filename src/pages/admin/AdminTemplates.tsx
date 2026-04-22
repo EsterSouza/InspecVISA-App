@@ -23,7 +23,15 @@ export function AdminTemplates() {
       setIsLoading(true);
       setLoadError(null);
 
-      // Fetch remote templates first (editable, Supabase)
+      // Load from Dexie first for instant display
+      const { db } = await import('../../db/database');
+      const localTemplates = await db.templates.toArray();
+      if (localTemplates.length > 0) {
+        setTemplates(localTemplates);
+        setIsLoading(false); // Stop spinner early!
+      }
+
+      // Fetch remote templates (editable, Supabase)
       let remoteData: any[] = [];
       try {
         remoteData = await TemplateService.listTemplates();
@@ -44,7 +52,14 @@ export function AdminTemplates() {
         }));
 
       // Merge: remote (editable) first, then unique statics (read-only)
-      setTemplates([...remoteData, ...staticData]);
+      const merged = [...remoteData, ...staticData];
+      setTemplates(merged);
+      
+      // Update Dexie in background
+      if (remoteData.length > 0) {
+        const fullRemote = await TemplateService.syncAllTemplatesToDexie();
+        // initializeDatabase will handle the merge with statics inside
+      }
     } catch (err: any) {
       console.error('Error loading templates:', err);
       setLoadError(err?.message || 'Erro ao carregar roteiros.');
@@ -111,7 +126,7 @@ export function AdminTemplates() {
               Você ainda não tem roteiros personalizados. Comece importando um novo arquivo ou criando um do zero.
             </p>
             <div className="flex space-x-3">
-              <Button onClick={() => navigate('/admin/templates/import')} variant="outline">Importar Agora</Button>
+              <Button onClick={() => navigate('/templates/import')} variant="outline">Importar Agora</Button>
               <Button onClick={() => loadTemplates()} variant="ghost">Recarregar</Button>
             </div>
           </div>

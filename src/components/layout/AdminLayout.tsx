@@ -26,7 +26,7 @@ export function AdminLayout() {
         {/* Admin Sidebar */}
         <aside className="w-64 border-r border-gray-200 bg-white overflow-y-auto hidden md:block">
           <nav className="p-4 space-y-1">
-            <AdminNavLink to="/admin/templates" icon={<FileText className="h-5 w-5" />} label="Roteiros Dinâmicos" />
+            <AdminNavLink to="/templates" icon={<FileText className="h-5 w-5" />} label="Roteiros Dinâmicos" />
             <AdminNavLink to="/admin/legislations" icon={<BookOpen className="h-5 w-5" />} label="Biblioteca de Leis" />
           </nav>
         </aside>

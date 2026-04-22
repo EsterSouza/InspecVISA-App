@@ -88,7 +88,7 @@ export function SmartImporter() {
     try {
       await TemplateService.saveFullTemplate(templateName, category, items);
       alert('Roteiro salvo com sucesso!');
-      navigate('/admin/templates');
+      navigate('/templates');
     } catch (err) {
       console.error(err);
       alert('Erro ao salvar roteiro.');
@@ -104,7 +104,7 @@ export function SmartImporter() {
           <h2 className="text-2xl font-bold text-gray-900">Importador Inteligente</h2>
           <p className="text-gray-500">Transforme documentos PDF, Word ou Excel em roteiros digitais.</p>
         </div>
-        <Button variant="outline" onClick={() => navigate('/admin/templates')}>Cancelar</Button>
+        <Button variant="outline" onClick={() => navigate('/templates')}>Cancelar</Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

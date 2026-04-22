@@ -127,11 +127,29 @@ export const TemplateService = {
           .order('order', { ascending: true });
         
         if (iError) throw iError;
-        return { ...sec, items };
+        return {
+          id: sec.id,
+          title: sec.title,
+          order: sec.order,
+          items: items.map((i: any) => ({
+            id: i.id,
+            description: i.description,
+            legislation: i.legislation_name,
+            weight: i.weight,
+            isCritical: i.is_critical,
+            order: i.order
+          }))
+        };
       })
     );
 
-    return { ...template, sections: fullSections };
+    return {
+      id: template.id,
+      name: template.name,
+      category: template.category,
+      version: template.version,
+      sections: fullSections
+    } as ChecklistTemplate;
   },
 
   async createTemplate(template: Omit<ChecklistTemplate, 'id' | 'sections'>) {
