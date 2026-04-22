@@ -240,7 +240,7 @@ export async function syncData(isManual: boolean = false) {
     // Ping check para evitar timeouts longos se a internet não alcança o banco
     const { error: pingError } = await withTimeout(
       Promise.resolve(supabase.from('profiles').select('id').limit(1)),
-      5000,
+      15000,
       'Ping_Check'
     ).catch(() => ({ error: new Error('PING_TIMEOUT') }));
 

@@ -7,6 +7,9 @@
 
 import type { ChecklistTemplate, Client } from '../types';
 import { templateIlpiGoiasSuplement } from './templates-ilpi-goias-supplement';
+import { templateIlpiGoias } from './templates_ilpi_go';
+import { alimentosTemplates } from './templates_alimentos';
+import { getExtraSections } from './templates_alimentos_segmentos';
 
 
 // ── MAPEAMENTO DE PESOS ──────────────────────────────────────
@@ -488,6 +491,8 @@ export const templates: ChecklistTemplate[] = [
       },
     ],
   },
+  templateIlpiGoias,
+  ...alimentosTemplates,
 ];
 
 export function getTemplates(): ChecklistTemplate[] {
@@ -502,6 +507,9 @@ export function getTemplateById(id: string): ChecklistTemplate | undefined {
   let mappedId = id;
   if (id === 'tpl-estetica-federal' || id === 'tpl-estetica') mappedId = 'tpl-estetica-v1';
   if (id === 'tpl-ilpi-federal') mappedId = 'tpl-ilpi-federal-v1';
+  if (id === 'tpl-alimentos-federal' || id === 'tpl-alimentos') mappedId = 'tpl-alimentos-federal-v1';
+  if (id === 'tpl-alimentos-rj') mappedId = 'tpl-alimentos-rj-v1';
+  if (id === 'tpl-ilpi-go' || id === 'tpl-ilpi-goias') mappedId = 'tpl-ilpi-go-v1';
 
   return templates.find((t: ChecklistTemplate) => t.id === mappedId);
 }
@@ -553,6 +561,14 @@ export function getEffectiveTemplate(
 ): ChecklistTemplate {
   // 1. Initial Deep Copy
   let effective = JSON.parse(JSON.stringify(baseTemplate));
+
+  // 1.5. Apply Alimentos Segments
+  if (baseTemplate.category === 'alimentos') {
+    const extra = getExtraSections(client.foodTypes || [], client.state);
+    if (extra.length > 0) {
+      effective.sections = [...effective.sections, ...extra];
+    }
+  }
 
   // 2. Apply Regional Supplements
   if (baseTemplate.id === 'tpl-ilpi-federal-v1' && client.state === 'GO') {

@@ -78,7 +78,7 @@ export function InspectionExecution() {
               .eq('id', id)
               .is('deleted_at', null)
               .single(),
-            20000,
+            3000,
             'FetchInspection'
           ).catch(() => ({ data: null }));
 
@@ -163,7 +163,7 @@ export function InspectionExecution() {
             .select('*')
             .eq('id', insp.clientId)
             .single(),
-          15000,
+          3000,
           'FetchClient'
         ).catch(() => ({ data: null }));
 
@@ -190,7 +190,7 @@ export function InspectionExecution() {
             .select('*')
             .eq('inspection_id', id)
             .is('deleted_at', null),
-          20000,
+          3000,
           'FetchResponses'
         ).catch(() => ({ data: [] }));
 
