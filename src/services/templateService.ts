@@ -199,6 +199,120 @@ export const TemplateService = {
     return template;
   },
 
+  async checkTemplateUsage(templateId: string): Promise<boolean> {
+    const { count, error } = await supabase
+      .from('inspections')
+      .select('*', { count: 'exact', head: true })
+      .eq('template_id', templateId);
+    
+    if (error) {
+      console.warn('[TemplateService] checkTemplateUsage error (assuming true to be safe):', error);
+      return true; // Safer to clone if we can't verify
+    }
+    return (count && count > 0) ? true : false;
+  },
+
+  async _insertSectionsAndItems(templateId: string, sections: any[]) {
+    const sectionsToInsert = sections.map((sec, idx) => ({
+      template_id: templateId,
+      title: sec.title || 'Nova Seção',
+      order: sec.order ?? (idx + 1)
+    }));
+
+    const { data: createdSections, error: sError } = await supabase
+      .from('checklist_sections')
+      .insert(sectionsToInsert)
+      .select();
+    
+    if (sError) throw sError;
+    if (!createdSections) throw new Error('Failed to create sections');
+
+    const itemsToInsert: any[] = [];
+    sections.forEach((sec, sIdx) => {
+      const createdSec = createdSections[sIdx];
+      if (createdSec && sec.items) {
+        sec.items.forEach((item: any, iIdx: number) => {
+          itemsToInsert.push({
+            section_id: createdSec.id,
+            description: item.description,
+            legislation_name: item.legislation || item.legislation_name || null,
+            weight: item.weight || 1,
+            is_critical: item.isCritical || item.is_critical || false,
+            order: item.order ?? (iIdx + 1)
+          });
+        });
+      }
+    });
+
+    if (itemsToInsert.length > 0) {
+      const chunkSize = 50;
+      for (let i = 0; i < itemsToInsert.length; i += chunkSize) {
+        const chunk = itemsToInsert.slice(i, i + chunkSize);
+        const { error: iError } = await supabase.from('checklist_items').insert(chunk);
+        if (iError) throw iError;
+      }
+    }
+  },
+
+  async updateFullTemplate(
+    templateId: string, 
+    templateData: { name: string; category: ClientCategory; version?: string },
+    sections: any[]
+  ) {
+    const isUsed = await this.checkTemplateUsage(templateId);
+
+    if (isUsed) {
+      // 1. Archive old template
+      const { data: oldTpl } = await supabase.from('checklist_templates').select('name').eq('id', templateId).single();
+      const oldName = oldTpl?.name || 'Template Original';
+      
+      await supabase
+        .from('checklist_templates')
+        .update({ name: `[ARQUIVADO] ${oldName}` })
+        .eq('id', templateId);
+
+      // 2. Create new template (cloning approach)
+      // Extracts base name in case it already has an appended version
+      const baseName = templateData.name.replace(/\s\(v\d+\)$/, '');
+      const newVersionNum = parseInt(templateData.version || '1') + 1;
+      const newName = `${baseName} (v${newVersionNum})`;
+
+      const newTemplate = await this.createTemplate({
+        name: newName,
+        category: templateData.category,
+        version: newVersionNum.toString()
+      });
+
+      // 3. Insert sections and items
+      await this._insertSectionsAndItems(newTemplate.id, sections);
+      return newTemplate;
+    } else {
+      // Safe to mutate directly
+      // 1. Update Template
+      await supabase
+        .from('checklist_templates')
+        .update({ 
+          name: templateData.name, 
+          category: templateData.category, 
+          version: templateData.version || '1'
+        })
+        .eq('id', templateId);
+
+      // 2. Clear old items and sections
+      const { data: oldSections } = await supabase.from('checklist_sections').select('id').eq('template_id', templateId);
+      if (oldSections && oldSections.length > 0) {
+        const oldSectionIds = oldSections.map(s => s.id);
+        await supabase.from('checklist_items').delete().in('section_id', oldSectionIds);
+        await supabase.from('checklist_sections').delete().in('id', oldSectionIds);
+      }
+
+      // 3. Insert new sections and items
+      await this._insertSectionsAndItems(templateId, sections);
+      
+      return { id: templateId, ...templateData };
+    }
+  },
+
   async seedLegacyTemplates() {
     console.log('Seeding legacy templates...');
     

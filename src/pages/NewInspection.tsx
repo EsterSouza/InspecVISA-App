@@ -174,7 +174,7 @@ export function NewInspection() {
           <div className="space-y-4 animate-in fade-in slide-in-from-right-8 duration-500">
              <h2 className="text-xl font-bold text-gray-800 mb-6">Escolha o Roteiro <span className="text-primary-600">({selectedClient.category?.toUpperCase() || 'GERAL'})</span></h2>
              <div className="grid gap-4">
-               {templates.filter(t => t.category === selectedClient.category).map(t => (
+               {templates.filter(t => t.category === selectedClient.category && !t.name.includes('[ARQUIVADO]')).map(t => (
                  <Card 
                     key={t.id}
                     className={`cursor-pointer p-6 transition-all border-2 ${selectedTemplate?.id === t.id ? 'border-primary-500 bg-primary-50/30' : 'border-gray-100'}`}

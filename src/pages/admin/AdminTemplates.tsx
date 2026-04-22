@@ -53,7 +53,9 @@ export function AdminTemplates() {
     }
   };
 
-  const filtered = templates.filter(t => 
+  const activeTemplates = templates.filter(t => !t.name.includes('[ARQUIVADO]'));
+
+  const filtered = activeTemplates.filter(t => 
     t.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     t.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -68,6 +70,9 @@ export function AdminTemplates() {
         <div className="flex space-x-3 w-full sm:w-auto">
           <Button onClick={() => navigate('/templates/import')} variant="outline">
             Importar ROI
+          </Button>
+          <Button onClick={() => navigate('/templates/new')}>
+            <Plus className="h-4 w-4 mr-2" /> Novo Roteiro
           </Button>
         </div>
       </div>
