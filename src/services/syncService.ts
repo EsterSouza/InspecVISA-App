@@ -239,13 +239,14 @@ export async function syncData(isManual: boolean = false) {
 
     // Ping check para evitar timeouts longos se a internet não alcança o banco
     const { error: pingError } = await withTimeout(
-      Promise.resolve(supabase.from('profiles').select('id').limit(1)),
+      Promise.resolve(supabase.from('clients').select('id', { count: 'exact', head: true })),
       15000,
       'Ping_Check'
-    ).catch(() => ({ error: new Error('PING_TIMEOUT') }));
+    ).catch((e) => ({ error: e }));
 
     if (pingError) {
-      throw new Error('Sem conexão com o banco de dados. Verifique a internet e tente novamente.');
+      console.error('Falha no Ping_Check:', pingError);
+      throw new Error(`Falha de conexão com o servidor. Detalhe: ${pingError.message || JSON.stringify(pingError)}`);
     }
 
     await logSync('info', '🔄 Iniciando Sincronização com Soft Delete...', { manual: isManual });
@@ -337,9 +338,6 @@ export async function syncData(isManual: boolean = false) {
             deletedAt: rc.deleted_at ? new Date(rc.deleted_at) : null,
             synced: 1
           });
-        } else if (local && local.synced !== 1) {
-          // Record confirmed on server → mark synced
-          await db.clients.update(rc.id, { synced: 1 });
         }
       }
     }
@@ -403,9 +401,6 @@ export async function syncData(isManual: boolean = false) {
             deletedAt: ri.deleted_at ? new Date(ri.deleted_at) : null,
             synced: 1
           });
-        } else if (local && local.synced !== 1) {
-          // Record exists on server → always mark as synced regardless of who is newer
-          await db.inspections.update(ri.id, { synced: 1 });
         }
       }
     }
@@ -473,8 +468,6 @@ export async function syncData(isManual: boolean = false) {
             synced: 1,
             customDescription: rr.custom_description
           });
-        } else if (local && local.synced !== 1) {
-          await db.responses.update(rr.id, { synced: 1 });
         }
       }
     }
@@ -526,8 +519,6 @@ export async function syncData(isManual: boolean = false) {
             deletedAt: rp.deleted_at ? new Date(rp.deleted_at) : null,
             synced: 1
           });
-        } else if (local && local.synced !== 1) {
-          await db.photos.update(rp.id, { synced: 1 });
         }
       }
     }
@@ -584,8 +575,6 @@ export async function syncData(isManual: boolean = false) {
             deletedAt: rs.deleted_at ? new Date(rs.deleted_at) : null,
             synced: 1
           });
-        } else if (local && local.synced !== 1) {
-          await db.schedules.update(rs.id, { synced: 1 });
         }
       }
     }
@@ -695,10 +684,15 @@ export async function repairSyncStatus() {
 
 
       if (data && !error) {
-        // Registro existe no server! 
-        // Se for uma deleção que já foi processada ou se o server está igual/mais novo
-        await localTable.update(record.id, { synced: 1 });
-        totalFixed++;
+        // Registro existe no server!
+        const serverDate = new Date(data.updated_at || 0).getTime();
+        const localDate = record.updatedAt ? new Date(record.updatedAt).getTime() : 0;
+        
+        // Apenas marca como sincronizado se o servidor estiver igual ou mais atualizado
+        if (serverDate >= localDate) {
+          await localTable.update(record.id, { synced: 1 });
+          totalFixed++;
+        }
       } else if (!data && record.deletedAt) {
         // É um registro deletado localmente que nunca chegou no server.
         // Se for muito antigo (mais de 7 dias), removemos fisicamente do local (cleanup)

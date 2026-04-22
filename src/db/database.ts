@@ -212,7 +212,7 @@ export async function deleteClient(clientId: string) {
     try {
       const { error } = await withTimeout<any>(
         Promise.resolve(supabase.from('clients').update({ deleted_at: now }).eq('id', clientId).select('id')),
-        10000,
+        3000,
         'DeleteClient'
       );
       if (!error) syncSuccess = true;
@@ -236,7 +236,7 @@ export async function deleteInspection(inspectionId: string) {
     try {
       const { error } = await withTimeout<any>(
         Promise.resolve(supabase.from('inspections').update({ deleted_at: now }).eq('id', inspectionId).select('id')),
-        10000,
+        3000,
         'DeleteInspection'
       );
       if (!error) syncSuccess = true;
@@ -256,7 +256,7 @@ export async function deleteSchedule(scheduleId: string) {
     try {
       const { error } = await withTimeout<any>(
         Promise.resolve(supabase.from('schedules').update({ deleted_at: now }).eq('id', scheduleId).select('id')),
-        10000,
+        3000,
         'DeleteSchedule'
       );
       if (!error) syncSuccess = true;
