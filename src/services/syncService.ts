@@ -267,14 +267,19 @@ export async function syncData(isManual: boolean = false) {
     // 0. Sync PROFILE
     const { settings } = (await import('../store/useSettingsStore')).useSettingsStore.getState();
     if (settings.name) {
-      await supabase.from('profiles').upsert({
-        id: user.id,
-        name: settings.name,
-        coren: settings.professionalId,
-        phone: settings.phone,
-        consultant_role: settings.consultantRole,
-        updated_at: new Date()
-      });
+      await withTimeout(
+        Promise.resolve(
+          supabase.from('profiles').upsert({
+            id: user.id,
+            name: settings.name,
+            coren: settings.professionalId,
+            phone: settings.phone,
+            consultant_role: settings.consultantRole,
+            updated_at: new Date()
+          })
+        ),
+        15000
+      ).catch(e => console.warn('Failed to sync profile', e));
     }
 
     // ============================================================
@@ -282,11 +287,7 @@ export async function syncData(isManual: boolean = false) {
     // ============================================================
     
     // PUSH (inclui registros deletados)
-    const clientQuery = isManual 
-      ? db.clients.filter(c => c.synced !== 1)
-      : db.clients.where('synced').equals(0);
-    
-    const pendingClients = await clientQuery.toArray();
+    const pendingClients = await db.clients.filter(c => c.synced !== 1).toArray();
     
     if (pendingClients.length > 0) {
       await logSync('info', `📤 Enviando ${pendingClients.length} clientes...`);
@@ -344,11 +345,7 @@ export async function syncData(isManual: boolean = false) {
     // ============================================================
     
     // PUSH
-    const inspecQuery = isManual 
-      ? db.inspections.filter(i => i.synced !== 1) 
-      : db.inspections.where('synced').equals(0);
-    
-    const allPendingInspec = await inspecQuery.toArray();
+    const allPendingInspec = await db.inspections.filter(i => i.synced !== 1).toArray();
     
     const pendingInspec = [];
     for (const i of allPendingInspec) {
@@ -413,8 +410,7 @@ export async function syncData(isManual: boolean = false) {
     // ============================================================
     
     // PUSH
-    const resQuery = isManual ? db.responses.filter(r => r.synced !== 1) : db.responses.where('synced').equals(0);
-    const allPendingResponses = await resQuery.toArray();
+    const allPendingResponses = await db.responses.filter(r => r.synced !== 1).toArray();
 
     const pendingResponses = [];
     for (const r of allPendingResponses) {
@@ -470,7 +466,7 @@ export async function syncData(isManual: boolean = false) {
             synced: 1,
             customDescription: rr.custom_description
           });
-        } else if (local && local.synced === 0) {
+        } else if (local && local.synced !== 1) {
           await db.responses.update(rr.id, { synced: 1 });
         }
       }
@@ -483,8 +479,7 @@ export async function syncData(isManual: boolean = false) {
     // ============================================================
     
     // PUSH
-    const photoQuery = isManual ? db.photos.filter(p => p.synced !== 1) : db.photos.where('synced').equals(0);
-    const allPendingPhotos = await photoQuery.toArray();
+    const allPendingPhotos = await db.photos.filter(p => p.synced !== 1).toArray();
 
     const pendingPhotos = [];
     for (const p of allPendingPhotos) {
@@ -524,7 +519,7 @@ export async function syncData(isManual: boolean = false) {
             deletedAt: rp.deleted_at ? new Date(rp.deleted_at) : null,
             synced: 1
           });
-        } else if (local && local.synced === 0) {
+        } else if (local && local.synced !== 1) {
           await db.photos.update(rp.id, { synced: 1 });
         }
       }
@@ -537,8 +532,7 @@ export async function syncData(isManual: boolean = false) {
     // ============================================================
     
     // PUSH
-    const schQuery = isManual ? db.schedules.filter(s => s.synced !== 1) : db.schedules.where('synced').equals(0);
-    const allPendingSchedules = await schQuery.toArray();
+    const allPendingSchedules = await db.schedules.filter(s => s.synced !== 1).toArray();
 
     const pendingSchedules = [];
     for (const s of allPendingSchedules) {
@@ -679,12 +673,17 @@ export async function repairSyncStatus() {
 
       const tenantId = useAuthStore.getState().tenantInfo?.tenantId;
 
-      const { data, error } = await supabase
+      let query = supabase
         .from(serverTable)
         .select('id, updated_at, deleted_at')
-        .eq('id', record.id)
-        .eq('tenant_id', tenantId) // Garantia extra de isolamento
-        .maybeSingle();
+        .eq('id', record.id);
+
+      // Apenas adiciona o filtro de tenant se o tenantId existir para não dar crash
+      if (tenantId) {
+        query = query.eq('tenant_id', tenantId);
+      }
+
+      const { data, error } = await query.maybeSingle();
 
 
 
