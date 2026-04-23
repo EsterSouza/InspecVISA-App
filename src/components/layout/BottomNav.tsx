@@ -28,7 +28,7 @@ export function BottomNav() {
     if (isSyncing) return;
     setIsSyncing(true);
     try {
-      await syncData(true);
+      await syncData();
     } catch (err) {
       console.error('Manual sync failed', err);
     } finally {

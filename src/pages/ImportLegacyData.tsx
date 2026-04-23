@@ -64,7 +64,7 @@ export function ImportLegacyData() {
       setProgress(prev => [...prev, '✅ Consolidação local concluída! Iniciando sincronização com o servidor...']);
 
       // Força sync para enviar tudo ao servidor
-      await syncData(true);
+      await syncData();
 
       setProgress(prev => [...prev, '🚀 Sincronização concluída com sucesso!']);
     } catch (err: any) {

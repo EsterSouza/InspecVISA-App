@@ -71,7 +71,7 @@ export function Debug() {
   const runManualSync = async () => {
     setIsRunning(true);
     try {
-      await syncData(true);
+      await syncData();
       await loadLogs();
     } finally {
       setIsRunning(false);
