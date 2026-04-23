@@ -6,13 +6,80 @@ import { classificationLabel, classificationColor } from './scoring';
 import { formatDate } from './imageUtils';
 import { enrichTemplate } from '../data/templates';
 
+/**
+ * Extrai apenas a legislação BASE de um texto bruto de legislação,
+ * descartando sub-referências como alíneas, incisos, artigos e parágrafos.
+ * Ex: "RDC 216/2004, alínea a, b" → "RDC 216/2004"
+ *     "Portaria 2619/2011; art. 5º, inciso I" → "Portaria 2619/2011"
+ */
+export function extractBaseLegislation(raw: string): string[] {
+  const bases = new Set<string>();
+
+  // Split by semicolons first (hard separators between laws)
+  const bySemicolon = raw.split(';');
+
+  for (const segment of bySemicolon) {
+    const s = segment.trim();
+    if (!s) continue;
+
+    // Patterns that identify a legislation base — capture up to date/number only
+    const patterns = [
+      // RDC / IN / RE / RN + number + optional year
+      /\b(?:RDC|IN|RE|RN|RT)\s*(?:ANVISA\s*)?(?:n[oº.]?\s*)?(\d+)(?:[/\-]\d{4})?/i,
+      // Portaria + number + optional year
+      /\bPortaria\s+(?:(?:GM|SVS|MS|CVS|SES|SMS)[/\s]*)?(?:n[oº.]?\s*)?(\d[\d.]*(?:[/\-]\d{4})?)/i,
+      // Lei Federal/Estadual
+      /\bLei\s+(?:Federal\s+|Estadual\s+|Complementar\s+)?(?:n[oº.]?\s*)?([\d.]+(?:[/\-]\d{4})?)/i,
+      // Decreto
+      /\bDecreto(?:-Lei)?\s+(?:n[oº.]?\s*)?([\d.]+(?:[/\-]\d{4})?)/i,
+      // NR (Norma Regulamentadora)
+      /\bNR[.\s-]?(\d+)/i,
+      // ABNT NBR
+      /\bABNT\s+NBR\s+(\d+)/i,
+      // Instrução Normativa
+      /\bInstru[cç][aã]o\s+Normativa\s+(?:n[oº.]?\s*)?(\d+(?:[/\-]\d{4})?)/i,
+      // Nota Técnica
+      /\bNota\s+T[eé]cnica\b[^;,]*/i,
+      // Resolução genérica
+      /\bResolu[cç][aã]o\s+(?:n[oº.]?\s*)?([\d.]+(?:[/\-]\d{4})?)/i,
+    ];
+
+    let matched = false;
+    for (const pattern of patterns) {
+      const m = s.match(pattern);
+      if (m) {
+        // Reconstruct a clean base from the full match (before any comma/alínea)
+        const fullMatch = m[0].trim();
+        // Remove trailing sub-clause indicators
+        const clean = fullMatch
+          .replace(/[,\s]+(al[íi]nea|inciso|artigo|art\.|§|parágrafo|item|subitem|cap[íi]tulo).*/i, '')
+          .trim();
+        if (clean) bases.add(clean);
+        matched = true;
+        break;
+      }
+    }
+
+    // If no pattern matched, keep the original segment (but strip alíneas from it)
+    if (!matched && s.length > 3) {
+      const clean = s
+        .replace(/[,\s]+(al[íi]nea|inciso|artigo|art\.|§|parágrafo|item|subitem).*/i, '')
+        .trim();
+      if (clean) bases.add(clean);
+    }
+  }
+
+  return Array.from(bases);
+}
+
 export async function generatePDF(
   inspection: Inspection,
   responses: InspectionResponse[],
   template: ChecklistTemplate,
   score: InspectionScore,
   settings: ConsultantSettings,
-  legislations: any[] = []
+  legislations: any[] = [],
+  options: { selectedLegislations?: string[]; signatureDataUrl?: string } = {}
 ): Promise<void> {
   const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
   const pageW = doc.internal.pageSize.getWidth();
@@ -633,8 +700,85 @@ export async function generatePDF(
     addFooter(i, totalPages);
   }
 
+  // ── SIGNATURE PAGE ─────────────────────────────────────
+  if (options.signatureDataUrl) {
+    doc.addPage();
+    const sigPageW = doc.internal.pageSize.getWidth();
+    const sigPageH = doc.internal.pageSize.getHeight();
+    const sigMargin = 20;
+
+    doc.setFillColor(243, 244, 246);
+    doc.rect(0, 0, sigPageW, 42, 'F');
+    doc.setFillColor(...primaryColor);
+    doc.rect(0, 0, 4, 42, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.setTextColor(17, 24, 39);
+    doc.text('ENCERRAMENTO E ASSINATURA', sigMargin + 4, 22);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(107, 114, 128);
+    doc.text('Declaramos que os dados acima refletem a situação encontrada na data da inspeção.', sigMargin + 4, 34);
+
+    let sigY = 60;
+    doc.setFontSize(10);
+    doc.setTextColor(31, 41, 55);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Consultora Responsável:', sigMargin, sigY);
+    sigY += 7;
+    doc.setFont('helvetica', 'normal');
+    doc.text(inspection.consultantName || '', sigMargin, sigY);
+    sigY += 5;
+    if (settings.professionalId) {
+      doc.text(`${settings.professionalIdLabel || 'Registro'}: ${settings.professionalId}`, sigMargin, sigY);
+      sigY += 5;
+    }
+    sigY += 10;
+
+    // Signature image box
+    const sigBoxW = 100;
+    const sigBoxH = 40;
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.5);
+    doc.rect(sigMargin, sigY, sigBoxW, sigBoxH);
+    try {
+      doc.addImage(options.signatureDataUrl, 'PNG', sigMargin + 2, sigY + 2, sigBoxW - 4, sigBoxH - 4);
+    } catch (_) {}
+    sigY += sigBoxH + 4;
+    doc.setFontSize(8);
+    doc.setTextColor(120, 120, 120);
+    doc.text('Assinatura da Consultora', sigMargin, sigY);
+    sigY += 12;
+
+    // Date line
+    doc.setFontSize(9);
+    doc.setTextColor(31, 41, 55);
+    doc.text(`Data: ${formatDate(inspection.inspectionDate)}`, sigMargin, sigY);
+    sigY += 10;
+
+    // Establishment rep signature area
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text('Representante do Estabelecimento:', sigMargin, sigY);
+    sigY += 10;
+    doc.setDrawColor(150, 150, 150);
+    doc.setLineWidth(0.3);
+    doc.line(sigMargin, sigY, sigMargin + sigBoxW, sigY);
+    sigY += 5;
+    doc.setFontSize(8);
+    doc.setTextColor(120, 120, 120);
+    doc.text('Assinatura / Carimbo', sigMargin, sigY);
+  }
+
   // ── LAST PAGE: REFERÊNCIAS ABNT ─────────────────────────
-  drawReferencesABNT(doc, template, responses, legislations, inspection);
+  drawReferencesABNT(doc, template, responses, legislations, inspection, options.selectedLegislations);
+
+  // Add footers to ALL pages including new signature/reference pages
+  const totalPagesAfter = (doc.internal as any).getNumberOfPages();
+  for (let i = 1; i <= totalPagesAfter; i++) {
+    doc.setPage(i);
+    addFooter(i, totalPagesAfter);
+  }
 
   const filename = `Inspecao_${(inspection.clientName || 'cliente').replace(/\s+/g, '_')}_${formatDate(inspection.inspectionDate).replace(/\//g, '-')}.pdf`;
   doc.save(filename);
@@ -642,32 +786,40 @@ export async function generatePDF(
 
 /**
  * Gera página de referências legislativas no formato ABNT NBR 6023.
- * Lista apenas as legislações citadas nos itens avaliados neste relatório.
+ * Lista apenas as legislações base (sem alíneas/incisos) citadas nos itens avaliados.
+ * Se `selectedLegislations` for fornecida (do modal), usa essa lista diretamente.
  */
 function drawReferencesABNT(
   doc: jsPDF,
   template: ChecklistTemplate,
   responses: InspectionResponse[],
   allLegislations: any[],
-  inspection: Inspection
+  _inspection: Inspection,
+  selectedLegislations?: string[]
 ) {
-  const evaluatedItemIds = new Set(responses.map(r => r.itemId));
-  const allItems = template.sections.flatMap(s => s.items);
+  let uniqueRefs: string[];
 
-  // Collect unique legislation mentions from evaluated items only
-  const mentionedSet = new Set<string>();
-  allItems.forEach(item => {
-    if (!evaluatedItemIds.has(item.id)) return;
-    if (!item.legislation) return;
-    item.legislation.split(';').forEach(part =>
-      part.split(',').forEach(l => {
-        const clean = l.trim();
-        if (clean) mentionedSet.add(clean);
-      })
-    );
-  });
+  if (selectedLegislations && selectedLegislations.length > 0) {
+    // Use the pre-selected list from the modal (already deduplicated and cleaned)
+    uniqueRefs = [...selectedLegislations].sort();
+  } else {
+    // Auto-extract from template items using the smart extractor
+    const evaluatedItemIds = new Set(responses.map(r => r.itemId));
+    const allItems = template.sections.flatMap(s => s.items);
+    const mentionedSet = new Set<string>();
 
-  if (mentionedSet.size === 0) return;
+    allItems.forEach(item => {
+      if (!evaluatedItemIds.has(item.id)) return;
+      if (!item.legislation) return;
+      // Use the smart extractor — discards alíneas, incisos, artigos
+      const bases = extractBaseLegislation(item.legislation);
+      bases.forEach(b => mentionedSet.add(b));
+    });
+
+    uniqueRefs = Array.from(mentionedSet).sort();
+  }
+
+  if (uniqueRefs.length === 0) return;
 
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -695,9 +847,7 @@ function drawReferencesABNT(
 
   let y = 58;
 
-  // Format each mention as ABNT reference
-  const uniqueRefs = Array.from(mentionedSet).sort();
-
+  // Render each reference as ABNT formatted entry
   uniqueRefs.forEach((mention, idx) => {
     if (y > pageH - 25) {
       doc.addPage();

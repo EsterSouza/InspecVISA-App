@@ -14,6 +14,7 @@ import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { formatDateTime } from '../utils/imageUtils';
 import { ScorePanel } from '../components/inspection/ScorePanel';
+import { PdfPreviewModal } from '../components/inspection/PdfPreviewModal';
 
 export function InspectionSummary() {
   const location = useLocation();
@@ -22,6 +23,7 @@ export function InspectionSummary() {
 
   const [loading, setLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showPdfModal, setShowPdfModal] = useState(false);
   
   const [currentInspection, setInspection] = useState<Inspection | null>(null);
   const [responses, setResponses] = useState<InspectionResponse[]>([]);
@@ -133,13 +135,20 @@ export function InspectionSummary() {
     }
   };
 
-  const handleGeneratePDF = async () => {
+  const handleGeneratePDF = async (opts: { selectedLegislations: string[]; signatureDataUrl?: string }) => {
     if (!currentInspection || !template || !scoreArea) return;
     setIsGenerating(true);
     try {
-       // Allow React state update to show spinner
        await new Promise(resolve => setTimeout(resolve, 100));
-       await generatePDF(currentInspection, responses, template, scoreArea, settings as any, legislations);
+       await generatePDF(
+         currentInspection,
+         responses,
+         template,
+         scoreArea,
+         settings as any,
+         legislations,
+         { selectedLegislations: opts.selectedLegislations, signatureDataUrl: opts.signatureDataUrl }
+       );
     } catch (err) {
        console.error('PDF Error:', err);
       alert('Erro ao gerar PDF. Verifique os dados e tente novamente.');
@@ -236,7 +245,7 @@ export function InspectionSummary() {
             </Button>
           </div>
           <div className="flex space-x-2">
-            <Button onClick={handleGeneratePDF} disabled={isGenerating}>
+            <Button onClick={() => setShowPdfModal(true)} disabled={isGenerating}>
               {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4 hidden sm:block" />}
               PDF
             </Button>
@@ -336,6 +345,18 @@ export function InspectionSummary() {
       </div>
       
       <div className="pb-10"></div>
+
+      {/* PDF Pre-generation Modal */}
+      {template && (
+        <PdfPreviewModal
+          open={showPdfModal}
+          onClose={() => setShowPdfModal(false)}
+          template={template}
+          responses={responses}
+          onGenerate={handleGeneratePDF}
+          isGenerating={isGenerating}
+        />
+      )}
     </div>
   );
 }

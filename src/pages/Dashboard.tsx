@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { syncData } from '../services/syncService';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { db } from '../db/database';
 import type { Inspection, InspectionResponse, ChecklistItem, Schedule } from '../types';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';

@@ -75,19 +75,29 @@ export function InspectionExecution() {
         return;
       }
 
-      // 2. Load template from Dexie (managed separately)
-      let tpl = await db.templates.get(insp.templateId);
+      // 2. Load template (Static Memory -> Dexie Cache -> Supabase)
+      let tpl = getTemplateById(insp.templateId); // Try static first (fastest)
+      
       if (!tpl) {
-        tpl = getTemplateById(insp.templateId);
+        // Try Dexie cache next
+        try {
+          tpl = await withTimeout(Promise.resolve(db.templates.get(insp.templateId)), 2000, 'DexieTemplateGet');
+        } catch (e) {
+          console.warn('[Execution] Dexie template read failed/timeout, skipping.', e);
+        }
       }
       
       if (!tpl && navigator.onLine) {
+        // Fallback to Supabase
         try {
           const { TemplateService } = await import('../services/templateService');
-          tpl = await TemplateService.getFullTemplate(insp.templateId);
-          if (tpl) await db.templates.put(tpl);
+          tpl = await withTimeout(TemplateService.getFullTemplate(insp.templateId), 5000, 'SupabaseTemplateGet');
+          if (tpl) {
+            // Save to Dexie for future offline use (non-blocking)
+            db.templates.put(tpl).catch(() => {});
+          }
         } catch (e) {
-          console.error('Failed to fetch template:', e);
+          console.error('[Execution] Failed to fetch remote template:', e);
         }
       }
 

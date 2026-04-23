@@ -6,7 +6,7 @@ import { compressImage } from '../utils/imageUtils';
 import { db } from '../db/database';
 import { exportDatabase, importDatabase } from '../utils/backup';
 import { 
-  Save, Upload, Trash2, LogOut
+  Save, Upload, Trash2, LogOut, RefreshCw, FileText
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 
@@ -241,12 +241,59 @@ export function Settings() {
       </Card>
 
 
+      <Card className="border-blue-100 bg-blue-50">
+        <CardContent className="p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="font-semibold text-blue-900 text-lg">Forçar Sincronização (Legacy)</h3>
+              <p className="text-sm text-blue-700 mt-1">Se houver inspeções pendentes presas no dispositivo, clique aqui para forçar o envio ao servidor.</p>
+            </div>
+            <Button 
+              variant="outline" 
+              className="whitespace-nowrap shrink-0 border-blue-300 text-blue-700 hover:bg-blue-100"
+              onClick={async () => {
+                const { forcePushFinalData } = await import('../utils/forceSync');
+                setSaveStatus('saving');
+                try {
+                  const res = await forcePushFinalData();
+                  alert(`Sincronização concluída.\nSucesso: ${res.totalSynced}\nErros: ${res.errors}`);
+                } catch (e: any) {
+                  alert('Erro ao sincronizar: ' + e.message);
+                } finally {
+                  setSaveStatus('idle');
+                }
+              }}
+            >
+              <RefreshCw className={`mr-2 h-4 w-4 ${saveStatus === 'saving' ? 'animate-spin' : ''}`} />
+              Forçar Push
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-indigo-100 bg-indigo-50">
+        <CardContent className="p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="font-semibold text-indigo-900 text-lg">Administração</h3>
+              <p className="text-sm text-indigo-700 mt-1">Gerencie os templates de inspeção e legislações disponíveis no aplicativo.</p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => window.location.href='/templates'} className="whitespace-nowrap shrink-0 border-indigo-300 text-indigo-700 hover:bg-indigo-100">
+                <FileText className="mr-2 h-4 w-4" />
+                Templates
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card className="border-amber-100 bg-amber-50">
         <CardContent className="p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h3 className="font-semibold text-amber-900 text-lg">Sessão do Usuário</h3>
-              <p className="text-sm text-amber-700 mt-1">Encerrar sua sessão atual. Você precisará fazer login novamente para sincronizar.</p>
+              <p className="text-sm text-amber-700 mt-1">Encerrar sua sessão atual. Você precisará fazer login novamente para acessar os dados.</p>
             </div>
             <Button variant="outline" onClick={() => signOut()} className="whitespace-nowrap shrink-0 border-amber-300 text-amber-700 hover:bg-amber-100">
               <LogOut className="mr-2 h-4 w-4" />
@@ -261,7 +308,7 @@ export function Settings() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h3 className="font-semibold text-red-900 text-lg">Zona de Perigo</h3>
-              <p className="text-sm text-red-700 mt-1">Apagar todos os dados locais do aplicativo. Esta ação não pode ser desfeita e todas as inspeções serão perdidas.</p>
+              <p className="text-sm text-red-700 mt-1">Apagar todos os dados locais do aplicativo. Esta ação não pode ser desfeita e os dados não sincronizados serão perdidos.</p>
             </div>
             <Button variant="danger" onClick={handleClearData} className="whitespace-nowrap shrink-0">
               <Trash2 className="mr-2 h-4 w-4" />

@@ -58,13 +58,17 @@ function App() {
     let didCancel = false;
 
     const initApp = async () => {
+      console.log('🚀 Iniciando InspecVISA Step 1/4: Auth...');
       // Step 1: Initialize auth (instant from cache if previously logged in)
       await initialize();
 
+      console.log('🚀 Iniciando InspecVISA Step 2/4: Database...');
       // Step 2: Load static templates immediately into Dexie (offline-safe)
       const staticTemplates = getTemplates();
       try {
-        await initializeDatabase(staticTemplates);
+        const dbPromise = initializeDatabase(staticTemplates);
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
+        await Promise.race([dbPromise, timeoutPromise]);
       } catch (dbErr: unknown) {
         const error = dbErr as Error;
         const isBackingStoreError =
@@ -77,9 +81,11 @@ function App() {
         console.warn('[App] DB init error (non-fatal):', dbErr);
       }
 
+      console.log('🚀 Iniciando InspecVISA Step 3/4: Rendering UI...');
       // Step 3: App is ready — show it!
       if (!didCancel) setIsInitializing(false);
 
+      console.log('🚀 Iniciando InspecVISA Step 4/4: Background sync...');
       // Step 4: Fetch remote templates in background (non-blocking)
       if (navigator.onLine) {
         import('./services/templateService').then(async ({ TemplateService }) => {
@@ -95,13 +101,23 @@ function App() {
       }
     };
 
+    // Safety fallback: se o initApp travar completamente por 12s, libera a UI
+    const safetyTimer = setTimeout(() => {
+      if (!didCancel) {
+        console.warn('[App] Master init timeout. Forcing UI load.');
+        setIsInitializing(false);
+      }
+    }, 12000);
+
     initApp().catch((err) => {
       console.error('[App] Fatal init error:', err);
       // Even on fatal error, unblock UI
       if (!didCancel) setIsInitializing(false);
+    }).finally(() => {
+      clearTimeout(safetyTimer);
     });
 
-    return () => { didCancel = true; };
+    return () => { didCancel = true; clearTimeout(safetyTimer); };
   }, [initialize]);
 
   // Online Status & Connectivity Check

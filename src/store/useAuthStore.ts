@@ -29,11 +29,20 @@ export const useAuthStore = create<AuthState>()(
         set({ user: null, tenantInfo: null });
       },
       initialize: async () => {
+        // Fallback de segurança: se após 8s ainda não inicializou, força a barra para não travar a UI.
+        const timeoutId = setTimeout(() => {
+          if (!get().initialized) {
+            console.warn('[Auth] Initialization timeout - forcing ready state');
+            set({ initialized: true, loading: false });
+          }
+        }, 8000);
+
         // ✅ OFFLINE-FIRST: If we already have persisted (cached) user state,
         // mark as initialized immediately — app opens without waiting for network.
         const persisted = get();
         if (persisted.user) {
           set({ initialized: true, loading: false });
+          clearTimeout(timeoutId);
 
           // Validate session silently in background (non-blocking).
           Promise.resolve().then(async () => {
@@ -53,15 +62,22 @@ export const useAuthStore = create<AuthState>()(
         } else {
           // No cached user — must fetch from network
           try {
-            const { data: { session } } = await supabase.auth.getSession();
+            // Using a simple timeout wrapper for the critical path
+            const sessionPromise = supabase.auth.getSession();
+            const timeoutPromise = new Promise<any>((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
+            const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]) as any;
+            
             const user = session?.user ?? null;
             let tenantInfo = null;
             if (user) {
-              tenantInfo = await getCurrentTenant().catch(() => null);
+              const tenantPromise = getCurrentTenant();
+              tenantInfo = await Promise.race([tenantPromise, timeoutPromise]).catch(() => null);
             }
+            clearTimeout(timeoutId);
             set({ user, tenantInfo, loading: false, initialized: true });
           } catch {
             // Network error and no cached state — show login page
+            clearTimeout(timeoutId);
             set({ user: null, tenantInfo: null, loading: false, initialized: true });
           }
         }
