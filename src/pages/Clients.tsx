@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Search, Plus, Building2, Phone, MapPin, Edit2, Trash2, Loader2, WifiOff } from 'lucide-react';
-import { db, deleteClient } from '../db/database';
 import { type Client, type ClientCategory, type FoodEstablishmentType, FOOD_SEGMENT_LABELS } from '../types';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -9,9 +8,12 @@ import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { generateId } from '../utils/imageUtils';
 import { useNavigate } from 'react-router-dom';
+import { ClientService } from '../services/clientService';
+import { useAuthStore } from '../store/authStore';
 
 export function Clients() {
   const navigate = useNavigate();
+  const { user } = useAuthStore();
   const [clients, setClients] = useState<Client[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -19,25 +21,33 @@ export function Clients() {
   const [filterCat, setFilterCat] = useState<ClientCategory | 'all'>('all');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
   
   const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<Client>();
 
   const loadClients = async () => {
-    let list = await db.clients.orderBy('createdAt').reverse().toArray();
-    list = list.filter(c => !c.deletedAt);
+    setIsFetching(true);
+    try {
+      let list = await ClientService.getClients();
 
-    if (filterCat !== 'all') {
-      list = list.filter(c => c.category === filterCat);
+      if (filterCat !== 'all') {
+        list = list.filter(c => c.category === filterCat);
+      }
+      if (search) {
+        list = list.filter(c => c.name.toLowerCase().includes(search.toLowerCase()) || 
+                                c.cnpj?.includes(search) || 
+                                c.responsibleName?.toLowerCase().includes(search.toLowerCase()));
+      }
+      setClients(list);
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao carregar clientes. Verifique sua conexão.');
+    } finally {
+      setIsFetching(false);
     }
-    if (search) {
-      list = list.filter(c => c.name.toLowerCase().includes(search.toLowerCase()) || 
-                              c.cnpj?.includes(search) || 
-                              c.responsibleName?.toLowerCase().includes(search.toLowerCase()));
-    }
-    setClients(list);
   };
 
-  useEffect(() => { loadClients(); }, [search, filterCat]);
+  useEffect(() => { loadClients(); }, [search, filterCat, user]);
 
   useEffect(() => {
     const updateOnlineStatus = () => setIsOnline(navigator.onLine);
@@ -50,6 +60,11 @@ export function Clients() {
   }, []);
 
   const onSubmit = async (data: Client) => {
+    if (!isOnline) {
+      alert('Sem conexão com a internet. Não é possível salvar no momento.');
+      return;
+    }
+
     setIsLoading(true);
     try {
       const clientToSave: Client = editingClient 
@@ -63,16 +78,16 @@ export function Clients() {
         clientToSave.foodTypes = ['servico_alimentacao'];
       }
 
-      // ✅ ONLINE-DIRECT UPSERT: Salva na nuvem e atualiza cache local
-      await db.onlineUpsert('clients', clientToSave, db.clients);
+      // ✅ ONLINE-DIRECT UPSERT: Salva direto no Supabase
+      await ClientService.saveClient(clientToSave);
 
       setIsModalOpen(false);
       setEditingClient(null);
       reset();
-      loadClients();
-    } catch (err) {
+      loadClients(); // Recarrega a lista do servidor
+    } catch (err: any) {
       console.error(err);
-      alert('Erro ao salvar cliente.');
+      alert(err.message || 'Erro ao salvar cliente.');
     } finally {
       setIsLoading(false);
     }
@@ -87,13 +102,18 @@ export function Clients() {
 
   const handleDelete = async (client: Client, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!isOnline) {
+      alert('Sem conexão com a internet. Não é possível excluir no momento.');
+      return;
+    }
+    
     if (window.confirm(`Deseja realmente excluir o cliente "${client.name}"?`)) {
       try {
-        await deleteClient(client.id);
-        loadClients();
-      } catch (err) {
+        await ClientService.deleteClient(client.id);
+        loadClients(); // Recarrega a lista do servidor
+      } catch (err: any) {
         console.error(err);
-        alert('Erro ao excluir cliente.');
+        alert(err.message || 'Erro ao excluir cliente.');
       }
     }
   };
@@ -143,7 +163,12 @@ export function Clients() {
       </div>
 
       <div className="space-y-4">
-        {clients.length === 0 ? (
+        {isFetching ? (
+          <div className="flex justify-center items-center py-12 bg-white rounded-2xl border border-gray-100">
+            <Loader2 className="h-8 w-8 text-primary-500 animate-spin" />
+            <span className="ml-3 text-gray-500 font-medium">Carregando clientes...</span>
+          </div>
+        ) : clients.length === 0 ? (
           <div className="rounded-2xl border-2 border-dashed border-gray-200 py-12 text-center text-gray-500 bg-white">
             Nenhum cliente encontrado.
           </div>

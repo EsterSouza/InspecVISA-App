@@ -13,11 +13,13 @@ import {
   Trash2
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
-import { db, deleteClient } from '../db/database';
+import { db } from '../db/database';
 import { type Client, type Inspection, type InspectionScore, FOOD_SEGMENT_LABELS } from '../types';
 import { calculateScore } from '../utils/scoring';
 import { formatDateTime } from '../utils/imageUtils';
 import { getTemplates } from '../data/templates';
+import { ClientService } from '../services/clientService';
+import { InspectionService } from '../services/inspectionService';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -49,70 +51,74 @@ export function ClientDetails() {
   useEffect(() => {
     const loadData = async () => {
       if (!id) return;
-      const clientData = await db.clients.get(id);
-      if (!clientData) {
-        navigate('/clients');
-        return;
+      try {
+        const clientData = await ClientService.getClientById(id);
+        if (!clientData) {
+          navigate('/clients');
+          return;
+        }
+        setClient(clientData);
+
+        // Load all inspections for this client
+        const rawInspections = await InspectionService.getInspectionsByClient(id);
+        const allInspIds = rawInspections.map(i => i.id);
+        
+        // Load all responses for these inspections at once
+        const allResponses = await InspectionService.getResponsesByInspections(allInspIds);
+
+        const inspectionsWithScores = await Promise.all(
+          rawInspections.map(async (insp) => {
+            const responses = allResponses.filter(r => r.inspectionId === insp.id);
+            const template = await db.templates.get(insp.templateId); // Keep templates in Dexie
+            const score = calculateScore(responses, template?.sections || []);
+            return { ...insp, score };
+          })
+        );
+
+        setInspections(inspectionsWithScores);
+
+        // --- Calcular Não Conformidades Recorrentes deste cliente ---
+        const notCompliesResponses = allResponses.filter(r => r.result === 'not_complies');
+
+        // Contar por itemId
+        const countMap: Record<string, number> = {};
+        for (const r of notCompliesResponses) {
+          countMap[r.itemId] = (countMap[r.itemId] || 0) + 1;
+        }
+
+        // Buscar descrição de cada item nos templates
+        const templates = getTemplates();
+        const allItems = templates.flatMap(t => t.sections.flatMap(s => s.items));
+
+        const ncs: RecurringNC[] = Object.entries(countMap)
+          .filter(([, count]) => count >= 2)
+          .sort(([, a], [, b]) => b - a)
+          .map(([itemId, count]) => {
+            const item = allItems.find(i => i.id === itemId);
+            return {
+              itemId,
+              description: item?.description || `Item ${itemId}`,
+              count,
+            };
+          });
+
+        setRecurringNCs(ncs);
+      } catch (err) {
+        console.error('Error loading client details:', err);
+        alert('Erro ao carregar os detalhes. Verifique a conexão com a internet.');
+      } finally {
+        setLoading(false);
       }
-      setClient(clientData);
-
-      // Load all inspections for this client
-      const rawInspections = (await db.inspections
-        .where('clientId').equals(id)
-        .reverse()
-        .toArray())
-        .filter(i => !i.deletedAt);
-
-      const inspectionsWithScores = await Promise.all(
-        rawInspections.map(async (insp) => {
-          const responses = await db.responses
-            .where('inspectionId').equals(insp.id)
-            .filter(r => !r.deletedAt)
-            .toArray();
-          const template = await db.templates.get(insp.templateId);
-          const score = calculateScore(responses, template?.sections || []);
-          return { ...insp, score };
-        })
-      );
-
-      setInspections(inspectionsWithScores.sort((a,b) => b.createdAt.getTime() - a.createdAt.getTime()));
-
-      // --- Calcular Não Conformidades Recorrentes deste cliente ---
-      const allInspIds = rawInspections.map(i => i.id);
-      const allResponses = await db.responses
-        .filter(r => !r.deletedAt && allInspIds.includes(r.inspectionId) && r.result === 'not_complies')
-        .toArray();
-
-      // Contar por itemId
-      const countMap: Record<string, number> = {};
-      for (const r of allResponses) {
-        countMap[r.itemId] = (countMap[r.itemId] || 0) + 1;
-      }
-
-      // Buscar descrição de cada item nos templates
-      const templates = getTemplates();
-      const allItems = templates.flatMap(t => t.sections.flatMap(s => s.items));
-
-      const ncs: RecurringNC[] = Object.entries(countMap)
-        .filter(([, count]) => count >= 2)
-        .sort(([, a], [, b]) => b - a)
-        .map(([itemId, count]) => {
-          const item = allItems.find(i => i.id === itemId);
-          return {
-            itemId,
-            description: item?.description || `Item ${itemId}`,
-            count,
-          };
-        });
-
-      setRecurringNCs(ncs);
-      setLoading(false);
     };
 
     loadData();
   }, [id, navigate]);
 
   const onEditSubmit = async (data: Client) => {
+    if (!navigator.onLine) {
+      alert('Sem conexão com a internet. Não é possível salvar no momento.');
+      return;
+    }
     try {
       if (!client) return;
       const updatedClient: Client = {
@@ -125,25 +131,29 @@ export function ClientDetails() {
         delete updatedClient.foodTypes;
       }
 
-      await db.onlineUpsert('clients', updatedClient, db.clients);
-      setClient({ ...updatedClient, synced: navigator.onLine ? 1 : 0 });
+      await ClientService.saveClient(updatedClient);
+      setClient({ ...updatedClient, synced: 1 });
       setIsModalOpen(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Erro ao atualizar cliente.');
+      alert(err.message || 'Erro ao atualizar cliente.');
     }
   };
 
 
   const handleDelete = async () => {
     if (!client) return;
+    if (!navigator.onLine) {
+      alert('Sem conexão com a internet. Não é possível excluir no momento.');
+      return;
+    }
     if (window.confirm(`Deseja realmente excluir o cliente "${client.name}"? Todas as inspeções e fotos associadas serão apagadas permanentemente.`)) {
       try {
-        await deleteClient(client.id);
+        await ClientService.deleteClient(client.id);
         navigate('/clients');
-      } catch (err) {
+      } catch (err: any) {
         console.error(err);
-        alert('Erro ao excluir cliente.');
+        alert(err.message || 'Erro ao excluir cliente.');
       }
     }
   };
