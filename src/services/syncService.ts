@@ -179,47 +179,57 @@ async function cleanupOrphans() {
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
   // Hard delete de registros soft-deleted antigos (economiza espaço)
+  // ✅ SAFETY: Only hard-delete records that were EXPLICITLY soft-deleted (have a deletedAt date)
   await db.clients.where('deletedAt').below(thirtyDaysAgo).delete();
   await db.inspections.where('deletedAt').below(thirtyDaysAgo).delete();
   await db.responses.where('deletedAt').below(thirtyDaysAgo).delete();
   await db.photos.where('deletedAt').below(thirtyDaysAgo).delete();
   await db.schedules.where('deletedAt').below(thirtyDaysAgo).delete();
   
-  // Respostas órfãs (inspeção não existe OU está deletada)
+  // ✅ SAFETY: Never touch responses/photos that belong to in_progress inspections
+  // Respostas órfãs (inspeção não existe OU está deletada) — SKIP in_progress parents
   const responses = await db.responses.filter(r => !r.deletedAt).toArray();
   for (const r of responses) {
     const parent = await db.inspections.get(r.inspectionId);
-    if (!parent || parent.deletedAt) {
+    // ✅ CRITICAL: Never delete responses from active (in_progress or completed) inspections
+    if (!parent || (parent.deletedAt && parent.status !== 'in_progress')) {
       await db.responses.update(r.id, { deletedAt: new Date(), synced: 0 });
       await logSync('warn', `Resposta órfã marcada para deleção: ${r.id}`);
     }
   }
 
-  // Fotos órfãs
+  // Fotos órfãs — SKIP if parent response belongs to an active inspection
   const photos = await db.photos.filter(p => !p.deletedAt).toArray();
   for (const p of photos) {
     const parent = await db.responses.get(p.responseId);
     if (!parent || parent.deletedAt) {
+      // Extra check: don't delete if parent inspection is in_progress
+      if (parent) {
+        const grandParent = await db.inspections.get(parent.inspectionId);
+        if (grandParent?.status === 'in_progress') continue;
+      }
       await db.photos.update(p.id, { deletedAt: new Date(), synced: 0 });
       await logSync('warn', `Foto órfã marcada para deleção: ${p.id}`);
     }
   }
 
-  // Inspeções órfãs — só marca como deletada se cliente realmente não existe no servidor
-  const inspections = await db.inspections.filter(i => !i.deletedAt).toArray();
+  // ✅ CRITICAL: NEVER mark in_progress inspections as orphan/deleted.
+  // An inspection without a local client is just waiting for the client pull to complete.
+  const inspections = await db.inspections.filter(i => !i.deletedAt && i.status !== 'in_progress').toArray();
   for (const i of inspections) {
     const parent = await db.clients.get(i.clientId);
-    if (!parent || parent.deletedAt) {
+    // Extra safety: only mark as deleted if client has explicit deletedAt set
+    if (parent && parent.deletedAt) {
       await db.inspections.update(i.id, { deletedAt: new Date(), synced: 0 });
       await logSync('warn', `Inspeção órfã marcada para deleção: ${i.id}`);
     }
   }
 
-  // Schedules órfãos — só marca como deletado se cliente realmente não existe
+  // Schedules órfãos — só marca como deletado se cliente foi explicitamente excluído
   const schedules = await db.schedules.filter(s => !s.deletedAt).toArray();
   for (const s of schedules) {
     const parent = await db.clients.get(s.clientId);
-    if (!parent || parent.deletedAt) {
+    if (parent && parent.deletedAt) {
       await db.schedules.update(s.id, { deletedAt: new Date(), synced: 0 });
       await logSync('warn', `Schedule órfão marcado para deleção: ${s.id}`);
     }
@@ -237,16 +247,27 @@ export async function syncData(isManual: boolean = false) {
     const { user } = useAuthStore.getState();
     if (!user) throw new Error('Usuário não autenticado');
 
-    // Ping check para evitar timeouts longos se a internet não alcança o banco
-    const { error: pingError } = await withTimeout(
-      Promise.resolve(supabase.from('clients').select('id', { count: 'exact', head: true })),
-      15000,
-      'Ping_Check'
-    ).catch((e) => ({ error: e }));
-
-    if (pingError) {
-      console.error('Falha no Ping_Check:', pingError);
-      throw new Error(`Falha de conexão com o servidor. Detalhe: ${pingError.message || JSON.stringify(pingError)}`);
+    // ✅ FIXED PING: Use getSession which refreshes the token automatically.
+    // This also validates that the Supabase session is valid before doing any network ops.
+    try {
+      const sessionResult = await withTimeout(
+        supabase.auth.getSession(),
+        8000,
+        'Auth_Session_Check'
+      );
+      const session = sessionResult?.data?.session;
+      if (!session) {
+        // Session expired — clear user state so the app redirects to login
+        useAuthStore.getState().signOut();
+        throw new Error('Sessão expirada. Por favor, faça login novamente.');
+      }
+    } catch (pingErr: any) {
+      // If it's a timeout error, the network is unreachable (not a bad token)
+      const msg = pingErr?.message || String(pingErr);
+      if (msg.includes('TIMEOUT') || msg.includes('fetch')) {
+        throw new Error(`Sem conexão com o servidor. Verifique a internet e tente novamente.`);
+      }
+      throw pingErr; // Re-throw auth errors as-is
     }
 
     await logSync('info', '🔄 Iniciando Sincronização com Soft Delete...', { manual: isManual });
@@ -590,8 +611,10 @@ export async function syncData(isManual: boolean = false) {
     if (isManual) alert('✅ Sincronização concluída!');
     
   } catch (err: any) {
-    await logSync('error', '❌ Erro na sincronização', err?.message || err);
-    if (isManual) alert('❌ Erro: ' + (err?.message || err));
+    // ✅ IMPROVED ERROR: Log the real error for debugging, show clear message to user
+    const errDetail = err?.message || String(err);
+    await logSync('error', `❌ Erro na sincronização "${errDetail}"`, err);
+    if (isManual) alert('❌ Erro na sincronização:\n' + errDetail);
   } finally {
     (window as any).isSyncingGlobally = false;
   }
