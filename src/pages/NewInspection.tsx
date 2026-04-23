@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronRight, ArrowLeft, WifiOff, Loader2 } from 'lucide-react';
 import { db } from '../db/database';
+import { supabase } from '../lib/supabase';
+import { ClientService } from '../services/clientService';
+import { InspectionService } from '../services/inspectionService';
 import { useSettingsStore } from '../store/useSettingsStore';
 import type { Client, ChecklistTemplate, Inspection } from '../types';
 import { Button } from '../components/ui/Button';
@@ -51,8 +54,8 @@ export function NewInspection() {
     const init = async () => {
       setLoading(true);
       try {
-        const cList = await db.clients.orderBy('name').toArray();
-        setClients(cList.filter(c => !c.deletedAt));
+        const cList = await ClientService.getClients();
+        setClients(cList);
         
         if (preSelectedClientId) {
           const found = cList.find(c => c.id === preSelectedClientId);
@@ -61,6 +64,8 @@ export function NewInspection() {
         
         const dbTemplates = await db.templates.toArray();
         setTemplates(dbTemplates);
+      } catch (err) {
+        console.error('Error initializing new inspection:', err);
       } finally {
         setLoading(false);
       }
@@ -73,11 +78,15 @@ export function NewInspection() {
     setIsStarting(true);
 
     try {
-      const lastInspection = await db.inspections
-        .where('[clientId+status]')
-        .equals([selectedClient.id, 'completed'])
-        .reverse()
-        .first();
+      // Pega a última inspeção completada para este cliente (para levar as fotos/respostas se necessário)
+      const { data: lastInsp } = await supabase
+        .from('inspections')
+        .select('id')
+        .eq('client_id', selectedClient.id)
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
 
       const newInspectionId = generateId();
       
@@ -100,13 +109,13 @@ export function NewInspection() {
         dependencyLevel3: dep3 ? parseInt(dep3) : undefined
       };
 
-      // ✅ ONLINE-DIRECT: Salva no Supabase e no cache local
-      await db.onlineUpsert('inspections', inspectionData, db.inspections);
+      // ✅ ONLINE-DIRECT: Salva direto no Supabase
+      await InspectionService.createInspection(inspectionData);
 
       navigate('/execute', { 
         state: { 
           inspectionId: newInspectionId,
-          previousInspectionId: lastInspection?.id 
+          previousInspectionId: lastInsp?.id 
         } 
       });
     } catch (err) {

@@ -106,20 +106,20 @@ function App() {
     return () => { didCancel = true; };
   }, [initialize]);
 
-  // Online Status & Sync Recovery
+  // Online Status & Connectivity Check
   useEffect(() => {
-    if (!initialized || !user) {
-      import('./services/realtimeService').then(m => m.stopRealtimeSync()).catch(() => {});
-      return;
-    }
-
-    // Start realtime listeners (pull-only)
-    import('./services/realtimeService').then(m => m.startRealtimeSync()).catch(console.error);
-
+    // We could add a global listener for online/offline here if needed for UI
+    const handleOnline = () => console.log('🌐 App Online');
+    const handleOffline = () => console.log('🚫 App Offline');
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
     return () => {
-      import('./services/realtimeService').then(m => m.stopRealtimeSync()).catch(() => {});
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
     };
-  }, [initialized, user]);
+  }, []);
 
   const name = useSettingsStore((s) => s.settings.name);
 

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Plus, Calendar, Activity, CheckCircle, Trash2, Edit } from 'lucide-react';
-import { db, deleteInspection } from '../db/database';
+import { ClientService } from '../services/clientService';
+import { InspectionService } from '../services/inspectionService';
 import type { Inspection, Client } from '../types';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -9,55 +10,73 @@ import { Badge } from '../components/ui/Badge';
 import { formatDateTime } from '../utils/imageUtils';
 import { ProfileModal } from '../components/profile/ProfileModal';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { supabase } from '../lib/supabase';
 
 export function Inspections() {
   const navigate = useNavigate();
   const [inspections, setInspections] = useState<Inspection[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'in_progress' | 'completed'>('all');
   const settings = useSettingsStore((s) => s.settings);
   const [showProfileModal, setShowProfileModal] = useState(!settings.name);
 
   const loadInspections = async () => {
-    let list = await db.inspections.orderBy('createdAt').reverse().toArray();
-    
-    // ✅ SOFT DELETE: Remove registros marcados como deletados
-    list = list.filter(i => !i.deletedAt);
-    
-    // Join client data
-    const clientIds = [...new Set(list.map(i => i.clientId))];
-    const clients = await db.clients.where('id').anyOf(clientIds).toArray();
-    const clientMap = new Map<string, Client>(clients.map(c => [c.id, c]));
+    try {
+      setLoading(true);
+      let list = await InspectionService.getAllInspections();
+      
+      // Join client data
+      const clients = await ClientService.getClients();
+      const clientMap = new Map<string, Client>(clients.map(c => [c.id, c]));
 
-    list = list.map(insp => {
-      const c = clientMap.get(insp.clientId);
-      return {
-        ...insp,
-        clientName: c?.name || 'Cliente deletado',
-        clientCategory: c?.category,
-      };
-    });
+      list = list.map(insp => {
+        const c = clientMap.get(insp.clientId);
+        return {
+          ...insp,
+          clientName: c?.name || 'Cliente deletado',
+          clientCategory: c?.category,
+        };
+      });
 
-    if (filterStatus !== 'all') {
-      list = list.filter(i => i.status === filterStatus);
+      if (filterStatus !== 'all') {
+        list = list.filter(i => i.status === filterStatus);
+      }
+      if (search) {
+        list = list.filter(i => 
+          i.clientName?.toLowerCase().includes(search.toLowerCase()) || 
+          i.consultantName.toLowerCase().includes(search.toLowerCase())
+        );
+      }
+
+      setInspections(list);
+    } catch (err) {
+      console.error('Error loading inspections:', err);
+    } finally {
+      setLoading(false);
     }
-    if (search) {
-      list = list.filter(i => 
-        i.clientName?.toLowerCase().includes(search.toLowerCase()) || 
-        i.consultantName.toLowerCase().includes(search.toLowerCase())
-      );
-    }
-
-    setInspections(list);
   };
 
   useEffect(() => { loadInspections(); }, [search, filterStatus]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('inspections_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'inspections' }, () => {
+        loadInspections();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     if (window.confirm('Tem certeza que deseja excluir esta inspeção? Todos os dados e fotos serão perdidos permanentemente.')) {
       try {
-        await deleteInspection(id);
+        await InspectionService.deleteInspection(id);
         loadInspections();
       } catch (err) {
         console.error(err);
@@ -102,7 +121,11 @@ export function Inspections() {
       </div>
 
       <div className="space-y-4">
-        {inspections.length === 0 ? (
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <Activity className="h-8 w-8 animate-spin text-primary-600" />
+          </div>
+        ) : inspections.length === 0 ? (
           <div className="rounded-xl border border-dashed border-gray-300 py-16 text-center text-gray-500 bg-gray-50">
             Nenhuma inspeção encontrada com os filtros atuais.
           </div>

@@ -1,16 +1,16 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FileDown, ArrowLeft, Loader2, Save, Info, Users2 } from 'lucide-react';
-import { db } from '../db/database';
-import { supabase } from '../lib/supabase';
+import { FileDown, ArrowLeft, Loader2, Save, Info } from 'lucide-react';
+import { ClientService } from '../services/clientService';
+import { InspectionService } from '../services/inspectionService';
+import { LegislationService, type Legislation } from '../services/legislationService';
 import { getTemplateById, enrichTemplate } from '../data/templates';
-import { calculateScore, classificationColor, classificationLabel } from '../utils/scoring';
+import { calculateScore, classificationColor } from '../utils/scoring';
 import { generatePDF } from '../utils/pdfGenerator';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { LegislationService, type Legislation } from '../services/legislationService';
+import { db } from '../db/database';
 import type { Inspection, InspectionResponse, ChecklistTemplate } from '../types';
 import { Button } from '../components/ui/Button';
-import { withTimeout } from '../utils/network';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { formatDateTime } from '../utils/imageUtils';
 import { ScorePanel } from '../components/inspection/ScorePanel';
@@ -40,44 +40,16 @@ export function InspectionSummary() {
 
     const loadData = async () => {
       try {
-        // 1. Load inspection from Dexie first
-        let insp = await db.inspections.get(inspectionId);
+        setLoading(true);
+        // 1. Load inspection from Supabase
+        const insp = await InspectionService.getInspectionById(inspectionId);
 
-        // 2. Fallback: fetch from Supabase if not local
-        if (!insp && navigator.onLine) {
-          const { data: remoteInsp } = await withTimeout<any>(
-            supabase
-              .from('inspections')
-              .select('*')
-              .eq('id', inspectionId)
-              .single(),
-            3000,
-            'Summary_FetchInspection'
-          ).catch(() => ({ data: null }));
-
-          if (remoteInsp) {
-            insp = {
-              id: remoteInsp.id, clientId: remoteInsp.client_id, templateId: remoteInsp.template_id,
-              consultantName: remoteInsp.consultant_name, inspectionDate: remoteInsp.inspection_date ? new Date(remoteInsp.inspection_date) : new Date(),
-              status: remoteInsp.status, observations: remoteInsp.observations,
-              completedAt: remoteInsp.completed_at ? new Date(remoteInsp.completed_at) : undefined,
-              accompanistName: remoteInsp.accompanist_name, accompanistRole: remoteInsp.accompanist_role,
-              ilpiCapacity: remoteInsp.ilpi_capacity, residentsTotal: remoteInsp.residents_total,
-              dependencyLevel1: remoteInsp.dependency_level1 ?? remoteInsp.dependency_level_1,
-              dependencyLevel2: remoteInsp.dependency_level2 ?? remoteInsp.dependency_level_2,
-              dependencyLevel3: remoteInsp.dependency_level3 ?? remoteInsp.dependency_level_3,
-              observedStaff: remoteInsp.observed_staff, observedNursingTechs: remoteInsp.observed_nursing_techs,
-              signatureDataUrl: remoteInsp.signature_data_url, tenantId: remoteInsp.tenant_id,
-              createdAt: new Date(remoteInsp.created_at), updatedAt: new Date(remoteInsp.updated_at || remoteInsp.created_at),
-              synced: 1,
-            } as any;
-            await db.inspections.put(insp!);
-          }
+        if (!insp) {
+          throw new Error('Inspection not found');
         }
-
-        if (!insp) throw new Error('Inspection not found');
         
-        const client = await db.clients.get(insp.clientId);
+        // 2. Load client data
+        const client = await ClientService.getClientById(insp.clientId);
         if (client) {
           insp.clientName = client.name;
           insp.clientCategory = client.category;
@@ -85,42 +57,18 @@ export function InspectionSummary() {
           insp.state = client.state;
         }
 
-        const clients = await db.clients.toArray();
+        const clients = await ClientService.getClients();
         setAllClients(clients);
 
-        // 3. Load local responses
-        const localResps = await db.responses.where('inspectionId').equals(inspectionId).filter(r => !r.deletedAt).toArray();
-        for (const r of localResps) {
+        // 3. Load responses from Supabase
+        const remoteResps = await InspectionService.getResponsesByInspectionId(inspectionId);
+        
+        // 4. Attach photos (photos are still in Dexie for now)
+        for (const r of remoteResps) {
           r.photos = await db.photos.where('responseId').equals(r.id).toArray();
         }
 
-        // 4. Merge with remote responses (union)
-        if (navigator.onLine) {
-          const { data: remoteResps } = await withTimeout<any>(
-            supabase
-              .from('responses')
-              .select('*')
-              .eq('inspection_id', inspectionId),
-            3000,
-            'Summary_FetchResponses'
-          ).catch(() => ({ data: [] }));
-
-          if (remoteResps && remoteResps.length > 0) {
-            for (const rr of remoteResps) {
-              const existsLocally = localResps.find(lr => lr.id === rr.id);
-              if (!existsLocally) {
-                localResps.push({
-                  id: rr.id, inspectionId: rr.inspection_id, itemId: rr.item_id,
-                  result: rr.result as any, situationDescription: rr.situation_description,
-                  correctiveAction: rr.corrective_action, createdAt: new Date(rr.created_at),
-                  updatedAt: new Date(rr.updated_at), photos: [], synced: 1
-                });
-              }
-            }
-          }
-        }
-
-        // 5. Try to resolve template — never crash if missing
+        // 5. Resolve template
         let tpl = await db.templates.get(insp.templateId);
         if (!tpl) {
           tpl = getTemplateById(insp.templateId);
@@ -130,20 +78,17 @@ export function InspectionSummary() {
           try {
             const { TemplateService } = await import('../services/templateService');
             tpl = await TemplateService.getFullTemplate(insp.templateId);
-            if (tpl) {
-              await db.templates.put(tpl);
-            }
+            if (tpl) await db.templates.put(tpl);
           } catch (e) {
-            console.error('Failed to fetch template from Supabase in Summary:', e);
+            console.error('Failed to fetch template in Summary:', e);
           }
         }
         
         const legs = await LegislationService.listLegislations();
 
         setInspection(insp);
-        setResponses(localResps);
+        setResponses(remoteResps);
         setLegislations(legs);
-        // If tpl is null, set template to null but DON'T navigate away
         setTemplate(tpl ? enrichTemplate(tpl, client || (insp as any)) : null);
       } catch (err) {
         console.error('[InspectionSummary] loadData error:', err);
@@ -165,23 +110,14 @@ export function InspectionSummary() {
     if (!currentInspection) return;
     setSavingMeta(true);
     try {
-      // Strip only transient UI-only fields (not ILPI data fields)
-      const { clientName, clientCategory, foodTypes, city, state: st, ...persistable } = currentInspection as any;
+      // 1. Update in Supabase
+      await InspectionService.updateInspection(currentInspection.id, currentInspection);
 
-      // Enrich client data from latest selection
-      const client = allClients.find(c => c.id === persistable.clientId);
-      if (client) {
-        persistable.clientId = client.id;
-      }
-
-      // Save to Dexie + Supabase (includes all ILPI fields)
-      await db.onlineUpsert('inspections', { ...persistable, updatedAt: new Date() }, db.inspections);
-
-      // Re-enrich the local state with client info for display
+      // 2. Re-enrich the local state if client changed
+      const client = allClients.find(c => c.id === currentInspection.clientId);
       if (client) {
         setInspection({
           ...currentInspection,
-          clientId: persistable.clientId,
           clientName: client.name,
           clientCategory: client.category,
           city: client.city,
@@ -271,7 +207,7 @@ export function InspectionSummary() {
     );
   }
 
-  const scoreColor = scoreArea ? classificationColor(scoreArea.classification) : '#94a3b8';
+  // const scoreColor = scoreArea ? classificationColor(scoreArea.classification) : '#94a3b8';
 
   return (
     <div className="flex h-screen flex-col bg-gray-50 pb-safe pb-16 lg:pb-0">

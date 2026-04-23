@@ -8,6 +8,7 @@ import { Calendar, Clock, Plus, Trash2, CheckCircle, AlertCircle, User, Play, Ed
 import { ScheduleService } from '../services/scheduleService';
 import { ClientService } from '../services/clientService';
 import { useAuthStore } from '../store/useAuthStore';
+import { supabase } from '../lib/supabase';
 
 export function Schedules() {
   const navigate = useNavigate();
@@ -58,6 +59,19 @@ export function Schedules() {
   useEffect(() => {
     loadData();
   }, [user]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('schedules_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'schedules' }, () => {
+        loadData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   useEffect(() => {
     const updateOnlineStatus = () => setIsOnline(navigator.onLine);

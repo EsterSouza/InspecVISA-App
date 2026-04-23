@@ -22,85 +22,21 @@ export const useInspectionStore = create<InspectionState>((set) => ({
   setResponses: (responses) => set({ responses }),
 
   updateResponse: async (responseId, updates) => {
-    try {
-      const now = new Date();
-      let recordToPersist: InspectionResponse | undefined;
-      
-      // 1. OPTIMISTIC UPDATE in memory
-      set((state) => {
-        const existing = state.responses.find(r => r.id === responseId);
-        if (!existing) return state;
-
-        recordToPersist = { ...existing, ...updates, updatedAt: now, synced: 0 };
-
-        return {
-          responses: state.responses.map((r) =>
-            r.id === responseId ? recordToPersist! : r
-          ),
-        };
-      });
-
-      // 2. IMMEDIATE DEXIE SAVE — protects against refresh before Supabase completes
-      if (recordToPersist) {
-        await db.responses.put(recordToPersist);
-      }
-
-      // 3. BACKGROUND SUPABASE SYNC (fire-and-forget)
-      if (recordToPersist) {
-        db.onlineUpsert('responses', recordToPersist, db.responses).then((res) => {
-          if (res.synced === 1) {
-            set((state) => ({
-              responses: state.responses.map(r => r.id === responseId ? { ...r, synced: 1 } : r)
-            }));
-          }
-        });
-
-        if (updates.photos) {
-          for (const photo of updates.photos) {
-            db.onlineUpsert('photos', { ...photo, responseId }, db.photos);
-          }
-        }
-      }
-
-      return true;
-    } catch (error) {
-      console.error('Error in updateResponse:', error);
-      return false;
-    }
+    set((state) => ({
+      responses: state.responses.map((r) =>
+        r.id === responseId ? { ...r, ...updates, updatedAt: new Date() } : r
+      ),
+    }));
+    return true;
   },
 
   addResponse: async (response) => {
-    try {
-      const record = { ...response, synced: 0 };
-
-      // 1. OPTIMISTIC UPDATE: Update UI first
-      set((state) => ({
-        responses: [...state.responses, record]
-      }));
-
-      // 2. IMMEDIATE DEXIE SAVE — protects against refresh (fire this first, never skip)
-      await db.responses.put(record);
-
-      // 3. BACKGROUND SUPABASE SYNC (fire-and-forget)
-      db.onlineUpsert('responses', record, db.responses).then(async (res) => {
-        if (res.synced === 1) {
-          set((state) => ({
-            responses: state.responses.map(r => r.id === response.id ? { ...r, synced: 1 } : r)
-          }));
-        }
-        if (response.photos && response.photos.length > 0) {
-          for (const photo of response.photos) {
-            await db.onlineUpsert('photos', { ...photo, responseId: response.id }, db.photos);
-          }
-        }
-      }).catch(err => console.warn('[addResponse] background sync failed:', err));
-
-      return true;
-    } catch (error) {
-      console.error('Error in addResponse:', error);
-      return false;
-    }
+    set((state) => ({
+      responses: [...state.responses, { ...response, updatedAt: new Date() }]
+    }));
+    return true;
   },
+
 
   mergeResponses: (remoteResponses) => {
     set((state) => {
