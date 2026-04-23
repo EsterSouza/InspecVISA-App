@@ -112,14 +112,26 @@ async function pullAllPages(tableName: string, orderBy: string = 'updated_at'): 
         supabase
           .from(tableName)
           .select('*')
-          .is('deleted_at', null) // ✅ IGNORA registros deletados no servidor
+          .is('deleted_at', null)
           .order(orderBy, { ascending: false })
           .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
-      )
-    );
+      ),
+      20000,
+      `Pull_${tableName}_p${page}`
+    ).catch((e: any) => ({ data: null, error: e }));
 
     if (error) {
-      await logSync('error', `Falha ao baixar página ${page} de ${tableName}`, error);
+      // Detect auth errors (401/403) — token likely expired
+      const isAuthError = 
+        error?.status === 401 || error?.status === 403 ||
+        error?.message?.includes('JWT') ||
+        error?.message?.includes('not authenticated') ||
+        error?.code === 'PGRST301';
+      
+      if (isAuthError) {
+        throw new Error('TOKEN_EXPIRED: Sua sessão expirou. Fazendo login automático...');
+      }
+      await logSync('error', `Falha ao baixar página ${page} de ${tableName}`, { code: error?.code, message: error?.message });
       break;
     }
 
@@ -247,27 +259,24 @@ export async function syncData(isManual: boolean = false) {
     const { user } = useAuthStore.getState();
     if (!user) throw new Error('Usuário não autenticado');
 
-    // ✅ FIXED PING: Use getSession which refreshes the token automatically.
-    // This also validates that the Supabase session is valid before doing any network ops.
-    try {
-      const sessionResult = await withTimeout(
-        supabase.auth.getSession(),
-        8000,
-        'Auth_Session_Check'
-      );
-      const session = sessionResult?.data?.session;
-      if (!session) {
-        // Session expired — clear user state so the app redirects to login
+    // ✅ RESILIENT SESSION CHECK:
+    // Use the in-memory cached session first — avoids network call on every sync.
+    // Supabase auto-refreshes the token lazily when making actual API calls.
+    // If user is in the store, we're good. If the token is truly expired,
+    // the first real API call below will fail with 401, and we catch it there.
+    const { data: sessionData } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
+    
+    if (!sessionData?.session) {
+      // No valid session — try to get user from store as last resort
+      // (token might still be valid but getSession() failed due to network)
+      const storeUser = useAuthStore.getState().user;
+      if (!storeUser) {
         useAuthStore.getState().signOut();
         throw new Error('Sessão expirada. Por favor, faça login novamente.');
       }
-    } catch (pingErr: any) {
-      // If it's a timeout error, the network is unreachable (not a bad token)
-      const msg = pingErr?.message || String(pingErr);
-      if (msg.includes('TIMEOUT') || msg.includes('fetch')) {
-        throw new Error(`Sem conexão com o servidor. Verifique a internet e tente novamente.`);
-      }
-      throw pingErr; // Re-throw auth errors as-is
+      // storeUser exists but no session from network — proceed anyway.
+      // The actual API calls will validate. Log a warning but don't block.
+      await logSync('warn', '⚠️ Sessão não confirmada via rede, usando cache local. Tentando sincronizar...');
     }
 
     await logSync('info', '🔄 Iniciando Sincronização com Soft Delete...', { manual: isManual });
@@ -613,8 +622,28 @@ export async function syncData(isManual: boolean = false) {
   } catch (err: any) {
     // ✅ IMPROVED ERROR: Log the real error for debugging, show clear message to user
     const errDetail = err?.message || String(err);
-    await logSync('error', `❌ Erro na sincronização "${errDetail}"`, err);
-    if (isManual) alert('❌ Erro na sincronização:\n' + errDetail);
+    
+    // Detect token expiry — force re-login
+    if (errDetail.includes('TOKEN_EXPIRED') || errDetail.includes('JWT') || errDetail.includes('not authenticated')) {
+      await logSync('warn', '🔐 Token expirado detectado. Renovando sessão...');
+      try {
+        // Try to refresh the token
+        const { data: refreshData } = await supabase.auth.refreshSession();
+        if (!refreshData?.session) {
+          useAuthStore.getState().signOut();
+          await logSync('error', '❌ Sessão não pôde ser renovada. Login necessário.');
+          if (isManual) alert('Sua sessão expirou. Por favor, faça login novamente.');
+        } else {
+          await logSync('info', '✅ Sessão renovada. Sync será retentado na próxima oportunidade.');
+          if (isManual) alert('Sessão renovada! Por favor, tente sincronizar novamente.');
+        }
+      } catch {
+        useAuthStore.getState().signOut();
+      }
+    } else {
+      await logSync('error', `❌ Erro na sincronização "${errDetail}"`, {});
+      if (isManual) alert('❌ Erro na sincronização:\n' + errDetail);
+    }
   } finally {
     (window as any).isSyncingGlobally = false;
   }
