@@ -108,7 +108,10 @@ function App() {
 
   // Online Status & Sync Recovery
   useEffect(() => {
-    if (!initialized || !user) return;
+    if (!initialized || !user) {
+      import('./services/realtimeService').then(m => m.stopRealtimeSync()).catch(() => {});
+      return;
+    }
 
     const syncPendingData = async () => {
       if (navigator.onLine) {
@@ -117,12 +120,16 @@ function App() {
       }
     };
 
+    // Start realtime listeners (pull-only)
+    import('./services/realtimeService').then(m => m.startRealtimeSync()).catch(console.error);
+
     window.addEventListener('online', syncPendingData);
     const interval = setInterval(syncPendingData, 5 * 60 * 1000); // 5 min check
 
     return () => {
       window.removeEventListener('online', syncPendingData);
       clearInterval(interval);
+      import('./services/realtimeService').then(m => m.stopRealtimeSync()).catch(() => {});
     };
   }, [initialized, user]);
 
