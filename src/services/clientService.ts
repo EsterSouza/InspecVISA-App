@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import type { Client } from '../types';
+import { useAuthStore } from '../store/useAuthStore';
 
 /**
  * Maps a Postgres row to the local Client type.
@@ -93,15 +94,17 @@ export const ClientService = {
     const { data: userData } = await supabase.auth.getUser();
     if (!userData?.user) throw new Error('Usuário não autenticado.');
 
+    const tenantId = useAuthStore.getState().tenantInfo?.tenantId;
+
     const pgData = mapToPostgres(client);
     
     // Explicitly set updated_at
     pgData.updated_at = new Date().toISOString();
     
-    // Se for novo, garantir que tem o user_id. (O tenant_id é injetado pelo trigger ou RLS se configurado,
-    // mas por segurança podemos passar. Mas a migration recente de RLS já garante isso ou o app envia.
-    // O backend já faz isso via `user_id` em muitos casos.
     pgData.user_id = userData.user.id;
+    if (tenantId) {
+      pgData.tenant_id = tenantId;
+    }
 
     const { error } = await supabase
       .from('clients')

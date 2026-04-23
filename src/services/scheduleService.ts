@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import type { Schedule } from '../types';
+import { useAuthStore } from '../store/useAuthStore';
 
 export const ScheduleService = {
   async getSchedules(): Promise<Schedule[]> {
@@ -33,7 +34,9 @@ export const ScheduleService = {
     const { data: userData } = await supabase.auth.getUser();
     if (!userData?.user) throw new Error('Usuário não autenticado.');
 
-    const pgData = {
+    const tenantId = useAuthStore.getState().tenantInfo?.tenantId;
+
+    const pgData: any = {
       id: schedule.id,
       client_id: schedule.clientId,
       scheduled_at: schedule.scheduledAt.toISOString(),
@@ -42,6 +45,10 @@ export const ScheduleService = {
       user_id: userData.user.id,
       updated_at: new Date().toISOString()
     };
+    
+    if (tenantId) {
+      pgData.tenant_id = tenantId;
+    }
 
     const { error } = await supabase
       .from('schedules')
