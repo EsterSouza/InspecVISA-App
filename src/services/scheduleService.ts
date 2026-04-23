@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { Schedule } from '../types';
+import type { Schedule } from '../types';
 
 export const ScheduleService = {
   async getSchedules(): Promise<Schedule[]> {

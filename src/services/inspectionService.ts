@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { Inspection, InspectionScore, Response } from '../types';
+import type { Inspection, InspectionScore, InspectionResponse } from '../types';
 
 export const InspectionService = {
   async getInspectionsByClient(clientId: string): Promise<Inspection[]> {
@@ -42,9 +42,9 @@ export const InspectionService = {
     }));
   },
 
-  async getResponsesByInspections(inspectionIds: string[]): Promise<Response[]> {
+  async getResponsesByInspections(inspectionIds: string[]): Promise<InspectionResponse[]> {
     if (inspectionIds.length === 0) return [];
-    
+
     const { data, error } = await supabase
       .from('responses')
       .select('*')
@@ -66,6 +66,7 @@ export const InspectionService = {
       customDescription: row.custom_description || undefined,
       responsible: row.responsible || undefined,
       deadline: row.deadline || undefined,
+      photos: [], // Requires a separate fetch if photos are needed
       createdAt: new Date(row.created_at),
       updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
       tenantId: row.tenant_id,

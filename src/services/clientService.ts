@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { Client } from '../types';
+import type { Client } from '../types';
 
 /**
  * Maps a Postgres row to the local Client type.
