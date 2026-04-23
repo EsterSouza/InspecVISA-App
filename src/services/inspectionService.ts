@@ -68,7 +68,7 @@ export const InspectionService = {
       deadline: row.deadline || undefined,
       photos: [], // Requires a separate fetch if photos are needed
       createdAt: new Date(row.created_at),
-      updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
+      updatedAt: row.updated_at ? new Date(row.updated_at) : new Date(row.created_at),
       tenantId: row.tenant_id,
       deletedAt: row.deleted_at ? new Date(row.deleted_at) : null,
       synced: 1
