@@ -51,16 +51,7 @@ export function Sidebar() {
           <ShieldCheck className="h-6 w-6 text-primary-600 mr-2" />
           <span className="text-xl font-bold tracking-tight text-gray-900">InspecVISA</span>
         </div>
-        {!isClient && (
-          <button
-            onClick={handleSync}
-            disabled={isSyncing}
-            className={`p-2 rounded-lg hover:bg-gray-100 transition-colors ${isSyncing ? 'text-primary-600' : 'text-gray-400'}`}
-            title="Sincronizar agora"
-          >
-            <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
-          </button>
-        )}
+
       </div>
 
       <nav className="flex-1 space-y-2 p-4">

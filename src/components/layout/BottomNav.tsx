@@ -70,19 +70,7 @@ export function BottomNav() {
           );
         })}
         
-        {/* Mobile Sync Button */}
-        {!isClient && (
-          <button
-            onClick={handleManualSync}
-            disabled={isSyncing}
-            className={`flex flex-col items-center justify-center space-y-1 p-2 ${
-              isSyncing ? 'text-primary-600' : 'text-gray-500 hover:text-gray-900'
-            }`}
-          >
-            <RefreshCw className={`h-5 w-5 ${isSyncing ? 'animate-spin text-primary-600' : ''}`} />
-            <span className="text-[10px] font-medium">Sync</span>
-          </button>
-        )}
+
 
         {/* Settings/Ajustes moved to last position as requested for staff */}
         {!isClient && (

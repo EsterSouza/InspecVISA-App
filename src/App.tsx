@@ -113,22 +113,10 @@ function App() {
       return;
     }
 
-    const syncPendingData = async () => {
-      if (navigator.onLine) {
-        // Envia qualquer dado que ficou pendente no Dexie enquanto estava sem sinal
-        import('./services/syncService').then(m => m.syncData().catch(console.error));
-      }
-    };
-
     // Start realtime listeners (pull-only)
     import('./services/realtimeService').then(m => m.startRealtimeSync()).catch(console.error);
 
-    window.addEventListener('online', syncPendingData);
-    const interval = setInterval(syncPendingData, 5 * 60 * 1000); // 5 min check
-
     return () => {
-      window.removeEventListener('online', syncPendingData);
-      clearInterval(interval);
       import('./services/realtimeService').then(m => m.stopRealtimeSync()).catch(() => {});
     };
   }, [initialized, user]);
