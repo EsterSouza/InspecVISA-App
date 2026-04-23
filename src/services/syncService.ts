@@ -682,9 +682,93 @@ export async function syncClientsOnly() {
     }
     
     await pullDeletedRecords('clients', db.clients);
-    await logSync('info', 'Sync rápido concluído');
+    await logSync('info', 'Sync rápido de clientes concluído');
   } catch (err) {
-    console.error('Failed fast sync', err);
+    console.error('Failed fast sync clients', err);
+  } finally {
+    (window as any).isSyncingGlobally = false;
+  }
+}
+
+export async function syncInspectionsOnly() {
+  const { user } = useAuthStore.getState();
+  if (!user || (window as any).isSyncingGlobally) return;
+  
+  (window as any).isSyncingGlobally = true;
+  try {
+    await logSync('info', 'Sync rápido de inspeções...');
+    
+    const remoteInspec = await pullAllPages('inspections');
+    if (remoteInspec.length > 0) {
+      for (const ri of remoteInspec) {
+        const local = await db.inspections.get(ri.id);
+        const serverUpdate = new Date(ri.updated_at || ri.created_at);
+        const localUpdate = local?.updatedAt ? new Date(local.updatedAt) : undefined;
+
+        if (!local || shouldUpdateLocal(serverUpdate, localUpdate)) {
+          await db.inspections.put({
+            id: ri.id, clientId: ri.client_id, templateId: ri.template_id,
+            consultantName: ri.consultant_name, inspectionDate: new Date(ri.inspection_date),
+            status: ri.status as any, observations: ri.observations,
+            createdAt: new Date(ri.created_at), updatedAt: serverUpdate,
+            completedAt: ri.completed_at ? new Date(ri.completed_at) : undefined,
+            ilpiCapacity: ri.ilpi_capacity, residentsTotal: ri.residents_total,
+            residentsMale: ri.residents_male, residentsFemale: ri.residents_female,
+            dependencyLevel1: ri.dependency_level1, dependencyLevel2: ri.dependency_level2,
+            dependencyLevel3: ri.dependency_level3, accompanistName: ri.accompanist_name,
+            accompanistRole: ri.accompanist_role, signatureDataUrl: ri.signature_data_url,
+            tenantId: ri.tenant_id, 
+            deletedAt: ri.deleted_at ? new Date(ri.deleted_at) : null,
+            synced: 1
+          });
+        } else if (local && local.synced === 0) {
+          await db.inspections.update(ri.id, { synced: 1 });
+        }
+      }
+    }
+    
+    await pullDeletedRecords('inspections', db.inspections);
+    await logSync('info', 'Sync rápido de inspeções concluído');
+  } catch (err) {
+    console.error('Failed fast sync inspections', err);
+  } finally {
+    (window as any).isSyncingGlobally = false;
+  }
+}
+
+export async function syncSchedulesOnly() {
+  const { user } = useAuthStore.getState();
+  if (!user || (window as any).isSyncingGlobally) return;
+  
+  (window as any).isSyncingGlobally = true;
+  try {
+    await logSync('info', 'Sync rápido de agendamentos...');
+    
+    const remoteSch = await pullAllPages('schedules');
+    if (remoteSch.length > 0) {
+      for (const rs of remoteSch) {
+        const local = await db.schedules.get(rs.id);
+        const serverUpdate = new Date(rs.updated_at || rs.created_at);
+        const localUpdate = local?.updatedAt ? new Date(local.updatedAt) : undefined;
+
+        if (!local || shouldUpdateLocal(serverUpdate, localUpdate)) {
+          await db.schedules.put({
+            id: rs.id, clientId: rs.client_id, scheduledAt: new Date(rs.scheduled_at),
+            status: rs.status as any, notes: rs.notes, user_id: rs.user_id, 
+            updatedAt: serverUpdate, tenantId: rs.tenant_id, 
+            deletedAt: rs.deleted_at ? new Date(rs.deleted_at) : null,
+            synced: 1
+          });
+        } else if (local && local.synced === 0) {
+          await db.schedules.update(rs.id, { synced: 1 });
+        }
+      }
+    }
+    
+    await pullDeletedRecords('schedules', db.schedules);
+    await logSync('info', 'Sync rápido de agendamentos concluído');
+  } catch (err) {
+    console.error('Failed fast sync schedules', err);
   } finally {
     (window as any).isSyncingGlobally = false;
   }
