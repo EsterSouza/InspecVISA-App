@@ -7,7 +7,7 @@ import { Card, CardContent } from '../components/ui/Card';
 import { Calendar, Clock, Plus, Trash2, CheckCircle, AlertCircle, User, Play, Edit2, Loader2, WifiOff } from 'lucide-react';
 import { ScheduleService } from '../services/scheduleService';
 import { ClientService } from '../services/clientService';
-import { useAuthStore } from '../store/authStore';
+import { useAuthStore } from '../store/useAuthStore';
 
 export function Schedules() {
   const navigate = useNavigate();

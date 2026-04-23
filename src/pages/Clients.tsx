@@ -9,7 +9,7 @@ import { Modal } from '../components/ui/Modal';
 import { generateId } from '../utils/imageUtils';
 import { useNavigate } from 'react-router-dom';
 import { ClientService } from '../services/clientService';
-import { useAuthStore } from '../store/authStore';
+import { useAuthStore } from '../store/useAuthStore';
 
 export function Clients() {
   const navigate = useNavigate();
