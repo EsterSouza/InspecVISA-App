@@ -16,12 +16,10 @@ const Clients = lazy(() => import('./pages/Clients').then(m => ({ default: m.Cli
 const ClientDetails = lazy(() => import('./pages/ClientDetails').then(m => ({ default: m.ClientDetails })));
 const Schedules = lazy(() => import('./pages/Schedules').then(m => ({ default: m.Schedules })));
 const Settings = lazy(() => import('./pages/Settings').then(m => ({ default: m.Settings })));
-const ImportLegacyData = lazy(() => import('./pages/ImportLegacyData').then(m => ({ default: m.ImportLegacyData })));
 const Inspections = lazy(() => import('./pages/Inspections').then(m => ({ default: m.Inspections })));
 const NewInspection = lazy(() => import('./pages/NewInspection').then(m => ({ default: m.NewInspection })));
 const InspectionExecution = lazy(() => import('./pages/InspectionExecution').then(m => ({ default: m.InspectionExecution })));
 const InspectionSummary = lazy(() => import('./pages/InspectionSummary').then(m => ({ default: m.InspectionSummary })));
-const Debug = lazy(() => import('./pages/Debug').then(m => ({ default: m.Debug })));
 const AccessDenied = lazy(() => import('./pages/AccessDenied').then(m => ({ default: m.AccessDenied })));
 
 const AdminLayout = lazy(() => import('./components/layout/AdminLayout').then(m => ({ default: m.AdminLayout })));
@@ -157,7 +155,6 @@ function App() {
               <Route path="/clients/:id" element={<ProtectedRoute><ClientDetails /></ProtectedRoute>} />
               <Route path="/schedules" element={<ProtectedRoute><Schedules /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-              <Route path="/importar-dados" element={<ProtectedRoute><ImportLegacyData /></ProtectedRoute>} />
               <Route path="/inspections" element={<Inspections />} />
               <Route path="/new" element={<NewInspection />} />
               <Route path="/execute" element={<InspectionExecution />} />
@@ -168,7 +165,6 @@ function App() {
               <Route path="/templates/:id" element={<TemplateDetail />} />
               <Route path="/templates/:id/edit" element={<TemplateEditor />} />
               <Route path="/legislations" element={<LegislationsManager />} />
-              <Route path="/debug" element={<Debug />} />
               <Route path="/access-denied" element={<AccessDenied />} />
             </Routes>
           </Suspense>

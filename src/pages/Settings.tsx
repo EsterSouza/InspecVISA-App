@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
-import { forcePushFinalData } from '../utils/forceSync';
 
 export function Settings() {
   const { settings, updateSettings, clearData } = useSettingsStore();
@@ -262,109 +261,6 @@ export function Settings() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Database className="mr-2 h-5 w-5 text-primary-600" />
-            Backup e Sincronização Manual
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-gray-600">
-            Utilize estas opções para mover seus dados entre dispositivos (ex: do celular para o computador) ou para manter uma cópia de segurança completa (incluindo fotos).
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Button variant="outline" onClick={handleExport} className="w-full">
-              <Download className="mr-2 h-4 w-4" />
-              Exportar Banco (.json)
-            </Button>
-            <div className="relative">
-              <input
-                type="file"
-                accept=".json"
-                className="hidden"
-                id="import-db"
-                onChange={handleImport}
-              />
-              <Button 
-                variant="outline" 
-                onClick={() => document.getElementById('import-db')?.click()}
-                className="w-full"
-              >
-                <Upload className="mr-2 h-4 w-4" />
-                Importar Banco (.json)
-              </Button>
-            </div>
-          </div>
-          <div className="rounded-md bg-blue-50 p-3 flex items-start space-x-3 border border-blue-100">
-             <RefreshCw className="h-5 w-5 text-blue-600 shrink-0 mt-0.5 animate-spin-slow" />
-             <div className="text-xs text-blue-800 space-y-1">
-               <p><strong>Consolidação de Equipe:</strong> Peça para Ana e Ester exportarem seus bancos e te enviarem. </p>
-               <p>Ao importar os arquivos delas no seu computador "Mestre", o Dashboard mostrará a média e as recorrências de **todas** as inspeções somadas.</p>
-             </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="bg-primary-50 border-primary-200">
-        <CardHeader>
-          <CardTitle className="flex items-center text-primary-900">
-            <Wifi className="mr-2 h-5 w-5" />
-            Migração Final (Online-Direct)
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-primary-700 mb-4">
-            Como migramos para uma arquitetura <strong>100% Online</strong>, use este botão para garantir que qualquer dado antigo do seu celular seja enviado agora para a nuvem.
-          </p>
-          <Button 
-            onClick={handleForceSync} 
-            disabled={syncing}
-            className="w-full bg-primary-600 hover:bg-primary-700 shadow-lg shadow-primary-200 py-6"
-          >
-            {syncing ? <Loader2 className="animate-spin mr-2" /> : <ShieldCheck className="mr-2 h-5 w-5" />}
-            {syncing ? 'Sincronizando...' : 'SINCRONIZAR TUDO AGORA'}
-          </Button>
-        </CardContent>
-      </Card>
-
-      <Card className="bg-slate-50 border-slate-200">
-        <CardHeader>
-          <CardTitle className="flex items-center text-slate-700">
-            <Bug className="mr-2 h-5 w-5" />
-            Suporte e Diagnóstico
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-slate-600 mb-4">
-            Se a sincronização não estiver funcionando, use esta ferramenta para identificar o erro técnico.
-          </p>
-          <Link to="/debug">
-            <Button variant="outline" className="w-full">
-              Ver Logs de Sincronização
-            </Button>
-          </Link>
-        </CardContent>
-      </Card>
-
-      <Card className="bg-purple-50 border-purple-200 shadow-sm hover:shadow-md transition-shadow">
-        <CardHeader>
-          <CardTitle className="flex items-center text-purple-700">
-            <Upload className="mr-2 h-5 w-5" />
-            Migração de Dados (Equipe)
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-purple-600 mb-4 font-medium">
-            Importe o backup da conta antiga da Ana para consolidar as inspeções de Nutrição com os seus registros atuais.
-          </p>
-          <Link to="/importar-dados">
-            <Button variant="outline" className="w-full border-purple-300 text-purple-700 hover:bg-purple-100 font-bold">
-              Iniciar Consolidação Inteligente
-            </Button>
-          </Link>
-        </CardContent>
-      </Card>
 
       <Card className="border-amber-100 bg-amber-50">
         <CardContent className="p-6">

@@ -1,8 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, Users, ClipboardCheck, PlusCircle, Settings, RefreshCw, User, Calendar, BookOpen } from 'lucide-react';
+import { Home, Users, ClipboardCheck, PlusCircle, Settings, User, Calendar } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
-import { syncData } from '../../services/syncService';
 
 const staffNavItems = [
   { to: '/',            icon: Home,          label: 'Início' },
@@ -22,19 +21,6 @@ export function BottomNav() {
   const { tenantInfo } = useAuthStore();
   const isClient = tenantInfo?.role === 'client';
   const navItems = isClient ? clientNavItems : staffNavItems;
-  const [isSyncing, setIsSyncing] = React.useState(false);
-
-  const handleManualSync = async () => {
-    if (isSyncing) return;
-    setIsSyncing(true);
-    try {
-      await syncData();
-    } catch (err) {
-      console.error('Manual sync failed', err);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white pb-safe lg:hidden">
@@ -48,7 +34,7 @@ export function BottomNav() {
               className={({ isActive }) => {
                 if (item.main) {
                   return `flex h-12 w-12 items-center justify-center rounded-full text-white shadow-md transition-transform active:scale-95 ${
-                    isActive ? 'bg-primary-700 ring-4 ring-primary-100' : 'bg-primary-600'
+                    isActive ? 'bg-primary-700' : 'bg-primary-600 hover:bg-primary-700'
                   }`;
                 }
                 return `flex flex-col items-center justify-center space-y-1 p-2 ${
@@ -69,10 +55,7 @@ export function BottomNav() {
             </NavLink>
           );
         })}
-        
 
-
-        {/* Settings/Ajustes moved to last position as requested for staff */}
         {!isClient && (
           <NavLink
             to="/settings"

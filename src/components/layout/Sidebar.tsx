@@ -1,12 +1,11 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   Home, Users, ClipboardCheck, PlusCircle, Settings,
-  ShieldCheck, LogOut, RefreshCw, Calendar, User, BookOpen, FileText
+  ShieldCheck, LogOut, Calendar, User, BookOpen, FileText
 } from 'lucide-react';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import { syncData } from '../../services/syncService';
 
 const staffNavItems = [
   { to: '/',            icon: Home,          label: 'Início' },
@@ -28,21 +27,9 @@ const clientNavItems = [
 export function Sidebar() {
   const settings = useSettingsStore((s) => s.settings);
   const { signOut, tenantInfo } = useAuthStore();
-  const [isSyncing, setIsSyncing] = useState(false);
 
   const isClient = tenantInfo?.role === 'client';
   const navItems = isClient ? clientNavItems : staffNavItems;
-
-  const handleSync = async () => {
-    setIsSyncing(true);
-    try {
-      await syncData();
-    } catch (err) {
-      console.error('Manual sync failed:', err);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
   return (
     <aside className="hidden w-64 flex-col border-r border-gray-200 bg-white lg:flex h-screen sticky top-0">
@@ -51,7 +38,6 @@ export function Sidebar() {
           <ShieldCheck className="h-6 w-6 text-primary-600 mr-2" />
           <span className="text-xl font-bold tracking-tight text-gray-900">InspecVISA</span>
         </div>
-
       </div>
 
       <nav className="flex-1 space-y-2 p-4">
@@ -84,7 +70,6 @@ export function Sidebar() {
           );
         })}
       </nav>
-
 
       <div className="border-t border-gray-100 p-4">
         <div className="flex items-center justify-between">
