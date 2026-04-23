@@ -6,10 +6,8 @@ import { compressImage } from '../utils/imageUtils';
 import { db } from '../db/database';
 import { exportDatabase, importDatabase } from '../utils/backup';
 import { 
-  Save, Upload, Trash2, Database, Download, RefreshCw, 
-  Bug, LogOut, Loader2, ShieldCheck, Wifi 
+  Save, Upload, Trash2, LogOut
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 
 export function Settings() {
@@ -85,25 +83,6 @@ export function Settings() {
     }
   };
 
-  const [syncing, setSyncing] = useState(false);
-  const handleForceSync = async () => {
-    if (!navigator.onLine) {
-      alert('Você precisa estar online para realizar a migração final.');
-      return;
-    }
-    
-    if (window.confirm('Isso enviará todos os registros locais que ainda não estão na nuvem. Deseja iniciar a migração final?')) {
-      setSyncing(true);
-      try {
-        const result = await forcePushFinalData();
-        alert(`Migração Concluída!\nEnviados: ${result.totalSynced}\nErros: ${result.errors}`);
-      } catch (err) {
-        alert('Erro durante o push: ' + err);
-      } finally {
-        setSyncing(false);
-      }
-    }
-  };
 
   return (
     <div className="mx-auto max-w-3xl p-4 sm:p-6 lg:p-8 space-y-6">
