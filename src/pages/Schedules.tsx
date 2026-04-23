@@ -1,22 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { db } from '../db/database';
 import type { Client, Schedule } from '../types';
 import { formatDateTime, generateId } from '../utils/imageUtils';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
-import { Calendar, Clock, Plus, Trash2, CheckCircle, AlertCircle, User, Play, Edit2 } from 'lucide-react';
-import { syncData } from '../services/syncService';
-import { deleteSchedule } from '../db/database';
+import { Calendar, Clock, Plus, Trash2, CheckCircle, AlertCircle, User, Play, Edit2, Loader2, WifiOff } from 'lucide-react';
+import { ScheduleService } from '../services/scheduleService';
+import { ClientService } from '../services/clientService';
+import { useAuthStore } from '../store/authStore';
 
 export function Schedules() {
   const navigate = useNavigate();
+  const { user } = useAuthStore();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   // Form State
   const [selectedClientId, setSelectedClientId] = useState('');
@@ -28,14 +30,12 @@ export function Schedules() {
     setLoading(true);
     try {
       const [sList, cList] = await Promise.all([
-        db.schedules.toArray().then(list => list.filter(s => !s.deletedAt)),
-        db.clients.toArray().then(list => list.filter(c => !c.deletedAt))
+        ScheduleService.getSchedules(),
+        ClientService.getClients()
       ]);
       
-      // Revive dates and populate client names
       const revivedSchedules = sList.map(s => ({
         ...s,
-        scheduledAt: s.scheduledAt instanceof Date ? s.scheduledAt : new Date(s.scheduledAt),
         clientName: cList.find(c => c.id === s.clientId)?.name
       }));
 
@@ -56,32 +56,40 @@ export function Schedules() {
   };
 
   useEffect(() => {
-    // 1. Carrega dados locais imediatamente (experiência rápida)
-    loadData().then(() => {
-      // 2. Sincroniza em background e recarrega ao concluir
-      syncData().then(loadData).catch(console.error);
-    });
+    loadData();
+  }, [user]);
+
+  useEffect(() => {
+    const updateOnlineStatus = () => setIsOnline(navigator.onLine);
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+    return () => {
+      window.removeEventListener('online', updateOnlineStatus);
+      window.removeEventListener('offline', updateOnlineStatus);
+    };
   }, []);
 
   const handleSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isOnline) {
+      alert('Sem conexão com a internet. Não é possível agendar no momento.');
+      return;
+    }
     if (!selectedClientId || !scheduledDate || !scheduledTime) return;
 
     try {
       const scheduledAt = new Date(`${scheduledDate}T${scheduledTime}`);
       
       if (isEditing && editingId) {
-        const existing = await db.schedules.get(editingId);
+        const existing = schedules.find(s => s.id === editingId);
         if (!existing) return;
         const updated = {
           ...existing,
           clientId: selectedClientId,
           scheduledAt,
           notes: notes,
-          updatedAt: new Date(),
         };
-        // Use onlineUpsert to sync to Supabase
-        await db.onlineUpsert('schedules', updated, db.schedules);
+        await ScheduleService.saveSchedule(updated);
       } else {
         const newSchedule: Schedule = {
           id: generateId(),
@@ -90,16 +98,14 @@ export function Schedules() {
           status: 'pending',
           notes: notes,
         };
-        // ✅ salva na nuvem diretamente (mesmo padrão do edit)
-        await db.onlineUpsert('schedules', newSchedule, db.schedules);
+        await ScheduleService.saveSchedule(newSchedule);
       }
 
       setIsModalOpen(false);
       resetForm();
       loadData();
-      syncData().catch(console.error);
-    } catch (err) {
-      alert('Erro ao salvar agendamento: ' + err);
+    } catch (err: any) {
+      alert('Erro ao salvar agendamento: ' + err.message);
     }
   };
 
@@ -126,11 +132,14 @@ export function Schedules() {
   };
 
   const handleDelete = async (id: string) => {
+    if (!isOnline) {
+      alert('Sem conexão com a internet. Não é possível excluir no momento.');
+      return;
+    }
     if (confirm('Deseja excluir este agendamento?')) {
       try {
-        await deleteSchedule(id);
+        await ScheduleService.deleteSchedule(id);
         loadData();
-        syncData().catch(console.error);
       } catch (err) {
         console.error(err);
         alert('Erro ao excluir agendamento.');
@@ -139,9 +148,17 @@ export function Schedules() {
   };
 
   const handleComplete = async (id: string) => {
-    await db.schedules.update(id, { status: 'completed' });
-    loadData();
-    syncData().catch(console.error);
+    if (!isOnline) {
+      alert('Sem conexão com a internet. Não é possível concluir no momento.');
+      return;
+    }
+    try {
+      await ScheduleService.completeSchedule(id);
+      loadData();
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao concluir agendamento.');
+    }
   };
 
   const upcomingSchedules = schedules.filter(s => s.status === 'pending');
