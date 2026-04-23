@@ -58,7 +58,7 @@ export function Schedules() {
 
   useEffect(() => {
     loadData();
-  }, [user]);
+  }, []);
 
   useEffect(() => {
     const channel = supabase

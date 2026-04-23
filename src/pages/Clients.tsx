@@ -47,7 +47,7 @@ export function Clients() {
     }
   };
 
-  useEffect(() => { loadClients(); }, [search, filterCat, user]);
+  useEffect(() => { loadClients(); }, [search, filterCat]);
 
   useEffect(() => {
     const updateOnlineStatus = () => setIsOnline(navigator.onLine);

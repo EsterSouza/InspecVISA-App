@@ -22,96 +22,85 @@ export function Dashboard() {
 
   useEffect(() => {
     const loadData = async () => {
-      // Tentar sincronizar em background ao carregar
-      syncData().catch(console.error);
-
-      // Get upcoming schedules
-      const upcoming = await db.schedules
-        .where('status')
-        .equals('pending')
-        .toArray();
-      
-      const sortedUpcoming = upcoming
-        .filter(s => !s.deletedAt && s.scheduledAt >= new Date()) // ✅ SOFT DELETE
-        .sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime())
-        .slice(0, 3);
-      
-      for (const s of sortedUpcoming) {
-        const client = await db.clients.get(s.clientId);
-        if (client) s.clientName = client.name;
-      }
-      setNextSchedules(sortedUpcoming);
-
-      // Get latest 5 inspections
-      const inspections = await db.inspections
-        .orderBy('createdAt')
-        .reverse()
-        .filter(i => !i.deletedAt) // ✅ SOFT DELETE
-        .limit(5)
-        .toArray();
-
-      // Populate client names
-      for (const insp of inspections) {
-        const client = await db.clients.get(insp.clientId);
-        if (client) insp.clientName = client.name;
-      }
-      setRecentInspections(inspections);
-
-      // Get basic stats
-      const active = await db.inspections
-        .where('status').equals('in_progress')
-        .filter(i => !i.deletedAt) // ✅ SOFT DELETE
-        .count();
-
-      const completedList = await db.inspections
-        .where('status').equals('completed')
-        .filter(i => !i.deletedAt) // ✅ SOFT DELETE
-        .toArray();
-      
-      let totalPct = 0;
-      const allTemplates = getTemplates();
-      
-      for (const insp of completedList) {
-        const resp = await db.responses
-          .where('inspectionId').equals(insp.id)
-          .filter(r => !r.deletedAt) // ✅ SOFT DELETE
-          .toArray();
-        const template = allTemplates.find(t => t.id === insp.templateId);
-        if (template) {
-          const score = calculateScore(resp, template.sections);
-          totalPct += score.scorePercentage;
+      try {
+        // Get upcoming schedules directly from Supabase
+        const { ScheduleService } = await import('../services/scheduleService');
+        const { ClientService } = await import('../services/clientService');
+        const { InspectionService } = await import('../services/inspectionService');
+        
+        const allSchedules = await ScheduleService.getSchedules();
+        const clients = await ClientService.getClients();
+        const allInspections = await InspectionService.getAllInspections();
+        
+        const sortedUpcoming = allSchedules
+          .filter(s => s.status === 'pending' && s.scheduledAt >= new Date())
+          .sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime())
+          .slice(0, 3);
+        
+        for (const s of sortedUpcoming) {
+          const client = clients.find(c => c.id === s.clientId);
+          if (client) s.clientName = client.name;
         }
+        setNextSchedules(sortedUpcoming);
+
+        // Get latest 5 inspections
+        const recent = [...allInspections]
+          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+          .slice(0, 5);
+
+        // Populate client names
+        for (const insp of recent) {
+          const client = clients.find(c => c.id === insp.clientId);
+          if (client) insp.clientName = client.name;
+        }
+        setRecentInspections(recent);
+
+        // Get basic stats
+        const active = allInspections.filter(i => i.status === 'in_progress').length;
+        const completedList = allInspections.filter(i => i.status === 'completed');
+        
+        let totalPct = 0;
+        const allTemplates = getTemplates();
+        
+        for (const insp of completedList) {
+          const resp = await InspectionService.getResponsesByInspectionId(insp.id);
+          const template = allTemplates.find(t => t.id === insp.templateId);
+          if (template) {
+            const score = calculateScore(resp, template.sections);
+            totalPct += score.scorePercentage;
+          }
+        }
+
+        setStats({ 
+          totalActive: active, 
+          totalCompleted: completedList.length,
+          avgScore: completedList.length > 0 ? Math.round(totalPct / completedList.length) : 0
+        });
+
+        // Calculate Recurring Issues
+        const itemCounts: Record<string, number> = {};
+        for (const insp of completedList) {
+          const resp = await InspectionService.getResponsesByInspectionId(insp.id);
+          resp.filter(r => r.result === 'not_complies').forEach(nc => {
+            itemCounts[nc.itemId] = (itemCounts[nc.itemId] || 0) + 1;
+          });
+        }
+
+        const sortedItems = Object.entries(itemCounts)
+          .sort(([, a], [, b]) => b - a)
+          .slice(0, 3);
+
+        const items: {item: ChecklistItem, count: number}[] = [];
+        const allChecklistItems = allTemplates.flatMap(t => t.sections.flatMap(s => s.items));
+
+        for (const [id, count] of sortedItems) {
+          const found = allChecklistItems.find(i => i.id === id);
+          if (found) items.push({ item: found, count });
+        }
+        setRecurringIssues(items);
+      } catch (err) {
+        console.error('Error loading dashboard data:', err);
       }
-
-      setStats({ 
-        totalActive: active, 
-        totalCompleted: completedList.length,
-        avgScore: completedList.length > 0 ? Math.round(totalPct / completedList.length) : 0
-      });
-
-      // Calculate Recurring Issues
-      const allNCs = await db.responses
-        .where('result').equals('not_complies')
-        .filter(r => !r.deletedAt) // ✅ SOFT DELETE
-        .toArray();
-      const itemCounts: Record<string, number> = {};
-      allNCs.forEach(nc => {
-        itemCounts[nc.itemId] = (itemCounts[nc.itemId] || 0) + 1;
-      });
-
-      const sortedItems = Object.entries(itemCounts)
-        .sort(([, a], [, b]) => b - a)
-        .slice(0, 3);
-
-      const items: {item: ChecklistItem, count: number}[] = [];
-      const templates = getTemplates();
-      const allChecklistItems = templates.flatMap(t => t.sections.flatMap(s => s.items));
-
-      for (const [id, count] of sortedItems) {
-        const found = allChecklistItems.find(i => i.id === id);
-        if (found) items.push({ item: found, count });
-      }
-      setRecurringIssues(items);
     };
     loadData();
   }, []);
