@@ -31,25 +31,35 @@ export const TemplateService = {
   async syncAllTemplatesToDexie(): Promise<ChecklistTemplate[]> {
     try {
       console.log('[TemplateService] Starting background sync of templates...');
-      
-      // 1. Fetch templates and sections
-      const [tplsObj, secsObj] = await Promise.all([
-        withTimeout<any>(supabase.from('checklist_templates').select('*'), 15000, 'SyncTemplates'),
-        withTimeout<any>(supabase.from('checklist_sections').select('*'), 15000, 'SyncSections')
+
+      const timeout = <T>(ms: number, label: string) =>
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error(`TIMEOUT: ${label} took longer than ${ms}ms`)), ms));
+
+      // 1. Fetch templates and sections with proper Promise.race timeout
+      const [tplsResult, secsResult] = await Promise.all([
+        Promise.race([
+          supabase.from('checklist_templates').select('*'),
+          timeout(12000, 'SyncTemplates')
+        ]),
+        Promise.race([
+          supabase.from('checklist_sections').select('*'),
+          timeout(12000, 'SyncSections')
+        ])
       ]);
 
-      const tpls = tplsObj.data || [];
-      const secs = secsObj.data || [];
+      const tpls = (tplsResult as any).data || [];
+      const secs = (secsResult as any).data || [];
 
       if (!tpls.length) return [];
 
-      // 2. Fetch all items (can be heavy)
-      const { data: items, error: iError } = await withTimeout<any>(
+      // 2. Fetch all items
+      const itemsResult = await Promise.race([
         supabase.from('checklist_items').select('*'),
-        30000, // 30s for full library
-        'SyncItems'
-      );
+        timeout(30000, 'SyncItems')
+      ]);
 
+      const items = (itemsResult as any).data;
+      const iError = (itemsResult as any).error;
       if (iError || !items) throw iError || new Error('No items found');
 
       // 3. Optimized mapping

@@ -66,79 +66,91 @@ export function InspectionExecution() {
         return;
       }
 
-      // 1. Fetch from Supabase
-      const insp = await InspectionService.getInspectionById(id);
+      // ── PHASE 1: Load from Dexie immediately (< 5ms) ──────────────────────
+      const localInsp = await db.inspections.get(id);
 
-      if (!insp) {
-        setLoadError('Inspeção não encontrada no servidor. Verifique sua conexão.');
-        setLoading(false);
-        return;
-      }
+      if (localInsp) {
+        // Resolve template from cache right away
+        let tpl: any = getTemplateById(localInsp.templateId) || await db.templates.get(localInsp.templateId);
+        if (tpl) setTemplate(tpl);
 
-      // 2. Load template (Static Memory -> Dexie Cache -> Supabase)
-      let tpl = getTemplateById(insp.templateId); // Try static first (fastest)
-      
-      if (!tpl) {
-        // Try Dexie cache next
-        try {
-          tpl = await withTimeout(Promise.resolve(db.templates.get(insp.templateId)), 2000, 'DexieTemplateGet');
-        } catch (e) {
-          console.warn('[Execution] Dexie template read failed/timeout, skipping.', e);
-        }
-      }
-      
-      if (!tpl && navigator.onLine) {
-        // Fallback to Supabase
-        try {
-          const { TemplateService } = await import('../services/templateService');
-          tpl = await withTimeout(TemplateService.getFullTemplate(insp.templateId), 5000, 'SupabaseTemplateGet');
-          if (tpl) {
-            // Save to Dexie for future offline use (non-blocking)
-            db.templates.put(tpl).catch(() => {});
-          }
-        } catch (e) {
-          console.error('[Execution] Failed to fetch remote template:', e);
-        }
-      }
-
-      if (tpl) {
-        setTemplate(tpl);
-      }
-
-      // 3. Enrich with client data
-      const client = await ClientService.getClientById(insp.clientId);
-      if (client) {
-        insp.clientName = client.name;
-        insp.clientCategory = client.category;
-        insp.foodTypes = client.foodTypes;
-        insp.city = client.city;
-        insp.state = client.state;
-      }
-
-      // 4. Load responses from Supabase
-      const resps = await InspectionService.getResponsesByInspectionId(id);
-
-      // 5. Attach photos (photos are still in Dexie for now, or need a separate service)
-      // For now, let's keep photos in Dexie as they are large blobs, but ideally they go to Supabase Storage.
-      for (const r of resps) {
-        r.photos = await db.photos
-          .where('responseId').equals(r.id)
-          .filter(p => !p.deletedAt)
+        // Load local responses immediately
+        const localResps = await db.responses
+          .where('inspectionId').equals(id)
+          .filter(r => !r.deletedAt)
           .toArray();
+        for (const r of localResps) {
+          r.photos = await db.photos.where('responseId').equals(r.id).filter(p => !p.deletedAt).toArray();
+        }
+
+        setCurrentInspection(localInsp);
+        setResponses(localResps);
+        setLoading(false); // ← render now with local data
       }
 
-      setCurrentInspection(insp);
-      setResponses(resps);
+      // ── PHASE 2: Background enrichment from Supabase ──────────────────────
+      // (runs whether or not we had local data — also handles first-ever load)
+      void (async () => {
+        try {
+          // Fetch canonical inspection from service (already non-blocking internally)
+          const insp = await InspectionService.getInspectionById(id);
 
-      // 6. Load previous inspection non-compliances
-      if (previousInspectionId) {
-        const prevResps = await InspectionService.getResponsesByInspectionId(previousInspectionId);
-        setPrevNCIds(prevResps.filter(r => r.result === 'not_complies').map(r => r.itemId));
-      }
+          if (!insp) {
+            if (!localInsp) {
+              setLoadError('Inspeção não encontrada. Verifique sua conexão.');
+              setLoading(false);
+            }
+            return;
+          }
+
+          // Enrich with client name
+          const client = await ClientService.getClientById(insp.clientId);
+          if (client) {
+            insp.clientName = client.name;
+            insp.clientCategory = client.category;
+            insp.foodTypes = client.foodTypes;
+            insp.city = client.city;
+            insp.state = client.state;
+          }
+
+          // Resolve template (fallback chain: static → Dexie → Supabase)
+          let tpl: any = getTemplateById(insp.templateId) || await db.templates.get(insp.templateId);
+          if (!tpl && navigator.onLine) {
+            try {
+              const { TemplateService } = await import('../services/templateService');
+              tpl = await TemplateService.getFullTemplate(insp.templateId);
+              if (tpl) db.templates.put(tpl).catch(() => {});
+            } catch (e) {
+              console.warn('[Execution] Remote template fetch failed:', e);
+            }
+          }
+          if (tpl) setTemplate(tpl);
+
+          // Fetch responses (service returns local + triggers background Supabase pull)
+          const resps = await InspectionService.getResponsesByInspectionId(id);
+          for (const r of resps) {
+            r.photos = await db.photos.where('responseId').equals(r.id).filter(p => !p.deletedAt).toArray();
+          }
+
+          setCurrentInspection(insp);
+          setResponses(resps);
+
+          // Load previous inspection NCs if applicable
+          if (previousInspectionId) {
+            const prevResps = await InspectionService.getResponsesByInspectionId(previousInspectionId);
+            setPrevNCIds(prevResps.filter(r => r.result === 'not_complies').map(r => r.itemId));
+          }
+        } catch (err) {
+          console.error('[loadData] Background enrichment error:', err);
+          // Don't reset loading here — Phase 1 already showed data
+        } finally {
+          setLoading(false); // ensure loading clears even on first-ever load path
+        }
+      })();
+
     } catch (err) {
-      console.error('[loadData] Error:', err);
+      console.error('[loadData] Critical error:', err);
       setLoadError('Erro ao carregar dados da inspeção.');
-    } finally {
       setLoading(false);
     }
   }, [location.state?.inspectionId, location.state?.previousInspectionId]);

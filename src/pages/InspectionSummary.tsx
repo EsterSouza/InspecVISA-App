@@ -45,60 +45,84 @@ export function InspectionSummary() {
     const loadData = async () => {
       try {
         setLoading(true);
-        // 1. Load inspection from Supabase
-        const insp = await InspectionService.getInspectionById(inspectionId);
 
-        if (!insp) {
-          throw new Error('Inspection not found');
-        }
-        
-        // 2. Load client data
-        const client = await ClientService.getClientById(insp.clientId);
-        if (client) {
-          insp.clientName = client.name;
-          insp.clientCategory = client.category;
-          insp.city = client.city;
-          insp.state = client.state;
-        }
+        // ── PHASE 1: Render from Dexie immediately ─────────────────────────
+        const localInsp = await db.inspections.get(inspectionId);
 
-        const clients = await ClientService.getClients();
-        setAllClients(clients);
-
-        // 3. Load responses from Supabase
-        const remoteResps = await InspectionService.getResponsesByInspectionId(inspectionId);
-        
-        // 4. Attach photos (photos are still in Dexie for now)
-        for (const r of remoteResps) {
-          r.photos = await db.photos.where('responseId').equals(r.id).toArray();
-        }
-
-        // 5. Resolve template
-        let tpl = await db.templates.get(insp.templateId);
-        if (!tpl) {
-          tpl = getTemplateById(insp.templateId);
-        }
-
-        if (!tpl && navigator.onLine) {
-          try {
-            const { TemplateService } = await import('../services/templateService');
-            tpl = await TemplateService.getFullTemplate(insp.templateId);
-            if (tpl) await db.templates.put(tpl);
-          } catch (e) {
-            console.error('Failed to fetch template in Summary:', e);
+        if (localInsp) {
+          const localResps = await db.responses
+            .where('inspectionId').equals(inspectionId)
+            .filter(r => !r.deletedAt)
+            .toArray();
+          for (const r of localResps) {
+            r.photos = await db.photos.where('responseId').equals(r.id).toArray();
           }
-        }
-        
-        const legs = await LegislationService.listLegislations();
 
-        setInspection(insp);
-        setResponses(remoteResps);
-        setLegislations(legs);
-        setTemplate(tpl ? enrichTemplate(tpl, client || (insp as any)) : null);
+          let tpl: ChecklistTemplate | undefined = await db.templates.get(localInsp.templateId);
+          if (!tpl) tpl = getTemplateById(localInsp.templateId) as any;
+
+          setInspection(localInsp);
+          setResponses(localResps);
+          if (tpl) setTemplate(enrichTemplate(tpl, localInsp as any) as any);
+          setLoading(false); // ← unblock UI immediately
+        }
+
+        // ── PHASE 2: Background enrichment from Supabase ───────────────────
+        void (async () => {
+          try {
+            const insp = await InspectionService.getInspectionById(inspectionId);
+            if (!insp) {
+              if (!localInsp) navigate('/inspections');
+              return;
+            }
+
+            // Client data
+            const client = await ClientService.getClientById(insp.clientId);
+            if (client) {
+              insp.clientName = client.name;
+              insp.clientCategory = client.category;
+              insp.city = client.city;
+              insp.state = client.state;
+            }
+
+            const clients = await ClientService.getClients();
+            setAllClients(clients);
+
+            // Responses
+            const remoteResps = await InspectionService.getResponsesByInspectionId(inspectionId);
+            for (const r of remoteResps) {
+              r.photos = await db.photos.where('responseId').equals(r.id).toArray();
+            }
+
+            // Template (static → Dexie → Supabase)
+            let tpl: ChecklistTemplate | undefined | null = await db.templates.get(insp.templateId);
+            if (!tpl) tpl = getTemplateById(insp.templateId) as any;
+            if (!tpl && navigator.onLine) {
+              try {
+                const { TemplateService } = await import('../services/templateService');
+                tpl = await TemplateService.getFullTemplate(insp.templateId);
+                if (tpl) await db.templates.put(tpl);
+              } catch (e) {
+                console.error('[Summary] Failed to fetch template remotely:', e);
+              }
+            }
+
+            const legs = await LegislationService.listLegislations();
+
+            setInspection(insp);
+            setResponses(remoteResps);
+            setLegislations(legs);
+            setTemplate(tpl ? enrichTemplate(tpl, client || (insp as any)) as any : null);
+          } catch (err) {
+            console.error('[InspectionSummary] Background enrichment error:', err);
+          } finally {
+            setLoading(false);
+          }
+        })();
+
       } catch (err) {
         console.error('[InspectionSummary] loadData error:', err);
         navigate('/inspections');
-      } finally {
-        setLoading(false);
       }
     };
 

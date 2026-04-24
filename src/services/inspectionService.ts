@@ -98,23 +98,33 @@ export const InspectionService = {
   mapPhotoToPostgres,
 
   async getInspectionById(id: string): Promise<Inspection | null> {
+    // 1. Always return local data first (< 1ms)
     const local = await db.inspections.get(id);
-    const isStale = !local || !local.dataVerifiedAt || (Date.now() - local.dataVerifiedAt.getTime() > 2 * 60 * 1000);
 
+    // 2. Background refresh from Supabase — never blocks the caller
+    const isStale = !local?.dataVerifiedAt || (Date.now() - local.dataVerifiedAt.getTime() > 2 * 60 * 1000);
     if (isStale && navigator.onLine) {
-      const { data, error } = await supabase
-        .from('inspections')
-        .select('*')
-        .eq('id', id)
-        .is('deleted_at', null)
-        .single();
-
-      if (!error && data) {
-        const remote = mapFromPostgres(data);
-        await db.inspections.put(remote);
-        return remote;
-      }
+      void (async () => {
+        try {
+          const result = await Promise.race([
+            supabase.from('inspections').select('*').eq('id', id).is('deleted_at', null).single(),
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('TIMEOUT: getInspectionById')), 8000))
+          ]);
+          const { data, error } = result as any;
+          if (!error && data) {
+            const remote = mapFromPostgres(data);
+            // Only overwrite if local is not pending/conflict (don't stomp on unsaved work)
+            const current = await db.inspections.get(id);
+            if (!current || current.syncStatus === 'synced' || current.syncStatus === 'failed') {
+              await db.inspections.put({ ...remote, dataVerifiedAt: new Date() });
+            }
+          }
+        } catch (err) {
+          console.warn('[InspectionService] Background refresh for', id, 'failed:', err);
+        }
+      })();
     }
+
     return local || null;
   },
 
