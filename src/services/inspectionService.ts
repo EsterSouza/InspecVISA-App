@@ -129,8 +129,25 @@ export const InspectionService = {
   async deleteInspection(id: string): Promise<void> {
     const local = await db.inspections.get(id);
     if (!local) return;
-    const updated = { ...local, deletedAt: new Date(), updatedAt: new Date(), syncStatus: 'pending' as const };
-    await RepositoryService.upsert('inspections', updated, db.inspections, mapToPostgres);
+
+    const now = new Date();
+
+    // 1. Soft-delete the inspection in Dexie immediately (so UI updates before network)
+    const updated = { ...local, deletedAt: now, updatedAt: now, syncStatus: 'pending' as const };
+    await db.inspections.put(updated);
+
+    // 2. Cascade soft-delete related responses in Dexie
+    const responses = await db.responses.where('inspectionId').equals(id).toArray();
+    for (const r of responses) {
+      await db.responses.put({ ...r, deletedAt: now, updatedAt: now, syncStatus: 'pending' as const });
+    }
+
+    // 3. Push deletion to Supabase in the background
+    if (navigator.onLine) {
+      RepositoryService.pushToRemote('inspections', updated, db.inspections, mapToPostgres).catch(err =>
+        console.warn('[InspectionService] Failed to sync deletion:', err)
+      );
+    }
   },
 
   async getResponsesByInspectionId(inspectionId: string): Promise<InspectionResponse[]> {
@@ -185,14 +202,46 @@ export const InspectionService = {
   },
 
   async getAllInspections(): Promise<Inspection[]> {
-    return RepositoryService.getAll<Inspection>(
-      db.inspections,
-      async () => {
-        const { data, error } = await supabase.from('inspections').select('*').is('deleted_at', null).order('created_at', { ascending: false });
-        if (error) throw error;
-        return (data || []).map(mapFromPostgres);
-      },
-      2 * 60 * 1000 // 2m TTL
-    );
+    // Always filter out soft-deleted records from Dexie immediately
+    const local = await db.inspections
+      .filter(i => !i.deletedAt)
+      .reverse()
+      .sortBy('createdAt');
+
+    // Background refresh from Supabase if online
+    if (navigator.onLine) {
+      void (async () => {
+        try {
+          const { data, error } = await supabase
+            .from('inspections')
+            .select('*')
+            .is('deleted_at', null)
+            .order('created_at', { ascending: false });
+          if (error || !data) return;
+
+          const remoteIds = new Set(data.map((r: any) => r.id));
+
+          // Mark local-only records as deleted if absent from remote
+          const allLocal = await db.inspections.toArray();
+          for (const insp of allLocal) {
+            if (!insp.deletedAt && !remoteIds.has(insp.id)) {
+              await db.inspections.put({ ...insp, deletedAt: new Date(), syncStatus: 'synced' as const });
+            }
+          }
+
+          // Upsert records from Supabase
+          for (const row of data) {
+            const localItem = await db.inspections.get(row.id);
+            if (!localItem || localItem.syncStatus === 'synced' || localItem.syncStatus === 'failed') {
+              await db.inspections.put({ ...mapFromPostgres(row), syncStatus: 'synced' as const, dataVerifiedAt: new Date() });
+            }
+          }
+        } catch (err) {
+          console.warn('[InspectionService] Background refresh failed:', err);
+        }
+      })();
+    }
+
+    return local.reverse(); // createdAt descending
   }
 };

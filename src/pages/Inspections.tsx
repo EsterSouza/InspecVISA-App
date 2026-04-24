@@ -75,13 +75,16 @@ export function Inspections() {
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     if (window.confirm('Tem certeza que deseja excluir esta inspeção? Todos os dados e fotos serão perdidos permanentemente.')) {
-      try {
-        await InspectionService.deleteInspection(id);
+      // Optimistic update: remove from UI immediately
+      setInspections(prev => prev.filter(i => i.id !== id));
+      
+      // Fire-and-forget: soft-delete locally + sync to Supabase in background
+      InspectionService.deleteInspection(id).catch(err => {
+        console.error('[Delete] Failed:', err);
+        // Revert optimistic update on failure
         loadInspections();
-      } catch (err) {
-        console.error(err);
-        alert('Erro ao excluir inspeção.');
-      }
+        alert('Erro ao excluir inspeção. Tente novamente.');
+      });
     }
   };
 
