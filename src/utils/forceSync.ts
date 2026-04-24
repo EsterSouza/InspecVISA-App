@@ -16,7 +16,7 @@ export async function forcePushFinalData() {
   let errors = 0;
 
   for (const table of tables) {
-    const pending = await table.dexie.where('synced').equals(0).toArray();
+    const pending = await table.dexie.where('syncStatus').equals('pending').toArray();
     
     if (pending.length === 0) continue;
 
@@ -30,7 +30,7 @@ export async function forcePushFinalData() {
         const { error } = await supabase.from(table.name).upsert(pgRecord);
         
         if (!error) {
-          await table.dexie.update(record.id, { synced: 1 });
+          await table.dexie.update(record.id, { syncStatus: 'synced' } as any);
           totalSynced++;
         } else {
           console.error(`❌ Erro no Supabase (${table.name}:${record.id}):`, error);

@@ -1,11 +1,12 @@
 import { supabase } from '../lib/supabase';
 import type { Client } from '../types';
-import { useAuthStore } from '../store/useAuthStore';
+import { db } from '../db/database';
+import { RepositoryService } from './repositoryService';
 
 /**
  * Maps a Postgres row to the local Client type.
  */
-function mapFromPostgres(row: any): Client {
+export function mapFromPostgres(row: any): Client {
   return {
     id: row.id,
     name: row.name,
@@ -19,17 +20,18 @@ function mapFromPostgres(row: any): Client {
     phone: row.phone || undefined,
     email: row.email || undefined,
     createdAt: new Date(row.created_at),
-    updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
+    updatedAt: new Date(row.updated_at || row.created_at),
     tenantId: row.tenant_id,
     deletedAt: row.deleted_at ? new Date(row.deleted_at) : null,
-    synced: 1
+    syncStatus: 'synced',
+    dataVerifiedAt: new Date()
   };
 }
 
 /**
  * Maps a local Client to a Postgres row.
  */
-function mapToPostgres(client: Client): any {
+export function mapToPostgres(client: Client): any {
   return {
     id: client.id,
     name: client.name,
@@ -43,91 +45,94 @@ function mapToPostgres(client: Client): any {
     phone: client.phone || null,
     email: client.email || null,
     deleted_at: client.deletedAt ? client.deletedAt.toISOString() : null,
-    // created_at and updated_at are handled by the database defaults or explicitly
+    updated_at: client.updatedAt.toISOString(),
+    created_at: client.createdAt.toISOString(),
+    tenant_id: client.tenantId
   };
 }
 
 export const ClientService = {
+  mapToPostgres,
+  mapFromPostgres,
+
   /**
-   * Fetch all active clients for the current tenant.
-   * RLS automatically filters by tenant.
+   * Fetch all active clients.
+   * Hybrid approach: Returns Dexie data immediately + triggers background refresh.
    */
   async getClients(): Promise<Client[]> {
-    const { data, error } = await supabase
-      .from('clients')
-      .select('*')
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false });
+    return RepositoryService.getAll<Client>(
+      db.clients,
+      async () => {
+        const { data, error } = await supabase
+          .from('clients')
+          .select('*')
+          .is('deleted_at', null)
+          .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Error fetching clients:', error);
-      throw new Error('Falha ao carregar clientes do servidor.');
-    }
-
-    return (data || []).map(mapFromPostgres);
+        if (error) throw error;
+        return (data || []).map(mapFromPostgres);
+      },
+      5 * 60 * 1000 // 5m TTL
+    );
   },
 
   /**
-   * Fetch a single client by ID
+   * Fetch a single client by ID.
+   * Hybrid approach: Dexie first, then server if stale.
    */
   async getClientById(id: string): Promise<Client | null> {
-    const { data, error } = await supabase
-      .from('clients')
-      .select('*')
-      .eq('id', id)
-      .is('deleted_at', null)
-      .single();
+    const local = await db.clients.get(id);
+    
+    // If not in local or stale, fetch from server
+    const isStale = !local || !local.dataVerifiedAt || (Date.now() - local.dataVerifiedAt.getTime() > 5 * 60 * 1000);
+    
+    if (isStale && navigator.onLine) {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('id', id)
+        .is('deleted_at', null)
+        .single();
 
-    if (error) {
-      if (error.code === 'PGRST116') return null; // Not found
-      console.error('Error fetching client by ID:', error);
-      throw new Error('Falha ao carregar dados do cliente.');
+      if (!error && data) {
+        const remote = mapFromPostgres(data);
+        await db.clients.put(remote);
+        return remote;
+      }
     }
 
-    return data ? mapFromPostgres(data) : null;
+    return local || null;
   },
 
   /**
-   * Save or Update a client directly in Supabase.
+   * Save or Update a client.
+   * Hybrid approach: Save locally immediately -> enfileira push.
    */
-  async saveClient(client: Client): Promise<void> {
-    const { data: userData } = await supabase.auth.getUser();
-    if (!userData?.user) throw new Error('Usuário não autenticado.');
-
-    const tenantId = useAuthStore.getState().tenantInfo?.tenantId;
-
-    const pgData = mapToPostgres(client);
-    
-    // Explicitly set updated_at
-    pgData.updated_at = new Date().toISOString();
-    
-    pgData.user_id = userData.user.id;
-    if (tenantId) {
-      pgData.tenant_id = tenantId;
-    }
-
-    const { error } = await supabase
-      .from('clients')
-      .upsert(pgData);
-
-    if (error) {
-      console.error('Error saving client:', error);
-      throw new Error(`Falha ao salvar cliente: ${error.message}`);
-    }
+  async saveClient(client: Client): Promise<Client> {
+    return RepositoryService.upsert<Client>(
+      'clients',
+      client,
+      db.clients,
+      mapToPostgres
+    );
   },
 
   /**
-   * Soft delete a client directly in Supabase.
+   * Soft delete a client.
    */
   async deleteClient(id: string): Promise<void> {
-    const { error } = await supabase
-      .from('clients')
-      .update({ deleted_at: new Date().toISOString() })
-      .eq('id', id);
-
-    if (error) {
-      console.error('Error deleting client:', error);
-      throw new Error('Falha ao excluir cliente no servidor.');
+    const now = new Date();
+    await db.clients.update(id, { 
+      deletedAt: now, 
+      syncStatus: 'pending', 
+      updatedAt: now 
+    });
+    
+    if (navigator.onLine) {
+      const item = await db.clients.get(id);
+      if (item) {
+        RepositoryService.pushToRemote('clients', item, db.clients, mapToPostgres);
+      }
     }
   }
 };

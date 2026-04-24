@@ -48,7 +48,7 @@ export const useInspectionStore = create<InspectionState>((set) => ({
         const local = updated[localIdx];
         
         // Safety check 1: Don't overwrite unsynced local changes
-        if (local && local.synced === 0) continue;
+        if (local && local.syncStatus !== 'synced') continue;
 
         // Safety check 2: Compare timestamps
         const serverUpdate = new Date(rr.updatedAt || rr.createdAt).getTime();
@@ -83,11 +83,11 @@ export const useInspectionStore = create<InspectionState>((set) => ({
             
             // 3. Update internal metadata
             mergedItem.updatedAt = new Date(serverUpdate);
-            mergedItem.synced = 1;
+            mergedItem.syncStatus = 'synced';
             
             updated[localIdx] = mergedItem;
           } else {
-            updated.push({ ...rr, synced: 1 });
+            updated.push({ ...rr, syncStatus: 'synced' });
           }
           hasChanges = true;
         }

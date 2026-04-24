@@ -30,10 +30,12 @@ export const TemplateService = {
 
   async syncAllTemplatesToDexie(): Promise<ChecklistTemplate[]> {
     try {
-      // 1. Fetch templates and sections first (relatively lightweight)
+      console.log('[TemplateService] Starting background sync of templates...');
+      
+      // 1. Fetch templates and sections
       const [tplsObj, secsObj] = await Promise.all([
-        withTimeout<any>(supabase.from('checklist_templates').select('*'), 5000, 'SyncTemplates'),
-        withTimeout<any>(supabase.from('checklist_sections').select('*'), 5000, 'SyncSections')
+        withTimeout<any>(supabase.from('checklist_templates').select('*'), 15000, 'SyncTemplates'),
+        withTimeout<any>(supabase.from('checklist_sections').select('*'), 15000, 'SyncSections')
       ]);
 
       const tpls = tplsObj.data || [];
@@ -41,17 +43,16 @@ export const TemplateService = {
 
       if (!tpls.length) return [];
 
-      // 2. Fetch all items (heavier, but necessary for offline)
-      // We do one big fetch of items to keep it to 3 requests total
+      // 2. Fetch all items (can be heavy)
       const { data: items, error: iError } = await withTimeout<any>(
         supabase.from('checklist_items').select('*'),
-        10000, // Longer timeout for items
+        30000, // 30s for full library
         'SyncItems'
       );
 
       if (iError || !items) throw iError || new Error('No items found');
 
-      // 3. Optimized mapping (using Maps for O(1) lookups instead of O(N^2) filters)
+      // 3. Optimized mapping
       const itemsBySection = new Map<string, any[]>();
       items.forEach((i: any) => {
         const list = itemsBySection.get(i.section_id) || [];
@@ -65,6 +66,8 @@ export const TemplateService = {
         list.push(s);
         sectionsByTemplate.set(s.template_id, list);
       });
+
+      console.log(`[TemplateService] Successfully fetched ${tpls.length} templates from server.`);
 
       return tpls.map((t: any) => {
         const tSecs = (sectionsByTemplate.get(t.id) || []).sort((a: any, b: any) => a.order - b.order);
@@ -93,7 +96,7 @@ export const TemplateService = {
         } as ChecklistTemplate;
       });
     } catch (err) {
-      console.warn('Failed to sync full remote templates:', err);
+      console.error('[TemplateService] Failed to sync full remote templates:', err);
       return [];
     }
   },

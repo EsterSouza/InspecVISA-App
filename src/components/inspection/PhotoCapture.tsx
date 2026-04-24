@@ -28,6 +28,8 @@ export function PhotoCapture({ inputId, photos, onAddPhoto, onRemovePhoto }: Pho
         responseId: '', // will be set by parent
         dataUrl,
         takenAt: new Date(),
+        updatedAt: new Date(),
+        syncStatus: 'pending'
       });
       // Reset input
       if (fileInputRef.current) fileInputRef.current.value = '';

@@ -200,7 +200,7 @@ export async function consolidateLegacyData(
       }
       
       if (updated) {
-        updates.synced = 0;
+        updates.syncStatus = 'pending';
         updates.updatedAt = new Date();
         await db.clients.update(match.id, updates);
         report.clientsMerged++;
@@ -234,7 +234,7 @@ export async function consolidateLegacyData(
         createdAt: new Date(legacyClient.created_at || legacyClient.createdAt),
         updatedAt: new Date(),
         deletedAt: null,
-        synced: 0
+        syncStatus: 'pending'
       });
       
       report.clientsMerged++;
@@ -267,7 +267,7 @@ export async function consolidateLegacyData(
       }
       
       if (updated) {
-        updates.synced = 0;
+        updates.syncStatus = 'pending';
         updates.updatedAt = new Date();
         await db.inspections.update(match.id, updates);
       }
@@ -313,7 +313,7 @@ export async function consolidateLegacyData(
         createdAt: new Date(legacyInspection.created_at || legacyInspection.createdAt),
         updatedAt: new Date(),
         deletedAt: null,
-        synced: 0
+        syncStatus: 'pending'
       });
       
       report.inspectionsCreated++;
@@ -355,7 +355,7 @@ export async function consolidateLegacyData(
       createdAt: new Date(legacyResponse.created_at || legacyResponse.createdAt),
       updatedAt: new Date(),
       deletedAt: null,
-      synced: 0
+      syncStatus: 'pending'
     });
     
     report.responsesMerged++;
@@ -393,7 +393,7 @@ export async function consolidateLegacyData(
       takenAt: new Date(legacyPhoto.taken_at || legacyPhoto.takenAt),
       updatedAt: new Date(),
       deletedAt: null,
-      synced: 0
+      syncStatus: 'pending'
     });
     
     report.photosImported++;
@@ -427,7 +427,7 @@ export async function consolidateLegacyData(
       user_id: legacySchedule.user_id || legacySchedule.userId, // ✅ Fix: user_id
       updatedAt: new Date(),
       deletedAt: null,
-      synced: 0
+      syncStatus: 'pending'
     });
     
     report.schedulesImported++;

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useAuthStore } from '../../store/useAuthStore';
+import { SyncIndicator } from '../ui/SyncIndicator';
 
 const staffNavItems = [
   { to: '/',            icon: Home,          label: 'Início' },
@@ -38,6 +39,7 @@ export function Sidebar() {
           <ShieldCheck className="h-6 w-6 text-primary-600 mr-2" />
           <span className="text-xl font-bold tracking-tight text-gray-900">InspecVISA</span>
         </div>
+        <SyncIndicator />
       </div>
 
       <nav className="flex-1 space-y-2 p-4">

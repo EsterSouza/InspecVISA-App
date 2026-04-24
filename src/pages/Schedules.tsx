@@ -111,6 +111,8 @@ export function Schedules() {
           scheduledAt,
           status: 'pending',
           notes: notes,
+          updatedAt: new Date(),
+          syncStatus: 'pending'
         };
         await ScheduleService.saveSchedule(newSchedule);
       }

@@ -5,6 +5,8 @@ import { getTemplates } from './data/templates';
 import { useSettingsStore } from './store/useSettingsStore';
 import { useAuthStore } from './store/useAuthStore';
 import { Loader2 } from 'lucide-react';
+import { SyncIndicator } from './components/ui/SyncIndicator';
+import { SyncQueueService } from './services/syncQueueService';
 
 // Layout
 import { Sidebar } from './components/layout/Sidebar';
@@ -111,13 +113,28 @@ function App() {
 
     initApp().catch((err) => {
       console.error('[App] Fatal init error:', err);
-      // Even on fatal error, unblock UI
       if (!didCancel) setIsInitializing(false);
     }).finally(() => {
       clearTimeout(safetyTimer);
+      // Start background sync service
+      SyncQueueService.start();
     });
 
-    return () => { didCancel = true; clearTimeout(safetyTimer); };
+    // Warning before leaving with pending items
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (SyncQueueService.hasPending()) {
+        e.preventDefault();
+        e.returnValue = 'Você tem alterações pendentes que ainda não foram salvas na nuvem. Deseja realmente sair?';
+        return e.returnValue;
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => { 
+      didCancel = true; 
+      clearTimeout(safetyTimer); 
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
   }, [initialize]);
 
   // Online Status & Connectivity Check
@@ -142,6 +159,7 @@ function App() {
       <div className="flex h-screen flex-col items-center justify-center bg-gray-50">
         <Loader2 className="h-10 w-10 animate-spin text-primary-600 mb-4" />
         <p className="text-gray-500 font-medium">Conectando ao InspecVISA...</p>
+        <div className="mt-4"><SyncIndicator /></div>
       </div>
     );
   }

@@ -1,89 +1,89 @@
 import { supabase } from '../lib/supabase';
 import type { Schedule } from '../types';
-import { useAuthStore } from '../store/useAuthStore';
+import { db } from '../db/database';
+import { RepositoryService } from './repositoryService';
+
+export function mapFromPostgres(row: any): Schedule {
+  return {
+    id: row.id,
+    clientId: row.client_id,
+    scheduledAt: new Date(row.scheduled_at),
+    status: row.status,
+    notes: row.notes || undefined,
+    user_id: row.user_id,
+    updatedAt: new Date(row.updated_at || row.scheduled_at),
+    tenantId: row.tenant_id,
+    deletedAt: row.deleted_at ? new Date(row.deleted_at) : null,
+    syncStatus: 'synced',
+    dataVerifiedAt: new Date()
+  };
+}
+
+export function mapToPostgres(schedule: Schedule): any {
+  return {
+    id: schedule.id,
+    client_id: schedule.clientId,
+    scheduled_at: schedule.scheduledAt.toISOString(),
+    status: schedule.status,
+    notes: schedule.notes || null,
+    user_id: schedule.user_id,
+    updated_at: schedule.updatedAt.toISOString(),
+    tenant_id: schedule.tenantId,
+    deleted_at: schedule.deletedAt ? schedule.deletedAt.toISOString() : null
+  };
+}
 
 export const ScheduleService = {
+  mapToPostgres,
+  mapFromPostgres,
+
   async getSchedules(): Promise<Schedule[]> {
-    const { data, error } = await supabase
-      .from('schedules')
-      .select('*')
-      .is('deleted_at', null)
-      .order('scheduled_at', { ascending: false });
+    return RepositoryService.getAll<Schedule>(
+      db.schedules,
+      async () => {
+        const { data, error } = await supabase
+          .from('schedules')
+          .select('*')
+          .is('deleted_at', null)
+          .order('scheduled_at', { ascending: false });
 
-    if (error) {
-      console.error('Error fetching schedules:', error);
-      throw new Error('Falha ao carregar agendamentos do servidor.');
-    }
-
-    return (data || []).map(row => ({
-      id: row.id,
-      clientId: row.client_id,
-      scheduledAt: new Date(row.scheduled_at),
-      status: row.status,
-      notes: row.notes || undefined,
-      user_id: row.user_id,
-      createdAt: new Date(row.created_at || row.scheduled_at),
-      updatedAt: row.updated_at ? new Date(row.updated_at) : undefined,
-      tenantId: row.tenant_id,
-      deletedAt: row.deleted_at ? new Date(row.deleted_at) : null,
-      synced: 1
-    }));
+        if (error) throw error;
+        return (data || []).map(mapFromPostgres);
+      },
+      2 * 60 * 1000 // 2m TTL
+    );
   },
 
-  async saveSchedule(schedule: Schedule): Promise<void> {
-    const { data: userData } = await supabase.auth.getUser();
-    if (!userData?.user) throw new Error('Usuário não autenticado.');
-
-    const tenantId = useAuthStore.getState().tenantInfo?.tenantId;
-
-    const pgData: any = {
-      id: schedule.id,
-      client_id: schedule.clientId,
-      scheduled_at: schedule.scheduledAt.toISOString(),
-      status: schedule.status,
-      notes: schedule.notes || null,
-      user_id: userData.user.id,
-      updated_at: new Date().toISOString()
-    };
-    
-    if (tenantId) {
-      pgData.tenant_id = tenantId;
-    }
-
-    const { error } = await supabase
-      .from('schedules')
-      .upsert(pgData);
-
-    if (error) {
-      console.error('Error saving schedule:', error);
-      throw new Error(`Falha ao salvar agendamento: ${error.message}`);
-    }
+  async saveSchedule(schedule: Schedule): Promise<Schedule> {
+    return RepositoryService.upsert<Schedule>(
+      'schedules',
+      schedule,
+      db.schedules,
+      mapToPostgres
+    );
   },
 
   async deleteSchedule(id: string): Promise<void> {
-    const { error } = await supabase
-      .from('schedules')
-      .update({ deleted_at: new Date().toISOString() })
-      .eq('id', id);
-
-    if (error) {
-      console.error('Error deleting schedule:', error);
-      throw new Error('Falha ao excluir agendamento no servidor.');
+    const now = new Date();
+    await db.schedules.update(id, { 
+      deletedAt: now, 
+      syncStatus: 'pending', 
+      updatedAt: now 
+    });
+    
+    if (navigator.onLine) {
+      const item = await db.schedules.get(id);
+      if (item) {
+        RepositoryService.pushToRemote('schedules', item, db.schedules, mapToPostgres);
+      }
     }
   },
 
   async completeSchedule(id: string): Promise<void> {
-    const { error } = await supabase
-      .from('schedules')
-      .update({ 
-        status: 'completed',
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', id);
-
-    if (error) {
-      console.error('Error completing schedule:', error);
-      throw new Error('Falha ao concluir agendamento no servidor.');
+    const local = await db.schedules.get(id);
+    if (local) {
+      const updated = { ...local, status: 'completed' as const, updatedAt: new Date(), syncStatus: 'pending' as const };
+      await this.saveSchedule(updated);
     }
   }
 };

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FileDown, ArrowLeft, Loader2, Save, Info } from 'lucide-react';
+import { FileDown, ArrowLeft, Loader2, Save, Info, AlertTriangle } from 'lucide-react';
 import { ClientService } from '../services/clientService';
 import { InspectionService } from '../services/inspectionService';
 import { LegislationService, type Legislation } from '../services/legislationService';
@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { formatDateTime } from '../utils/imageUtils';
 import { ScorePanel } from '../components/inspection/ScorePanel';
 import { PdfPreviewModal } from '../components/inspection/PdfPreviewModal';
+import { checkReportReadiness, type ReadinessResult } from '../utils/syncCheck';
 
 export function InspectionSummary() {
   const location = useLocation();
@@ -32,6 +33,7 @@ export function InspectionSummary() {
   const [allClients, setAllClients] = useState<any[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [savingMeta, setSavingMeta] = useState(false);
+  const [readiness, setReadiness] = useState<ReadinessResult | null>(null);
 
   useEffect(() => {
     const inspectionId = location.state?.inspectionId;
@@ -107,6 +109,12 @@ export function InspectionSummary() {
     if (!currentInspection || !template) return null;
     return calculateScore(responses, template.sections);
   }, [currentInspection, responses, template]);
+
+  useEffect(() => {
+    if (currentInspection) {
+      checkReportReadiness(currentInspection.id).then(setReadiness);
+    }
+  }, [currentInspection, responses]);
 
   const handleSaveMetadata = async () => {
     if (!currentInspection) return;
@@ -244,10 +252,21 @@ export function InspectionSummary() {
               Editar Respostas
             </Button>
           </div>
-          <div className="flex space-x-2">
-            <Button onClick={() => setShowPdfModal(true)} disabled={isGenerating}>
+          <div className="flex space-x-2 items-center">
+            {readiness && !readiness.isReady && (
+              <div className="text-[10px] text-amber-600 font-bold bg-amber-50 px-2 py-1 rounded-md border border-amber-100 hidden md:flex items-center gap-1">
+                <AlertTriangle size={10} />
+                Dados Pendentes (Offline)
+              </div>
+            )}
+            <Button 
+              onClick={() => setShowPdfModal(true)} 
+              disabled={isGenerating}
+              variant={readiness?.isReady ? 'default' : 'outline'}
+              className={!readiness?.isReady ? 'border-amber-200 text-amber-700' : ''}
+            >
               {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4 hidden sm:block" />}
-              PDF
+              {readiness?.isReady ? 'PDF Final' : 'PDF Provisório'}
             </Button>
           </div>
         </div>

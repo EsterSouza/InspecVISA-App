@@ -106,7 +106,9 @@ export function NewInspection() {
         residentsTotal: residentsTotal ? parseInt(residentsTotal) : undefined,
         dependencyLevel1: dep1 ? parseInt(dep1) : undefined,
         dependencyLevel2: dep2 ? parseInt(dep2) : undefined,
-        dependencyLevel3: dep3 ? parseInt(dep3) : undefined
+        dependencyLevel3: dep3 ? parseInt(dep3) : undefined,
+        updatedAt: new Date(),
+        syncStatus: 'pending'
       };
 
       // ✅ ONLINE-DIRECT: Salva direto no Supabase

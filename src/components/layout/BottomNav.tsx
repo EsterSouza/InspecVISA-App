@@ -2,6 +2,7 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { Home, Users, ClipboardCheck, PlusCircle, Settings, User, Calendar } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
+import { SyncIndicator } from '../ui/SyncIndicator';
 
 const staffNavItems = [
   { to: '/',            icon: Home,          label: 'Início' },
@@ -24,6 +25,11 @@ export function BottomNav() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white pb-safe lg:hidden">
+      <div className="flex justify-center -mt-4 mb-2 pointer-events-none">
+        <div className="pointer-events-auto scale-90 origin-bottom">
+           <SyncIndicator />
+        </div>
+      </div>
       <div className="flex h-16 items-center justify-around px-2">
         {navItems.map((item) => {
           const Icon = item.icon;

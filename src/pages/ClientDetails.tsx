@@ -60,15 +60,15 @@ export function ClientDetails() {
         setClient(clientData);
 
         // Load all inspections for this client
-        const rawInspections = await InspectionService.getInspectionsByClient(id);
-        const allInspIds = rawInspections.map(i => i.id);
+        const rawInspections = await db.inspections.where('clientId').equals(id).toArray();
+        const allInspIds = rawInspections.map((i: any) => i.id);
         
         // Load all responses for these inspections at once
-        const allResponses = await InspectionService.getResponsesByInspections(allInspIds);
+        const allResponses = await db.responses.where('inspectionId').anyOf(allInspIds).toArray();
 
         const inspectionsWithScores = await Promise.all(
-          rawInspections.map(async (insp) => {
-            const responses = allResponses.filter(r => r.inspectionId === insp.id);
+          rawInspections.map(async (insp: any) => {
+            const responses = allResponses.filter((r: any) => r.inspectionId === insp.id);
             const template = await db.templates.get(insp.templateId); // Keep templates in Dexie
             const score = calculateScore(responses, template?.sections || []);
             return { ...insp, score };
@@ -78,7 +78,7 @@ export function ClientDetails() {
         setInspections(inspectionsWithScores);
 
         // --- Calcular Não Conformidades Recorrentes deste cliente ---
-        const notCompliesResponses = allResponses.filter(r => r.result === 'not_complies');
+        const notCompliesResponses = allResponses.filter((r: any) => r.result === 'not_complies');
 
         // Contar por itemId
         const countMap: Record<string, number> = {};
@@ -132,7 +132,7 @@ export function ClientDetails() {
       }
 
       await ClientService.saveClient(updatedClient);
-      setClient({ ...updatedClient, synced: 1 });
+      setClient({ ...updatedClient, syncStatus: 'synced' });
       setIsModalOpen(false);
     } catch (err: any) {
       console.error(err);

@@ -182,7 +182,7 @@ export function InspectionExecution() {
               correctiveAction: rr.corrective_action, responsible: rr.responsible,
               deadline: rr.deadline, customDescription: rr.custom_description,
               createdAt: new Date(rr.created_at), updatedAt: new Date(rr.updated_at || rr.created_at),
-              synced: 1, photos: [],
+              syncStatus: 'synced', photos: [],
             };
             
             mergeResponses([mapped]);
@@ -208,7 +208,7 @@ export function InspectionExecution() {
           correctiveAction: rr.corrective_action, responsible: rr.responsible,
           deadline: rr.deadline, customDescription: rr.custom_description,
           createdAt: new Date(rr.created_at), updatedAt: new Date(rr.updated_at || rr.created_at),
-          synced: 1, photos: [],
+          syncStatus: 'synced', photos: [],
         }));
         mergeResponses(mapped);
       } catch (err) { console.warn('[Sync] fallback pull failed:', err); }
@@ -257,6 +257,7 @@ export function InspectionExecution() {
         photos: [],
         createdAt: new Date(),
         updatedAt: new Date(),
+        syncStatus: 'pending',
       };
       state.addResponse(updated);
     }
@@ -289,7 +290,7 @@ export function InspectionExecution() {
     const state = useInspectionStore.getState();
     const existing = state.responses.find(r => r.itemId === itemId);
     if (existing) {
-      state.updateResponse(existing.id, { photos: [...existing.photos, { ...photo, id: generateId() }] });
+      state.updateResponse(existing.id, { photos: [...(existing.photos || []), { ...photo, id: generateId() }] });
     }
   }, []);
 
@@ -297,7 +298,7 @@ export function InspectionExecution() {
     const state = useInspectionStore.getState();
     const existing = state.responses.find(r => r.itemId === itemId);
     if (existing) {
-      state.updateResponse(existing.id, { photos: existing.photos.filter((p: any) => p.id !== photoId) });
+      state.updateResponse(existing.id, { photos: (existing.photos || []).filter((p: any) => p.id !== photoId) });
     }
   }, []);
 
@@ -332,7 +333,7 @@ export function InspectionExecution() {
       photos: [], 
       createdAt: new Date(), 
       updatedAt: new Date(), 
-      synced: 0,
+      syncStatus: 'pending',
     };
     
     await state.addResponse(newResponse);

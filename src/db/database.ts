@@ -8,9 +8,38 @@ import type {
   Schedule,
   SyncLog,
 } from '../types';
-import { supabase } from '../lib/supabase';
-import { useAuthStore } from '../store/useAuthStore';
-import { withTimeout } from '../utils/network';
+
+// Memory fallback for Incognito/Unsupported environments
+async function setupDexie() {
+  try {
+    if (typeof indexedDB === 'undefined') throw new Error('IndexedDB undefined');
+    // Security check: attempt to open a dummy database
+    const req = indexedDB.open('InspecVISACheck');
+    req.onerror = () => useMemoryFallback();
+    req.onsuccess = (e) => {
+      const dbInstance = (e.target as any).result;
+      dbInstance.close();
+      indexedDB.deleteDatabase('InspecVISACheck');
+    };
+  } catch (e) {
+    console.warn('[DB] IndexedDB error/blocked, falling back to memory', e);
+    await useMemoryFallback();
+  }
+}
+
+async function useMemoryFallback() {
+  try {
+    const { default: FDB } = await import('fake-indexeddb');
+    // @ts-ignore
+    const { default: FKR } = await import('fake-indexeddb/lib/FDBKeyRange').catch(() => ({ default: null }));
+    Dexie.dependencies.indexedDB = FDB;
+    if (FKR) Dexie.dependencies.IDBKeyRange = FKR;
+  } catch (e) {
+    console.error('[DB] Failed to load memory fallback', e);
+  }
+}
+
+setupDexie();
 
 export interface DeletionSync {
   id?: number;
@@ -31,145 +60,18 @@ export class InspectionDatabase extends Dexie {
 
   constructor() {
     super('InspectionDB');
-    this.version(12).stores({ 
-      clients: 'id, category, name, city, state, tenantId, deletedAt, createdAt, updatedAt, synced',
+    this.version(13).stores({
+      clients: 'id, category, name, city, state, tenantId, deletedAt, createdAt, updatedAt, syncStatus, dataVerifiedAt',
       templates: 'id, category',
-      inspections: 'id, clientId, templateId, status, tenantId, deletedAt, [clientId+status], inspectionDate, completedAt, createdAt, updatedAt, synced',
-      responses: 'id, inspectionId, itemId, result, tenantId, deletedAt, updatedAt, synced, [inspectionId+itemId]',
-      photos: 'id, responseId, tenantId, deletedAt, synced',
-      schedules: 'id, clientId, scheduledAt, status, tenantId, deletedAt, updatedAt, synced',
+      inspections: 'id, clientId, templateId, status, tenantId, deletedAt, [clientId+status], inspectionDate, completedAt, createdAt, updatedAt, syncStatus, dataVerifiedAt',
+      responses: 'id, inspectionId, itemId, result, tenantId, deletedAt, updatedAt, syncStatus, dataVerifiedAt, [inspectionId+itemId]',
+      photos: 'id, responseId, tenantId, deletedAt, syncStatus, updatedAt',
+      schedules: 'id, clientId, scheduledAt, status, tenantId, deletedAt, updatedAt, syncStatus, dataVerifiedAt',
       sync_logs: '++id, timestamp, level',
       deletions_sync: '++id, table, recordId'
     });
   }
 
-  /**
-   * ✅ NEW: ONLINE-FIRST UPSERT
-   * Tenta salvar no Supabase primariamente. Se houver erro de conexão, 
-   * salva no Dexie com synced = 0 para posterior sincronização silenciosa.
-   */
-  async onlineUpsert(tableName: string, record: any, dexieTable: Table<any>) {
-    const tenantId = useAuthStore.getState().tenantInfo?.tenantId;
-    const updatedAt = new Date();
-    
-    const enrichedRecord = {
-      ...record,
-      tenantId: record.tenantId || tenantId,
-      updatedAt,
-      synced: 0 // Iniciamos como 0, mudamos para 1 se o Supabase aceitar
-    };
-
-    const pgRecord = this.mapToPostgres(tableName, enrichedRecord);
-
-    if (navigator.onLine) {
-      try {
-        const { error } = await withTimeout<any>(
-          supabase.from(tableName).upsert(pgRecord),
-          20000,
-          `Upsert_${tableName}`
-        );
-        if (!error) {
-          enrichedRecord.synced = 1;
-        } else {
-          console.warn(`[DB] Supabase upsert fail for ${tableName}:`, error);
-        }
-      } catch (err) {
-        console.warn(`[DB] Network error during ${tableName} upsert`, err);
-      }
-    }
-
-    // Always save to Dexie as cache/ref of truth for the UI
-    await dexieTable.put(enrichedRecord);
-    return enrichedRecord;
-  }
-
-  private mapToPostgres(tableName: string, record: any) {
-    // Simple mapper based on existing syncService logic
-    const mapped: any = { ...record };
-    
-    // Convert Dates to ISO strings for PG
-    Object.keys(mapped).forEach(key => {
-      if (mapped[key] instanceof Date) {
-        mapped[key] = mapped[key].toISOString();
-      }
-    });
-
-    // Handle specific table mapping (CamelCase -> SnakeCase)
-    if (tableName === 'clients') {
-      return {
-        id: record.id, name: record.name, cnpj: record.cnpj, address: record.address, 
-        category: record.category, food_types: record.foodTypes, responsible_name: record.responsibleName,
-        phone: record.phone, email: record.email, city: record.city, state: record.state,
-        tenant_id: record.tenantId, deleted_at: record.deletedAt, updated_at: record.updatedAt,
-        created_at: record.createdAt
-      };
-    }
-
-    if (tableName === 'inspections') {
-      return {
-        id: record.id, client_id: record.clientId, template_id: record.templateId,
-        consultant_name: record.consultantName, inspection_date: record.inspectionDate,
-        status: record.status, observations: record.observations, 
-        completed_at: record.completedAt, tenant_id: record.tenantId,
-        deleted_at: record.deletedAt, updated_at: record.updatedAt,
-        created_at: record.createdAt,
-        accompanist_name: record.accompanistName, accompanist_role: record.accompanistRole,
-        ilpi_capacity: record.ilpiCapacity, residents_total: record.residentsTotal,
-        dependency_level1: record.dependencyLevel1, dependency_level2: record.dependencyLevel2,
-        dependency_level3: record.dependencyLevel3,
-        observed_staff: record.observedStaff ?? null,
-        observed_nursing_techs: record.observedNursingTechs ?? null,
-        signature_data_url: record.signatureDataUrl ?? null,
-      };
-    }
-
-    if (tableName === 'responses') {
-       return {
-         id: record.id, inspection_id: record.inspectionId, item_id: record.itemId,
-         result: record.result, situation_description: record.situationDescription,
-         corrective_action: record.correctiveAction, 
-         responsible: record.responsible,
-         deadline: record.deadline,
-         tenant_id: record.tenantId,
-         deleted_at: record.deletedAt, updated_at: record.updatedAt,
-         created_at: record.createdAt, custom_description: record.customDescription
-       };
-    }
-
-    if (tableName === 'photos') {
-      return {
-        id: record.id, response_id: record.responseId, data_url: record.dataUrl,
-        caption: record.caption, taken_at: record.takenAt,
-        tenant_id: record.tenantId, deleted_at: record.deletedAt, updated_at: record.updatedAt
-      };
-    }
-
-    if (tableName === 'schedules') {
-      return {
-        id: record.id, client_id: record.clientId, scheduled_at: record.scheduledAt,
-        status: record.status, notes: record.notes, user_id: record.user_id,
-        tenant_id: record.tenantId, deleted_at: record.deletedAt, updated_at: record.updatedAt
-      };
-    }
-
-    // Default: try to camel->snake simple map for any other tables
-    const pg: any = {};
-    for (const key in mapped) {
-      if (key === 'tenantId') {
-        pg.tenant_id = mapped[key];
-      } else if (key === 'deletedAt') {
-        pg.deleted_at = mapped[key];
-      } else if (key === 'updatedAt') {
-        pg.updated_at = mapped[key];
-      } else if (key === 'createdAt') {
-        pg.created_at = mapped[key];
-      } else {
-        const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-        pg[snakeKey] = mapped[key];
-      }
-    }
-    return pg;
-  }
 }
 
 export const db = new InspectionDatabase();
@@ -184,7 +86,7 @@ export async function initializeDatabase(templates: ChecklistTemplate[]) {
     console.warn('[DB] initializeDatabase called with invalid templates array');
     return;
   }
-  
+
   // Separate remote (have Supabase UUIDs) from static (have tpl-* IDs)
   const remoteTemplates = templates.filter(t => !t.id.startsWith('tpl-'));
   const staticTemplates = templates.filter(t => t.id.startsWith('tpl-'));
@@ -200,70 +102,4 @@ export async function initializeDatabase(templates: ChecklistTemplate[]) {
 
   await db.templates.clear();
   await db.templates.bulkPut(deduped);
-}
-
-// ✅ REFACTORED DELETE (ONLINE-FIRST)
-export async function deleteClient(clientId: string) {
-  const now = new Date();
-  let syncSuccess = false;
-
-  // 1. Tenta deletar no Supabase (Soft Delete)
-  if (navigator.onLine) {
-    try {
-      const { error } = await withTimeout<any>(
-        Promise.resolve(supabase.from('clients').update({ deleted_at: now }).eq('id', clientId).select('id')),
-        3000,
-        'DeleteClient'
-      );
-      if (!error) syncSuccess = true;
-    } catch (err) {
-      console.warn('Falha ao deletar cliente no Supabase, cairá para o Dexie.', err);
-    }
-  }
-
-  // 2. Atualiza localmente
-  await db.clients.update(clientId, { deletedAt: now, synced: syncSuccess ? 1 : 0, updatedAt: now });
-  
-  // Marca inspeções relacionadas
-  await db.inspections.where('clientId').equals(clientId).modify({ deletedAt: now, synced: 0, updatedAt: now });
-}
-
-export async function deleteInspection(inspectionId: string) {
-  const now = new Date();
-  let syncSuccess = false;
-
-  if (navigator.onLine) {
-    try {
-      const { error } = await withTimeout<any>(
-        Promise.resolve(supabase.from('inspections').update({ deleted_at: now }).eq('id', inspectionId).select('id')),
-        3000,
-        'DeleteInspection'
-      );
-      if (!error) syncSuccess = true;
-    } catch (err) {
-      console.warn('Falha ao deletar inspeção no Supabase, cairá para o Dexie.', err);
-    }
-  }
-
-  await db.inspections.update(inspectionId, { deletedAt: now, synced: syncSuccess ? 1 : 0, updatedAt: now });
-}
-
-export async function deleteSchedule(scheduleId: string) {
-  const now = new Date();
-  let syncSuccess = false;
-
-  if (navigator.onLine) {
-    try {
-      const { error } = await withTimeout<any>(
-        Promise.resolve(supabase.from('schedules').update({ deleted_at: now }).eq('id', scheduleId).select('id')),
-        3000,
-        'DeleteSchedule'
-      );
-      if (!error) syncSuccess = true;
-    } catch (err) {
-      console.warn('Falha ao deletar agendamento no Supabase, cairá para o Dexie.', err);
-    }
-  }
-
-  await db.schedules.update(scheduleId, { deletedAt: now, synced: syncSuccess ? 1 : 0, updatedAt: now });
 }

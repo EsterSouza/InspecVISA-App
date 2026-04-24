@@ -490,14 +490,14 @@ export async function generatePDF(
       }
 
       // Photos
-      if (response.photos.length > 0) {
+      if (response.photos && response.photos.length > 0) {
         if (y > pageH - 60) { doc.addPage(); y = margin; }
         const maxImgW = (contentW - 5) / 2;
         const maxImgH = maxImgW * 0.75;
         let col = 0;
         let currentRowMaxH = 0;
 
-        for (const photo of response.photos) {
+        for (const photo of response.photos || []) {
           try {
             const img = new Image();
             img.src = photo.dataUrl;
@@ -543,7 +543,7 @@ export async function generatePDF(
 
   // ── PAGES: EXCELÊNCIA E MELHORIAS ──────────────────────
   const excellenceItems = responses.filter(r =>
-    r.result === 'complies' && (r.situationDescription || r.correctiveAction || r.photos.length > 0)
+    r.result === 'complies' && (r.situationDescription || r.correctiveAction || (r.photos && r.photos.length > 0))
   );
 
   if (excellenceItems.length > 0) {
@@ -610,14 +610,14 @@ export async function generatePDF(
       }
 
       // Photos
-      if (response.photos.length > 0) {
+      if (response.photos && response.photos.length > 0) {
         if (y > pageH - 60) { doc.addPage(); y = margin; }
         const maxImgW = (contentW - 5) / 2;
         const maxImgH = maxImgW * 0.75;
         let col = 0;
         let currentRowMaxH = 0;
 
-        for (const photo of response.photos) {
+        for (const photo of response.photos || []) {
           try {
             const img = new Image();
             img.src = photo.dataUrl;

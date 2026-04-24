@@ -42,10 +42,22 @@ export interface Client {
   phone?: string;
   email?: string;
   createdAt: Date;
-  updatedAt?: Date;
+  updatedAt: Date;
   deletedAt?: Date | null;
   tenantId?: string;
-  synced?: number; // 0=pending, 1=synced
+  syncStatus: SyncStatus;
+  dataVerifiedAt?: Date;
+  syncError?: string;
+  syncAttempts?: number;
+}
+
+export type SyncStatus = 'pending' | 'syncing' | 'synced' | 'conflict' | 'failed';
+
+export interface SyncBase {
+  syncStatus: SyncStatus;
+  dataVerifiedAt?: Date;
+  syncError?: string;
+  syncAttempts?: number;
 }
 
 export interface ChecklistTemplate {
@@ -132,10 +144,13 @@ export interface Inspection {
   observedStaff?: number;
   observedNursingTechs?: number; // RJ specific staff
   signatureDataUrl?: string;
-  updatedAt?: Date;
+  updatedAt: Date;
   deletedAt?: Date | null;
   tenantId?: string;
-  synced?: number; // 0=pending, 1=synced
+  syncStatus: SyncStatus;
+  dataVerifiedAt?: Date;
+  syncError?: string;
+  syncAttempts?: number;
 }
 
 export type ResponseResult = 'complies' | 'not_complies' | 'not_applicable' | 'not_observed' | 'not_evaluated';
@@ -150,12 +165,15 @@ export interface InspectionResponse {
   responsible?: string;
   deadline?: string;
   customDescription?: string; // For ad-hoc items added by consultant
-  photos: InspectionPhoto[];
+  photos?: InspectionPhoto[];
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date | null;
   tenantId?: string;
-  synced?: number; // 0=pending, 1=synced
+  syncStatus: SyncStatus;
+  dataVerifiedAt?: Date;
+  syncError?: string;
+  syncAttempts?: number;
 }
 
 export interface InspectionPhoto {
@@ -164,10 +182,13 @@ export interface InspectionPhoto {
   dataUrl: string; // base64 JPEG
   caption?: string;
   takenAt: Date;
-  updatedAt?: Date;
+  updatedAt: Date;
   deletedAt?: Date | null;
   tenantId?: string;
-  synced?: number; // 0=pending, 1=synced
+  syncStatus: SyncStatus;
+  dataVerifiedAt?: Date;
+  syncError?: string;
+  syncAttempts?: number;
 }
 
 export interface SectionScore {
@@ -232,10 +253,13 @@ export interface Schedule {
   status: 'pending' | 'completed' | 'cancelled';
   notes?: string;
   user_id?: string;
-  updatedAt?: Date;
+  updatedAt: Date;
   deletedAt?: Date | null;
   tenantId?: string;
-  synced?: number; // 0=pending, 1=synced
+  syncStatus: SyncStatus;
+  dataVerifiedAt?: Date;
+  syncError?: string;
+  syncAttempts?: number;
 }
 
 export interface SyncLog {
