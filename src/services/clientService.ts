@@ -60,20 +60,34 @@ export const ClientService = {
    * Hybrid approach: Returns Dexie data immediately + triggers background refresh.
    */
   async getClients(): Promise<Client[]> {
-    return RepositoryService.getAll<Client>(
-      db.clients,
-      async () => {
-        const { data, error } = await supabase
-          .from('clients')
-          .select('*')
-          .is('deleted_at', null)
-          .order('created_at', { ascending: false });
+    // Always filter out soft-deleted clients from Dexie immediately
+    const local = await db.clients
+      .filter(c => !c.deletedAt)
+      .toArray();
 
-        if (error) throw error;
-        return (data || []).map(mapFromPostgres);
-      },
-      5 * 60 * 1000 // 5m TTL
-    );
+    // Background refresh from Supabase if online
+    if (navigator.onLine) {
+      void (async () => {
+        try {
+          const { data, error } = await supabase
+            .from('clients')
+            .select('*')
+            .is('deleted_at', null)
+            .order('created_at', { ascending: false });
+          if (error || !data) return;
+          for (const row of data) {
+            const localItem = await db.clients.get(row.id);
+            if (!localItem || localItem.syncStatus === 'synced' || localItem.syncStatus === 'failed') {
+              await db.clients.put({ ...mapFromPostgres(row), dataVerifiedAt: new Date() });
+            }
+          }
+        } catch (err) {
+          console.warn('[ClientService] Background refresh failed:', err);
+        }
+      })();
+    }
+
+    return local;
   },
 
   /**
@@ -81,27 +95,24 @@ export const ClientService = {
    * Hybrid approach: Dexie first, then server if stale.
    */
   async getClientById(id: string): Promise<Client | null> {
+    // 1. Return local immediately (never block the caller)
     const local = await db.clients.get(id);
-    
-    // If not in local or stale, fetch from server
-    const isStale = !local || !local.dataVerifiedAt || (Date.now() - local.dataVerifiedAt.getTime() > 5 * 60 * 1000);
-    
-    if (isStale && navigator.onLine) {
-      const { data, error } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('id', id)
-        .is('deleted_at', null)
-        .single();
 
-      if (!error && data) {
-        const remote = mapFromPostgres(data);
-        await db.clients.put(remote);
-        return remote;
-      }
+    // 2. Background refresh if stale
+    const isStale = !local?.dataVerifiedAt || (Date.now() - local.dataVerifiedAt.getTime() > 5 * 60 * 1000);
+    if (isStale && navigator.onLine) {
+      void (async () => {
+        try {
+          const { data, error } = await supabase
+            .from('clients').select('*').eq('id', id).is('deleted_at', null).single();
+          if (!error && data) {
+            await db.clients.put(mapFromPostgres(data));
+          }
+        } catch { /* silent — local data still usable */ }
+      })();
     }
 
-    return local || null;
+    return local?.deletedAt ? null : (local || null);
   },
 
   /**

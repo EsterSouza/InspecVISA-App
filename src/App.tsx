@@ -100,7 +100,27 @@ function App() {
             console.warn('[App] Remote templates fetch failed (non-fatal):', tErr);
           }
         }).catch(() => {});
+
+        // One-time repair: restore clients incorrectly soft-deleted by a previous bug
+        void (async () => {
+          try {
+            const { db } = await import('./db/database');
+            const { supabase } = await import('./lib/supabase');
+            const { data: remoteClients } = await supabase
+              .from('clients').select('id').is('deleted_at', null);
+            if (!remoteClients?.length) return;
+            const remoteIds = new Set(remoteClients.map((c: any) => c.id));
+            const localClients = await db.clients.toArray();
+            for (const client of localClients) {
+              if (client.deletedAt && remoteIds.has(client.id)) {
+                console.log('[App] Restoring incorrectly soft-deleted client:', client.name);
+                await db.clients.update(client.id, { deletedAt: null, syncStatus: 'synced' as const });
+              }
+            }
+          } catch { /* non-fatal */ }
+        })();
       }
+
     };
 
     // Safety fallback: se o initApp travar completamente por 12s, libera a UI

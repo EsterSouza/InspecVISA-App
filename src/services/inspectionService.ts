@@ -231,15 +231,8 @@ export const InspectionService = {
 
           const remoteIds = new Set(data.map((r: any) => r.id));
 
-          // Mark local-only records as deleted if absent from remote
-          const allLocal = await db.inspections.toArray();
-          for (const insp of allLocal) {
-            if (!insp.deletedAt && !remoteIds.has(insp.id)) {
-              await db.inspections.put({ ...insp, deletedAt: new Date(), syncStatus: 'synced' as const });
-            }
-          }
-
-          // Upsert records from Supabase
+          // ONLY upsert records from Supabase — never delete local records
+          // (local records may be pending sync or belong to other sessions)
           for (const row of data) {
             const localItem = await db.inspections.get(row.id);
             if (!localItem || localItem.syncStatus === 'synced' || localItem.syncStatus === 'failed') {
