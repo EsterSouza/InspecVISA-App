@@ -29,10 +29,6 @@ export const RepositoryService = {
     const tenantId = useAuthStore.getState().tenantInfo?.tenantId;
     const now = new Date();
     
-    // Fetch local version to preserve the "base" updatedAt for conflict detection
-    const localBase = await dexieTable.get(record.id);
-    const baseUpdatedAt = localBase?.updatedAt || record.updatedAt;
-
     const enriched: T = {
       ...record,
       tenantId: record.tenantId || tenantId,
@@ -46,7 +42,7 @@ export const RepositoryService = {
 
     // 2. Try push to Supabase (passing the base version for conflict check)
     if (navigator.onLine) {
-      RepositoryService.pushToRemote(tableName, enriched, dexieTable, mapToPostgres, baseUpdatedAt).catch(err => {
+      RepositoryService.pushToRemote(tableName, enriched, dexieTable, mapToPostgres).catch(err => {
         console.warn(`[Repository] Async push failed for ${tableName}/${enriched.id}:`, err);
       });
     }
@@ -54,49 +50,20 @@ export const RepositoryService = {
     return enriched;
   },
 
-  /**
-   * pushToRemote: Handles the actual Supabase communication and conflict check
-   */
   async pushToRemote<T extends { id: string; updatedAt: Date; syncStatus: SyncStatus; tenantId?: string; dataVerifiedAt?: Date; syncAttempts?: number }>(
     tableName: string,
     record: T,
     dexieTable: any,
-    mapToPostgres: (item: T) => any,
-    baseUpdatedAt?: Date
+    mapToPostgres: (item: T) => any
   ): Promise<boolean> {
     try {
       await dexieTable.update(record.id, { syncStatus: 'syncing' });
 
-      // Check for remote version first (Conflict detection) with a timeout
-      const { data: remote, error: fetchError } = await RepositoryService.withTimeout(
-        (async () => {
-          return await supabase
-            .from(tableName)
-            .select('updated_at')
-            .eq('id', record.id)
-            .single();
-        })(),
-        10000,
-        `ConflictCheck_${tableName}`
-      );
-
-      if (!fetchError && remote) {
-        const remoteUpdate = new Date(remote.updated_at);
-        const compareTo = baseUpdatedAt || record.updatedAt;
-        
-        // If remote is strictly newer than our base version
-        if (remoteUpdate > compareTo) {
-          console.warn(`[Repository] Conflict detected for ${tableName}/${record.id}. Remote: ${remoteUpdate}, BaseLocal: ${compareTo}`);
-          await dexieTable.update(record.id, { syncStatus: 'conflict' });
-          return false;
-        }
-      }
-
-      // Perform Push
+      // Perform Push (Direct Upsert - Last Write Wins)
       const pgRecord = mapToPostgres(record);
       const { error: pushError } = await withTimeout(
         supabase.from(tableName).upsert(pgRecord),
-        10000,
+        30000,
         `Push_${tableName}`
       );
 
