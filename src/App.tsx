@@ -43,7 +43,6 @@ function App() {
   const auth = useAuthStore() as AuthState;
   const user = auth.user;
   const initialized = auth.initialized;
-  const initializeAuth = auth.initialize;
 
   useEffect(() => {
     if (theme === 'dark') {
@@ -67,7 +66,7 @@ function App() {
     const initApp = async () => {
       console.log('🚀 Iniciando InspecVISA Step 1/4: Auth...');
       // Step 1: Initialize auth (instant from cache if previously logged in)
-      await initializeAuth();
+      await useAuthStore.getState().initialize();
 
       console.log('🚀 Iniciando InspecVISA Step 2/4: Database...');
       // Step 2: Load static templates immediately into Dexie (offline-safe)
@@ -181,7 +180,7 @@ function App() {
       clearTimeout(safetyTimer); 
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [initializeAuth]);
+  }, []);
 
   // Online Status & Connectivity Check
   useEffect(() => {
