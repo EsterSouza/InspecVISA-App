@@ -89,7 +89,7 @@ export function InspectionSummary() {
             setAllClients(clients);
 
             // Responses
-            const remoteResps = await InspectionService.getResponsesByInspectionId(inspectionId);
+            const remoteResps = await InspectionService.getResponsesByInspectionId(inspectionId, true);
             for (const r of remoteResps) {
               r.photos = await db.photos.where('responseId').equals(r.id).toArray();
             }

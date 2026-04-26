@@ -175,7 +175,7 @@ export const InspectionService = {
     }
   },
 
-  async getResponsesByInspectionId(inspectionId: string): Promise<InspectionResponse[]> {
+  async getResponsesByInspectionId(inspectionId: string, forceRefresh = false): Promise<InspectionResponse[]> {
     const local = await db.responses
       .where('inspectionId')
       .equals(inspectionId)
@@ -184,34 +184,45 @@ export const InspectionService = {
     
     // TTL: 2 minutes for responses refresh
     const lastCheck = local.length > 0 ? Math.min(...local.map(r => r.dataVerifiedAt?.getTime() || 0)) : 0;
-    const isStale = Date.now() - lastCheck > 2 * 60 * 1000;
+    const isStale = (Date.now() - lastCheck > 2 * 60 * 1000) || forceRefresh;
 
     if (isStale && navigator.onLine) {
       // Trigger background refresh for responses
+      // Safety: Only update Dexie if we have a successful, non-masked result.
       supabase.from('responses').select('*').eq('inspection_id', inspectionId).is('deleted_at', null)
-        .then(({ data }) => {
-          if (data) {
-            data.forEach(async row => {
-              const res = { 
-                id: row.id,
-                inspectionId: row.inspection_id,
-                itemId: row.item_id,
-                result: row.result,
-                situationDescription: row.situation_description,
-                correctiveAction: row.corrective_action,
-                responsible: row.responsible,
-                deadline: row.deadline,
-                customDescription: row.custom_description,
-                createdAt: new Date(row.created_at),
-                updatedAt: new Date(row.updated_at),
-                tenantId: row.tenant_id,
-                deletedAt: row.deleted_at ? new Date(row.deleted_at) : null,
-                syncStatus: 'synced', 
-                dataVerifiedAt: new Date() 
-              };
-              await db.responses.put(res as any);
-            });
+        .then(({ data, error }) => {
+          if (error) {
+            console.warn('[InspectionService] Responses fetch blocked/failed (RLS?):', error);
+            return;
           }
+
+          // RLS SAFETY GATE: If server returns 0 items but local has items, 
+          // we suspect masking and refuse to overwrite local data.
+          if (!data || (data.length === 0 && local.length > 0)) {
+            if (data?.length === 0) console.warn('[InspectionService] Server returned 0 responses for inspection', inspectionId, 'but local has data. Blocking overwrite.');
+            return;
+          }
+
+          data.forEach(async row => {
+            const res = { 
+              id: row.id,
+              inspectionId: row.inspection_id,
+              itemId: row.item_id,
+              result: row.result,
+              situationDescription: row.situation_description,
+              correctiveAction: row.corrective_action,
+              responsible: row.responsible,
+              deadline: row.deadline,
+              customDescription: row.custom_description,
+              createdAt: new Date(row.created_at),
+              updatedAt: new Date(row.updated_at),
+              tenantId: row.tenant_id,
+              deletedAt: row.deleted_at ? new Date(row.deleted_at) : null,
+              syncStatus: 'synced', 
+              dataVerifiedAt: new Date() 
+            };
+            await db.responses.put(res as any);
+          });
         });
     }
 

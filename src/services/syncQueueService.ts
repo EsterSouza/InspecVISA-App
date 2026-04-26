@@ -85,11 +85,16 @@ export const SyncQueueService = {
   },
 
   async retryFailed() {
-    console.log('[SyncQueue] Retrying failed items...');
+    console.log('[SyncQueue] ⚠️ Iniciando reprocessamento forçado da fila...');
     const tables = [db.clients, db.inspections, db.responses, db.schedules, db.photos];
     for (const table of tables) {
-      await (table as any).where('syncStatus').equals('failed').modify({ syncStatus: 'pending', syncAttempts: 0 });
+      // Libera itens travados em 'syncing' (fila fantasma) e itens com erro 'failed'
+      await (table as any)
+        .where('syncStatus')
+        .anyOf(['failed', 'syncing'])
+        .modify({ syncStatus: 'pending', syncAttempts: 0 });
     }
+    console.log('[SyncQueue] ✅ Fila desbloqueada. Iniciando sincronização...');
     this.processAll();
   },
 
