@@ -5,7 +5,7 @@ import { getCurrentTenant, clearAuthCache } from '../services/authService';
 import type { TenantInfo } from '../services/authService';
 import type { User } from '@supabase/supabase-js';
 
-interface AuthState {
+export interface AuthState {
   user: User | null;
   tenantInfo: TenantInfo | null;
   loading: boolean;
