@@ -108,14 +108,15 @@ function App() {
 
           import('./services/templateService').then(async ({ TemplateService }) => {
             try {
-            const remoteTemplates = await TemplateService.syncAllTemplatesToDexie();
-            if (remoteTemplates?.length) {
-              await initializeDatabase([...getTemplates(), ...remoteTemplates]);
+              const remoteTemplates = await TemplateService.syncAllTemplatesToDexie();
+              if (remoteTemplates?.length) {
+                await initializeDatabase([...getTemplates(), ...remoteTemplates]);
+              }
+            } catch (tErr) {
+              console.warn('[App] Remote templates fetch failed (non-fatal):', tErr);
             }
-          } catch (tErr) {
-            console.warn('[App] Remote templates fetch failed (non-fatal):', tErr);
-          }
-        }).catch(() => {});
+          }).catch(() => {});
+        })();
 
         // One-time repair: restore clients incorrectly soft-deleted by a previous bug
         void (async () => {
