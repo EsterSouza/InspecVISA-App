@@ -77,9 +77,9 @@ export function InspectionExecution() {
         let tpl: any = getTemplateById(localInsp.templateId) || await db.templates.get(localInsp.templateId);
         
         // 🚨 Fallback: If template not found by ID, try by category
-        if (!tpl && localInsp.category) {
+        if (!tpl && localInsp.clientCategory) {
           const { getTemplatesByCategory } = await import('../data/templates');
-          tpl = getTemplatesByCategory(localInsp.category)[0];
+          tpl = getTemplatesByCategory(localInsp.clientCategory)[0];
           console.warn(`[Execution] Template ${localInsp.templateId} not found. Falling back to category default: ${tpl?.id}`);
         }
 
@@ -146,9 +146,9 @@ export function InspectionExecution() {
           }
 
           // 🚨 Fallback 2: If template STILL not found by ID, try by category
-          if (!tpl && insp.category) {
+          if (!tpl && insp.clientCategory) {
             const { getTemplatesByCategory } = await import('../data/templates');
-            tpl = getTemplatesByCategory(insp.category)[0];
+            tpl = getTemplatesByCategory(insp.clientCategory)[0];
             console.warn(`[Execution] Template ${insp.templateId} still not found. Fallback: ${tpl?.id}`);
           }
 
