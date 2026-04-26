@@ -75,6 +75,14 @@ export function InspectionExecution() {
       if (localInsp) {
         // Resolve template from cache right away
         let tpl: any = getTemplateById(localInsp.templateId) || await db.templates.get(localInsp.templateId);
+        
+        // 🚨 Fallback: If template not found by ID, try by category
+        if (!tpl && localInsp.category) {
+          const { getTemplatesByCategory } = await import('../data/templates');
+          tpl = getTemplatesByCategory(localInsp.category)[0];
+          console.warn(`[Execution] Template ${localInsp.templateId} not found. Falling back to category default: ${tpl?.id}`);
+        }
+
         if (tpl) setTemplate(tpl);
 
         // Load local responses immediately
@@ -129,19 +137,23 @@ export function InspectionExecution() {
               // If direct fetch failed, try syncing ALL templates (handles cache-empty scenario)
               try {
                 const { TemplateService } = await import('../services/templateService');
-                const all = await TemplateService.syncAllTemplatesToDexie();
-                if (all?.length) {
-                  const { initializeDatabase } = await import('../db/database');
-                  const { getTemplates } = await import('../data/templates');
-                  await initializeDatabase([...getTemplates(), ...all]);
-                  tpl = await db.templates.get(insp.templateId);
-                }
-              } catch (e2) {
-                console.warn('[Execution] Full template sync also failed:', e2);
+                const remoteTemplates = await TemplateService.syncAllTemplatesToDexie();
+                tpl = remoteTemplates.find((t: any) => t.id === insp.templateId);
+              } catch (sErr) {
+                console.error('[Execution] Full template sync failed:', sErr);
               }
             }
           }
+
+          // 🚨 Fallback 2: If template STILL not found by ID, try by category
+          if (!tpl && insp.category) {
+            const { getTemplatesByCategory } = await import('../data/templates');
+            tpl = getTemplatesByCategory(insp.category)[0];
+            console.warn(`[Execution] Template ${insp.templateId} still not found. Fallback: ${tpl?.id}`);
+          }
+
           if (tpl) setTemplate(tpl);
+          setCurrentInspection(insp);
 
           // Fetch responses (service returns local + triggers background Supabase pull)
           const resps = await InspectionService.getResponsesByInspectionId(id);
@@ -149,7 +161,6 @@ export function InspectionExecution() {
             r.photos = await db.photos.where('responseId').equals(r.id).filter(p => !p.deletedAt).toArray();
           }
 
-          setCurrentInspection(insp);
           setResponses(resps);
 
           // Load previous inspection NCs if applicable
@@ -450,32 +461,32 @@ export function InspectionExecution() {
     const missingId = currentInspection?.templateId;
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4 bg-gray-50 p-8 text-center">
-        <p className="text-gray-600 font-semibold">Template não encontrado para esta inspeção.</p>
-        {missingId && <p className="text-xs text-gray-400 font-mono bg-gray-100 px-3 py-1 rounded">{missingId}</p>}
-        <Button
-          onClick={async () => {
-            setLoading(true);
-            try {
-              // Force clear template cache and re-fetch from server
-              await db.templates.clear();
-              const { TemplateService } = await import('../services/templateService');
-              const { getTemplates } = await import('../data/templates');
-              const { initializeDatabase } = await import('../db/database');
-              const remote = await TemplateService.syncAllTemplatesToDexie();
-              await initializeDatabase([...getTemplates(), ...(remote || [])]);
-            } catch (e) {
-              console.warn('[Execution] Force template refresh failed:', e);
-            }
-            loadData();
-          }}
-          variant="outline"
-          className="gap-2"
-        >
-          <RefreshCw className="h-4 w-4" /> Recarregar Template
-        </Button>
-        <Button variant="ghost" onClick={() => navigate('/inspections')}>
-          <ArrowLeft className="mr-2 h-4 w-4" /> Voltar para Inspeções
-        </Button>
+        <div className="mb-4 rounded-full bg-amber-50 p-3">
+          <RefreshCw className="h-8 w-8 text-amber-600" />
+        </div>
+        <p className="text-gray-600 font-semibold">O roteiro desta inspeção não pôde ser carregado.</p>
+        {missingId && (
+          <div className="rounded border border-gray-200 bg-gray-100 px-3 py-2">
+             <p className="text-[10px] text-gray-400 font-mono uppercase tracking-wider mb-1">ID do Roteiro</p>
+             <p className="text-xs text-gray-600 font-mono">{missingId}</p>
+          </div>
+        )}
+        <div className="flex flex-col sm:flex-row gap-3 mt-4">
+          <Button 
+            variant="default"
+            onClick={() => window.location.reload()}
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Tentar recarregar
+          </Button>
+          <Button 
+            variant="outline"
+            onClick={() => navigate('/inspections')}
+          >
+            Voltar para lista
+          </Button>
+        </div>
       </div>
     );
   }

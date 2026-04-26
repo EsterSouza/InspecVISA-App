@@ -13,6 +13,7 @@ interface AuthState {
   setUser: (user: User | null) => void;
   signOut: () => Promise<void>;
   initialize: () => Promise<void>;
+  checkSession: () => Promise<boolean>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -83,7 +84,8 @@ export const useAuthStore = create<AuthState>()(
         }
 
         // Listen for future auth state changes
-        supabase.auth.onAuthStateChange(async (_event, session) => {
+        supabase.auth.onAuthStateChange(async (event, session) => {
+          console.log('[Auth] State change event:', event);
           const u = session?.user ?? null;
           let t: TenantInfo | null = null;
           if (u) {
@@ -91,6 +93,22 @@ export const useAuthStore = create<AuthState>()(
           }
           set({ user: u, tenantInfo: t });
         });
+      },
+      checkSession: async () => {
+        try {
+          // supabase.auth.getUser() triggers a session refresh if needed
+          const { data: { user }, error } = await supabase.auth.getUser();
+          if (error || !user) {
+            console.warn('[Auth] Session invalid or expired');
+            set({ user: null, tenantInfo: null });
+            return false;
+          }
+          set({ user });
+          return true;
+        } catch (err) {
+          console.error('[Auth] checkSession failed:', err);
+          return false;
+        }
       },
     }),
     {

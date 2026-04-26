@@ -66,8 +66,15 @@ function App() {
 
       console.log('🚀 Iniciando InspecVISA Step 2/4: Database...');
       // Step 2: Load static templates immediately into Dexie (offline-safe)
-      const staticTemplates = getTemplates();
       try {
+        // 1. Pre-flight session check (refreshes token if needed)
+        const isAuthorized = await useAuthStore.getState().checkSession();
+        if (!isAuthorized && useAuthStore.getState().user) {
+          console.warn('[App] Session check failed, user state cleared');
+        }
+
+        // 2. Initialize Database & Templates
+        const staticTemplates = getTemplates();
         const dbPromise = initializeDatabase(staticTemplates);
         const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
         await Promise.race([dbPromise, timeoutPromise]);
@@ -94,7 +101,7 @@ function App() {
           try {
             const remoteTemplates = await TemplateService.syncAllTemplatesToDexie();
             if (remoteTemplates?.length) {
-              await initializeDatabase([...staticTemplates, ...remoteTemplates]);
+              await initializeDatabase([...getTemplates(), ...remoteTemplates]);
             }
           } catch (tErr) {
             console.warn('[App] Remote templates fetch failed (non-fatal):', tErr);
@@ -119,36 +126,7 @@ function App() {
             }
           } catch { /* non-fatal */ }
         })();
-
-        // One-time reconciliation: import any server-side inspections missing locally
-        // (fixes ID corruption where a single byte differs between Dexie and Supabase)
-        void (async () => {
-          try {
-            const { db } = await import('./db/database');
-            const { supabase } = await import('./lib/supabase');
-            const { mapFromPostgres } = await import('./services/inspectionService');
-
-            const { data: remoteInspections } = await supabase
-              .from('inspections')
-              .select('*')
-              .is('deleted_at', null)
-              .in('status', ['in_progress', 'completed']);
-
-            if (!remoteInspections?.length) return;
-
-            for (const row of remoteInspections) {
-              const existing = await db.inspections.get(row.id);
-              if (!existing) {
-                // Server has an inspection we don't have locally — import it
-                console.log('[App] Reconciling missing inspection from server:', row.id);
-                const mapped = mapFromPostgres(row);
-                await db.inspections.put({ ...mapped, syncStatus: 'synced' as const, dataVerifiedAt: new Date() });
-              }
-            }
-          } catch { /* non-fatal */ }
-        })();
       }
-
     };
 
     // Safety fallback: se o initApp travar completamente por 12s, libera a UI
@@ -162,10 +140,20 @@ function App() {
     initApp().catch((err) => {
       console.error('[App] Fatal init error:', err);
       if (!didCancel) setIsInitializing(false);
-    }).finally(() => {
+    }).finally(async () => {
       clearTimeout(safetyTimer);
-      // Start background sync service
-      SyncQueueService.start();
+      try {
+        // 3. Clear stuck syncs from previous session
+        await SyncQueueService.cleanupStuckSyncing();
+        
+        // 4. Start background sync
+        SyncQueueService.start();
+
+        // 5. Reconcile any corrupted local IDs
+        await reconcileCorruptedIds();
+      } catch (err) {
+        console.error('[App] Post-init sync error:', err);
+      }
     });
 
     // Warning before leaving with pending items
@@ -261,6 +249,34 @@ function App() {
       </div>
     </BrowserRouter>
   );
+}
+
+async function reconcileCorruptedIds() {
+  try {
+    const { db } = await import('./db/database');
+    const { supabase } = await import('./lib/supabase');
+    const { mapFromPostgres } = await import('./services/inspectionService');
+
+    const { data: remoteInspections, error } = await supabase
+      .from('inspections')
+      .select('*')
+      .is('deleted_at', null)
+      .in('status', ['in_progress', 'completed']);
+
+    if (error || !remoteInspections?.length) return;
+
+    for (const row of remoteInspections) {
+      const existing = await db.inspections.get(row.id);
+      if (!existing) {
+        // Server has an inspection we don't have locally — import it
+        console.log('[App] Reconciling missing inspection from server:', row.id);
+        const mapped = mapFromPostgres(row);
+        await db.inspections.put({ ...mapped, syncStatus: 'synced' as const, dataVerifiedAt: new Date() });
+      }
+    }
+  } catch (err) {
+    console.warn('[App] ID reconciliation failed:', err);
+  }
 }
 
 export default App;

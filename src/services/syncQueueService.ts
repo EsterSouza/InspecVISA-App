@@ -3,6 +3,7 @@ import { RepositoryService } from './repositoryService';
 import { ClientService } from './clientService';
 import { InspectionService } from './inspectionService';
 import { ScheduleService } from './scheduleService';
+import { useAuthStore } from '../store/useAuthStore';
 
 /**
  * SyncQueueService
@@ -58,9 +59,18 @@ export const SyncQueueService = {
 
   async processAll() {
     if (isProcessing || !navigator.onLine) {
-      this.getQueueSummary(); // Refresh cache even if not processing
+      this.getQueueSummary();
       return;
     }
+
+    // Pre-flight check: Ensure session is valid
+    const isAuthorized = await useAuthStore.getState().checkSession();
+    if (!isAuthorized) {
+      console.warn('[SyncQueue] Sync paused: User is not authorized.');
+      this.getQueueSummary();
+      return;
+    }
+
     isProcessing = true;
 
     try {
