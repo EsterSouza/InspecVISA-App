@@ -5,6 +5,7 @@ import { initializeDatabase } from './db/database';
 import { getTemplates } from './data/templates';
 import { useSettingsStore } from './store/useSettingsStore';
 import { useAuthStore } from './store/useAuthStore';
+import type { AuthState } from './store/useAuthStore';
 import { Loader2 } from 'lucide-react';
 import { SyncIndicator } from './components/ui/SyncIndicator';
 import { SyncQueueService } from './services/syncQueueService';
@@ -39,9 +40,9 @@ import { Login } from './pages/Login';
 function App() {
   const [isInitializing, setIsInitializing] = useState(true);
   const theme = useSettingsStore((s) => s.settings.theme);
-  const user = useAuthStore((s) => s.user);
-  const initialized = useAuthStore((s) => s.initialized);
-  const initialize = useAuthStore((s) => s.initialize);
+  const user = useAuthStore((s: AuthState) => s.user);
+  const initialized = useAuthStore((s: AuthState) => s.initialized);
+  const initialize = useAuthStore((s: AuthState) => s.initialize);
 
   useEffect(() => {
     if (theme === 'dark') {
