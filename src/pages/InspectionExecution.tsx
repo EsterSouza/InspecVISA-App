@@ -29,6 +29,7 @@ export function InspectionExecution() {
   const location = useLocation();
   const navigate = useNavigate();
   const state = location.state as { inspectionId: string; previousInspectionId?: string; linkedScheduleId?: string };
+  const linkedScheduleId = state?.linkedScheduleId;
   const {
     currentInspection,
     responses,
