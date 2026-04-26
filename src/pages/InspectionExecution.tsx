@@ -131,7 +131,7 @@ export function InspectionExecution() {
               // 10s timeout for remote template fetch
               tpl = await Promise.race([
                 TemplateService.getFullTemplate(enrichedInsp.templateId),
-                new Promise<null>((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000))
+                new Promise<null>((_, reject) => setTimeout(() => reject(new Error('timeout')), 20000))
               ]);
               if (tpl) db.templates.put(tpl).catch(() => {});
             } catch (e) {

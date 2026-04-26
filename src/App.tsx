@@ -129,13 +129,13 @@ function App() {
       }
     };
 
-    // Safety fallback: se o initApp travar completamente por 20s, libera a UI
+    // Safety fallback: se o initApp travar completamente por 25s, libera a UI
     const safetyTimer = setTimeout(() => {
       if (!didCancel) {
         console.warn('[App] Master init timeout. Forcing UI load.');
         setIsInitializing(false);
       }
-    }, 20000);
+    }, 25000);
 
     initApp().catch((err) => {
       console.error('[App] Fatal init error:', err);

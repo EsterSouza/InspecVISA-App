@@ -20,7 +20,7 @@ export const TemplateService = {
         .from('checklist_templates')
         .select('*')
         .order('created_at', { ascending: false }),
-      5000,
+      30000,
       'ListTemplates'
     );
     
@@ -39,11 +39,11 @@ export const TemplateService = {
       const [tplsResult, secsResult] = await Promise.all([
         Promise.race([
           supabase.from('checklist_templates').select('*'),
-          timeout(12000, 'SyncTemplates')
+          timeout(30000, 'SyncTemplates')
         ]),
         Promise.race([
           supabase.from('checklist_sections').select('*'),
-          timeout(12000, 'SyncSections')
+          timeout(30000, 'SyncSections')
         ])
       ]);
 

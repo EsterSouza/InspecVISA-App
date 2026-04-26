@@ -109,7 +109,7 @@ export const InspectionService = {
         try {
           const result = await Promise.race([
             supabase.from('inspections').select('*').eq('id', id).is('deleted_at', null).single(),
-            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('TIMEOUT: getInspectionById')), 15000))
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('TIMEOUT: getInspectionById')), 25000))
           ]);
           const { data, error } = result as any;
 
