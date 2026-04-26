@@ -1,3 +1,4 @@
+import { supabase } from './lib/supabase';
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { initializeDatabase } from './db/database';

@@ -1,3 +1,4 @@
+import { supabase } from '../lib/supabase';
 import { db } from '../db/database';
 import { RepositoryService } from './repositoryService';
 import { ClientService } from './clientService';
