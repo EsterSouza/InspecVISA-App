@@ -97,8 +97,13 @@ function App() {
       console.log('🚀 Iniciando InspecVISA Step 4/4: Background sync...');
       // Step 4: Fetch remote templates in background (non-blocking)
       if (navigator.onLine) {
-        import('./services/templateService').then(async ({ TemplateService }) => {
-          try {
+        void (async () => {
+          // LOCK: Ensure session is consolidated before background network calls
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) return;
+
+          import('./services/templateService').then(async ({ TemplateService }) => {
+            try {
             const remoteTemplates = await TemplateService.syncAllTemplatesToDexie();
             if (remoteTemplates?.length) {
               await initializeDatabase([...getTemplates(), ...remoteTemplates]);

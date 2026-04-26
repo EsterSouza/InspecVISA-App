@@ -233,6 +233,17 @@ export const InspectionService = {
     await RepositoryService.upsert('responses', response, db.responses, mapResponseToPostgres);
   },
 
+  async upsertPhoto(photo: InspectionPhoto): Promise<void> {
+    await RepositoryService.upsert('photos', photo, db.photos, mapPhotoToPostgres);
+  },
+
+  async deletePhoto(id: string): Promise<void> {
+    const local = await db.photos.get(id);
+    if (!local) return;
+    const updated = { ...local, deletedAt: new Date(), syncStatus: 'pending' as const };
+    await RepositoryService.upsert('photos', updated, db.photos, mapPhotoToPostgres);
+  },
+
   async createInspection(inspection: Inspection): Promise<void> {
     await RepositoryService.upsert('inspections', inspection, db.inspections, mapToPostgres);
   },
@@ -248,6 +259,10 @@ export const InspectionService = {
     if (navigator.onLine) {
       void (async () => {
         try {
+          // LOCK: Ensure session is consolidated before background network calls
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) return;
+
           const { data, error } = await supabase
             .from('inspections')
             .select('*')

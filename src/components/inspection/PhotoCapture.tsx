@@ -23,7 +23,7 @@ export function PhotoCapture({ inputId, photos, onAddPhoto, onRemovePhoto }: Pho
 
     try {
       setIsCompressing(true);
-      const dataUrl = await compressImage(file, 1200, 0.85);
+      const dataUrl = await compressImage(file);
       onAddPhoto({
         responseId: '', // will be set by parent
         dataUrl,

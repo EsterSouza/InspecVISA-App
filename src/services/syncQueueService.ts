@@ -63,6 +63,10 @@ export const SyncQueueService = {
       return;
     }
 
+    // LOCK: Ensure session is consolidated before background network calls
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
     isProcessing = true;
 
     try {

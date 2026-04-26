@@ -321,19 +321,38 @@ export function InspectionExecution() {
   }, []);
 
 
-  const handleAddPhoto = useCallback((itemId: string, photo: any) => {
+  const handleAddPhoto = useCallback(async (itemId: string, photoData: any) => {
     const state = useInspectionStore.getState();
     const existing = state.responses.find(r => r.itemId === itemId);
     if (existing) {
-      state.updateResponse(existing.id, { photos: [...(existing.photos || []), { ...photo, id: generateId() }] });
+      const newPhoto: InspectionPhoto = { 
+        ...photoData, 
+        id: generateId(), 
+        responseId: existing.id,
+        tenantId: state.currentInspection?.tenantId
+      };
+      
+      state.updateResponse(existing.id, { photos: [...(existing.photos || []), newPhoto] });
+      
+      try {
+        await InspectionService.upsertPhoto(newPhoto);
+      } catch (err) {
+        console.error('[Execution] Failed to persist photo:', err);
+      }
     }
   }, []);
 
-  const handleRemovePhoto = useCallback((itemId: string, photoId: string) => {
+  const handleRemovePhoto = useCallback(async (itemId: string, photoId: string) => {
     const state = useInspectionStore.getState();
     const existing = state.responses.find(r => r.itemId === itemId);
     if (existing) {
       state.updateResponse(existing.id, { photos: (existing.photos || []).filter((p: any) => p.id !== photoId) });
+      
+      try {
+        await InspectionService.deletePhoto(photoId);
+      } catch (err) {
+        console.error('[Execution] Failed to delete photo:', err);
+      }
     }
   }, []);
 

@@ -1,4 +1,4 @@
-export async function compressImage(file: File, maxWidth = 1200, quality = 0.85): Promise<string> {
+export async function compressImage(file: File, maxWidth = 800, quality = 0.6): Promise<string> {
   return new Promise((resolve, reject) => {
     const canvas = document.createElement('canvas');
     const img = new Image();
