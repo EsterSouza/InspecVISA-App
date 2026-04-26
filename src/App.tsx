@@ -39,7 +39,9 @@ import { Login } from './pages/Login';
 function App() {
   const [isInitializing, setIsInitializing] = useState(true);
   const theme = useSettingsStore((s) => s.settings.theme);
-  const { user, initialized, initialize } = useAuthStore();
+  const user = useAuthStore((s) => s.user);
+  const initialized = useAuthStore((s) => s.initialized);
+  const initialize = useAuthStore((s) => s.initialize);
 
   useEffect(() => {
     if (theme === 'dark') {
