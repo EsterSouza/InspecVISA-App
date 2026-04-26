@@ -63,14 +63,6 @@ export const SyncQueueService = {
       return;
     }
 
-    // Pre-flight check: Ensure session is valid
-    const isAuthorized = await useAuthStore.getState().checkSession();
-    if (!isAuthorized) {
-      console.warn('[SyncQueue] Sync paused: User is not authorized.');
-      this.getQueueSummary();
-      return;
-    }
-
     isProcessing = true;
 
     try {

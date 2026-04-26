@@ -109,7 +109,7 @@ export const InspectionService = {
         try {
           const result = await Promise.race([
             supabase.from('inspections').select('*').eq('id', id).is('deleted_at', null).single(),
-            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('TIMEOUT: getInspectionById')), 12000))
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('TIMEOUT: getInspectionById')), 15000))
           ]);
           const { data, error } = result as any;
 
@@ -130,14 +130,11 @@ export const InspectionService = {
             }
           }
         } catch (err) {
-          console.warn('[InspectionService] Background refresh for', id, 'failed:', err);
+          console.warn('[InspectionService] Background refresh for', id, 'failed silently (timeout/auth):', err);
           // On timeout, stamp a short-circuit TTL (2 min) to avoid hammering
           if (local) {
-            const current = await db.inspections.get(id);
-            if (current) {
-              const shortCircuit = new Date(Date.now() - 3 * 60 * 1000); // makes next check in ~2min
-              await db.inspections.update(id, { dataVerifiedAt: shortCircuit });
-            }
+            const shortCircuit = new Date(Date.now() - 3 * 60 * 1000); // effectively sets verified to 2 mins ago
+            await db.inspections.update(id, { dataVerifiedAt: shortCircuit });
           }
         }
       })();

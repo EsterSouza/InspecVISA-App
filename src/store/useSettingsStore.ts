@@ -40,30 +40,49 @@ export const useSettingsStore = create<SettingsState>()(
       },
       setConsultant: (consultant) => {
         if (consultant === 'ana') {
-          set({
+          // Merge into existing settings to preserve logoDataUrl, companyName, etc.
+          set((state) => ({
             settings: {
+              ...state.settings,
               name: 'Ana Roberta Ribeiro',
-              professionalId: 'CRN/RJ 10324',
+              professionalIdLabel: 'CRN/RJ',
+              professionalId: '10324',
               phone: '(21) 99031-3823',
-              consultantRole: 'nutricao',
-              theme: 'light',
+              consultantRole: 'nutricao' as const,
             },
-          });
+          }));
         } else if (consultant === 'ester') {
-          set({
+          set((state) => ({
             settings: {
+              ...state.settings,
               name: 'Ester Caiafa',
-              professionalId: 'COREN/RJ 759.561',
+              professionalIdLabel: 'COREN/RJ',
+              professionalId: '759.561',
               phone: '(21) 99339-7315',
-              consultantRole: 'saude',
-              theme: 'light',
+              consultantRole: 'saude' as const,
             },
-          });
+          }));
         }
       },
     }),
     {
       name: 'inspec-visa-settings',
+      version: 2,
+      // Auto-migrate legacy stored data: split "COREN/RJ 759.561" into label + number
+      migrate: (persistedState: any, version: number) => {
+        if (version < 2) {
+          const s = (persistedState as any)?.settings;
+          if (s?.professionalId && !s.professionalIdLabel) {
+            // Pattern: "LABEL NUMBER" e.g. "COREN/RJ 759.561" or "CRN/RJ 10324"
+            const match = s.professionalId.match(/^([A-Z]+\/[A-Z]+)\s+(.+)$/);
+            if (match) {
+              s.professionalIdLabel = match[1]; // "COREN/RJ"
+              s.professionalId = match[2];      // "759.561"
+            }
+          }
+        }
+        return persistedState as any;
+      },
     }
   )
 );

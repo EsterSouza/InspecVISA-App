@@ -76,13 +76,6 @@ export function InspectionExecution() {
         // Resolve template from cache right away
         let tpl: any = getTemplateById(localInsp.templateId) || await db.templates.get(localInsp.templateId);
         
-        // 🚨 Fallback: If template not found by ID, try by category
-        if (!tpl && localInsp.clientCategory) {
-          const { getTemplatesByCategory } = await import('../data/templates');
-          tpl = getTemplatesByCategory(localInsp.clientCategory)[0];
-          console.warn(`[Execution] Template ${localInsp.templateId} not found. Falling back to category default: ${tpl?.id}`);
-        }
-
         if (tpl) setTemplate(tpl);
 
         // Load local responses immediately
@@ -114,46 +107,40 @@ export function InspectionExecution() {
             return;
           }
 
-          // Enrich with client name
+          // Create a clean enriched object instead of mutating 'insp' directly
+          // to prevent successive triggers of auto-save routines.
           const client = await ClientService.getClientById(insp.clientId);
-          if (client) {
-            insp.clientName = client.name;
-            insp.clientCategory = client.category;
-            insp.foodTypes = client.foodTypes;
-            insp.city = client.city;
-            insp.state = client.state;
-          }
+          const enrichedInsp = { 
+            ...insp, 
+            clientName: client?.name,
+            clientCategory: client?.category,
+            foodTypes: client?.foodTypes,
+            city: client?.city,
+            state: client?.state 
+          };
 
           // Resolve template (fallback chain: static → Dexie → Supabase)
-          let tpl: any = getTemplateById(insp.templateId) || await db.templates.get(insp.templateId);
+          // No category fallback allowed as per directive.
+          let tpl: any = getTemplateById(enrichedInsp.templateId) || await db.templates.get(enrichedInsp.templateId);
           if (!tpl && navigator.onLine) {
             try {
               const { TemplateService } = await import('../services/templateService');
-              // First try the specific template directly
-              tpl = await TemplateService.getFullTemplate(insp.templateId);
+              tpl = await TemplateService.getFullTemplate(enrichedInsp.templateId);
               if (tpl) db.templates.put(tpl).catch(() => {});
             } catch (e) {
               console.warn('[Execution] Direct template fetch failed, trying full sync:', e);
-              // If direct fetch failed, try syncing ALL templates (handles cache-empty scenario)
               try {
                 const { TemplateService } = await import('../services/templateService');
                 const remoteTemplates = await TemplateService.syncAllTemplatesToDexie();
-                tpl = remoteTemplates.find((t: any) => t.id === insp.templateId);
+                tpl = remoteTemplates.find((t: any) => t.id === enrichedInsp.templateId);
               } catch (sErr) {
                 console.error('[Execution] Full template sync failed:', sErr);
               }
             }
           }
 
-          // 🚨 Fallback 2: If template STILL not found by ID, try by category
-          if (!tpl && insp.clientCategory) {
-            const { getTemplatesByCategory } = await import('../data/templates');
-            tpl = getTemplatesByCategory(insp.clientCategory)[0];
-            console.warn(`[Execution] Template ${insp.templateId} still not found. Fallback: ${tpl?.id}`);
-          }
-
           if (tpl) setTemplate(tpl);
-          setCurrentInspection(insp);
+          setCurrentInspection(enrichedInsp);
 
           // Fetch responses (service returns local + triggers background Supabase pull)
           const resps = await InspectionService.getResponsesByInspectionId(id);
@@ -198,18 +185,19 @@ export function InspectionExecution() {
 
   // ─── REALTIME SYNC: Listen for updates from Supabase ─────────────────────
   useEffect(() => {
-    if (!currentInspection || loading) return;
+    const inspectionId = state?.inspectionId;
+    if (!inspectionId) return;
 
     // 1. Initial subscription
     const channel = supabase
-      .channel(`inspection-responses:${currentInspection.id}`)
+      .channel(`inspection-responses:${inspectionId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'responses',
-          filter: `inspection_id=eq.${currentInspection.id}`,
+          filter: `inspection_id=eq.${inspectionId}`,
         },
         async (payload) => {
           console.log('[Realtime] Change detected:', payload.eventType);
@@ -225,7 +213,7 @@ export function InspectionExecution() {
               syncStatus: 'synced', photos: [],
             };
             
-            mergeResponses([mapped]);
+            useInspectionStore.getState().mergeResponses([mapped]);
           }
 
         }
@@ -240,7 +228,7 @@ export function InspectionExecution() {
       try {
         const { data: remoteResps, error } = await supabase
           .from('responses').select('*')
-          .eq('inspection_id', currentInspection.id).is('deleted_at', null);
+          .eq('inspection_id', inspectionId).is('deleted_at', null);
         if (error || !remoteResps) return;
         const mapped: InspectionResponse[] = remoteResps.map(rr => ({
           id: rr.id, inspectionId: rr.inspection_id, itemId: rr.item_id,
@@ -250,7 +238,7 @@ export function InspectionExecution() {
           createdAt: new Date(rr.created_at), updatedAt: new Date(rr.updated_at || rr.created_at),
           syncStatus: 'synced', photos: [],
         }));
-        mergeResponses(mapped);
+        useInspectionStore.getState().mergeResponses(mapped);
       } catch (err) { console.warn('[Sync] fallback pull failed:', err); }
     }, 30000);
 
@@ -258,7 +246,7 @@ export function InspectionExecution() {
       supabase.removeChannel(channel);
       clearInterval(interval);
     };
-  }, [currentInspection?.id, loading]);
+  }, [state?.inspectionId]);
 
   // ─── AUTO-SAVE: immediate Dexie + debounced Supabase ─────────────────────
   useEffect(() => {

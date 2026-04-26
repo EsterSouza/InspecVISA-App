@@ -96,17 +96,11 @@ export const useAuthStore = create<AuthState>()(
       },
       checkSession: async () => {
         try {
-          // supabase.auth.getUser() triggers a session refresh if needed
-          const { data: { user }, error } = await supabase.auth.getUser();
-          if (error || !user) {
-            console.warn('[Auth] Session invalid or expired');
-            set({ user: null, tenantInfo: null });
-            return false;
-          }
-          set({ user });
-          return true;
-        } catch (err) {
-          console.error('[Auth] checkSession failed:', err);
+          // Just verify user reference — don't trigger state cleanup here
+          // Supabase handles refresh via getUser()
+          const { data: { user } } = await supabase.auth.getUser();
+          return !!user;
+        } catch {
           return false;
         }
       },
