@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { SyncQueueService } from '../services/syncQueueService';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { compressImage } from '../utils/imageUtils';

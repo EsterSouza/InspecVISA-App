@@ -69,11 +69,13 @@ export const RepositoryService = {
 
       // Check for remote version first (Conflict detection) with a timeout
       const { data: remote, error: fetchError } = await RepositoryService.withTimeout(
-        supabase
-          .from(tableName)
-          .select('updated_at')
-          .eq('id', record.id)
-          .single(),
+        (async () => {
+          return await supabase
+            .from(tableName)
+            .select('updated_at')
+            .eq('id', record.id)
+            .single();
+        })(),
         10000,
         `ConflictCheck_${tableName}`
       );
