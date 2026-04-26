@@ -129,11 +129,15 @@ export const InspectionService = {
               await db.inspections.put({ ...remote, dataVerifiedAt: new Date() });
             }
           }
-        } catch (err) {
-          console.warn('[InspectionService] Background refresh for', id, 'failed silently (timeout/auth):', err);
-          // On timeout, stamp a short-circuit TTL (2 min) to avoid hammering
+        } catch (err: any) {
+          // Silence timeout warnings in production-like environments to avoid console noise
+          if (!err?.message?.includes('TIMEOUT')) {
+            console.warn('[InspectionService] Background refresh for', id, 'failed:', err);
+          }
+          
+          // On timeout/error, stamp a short-circuit TTL (2 min) to avoid hammering
           if (local) {
-            const shortCircuit = new Date(Date.now() - 3 * 60 * 1000); // effectively sets verified to 2 mins ago
+            const shortCircuit = new Date(Date.now() - 3 * 60 * 1000);
             await db.inspections.update(id, { dataVerifiedAt: shortCircuit });
           }
         }

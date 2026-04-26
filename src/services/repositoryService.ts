@@ -112,13 +112,14 @@ export const RepositoryService = {
       return true;
 
     } catch (err: any) {
-      const attempts = (record as any).syncAttempts || 0;
-      const newStatus = attempts >= 2 ? 'failed' : 'pending';
+      console.warn(`[Repository] Push failed for ${tableName}/${record.id}:`, err.message);
       
+      // Rigorous failure: set to 'failed' immediately on payload/timeout/500 errors
+      // to avoid blocking the queue.
       await dexieTable.update(record.id, { 
-        syncStatus: newStatus, 
+        syncStatus: 'failed', 
         syncError: err.message,
-        syncAttempts: attempts + 1
+        syncAttempts: ((record as any).syncAttempts || 0) + 1
       });
       return false;
     }
