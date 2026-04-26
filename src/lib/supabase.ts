@@ -9,13 +9,13 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 // Custom fetch with retry to handle transient network issues and timeouts
-const customFetch = async (url: string, options?: RequestInit): Promise<Response> => {
+const customFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
   let attempts = 0;
   const maxAttempts = 2; // 1 original + 1 retry
 
   while (attempts < maxAttempts) {
     try {
-      return await fetch(url, options);
+      return await fetch(input, init);
     } catch (err: any) {
       attempts++;
       const isTimeout = err?.name === 'AbortError' || err?.message?.includes('timeout') || err?.message?.includes('ETIMEDOUT');
