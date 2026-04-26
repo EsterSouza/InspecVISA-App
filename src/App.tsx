@@ -76,7 +76,7 @@ function App() {
         // 2. Initialize Database & Templates
         const staticTemplates = getTemplates();
         const dbPromise = initializeDatabase(staticTemplates);
-        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 15000));
         await Promise.race([dbPromise, timeoutPromise]);
       } catch (dbErr: unknown) {
         const error = dbErr as Error;
@@ -129,13 +129,13 @@ function App() {
       }
     };
 
-    // Safety fallback: se o initApp travar completamente por 12s, libera a UI
+    // Safety fallback: se o initApp travar completamente por 20s, libera a UI
     const safetyTimer = setTimeout(() => {
       if (!didCancel) {
         console.warn('[App] Master init timeout. Forcing UI load.');
         setIsInitializing(false);
       }
-    }, 12000);
+    }, 20000);
 
     initApp().catch((err) => {
       console.error('[App] Fatal init error:', err);

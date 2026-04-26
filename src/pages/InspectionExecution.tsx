@@ -122,10 +122,17 @@ export function InspectionExecution() {
           // Resolve template (fallback chain: static → Dexie → Supabase)
           // No category fallback allowed as per directive.
           let tpl: any = getTemplateById(enrichedInsp.templateId) || await db.templates.get(enrichedInsp.templateId);
+          
           if (!tpl && navigator.onLine) {
+            // Keep loading UI visible during remote fetch
+            setLoading(true); 
             try {
               const { TemplateService } = await import('../services/templateService');
-              tpl = await TemplateService.getFullTemplate(enrichedInsp.templateId);
+              // 10s timeout for remote template fetch
+              tpl = await Promise.race([
+                TemplateService.getFullTemplate(enrichedInsp.templateId),
+                new Promise<null>((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000))
+              ]);
               if (tpl) db.templates.put(tpl).catch(() => {});
             } catch (e) {
               console.warn('[Execution] Direct template fetch failed, trying full sync:', e);
