@@ -69,7 +69,15 @@ export function Settings() {
   };
 
   const handleClearData = async () => {
-    if (window.confirm('ATENÇÃO: Isso apagará permanentemente todos os clientes, inspeções e fotos do seu dispositivo. Tem certeza absoluta?')) {
+    const summary = await SyncQueueService.getQueueSummary();
+    const hasUnsynced = summary.pending > 0 || summary.syncing > 0 || summary.failed > 0;
+    
+    let warning = 'ATENÇÃO: Isso apagará permanentemente todos os clientes, inspeções e fotos do seu dispositivo. Tem certeza absoluta?';
+    if (hasUnsynced) {
+      warning = `⚠️ ATENÇÃO: Você tem ${summary.pending + summary.syncing + summary.failed} registros que AINDA NÃO foram salvos na nuvem. Se apagar agora, esses dados serão PERDIDOS PARA SEMPRE. Deseja mesmo prosseguir?`;
+    }
+
+    if (window.confirm(warning)) {
       if (window.confirm('ÚLTIMO AVISO: Mantenha prosseguir para deletar tudo.')) {
         await Promise.all([
           db.clients.clear(),

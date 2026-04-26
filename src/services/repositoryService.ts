@@ -67,12 +67,16 @@ export const RepositoryService = {
     try {
       await dexieTable.update(record.id, { syncStatus: 'syncing' });
 
-      // Check for remote version first (Conflict detection)
-      const { data: remote, error: fetchError } = await supabase
-        .from(tableName)
-        .select('updated_at')
-        .eq('id', record.id)
-        .single();
+      // Check for remote version first (Conflict detection) with a timeout
+      const { data: remote, error: fetchError } = await RepositoryService.withTimeout(
+        supabase
+          .from(tableName)
+          .select('updated_at')
+          .eq('id', record.id)
+          .single(),
+        10000,
+        `ConflictCheck_${tableName}`
+      );
 
       if (!fetchError && remote) {
         const remoteUpdate = new Date(remote.updated_at);
