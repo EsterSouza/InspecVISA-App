@@ -11,6 +11,7 @@ export function mapFromPostgres(row: any): Schedule {
     status: row.status,
     notes: row.notes || undefined,
     user_id: row.user_id,
+    inspectionId: row.inspection_id,
     updatedAt: new Date(row.updated_at || row.scheduled_at),
     tenantId: row.tenant_id,
     deletedAt: row.deleted_at ? new Date(row.deleted_at) : null,
@@ -27,6 +28,7 @@ export function mapToPostgres(schedule: Schedule): any {
     status: schedule.status,
     notes: schedule.notes || null,
     user_id: schedule.user_id,
+    inspection_id: schedule.inspectionId || null,
     updated_at: schedule.updatedAt.toISOString(),
     tenant_id: schedule.tenantId,
     deleted_at: schedule.deletedAt ? schedule.deletedAt.toISOString() : null
@@ -83,6 +85,34 @@ export const ScheduleService = {
     const local = await db.schedules.get(id);
     if (local) {
       const updated = { ...local, status: 'completed' as const, updatedAt: new Date(), syncStatus: 'pending' as const };
+      await this.saveSchedule(updated);
+    }
+  },
+
+  async linkInspection(id: string, inspectionId: string): Promise<void> {
+    const local = await db.schedules.get(id);
+    if (local) {
+      const updated = { 
+        ...local, 
+        status: 'in_progress' as const, 
+        inspectionId, 
+        updatedAt: new Date(), 
+        syncStatus: 'pending' as const 
+      };
+      await this.saveSchedule(updated);
+    }
+  },
+
+  async completeWithInspection(id: string, inspectionId: string): Promise<void> {
+    const local = await db.schedules.get(id);
+    if (local) {
+      const updated = { 
+        ...local, 
+        status: 'completed' as const, 
+        inspectionId, 
+        updatedAt: new Date(), 
+        syncStatus: 'pending' as const 
+      };
       await this.saveSchedule(updated);
     }
   }

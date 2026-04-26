@@ -16,20 +16,37 @@ let lastSummary = { pending: 0, syncing: 0, conflict: 0, failed: 0 };
 export const SyncQueueService = {
   start() {
     if (syncInterval) return;
-    
-    // Initial process & summary refresh
-    this.getQueueSummary().then(() => {
-      this.processAll();
+
+    // Fix records stuck in 'syncing' from a previous unclean shutdown
+    this.cleanupStuckSyncing().then(() => {
+      // Initial process & summary refresh
+      this.getQueueSummary().then(() => {
+        this.processAll();
+      });
     });
 
-    // Process every 30 seconds
-    syncInterval = window.setInterval(() => this.processAll(), 30000);
-    
+    // Process every 60 seconds (reduced from 30 to lower background noise)
+    syncInterval = window.setInterval(() => this.processAll(), 60000);
+
     // Also process when coming back online
     window.addEventListener('online', () => {
       console.log('[SyncQueue] Back online, triggering sync...');
       this.processAll();
     });
+  },
+
+  async cleanupStuckSyncing() {
+    // Any record left in 'syncing' means the app was closed mid-sync; reset to 'pending'
+    const tables = [db.clients, db.inspections, db.responses, db.schedules, db.photos];
+    let count = 0;
+    for (const table of tables) {
+      const stuck = await (table as any).where('syncStatus').equals('syncing').count();
+      if (stuck > 0) {
+        await (table as any).where('syncStatus').equals('syncing').modify({ syncStatus: 'pending', syncAttempts: 0 });
+        count += stuck;
+      }
+    }
+    if (count > 0) console.log(`[SyncQueue] Reset ${count} records stuck in 'syncing' state.`);
   },
 
   stop() {

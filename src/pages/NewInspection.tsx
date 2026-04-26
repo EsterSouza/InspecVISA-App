@@ -12,6 +12,8 @@ import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { generateId } from '../utils/imageUtils';
 import { ProfileModal } from '../components/profile/ProfileModal';
+import { ScheduleService } from '../services/scheduleService';
+import type { Schedule } from '../types';
 
 export function NewInspection() {
   const navigate = useNavigate();
@@ -28,6 +30,7 @@ export function NewInspection() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<ChecklistTemplate | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(!settings.name);
+  const [matchingSchedule, setMatchingSchedule] = useState<Schedule | null>(null);
 
   const [accompanistName, setAccompanistName] = useState('');
   const [accompanistRole, setAccompanistRole] = useState('');
@@ -73,6 +76,29 @@ export function NewInspection() {
     init();
   }, [preSelectedClientId]);
 
+  // Detect matching schedule
+  useEffect(() => {
+    if (selectedClient && inspectionDate && step === 3) {
+      void (async () => {
+        try {
+          const schedules = await ScheduleService.getSchedules();
+          const targetDateStr = inspectionDate; // "YYYY-MM-DD"
+          
+          const match = schedules.find(s => {
+            const sDateStr = s.scheduledAt.toISOString().split('T')[0];
+            return s.clientId === selectedClient.id && sDateStr === targetDateStr && s.status === 'pending';
+          });
+          
+          setMatchingSchedule(match || null);
+        } catch (err) {
+          console.error('Error checking for matching schedule:', err);
+        }
+      })();
+    } else {
+      setMatchingSchedule(null);
+    }
+  }, [selectedClient, inspectionDate, step]);
+
   const handleStart = async () => {
     if (!selectedClient || !selectedTemplate) return;
     setIsStarting(true);
@@ -111,13 +137,29 @@ export function NewInspection() {
         syncStatus: 'pending'
       };
 
+      // Se houver um agendamento compatível, pergunta se quer vincular
+      let linkedScheduleId = matchingSchedule?.id;
+      if (matchingSchedule) {
+        if (window.confirm(`Existe um agendamento para ${selectedClient.name} hoje. Deseja vinculá-lo a esta inspeção?`)) {
+          // Link will be processed below
+        } else {
+          linkedScheduleId = undefined;
+        }
+      }
+
       // ✅ ONLINE-DIRECT: Salva direto no Supabase
       await InspectionService.createInspection(inspectionData);
+
+      // Vincular agendamento se necessário
+      if (linkedScheduleId) {
+        await ScheduleService.linkInspection(linkedScheduleId, newInspectionId);
+      }
 
       navigate('/execute', { 
         state: { 
           inspectionId: newInspectionId,
-          previousInspectionId: lastInsp?.id 
+          previousInspectionId: lastInsp?.id,
+          linkedScheduleId: linkedScheduleId
         } 
       });
     } catch (err) {

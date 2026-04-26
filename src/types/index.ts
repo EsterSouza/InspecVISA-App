@@ -250,9 +250,10 @@ export interface Schedule {
   clientId: string;
   clientName?: string;
   scheduledAt: Date;
-  status: 'pending' | 'completed' | 'cancelled';
+  status: 'pending' | 'completed' | 'cancelled' | 'in_progress';
   notes?: string;
   user_id?: string;
+  inspectionId?: string;
   updatedAt: Date;
   deletedAt?: Date | null;
   tenantId?: string;

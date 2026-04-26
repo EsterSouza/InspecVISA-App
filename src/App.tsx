@@ -119,6 +119,34 @@ function App() {
             }
           } catch { /* non-fatal */ }
         })();
+
+        // One-time reconciliation: import any server-side inspections missing locally
+        // (fixes ID corruption where a single byte differs between Dexie and Supabase)
+        void (async () => {
+          try {
+            const { db } = await import('./db/database');
+            const { supabase } = await import('./lib/supabase');
+            const { mapFromPostgres } = await import('./services/inspectionService');
+
+            const { data: remoteInspections } = await supabase
+              .from('inspections')
+              .select('*')
+              .is('deleted_at', null)
+              .in('status', ['in_progress', 'completed']);
+
+            if (!remoteInspections?.length) return;
+
+            for (const row of remoteInspections) {
+              const existing = await db.inspections.get(row.id);
+              if (!existing) {
+                // Server has an inspection we don't have locally — import it
+                console.log('[App] Reconciling missing inspection from server:', row.id);
+                const mapped = mapFromPostgres(row);
+                await db.inspections.put({ ...mapped, syncStatus: 'synced' as const, dataVerifiedAt: new Date() });
+              }
+            }
+          } catch { /* non-fatal */ }
+        })();
       }
 
     };

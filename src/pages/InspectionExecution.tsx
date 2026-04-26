@@ -13,6 +13,7 @@ import { CollaborativeProgress } from '../components/inspection/CollaborativePro
 import { MobileScoreBar } from '../components/inspection/MobileScoreBar';
 import { ClientService } from '../services/clientService';
 import { InspectionService } from '../services/inspectionService';
+import { ScheduleService } from '../services/scheduleService';
 import { withTimeout } from '../utils/network';
 
 
@@ -27,6 +28,7 @@ import { SignaturePad } from '../components/ui/SignaturePad';
 export function InspectionExecution() {
   const location = useLocation();
   const navigate = useNavigate();
+  const state = location.state as { inspectionId: string; previousInspectionId?: string; linkedScheduleId?: string };
   const {
     currentInspection,
     responses,
@@ -118,10 +120,24 @@ export function InspectionExecution() {
           if (!tpl && navigator.onLine) {
             try {
               const { TemplateService } = await import('../services/templateService');
+              // First try the specific template directly
               tpl = await TemplateService.getFullTemplate(insp.templateId);
               if (tpl) db.templates.put(tpl).catch(() => {});
             } catch (e) {
-              console.warn('[Execution] Remote template fetch failed:', e);
+              console.warn('[Execution] Direct template fetch failed, trying full sync:', e);
+              // If direct fetch failed, try syncing ALL templates (handles cache-empty scenario)
+              try {
+                const { TemplateService } = await import('../services/templateService');
+                const all = await TemplateService.syncAllTemplatesToDexie();
+                if (all?.length) {
+                  const { initializeDatabase } = await import('../db/database');
+                  const { getTemplates } = await import('../data/templates');
+                  await initializeDatabase([...getTemplates(), ...all]);
+                  tpl = await db.templates.get(insp.templateId);
+                }
+              } catch (e2) {
+                console.warn('[Execution] Full template sync also failed:', e2);
+              }
             }
           }
           if (tpl) setTemplate(tpl);
@@ -385,6 +401,11 @@ export function InspectionExecution() {
       // 2. Save to Supabase
       await InspectionService.updateInspection(currentInspection.id, updates);
 
+      // 2b. If linked to a schedule, complete it too
+      if (linkedScheduleId) {
+        await ScheduleService.completeWithInspection(linkedScheduleId, currentInspection.id);
+      }
+
       // 3. Update the store
       setCurrentInspection({ ...currentInspection, ...updates });
 
@@ -425,9 +446,32 @@ export function InspectionExecution() {
   }
 
   if (!currentInspection || !template) {
+    const missingId = currentInspection?.templateId;
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4 bg-gray-50 p-8 text-center">
         <p className="text-gray-600 font-semibold">Template não encontrado para esta inspeção.</p>
+        {missingId && <p className="text-xs text-gray-400 font-mono bg-gray-100 px-3 py-1 rounded">{missingId}</p>}
+        <Button
+          onClick={async () => {
+            setLoading(true);
+            try {
+              // Force clear template cache and re-fetch from server
+              await db.templates.clear();
+              const { TemplateService } = await import('../services/templateService');
+              const { getTemplates } = await import('../data/templates');
+              const { initializeDatabase } = await import('../db/database');
+              const remote = await TemplateService.syncAllTemplatesToDexie();
+              await initializeDatabase([...getTemplates(), ...(remote || [])]);
+            } catch (e) {
+              console.warn('[Execution] Force template refresh failed:', e);
+            }
+            loadData();
+          }}
+          variant="outline"
+          className="gap-2"
+        >
+          <RefreshCw className="h-4 w-4" /> Recarregar Template
+        </Button>
         <Button variant="ghost" onClick={() => navigate('/inspections')}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Voltar para Inspeções
         </Button>

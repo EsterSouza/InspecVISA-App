@@ -102,15 +102,25 @@ export const InspectionService = {
     const local = await db.inspections.get(id);
 
     // 2. Background refresh from Supabase — never blocks the caller
-    const isStale = !local?.dataVerifiedAt || (Date.now() - local.dataVerifiedAt.getTime() > 2 * 60 * 1000);
+    // TTL: 5 minutes to avoid hammering the server on every navigation
+    const isStale = !local?.dataVerifiedAt || (Date.now() - local.dataVerifiedAt.getTime() > 5 * 60 * 1000);
     if (isStale && navigator.onLine) {
       void (async () => {
         try {
           const result = await Promise.race([
             supabase.from('inspections').select('*').eq('id', id).is('deleted_at', null).single(),
-            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('TIMEOUT: getInspectionById')), 8000))
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('TIMEOUT: getInspectionById')), 12000))
           ]);
           const { data, error } = result as any;
+
+          // If server says record not found (404/PGRST116), stamp dataVerifiedAt
+          // so we stop retrying on every load — avoids infinite loop for ID mismatches
+          if (error?.code === 'PGRST116') {
+            console.warn('[InspectionService] Record not found on server, stopping retry for:', id);
+            if (local) await db.inspections.update(id, { dataVerifiedAt: new Date() });
+            return;
+          }
+
           if (!error && data) {
             const remote = mapFromPostgres(data);
             // Only overwrite if local is not pending/conflict (don't stomp on unsaved work)
@@ -121,6 +131,14 @@ export const InspectionService = {
           }
         } catch (err) {
           console.warn('[InspectionService] Background refresh for', id, 'failed:', err);
+          // On timeout, stamp a short-circuit TTL (2 min) to avoid hammering
+          if (local) {
+            const current = await db.inspections.get(id);
+            if (current) {
+              const shortCircuit = new Date(Date.now() - 3 * 60 * 1000); // makes next check in ~2min
+              await db.inspections.update(id, { dataVerifiedAt: shortCircuit });
+            }
+          }
         }
       })();
     }
