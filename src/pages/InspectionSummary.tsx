@@ -310,6 +310,8 @@ export function InspectionSummary() {
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-gray-500 uppercase">Cliente</label>
                   <select 
+                    id="clientId"
+                    name="clientId"
                     value={currentInspection.clientId}
                     onChange={(e) => setInspection({...currentInspection, clientId: e.target.value})}
                     className="w-full border-gray-300 rounded-lg text-sm shadow-sm focus:ring-primary-500 focus:border-primary-500"
@@ -323,6 +325,8 @@ export function InspectionSummary() {
                   <label className="text-[10px] font-bold text-gray-500 uppercase">Acompanhante</label>
                   <input 
                     type="text" 
+                    id="accompanistName"
+                    name="accompanistName"
                     value={currentInspection.accompanistName || ''}
                     onChange={(e) => setInspection({...currentInspection, accompanistName: e.target.value})}
                     className="w-full border-gray-300 rounded-lg text-sm shadow-sm focus:ring-primary-500 focus:border-primary-500"
@@ -339,6 +343,8 @@ export function InspectionSummary() {
                       <label className="text-[10px] text-gray-500 font-semibold uppercase">Grau I</label>
                       <input 
                         type="number" 
+                        id="dependencyLevel1"
+                        name="dependencyLevel1"
                         value={currentInspection.dependencyLevel1 || 0}
                         onChange={(e) => setInspection({...currentInspection, dependencyLevel1: parseInt(e.target.value) || 0})}
                         className="w-full border-gray-300 rounded-lg text-sm shadow-sm"
@@ -348,6 +354,8 @@ export function InspectionSummary() {
                       <label className="text-[10px] text-gray-500 font-semibold uppercase">Grau II</label>
                       <input 
                         type="number" 
+                        id="dependencyLevel2"
+                        name="dependencyLevel2"
                         value={currentInspection.dependencyLevel2 || 0}
                         onChange={(e) => setInspection({...currentInspection, dependencyLevel2: parseInt(e.target.value) || 0})}
                         className="w-full border-gray-300 rounded-lg text-sm shadow-sm"
@@ -357,6 +365,8 @@ export function InspectionSummary() {
                       <label className="text-[10px] text-gray-500 font-semibold uppercase">Grau III</label>
                       <input 
                         type="number" 
+                        id="dependencyLevel3"
+                        name="dependencyLevel3"
                         value={currentInspection.dependencyLevel3 || 0}
                         onChange={(e) => setInspection({...currentInspection, dependencyLevel3: parseInt(e.target.value) || 0})}
                         className="w-full border-gray-300 rounded-lg text-sm shadow-sm"

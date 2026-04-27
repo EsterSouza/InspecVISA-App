@@ -593,6 +593,8 @@ export function InspectionExecution() {
                             <span className="text-[10px] text-slate-500 block mb-1 font-semibold uppercase tracking-tight">GRAU {i + 1}</span>
                             <input
                               type="number"
+                              id={`dependencyLevel${i + 1}`}
+                              name={`dependencyLevel${i + 1}`}
                               className="w-full bg-white border border-slate-200 rounded-lg p-2 font-bold focus:ring-2 focus:ring-primary-500 outline-none shadow-sm"
                               value={(currentInspection as any)[`dependencyLevel${i + 1}`] || 0}
                               onChange={(e) => updateStaffData(`dependencyLevel${i + 1}`, parseInt(e.target.value) || 0)}
@@ -605,6 +607,8 @@ export function InspectionExecution() {
                           <span className="text-[10px] text-primary-600 font-bold block mb-1 uppercase tracking-tight">Equipe Cuidadores Atual</span>
                           <input
                             type="number"
+                            id="observedStaff"
+                            name="observedStaff"
                             placeholder="Qtd. Cuidadores..."
                             className="w-full bg-white border border-primary-100 rounded-lg p-2 font-bold text-primary-900 shadow-sm"
                             value={currentInspection.observedStaff || 0}
@@ -615,6 +619,8 @@ export function InspectionExecution() {
                           <span className="text-[10px] text-primary-600 font-bold block mb-1 uppercase tracking-tight">Equipe Técnica Atual</span>
                           <input
                             type="number"
+                            id="observedNursingTechs"
+                            name="observedNursingTechs"
                             placeholder="Técnicos/Enf..."
                             className="w-full bg-white border border-primary-100 rounded-lg p-2 font-bold text-primary-900 shadow-sm"
                             value={currentInspection.observedNursingTechs || 0}
