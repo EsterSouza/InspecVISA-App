@@ -63,7 +63,7 @@ export const RepositoryService = {
       const pgRecord = mapToPostgres(record);
       const { error: pushError } = await withTimeout(
         supabase.from(tableName).upsert(pgRecord),
-        30000,
+        120000,
         `Push_${tableName}`
       );
 
@@ -160,9 +160,9 @@ export const RepositoryService = {
       // 1. Mark as 'syncing' locally
       await dexieTable.where('id').anyOf(ids).modify({ syncStatus: 'syncing' });
  
-      // 2. Prepare payload and Chunk it (max 20 items per request)
+      // 2. Prepare payload and Chunk it (max 5 items per request)
       const mappedArray = items.map(mapToPostgres);
-      const CHUNK_SIZE = 20;
+      const CHUNK_SIZE = 5;
       const chunks = [];
       for (let i = 0; i < mappedArray.length; i += CHUNK_SIZE) {
         chunks.push(mappedArray.slice(i, i + CHUNK_SIZE));
@@ -176,7 +176,7 @@ export const RepositoryService = {
         
         const { error } = await withTimeout(
           supabase.from(tableName).upsert(chunk),
-          60000, // Extended timeout for heavy payloads
+          120000, // Extended timeout for heavy payloads (120s)
           `BulkPush_${tableName}`
         );
  
