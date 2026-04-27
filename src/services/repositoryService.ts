@@ -127,14 +127,73 @@ export const RepositoryService = {
   },
 
   /**
-   * processQueue: Processes all items with 'pending' status
+   * processQueue: Processes items individually (sequential)
+   * Best for large payloads like photos
    */
   async processQueue(tableName: string, dexieTable: any, mapToPostgres: (item: any) => any) {
     if (!navigator.onLine) return;
-
+ 
     const pending = await dexieTable.where('syncStatus').equals('pending').toArray();
     for (const item of pending) {
       await RepositoryService.pushToRemote(tableName, item as any, dexieTable, mapToPostgres);
+    }
+  },
+ 
+  /**
+   * processBulkQueue: Processes all items in a single network call (batch)
+   * Best for light metadata (clients, inspections, responses, schedules)
+   */
+  async processBulkQueue(tableName: string, dexieTable: any, mapToPostgres: (item: any) => any) {
+    if (!navigator.onLine) return;
+ 
+    const items = await dexieTable
+      .where('syncStatus')
+      .anyOf(['pending', 'failed'])
+      .toArray();
+ 
+    if (items.length === 0) return;
+ 
+    const ids = items.map((i: any) => i.id);
+    console.log(`[Repository] 📦 Iniciando Bulk Upsert para ${tableName} (${items.length} itens)...`);
+ 
+    try {
+      // 1. Mark as 'syncing' locally
+      await dexieTable.where('id').anyOf(ids).modify({ syncStatus: 'syncing' });
+ 
+      // 2. Prepare payload
+      const mappedArray = items.map(mapToPostgres);
+ 
+      // 3. Single Network Call
+      const { error } = await withTimeout(
+        supabase.from(tableName).upsert(mappedArray),
+        30000,
+        `BulkPush_${tableName}`
+      );
+ 
+      if (error) throw error;
+ 
+      // 4. Success: Mark as 'synced'
+      await dexieTable.where('id').anyOf(ids).modify({ 
+        syncStatus: 'synced', 
+        dataVerifiedAt: new Date(),
+        syncError: null,
+        syncAttempts: 0 
+      });
+ 
+      console.log(`[Repository] ✅ Bulk Upsert concluído para ${tableName}.`);
+    } catch (err: any) {
+      console.error(`[Repository] ❌ Erro no Bulk Upsert para ${tableName}:`, err.message);
+      
+      // 5. Error handling per item (increment attempts)
+      for (const item of items) {
+        const attempts = (item.syncAttempts || 0) + 1;
+        const shouldMarkFailed = attempts >= 3;
+        await dexieTable.update(item.id, {
+          syncStatus: shouldMarkFailed ? 'failed' : 'pending',
+          syncError: err.message,
+          syncAttempts: attempts
+        });
+      }
     }
   }
 };

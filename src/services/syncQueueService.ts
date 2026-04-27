@@ -75,11 +75,13 @@ export const SyncQueueService = {
 
       isProcessing = true;
 
-      // Process in order of dependency
-      await RepositoryService.processQueue('clients', db.clients, ClientService.mapToPostgres);
-      await RepositoryService.processQueue('inspections', db.inspections, InspectionService.mapToPostgres);
-      await RepositoryService.processQueue('responses', db.responses, InspectionService.mapResponseToPostgres);
-      await RepositoryService.processQueue('schedules', db.schedules, ScheduleService.mapToPostgres);
+      // Process in order of dependency using Bulk strategy for light data
+      await RepositoryService.processBulkQueue('clients', db.clients, ClientService.mapToPostgres);
+      await RepositoryService.processBulkQueue('inspections', db.inspections, InspectionService.mapToPostgres);
+      await RepositoryService.processBulkQueue('responses', db.responses, InspectionService.mapResponseToPostgres);
+      await RepositoryService.processBulkQueue('schedules', db.schedules, ScheduleService.mapToPostgres);
+      
+      // Photos remain sequential due to payload size
       await RepositoryService.processQueue('photos', db.photos, InspectionService.mapPhotoToPostgres);
 
       console.log('[SyncQueue] Sync completed.');
