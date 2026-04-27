@@ -110,7 +110,9 @@ export function InspectionSummary() {
             const legs = await LegislationService.listLegislations();
 
             setInspection(insp);
-            setResponses(remoteResps);
+            if (remoteResps && remoteResps.length > 0) {
+              setResponses(remoteResps);
+            }
             setLegislations(legs);
             setTemplate(tpl ? enrichTemplate(tpl, client || (insp as any)) as any : null);
           } catch (err) {
