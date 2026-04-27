@@ -86,7 +86,7 @@ export async function generatePDF(
   const pageH = doc.internal.pageSize.getHeight();
   const margin = 20;
   const contentW = pageW - margin * 2;
-  const primaryColor: [number, number, number] = [30, 107, 94];
+  const primaryColor: [number, number, number] = [20, 40, 80]; // Navy Blue 
   const secondaryColor: [number, number, number] = [45, 90, 142];
 
   // Helper: footer on every page
@@ -297,7 +297,7 @@ export async function generatePDF(
       `${Math.round(score.scorePercentage)}%`,
     ]],
     headStyles: { fillColor: primaryColor, fontSize: 9, fontStyle: 'bold' },
-    footStyles: { fillColor: [240, 240, 240], fontStyle: 'bold', fontSize: 9 },
+    footStyles: { fillColor: [240, 240, 240], fontStyle: 'bold', fontSize: 9, textColor: [30, 30, 30] },
     bodyStyles: { fontSize: 9 },
     columnStyles: { 0: { cellWidth: 80 } },
     margin: { left: margin, right: margin },
@@ -318,14 +318,39 @@ export async function generatePDF(
   const allItemsList = template.sections.flatMap(s => s.items);
   const nonCompliantItems = responses.filter(r => r.result === 'not_complies');
 
+  // ── ACTION PLAN SORTING LOGIC ──
+  // 1. Sort by Deadline (Immediate > 7 > 15 > 30 > 60 > 90)
+  // 2. Sort by Criticality (Critical first)
+  const deadlineWeights: Record<string, number> = {
+    'Imediato': 1,
+    '7 dias': 2,
+    '15 dias': 3,
+    '30 dias': 4,
+    '60 dias': 5,
+    '90 dias': 6,
+    '120 dias': 7
+  };
+
+  const sortedNonCompliant = [...nonCompliantItems].sort((a, b) => {
+    const wA = deadlineWeights[a.deadline || ''] || 99;
+    const wB = deadlineWeights[b.deadline || ''] || 99;
+    if (wA !== wB) return wA - wB;
+
+    const itA = allItemsList.find(i => i.id === a.itemId);
+    const itB = allItemsList.find(i => i.id === b.itemId);
+    if (itA?.isCritical && !itB?.isCritical) return -1;
+    if (!itA?.isCritical && itB?.isCritical) return 1;
+    return 0;
+  });
+
   // Urgent Actions (Critical Weight 10)
-  const urgentItems = nonCompliantItems.filter(r => {
+  const urgentItems = sortedNonCompliant.filter(r => {
     const it = allItemsList.find(i => i.id === r.itemId);
     return it?.isCritical;
   });
 
   // Important Actions (Necessary Weight 5+)
-  const importantItems = nonCompliantItems.filter(r => {
+  const importantItems = sortedNonCompliant.filter(r => {
     const it = allItemsList.find(i => i.id === r.itemId);
     return !it?.isCritical && (it?.weight || 0) >= 5;
   });
@@ -343,9 +368,15 @@ export async function generatePDF(
       body: items.map((r, idx) => {
         const it = allItemsList.find(i => i.id === r.itemId);
         const section = template.sections.find(s => s.id === it?.sectionId);
+        const actionDesc = [
+          r.correctiveAction ? `AÇÃO: ${r.correctiveAction}` : '',
+          r.situationDescription ? `SITUAÇÃO: ${r.situationDescription}` : '',
+          `(${it?.description || r.customDescription || ''})`
+        ].filter(Boolean).join('\n');
+
         return [
           idx + 1,
-          it?.description || r.customDescription || '',
+          actionDesc,
           section?.title || '—',
           r.deadline || defaultDeadline,
           r.responsible || 'RT / Gestor'
@@ -811,9 +842,19 @@ function drawReferencesABNT(
     allItems.forEach(item => {
       if (!evaluatedItemIds.has(item.id)) return;
       if (!item.legislation) return;
-      // Use the smart extractor — discards alíneas, incisos, artigos
+      
+      // SANITIZATION: Check if the legislation is present in library and has summary
       const bases = extractBaseLegislation(item.legislation);
-      bases.forEach(b => mentionedSet.add(b));
+      bases.forEach(b => {
+        const libEntry = allLegislations.find(l => 
+          l.name.toUpperCase().includes(b.toUpperCase()) || 
+          b.toUpperCase().includes(l.name.toUpperCase())
+        );
+        // Only include if it has a valid title (name) and summary (description) in library
+        if (libEntry && libEntry.name && libEntry.summary) {
+          mentionedSet.add(b);
+        }
+      });
     });
 
     uniqueRefs = Array.from(mentionedSet).sort();
@@ -825,7 +866,7 @@ function drawReferencesABNT(
   const pageH = doc.internal.pageSize.getHeight();
   const margin = 20;
   const contentW = pageW - margin * 2;
-  const primaryColor: [number, number, number] = [30, 107, 94];
+  const primaryColor: [number, number, number] = [20, 40, 80];
 
   doc.addPage();
 

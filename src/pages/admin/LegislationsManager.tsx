@@ -44,7 +44,10 @@ export function LegislationsManager() {
   }
 
   async function handleAdd() {
-    if (!newLeg.name) return;
+    if (!newLeg.name || !newLeg.summary) {
+      alert('Nome e Resumo são obrigatórios para registrar uma norma técnica.');
+      return;
+    }
     try {
       await LegislationService.saveLegislation(newLeg);
       setNewLeg({ name: '', summary: '', url: '' });
@@ -61,7 +64,10 @@ export function LegislationsManager() {
   }
 
   async function handleSaveEdit(id: string) {
-    if (!editForm.name) return;
+    if (!editForm.name || !editForm.summary) {
+      alert('A legislação deve possuir nome e resumo preenchidos.');
+      return;
+    }
     try {
       setSavingId(id);
       await LegislationService.updateLegislation(id, editForm);
@@ -86,10 +92,14 @@ export function LegislationsManager() {
 
   const isDefaultEntry = (id: string) => id.startsWith('default-');
 
-  const filtered = legislations.filter(l => 
-    l.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    l.summary?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filtered = legislations.filter(l => {
+    const hasRequiredFields = l.name && l.summary;
+    if (!hasRequiredFields) return false;
+
+    const matchesSearch = l.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          l.summary?.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesSearch;
+  });
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
