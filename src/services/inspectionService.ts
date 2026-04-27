@@ -195,38 +195,38 @@ export const InspectionService = {
       // Safety: Only update Dexie if we have a successful, non-masked result.
       supabase.from('responses').select('*').eq('inspection_id', inspectionId).is('deleted_at', null)
         .then(({ data, error }) => {
-          if (error) {
-            console.warn('[InspectionService] Responses fetch blocked/failed (RLS?):', error);
+          // STRICT SAFETY GATE: 
+          // If fetch fails, returns an error, or returns an empty array while local has data:
+          // WE REFUSE TO OVERWRITE/DELETE LOCAL DATA.
+          if (error || !data || (data.length === 0 && local.length > 0)) {
+            console.warn(`[SafetyGate] 🛡️ Blocked remote overwrite for ${inspectionId}. Error: ${error?.message || 'Empty result'}. Local records preserved: ${local.length}`);
             return;
           }
 
-          // RLS SAFETY GATE: If server returns 0 items but local has items, 
-          // we suspect masking and refuse to overwrite local data.
-          if (!data || (data.length === 0 && local.length > 0)) {
-            if (data?.length === 0) console.warn('[InspectionService] Server returned 0 responses for inspection', inspectionId, 'but local has data. Blocking overwrite.');
-            return;
-          }
+          // Convert to domain objects
+          const mapped = data.map(row => ({ 
+            id: row.id,
+            inspectionId: row.inspection_id,
+            itemId: row.item_id,
+            result: row.result,
+            situationDescription: row.situation_description,
+            correctiveAction: row.corrective_action,
+            responsible: row.responsible,
+            deadline: row.deadline,
+            customDescription: row.custom_description,
+            createdAt: new Date(row.created_at),
+            updatedAt: new Date(row.updated_at),
+            tenantId: row.tenant_id,
+            deletedAt: row.deleted_at ? new Date(row.deleted_at) : null,
+            syncStatus: 'synced' as const, 
+            dataVerifiedAt: new Date() 
+          }));
+ 
+          // Atomic update
+          await db.responses.bulkPut(mapped);
+          console.log(`[InspectionService] 🛡️ Updated ${mapped.length} local responses from remote.`);
 
-          data.forEach(async row => {
-            const res = { 
-              id: row.id,
-              inspectionId: row.inspection_id,
-              itemId: row.item_id,
-              result: row.result,
-              situationDescription: row.situation_description,
-              correctiveAction: row.corrective_action,
-              responsible: row.responsible,
-              deadline: row.deadline,
-              customDescription: row.custom_description,
-              createdAt: new Date(row.created_at),
-              updatedAt: new Date(row.updated_at),
-              tenantId: row.tenant_id,
-              deletedAt: row.deleted_at ? new Date(row.deleted_at) : null,
-              syncStatus: 'synced', 
-              dataVerifiedAt: new Date() 
-            };
-            await db.responses.put(res as any);
-          });
+
         });
     }
 

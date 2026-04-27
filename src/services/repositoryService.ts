@@ -18,7 +18,7 @@ export const RepositoryService = {
   },
 
   /**
-   * Generic Upsert with Conflict Detection (Last Write Wins with Server Check)
+   * Generic Upsert (Last Write Wins)
    */
   async upsert<T extends { id: string; updatedAt: Date; syncStatus: SyncStatus; tenantId?: string }>(
     tableName: string,
@@ -37,16 +37,16 @@ export const RepositoryService = {
       syncAttempts: 0
     };
 
-    // 1. Save locally immediately
+    // 1. Save locally immediately (Fire and Forget for Remote)
     await dexieTable.put(enriched);
-
-    // 2. Try push to Supabase (passing the base version for conflict check)
+ 
     if (navigator.onLine) {
+      // Background push - NO AWAIT
       RepositoryService.pushToRemote(tableName, enriched, dexieTable, mapToPostgres).catch(err => {
-        console.warn(`[Repository] Async push failed for ${tableName}/${enriched.id}:`, err);
+        console.warn(`[SyncBackground] Push failed for ${tableName}/${enriched.id}:`, err.message);
       });
     }
-
+ 
     return enriched;
   },
 

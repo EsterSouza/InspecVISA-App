@@ -189,8 +189,8 @@ export function InspectionSummary() {
     }
   };
 
-  // Show spinner only while truly loading
-  if (loading) {
+  // Show spinner only if we have absolutely no data yet
+  if (loading && !currentInspection) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary-600" />

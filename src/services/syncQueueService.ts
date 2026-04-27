@@ -21,7 +21,7 @@ export const SyncQueueService = {
 
     // Fix records stuck in 'syncing' from a previous unclean shutdown
     this.cleanupStuckSyncing().then(() => {
-      console.log('[SyncQueue] 🚀 Servindo inicializado. Limpeza concluída.');
+      console.log('[SyncQueue] 🚀 Serviço de sincronização inicializado. Limpeza concluída.');
       // Initial process & summary refresh
       this.getQueueSummary().then(() => {
         this.processAll();
