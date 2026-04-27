@@ -79,14 +79,15 @@ export const RepositoryService = {
       return true;
 
     } catch (err: any) {
-      console.warn(`[Repository] Push failed for ${tableName}/${record.id}:`, err.message);
+      const attempts = (record.syncAttempts || 0) + 1;
+      const shouldMarkFailed = attempts >= 3;
       
-      // Rigorous failure: set to 'failed' immediately on payload/timeout/500 errors
-      // to avoid blocking the queue.
+      console.error(`[SyncFailure] ❌ Error in ${tableName}/${record.id}:`, err.message);
+      
       await dexieTable.update(record.id, { 
-        syncStatus: 'failed', 
+        syncStatus: shouldMarkFailed ? 'failed' : 'pending', 
         syncError: err.message,
-        syncAttempts: ((record as any).syncAttempts || 0) + 1
+        syncAttempts: attempts
       });
       return false;
     }

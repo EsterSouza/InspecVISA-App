@@ -21,6 +21,7 @@ export const SyncQueueService = {
 
     // Fix records stuck in 'syncing' from a previous unclean shutdown
     this.cleanupStuckSyncing().then(() => {
+      console.log('[SyncQueue] 🚀 Servindo inicializado. Limpeza concluída.');
       // Initial process & summary refresh
       this.getQueueSummary().then(() => {
         this.processAll();
@@ -68,10 +69,11 @@ export const SyncQueueService = {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
-    isProcessing = true;
-
     try {
-      console.log('[SyncQueue] Processing background sync...');
+      const summary = await this.getQueueSummary();
+      console.log(`[SyncQueue] Processing background sync (Pending: ${summary.pending}, Syncing: ${summary.syncing}, Failed: ${summary.failed})...`);
+
+      isProcessing = true;
 
       // Process in order of dependency
       await RepositoryService.processQueue('clients', db.clients, ClientService.mapToPostgres);

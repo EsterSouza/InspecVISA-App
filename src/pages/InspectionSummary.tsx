@@ -381,8 +381,79 @@ export function InspectionSummary() {
             <p className="text-sm text-gray-400 mt-1">Concluída em {formatDateTime(currentInspection.completedAt || new Date())}</p>
           </div>
           
-          <div className="p-6 sm:p-8 bg-gray-50">
+          <div className="p-6 sm:p-8 bg-gray-50 space-y-8">
             <ScorePanel inspection={currentInspection} responses={responses} />
+
+            {/* List of Non-Conformities */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-red-500" />
+                Ações Corretivas Necessárias ({responses.filter(r => r.result === 'not_complies').length})
+              </h3>
+              
+              <div className="space-y-3">
+                {responses
+                  .filter(r => r.result === 'not_complies')
+                  .map((nc) => {
+                    const it = template.sections.flatMap(s => s.items).find(i => i.id === nc.itemId);
+                    return (
+                      <div key={nc.id} className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm space-y-2">
+                        <div className="flex justify-between items-start gap-3">
+                          <p className="text-sm font-bold text-gray-800">
+                            {it?.description || nc.customDescription || 'Item sem descrição'}
+                          </p>
+                          {it?.isCritical && (
+                            <span className="shrink-0 bg-red-100 text-red-700 text-[9px] font-black px-2 py-0.5 rounded-full uppercase">Crítico</span>
+                          )}
+                        </div>
+                        
+                        {(nc.situationDescription || nc.correctiveAction) ? (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-gray-50">
+                            {nc.situationDescription && (
+                              <div className="space-y-0.5">
+                                <p className="text-[9px] font-bold text-gray-400 uppercase">Situação</p>
+                                <p className="text-xs text-gray-600 italic leading-relaxed">{nc.situationDescription}</p>
+                              </div>
+                            )}
+                            {nc.correctiveAction && (
+                              <div className="space-y-0.5">
+                                <p className="text-[9px] font-bold text-gray-400 uppercase">Ação Recomenda</p>
+                                <p className="text-xs text-gray-700 font-medium leading-relaxed">{nc.correctiveAction}</p>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-[10px] text-gray-400 italic">Nenhuma descrição ou ação preenchida localmente.</p>
+                        )}
+
+                        <div className="flex items-center justify-between pt-2">
+                          <div className="flex gap-4">
+                            <div className="flex flex-col">
+                              <span className="text-[8px] font-bold text-gray-400 uppercase">Prazo</span>
+                              <span className="text-[10px] font-bold text-gray-700">{nc.deadline || 'A definir'}</span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-[8px] font-bold text-gray-400 uppercase">Responsável</span>
+                              <span className="text-[10px] font-bold text-gray-700">{nc.responsible || 'RT / Gestor'}</span>
+                            </div>
+                          </div>
+                          {nc.photos && nc.photos.length > 0 && (
+                            <div className="bg-blue-50 text-blue-600 text-[9px] font-bold px-2 py-1 rounded-md flex items-center gap-1">
+                              {nc.photos.length} {nc.photos.length === 1 ? 'foto' : 'fotos'}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                
+                {responses.filter(r => r.result === 'not_complies').length === 0 && (
+                  <div className="py-12 text-center bg-white rounded-xl border border-dashed border-gray-200">
+                    <p className="text-gray-400 text-sm">Nenhuma não conformidade registrada.</p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
