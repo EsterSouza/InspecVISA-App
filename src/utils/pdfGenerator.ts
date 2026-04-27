@@ -364,10 +364,9 @@ export async function generatePDF(
 
     autoTable(doc, {
       startY: y,
-      head: [['Nº', 'Descrição da Ação (O que resolver)', 'Seção', 'Prazo', 'Responsável']],
+      head: [['Nº', 'Descrição da Ação (O que resolver)', 'Prazo', 'Responsável']],
       body: items.map((r, idx) => {
         const it = allItemsList.find(i => i.id === r.itemId);
-        const section = template.sections.find(s => s.id === it?.sectionId);
         const actionDesc = [
           r.correctiveAction ? `AÇÃO: ${r.correctiveAction}` : '',
           r.situationDescription ? `SITUAÇÃO: ${r.situationDescription}` : '',
@@ -377,7 +376,6 @@ export async function generatePDF(
         return [
           idx + 1,
           actionDesc,
-          section?.title || '—',
           r.deadline || defaultDeadline,
           r.responsible || 'RT / Gestor'
         ];
@@ -386,10 +384,9 @@ export async function generatePDF(
       bodyStyles: { fontSize: 8, fillColor: rowColor as [number, number, number] },
       columnStyles: {
         0: { cellWidth: 8 },
-        1: { cellWidth: 90 },
-        2: { cellWidth: 30 },
-        3: { cellWidth: 20 },
-        4: { cellWidth: 22 }
+        1: { cellWidth: 120 },
+        2: { cellWidth: 20 },
+        3: { cellWidth: 22 }
       },
       margin: { left: margin, right: margin },
       theme: 'grid'
