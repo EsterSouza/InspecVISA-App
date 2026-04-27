@@ -194,7 +194,7 @@ export const InspectionService = {
       // Trigger background refresh for responses
       // Safety: Only update Dexie if we have a successful, non-masked result.
       supabase.from('responses').select('*').eq('inspection_id', inspectionId).is('deleted_at', null)
-        .then(({ data, error }) => {
+        .then(async ({ data, error }) => {
           // STRICT SAFETY GATE: 
           // If fetch fails, returns an error, or returns an empty array while local has data:
           // WE REFUSE TO OVERWRITE/DELETE LOCAL DATA.
