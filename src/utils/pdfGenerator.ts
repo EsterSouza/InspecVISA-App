@@ -368,8 +368,8 @@ export async function generatePDF(
       body: items.map((r, idx) => {
         const it = allItemsList.find(i => i.id === r.itemId);
         const actionDesc = [
-          r.correctiveAction ? `AÇÃO: ${r.correctiveAction}` : '',
           r.situationDescription ? `SITUAÇÃO: ${r.situationDescription}` : '',
+          r.correctiveAction ? `AÇÃO: ${r.correctiveAction}` : '',
           `(${it?.description || r.customDescription || ''})`
         ].filter(Boolean).join('\n');
 
