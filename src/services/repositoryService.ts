@@ -154,23 +154,34 @@ export const RepositoryService = {
     if (items.length === 0) return;
  
     const ids = items.map((i: any) => i.id);
-    console.log(`[Repository] 📦 Iniciando Bulk Upsert para ${tableName} (${items.length} itens)...`);
+    console.log(`[Repository] 📦 Iniciando Chunked Bulk Upsert para ${tableName} (${items.length} itens total)...`);
  
     try {
       // 1. Mark as 'syncing' locally
       await dexieTable.where('id').anyOf(ids).modify({ syncStatus: 'syncing' });
  
-      // 2. Prepare payload
+      // 2. Prepare payload and Chunk it (max 20 items per request)
       const mappedArray = items.map(mapToPostgres);
+      const CHUNK_SIZE = 20;
+      const chunks = [];
+      for (let i = 0; i < mappedArray.length; i += CHUNK_SIZE) {
+        chunks.push(mappedArray.slice(i, i + CHUNK_SIZE));
+      }
  
-      // 3. Single Network Call
-      const { error } = await withTimeout(
-        supabase.from(tableName).upsert(mappedArray),
-        30000,
-        `BulkPush_${tableName}`
-      );
+      // 3. Sequential Chunk Processing
+      let processedCount = 0;
+      for (const chunk of chunks) {
+        processedCount += chunk.length;
+        console.log(`[Repository] 🚀 Sending chunk of ${chunk.length} to ${tableName} (${processedCount}/${items.length})...`);
+        
+        const { error } = await withTimeout(
+          supabase.from(tableName).upsert(chunk),
+          60000, // Extended timeout for heavy payloads
+          `BulkPush_${tableName}`
+        );
  
-      if (error) throw error;
+        if (error) throw error;
+      }
  
       // 4. Success: Mark as 'synced'
       await dexieTable.where('id').anyOf(ids).modify({ 
@@ -180,7 +191,7 @@ export const RepositoryService = {
         syncAttempts: 0 
       });
  
-      console.log(`[Repository] ✅ Bulk Upsert concluído para ${tableName}.`);
+      console.log(`[Repository] ✅ Bulk Upsert completo para ${tableName}.`);
     } catch (err: any) {
       console.error(`[Repository] ❌ Erro no Bulk Upsert para ${tableName}:`, err.message);
       
