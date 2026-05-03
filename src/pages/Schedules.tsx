@@ -8,7 +8,6 @@ import { Calendar, Clock, Plus, Trash2, CheckCircle, AlertCircle, User, Play, Ed
 import { ScheduleService } from '../services/scheduleService';
 import { ClientService } from '../services/clientService';
 import { useAuthStore } from '../store/useAuthStore';
-import { supabase } from '../lib/supabase';
 
 export function Schedules() {
   const navigate = useNavigate();
@@ -61,16 +60,7 @@ export function Schedules() {
   }, []);
 
   useEffect(() => {
-    const channel = supabase
-      .channel('schedules_realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'schedules' }, () => {
-        loadData();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return ScheduleService.subscribeToChanges(loadData);
   }, []);
 
   useEffect(() => {
@@ -85,10 +75,6 @@ export function Schedules() {
 
   const handleSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isOnline) {
-      alert('Sem conexão com a internet. Não é possível agendar no momento.');
-      return;
-    }
     if (!selectedClientId || !scheduledDate || !scheduledTime) return;
 
     try {
@@ -148,10 +134,6 @@ export function Schedules() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!isOnline) {
-      alert('Sem conexão com a internet. Não é possível excluir no momento.');
-      return;
-    }
     if (confirm('Deseja excluir este agendamento?')) {
       try {
         await ScheduleService.deleteSchedule(id);
@@ -164,10 +146,6 @@ export function Schedules() {
   };
 
   const handleComplete = async (id: string) => {
-    if (!isOnline) {
-      alert('Sem conexão com a internet. Não é possível concluir no momento.');
-      return;
-    }
     try {
       await ScheduleService.completeSchedule(id);
       loadData();

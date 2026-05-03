@@ -22,9 +22,13 @@ export async function checkReportReadiness(inspectionId: string): Promise<Readin
   if (!inspection) throw new Error('Inspeção não encontrada.');
 
   const responses = await db.responses.where('inspectionId').equals(inspectionId).toArray();
+  const responseIds = responses.map(r => r.id);
+  const photos = responseIds.length > 0
+    ? await db.photos.where('responseId').anyOf(responseIds).toArray()
+    : [];
   
   // 1. Check for non-synced items
-  const allItems = [inspection, ...responses];
+  const allItems = [inspection, ...responses, ...photos];
   const pending = allItems.filter(i => i.syncStatus === 'pending' || i.syncStatus === 'syncing').length;
   const conflict = allItems.filter(i => i.syncStatus === 'conflict').length;
   const failed = allItems.filter(i => i.syncStatus === 'failed').length;

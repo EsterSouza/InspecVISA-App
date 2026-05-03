@@ -9,6 +9,27 @@ import { useAuthStore } from '../store/useAuthStore';
  * Centralizes Hybrid-Cache and Sync Queue logic.
  */
 
+const activePushes = new Set<string>();
+const TENANT_SCOPED_TABLES = new Set(['clients', 'inspections', 'responses', 'photos', 'schedules']);
+const UNSAFE_LOCAL_STATUSES: SyncStatus[] = ['pending', 'syncing', 'failed', 'conflict'];
+
+function syncKey(tableName: string, id: string) {
+  return `${tableName}:${id}`;
+}
+
+function sameTimestamp(a?: Date | string, b?: Date | string) {
+  if (!a || !b) return false;
+  return new Date(a).getTime() === new Date(b).getTime();
+}
+
+function timestampOf(value?: Date | string) {
+  return value ? new Date(value).getTime() : 0;
+}
+
+function currentActorId() {
+  return useAuthStore.getState().tenantInfo?.email || 'shared-local-user';
+}
+
 export const RepositoryService = {
   /**
    * withTimeout: Wraps a promise with a timeout
@@ -32,6 +53,7 @@ export const RepositoryService = {
     const enriched: T = {
       ...record,
       tenantId: record.tenantId || tenantId,
+      localActorId: (record as any).localActorId || currentActorId(),
       updatedAt: now,
       syncStatus: 'pending' as SyncStatus,
       syncAttempts: 0
@@ -50,17 +72,77 @@ export const RepositoryService = {
     return enriched;
   },
 
+  async mergeRemoteRecord<T extends { id: string; updatedAt?: Date | string; createdAt?: Date | string; syncStatus?: SyncStatus }>(
+    dexieTable: any,
+    remote: T,
+    options: { label?: string; preserveLocal?: boolean } = {}
+  ): Promise<{ accepted: boolean; conflict: boolean; record: T }> {
+    const local = await dexieTable.get(remote.id);
+    const verifiedAt = new Date();
+
+    if (!local) {
+      const record = { ...remote, syncStatus: 'synced' as SyncStatus, dataVerifiedAt: verifiedAt } as T;
+      await dexieTable.put(record);
+      return { accepted: true, conflict: false, record };
+    }
+
+    const remoteUpdatedAt = timestampOf(remote.updatedAt || remote.createdAt);
+    const localUpdatedAt = timestampOf(local.updatedAt || local.createdAt);
+
+    if (UNSAFE_LOCAL_STATUSES.includes(local.syncStatus)) {
+      const diverged = remoteUpdatedAt > 0 && !sameTimestamp(remote.updatedAt || remote.createdAt, local.updatedAt || local.createdAt);
+      if (diverged && local.syncStatus !== 'conflict') {
+        await dexieTable.update(local.id, {
+          syncStatus: 'conflict',
+          syncError: `Conflito preservado${options.label ? ` em ${options.label}` : ''}: remoto divergiu de alteracao local.`,
+          conflictRemote: remote
+        });
+      }
+      return { accepted: false, conflict: diverged, record: local };
+    }
+
+    if (remoteUpdatedAt > localUpdatedAt + 1000 || options.preserveLocal === false) {
+      const record = { ...local, ...remote, syncStatus: 'synced' as SyncStatus, dataVerifiedAt: verifiedAt, syncError: null, conflictRemote: undefined } as T;
+      await dexieTable.put(record);
+      return { accepted: true, conflict: false, record };
+    }
+
+    if (!local.dataVerifiedAt) {
+      await dexieTable.update(local.id, { dataVerifiedAt: verifiedAt });
+    }
+
+    return { accepted: false, conflict: false, record: local };
+  },
+
   async pushToRemote<T extends { id: string; updatedAt: Date; syncStatus: SyncStatus; tenantId?: string; dataVerifiedAt?: Date; syncAttempts?: number }>(
     tableName: string,
     record: T,
     dexieTable: any,
     mapToPostgres: (item: T) => any
   ): Promise<boolean> {
+    const key = syncKey(tableName, record.id);
+    if (activePushes.has(key)) return false;
+    activePushes.add(key);
+
     try {
+      const tenantId = record.tenantId || useAuthStore.getState().tenantInfo?.tenantId;
+      if (TENANT_SCOPED_TABLES.has(tableName) && !tenantId) {
+        await dexieTable.update(record.id, {
+          syncStatus: 'pending',
+          syncError: 'Aguardando tenantId para sincronizar'
+        });
+        return false;
+      }
+
+      const recordToPush = { ...record, tenantId } as T;
+      if (tenantId && tenantId !== record.tenantId) {
+        await dexieTable.update(record.id, { tenantId });
+      }
+
       await dexieTable.update(record.id, { syncStatus: 'syncing' });
 
       // Perform Push (Direct Upsert - Last Write Wins)
-      const pgRecord = mapToPostgres(record);
+      const pgRecord = mapToPostgres(recordToPush);
       const { error: pushError } = await withTimeout(
         supabase.from(tableName).upsert(pgRecord),
         120000,
@@ -69,13 +151,17 @@ export const RepositoryService = {
 
       if (pushError) throw pushError;
 
-      // Success
-      await dexieTable.update(record.id, { 
-        syncStatus: 'synced', 
-        dataVerifiedAt: new Date(),
-        syncError: null,
-        syncAttempts: 0 
-      });
+      const current = await dexieTable.get(record.id);
+      if (current && sameTimestamp(current.updatedAt, recordToPush.updatedAt)) {
+        await dexieTable.update(record.id, { 
+          syncStatus: 'synced', 
+          dataVerifiedAt: new Date(),
+          syncError: null,
+          syncAttempts: 0 
+        });
+      } else if (current) {
+        await dexieTable.update(record.id, { syncStatus: 'pending' });
+      }
       return true;
 
     } catch (err: any) {
@@ -84,12 +170,17 @@ export const RepositoryService = {
       
       console.error(`[SyncFailure] ❌ Error in ${tableName}/${record.id}:`, err.message);
       
-      await dexieTable.update(record.id, { 
-        syncStatus: shouldMarkFailed ? 'failed' : 'pending', 
-        syncError: err.message,
-        syncAttempts: attempts
-      });
+      const current = await dexieTable.get(record.id);
+      if (current && sameTimestamp(current.updatedAt, record.updatedAt)) {
+        await dexieTable.update(record.id, { 
+          syncStatus: shouldMarkFailed ? 'failed' : 'pending', 
+          syncError: err.message,
+          syncAttempts: attempts
+        });
+      }
       return false;
+    } finally {
+      activePushes.delete(key);
     }
   },
 
@@ -114,11 +205,7 @@ export const RepositoryService = {
     if (isStale && navigator.onLine) {
       fetchRemote().then(async (remoteData: T[]) => {
         for (const item of remoteData) {
-          const localItem = await dexieTable.get((item as any).id);
-          // Only update if local is not pending/conflict
-          if (!localItem || localItem.syncStatus === 'synced' || localItem.syncStatus === 'failed') {
-             await dexieTable.put({ ...item, syncStatus: 'synced' as SyncStatus, dataVerifiedAt: new Date() });
-          }
+          await RepositoryService.mergeRemoteRecord(dexieTable, item as any, { label: 'refresh remoto' });
         }
       }).catch(err => console.warn(`[Repository] Background fetch failed:`, err));
     }
@@ -146,10 +233,34 @@ export const RepositoryService = {
   async processBulkQueue(tableName: string, dexieTable: any, mapToPostgres: (item: any) => any) {
     if (!navigator.onLine) return;
  
-    const items = await dexieTable
+    const tenantId = useAuthStore.getState().tenantInfo?.tenantId;
+    const queuedItems = (await dexieTable
       .where('syncStatus')
       .anyOf(['pending', 'failed'])
-      .toArray();
+      .toArray())
+      .filter((item: any) => !activePushes.has(syncKey(tableName, item.id)));
+
+    const blockedItems = TENANT_SCOPED_TABLES.has(tableName)
+      ? queuedItems.filter((item: any) => !item.tenantId && !tenantId)
+      : [];
+
+    for (const item of blockedItems) {
+      await dexieTable.update(item.id, {
+        syncStatus: 'pending',
+        syncError: 'Aguardando tenantId para sincronizar'
+      });
+    }
+
+    const items = queuedItems
+      .filter((item: any) => !blockedItems.some((blocked: any) => blocked.id === item.id))
+      .map((item: any) => (!item.tenantId && tenantId ? { ...item, tenantId } : item));
+
+    for (const item of items) {
+      const current = await dexieTable.get(item.id);
+      if (item.tenantId && current?.tenantId !== item.tenantId) {
+        await dexieTable.update(item.id, { tenantId: item.tenantId });
+      }
+    }
  
     if (items.length === 0) return;
  
@@ -183,13 +294,22 @@ export const RepositoryService = {
         if (error) throw error;
       }
  
-      // 4. Success: Mark as 'synced'
-      await dexieTable.where('id').anyOf(ids).modify({ 
-        syncStatus: 'synced', 
-        dataVerifiedAt: new Date(),
-        syncError: null,
-        syncAttempts: 0 
-      });
+      // 4. Success: Mark as synced only if no newer local edit happened
+      // during the network request.
+      const verifiedAt = new Date();
+      for (const item of items) {
+        const current = await dexieTable.get(item.id);
+        if (current && sameTimestamp(current.updatedAt, item.updatedAt)) {
+          await dexieTable.update(item.id, {
+            syncStatus: 'synced',
+            dataVerifiedAt: verifiedAt,
+            syncError: null,
+            syncAttempts: 0
+          });
+        } else if (current) {
+          await dexieTable.update(item.id, { syncStatus: 'pending' });
+        }
+      }
  
       console.log(`[Repository] ✅ Bulk Upsert completo para ${tableName}.`);
     } catch (err: any) {
@@ -199,11 +319,14 @@ export const RepositoryService = {
       for (const item of items) {
         const attempts = (item.syncAttempts || 0) + 1;
         const shouldMarkFailed = attempts >= 3;
-        await dexieTable.update(item.id, {
-          syncStatus: shouldMarkFailed ? 'failed' : 'pending',
-          syncError: err.message,
-          syncAttempts: attempts
-        });
+        const current = await dexieTable.get(item.id);
+        if (current && sameTimestamp(current.updatedAt, item.updatedAt)) {
+          await dexieTable.update(item.id, {
+            syncStatus: shouldMarkFailed ? 'failed' : 'pending',
+            syncError: err.message,
+            syncAttempts: attempts
+          });
+        }
       }
     }
   }

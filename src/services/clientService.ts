@@ -76,10 +76,7 @@ export const ClientService = {
             .order('created_at', { ascending: false });
           if (error || !data) return;
           for (const row of data) {
-            const localItem = await db.clients.get(row.id);
-            if (!localItem || localItem.syncStatus === 'synced' || localItem.syncStatus === 'failed') {
-              await db.clients.put({ ...mapFromPostgres(row), dataVerifiedAt: new Date() });
-            }
+            await RepositoryService.mergeRemoteRecord(db.clients, mapFromPostgres(row), { label: 'clientes' });
           }
         } catch (err) {
           console.warn('[ClientService] Background refresh failed:', err);
@@ -106,7 +103,7 @@ export const ClientService = {
           const { data, error } = await supabase
             .from('clients').select('*').eq('id', id).is('deleted_at', null).single();
           if (!error && data) {
-            await db.clients.put(mapFromPostgres(data));
+            await RepositoryService.mergeRemoteRecord(db.clients, mapFromPostgres(data), { label: 'cliente' });
           }
         } catch { /* silent — local data still usable */ }
       })();
@@ -143,6 +140,24 @@ export const ClientService = {
       const item = await db.clients.get(id);
       if (item) {
         RepositoryService.pushToRemote('clients', item, db.clients, mapToPostgres);
+      }
+    }
+  },
+
+  async restoreSoftDeletedClientsFromRemote(): Promise<void> {
+    const { data: remoteClients, error } = await supabase
+      .from('clients')
+      .select('id')
+      .is('deleted_at', null);
+
+    if (error || !remoteClients?.length) return;
+
+    const remoteIds = new Set(remoteClients.map((c: any) => c.id));
+    const localClients = await db.clients.toArray();
+    for (const client of localClients) {
+      if (client.deletedAt && remoteIds.has(client.id) && client.syncStatus === 'synced') {
+        console.log('[ClientService] Restoring incorrectly soft-deleted client:', client.name);
+        await db.clients.update(client.id, { deletedAt: null, syncStatus: 'synced' as const, dataVerifiedAt: new Date() });
       }
     }
   }

@@ -49,6 +49,8 @@ export interface Client {
   dataVerifiedAt?: Date;
   syncError?: string;
   syncAttempts?: number;
+  localActorId?: string;
+  conflictRemote?: any;
 }
 
 export type SyncStatus = 'pending' | 'syncing' | 'synced' | 'conflict' | 'failed';
@@ -58,6 +60,8 @@ export interface SyncBase {
   dataVerifiedAt?: Date;
   syncError?: string;
   syncAttempts?: number;
+  localActorId?: string;
+  conflictRemote?: any;
 }
 
 export interface ChecklistTemplate {
@@ -151,6 +155,8 @@ export interface Inspection {
   dataVerifiedAt?: Date;
   syncError?: string;
   syncAttempts?: number;
+  localActorId?: string;
+  conflictRemote?: any;
 }
 
 export type ResponseResult = 'complies' | 'not_complies' | 'not_applicable' | 'not_observed' | 'not_evaluated';
@@ -174,6 +180,8 @@ export interface InspectionResponse {
   dataVerifiedAt?: Date;
   syncError?: string;
   syncAttempts?: number;
+  localActorId?: string;
+  conflictRemote?: any;
 }
 
 export interface InspectionPhoto {
@@ -189,6 +197,8 @@ export interface InspectionPhoto {
   dataVerifiedAt?: Date;
   syncError?: string;
   syncAttempts?: number;
+  localActorId?: string;
+  conflictRemote?: any;
 }
 
 export interface SectionScore {
@@ -261,6 +271,8 @@ export interface Schedule {
   dataVerifiedAt?: Date;
   syncError?: string;
   syncAttempts?: number;
+  localActorId?: string;
+  conflictRemote?: any;
 }
 
 export interface SyncLog {

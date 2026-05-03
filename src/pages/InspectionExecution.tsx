@@ -2,7 +2,6 @@ import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Loader2, PlusCircle, WifiOff, X, RefreshCw } from 'lucide-react';
 import { db } from '../db/database';
-import { supabase } from '../lib/supabase';
 import { getTemplateById, getEffectiveTemplate } from '../data/templates';
 import { type Inspection, type InspectionResponse, type InspectionPhoto } from '../types';
 import { ILPIStaffCalculator } from '../components/inspection/ILPIStaffCalculator';
@@ -14,7 +13,6 @@ import { MobileScoreBar } from '../components/inspection/MobileScoreBar';
 import { ClientService } from '../services/clientService';
 import { InspectionService } from '../services/inspectionService';
 import { ScheduleService } from '../services/scheduleService';
-import { withTimeout } from '../utils/network';
 
 
 import { Button } from '../components/ui/Button';
@@ -195,64 +193,9 @@ export function InspectionExecution() {
     const inspectionId = state?.inspectionId;
     if (!inspectionId) return;
 
-    // 1. Initial subscription
-    const channel = supabase
-      .channel(`inspection-responses:${inspectionId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'responses',
-          filter: `inspection_id=eq.${inspectionId}`,
-        },
-        async (payload) => {
-          console.log('[Realtime] Change detected:', payload.eventType);
-          
-          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            const rr = payload.new as any;
-            const mapped: InspectionResponse = {
-              id: rr.id, inspectionId: rr.inspection_id, itemId: rr.item_id,
-              result: rr.result, situationDescription: rr.situation_description,
-              correctiveAction: rr.corrective_action, responsible: rr.responsible,
-              deadline: rr.deadline, customDescription: rr.custom_description,
-              createdAt: new Date(rr.created_at), updatedAt: new Date(rr.updated_at || rr.created_at),
-              syncStatus: 'synced', photos: [],
-            };
-            
-            useInspectionStore.getState().mergeResponses([mapped]);
-          }
-
-        }
-      )
-      .subscribe((status) => {
-        console.log('[Realtime] Status:', status);
-      });
-
-    // 2. Keep a slower polling interval as fallback (every 30s)
-    const interval = setInterval(async () => {
-      if (!navigator.onLine) return;
-      try {
-        const { data: remoteResps, error } = await supabase
-          .from('responses').select('*')
-          .eq('inspection_id', inspectionId).is('deleted_at', null);
-        if (error || !remoteResps) return;
-        const mapped: InspectionResponse[] = remoteResps.map(rr => ({
-          id: rr.id, inspectionId: rr.inspection_id, itemId: rr.item_id,
-          result: rr.result, situationDescription: rr.situation_description,
-          correctiveAction: rr.corrective_action, responsible: rr.responsible,
-          deadline: rr.deadline, customDescription: rr.custom_description,
-          createdAt: new Date(rr.created_at), updatedAt: new Date(rr.updated_at || rr.created_at),
-          syncStatus: 'synced', photos: [],
-        }));
-        useInspectionStore.getState().mergeResponses(mapped);
-      } catch (err) { console.warn('[Sync] fallback pull failed:', err); }
-    }, 30000);
-
-    return () => {
-      supabase.removeChannel(channel);
-      clearInterval(interval);
-    };
+    return InspectionService.subscribeToResponseChanges(inspectionId, (accepted) => {
+      useInspectionStore.getState().mergeResponses(accepted);
+    });
   }, [state?.inspectionId]);
 
   // ─── AUTO-SAVE: immediate Dexie + debounced Supabase ─────────────────────

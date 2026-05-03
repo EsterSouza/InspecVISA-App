@@ -1,4 +1,3 @@
-import { supabase } from './lib/supabase';
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { initializeDatabase } from './db/database';
@@ -9,6 +8,8 @@ import type { AuthState } from './store/useAuthStore';
 import { Loader2 } from 'lucide-react';
 import { SyncIndicator } from './components/ui/SyncIndicator';
 import { SyncQueueService } from './services/syncQueueService';
+import { ClientService } from './services/clientService';
+import { InspectionService } from './services/inspectionService';
 
 // Layout
 import { Sidebar } from './components/layout/Sidebar';
@@ -102,10 +103,6 @@ function App() {
       // Step 4: Fetch remote templates in background (non-blocking)
       if (navigator.onLine) {
         void (async () => {
-          // LOCK: Ensure session is consolidated before background network calls
-          const { data: { session } } = await supabase.auth.getSession();
-          if (!session) return;
-
           import('./services/templateService').then(async ({ TemplateService }) => {
             try {
               const remoteTemplates = await TemplateService.syncAllTemplatesToDexie();
@@ -121,19 +118,7 @@ function App() {
         // One-time repair: restore clients incorrectly soft-deleted by a previous bug
         void (async () => {
           try {
-            const { db } = await import('./db/database');
-            const { supabase } = await import('./lib/supabase');
-            const { data: remoteClients } = await supabase
-              .from('clients').select('id').is('deleted_at', null);
-            if (!remoteClients?.length) return;
-            const remoteIds = new Set(remoteClients.map((c: any) => c.id));
-            const localClients = await db.clients.toArray();
-            for (const client of localClients) {
-              if (client.deletedAt && remoteIds.has(client.id)) {
-                console.log('[App] Restoring incorrectly soft-deleted client:', client.name);
-                await db.clients.update(client.id, { deletedAt: null, syncStatus: 'synced' as const });
-              }
-            }
+            await ClientService.restoreSoftDeletedClientsFromRemote();
           } catch { /* non-fatal */ }
         })();
       }
@@ -263,27 +248,7 @@ function App() {
 
 async function reconcileCorruptedIds() {
   try {
-    const { db } = await import('./db/database');
-    const { supabase } = await import('./lib/supabase');
-    const { mapFromPostgres } = await import('./services/inspectionService');
-
-    const { data: remoteInspections, error } = await supabase
-      .from('inspections')
-      .select('*')
-      .is('deleted_at', null)
-      .in('status', ['in_progress', 'completed']);
-
-    if (error || !remoteInspections?.length) return;
-
-    for (const row of remoteInspections) {
-      const existing = await db.inspections.get(row.id);
-      if (!existing) {
-        // Server has an inspection we don't have locally — import it
-        console.log('[App] Reconciling missing inspection from server:', row.id);
-        const mapped = mapFromPostgres(row);
-        await db.inspections.put({ ...mapped, syncStatus: 'synced' as const, dataVerifiedAt: new Date() });
-      }
-    }
+    await InspectionService.importMissingRemoteInspections();
   } catch (err) {
     console.warn('[App] ID reconciliation failed:', err);
   }

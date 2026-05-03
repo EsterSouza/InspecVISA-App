@@ -10,7 +10,6 @@ import { Badge } from '../components/ui/Badge';
 import { formatDateTime } from '../utils/imageUtils';
 import { ProfileModal } from '../components/profile/ProfileModal';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { supabase } from '../lib/supabase';
 
 export function Inspections() {
   const navigate = useNavigate();
@@ -60,16 +59,7 @@ export function Inspections() {
   useEffect(() => { loadInspections(); }, [search, filterStatus]);
 
   useEffect(() => {
-    const channel = supabase
-      .channel('inspections_realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'inspections' }, () => {
-        loadInspections();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return InspectionService.subscribeToInspectionChanges(loadInspections);
   }, []);
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {

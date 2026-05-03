@@ -22,9 +22,9 @@ export function mapFromPostgres(row: any): Inspection {
     residentsTotal: row.residents_total || undefined,
     residentsMale: row.residents_male || undefined,
     residentsFemale: row.residents_female || undefined,
-    dependencyLevel1: row.dependency_level1 || undefined,
-    dependencyLevel2: row.dependency_level2 || undefined,
-    dependencyLevel3: row.dependency_level3 || undefined,
+    dependencyLevel1: row.dependency_level1 ?? row.dependency_level_1 ?? undefined,
+    dependencyLevel2: row.dependency_level2 ?? row.dependency_level_2 ?? undefined,
+    dependencyLevel3: row.dependency_level3 ?? row.dependency_level_3 ?? undefined,
     accompanistName: row.accompanist_name || undefined,
     accompanistRole: row.accompanist_role || undefined,
     signatureDataUrl: row.signature_data_url || undefined,
@@ -51,6 +51,9 @@ export function mapToPostgres(inspection: Inspection): any {
     dependency_level1: inspection.dependencyLevel1 || null,
     dependency_level2: inspection.dependencyLevel2 || null,
     dependency_level3: inspection.dependencyLevel3 || null,
+    dependency_level_1: inspection.dependencyLevel1 || null,
+    dependency_level_2: inspection.dependencyLevel2 || null,
+    dependency_level_3: inspection.dependencyLevel3 || null,
     accompanist_name: inspection.accompanistName || null,
     accompanist_role: inspection.accompanistRole || null,
     signature_data_url: inspection.signatureDataUrl || null,
@@ -79,6 +82,26 @@ export function mapResponseToPostgres(response: InspectionResponse): any {
   };
 }
 
+export function mapResponseFromPostgres(row: any): InspectionResponse {
+  return {
+    id: row.id,
+    inspectionId: row.inspection_id,
+    itemId: row.item_id,
+    result: row.result,
+    situationDescription: row.situation_description,
+    correctiveAction: row.corrective_action,
+    responsible: row.responsible,
+    deadline: row.deadline,
+    customDescription: row.custom_description,
+    createdAt: new Date(row.created_at),
+    updatedAt: new Date(row.updated_at || row.created_at),
+    tenantId: row.tenant_id,
+    deletedAt: row.deleted_at ? new Date(row.deleted_at) : null,
+    syncStatus: 'synced',
+    dataVerifiedAt: new Date()
+  };
+}
+
 export function mapPhotoToPostgres(photo: InspectionPhoto): any {
   return {
     id: photo.id,
@@ -96,6 +119,20 @@ export const InspectionService = {
   mapToPostgres,
   mapResponseToPostgres,
   mapPhotoToPostgres,
+  mapResponseFromPostgres,
+
+  async mergeRemoteResponses(remoteResponses: InspectionResponse[]): Promise<InspectionResponse[]> {
+    const accepted: InspectionResponse[] = [];
+
+    for (const remote of remoteResponses) {
+      const result = await RepositoryService.mergeRemoteRecord(db.responses, remote, { label: 'respostas' });
+      if (result.accepted) {
+        accepted.push(result.record);
+      }
+    }
+
+    return accepted;
+  },
 
   async getInspectionById(id: string): Promise<Inspection | null> {
     // 1. Always return local data first (< 1ms)
@@ -123,11 +160,7 @@ export const InspectionService = {
 
           if (!error && data) {
             const remote = mapFromPostgres(data);
-            // Only overwrite if local is not pending/conflict (don't stomp on unsaved work)
-            const current = await db.inspections.get(id);
-            if (!current || current.syncStatus === 'synced' || current.syncStatus === 'failed') {
-              await db.inspections.put({ ...remote, dataVerifiedAt: new Date() });
-            }
+            await RepositoryService.mergeRemoteRecord(db.inspections, remote, { label: 'inspecao' });
           }
         } catch (err: any) {
           // Silence timeout warnings in production-like environments to avoid console noise
@@ -203,28 +236,8 @@ export const InspectionService = {
             return;
           }
 
-          // Convert to domain objects
-          const mapped = data.map(row => ({ 
-            id: row.id,
-            inspectionId: row.inspection_id,
-            itemId: row.item_id,
-            result: row.result,
-            situationDescription: row.situation_description,
-            correctiveAction: row.corrective_action,
-            responsible: row.responsible,
-            deadline: row.deadline,
-            customDescription: row.custom_description,
-            createdAt: new Date(row.created_at),
-            updatedAt: new Date(row.updated_at),
-            tenantId: row.tenant_id,
-            deletedAt: row.deleted_at ? new Date(row.deleted_at) : null,
-            syncStatus: 'synced' as const, 
-            dataVerifiedAt: new Date() 
-          }));
- 
-          // Atomic update
-          await db.responses.bulkPut(mapped);
-          console.log(`[InspectionService] 🛡️ Updated ${mapped.length} local responses from remote.`);
+          const merged = await InspectionService.mergeRemoteResponses(data.map(mapResponseFromPostgres));
+          console.log(`[InspectionService] Updated ${merged.length} safe local responses from remote.`);
 
 
         });
@@ -274,15 +287,11 @@ export const InspectionService = {
             .order('created_at', { ascending: false });
           if (error || !data) return;
 
-          const remoteIds = new Set(data.map((r: any) => r.id));
 
           // ONLY upsert records from Supabase — never delete local records
           // (local records may be pending sync or belong to other sessions)
           for (const row of data) {
-            const localItem = await db.inspections.get(row.id);
-            if (!localItem || localItem.syncStatus === 'synced' || localItem.syncStatus === 'failed') {
-              await db.inspections.put({ ...mapFromPostgres(row), syncStatus: 'synced' as const, dataVerifiedAt: new Date() });
-            }
+            await RepositoryService.mergeRemoteRecord(db.inspections, mapFromPostgres(row), { label: 'inspecoes' });
           }
         } catch (err) {
           console.warn('[InspectionService] Background refresh failed:', err);
@@ -291,5 +300,107 @@ export const InspectionService = {
     }
 
     return local.reverse(); // createdAt descending
+  },
+
+  async getLastCompletedInspectionId(clientId: string): Promise<string | undefined> {
+    const local = await db.inspections
+      .where('clientId')
+      .equals(clientId)
+      .filter(i => i.status === 'completed' && !i.deletedAt)
+      .toArray();
+
+    const latestLocal = local
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+
+    if (!navigator.onLine) return latestLocal?.id;
+
+    try {
+      const { data, error } = await supabase
+        .from('inspections')
+        .select('*')
+        .eq('client_id', clientId)
+        .eq('status', 'completed')
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error || !data) return latestLocal?.id;
+
+      const remote = mapFromPostgres(data);
+      await RepositoryService.mergeRemoteRecord(db.inspections, remote, { label: 'ultima inspecao concluida' });
+      return remote.id;
+    } catch {
+      return latestLocal?.id;
+    }
+  },
+
+  async importMissingRemoteInspections(): Promise<void> {
+    const { data: remoteInspections, error } = await supabase
+      .from('inspections')
+      .select('*')
+      .is('deleted_at', null)
+      .in('status', ['in_progress', 'completed']);
+
+    if (error || !remoteInspections?.length) return;
+
+    for (const row of remoteInspections) {
+      await RepositoryService.mergeRemoteRecord(db.inspections, mapFromPostgres(row), { label: 'reconciliacao' });
+    }
+  },
+
+  subscribeToInspectionChanges(onChange: () => void): () => void {
+    const channel = supabase
+      .channel('inspections_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'inspections' }, () => {
+        void this.getAllInspections().finally(onChange);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  },
+
+  subscribeToResponseChanges(inspectionId: string, onAccepted: (responses: InspectionResponse[]) => void): () => void {
+    const channel = supabase
+      .channel(`inspection-responses:${inspectionId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'responses',
+          filter: `inspection_id=eq.${inspectionId}`,
+        },
+        async (payload) => {
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const accepted = await this.mergeRemoteResponses([mapResponseFromPostgres(payload.new as any)]);
+            if (accepted.length > 0) onAccepted(accepted);
+          }
+        }
+      )
+      .subscribe();
+
+    const interval = window.setInterval(async () => {
+      if (!navigator.onLine) return;
+      try {
+        const { data: remoteResps, error } = await supabase
+          .from('responses')
+          .select('*')
+          .eq('inspection_id', inspectionId)
+          .is('deleted_at', null);
+        if (error || !remoteResps) return;
+        const accepted = await this.mergeRemoteResponses(remoteResps.map(mapResponseFromPostgres));
+        if (accepted.length > 0) onAccepted(accepted);
+      } catch (err) {
+        console.warn('[InspectionService] Response fallback pull failed:', err);
+      }
+    }, 30000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(interval);
+    };
   }
 };

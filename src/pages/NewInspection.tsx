@@ -2,10 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronRight, ArrowLeft, WifiOff, Loader2 } from 'lucide-react';
 import { db } from '../db/database';
-import { supabase } from '../lib/supabase';
 import { ClientService } from '../services/clientService';
 import { InspectionService } from '../services/inspectionService';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { useAuthStore } from '../store/useAuthStore';
 import type { Client, ChecklistTemplate, Inspection } from '../types';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -21,6 +21,7 @@ export function NewInspection() {
   const preSelectedClientId = searchParams.get('clientId');
   
   const settings = useSettingsStore((s) => s.settings);
+  const tenantInfo = useAuthStore((s) => s.tenantInfo);
   const [step, setStep] = useState(preSelectedClientId ? 2 : 1);
   const [clients, setClients] = useState<Client[]>([]);
   const [templates, setTemplates] = useState<ChecklistTemplate[]>([]);
@@ -105,14 +106,7 @@ export function NewInspection() {
 
     try {
       // Pega a última inspeção completada para este cliente (para levar as fotos/respostas se necessário)
-      const { data: lastInsp } = await supabase
-        .from('inspections')
-        .select('id')
-        .eq('client_id', selectedClient.id)
-        .eq('status', 'completed')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
+      const previousInspectionId = await InspectionService.getLastCompletedInspectionId(selectedClient.id);
 
       const newInspectionId = generateId();
       
@@ -134,6 +128,8 @@ export function NewInspection() {
         dependencyLevel2: dep2 ? parseInt(dep2) : undefined,
         dependencyLevel3: dep3 ? parseInt(dep3) : undefined,
         updatedAt: new Date(),
+        tenantId: selectedClient.tenantId || tenantInfo?.tenantId,
+        localActorId: settings.name || tenantInfo?.email || 'Consultor',
         syncStatus: 'pending'
       };
 
@@ -158,7 +154,7 @@ export function NewInspection() {
       navigate('/execute', { 
         state: { 
           inspectionId: newInspectionId,
-          previousInspectionId: lastInsp?.id,
+          previousInspectionId,
           linkedScheduleId: linkedScheduleId
         } 
       });

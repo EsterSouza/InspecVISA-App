@@ -56,6 +56,19 @@ export const ScheduleService = {
     );
   },
 
+  subscribeToChanges(onChange: () => void): () => void {
+    const channel = supabase
+      .channel('schedules_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'schedules' }, () => {
+        void this.getSchedules().finally(onChange);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  },
+
   async saveSchedule(schedule: Schedule): Promise<Schedule> {
     return RepositoryService.upsert<Schedule>(
       'schedules',
