@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase';
 import type { Inspection, InspectionResponse, InspectionPhoto } from '../types';
 import { db } from '../db/database';
 import { RepositoryService } from './repositoryService';
+import { withLocalActor } from '../utils/localActor';
 
 /**
  * Mappers
@@ -247,11 +248,11 @@ export const InspectionService = {
   },
 
   async upsertResponse(response: InspectionResponse): Promise<void> {
-    await RepositoryService.upsert('responses', response, db.responses, mapResponseToPostgres);
+    await RepositoryService.upsert('responses', withLocalActor(response), db.responses, mapResponseToPostgres);
   },
 
   async upsertPhoto(photo: InspectionPhoto): Promise<void> {
-    await RepositoryService.upsert('photos', photo, db.photos, mapPhotoToPostgres);
+    await RepositoryService.upsert('photos', withLocalActor(photo), db.photos, mapPhotoToPostgres);
   },
 
   async deletePhoto(id: string): Promise<void> {
@@ -262,7 +263,7 @@ export const InspectionService = {
   },
 
   async createInspection(inspection: Inspection): Promise<void> {
-    await RepositoryService.upsert('inspections', inspection, db.inspections, mapToPostgres);
+    await RepositoryService.upsert('inspections', withLocalActor(inspection), db.inspections, mapToPostgres);
   },
 
   async getAllInspections(): Promise<Inspection[]> {

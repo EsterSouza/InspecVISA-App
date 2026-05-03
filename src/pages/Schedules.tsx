@@ -8,6 +8,7 @@ import { Calendar, Clock, Plus, Trash2, CheckCircle, AlertCircle, User, Play, Ed
 import { ScheduleService } from '../services/scheduleService';
 import { ClientService } from '../services/clientService';
 import { useAuthStore } from '../store/useAuthStore';
+import { getLocalActor } from '../utils/localActor';
 
 export function Schedules() {
   const navigate = useNavigate();
@@ -79,6 +80,7 @@ export function Schedules() {
 
     try {
       const scheduledAt = new Date(`${scheduledDate}T${scheduledTime}`);
+      const actor = getLocalActor();
       
       if (isEditing && editingId) {
         const existing = schedules.find(s => s.id === editingId);
@@ -88,6 +90,7 @@ export function Schedules() {
           clientId: selectedClientId,
           scheduledAt,
           notes: notes,
+          localActorId: actor.id,
         };
         await ScheduleService.saveSchedule(updated);
       } else {
@@ -98,6 +101,7 @@ export function Schedules() {
           status: 'pending',
           notes: notes,
           updatedAt: new Date(),
+          localActorId: actor.id,
           syncStatus: 'pending'
         };
         await ScheduleService.saveSchedule(newSchedule);

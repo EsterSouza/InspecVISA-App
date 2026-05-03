@@ -13,6 +13,7 @@ import { MobileScoreBar } from '../components/inspection/MobileScoreBar';
 import { ClientService } from '../services/clientService';
 import { InspectionService } from '../services/inspectionService';
 import { ScheduleService } from '../services/scheduleService';
+import { getLocalActor } from '../utils/localActor';
 
 
 import { Button } from '../components/ui/Button';
@@ -221,11 +222,12 @@ export function InspectionExecution() {
   const handleResponseChange = useCallback(async (itemId: string, result: InspectionResponse['result']) => {
     const state = useInspectionStore.getState();
     const existing = state.responses.find(r => r.itemId === itemId);
+    const actor = getLocalActor();
     
     let updated: InspectionResponse;
     if (existing) {
-      updated = { ...existing, result, updatedAt: new Date() };
-      state.updateResponse(existing.id, { result, updatedAt: new Date() });
+      updated = { ...existing, result, updatedAt: new Date(), localActorId: actor.id };
+      state.updateResponse(existing.id, { result, updatedAt: new Date(), localActorId: actor.id });
     } else {
       updated = {
         id: generateId(),
@@ -235,6 +237,7 @@ export function InspectionExecution() {
         photos: [],
         createdAt: new Date(),
         updatedAt: new Date(),
+        localActorId: actor.id,
         syncStatus: 'pending',
       };
       state.addResponse(updated);
@@ -252,8 +255,9 @@ export function InspectionExecution() {
     const state = useInspectionStore.getState();
     const existing = state.responses.find(r => r.itemId === itemId);
     if (existing) {
-      const updated = { ...existing, ...details, updatedAt: new Date() };
-      state.updateResponse(existing.id, details);
+      const actor = getLocalActor();
+      const updated = { ...existing, ...details, updatedAt: new Date(), localActorId: actor.id };
+      state.updateResponse(existing.id, { ...details, localActorId: actor.id });
       
       try {
         await InspectionService.upsertResponse(updated);
@@ -268,11 +272,13 @@ export function InspectionExecution() {
     const state = useInspectionStore.getState();
     const existing = state.responses.find(r => r.itemId === itemId);
     if (existing) {
+      const actor = getLocalActor();
       const newPhoto: InspectionPhoto = { 
         ...photoData, 
         id: generateId(), 
         responseId: existing.id,
-        tenantId: state.currentInspection?.tenantId
+        tenantId: state.currentInspection?.tenantId,
+        localActorId: actor.id
       };
       
       state.updateResponse(existing.id, { photos: [...(existing.photos || []), newPhoto] });
@@ -303,8 +309,9 @@ export function InspectionExecution() {
     const state = useInspectionStore.getState();
     const existing = state.responses.find(r => r.itemId === itemId);
     if (existing) {
-      const updated = { ...existing, customDescription, updatedAt: new Date() };
-      state.updateResponse(existing.id, { customDescription });
+      const actor = getLocalActor();
+      const updated = { ...existing, customDescription, updatedAt: new Date(), localActorId: actor.id };
+      state.updateResponse(existing.id, { customDescription, localActorId: actor.id });
       
       try {
         await InspectionService.upsertResponse(updated);
@@ -320,6 +327,7 @@ export function InspectionExecution() {
     if (!state.currentInspection) return;
     const desc = window.prompt('Descrição do item extra:');
     if (!desc) return;
+    const actor = getLocalActor();
     
     const newResponse: InspectionResponse = {
       id: generateId(), 
@@ -330,6 +338,7 @@ export function InspectionExecution() {
       photos: [], 
       createdAt: new Date(), 
       updatedAt: new Date(), 
+      localActorId: actor.id,
       syncStatus: 'pending',
     };
     

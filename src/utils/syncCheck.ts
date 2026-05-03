@@ -27,6 +27,8 @@ export interface IntegrityIssue {
   hasRemoteConflict?: boolean;
   conflictRemote?: any;
   conflictLocal?: any;
+  localActorId?: string;
+  remoteActorId?: string;
 }
 
 export interface PhotoIntegrity {
@@ -140,7 +142,9 @@ export async function getInspectionIntegrity(inspectionId: string): Promise<Insp
       syncError: item.syncError,
       hasRemoteConflict: Boolean(item.conflictRemote),
       conflictRemote: item.conflictRemote,
-      conflictLocal: item.conflictLocal
+      conflictLocal: item.conflictLocal,
+      localActorId: item.localActorId || item.conflictLocal?.localActorId,
+      remoteActorId: item.conflictRemote?.localActorId
     });
   };
 

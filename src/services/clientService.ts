@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase';
 import type { Client } from '../types';
 import { db } from '../db/database';
 import { RepositoryService } from './repositoryService';
+import { withLocalActor } from '../utils/localActor';
 
 /**
  * Maps a Postgres row to the local Client type.
@@ -119,7 +120,7 @@ export const ClientService = {
   async saveClient(client: Client): Promise<Client> {
     return RepositoryService.upsert<Client>(
       'clients',
-      client,
+      withLocalActor(client),
       db.clients,
       mapToPostgres
     );

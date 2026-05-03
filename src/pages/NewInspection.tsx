@@ -6,6 +6,7 @@ import { ClientService } from '../services/clientService';
 import { InspectionService } from '../services/inspectionService';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useAuthStore } from '../store/useAuthStore';
+import { getLocalActor } from '../utils/localActor';
 import type { Client, ChecklistTemplate, Inspection } from '../types';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -109,12 +110,13 @@ export function NewInspection() {
       const previousInspectionId = await InspectionService.getLastCompletedInspectionId(selectedClient.id);
 
       const newInspectionId = generateId();
+      const actor = getLocalActor();
       
       const inspectionData: Inspection = {
         id: newInspectionId,
         clientId: selectedClient.id,
         templateId: selectedTemplate.id,
-        consultantName: settings.name || 'Consultor',
+        consultantName: actor.name,
         inspectionDate: new Date(inspectionDate + 'T12:00:00'),
         status: 'in_progress',
         createdAt: new Date(),
@@ -129,7 +131,7 @@ export function NewInspection() {
         dependencyLevel3: dep3 ? parseInt(dep3) : undefined,
         updatedAt: new Date(),
         tenantId: selectedClient.tenantId || tenantInfo?.tenantId,
-        localActorId: settings.name || tenantInfo?.email || 'Consultor',
+        localActorId: actor.id,
         syncStatus: 'pending'
       };
 

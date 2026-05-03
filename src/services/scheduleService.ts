@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase';
 import type { Schedule } from '../types';
 import { db } from '../db/database';
 import { RepositoryService } from './repositoryService';
+import { withLocalActor } from '../utils/localActor';
 
 export function mapFromPostgres(row: any): Schedule {
   return {
@@ -72,7 +73,7 @@ export const ScheduleService = {
   async saveSchedule(schedule: Schedule): Promise<Schedule> {
     return RepositoryService.upsert<Schedule>(
       'schedules',
-      schedule,
+      withLocalActor(schedule),
       db.schedules,
       mapToPostgres
     );

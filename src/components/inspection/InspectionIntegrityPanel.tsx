@@ -210,6 +210,11 @@ export function InspectionIntegrityPanel({ inspectionId }: InspectionIntegrityPa
             <div>
               <p className="font-semibold text-gray-900">{selectedIssue.label}</p>
               <p className="mt-1 text-xs text-gray-500">{selectedIssue.table} - {selectedIssue.updatedAt?.toLocaleString('pt-BR') || 'sem data local'}</p>
+              {(selectedIssue.localActorId || selectedIssue.remoteActorId) && (
+                <p className="mt-1 text-xs text-gray-500">
+                  Local: {formatActor(selectedIssue.localActorId)} / Remoto: {formatActor(selectedIssue.remoteActorId)}
+                </p>
+              )}
             </div>
             <div className="grid gap-3 md:grid-cols-2">
               <ConflictSnapshot title="Local preservado" value={selectedIssue.conflictLocal} fallback="Sem snapshot local detalhado." />
@@ -229,6 +234,8 @@ function IssueRow({ issue, onInspect }: { issue: IntegrityIssue; onInspect: (iss
         <div className="min-w-0">
           <p className="truncate font-semibold text-gray-800">{issue.label}</p>
           <p className="mt-0.5 text-gray-500">{issue.table} - {issue.updatedAt?.toLocaleString('pt-BR') || 'sem data'}</p>
+          {issue.localActorId && <p className="mt-0.5 text-gray-500">Local: {formatActor(issue.localActorId)}</p>}
+          {issue.remoteActorId && <p className="mt-0.5 text-gray-500">Remoto: {formatActor(issue.remoteActorId)}</p>}
           {issue.syncError && <p className="mt-1 text-red-600">{issue.syncError}</p>}
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -325,4 +332,9 @@ function formatConflictValue(value: any) {
   if (clone.conflictRemote) clone.conflictRemote = '[snapshot remoto omitido]';
   if (clone.conflictLocal) clone.conflictLocal = '[snapshot local omitido]';
   return JSON.stringify(clone, null, 2);
+}
+
+function formatActor(actorId?: string) {
+  if (!actorId) return 'desconhecido';
+  return actorId.replace(/^profile:/, '').replace(/^auth:/, '');
 }

@@ -3,6 +3,7 @@ import { db } from '../db/database';
 import type { SyncStatus } from '../types';
 import { withTimeout } from '../utils/network';
 import { useAuthStore } from '../store/useAuthStore';
+import { getLocalActor } from '../utils/localActor';
 
 /**
  * RepositoryService
@@ -27,7 +28,7 @@ function timestampOf(value?: Date | string) {
 }
 
 function currentActorId() {
-  return useAuthStore.getState().tenantInfo?.email || 'shared-local-user';
+  return getLocalActor().id;
 }
 
 export const RepositoryService = {
