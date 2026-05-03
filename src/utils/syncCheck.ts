@@ -1,6 +1,7 @@
 import { db } from '../db/database';
 import { supabase } from '../lib/supabase';
 import type { InspectionPhoto, SyncStatus } from '../types';
+import { belongsToActiveTenant, filterByActiveTenant } from './localScope';
 
 /**
  * ReportReadinessCheck
@@ -51,12 +52,12 @@ export interface InspectionIntegrityResult extends ReadinessResult {
 
 export async function checkReportReadiness(inspectionId: string): Promise<ReadinessResult> {
   const inspection = await db.inspections.get(inspectionId);
-  if (!inspection) throw new Error('Inspeção não encontrada.');
+  if (!belongsToActiveTenant(inspection)) throw new Error('Inspecao nao encontrada neste tenant.');
 
-  const responses = await db.responses.where('inspectionId').equals(inspectionId).toArray();
+  const responses = filterByActiveTenant(await db.responses.where('inspectionId').equals(inspectionId).toArray());
   const responseIds = responses.map(r => r.id);
   const photos = responseIds.length > 0
-    ? await db.photos.where('responseId').anyOf(responseIds).toArray()
+    ? filterByActiveTenant(await db.photos.where('responseId').anyOf(responseIds).toArray())
     : [];
   
   // 1. Check for non-synced items
@@ -113,17 +114,17 @@ export async function checkReportReadiness(inspectionId: string): Promise<Readin
 export async function getInspectionIntegrity(inspectionId: string): Promise<InspectionIntegrityResult> {
   const readiness = await checkReportReadiness(inspectionId);
   const inspection = await db.inspections.get(inspectionId);
-  if (!inspection) throw new Error('Inspecao nao encontrada.');
+  if (!belongsToActiveTenant(inspection)) throw new Error('Inspecao nao encontrada neste tenant.');
 
-  const responses = await db.responses
+  const responses = filterByActiveTenant(await db.responses
     .where('inspectionId')
     .equals(inspectionId)
     .filter(r => !r.deletedAt)
-    .toArray();
+    .toArray());
 
   const responseIds = responses.map(r => r.id);
   const photos = responseIds.length > 0
-    ? await db.photos.where('responseId').anyOf(responseIds).filter(p => !p.deletedAt).toArray()
+    ? filterByActiveTenant(await db.photos.where('responseId').anyOf(responseIds).filter(p => !p.deletedAt).toArray())
     : [];
 
   const issues: IntegrityIssue[] = [];

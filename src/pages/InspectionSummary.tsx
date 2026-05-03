@@ -17,6 +17,7 @@ import { ScorePanel } from '../components/inspection/ScorePanel';
 import { PdfPreviewModal } from '../components/inspection/PdfPreviewModal';
 import { checkReportReadiness, type ReadinessResult } from '../utils/syncCheck';
 import { InspectionIntegrityPanel } from '../components/inspection/InspectionIntegrityPanel';
+import { belongsToActiveTenant, filterByActiveTenant } from '../utils/localScope';
 
 export function InspectionSummary() {
   const location = useLocation();
@@ -48,15 +49,16 @@ export function InspectionSummary() {
         setLoading(true);
 
         // ── PHASE 1: Render from Dexie immediately ─────────────────────────
-        const localInsp = await db.inspections.get(inspectionId);
+        const localCandidate = await db.inspections.get(inspectionId);
+        const localInsp = belongsToActiveTenant(localCandidate) ? localCandidate : null;
 
         if (localInsp) {
-          const localResps = await db.responses
+          const localResps = filterByActiveTenant(await db.responses
             .where('inspectionId').equals(inspectionId)
             .filter(r => !r.deletedAt)
-            .toArray();
+            .toArray());
           for (const r of localResps) {
-            r.photos = await db.photos.where('responseId').equals(r.id).toArray();
+            r.photos = filterByActiveTenant(await db.photos.where('responseId').equals(r.id).toArray()).filter(p => !p.deletedAt);
           }
 
           let tpl: ChecklistTemplate | undefined = await db.templates.get(localInsp.templateId);
@@ -92,7 +94,7 @@ export function InspectionSummary() {
             // Responses
             const remoteResps = await InspectionService.getResponsesByInspectionId(inspectionId, true);
             for (const r of remoteResps) {
-              r.photos = await db.photos.where('responseId').equals(r.id).toArray();
+              r.photos = filterByActiveTenant(await db.photos.where('responseId').equals(r.id).toArray()).filter(p => !p.deletedAt);
             }
 
             // Template (static → Dexie → Supabase)

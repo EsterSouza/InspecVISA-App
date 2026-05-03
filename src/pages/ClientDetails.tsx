@@ -20,6 +20,7 @@ import { formatDateTime } from '../utils/imageUtils';
 import { getTemplates } from '../data/templates';
 import { ClientService } from '../services/clientService';
 import { InspectionService } from '../services/inspectionService';
+import { filterByActiveTenant } from '../utils/localScope';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -43,6 +44,7 @@ export function ClientDetails() {
   const [inspections, setInspections] = useState<(Inspection & { score: InspectionScore })[]>([]);
   const [recurringNCs, setRecurringNCs] = useState<RecurringNC[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   
   const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<Client>();
@@ -54,17 +56,20 @@ export function ClientDetails() {
       try {
         const clientData = await ClientService.getClientById(id);
         if (!clientData) {
-          navigate('/clients');
+          setLoadError('Cliente nao encontrado neste perfil ou sem acesso para o tenant atual.');
           return;
         }
         setClient(clientData);
 
         // Load all inspections for this client
-        const rawInspections = await db.inspections.where('clientId').equals(id).toArray();
+        const rawInspections = filterByActiveTenant(await db.inspections.where('clientId').equals(id).toArray())
+          .filter(i => !i.deletedAt);
         const allInspIds = rawInspections.map((i: any) => i.id);
         
         // Load all responses for these inspections at once
-        const allResponses = await db.responses.where('inspectionId').anyOf(allInspIds).toArray();
+        const allResponses = allInspIds.length > 0
+          ? filterByActiveTenant(await db.responses.where('inspectionId').anyOf(allInspIds).toArray()).filter(r => !r.deletedAt)
+          : [];
 
         const inspectionsWithScores = await Promise.all(
           rawInspections.map(async (insp: any) => {
@@ -105,7 +110,7 @@ export function ClientDetails() {
         setRecurringNCs(ncs);
       } catch (err) {
         console.error('Error loading client details:', err);
-        alert('Erro ao carregar os detalhes. Verifique a conexão com a internet.');
+        setLoadError('Erro ao carregar os detalhes. Verifique a conexao com a internet.');
       } finally {
         setLoading(false);
       }
@@ -158,8 +163,19 @@ export function ClientDetails() {
     }
   };
 
-  if (loading || !client) {
+  if (loading) {
     return <div className="p-8 text-center text-gray-500">Carregando detalhes...</div>;
+  }
+
+  if (loadError || !client) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-gray-50 p-8 text-center">
+        <p className="max-w-md font-semibold text-gray-700">{loadError || 'Cliente nao encontrado.'}</p>
+        <Button variant="outline" onClick={() => navigate('/clients')}>
+          <ArrowLeft className="mr-2 h-4 w-4" /> Voltar para Clientes
+        </Button>
+      </div>
+    );
   }
 
   const chartData = [...inspections]

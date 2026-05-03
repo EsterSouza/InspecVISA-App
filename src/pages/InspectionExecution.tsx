@@ -14,6 +14,7 @@ import { ClientService } from '../services/clientService';
 import { InspectionService } from '../services/inspectionService';
 import { ScheduleService } from '../services/scheduleService';
 import { getLocalActor } from '../utils/localActor';
+import { belongsToActiveTenant, filterByActiveTenant } from '../utils/localScope';
 
 
 import { Button } from '../components/ui/Button';
@@ -69,7 +70,8 @@ export function InspectionExecution() {
       }
 
       // ── PHASE 1: Load from Dexie immediately (< 5ms) ──────────────────────
-      const localInsp = await db.inspections.get(id);
+      const localCandidate = await db.inspections.get(id);
+      const localInsp = belongsToActiveTenant(localCandidate) ? localCandidate : null;
 
       if (localInsp) {
         // Resolve template from cache right away
@@ -78,12 +80,12 @@ export function InspectionExecution() {
         if (tpl) setTemplate(tpl);
 
         // Load local responses immediately
-        const localResps = await db.responses
+        const localResps = filterByActiveTenant(await db.responses
           .where('inspectionId').equals(id)
           .filter(r => !r.deletedAt)
-          .toArray();
+          .toArray());
         for (const r of localResps) {
-          r.photos = await db.photos.where('responseId').equals(r.id).filter(p => !p.deletedAt).toArray();
+          r.photos = filterByActiveTenant(await db.photos.where('responseId').equals(r.id).filter(p => !p.deletedAt).toArray());
         }
 
         setCurrentInspection(localInsp);
@@ -151,7 +153,7 @@ export function InspectionExecution() {
           // Fetch responses (service returns local + triggers background Supabase pull)
           const resps = await InspectionService.getResponsesByInspectionId(id);
           for (const r of resps) {
-            r.photos = await db.photos.where('responseId').equals(r.id).filter(p => !p.deletedAt).toArray();
+            r.photos = filterByActiveTenant(await db.photos.where('responseId').equals(r.id).filter(p => !p.deletedAt).toArray());
           }
 
           setResponses(resps);
