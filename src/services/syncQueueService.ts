@@ -107,6 +107,41 @@ export const SyncQueueService = {
     this.processAll();
   },
 
+  async keepLocalConflictsForInspection(inspectionId: string) {
+    const inspection = await db.inspections.get(inspectionId);
+    if (inspection?.syncStatus === 'conflict') {
+      await db.inspections.update(inspection.id, {
+        syncStatus: 'pending',
+        syncError: 'Conflito resolvido: mantendo versao local para reenvio.'
+      });
+    }
+
+    const responses = await db.responses.where('inspectionId').equals(inspectionId).toArray();
+    for (const response of responses) {
+      if (response.syncStatus === 'conflict') {
+        await db.responses.update(response.id, {
+          syncStatus: 'pending',
+          syncError: 'Conflito resolvido: mantendo versao local para reenvio.'
+        });
+      }
+    }
+
+    const responseIds = responses.map(r => r.id);
+    if (responseIds.length > 0) {
+      const photos = await db.photos.where('responseId').anyOf(responseIds).toArray();
+      for (const photo of photos) {
+        if (photo.syncStatus === 'conflict') {
+          await db.photos.update(photo.id, {
+            syncStatus: 'pending',
+            syncError: 'Conflito resolvido: mantendo versao local para reenvio.'
+          });
+        }
+      }
+    }
+
+    await this.processAll();
+  },
+
   async getQueueSummary() {
     const counts = {
       pending: 0,

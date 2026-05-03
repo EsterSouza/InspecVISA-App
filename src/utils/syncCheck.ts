@@ -1,6 +1,6 @@
 import { db } from '../db/database';
 import { supabase } from '../lib/supabase';
-import { InspectionService } from '../services/inspectionService';
+import type { SyncStatus } from '../types';
 
 /**
  * ReportReadinessCheck
@@ -15,6 +15,24 @@ export interface ReadinessResult {
   failedCount: number;
   lastVerified?: Date;
   message?: string;
+}
+
+export interface IntegrityIssue {
+  id: string;
+  table: 'inspections' | 'responses' | 'photos';
+  label: string;
+  status: SyncStatus;
+  updatedAt?: Date;
+  syncError?: string;
+  hasRemoteConflict?: boolean;
+}
+
+export interface InspectionIntegrityResult extends ReadinessResult {
+  issues: IntegrityIssue[];
+  responseCount: number;
+  photoCount: number;
+  pendingPhotoCount: number;
+  lastSyncConfirmedAt?: Date;
 }
 
 export async function checkReportReadiness(inspectionId: string): Promise<ReadinessResult> {
@@ -76,4 +94,72 @@ export async function checkReportReadiness(inspectionId: string): Promise<Readin
     lastVerified,
     message: isReady ? 'Tudo pronto!' : 'Existem itens pendentes ou erros de sincronização.'
   };
+}
+
+export async function getInspectionIntegrity(inspectionId: string): Promise<InspectionIntegrityResult> {
+  const readiness = await checkReportReadiness(inspectionId);
+  const inspection = await db.inspections.get(inspectionId);
+  if (!inspection) throw new Error('Inspecao nao encontrada.');
+
+  const responses = await db.responses
+    .where('inspectionId')
+    .equals(inspectionId)
+    .filter(r => !r.deletedAt)
+    .toArray();
+
+  const responseIds = responses.map(r => r.id);
+  const photos = responseIds.length > 0
+    ? await db.photos.where('responseId').anyOf(responseIds).filter(p => !p.deletedAt).toArray()
+    : [];
+
+  const issues: IntegrityIssue[] = [];
+  const addIssue = (
+    table: IntegrityIssue['table'],
+    item: any,
+    label: string
+  ) => {
+    if (item.syncStatus === 'synced') return;
+    issues.push({
+      id: item.id,
+      table,
+      label,
+      status: item.syncStatus,
+      updatedAt: item.updatedAt,
+      syncError: item.syncError,
+      hasRemoteConflict: Boolean(item.conflictRemote)
+    });
+  };
+
+  addIssue('inspections', inspection, 'Dados gerais da inspecao');
+
+  for (const response of responses) {
+    addIssue('responses', response, response.customDescription || `Resposta ${response.itemId}`);
+  }
+
+  for (const photo of photos) {
+    addIssue('photos', photo, `Foto da resposta ${photo.responseId}`);
+  }
+
+  const verifiedTimes = [inspection, ...responses, ...photos]
+    .map(item => item.dataVerifiedAt?.getTime())
+    .filter((time): time is number => Boolean(time));
+
+  return {
+    ...readiness,
+    issues: issues.sort((a, b) => statusWeight(a.status) - statusWeight(b.status)),
+    responseCount: responses.length,
+    photoCount: photos.length,
+    pendingPhotoCount: photos.filter(p => p.syncStatus !== 'synced').length,
+    lastSyncConfirmedAt: verifiedTimes.length > 0 ? new Date(Math.min(...verifiedTimes)) : undefined
+  };
+}
+
+function statusWeight(status: SyncStatus) {
+  switch (status) {
+    case 'conflict': return 0;
+    case 'failed': return 1;
+    case 'pending': return 2;
+    case 'syncing': return 3;
+    case 'synced': return 4;
+  }
 }

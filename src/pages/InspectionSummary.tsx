@@ -16,6 +16,7 @@ import { formatDateTime } from '../utils/imageUtils';
 import { ScorePanel } from '../components/inspection/ScorePanel';
 import { PdfPreviewModal } from '../components/inspection/PdfPreviewModal';
 import { checkReportReadiness, type ReadinessResult } from '../utils/syncCheck';
+import { InspectionIntegrityPanel } from '../components/inspection/InspectionIntegrityPanel';
 
 export function InspectionSummary() {
   const location = useLocation();
@@ -171,6 +172,16 @@ export function InspectionSummary() {
 
   const handleGeneratePDF = async (opts: { selectedLegislations: string[]; signatureDataUrl?: string }) => {
     if (!currentInspection || !template || !scoreArea) return;
+    const currentReadiness = await checkReportReadiness(currentInspection.id);
+    setReadiness(currentReadiness);
+    if (currentReadiness.conflictCount > 0) {
+      alert('Existem conflitos abertos nesta inspeção. Resolva os conflitos antes de gerar o PDF.');
+      return;
+    }
+    if (!currentReadiness.isReady) {
+      const ok = window.confirm('Existem dados pendentes ou falhas de sincronização. Gerar PDF provisório mesmo assim?');
+      if (!ok) return;
+    }
     setIsGenerating(true);
     try {
        await new Promise(resolve => setTimeout(resolve, 100));
@@ -189,6 +200,20 @@ export function InspectionSummary() {
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleOpenPdfModal = () => {
+    if (readiness?.conflictCount) {
+      alert('Existem conflitos abertos nesta inspeção. Resolva os conflitos antes de gerar o PDF.');
+      return;
+    }
+
+    if (readiness && !readiness.isReady) {
+      const ok = window.confirm('Existem dados pendentes ou falhas de sincronização. O PDF será provisório. Continuar?');
+      if (!ok) return;
+    }
+
+    setShowPdfModal(true);
   };
 
   // Show spinner only if we have absolutely no data yet
@@ -286,7 +311,7 @@ export function InspectionSummary() {
               </div>
             )}
             <Button 
-              onClick={() => setShowPdfModal(true)} 
+              onClick={handleOpenPdfModal} 
               disabled={isGenerating}
               variant={readiness?.isReady ? 'default' : 'outline'}
               className={!readiness?.isReady ? 'border-amber-200 text-amber-700' : ''}
@@ -385,6 +410,8 @@ export function InspectionSummary() {
             </CardContent>
           </Card>
         )}
+
+        <InspectionIntegrityPanel inspectionId={currentInspection.id} />
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mt-6">
           <div className="p-8 sm:p-12 text-center border-b border-gray-100 pb-8">
