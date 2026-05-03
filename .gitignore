@@ -29,3 +29,6 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
+
+# Local planning/context notes
+CONTEXTO_INSPECVISA.md
