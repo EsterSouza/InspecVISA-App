@@ -3,6 +3,7 @@ import type { Inspection, InspectionResponse, InspectionPhoto } from '../types';
 import { db } from '../db/database';
 import { RepositoryService } from './repositoryService';
 import { withLocalActor } from '../utils/localActor';
+import { belongsToActiveTenant, filterByActiveTenant } from '../utils/localScope';
 
 /**
  * Mappers
@@ -178,11 +179,12 @@ export const InspectionService = {
       })();
     }
 
-    return local || null;
+    return belongsToActiveTenant(local) ? local : null;
   },
 
   async updateInspection(id: string, updates: Partial<Inspection>): Promise<void> {
     const local = await db.inspections.get(id);
+    if (!belongsToActiveTenant(local)) throw new Error('Inspecao nao encontrada neste tenant.');
     if (!local) throw new Error('Inspeção não encontrada localmente.');
 
     const updated = { ...local, ...updates, updatedAt: new Date(), syncStatus: 'pending' as const };
@@ -191,7 +193,7 @@ export const InspectionService = {
 
   async deleteInspection(id: string): Promise<void> {
     const local = await db.inspections.get(id);
-    if (!local) return;
+    if (!belongsToActiveTenant(local)) return;
 
     const now = new Date();
 
@@ -214,11 +216,11 @@ export const InspectionService = {
   },
 
   async getResponsesByInspectionId(inspectionId: string, forceRefresh = false): Promise<InspectionResponse[]> {
-    const local = await db.responses
+    const local = filterByActiveTenant(await db.responses
       .where('inspectionId')
       .equals(inspectionId)
       .filter(r => r.deletedAt === null)
-      .toArray();
+      .toArray());
     
     // TTL: 2 minutes for responses refresh
     const lastCheck = local.length > 0 ? Math.min(...local.map(r => r.dataVerifiedAt?.getTime() || 0)) : 0;
@@ -268,10 +270,10 @@ export const InspectionService = {
 
   async getAllInspections(): Promise<Inspection[]> {
     // Always filter out soft-deleted records from Dexie immediately
-    const local = await db.inspections
+    const local = filterByActiveTenant(await db.inspections
       .filter(i => !i.deletedAt)
       .reverse()
-      .sortBy('createdAt');
+      .sortBy('createdAt'));
 
     // Background refresh from Supabase if online
     if (navigator.onLine) {
@@ -304,11 +306,11 @@ export const InspectionService = {
   },
 
   async getLastCompletedInspectionId(clientId: string): Promise<string | undefined> {
-    const local = await db.inspections
+    const local = filterByActiveTenant(await db.inspections
       .where('clientId')
       .equals(clientId)
       .filter(i => i.status === 'completed' && !i.deletedAt)
-      .toArray();
+      .toArray());
 
     const latestLocal = local
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];

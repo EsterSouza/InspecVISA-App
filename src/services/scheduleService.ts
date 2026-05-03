@@ -3,6 +3,7 @@ import type { Schedule } from '../types';
 import { db } from '../db/database';
 import { RepositoryService } from './repositoryService';
 import { withLocalActor } from '../utils/localActor';
+import { belongsToActiveTenant, filterByActiveTenant } from '../utils/localScope';
 
 export function mapFromPostgres(row: any): Schedule {
   return {
@@ -41,7 +42,7 @@ export const ScheduleService = {
   mapFromPostgres,
 
   async getSchedules(): Promise<Schedule[]> {
-    return RepositoryService.getAll<Schedule>(
+    const schedules = await RepositoryService.getAll<Schedule>(
       db.schedules,
       async () => {
         const { data, error } = await supabase
@@ -55,6 +56,8 @@ export const ScheduleService = {
       },
       2 * 60 * 1000 // 2m TTL
     );
+
+    return filterByActiveTenant(schedules).filter(schedule => !schedule.deletedAt);
   },
 
   subscribeToChanges(onChange: () => void): () => void {
@@ -80,6 +83,9 @@ export const ScheduleService = {
   },
 
   async deleteSchedule(id: string): Promise<void> {
+    const local = await db.schedules.get(id);
+    if (!belongsToActiveTenant(local)) return;
+
     const now = new Date();
     await db.schedules.update(id, { 
       deletedAt: now, 
@@ -97,7 +103,7 @@ export const ScheduleService = {
 
   async completeSchedule(id: string): Promise<void> {
     const local = await db.schedules.get(id);
-    if (local) {
+    if (belongsToActiveTenant(local)) {
       const updated = { ...local, status: 'completed' as const, updatedAt: new Date(), syncStatus: 'pending' as const };
       await this.saveSchedule(updated);
     }
@@ -105,7 +111,7 @@ export const ScheduleService = {
 
   async linkInspection(id: string, inspectionId: string): Promise<void> {
     const local = await db.schedules.get(id);
-    if (local) {
+    if (belongsToActiveTenant(local)) {
       const updated = { 
         ...local, 
         status: 'in_progress' as const, 
@@ -119,7 +125,7 @@ export const ScheduleService = {
 
   async completeWithInspection(id: string, inspectionId: string): Promise<void> {
     const local = await db.schedules.get(id);
-    if (local) {
+    if (belongsToActiveTenant(local)) {
       const updated = { 
         ...local, 
         status: 'completed' as const, 

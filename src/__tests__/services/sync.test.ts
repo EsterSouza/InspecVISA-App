@@ -1,5 +1,7 @@
-import { describe, test, expect, beforeEach, vi } from 'vitest';
+import { describe, test, expect, beforeEach } from 'vitest';
 import { USERS, INSPECTIONS, CLIENTS } from '../fixtures';
+import { useAuthStore } from '../../store/useAuthStore';
+import { belongsToActiveTenant, filterByActiveTenant } from '../../utils/localScope';
 
 // ============================================================
 // Testes do SyncService — Card 6.1
@@ -63,6 +65,43 @@ describe('🔄 SyncService', () => {
       const after = { ...before, synced: true };
 
       expect(after.tenant_id).toBe(before.tenant_id);
+    });
+  });
+
+  describe('Escopo local por tenant ativo', () => {
+    beforeEach(() => {
+      useAuthStore.setState({
+        user: null,
+        tenantInfo: {
+          tenantId: 'tenant-002',
+          userId: 'user-002',
+          role: 'consultant',
+          email: 'esterposte@hotmail.com',
+        },
+        loading: false,
+        initialized: true,
+      });
+    });
+
+    test('esconde registros locais sincronizados de outro tenant', () => {
+      const records = [
+        { id: 'own', tenantId: 'tenant-002', syncStatus: 'synced' as const },
+        { id: 'foreign', tenantId: 'tenant-999', syncStatus: 'synced' as const },
+      ];
+
+      expect(filterByActiveTenant(records).map(record => record.id)).toEqual(['own']);
+    });
+
+    test('mantem pendencias sem tenant visiveis para recuperacao', () => {
+      const orphanPending = { id: 'orphan', syncStatus: 'pending' as const };
+
+      expect(belongsToActiveTenant(orphanPending)).toBe(true);
+    });
+
+    test('esconde registros sincronizados sem tenant quando ha tenant ativo', () => {
+      const orphanSynced = { id: 'legacy', syncStatus: 'synced' as const };
+
+      expect(belongsToActiveTenant(orphanSynced)).toBe(false);
     });
   });
 });

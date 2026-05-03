@@ -3,6 +3,7 @@ import type { Client } from '../types';
 import { db } from '../db/database';
 import { RepositoryService } from './repositoryService';
 import { withLocalActor } from '../utils/localActor';
+import { belongsToActiveTenant, filterByActiveTenant } from '../utils/localScope';
 
 /**
  * Maps a Postgres row to the local Client type.
@@ -85,7 +86,7 @@ export const ClientService = {
       })();
     }
 
-    return local;
+    return filterByActiveTenant(local);
   },
 
   /**
@@ -110,7 +111,8 @@ export const ClientService = {
       })();
     }
 
-    return local?.deletedAt ? null : (local || null);
+    if (!local || local.deletedAt || !belongsToActiveTenant(local)) return null;
+    return local;
   },
 
   /**
@@ -130,6 +132,9 @@ export const ClientService = {
    * Soft delete a client.
    */
   async deleteClient(id: string): Promise<void> {
+    const local = await db.clients.get(id);
+    if (!belongsToActiveTenant(local)) return;
+
     const now = new Date();
     await db.clients.update(id, { 
       deletedAt: now, 
@@ -154,7 +159,7 @@ export const ClientService = {
     if (error || !remoteClients?.length) return;
 
     const remoteIds = new Set(remoteClients.map((c: any) => c.id));
-    const localClients = await db.clients.toArray();
+    const localClients = filterByActiveTenant(await db.clients.toArray());
     for (const client of localClients) {
       if (client.deletedAt && remoteIds.has(client.id) && client.syncStatus === 'synced') {
         console.log('[ClientService] Restoring incorrectly soft-deleted client:', client.name);
