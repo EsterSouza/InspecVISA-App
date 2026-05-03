@@ -1,5 +1,5 @@
 import React from 'react';
-import { Camera, Trash2, Maximize, X, PlusCircle } from 'lucide-react';
+import { AlertTriangle, Camera, CheckCircle, Clock, Trash2, Maximize, X, PlusCircle, XCircle } from 'lucide-react';
 import { compressImage, generateId } from '../../utils/imageUtils';
 import type { InspectionPhoto } from '../../types';
 import { Modal } from '../ui/Modal';
@@ -104,6 +104,7 @@ export function PhotoCapture({ inputId, photos, onAddPhoto, onRemovePhoto }: Pho
                 className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
                 onClick={() => setFullscreenPhoto(photo.dataUrl)}
               />
+              <PhotoSyncBadge status={photo.syncStatus} />
               <div className="absolute inset-0 bg-black/40 opacity-0 transition-opacity group-hover:opacity-100 flex items-center justify-center space-x-2">
                 <button
                   type="button"
@@ -141,6 +142,24 @@ export function PhotoCapture({ inputId, photos, onAddPhoto, onRemovePhoto }: Pho
           </div>
         )}
       </Modal>
+    </div>
+  );
+}
+
+function PhotoSyncBadge({ status }: { status: InspectionPhoto['syncStatus'] }) {
+  const config = {
+    synced: { label: 'OK', className: 'bg-emerald-600 text-white', icon: CheckCircle },
+    pending: { label: 'Pendente', className: 'bg-blue-600 text-white', icon: Clock },
+    syncing: { label: 'Enviando', className: 'bg-blue-600 text-white', icon: Clock },
+    failed: { label: 'Falha', className: 'bg-red-600 text-white', icon: XCircle },
+    conflict: { label: 'Conflito', className: 'bg-amber-500 text-white', icon: AlertTriangle }
+  }[status];
+  const Icon = config.icon;
+
+  return (
+    <div className={`absolute left-1 top-1 flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase shadow ${config.className}`}>
+      <Icon className="h-3 w-3" />
+      {config.label}
     </div>
   );
 }

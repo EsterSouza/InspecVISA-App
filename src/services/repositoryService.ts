@@ -95,14 +95,15 @@ export const RepositoryService = {
         await dexieTable.update(local.id, {
           syncStatus: 'conflict',
           syncError: `Conflito preservado${options.label ? ` em ${options.label}` : ''}: remoto divergiu de alteracao local.`,
-          conflictRemote: remote
+          conflictRemote: remote,
+          conflictLocal: local
         });
       }
       return { accepted: false, conflict: diverged, record: local };
     }
 
     if (remoteUpdatedAt > localUpdatedAt + 1000 || options.preserveLocal === false) {
-      const record = { ...local, ...remote, syncStatus: 'synced' as SyncStatus, dataVerifiedAt: verifiedAt, syncError: null, conflictRemote: undefined } as T;
+      const record = { ...local, ...remote, syncStatus: 'synced' as SyncStatus, dataVerifiedAt: verifiedAt, syncError: null, conflictRemote: undefined, conflictLocal: undefined } as T;
       await dexieTable.put(record);
       return { accepted: true, conflict: false, record };
     }

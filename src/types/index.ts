@@ -51,6 +51,7 @@ export interface Client {
   syncAttempts?: number;
   localActorId?: string;
   conflictRemote?: any;
+  conflictLocal?: any;
 }
 
 export type SyncStatus = 'pending' | 'syncing' | 'synced' | 'conflict' | 'failed';
@@ -62,6 +63,7 @@ export interface SyncBase {
   syncAttempts?: number;
   localActorId?: string;
   conflictRemote?: any;
+  conflictLocal?: any;
 }
 
 export interface ChecklistTemplate {
@@ -157,6 +159,7 @@ export interface Inspection {
   syncAttempts?: number;
   localActorId?: string;
   conflictRemote?: any;
+  conflictLocal?: any;
 }
 
 export type ResponseResult = 'complies' | 'not_complies' | 'not_applicable' | 'not_observed' | 'not_evaluated';
@@ -182,6 +185,7 @@ export interface InspectionResponse {
   syncAttempts?: number;
   localActorId?: string;
   conflictRemote?: any;
+  conflictLocal?: any;
 }
 
 export interface InspectionPhoto {
@@ -199,6 +203,7 @@ export interface InspectionPhoto {
   syncAttempts?: number;
   localActorId?: string;
   conflictRemote?: any;
+  conflictLocal?: any;
 }
 
 export interface SectionScore {
@@ -273,6 +278,7 @@ export interface Schedule {
   syncAttempts?: number;
   localActorId?: string;
   conflictRemote?: any;
+  conflictLocal?: any;
 }
 
 export interface SyncLog {

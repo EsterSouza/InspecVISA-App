@@ -1,10 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { AlertTriangle, CheckCircle, Cloud, Image, RefreshCw, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Cloud, Eye, Image, RefreshCw, XCircle } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
+import { Modal } from '../ui/Modal';
 import { SyncQueueService } from '../../services/syncQueueService';
-import { getInspectionIntegrity, type InspectionIntegrityResult } from '../../utils/syncCheck';
+import {
+  getInspectionIntegrity,
+  type InspectionIntegrityResult,
+  type IntegrityIssue,
+  type PhotoIntegrity
+} from '../../utils/syncCheck';
 import type { SyncStatus } from '../../types';
 
 interface InspectionIntegrityPanelProps {
@@ -15,6 +21,7 @@ export function InspectionIntegrityPanel({ inspectionId }: InspectionIntegrityPa
   const [integrity, setIntegrity] = useState<InspectionIntegrityResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [retrying, setRetrying] = useState(false);
+  const [selectedIssue, setSelectedIssue] = useState<IntegrityIssue | null>(null);
 
   const refresh = async () => {
     try {
@@ -45,12 +52,47 @@ export function InspectionIntegrityPanel({ inspectionId }: InspectionIntegrityPa
   };
 
   const keepLocalConflicts = async () => {
-    const ok = window.confirm('Manter a versão local e reenviar para a nuvem? A versão remota conflitante continuará registrada localmente como referência técnica.');
+    const ok = window.confirm('Manter todas as versoes locais em conflito e reenviar para a nuvem?');
     if (!ok) return;
 
     setRetrying(true);
     try {
       await SyncQueueService.keepLocalConflictsForInspection(inspectionId);
+      await refresh();
+    } finally {
+      setRetrying(false);
+    }
+  };
+
+  const keepLocalIssue = async (issue: IntegrityIssue) => {
+    setRetrying(true);
+    try {
+      await SyncQueueService.keepLocalConflict(issue.table, issue.id);
+      setSelectedIssue(null);
+      await refresh();
+    } finally {
+      setRetrying(false);
+    }
+  };
+
+  const applyRemoteIssue = async (issue: IntegrityIssue) => {
+    const ok = window.confirm('Aplicar a versao remota neste item? A versao local atual ficara preservada como referencia tecnica local.');
+    if (!ok) return;
+
+    setRetrying(true);
+    try {
+      await SyncQueueService.applyRemoteConflict(issue.table, issue.id);
+      setSelectedIssue(null);
+      await refresh();
+    } finally {
+      setRetrying(false);
+    }
+  };
+
+  const retryPhoto = async (photo: PhotoIntegrity) => {
+    setRetrying(true);
+    try {
+      await SyncQueueService.retryItem('photos', photo.id);
       await refresh();
     } finally {
       setRetrying(false);
@@ -87,18 +129,18 @@ export function InspectionIntegrityPanel({ inspectionId }: InspectionIntegrityPa
             ) : (
               <AlertTriangle className="h-4 w-4 text-amber-600" />
             )}
-            Integridade da inspeção
+            Integridade da inspecao
           </CardTitle>
           <p className="mt-1 text-xs text-gray-600">
             {integrity.lastSyncConfirmedAt
               ? `Ultimo sync confirmado: ${integrity.lastSyncConfirmedAt.toLocaleString('pt-BR')}`
-              : 'Sem sync confirmado para todos os dados desta inspeção.'}
+              : 'Sem sync confirmado para todos os dados desta inspecao.'}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {integrity.conflictCount > 0 && (
             <Button type="button" variant="outline" size="sm" onClick={keepLocalConflicts} disabled={retrying}>
-              Manter local
+              Manter locais
             </Button>
           )}
           <Button type="button" variant="outline" size="sm" onClick={retry} disabled={retrying}>
@@ -120,16 +162,7 @@ export function InspectionIntegrityPanel({ inspectionId }: InspectionIntegrityPa
         {integrity.issues.length > 0 ? (
           <div className="space-y-2">
             {integrity.issues.slice(0, 6).map(issue => (
-              <div key={`${issue.table}:${issue.id}`} className="rounded-md border border-white/70 bg-white p-3 text-xs shadow-sm">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold text-gray-800">{issue.label}</p>
-                    <p className="mt-0.5 text-gray-500">{issue.table} • {issue.updatedAt?.toLocaleString('pt-BR') || 'sem data'}</p>
-                    {issue.syncError && <p className="mt-1 text-red-600">{issue.syncError}</p>}
-                  </div>
-                  <StatusBadge status={issue.status} hasRemoteConflict={issue.hasRemoteConflict} />
-                </div>
-              </div>
+              <IssueRow key={`${issue.table}:${issue.id}`} issue={issue} onInspect={setSelectedIssue} />
             ))}
             {integrity.issues.length > 6 && (
               <p className="text-xs font-medium text-gray-500">
@@ -140,11 +173,79 @@ export function InspectionIntegrityPanel({ inspectionId }: InspectionIntegrityPa
         ) : (
           <div className="flex items-center gap-2 rounded-md bg-white p-3 text-xs text-emerald-700">
             <Cloud className="h-4 w-4" />
-            Respostas, fotos e dados gerais estão sincronizados.
+            Respostas, fotos e dados gerais estao sincronizados.
+          </div>
+        )}
+
+        {integrity.photos.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-[10px] font-bold uppercase text-gray-500">Fotos da inspecao</p>
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+              {integrity.photos.map(photo => (
+                <PhotoTile key={photo.id} photo={photo} retrying={retrying} onRetry={retryPhoto} />
+              ))}
+            </div>
           </div>
         )}
       </CardContent>
+
+      <Modal
+        isOpen={Boolean(selectedIssue)}
+        onClose={() => setSelectedIssue(null)}
+        title="Resolver conflito"
+        className="max-w-3xl"
+        footer={selectedIssue && (
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" onClick={() => keepLocalIssue(selectedIssue)} disabled={retrying}>
+              Manter local
+            </Button>
+            <Button type="button" onClick={() => applyRemoteIssue(selectedIssue)} disabled={retrying || !selectedIssue.conflictRemote}>
+              Aplicar remoto
+            </Button>
+          </div>
+        )}
+      >
+        {selectedIssue && (
+          <div className="space-y-4 text-sm">
+            <div>
+              <p className="font-semibold text-gray-900">{selectedIssue.label}</p>
+              <p className="mt-1 text-xs text-gray-500">{selectedIssue.table} - {selectedIssue.updatedAt?.toLocaleString('pt-BR') || 'sem data local'}</p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <ConflictSnapshot title="Local preservado" value={selectedIssue.conflictLocal} fallback="Sem snapshot local detalhado." />
+              <ConflictSnapshot title="Remoto recebido" value={selectedIssue.conflictRemote} fallback="Sem snapshot remoto detalhado." />
+            </div>
+          </div>
+        )}
+      </Modal>
     </Card>
+  );
+}
+
+function IssueRow({ issue, onInspect }: { issue: IntegrityIssue; onInspect: (issue: IntegrityIssue) => void }) {
+  return (
+    <div className="rounded-md border border-white/70 bg-white p-3 text-xs shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate font-semibold text-gray-800">{issue.label}</p>
+          <p className="mt-0.5 text-gray-500">{issue.table} - {issue.updatedAt?.toLocaleString('pt-BR') || 'sem data'}</p>
+          {issue.syncError && <p className="mt-1 text-red-600">{issue.syncError}</p>}
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {issue.status === 'conflict' && (
+            <button
+              type="button"
+              onClick={() => onInspect(issue)}
+              className="rounded-md border border-gray-200 p-1.5 text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+              title="Ver conflito"
+            >
+              <Eye className="h-3.5 w-3.5" />
+            </button>
+          )}
+          <StatusBadge status={issue.status} hasRemoteConflict={issue.hasRemoteConflict} />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -181,4 +282,47 @@ function StatusBadge({ status, hasRemoteConflict }: { status: SyncStatus; hasRem
   }
 
   return <Badge variant={hasRemoteConflict ? 'warning' : 'outline'}>{status}</Badge>;
+}
+
+function PhotoTile({ photo, retrying, onRetry }: { photo: PhotoIntegrity; retrying: boolean; onRetry: (photo: PhotoIntegrity) => void }) {
+  return (
+    <div className="overflow-hidden rounded-md border border-white/70 bg-white shadow-sm">
+      <div className="relative aspect-square bg-gray-100">
+        <img src={photo.dataUrl} alt="Evidencia" className="h-full w-full object-cover" />
+        <div className="absolute left-1 top-1">
+          <StatusBadge status={photo.status} />
+        </div>
+      </div>
+      {photo.status !== 'synced' && (
+        <button
+          type="button"
+          onClick={() => onRetry(photo)}
+          disabled={retrying}
+          className="flex w-full items-center justify-center gap-1 px-2 py-1.5 text-[10px] font-bold uppercase text-primary-700 hover:bg-primary-50 disabled:opacity-50"
+        >
+          <RefreshCw className={`h-3 w-3 ${retrying ? 'animate-spin' : ''}`} />
+          Retry
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ConflictSnapshot({ title, value, fallback }: { title: string; value: any; fallback: string }) {
+  return (
+    <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
+      <p className="mb-2 text-xs font-bold uppercase text-gray-500">{title}</p>
+      <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded bg-white p-3 text-[11px] leading-relaxed text-gray-700">
+        {value ? formatConflictValue(value) : fallback}
+      </pre>
+    </div>
+  );
+}
+
+function formatConflictValue(value: any) {
+  const clone = { ...value };
+  if (clone.dataUrl) clone.dataUrl = `[imagem base64: ${String(value.dataUrl).length} chars]`;
+  if (clone.conflictRemote) clone.conflictRemote = '[snapshot remoto omitido]';
+  if (clone.conflictLocal) clone.conflictLocal = '[snapshot local omitido]';
+  return JSON.stringify(clone, null, 2);
 }

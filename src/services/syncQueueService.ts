@@ -14,6 +14,13 @@ import { useAuthStore } from '../store/useAuthStore';
 let isProcessing = false;
 let syncInterval: number | null = null;
 let lastSummary = { pending: 0, syncing: 0, conflict: 0, failed: 0 };
+type ConflictTable = 'inspections' | 'responses' | 'photos';
+
+function tableForConflict(tableName: ConflictTable) {
+  if (tableName === 'inspections') return db.inspections;
+  if (tableName === 'responses') return db.responses;
+  return db.photos;
+}
 
 export const SyncQueueService = {
   start() {
@@ -140,6 +147,51 @@ export const SyncQueueService = {
     }
 
     await this.processAll();
+  },
+
+  async keepLocalConflict(tableName: ConflictTable, id: string) {
+    const table = tableForConflict(tableName) as any;
+    const item = await table.get(id);
+    if (!item || item.syncStatus !== 'conflict') return;
+
+    await table.update(id, {
+      syncStatus: 'pending',
+      syncError: 'Conflito resolvido: mantendo versao local para reenvio.'
+    });
+
+    await this.processAll();
+  },
+
+  async retryItem(tableName: ConflictTable, id: string) {
+    const table = tableForConflict(tableName) as any;
+    const item = await table.get(id);
+    if (!item || item.syncStatus === 'synced') return;
+
+    await table.update(id, {
+      syncStatus: 'pending',
+      syncAttempts: 0,
+      syncError: null
+    });
+
+    await this.processAll();
+  },
+
+  async applyRemoteConflict(tableName: ConflictTable, id: string) {
+    const table = tableForConflict(tableName) as any;
+    const item = await table.get(id);
+    if (!item?.conflictRemote) return;
+
+    await table.put({
+      ...item,
+      ...item.conflictRemote,
+      conflictLocal: item.conflictLocal || item,
+      conflictRemote: undefined,
+      syncStatus: 'synced',
+      syncError: null,
+      dataVerifiedAt: new Date()
+    });
+
+    await this.getQueueSummary();
   },
 
   async getQueueSummary() {

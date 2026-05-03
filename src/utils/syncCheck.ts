@@ -1,6 +1,6 @@
 import { db } from '../db/database';
 import { supabase } from '../lib/supabase';
-import type { SyncStatus } from '../types';
+import type { InspectionPhoto, SyncStatus } from '../types';
 
 /**
  * ReportReadinessCheck
@@ -25,6 +25,17 @@ export interface IntegrityIssue {
   updatedAt?: Date;
   syncError?: string;
   hasRemoteConflict?: boolean;
+  conflictRemote?: any;
+  conflictLocal?: any;
+}
+
+export interface PhotoIntegrity {
+  id: string;
+  responseId: string;
+  dataUrl: string;
+  status: SyncStatus;
+  updatedAt?: Date;
+  syncError?: string;
 }
 
 export interface InspectionIntegrityResult extends ReadinessResult {
@@ -32,6 +43,7 @@ export interface InspectionIntegrityResult extends ReadinessResult {
   responseCount: number;
   photoCount: number;
   pendingPhotoCount: number;
+  photos: PhotoIntegrity[];
   lastSyncConfirmedAt?: Date;
 }
 
@@ -126,7 +138,9 @@ export async function getInspectionIntegrity(inspectionId: string): Promise<Insp
       status: item.syncStatus,
       updatedAt: item.updatedAt,
       syncError: item.syncError,
-      hasRemoteConflict: Boolean(item.conflictRemote)
+      hasRemoteConflict: Boolean(item.conflictRemote),
+      conflictRemote: item.conflictRemote,
+      conflictLocal: item.conflictLocal
     });
   };
 
@@ -150,7 +164,19 @@ export async function getInspectionIntegrity(inspectionId: string): Promise<Insp
     responseCount: responses.length,
     photoCount: photos.length,
     pendingPhotoCount: photos.filter(p => p.syncStatus !== 'synced').length,
+    photos: photos.map(toPhotoIntegrity),
     lastSyncConfirmedAt: verifiedTimes.length > 0 ? new Date(Math.min(...verifiedTimes)) : undefined
+  };
+}
+
+function toPhotoIntegrity(photo: InspectionPhoto): PhotoIntegrity {
+  return {
+    id: photo.id,
+    responseId: photo.responseId,
+    dataUrl: photo.dataUrl,
+    status: photo.syncStatus,
+    updatedAt: photo.updatedAt,
+    syncError: photo.syncError
   };
 }
 
