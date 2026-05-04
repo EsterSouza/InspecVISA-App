@@ -72,6 +72,33 @@ export function extractBaseLegislation(raw: string): string[] {
   return Array.from(bases);
 }
 
+function getPdfImageFormat(dataUrl: string) {
+  if (/^data:image\/png/i.test(dataUrl)) return 'PNG';
+  if (/^data:image\/webp/i.test(dataUrl)) return 'WEBP';
+  return 'JPEG';
+}
+
+function isLocalReportImage(dataUrl?: string | null): dataUrl is string {
+  return /^data:image\/(jpeg|jpg|png|webp);base64,/i.test(dataUrl || '');
+}
+
+async function loadImageSize(dataUrl: string, timeoutMs = 8000): Promise<{ width: number; height: number } | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const done = (value: { width: number; height: number } | null) => {
+      window.clearTimeout(timeout);
+      img.onload = null;
+      img.onerror = null;
+      resolve(value);
+    };
+    const timeout = window.setTimeout(() => done(null), timeoutMs);
+
+    img.onload = () => done({ width: img.width, height: img.height });
+    img.onerror = () => done(null);
+    img.src = dataUrl;
+  });
+}
+
 export async function generatePDF(
   inspection: Inspection,
   responses: InspectionResponse[],
@@ -88,6 +115,66 @@ export async function generatePDF(
   const contentW = pageW - margin * 2;
   const primaryColor: [number, number, number] = [20, 40, 80]; // Navy Blue 
   const secondaryColor: [number, number, number] = [45, 90, 142];
+
+  async function drawPhotoGrid(photos: InspectionResponse['photos'], startY: number) {
+    if (!photos || photos.length === 0) return startY;
+
+    let photoY = startY;
+    if (photoY > pageH - 60) {
+      doc.addPage();
+      photoY = margin;
+    }
+
+    const maxImgW = (contentW - 5) / 2;
+    const maxImgH = maxImgW * 0.75;
+    let col = 0;
+    let currentRowMaxH = 0;
+
+    for (const photo of photos) {
+      try {
+        if (!isLocalReportImage(photo.dataUrl)) {
+          console.warn('[PDF] Skipping unavailable local photo', photo.id);
+          continue;
+        }
+
+        const imageSize = await loadImageSize(photo.dataUrl);
+        if (!imageSize || imageSize.width <= 0 || imageSize.height <= 0) {
+          console.warn('[PDF] Skipping unreadable photo', photo.id);
+          continue;
+        }
+
+        const ratio = imageSize.height / imageSize.width;
+        let drawW = maxImgW;
+        let drawH = drawW * ratio;
+
+        if (drawH > maxImgH) {
+          drawH = maxImgH;
+          drawW = drawH / ratio;
+        }
+
+        const x = margin + col * (maxImgW + 5) + (maxImgW - drawW) / 2;
+        if (col === 0 && photoY + maxImgH > pageH - 20) {
+          doc.addPage();
+          photoY = margin;
+        }
+
+        doc.addImage(photo.dataUrl, getPdfImageFormat(photo.dataUrl) as any, x, photoY, drawW, drawH);
+        currentRowMaxH = Math.max(currentRowMaxH, drawH);
+
+        col++;
+        if (col === 2) {
+          col = 0;
+          photoY += currentRowMaxH + 3;
+          currentRowMaxH = 0;
+        }
+      } catch (err) {
+        console.warn('[PDF] Failed to add photo, skipping', photo.id, err);
+      }
+    }
+
+    if (col > 0) photoY += currentRowMaxH + 3;
+    return photoY;
+  }
 
   // Helper: footer on every page
   function addFooter(pageNum: number, totalPages: number) {
@@ -518,44 +605,7 @@ export async function generatePDF(
       }
 
       // Photos
-      if (response.photos && response.photos.length > 0) {
-        if (y > pageH - 60) { doc.addPage(); y = margin; }
-        const maxImgW = (contentW - 5) / 2;
-        const maxImgH = maxImgW * 0.75;
-        let col = 0;
-        let currentRowMaxH = 0;
-
-        for (const photo of response.photos || []) {
-          try {
-            const img = new Image();
-            img.src = photo.dataUrl;
-            await new Promise(resolve => img.onload = resolve);
-
-            const ratio = img.height / img.width;
-            let drawW = maxImgW;
-            let drawH = drawW * ratio;
-
-            if (drawH > maxImgH) {
-              drawH = maxImgH;
-              drawW = drawH / ratio;
-            }
-
-            const x = margin + col * (maxImgW + 5) + (maxImgW - drawW) / 2;
-            if (col === 0 && y + maxImgH > pageH - 20) { doc.addPage(); y = margin; }
-
-            doc.addImage(photo.dataUrl, 'JPEG', x, y, drawW, drawH);
-            currentRowMaxH = Math.max(currentRowMaxH, drawH);
-
-            col++;
-            if (col === 2) {
-              col = 0;
-              y += currentRowMaxH + 3;
-              currentRowMaxH = 0;
-            }
-          } catch (_) { /* skip */ }
-        }
-        if (col > 0) y += currentRowMaxH + 3;
-      }
+      y = await drawPhotoGrid(response.photos, y);
 
       y += 6;
       doc.setDrawColor(200, 200, 200);
@@ -638,44 +688,7 @@ export async function generatePDF(
       }
 
       // Photos
-      if (response.photos && response.photos.length > 0) {
-        if (y > pageH - 60) { doc.addPage(); y = margin; }
-        const maxImgW = (contentW - 5) / 2;
-        const maxImgH = maxImgW * 0.75;
-        let col = 0;
-        let currentRowMaxH = 0;
-
-        for (const photo of response.photos || []) {
-          try {
-            const img = new Image();
-            img.src = photo.dataUrl;
-            await new Promise(resolve => img.onload = resolve);
-
-            const ratio = img.height / img.width;
-            let drawW = maxImgW;
-            let drawH = drawW * ratio;
-
-            if (drawH > maxImgH) {
-              drawH = maxImgH;
-              drawW = drawH / ratio;
-            }
-
-            const x = margin + col * (maxImgW + 5) + (maxImgW - drawW) / 2;
-            if (col === 0 && y + maxImgH > pageH - 20) { doc.addPage(); y = margin; }
-
-            doc.addImage(photo.dataUrl, 'JPEG', x, y, drawW, drawH);
-            currentRowMaxH = Math.max(currentRowMaxH, drawH);
-
-            col++;
-            if (col === 2) {
-              col = 0;
-              y += currentRowMaxH + 3;
-              currentRowMaxH = 0;
-            }
-          } catch (_) { /* skip */ }
-        }
-        if (col > 0) y += currentRowMaxH + 3;
-      }
+      y = await drawPhotoGrid(response.photos, y);
 
       y += 6;
       doc.setDrawColor(220, 230, 240);
