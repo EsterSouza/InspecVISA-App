@@ -10,6 +10,8 @@ import { SyncIndicator } from './components/ui/SyncIndicator';
 import { SyncQueueService } from './services/syncQueueService';
 import { ClientService } from './services/clientService';
 import { InspectionService } from './services/inspectionService';
+import { InspectionExecution } from './pages/InspectionExecution';
+import { InspectionSummary } from './pages/InspectionSummary';
 
 // Layout
 import { Sidebar } from './components/layout/Sidebar';
@@ -23,8 +25,6 @@ const Schedules = lazy(() => import('./pages/Schedules').then(m => ({ default: m
 const Settings = lazy(() => import('./pages/Settings').then(m => ({ default: m.Settings })));
 const Inspections = lazy(() => import('./pages/Inspections').then(m => ({ default: m.Inspections })));
 const NewInspection = lazy(() => import('./pages/NewInspection').then(m => ({ default: m.NewInspection })));
-const InspectionExecution = lazy(() => import('./pages/InspectionExecution').then(m => ({ default: m.InspectionExecution })));
-const InspectionSummary = lazy(() => import('./pages/InspectionSummary').then(m => ({ default: m.InspectionSummary })));
 const AccessDenied = lazy(() => import('./pages/AccessDenied').then(m => ({ default: m.AccessDenied })));
 
 const AdminLayout = lazy(() => import('./components/layout/AdminLayout').then(m => ({ default: m.AdminLayout })));
