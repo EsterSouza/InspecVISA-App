@@ -31,6 +31,18 @@ function currentActorId() {
   return getLocalActor().id;
 }
 
+function pushTimeoutMs(tableName: string) {
+  if (tableName === 'photos') return 30000;
+  if (tableName === 'responses') return 20000;
+  return 30000;
+}
+
+function bulkChunkSize(tableName: string) {
+  if (tableName === 'responses') return 1;
+  if (tableName === 'inspections' || tableName === 'schedules') return 3;
+  return 5;
+}
+
 export const RepositoryService = {
   /**
    * withTimeout: Wraps a promise with a timeout
@@ -147,7 +159,7 @@ export const RepositoryService = {
       const pgRecord = mapToPostgres(recordToPush);
       const { error: pushError } = await withTimeout(
         supabase.from(tableName).upsert(pgRecord),
-        120000,
+        pushTimeoutMs(tableName),
         `Push_${tableName}`
       );
 
@@ -238,7 +250,7 @@ export const RepositoryService = {
     const tenantId = useAuthStore.getState().tenantInfo?.tenantId;
     const queuedItems = (await dexieTable
       .where('syncStatus')
-      .anyOf(['pending', 'failed'])
+      .equals('pending')
       .toArray())
       .filter((item: any) => !activePushes.has(syncKey(tableName, item.id)));
 
@@ -275,7 +287,7 @@ export const RepositoryService = {
  
       // 2. Prepare payload and Chunk it (max 5 items per request)
       const mappedArray = items.map(mapToPostgres);
-      const CHUNK_SIZE = 5;
+      const CHUNK_SIZE = bulkChunkSize(tableName);
       const chunks = [];
       for (let i = 0; i < mappedArray.length; i += CHUNK_SIZE) {
         chunks.push(mappedArray.slice(i, i + CHUNK_SIZE));
@@ -289,7 +301,7 @@ export const RepositoryService = {
         
         const { error } = await withTimeout(
           supabase.from(tableName).upsert(chunk),
-          120000, // Extended timeout for heavy payloads (120s)
+          pushTimeoutMs(tableName),
           `BulkPush_${tableName}`
         );
  

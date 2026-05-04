@@ -98,10 +98,12 @@ export const useAuthStore = create<AuthState>()(
         try {
           // Just verify user reference — don't trigger state cleanup here
           // Supabase handles refresh via getUser()
-          const { data: { user } } = await supabase.auth.getUser();
+          const sessionPromise = supabase.auth.getUser();
+          const timeoutPromise = new Promise<any>((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
+          const { data: { user } } = await Promise.race([sessionPromise, timeoutPromise]) as any;
           return !!user;
         } catch {
-          return false;
+          return !!get().user;
         }
       },
     }),

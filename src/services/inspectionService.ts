@@ -219,7 +219,7 @@ export const InspectionService = {
     const local = filterByActiveTenant(await db.responses
       .where('inspectionId')
       .equals(inspectionId)
-      .filter(r => r.deletedAt === null)
+      .filter(r => !r.deletedAt)
       .toArray());
     
     // TTL: 2 minutes for responses refresh
