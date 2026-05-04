@@ -389,6 +389,7 @@ export async function consolidateLegacyData(
       id: generateId(),
       responseId: localResponse.id,
       dataUrl: legacyPhoto.data_url || legacyPhoto.dataUrl,
+      storagePath: legacyPhoto.storage_path || legacyPhoto.storagePath,
       caption: legacyPhoto.caption,
       takenAt: new Date(legacyPhoto.taken_at || legacyPhoto.takenAt),
       updatedAt: new Date(),

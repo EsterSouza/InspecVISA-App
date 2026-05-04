@@ -192,6 +192,7 @@ export interface InspectionPhoto {
   id: string;
   responseId: string;
   dataUrl: string; // base64 JPEG
+  storagePath?: string; // Supabase Storage path after cloud upload
   caption?: string;
   takenAt: Date;
   updatedAt: Date;

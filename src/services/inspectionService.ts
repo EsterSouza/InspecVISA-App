@@ -105,10 +105,14 @@ export function mapResponseFromPostgres(row: any): InspectionResponse {
 }
 
 export function mapPhotoToPostgres(photo: InspectionPhoto): any {
+  const remoteDataUrl = photo.storagePath
+    ? `storage://${photo.storagePath}`
+    : photo.dataUrl;
+
   return {
     id: photo.id,
     response_id: photo.responseId,
-    data_url: photo.dataUrl,
+    data_url: remoteDataUrl,
     caption: photo.caption || null,
     taken_at: photo.takenAt.toISOString(),
     updated_at: photo.updatedAt.toISOString(),

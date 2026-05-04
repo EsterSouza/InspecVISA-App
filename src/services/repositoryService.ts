@@ -4,6 +4,7 @@ import type { SyncStatus } from '../types';
 import { withTimeout } from '../utils/network';
 import { useAuthStore } from '../store/useAuthStore';
 import { getLocalActor } from '../utils/localActor';
+import { dataUrlToBlob } from '../utils/imageUtils';
 
 /**
  * RepositoryService
@@ -13,6 +14,7 @@ import { getLocalActor } from '../utils/localActor';
 const activePushes = new Set<string>();
 const TENANT_SCOPED_TABLES = new Set(['clients', 'inspections', 'responses', 'photos', 'schedules']);
 const UNSAFE_LOCAL_STATUSES: SyncStatus[] = ['pending', 'syncing', 'failed', 'conflict'];
+const PHOTO_BUCKET = 'inspection-photos';
 
 function syncKey(tableName: string, id: string) {
   return `${tableName}:${id}`;
@@ -41,6 +43,40 @@ function bulkChunkSize(tableName: string) {
   if (tableName === 'responses') return 1;
   if (tableName === 'inspections' || tableName === 'schedules') return 3;
   return 5;
+}
+
+function isInlineDataUrl(value?: string) {
+  return Boolean(value?.startsWith('data:image/'));
+}
+
+async function uploadPhotoToStorage<T extends { id: string; responseId?: string; dataUrl?: string; storagePath?: string; tenantId?: string }>(
+  record: T,
+  dexieTable: any,
+  tenantId?: string
+): Promise<T> {
+  if (!isInlineDataUrl(record.dataUrl)) return record;
+  if (!tenantId || !record.responseId) return record;
+
+  const storagePath = record.storagePath || `${tenantId}/${record.responseId}/${record.id}.jpg`;
+  const blob = dataUrlToBlob(record.dataUrl!);
+
+  const { error } = await withTimeout(
+    supabase.storage.from(PHOTO_BUCKET).upload(storagePath, blob, {
+      cacheControl: '31536000',
+      contentType: 'image/jpeg',
+      upsert: true,
+    }),
+    pushTimeoutMs('photos'),
+    'StorageUpload_photos'
+  );
+
+  if (error) throw error;
+
+  if (record.storagePath !== storagePath) {
+    await dexieTable.update(record.id, { storagePath });
+  }
+
+  return { ...record, storagePath };
 }
 
 export const RepositoryService = {
@@ -148,12 +184,16 @@ export const RepositoryService = {
         return false;
       }
 
-      const recordToPush = { ...record, tenantId } as T;
+      let recordToPush = { ...record, tenantId } as T;
       if (tenantId && tenantId !== record.tenantId) {
         await dexieTable.update(record.id, { tenantId });
       }
 
       await dexieTable.update(record.id, { syncStatus: 'syncing' });
+
+      if (tableName === 'photos') {
+        recordToPush = await uploadPhotoToStorage(recordToPush as any, dexieTable, tenantId) as T;
+      }
 
       // Perform Push (Direct Upsert - Last Write Wins)
       const pgRecord = mapToPostgres(recordToPush);
