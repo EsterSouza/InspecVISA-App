@@ -4,6 +4,7 @@ import { templates as legacyTemplates } from '../data/templates';
 import { templateIlpiGoias } from '../data/templates_ilpi_go';
 import { alimentosTemplates } from '../data/templates_alimentos';
 import { withTimeout } from '../utils/network';
+import { db } from '../db/database';
 
 interface RawImportItem {
   section?: string;
@@ -13,8 +14,9 @@ interface RawImportItem {
   isCritical?: boolean;
 }
 
-const TEMPLATE_SYNC_TIMEOUT_MS = 20000;
+const TEMPLATE_SYNC_TIMEOUT_MS = 45000;
 const ITEM_SECTION_CHUNK_SIZE = 100;
+const TEMPLATE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
 function timeout<T>(ms: number, label: string) {
   return new Promise<never>((_, reject) =>
@@ -47,6 +49,18 @@ export const TemplateService = {
 
   async syncAllTemplatesToDexie(): Promise<ChecklistTemplate[]> {
     try {
+      // TTL guard: if templates were verified recently, serve from Dexie cache
+      try {
+        const sample = await db.templates.toCollection().first();
+        const lastVerified = (sample as any)?.dataVerifiedAt;
+        if (lastVerified && Date.now() - new Date(lastVerified).getTime() < TEMPLATE_TTL_MS) {
+          console.log('[TemplateService] Templates are fresh (< 30 min), skipping remote sync.');
+          return await db.templates.toArray() as unknown as ChecklistTemplate[];
+        }
+      } catch {
+        // No templates in Dexie yet — proceed with full sync
+      }
+
       console.log('[TemplateService] Starting background sync of templates...');
 
       // 1. Fetch templates and sections with proper Promise.race timeout
@@ -134,39 +148,53 @@ export const TemplateService = {
   },
 
   async getFullTemplate(templateId: string): Promise<ChecklistTemplate> {
-    // Fetch template
-    const { data: template, error: tError } = await supabase
-      .from('checklist_templates')
-      .select('*')
-      .eq('id', templateId)
-      .single();
-    
-    if (tError) throw tError;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), TEMPLATE_SYNC_TIMEOUT_MS);
 
-    // Fetch sections
-    const { data: sections, error: sError } = await supabase
-      .from('checklist_sections')
-      .select('*')
-      .eq('template_id', templateId)
-      .order('order', { ascending: true });
-    
-    if (sError) throw sError;
+    try {
+      const { data: template, error: tError } = await supabase
+        .from('checklist_templates')
+        .select('*')
+        .eq('id', templateId)
+        .abortSignal(controller.signal)
+        .single();
+      if (tError) throw tError;
 
-    // Fetch items for each section
-    const fullSections = await Promise.all(
-      sections.map(async (sec) => {
-        const { data: items, error: iError } = await supabase
-          .from('checklist_items')
-          .select('*')
-          .eq('section_id', sec.id)
-          .order('order', { ascending: true });
-        
-        if (iError) throw iError;
-        return {
+      const { data: sections, error: sError } = await supabase
+        .from('checklist_sections')
+        .select('*')
+        .eq('template_id', templateId)
+        .order('order', { ascending: true })
+        .abortSignal(controller.signal);
+      if (sError) throw sError;
+
+      // Bulk fetch all items for all sections in one request (instead of N+1)
+      const sectionIds = sections.map((s: any) => s.id);
+      const { data: allItems, error: iError } = await supabase
+        .from('checklist_items')
+        .select('*')
+        .in('section_id', sectionIds)
+        .order('order', { ascending: true })
+        .abortSignal(controller.signal);
+      if (iError) throw iError;
+
+      const itemsBySection = new Map<string, any[]>();
+      (allItems || []).forEach((i: any) => {
+        const list = itemsBySection.get(i.section_id) || [];
+        list.push(i);
+        itemsBySection.set(i.section_id, list);
+      });
+
+      return {
+        id: template.id,
+        name: template.name,
+        category: template.category,
+        version: template.version,
+        sections: sections.map((sec: any) => ({
           id: sec.id,
           title: sec.title,
           order: sec.order,
-          items: items.map((i: any) => ({
+          items: (itemsBySection.get(sec.id) || []).map((i: any) => ({
             id: i.id,
             description: i.description,
             legislation: i.legislation_name,
@@ -174,17 +202,11 @@ export const TemplateService = {
             isCritical: i.is_critical,
             order: i.order
           }))
-        };
-      })
-    );
-
-    return {
-      id: template.id,
-      name: template.name,
-      category: template.category,
-      version: template.version,
-      sections: fullSections
-    } as ChecklistTemplate;
+        }))
+      } as ChecklistTemplate;
+    } finally {
+      clearTimeout(timeoutId);
+    }
   },
 
   async createTemplate(template: Omit<ChecklistTemplate, 'id' | 'sections'>) {

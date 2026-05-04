@@ -130,21 +130,14 @@ export function InspectionExecution() {
             if (!localInsp) setLoading(true);
             try {
               const { TemplateService } = await import('../services/templateService');
-              // 10s timeout for remote template fetch
-              tpl = await Promise.race([
-                TemplateService.getFullTemplate(enrichedInsp.templateId),
-                new Promise<null>((_, reject) => setTimeout(() => reject(new Error('timeout')), 20000))
-              ]);
+              // getFullTemplate now uses AbortController internally (no external race needed)
+              tpl = await TemplateService.getFullTemplate(enrichedInsp.templateId);
               if (tpl) db.templates.put(tpl).catch(() => {});
             } catch (e) {
-              console.warn('[Execution] Direct template fetch failed, trying full sync:', e);
-              try {
-                const { TemplateService } = await import('../services/templateService');
-                const remoteTemplates = await TemplateService.syncAllTemplatesToDexie();
-                tpl = remoteTemplates.find((t: any) => t.id === enrichedInsp.templateId);
-              } catch (sErr) {
-                console.error('[Execution] Full template sync failed:', sErr);
-              }
+              // Do NOT fall back to syncAllTemplatesToDexie here: a full sync creates multiple
+              // zombie connections that saturate the Supabase pool and block inspection pushes.
+              // Recovery mode (templateRecovery.ts) handles the missing template case below.
+              console.warn('[Execution] Remote template fetch failed, using local recovery:', e);
             }
           }
 
