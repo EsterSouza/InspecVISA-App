@@ -563,13 +563,15 @@ function isBeloHorizonteClient(client: Client): boolean {
 }
 
 function isIlpiFederalTemplate(template: ChecklistTemplate): boolean {
+  // 1. Match by static ID (bundled template)
+  if (template.id === 'tpl-ilpi-federal-v1') return true;
+  // 2. Match by name — Supabase-seeded templates have UUID IDs but keep the same name
+  if (/ILPI.*Base Federal/i.test(template.name || '')) return true;
+  // 3. Match by static section IDs (fallback for older bundled templates)
   return (
-    template.id === 'tpl-ilpi-federal-v1' ||
-    (
-      template.category === 'ilpi' &&
-      template.sections.some((section: any) => section.id === 'sec-fed-01') &&
-      template.sections.some((section: any) => section.id === 'sec-fed-13')
-    )
+    template.category === 'ilpi' &&
+    template.sections.some((section: any) => section.id === 'sec-fed-01') &&
+    template.sections.some((section: any) => section.id === 'sec-fed-13')
   );
 }
 
