@@ -2,7 +2,7 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   Home, Users, ClipboardCheck, PlusCircle, Settings,
-  ShieldCheck, LogOut, Calendar, User, BookOpen, FileText
+  ShieldCheck, LogOut, Calendar, User, BookOpen, FileText, Activity
 } from 'lucide-react';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -16,6 +16,7 @@ const staffNavItems = [
   { to: '/new',         icon: PlusCircle,    label: 'Nova Inspeção', main: true },
   { to: '/schedules',   icon: Calendar,      label: 'Agendamentos' },
   { to: '/inspections', icon: ClipboardCheck,label: 'Inspeções' },
+  { to: '/sync',        icon: Activity,      label: 'Sincronização' },
   { to: '/settings',    icon: Settings,      label: 'Configurações' },
 ];
 

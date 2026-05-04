@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, Users, ClipboardCheck, PlusCircle, Settings, User, Calendar } from 'lucide-react';
+import { Home, Users, ClipboardCheck, PlusCircle, Settings, User, Calendar, Activity } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { SyncIndicator } from '../ui/SyncIndicator';
 
@@ -61,6 +61,24 @@ export function BottomNav() {
             </NavLink>
           );
         })}
+
+        {!isClient && (
+          <NavLink
+            to="/sync"
+            className={({ isActive }) => `flex flex-col items-center justify-center space-y-1 p-2 ${
+              isActive ? 'text-primary-600' : 'text-gray-500 hover:text-gray-900'
+            }`}
+          >
+            {({ isActive }) => (
+              <>
+                <Activity className={`h-5 w-5 ${isActive ? 'fill-primary-50 stroke-primary-600' : ''}`} />
+                <span className={`text-[10px] font-medium ${isActive ? 'font-semibold' : ''}`}>
+                  Sync
+                </span>
+              </>
+            )}
+          </NavLink>
+        )}
 
         {!isClient && (
           <NavLink

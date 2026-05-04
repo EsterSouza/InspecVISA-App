@@ -23,6 +23,7 @@ const Clients = lazy(() => import('./pages/Clients').then(m => ({ default: m.Cli
 const ClientDetails = lazy(() => import('./pages/ClientDetails').then(m => ({ default: m.ClientDetails })));
 const Schedules = lazy(() => import('./pages/Schedules').then(m => ({ default: m.Schedules })));
 const Settings = lazy(() => import('./pages/Settings').then(m => ({ default: m.Settings })));
+const SyncCenter = lazy(() => import('./pages/SyncCenter').then(m => ({ default: m.SyncCenter })));
 const Inspections = lazy(() => import('./pages/Inspections').then(m => ({ default: m.Inspections })));
 const NewInspection = lazy(() => import('./pages/NewInspection').then(m => ({ default: m.NewInspection })));
 const AccessDenied = lazy(() => import('./pages/AccessDenied').then(m => ({ default: m.AccessDenied })));
@@ -230,6 +231,7 @@ function App() {
               <Route path="/templates/:id" element={<TemplateDetail />} />
               <Route path="/templates/:id/edit" element={<TemplateEditor />} />
               <Route path="/legislations" element={<LegislationsManager />} />
+              <Route path="/sync" element={<ProtectedRoute><SyncCenter /></ProtectedRoute>} />
               <Route path="/access-denied" element={<AccessDenied />} />
             </Routes>
           </Suspense>
