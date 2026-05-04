@@ -7,6 +7,7 @@
 
 import type { ChecklistTemplate, Client } from '../types';
 import { templateIlpiGoiasSuplement } from './templates-ilpi-goias-supplement';
+import { templateIlpiBeloHorizonteSupplement } from './Roteiro_ILPI_BH';
 import { templateIlpiGoias } from './templates_ilpi_go';
 import { alimentosTemplates } from './templates_alimentos';
 import { getExtraSections } from './templates_alimentos_segmentos';
@@ -507,6 +508,7 @@ export function getTemplateById(id: string): ChecklistTemplate | undefined {
   let mappedId = id;
   if (id === 'tpl-estetica-federal' || id === 'tpl-estetica') mappedId = 'tpl-estetica-v1';
   if (id === 'tpl-ilpi-federal') mappedId = 'tpl-ilpi-federal-v1';
+  if (id === 'tpl-ilpi-bh' || id === 'tpl-ilpi-belo-horizonte') mappedId = 'tpl-ilpi-federal-v1';
   if (id === 'tpl-alimentos-federal' || id === 'tpl-alimentos') mappedId = 'tpl-alimentos-federal-v1';
   if (id === 'tpl-alimentos-rj') mappedId = 'tpl-alimentos-rj-v1';
   if (id === 'tpl-ilpi-go' || id === 'tpl-ilpi-goias') mappedId = 'tpl-ilpi-go-v1';
@@ -546,6 +548,55 @@ function filterSectionsByRole(sections: any[], role: string, full: boolean) {
   });
 }
 
+function normalizeLocation(value?: string | null): string {
+  return (value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+}
+
+function isBeloHorizonteClient(client: Client): boolean {
+  const state = normalizeLocation(client.state);
+  const city = normalizeLocation(client.city);
+  return (state === 'mg' || state === 'minas gerais') && city.includes('belo horizonte');
+}
+
+function isIlpiFederalTemplate(template: ChecklistTemplate): boolean {
+  return (
+    template.id === 'tpl-ilpi-federal-v1' ||
+    (
+      template.category === 'ilpi' &&
+      template.sections.some((section: any) => section.id === 'sec-fed-01') &&
+      template.sections.some((section: any) => section.id === 'sec-fed-13')
+    )
+  );
+}
+
+function applySupplement(effective: ChecklistTemplate, supplement: any): void {
+  supplement.sectionAdditions.forEach((addition: any) => {
+    const targetSection = effective.sections.find((s: any) => s.id === addition.targetSectionId);
+    if (targetSection) {
+      const existingIds = new Set(targetSection.items.map((i: any) => i.id));
+      addition.items.forEach((newItem: any) => {
+        if (!existingIds.has(newItem.id)) {
+          targetSection.items.push(newItem);
+          existingIds.add(newItem.id);
+        }
+      });
+      targetSection.items.sort((a: any, b: any) => a.order - b.order);
+    }
+  });
+
+  if (supplement.newSections) {
+    supplement.newSections.forEach((newSec: any) => {
+      if (!effective.sections.find((s: any) => s.id === newSec.id)) {
+        effective.sections.push(newSec);
+      }
+    });
+  }
+}
+
 
 /**
  * Main function to get the final template for a specific context.
@@ -571,33 +622,15 @@ export function getEffectiveTemplate(
   }
 
   // 2. Apply Regional Supplements
-  if (baseTemplate.id === 'tpl-ilpi-federal-v1' && client.state === 'GO') {
+  if (isIlpiFederalTemplate(baseTemplate) && normalizeLocation(client.state) === 'go') {
     const supplement = templateIlpiGoiasSuplement;
-    
-    // A. Apply Section Additions
-    supplement.sectionAdditions.forEach(addition => {
-      const targetSection = effective.sections.find((s: any) => s.id === addition.targetSectionId);
-      if (targetSection) {
-        const existingIds = new Set(targetSection.items.map((i: any) => i.id));
-        addition.items.forEach(newItem => {
-          if (!existingIds.has(newItem.id)) {
-            targetSection.items.push(newItem);
-          }
-        });
-        targetSection.items.sort((a: any, b: any) => a.order - b.order);
-      }
-    });
-
-    // B. Apply New Sections
-    if (supplement.newSections) {
-      supplement.newSections.forEach(newSec => {
-        if (!effective.sections.find((s: any) => s.id === newSec.id)) {
-          effective.sections.push(newSec);
-        }
-      });
-    }
-
+    applySupplement(effective, supplement);
     effective.name = `${baseTemplate.name} (+ Suplemento GO)`;
+  }
+
+  if (isIlpiFederalTemplate(baseTemplate) && isBeloHorizonteClient(client)) {
+    applySupplement(effective, templateIlpiBeloHorizonteSupplement);
+    effective.name = `${baseTemplate.name} (+ Suplemento BH)`;
   }
 
   // 3. Apply Food Segment Filtering (Alimentos)

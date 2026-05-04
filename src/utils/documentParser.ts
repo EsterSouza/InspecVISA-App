@@ -1,15 +1,15 @@
 import * as pdfjsLib from 'pdfjs-dist';
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import mammoth from 'mammoth';
 
-// Use a robust CDN worker URL that matches the bundled version precisely
-// If this fails, the catch block in the importer will handle it
-const PDF_WORKER_URL = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
-pdfjsLib.GlobalWorkerOptions.workerSrc = PDF_WORKER_URL;
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 export interface ParsedItem {
   section: string;
   description: string;
   legislation?: string;
+  weight?: number;
+  isCritical?: boolean;
 }
 
 export class DocumentParser {
@@ -50,6 +50,65 @@ export class DocumentParser {
     const arrayBuffer = await file.arrayBuffer();
     const result = await mammoth.extractRawText({ arrayBuffer });
     return result.value;
+  }
+
+  static async parseTextFile(file: File): Promise<string> {
+    return file.text();
+  }
+
+  static parseTypeScript(text: string): ParsedItem[] {
+    const lines = text.split('\n');
+    const sectionById = new Map<string, string>();
+    let pendingTargetSectionId = '';
+    let pendingSectionId = '';
+
+    for (const line of lines) {
+      const sectionId = line.match(/targetSectionId:\s*['"`]([^'"`]+)['"`]/)?.[1];
+      const targetTitle = line.match(/targetSectionTitle:\s*['"`]([^'"`]+)['"`]/)?.[1];
+      if (sectionId) pendingTargetSectionId = sectionId;
+      if (targetTitle && pendingTargetSectionId) sectionById.set(pendingTargetSectionId, targetTitle);
+
+      const id = line.match(/\bid:\s*['"`]([^'"`]+)['"`]/)?.[1];
+      const title = line.match(/\btitle:\s*['"`]([^'"`]+)['"`]/)?.[1];
+      if (id && id.startsWith('sec-')) pendingSectionId = id;
+      if (title && pendingSectionId) sectionById.set(pendingSectionId, title);
+    }
+
+    const items: ParsedItem[] = [];
+    let currentSection = 'Geral';
+    let pending: ParsedItem | null = null;
+
+    for (const line of lines) {
+      const sectionId = line.match(/sectionId:\s*['"`]([^'"`]+)['"`]/)?.[1];
+      if (sectionId) currentSection = sectionById.get(sectionId) || currentSection;
+
+      const title = line.match(/\btitle:\s*['"`]([^'"`]+)['"`]/)?.[1];
+      if (title) currentSection = title;
+
+      const targetTitle = line.match(/targetSectionTitle:\s*['"`]([^'"`]+)['"`]/)?.[1];
+      if (targetTitle) currentSection = targetTitle;
+
+      const description = line.match(/description:\s*(['"`])(.+?)\1/)?.[2];
+      if (description) {
+        if (pending) items.push(pending);
+        pending = {
+          section: sectionId ? sectionById.get(sectionId) || currentSection : currentSection,
+          description,
+        };
+      }
+
+      const legislation = line.match(/legislation:\s*(['"`])(.+?)\1/)?.[2];
+      if (legislation && pending) pending.legislation = legislation;
+
+      const weight = line.match(/weight:\s*(\d+)/)?.[1];
+      if (weight && pending) pending.weight = Number(weight);
+
+      const isCritical = line.match(/isCritical:\s*(true|false)/)?.[1];
+      if (isCritical && pending) pending.isCritical = isCritical === 'true';
+    }
+
+    if (pending) items.push(pending);
+    return items;
   }
 
   /**

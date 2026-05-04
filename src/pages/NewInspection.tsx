@@ -4,6 +4,7 @@ import { ChevronRight, ArrowLeft, WifiOff, Loader2 } from 'lucide-react';
 import { db } from '../db/database';
 import { ClientService } from '../services/clientService';
 import { InspectionService } from '../services/inspectionService';
+import { getTemplates, getEffectiveTemplate } from '../data/templates';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { getLocalActor } from '../utils/localActor';
@@ -68,7 +69,13 @@ export function NewInspection() {
         }
         
         const dbTemplates = await db.templates.toArray();
-        setTemplates(dbTemplates);
+        const staticTemplates = getTemplates();
+        const dbNames = new Set(dbTemplates.map(t => t.name));
+        const mergedTemplates = [
+          ...dbTemplates,
+          ...staticTemplates.filter(t => !dbNames.has(t.name)),
+        ];
+        setTemplates(mergedTemplates.length > 0 ? mergedTemplates : staticTemplates);
       } catch (err) {
         console.error('Error initializing new inspection:', err);
       } finally {
@@ -201,7 +208,10 @@ export function NewInspection() {
                 <Card 
                   key={client.id}
                   className={`cursor-pointer transition-all border-2 ${selectedClient?.id === client.id ? 'border-primary-500 bg-primary-50/30' : 'border-gray-100'}`}
-                  onClick={() => setSelectedClient(client)}
+                  onClick={() => {
+                    setSelectedClient(client);
+                    setSelectedTemplate(null);
+                  }}
                 >
                   <div className="p-5">
                     <h3 className="font-bold text-gray-900">{client.name}</h3>
@@ -225,7 +235,9 @@ export function NewInspection() {
           <div className="space-y-4 animate-in fade-in slide-in-from-right-8 duration-500">
              <h2 className="text-xl font-bold text-gray-800 mb-6">Escolha o Roteiro <span className="text-primary-600">({selectedClient.category?.toUpperCase() || 'GERAL'})</span></h2>
              <div className="grid gap-4">
-               {templates.filter(t => t.category === selectedClient.category && !t.name.includes('[ARQUIVADO]')).map(t => (
+               {templates.filter(t => t.category === selectedClient.category && !t.name.includes('[ARQUIVADO]')).map(t => {
+                 const effectiveTemplate = getEffectiveTemplate(t, selectedClient, undefined, true);
+                 return (
                  <Card 
                     key={t.id}
                     className={`cursor-pointer p-6 transition-all border-2 ${selectedTemplate?.id === t.id ? 'border-primary-500 bg-primary-50/30' : 'border-gray-100'}`}
@@ -233,7 +245,7 @@ export function NewInspection() {
                   >
                     <div className="flex justify-between items-center">
                        <div>
-                          <h3 className="font-bold text-gray-900 text-lg">{t.name}</h3>
+                          <h3 className="font-bold text-gray-900 text-lg">{effectiveTemplate.name}</h3>
                           <p className="text-sm text-gray-400 mt-1">Roteiro completo para {selectedClient.category}</p>
                        </div>
                        <div className={`h-6 w-6 rounded-full border-2 flex items-center justify-center ${selectedTemplate?.id === t.id ? 'border-primary-500' : 'border-gray-200'}`}>
@@ -241,7 +253,8 @@ export function NewInspection() {
                        </div>
                     </div>
                  </Card>
-               ))}
+                 );
+               })}
              </div>
              <div className="pt-10 flex justify-between">
                 <Button variant="outline" onClick={() => setStep(1)} className="h-12">Voltar</Button>

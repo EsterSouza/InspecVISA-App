@@ -36,19 +36,23 @@ export function SmartImporter() {
         text = await DocumentParser.parsePDF(file);
       } else if (file.name.endsWith('.docx')) {
         text = await DocumentParser.parseWord(file);
+      } else if (file.name.endsWith('.ts') || file.name.endsWith('.tsx')) {
+        text = await DocumentParser.parseTextFile(file);
       } else {
-        alert('Formato não suportado. Use PDF ou DOCX.');
+        alert('Formato não suportado. Use PDF, DOCX ou TypeScript.');
         return;
       }
 
-      const parsedItems = DocumentParser.heuristicParse(text);
+      const parsedItems = file.name.endsWith('.ts') || file.name.endsWith('.tsx')
+        ? DocumentParser.parseTypeScript(text)
+        : DocumentParser.heuristicParse(text);
       const mapped = parsedItems.map((pi, idx) => ({
-        id: idx + 1,
+        id: items.length + idx + 1,
         section: pi.section,
         description: pi.description,
         legislation: pi.legislation || 'Consultar Legislação',
-        weight: 1,
-        isCritical: false
+        weight: pi.weight || 1,
+        isCritical: pi.isCritical || false
       }));
 
       setItems(prev => [...prev, ...mapped]);
@@ -63,18 +67,26 @@ export function SmartImporter() {
   const handleParseText = () => {
     setIsProcessing(true);
     try {
-      const lines = pastedText.split('\n').filter(l => l.trim().length > 10);
-      const newItems: ParsedItem[] = lines.map((line, idx) => {
-        const parts = line.split('\t');
-        return {
-          id: items.length + idx + 1,
-          section: parts[1] || 'Geral',
-          description: parts[2] || parts[1] || line,
-          legislation: parts[3] || 'Consultar Legislação',
-          weight: 1,
-          isCritical: false
-        };
-      });
+      const looksLikeTypescript = /export\s+const|description:\s*['"`]|sectionId:\s*['"`]/.test(pastedText);
+      const parsedItems: Array<{ section: string; description: string; legislation?: string; weight?: number; isCritical?: boolean }> = looksLikeTypescript
+        ? DocumentParser.parseTypeScript(pastedText)
+        : pastedText.split('\n').filter(l => l.trim().length > 10).map(line => {
+            const parts = line.split('\t');
+            return {
+              section: parts[1] || 'Geral',
+              description: parts[2] || parts[1] || line,
+              legislation: parts[3] || 'Consultar Legislação',
+            };
+          });
+
+      const newItems: ParsedItem[] = parsedItems.map((item, idx) => ({
+        id: items.length + idx + 1,
+        section: item.section,
+        description: item.description,
+        legislation: item.legislation || 'Consultar Legislação',
+        weight: item.weight || 1,
+        isCritical: item.isCritical || false
+      }));
       setItems([...items, ...newItems]);
       setPastedText('');
     } finally {
@@ -152,11 +164,11 @@ export function SmartImporter() {
               ) : (
                 <>
                   <FileUp className="h-10 w-10 text-gray-400 group-hover:text-primary-500 mb-2" />
-                  <span className="text-sm font-medium text-gray-600">Clique para selecionar PDF ou Word</span>
+                  <span className="text-sm font-medium text-gray-600">Clique para selecionar PDF, Word ou TypeScript</span>
                   <span className="text-xs text-gray-400 mt-1">Sincronização automática de itens</span>
                 </>
               )}
-              <input type="file" className="hidden" accept=".pdf,.docx" onChange={handleFileUpload} disabled={isParsingFile} />
+              <input type="file" className="hidden" accept=".pdf,.docx,.ts,.tsx" onChange={handleFileUpload} disabled={isParsingFile} />
             </label>
           </CardContent>
         </Card>

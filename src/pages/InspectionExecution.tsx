@@ -183,13 +183,15 @@ export function InspectionExecution() {
   useEffect(() => { loadData(); }, [loadData]);
 
   // ─── TEMPLATE RESOLUTION ──────────────────────────────────────────────────
-  const visibleSections = useMemo(() => {
+  const effectiveTemplate = useMemo(() => {
     if (!template || !currentInspection) return [];
     const role = useSettingsStore.getState().settings.consultantRole || 'saude';
     const ctx = { ...currentInspection, category: (currentInspection as any).clientCategory || (currentInspection as any).category };
-    try { return getEffectiveTemplate(template, ctx as any, role, false).sections; }
-    catch (err) { console.error('getEffectiveTemplate error:', err); return template.sections; }
-  }, [template, currentInspection?.templateId, currentInspection?.state]);
+    try { return getEffectiveTemplate(template, ctx as any, role, false); }
+    catch (err) { console.error('getEffectiveTemplate error:', err); return template; }
+  }, [template, currentInspection?.templateId, currentInspection?.state, currentInspection?.city]);
+
+  const visibleSections = effectiveTemplate?.sections || [];
 
   // ─── REALTIME SYNC: Listen for updates from Supabase ─────────────────────
   useEffect(() => {
@@ -510,7 +512,7 @@ export function InspectionExecution() {
       {currentInspection.templateId === 'tpl-ilpi-federal-v1' && <CollaborativeProgress />}
 
       {/* Mobile Score Bar - shown only on small screens */}
-      <MobileScoreBar template={template} />
+      <MobileScoreBar template={effectiveTemplate} />
 
       <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 lg:grid lg:grid-cols-12 lg:gap-8 overflow-y-auto">
         <div className="lg:col-span-8 space-y-6">
@@ -647,7 +649,7 @@ export function InspectionExecution() {
         </div>
 
         <div className="hidden lg:block lg:col-span-4 sticky top-24 h-fit">
-          <ScorePanel template={template} />
+          <ScorePanel template={effectiveTemplate} />
         </div>
       </div>
 
