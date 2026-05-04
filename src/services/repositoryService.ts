@@ -63,7 +63,7 @@ async function uploadPhotoToStorage<T extends { id: string; responseId?: string;
   const { error } = await withTimeout(
     supabase.storage.from(PHOTO_BUCKET).upload(storagePath, blob, {
       cacheControl: '31536000',
-      contentType: 'image/jpeg',
+      contentType: blob.type || 'image/jpeg',
       upsert: true,
     }),
     pushTimeoutMs('photos'),

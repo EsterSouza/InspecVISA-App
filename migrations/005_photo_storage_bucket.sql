@@ -4,13 +4,14 @@
 -- Photos used to be synchronized as base64 text through public.photos.data_url.
 -- That makes PostgREST upserts slow and fragile. This bucket stores the binary
 -- file while public.photos.data_url keeps only "storage://<path>".
+-- Limit is 15 MB to leave room for field photos that average around 2.5 MB.
 
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES (
   'inspection-photos',
   'inspection-photos',
   false,
-  5242880,
+  15728640,
   ARRAY['image/jpeg', 'image/png', 'image/webp']
 )
 ON CONFLICT (id) DO UPDATE
