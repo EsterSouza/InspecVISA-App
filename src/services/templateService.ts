@@ -13,6 +13,23 @@ interface RawImportItem {
   isCritical?: boolean;
 }
 
+const TEMPLATE_SYNC_TIMEOUT_MS = 20000;
+const ITEM_SECTION_CHUNK_SIZE = 100;
+
+function timeout<T>(ms: number, label: string) {
+  return new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error(`TIMEOUT: ${label} took longer than ${ms}ms`)), ms)
+  );
+}
+
+function chunkArray<T>(items: T[], size: number) {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+}
+
 export const TemplateService = {
   async listTemplates() {
     const { data, error } = await withTimeout<any>(
@@ -32,18 +49,15 @@ export const TemplateService = {
     try {
       console.log('[TemplateService] Starting background sync of templates...');
 
-      const timeout = <T>(ms: number, label: string) =>
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error(`TIMEOUT: ${label} took longer than ${ms}ms`)), ms));
-
       // 1. Fetch templates and sections with proper Promise.race timeout
       const [tplsResult, secsResult] = await Promise.all([
         Promise.race([
           supabase.from('checklist_templates').select('*'),
-          timeout(30000, 'SyncTemplates')
+          timeout(TEMPLATE_SYNC_TIMEOUT_MS, 'SyncTemplates')
         ]),
         Promise.race([
           supabase.from('checklist_sections').select('*'),
-          timeout(30000, 'SyncSections')
+          timeout(TEMPLATE_SYNC_TIMEOUT_MS, 'SyncSections')
         ])
       ]);
 
@@ -52,15 +66,23 @@ export const TemplateService = {
 
       if (!tpls.length) return [];
 
-      // 2. Fetch all items
-      const itemsResult = await Promise.race([
-        supabase.from('checklist_items').select('*'),
-        timeout(30000, 'SyncItems')
-      ]);
+      // 2. Fetch items in section chunks to avoid one huge PostgREST request.
+      const sectionIds = secs.map((s: any) => s.id).filter(Boolean);
+      const items: any[] = [];
+      for (const [index, ids] of chunkArray(sectionIds, ITEM_SECTION_CHUNK_SIZE).entries()) {
+        const itemsResult = await Promise.race([
+          supabase
+            .from('checklist_items')
+            .select('*')
+            .in('section_id', ids)
+            .order('order', { ascending: true }),
+          timeout(TEMPLATE_SYNC_TIMEOUT_MS, `SyncItems chunk ${index + 1}`)
+        ]);
 
-      const items = (itemsResult as any).data;
-      const iError = (itemsResult as any).error;
-      if (iError || !items) throw iError || new Error('No items found');
+        const iError = (itemsResult as any).error;
+        if (iError) throw iError;
+        items.push(...((itemsResult as any).data || []));
+      }
 
       // 3. Optimized mapping
       const itemsBySection = new Map<string, any[]>();
@@ -106,7 +128,7 @@ export const TemplateService = {
         } as ChecklistTemplate;
       });
     } catch (err) {
-      console.error('[TemplateService] Failed to sync full remote templates:', err);
+      console.warn('[TemplateService] Failed to sync full remote templates:', err);
       return [];
     }
   },
