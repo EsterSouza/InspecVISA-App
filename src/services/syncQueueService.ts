@@ -217,5 +217,16 @@ export const SyncQueueService = {
 
   hasPending() {
     return lastSummary.pending > 0 || lastSummary.syncing > 0;
+  },
+
+  isLocked() {
+    return isProcessing;
+  },
+
+  resetLock() {
+    if (isProcessing) {
+      console.warn('[SyncQueue] Manually resetting stuck isProcessing lock');
+      isProcessing = false;
+    }
   }
 };

@@ -8,7 +8,7 @@ import {
   RefreshCw, AlertTriangle, CheckCircle2, Clock, XCircle,
   Download, Wifi, WifiOff, ChevronDown, ChevronRight,
   RotateCcw, Play, Image, Users, ClipboardCheck, FileText,
-  Calendar, Activity,
+  Calendar, Activity, Lock,
 } from 'lucide-react';
 
 type SyncStatus = 'pending' | 'syncing' | 'synced' | 'conflict' | 'failed';
@@ -64,6 +64,7 @@ export function SyncCenter() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [syncLocked, setSyncLocked] = useState(false);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -175,6 +176,7 @@ export function SyncCenter() {
       console.error('[SyncCenter] loadData error:', err);
     } finally {
       setIsLoading(false);
+      setSyncLocked(SyncQueueService.isLocked());
       setLastChecked(new Date());
     }
   }, []);
@@ -221,6 +223,11 @@ export function SyncCenter() {
   const handleResetStuck = () =>
     withAction('reset', 'Registros travados resetados para pendente.', async () => {
       await SyncQueueService.cleanupStuckSyncing();
+    });
+
+  const handleResetLock = () =>
+    withAction('lock', 'Trava de sincronização liberada.', async () => {
+      SyncQueueService.resetLock();
     });
 
   const handleExportBackup = () =>
@@ -278,6 +285,17 @@ export function SyncCenter() {
           </Button>
         </div>
       </div>
+
+      {/* Sync lock warning */}
+      {syncLocked && (
+        <div className="flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-700">
+          <Lock className="h-4 w-4 shrink-0" />
+          <span>
+            <strong>Sincronização travada</strong> — um ciclo anterior não terminou. Use
+            <strong> Liberar Trava</strong> abaixo para desbloquear.
+          </span>
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -340,6 +358,18 @@ export function SyncCenter() {
               <Download className={`h-3.5 w-3.5 mr-1.5 ${actionLoading === 'export' ? 'animate-pulse' : ''}`} />
               Exportar Backup
             </Button>
+            {syncLocked && (
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={handleResetLock}
+                disabled={isBusy}
+                title="O loop de sincronização está travado. Clique para liberar."
+              >
+                <Lock className={`h-3.5 w-3.5 mr-1.5 ${actionLoading === 'lock' ? 'animate-spin' : ''}`} />
+                Liberar Trava
+              </Button>
+            )}
           </div>
 
           {actionMessage && (

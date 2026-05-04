@@ -33,14 +33,16 @@ function currentActorId() {
   return getLocalActor().id;
 }
 
+const STORAGE_UPLOAD_TIMEOUT_MS = 120000; // 2 min — large photos on slow mobile connections
+
 function pushTimeoutMs(tableName: string) {
-  if (tableName === 'photos') return 30000;
-  if (tableName === 'responses') return 20000;
-  return 30000;
+  if (tableName === 'photos') return 120000;   // DB upsert after storage (metadata only, but may be slow)
+  if (tableName === 'responses') return 45000;  // Brazil→Ohio RTT on mobile needs headroom
+  return 45000;
 }
 
 function bulkChunkSize(tableName: string) {
-  if (tableName === 'responses') return 1;
+  if (tableName === 'responses') return 5;  // was 1 — 36 × 1-req = 36 round-trips; 5 = 8 round-trips
   if (tableName === 'inspections' || tableName === 'schedules') return 3;
   return 5;
 }
@@ -54,28 +56,48 @@ async function uploadPhotoToStorage<T extends { id: string; responseId?: string;
   dexieTable: any,
   tenantId?: string
 ): Promise<T> {
-  if (!isInlineDataUrl(record.dataUrl)) return record;
-  if (!tenantId || !record.responseId) return record;
+  // Already uploaded on a previous attempt — nothing to do
+  if (record.storagePath) return record;
 
-  const storagePath = record.storagePath || `${tenantId}/${record.responseId}/${record.id}.jpg`;
+  if (!isInlineDataUrl(record.dataUrl)) {
+    console.warn(`[PhotoUpload] ${record.id}: dataUrl is not inline (prefix: "${record.dataUrl?.slice(0, 30) ?? 'empty'}")`);
+    return record;
+  }
+  if (!tenantId || !record.responseId) {
+    console.warn(`[PhotoUpload] ${record.id}: missing tenantId=${tenantId} or responseId=${record.responseId}`);
+    return record;
+  }
+
+  const storagePath = `${tenantId}/${record.responseId}/${record.id}.jpg`;
   const blob = dataUrlToBlob(record.dataUrl!);
 
-  const { error } = await withTimeout(
-    supabase.storage.from(PHOTO_BUCKET).upload(storagePath, blob, {
+  // Use AbortController via fileOptions.signal — Storage client supports it natively
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), STORAGE_UPLOAD_TIMEOUT_MS);
+
+  try {
+    const { error } = await (supabase.storage.from(PHOTO_BUCKET).upload(storagePath, blob, {
       cacheControl: '31536000',
       contentType: blob.type || 'image/jpeg',
       upsert: true,
-    }),
-    pushTimeoutMs('photos'),
-    'StorageUpload_photos'
-  );
+      signal: controller.signal,
+    } as any));
 
-  if (error) throw error;
-
-  if (record.storagePath !== storagePath) {
-    await dexieTable.update(record.id, { storagePath });
+    if (error) {
+      console.error(`[PhotoUpload] ${record.id}: Storage error — ${error.message}`);
+      throw error;
+    }
+  } catch (err: any) {
+    if (controller.signal.aborted) {
+      throw new Error(`TIMEOUT: StorageUpload_photos took longer than ${STORAGE_UPLOAD_TIMEOUT_MS}ms`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
   }
 
+  await dexieTable.update(record.id, { storagePath });
+  console.log(`[PhotoUpload] ${record.id}: uploaded to ${storagePath}`);
   return { ...record, storagePath };
 }
 
@@ -193,6 +215,17 @@ export const RepositoryService = {
 
       if (tableName === 'photos') {
         recordToPush = await uploadPhotoToStorage(recordToPush as any, dexieTable, tenantId) as T;
+
+        // Guard: never send base64 to the DB column — it causes request timeouts.
+        // If the storage upload was skipped or failed, keep the photo pending and abort.
+        if (!(recordToPush as any).storagePath && isInlineDataUrl((record as any).dataUrl)) {
+          console.warn(`[PhotoSync] ${record.id}: storage upload incomplete — blocking DB upsert`);
+          await dexieTable.update(record.id, {
+            syncStatus: 'pending',
+            syncError: 'Aguardando upload para Supabase Storage antes de sincronizar metadados'
+          });
+          return false;
+        }
       }
 
       // Perform Push (Direct Upsert - Last Write Wins)

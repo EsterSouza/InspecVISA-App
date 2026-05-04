@@ -105,14 +105,12 @@ export function mapResponseFromPostgres(row: any): InspectionResponse {
 }
 
 export function mapPhotoToPostgres(photo: InspectionPhoto): any {
-  const remoteDataUrl = photo.storagePath
-    ? `storage://${photo.storagePath}`
-    : photo.dataUrl;
-
+  // Never send base64 dataUrl to the Postgres column — image binaries belong in Supabase Storage.
+  // data_url is null until the Storage upload confirms a storagePath.
   return {
     id: photo.id,
     response_id: photo.responseId,
-    data_url: remoteDataUrl,
+    data_url: photo.storagePath ? `storage://${photo.storagePath}` : null,
     caption: photo.caption || null,
     taken_at: photo.takenAt.toISOString(),
     updated_at: photo.updatedAt.toISOString(),
