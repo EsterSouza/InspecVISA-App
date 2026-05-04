@@ -18,12 +18,6 @@ const TEMPLATE_SYNC_TIMEOUT_MS = 45000;
 const ITEM_SECTION_CHUNK_SIZE = 100;
 const TEMPLATE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
-function timeout<T>(ms: number, label: string) {
-  return new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error(`TIMEOUT: ${label} took longer than ${ms}ms`)), ms)
-  );
-}
-
 function chunkArray<T>(items: T[], size: number) {
   const chunks: T[][] = [];
   for (let i = 0; i < items.length; i += size) {
@@ -51,11 +45,15 @@ export const TemplateService = {
     try {
       // TTL guard: if templates were verified recently, serve from Dexie cache
       try {
-        const sample = await db.templates.toCollection().first();
-        const lastVerified = (sample as any)?.dataVerifiedAt;
-        if (lastVerified && Date.now() - new Date(lastVerified).getTime() < TEMPLATE_TTL_MS) {
+        const cached = await db.templates.toArray();
+        const verifiedTimes = cached
+          .map((template: ChecklistTemplate) => template.dataVerifiedAt ? new Date(template.dataVerifiedAt).getTime() : 0)
+          .filter((time: number) => Number.isFinite(time) && time > 0);
+        const newestVerified = verifiedTimes.length > 0 ? Math.max(...verifiedTimes) : 0;
+
+        if (cached.length > 0 && newestVerified && Date.now() - newestVerified < TEMPLATE_TTL_MS) {
           console.log('[TemplateService] Templates are fresh (< 30 min), skipping remote sync.');
-          return await db.templates.toArray() as unknown as ChecklistTemplate[];
+          return cached;
         }
       } catch {
         // No templates in Dexie yet — proceed with full sync
@@ -63,16 +61,18 @@ export const TemplateService = {
 
       console.log('[TemplateService] Starting background sync of templates...');
 
-      // 1. Fetch templates and sections with proper Promise.race timeout
+      // 1. Fetch templates and sections with abortable timeouts.
       const [tplsResult, secsResult] = await Promise.all([
-        Promise.race([
+        withTimeout(
           supabase.from('checklist_templates').select('*'),
-          timeout(TEMPLATE_SYNC_TIMEOUT_MS, 'SyncTemplates')
-        ]),
-        Promise.race([
+          TEMPLATE_SYNC_TIMEOUT_MS,
+          'SyncTemplates'
+        ),
+        withTimeout(
           supabase.from('checklist_sections').select('*'),
-          timeout(TEMPLATE_SYNC_TIMEOUT_MS, 'SyncSections')
-        ])
+          TEMPLATE_SYNC_TIMEOUT_MS,
+          'SyncSections'
+        )
       ]);
 
       const tpls = (tplsResult as any).data || [];
@@ -84,14 +84,15 @@ export const TemplateService = {
       const sectionIds = secs.map((s: any) => s.id).filter(Boolean);
       const items: any[] = [];
       for (const [index, ids] of chunkArray(sectionIds, ITEM_SECTION_CHUNK_SIZE).entries()) {
-        const itemsResult = await Promise.race([
+        const itemsResult = await withTimeout(
           supabase
             .from('checklist_items')
             .select('*')
             .in('section_id', ids)
             .order('order', { ascending: true }),
-          timeout(TEMPLATE_SYNC_TIMEOUT_MS, `SyncItems chunk ${index + 1}`)
-        ]);
+          TEMPLATE_SYNC_TIMEOUT_MS,
+          `SyncItems chunk ${index + 1}`
+        );
 
         const iError = (itemsResult as any).error;
         if (iError) throw iError;
@@ -115,6 +116,7 @@ export const TemplateService = {
 
       console.log(`[TemplateService] Successfully fetched ${tpls.length} templates from server.`);
 
+      const verifiedAt = new Date();
       return tpls.map((t: any) => {
         const tSecs = (sectionsByTemplate.get(t.id) || []).sort((a: any, b: any) => a.order - b.order);
         const fullSecs = tSecs.map((sec: any) => {
@@ -138,6 +140,7 @@ export const TemplateService = {
           name: t.name,
           category: t.category,
           version: t.version,
+          dataVerifiedAt: verifiedAt,
           sections: fullSecs
         } as ChecklistTemplate;
       });
@@ -170,12 +173,14 @@ export const TemplateService = {
 
       // Bulk fetch all items for all sections in one request (instead of N+1)
       const sectionIds = sections.map((s: any) => s.id);
-      const { data: allItems, error: iError } = await supabase
-        .from('checklist_items')
-        .select('*')
-        .in('section_id', sectionIds)
-        .order('order', { ascending: true })
-        .abortSignal(controller.signal);
+      const { data: allItems, error: iError } = sectionIds.length > 0
+        ? await supabase
+          .from('checklist_items')
+          .select('*')
+          .in('section_id', sectionIds)
+          .order('order', { ascending: true })
+          .abortSignal(controller.signal)
+        : { data: [], error: null };
       if (iError) throw iError;
 
       const itemsBySection = new Map<string, any[]>();
@@ -190,6 +195,7 @@ export const TemplateService = {
         name: template.name,
         category: template.category,
         version: template.version,
+        dataVerifiedAt: new Date(),
         sections: sections.map((sec: any) => ({
           id: sec.id,
           title: sec.title,

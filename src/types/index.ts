@@ -72,6 +72,7 @@ export interface ChecklistTemplate {
   category: ClientCategory;
   version: string;
   sections: Section[];
+  dataVerifiedAt?: Date;
 }
 
 export interface Section {
