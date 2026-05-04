@@ -18,6 +18,7 @@ import { PdfPreviewModal } from '../components/inspection/PdfPreviewModal';
 import { checkReportReadiness, type ReadinessResult } from '../utils/syncCheck';
 import { InspectionIntegrityPanel } from '../components/inspection/InspectionIntegrityPanel';
 import { belongsToActiveTenant, filterByActiveTenant } from '../utils/localScope';
+import { buildRecoveryTemplate } from '../utils/templateRecovery';
 
 export function InspectionSummary() {
   const location = useLocation();
@@ -134,10 +135,15 @@ export function InspectionSummary() {
     loadData();
   }, [location.state?.inspectionId]);
 
-  const scoreArea = useMemo(() => {
-    if (!currentInspection || !template) return null;
-    return calculateScore(responses, template.sections);
+  const displayTemplate = useMemo(() => {
+    if (!currentInspection) return null;
+    return template || buildRecoveryTemplate(currentInspection, responses);
   }, [currentInspection, responses, template]);
+
+  const scoreArea = useMemo(() => {
+    if (!currentInspection || !displayTemplate) return null;
+    return calculateScore(responses, displayTemplate.sections);
+  }, [currentInspection, responses, displayTemplate]);
 
   useEffect(() => {
     if (currentInspection) {
@@ -173,7 +179,7 @@ export function InspectionSummary() {
   };
 
   const handleGeneratePDF = async (opts: { selectedLegislations: string[]; signatureDataUrl?: string }) => {
-    if (!currentInspection || !template || !scoreArea) return;
+    if (!currentInspection || !displayTemplate || !scoreArea) return;
     const currentReadiness = await checkReportReadiness(currentInspection.id);
     setReadiness(currentReadiness);
     if (currentReadiness.conflictCount > 0) {
@@ -190,7 +196,7 @@ export function InspectionSummary() {
        await generatePDF(
          currentInspection,
          responses,
-         template,
+         displayTemplate,
          scoreArea,
          settings as any,
          legislations,
@@ -238,7 +244,7 @@ export function InspectionSummary() {
   }
 
   // Template missing: show summary with warning, don't block!
-  if (!template) {
+  if (!displayTemplate) {
     return (
       <div className="flex h-screen flex-col bg-gray-50 pb-16 lg:pb-0">
         <header className="sticky top-0 z-30 border-b border-gray-200 bg-white px-4 py-3 shadow-sm sm:px-6">
@@ -254,9 +260,9 @@ export function InspectionSummary() {
             <p className="mt-1">O modelo de inspeção usado neste relatório não está disponível neste dispositivo. Os dados brutos foram preservados ({responses.length} respostas registradas).</p>
           </div>
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center">
-            <h1 className="text-2xl font-extrabold text-gray-900">{currentInspection.clientName || 'Inspeção'}</h1>
-            <p className="mt-1 text-gray-500">Template ID: <code className="text-xs">{currentInspection.templateId}</code></p>
-            <p className="text-sm text-gray-400 mt-1 mb-6">Concluída em {formatDateTime(currentInspection.completedAt || currentInspection.createdAt)}</p>
+            <h1 className="text-2xl font-extrabold text-gray-900">{currentInspection?.clientName || 'Inspeção'}</h1>
+            <p className="mt-1 text-gray-500">Template ID: <code className="text-xs">{currentInspection?.templateId}</code></p>
+            <p className="text-sm text-gray-400 mt-1 mb-6">Concluída em {formatDateTime(currentInspection?.completedAt || currentInspection?.createdAt || new Date())}</p>
             <div className="grid grid-cols-3 gap-4 max-w-sm mx-auto">
               <div className="bg-green-50 rounded-xl p-4 text-center">
                 <p className="text-2xl font-bold text-green-700">{responses.filter(r => r.result === 'complies').length}</p>
@@ -415,15 +421,24 @@ export function InspectionSummary() {
 
         <InspectionIntegrityPanel inspectionId={currentInspection.id} />
 
+        {!template && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            <strong>Roteiro original indisponível.</strong>
+            <p className="mt-1">
+              O relatório foi aberto em modo recuperação com {responses.length} respostas/fotos locais. Não limpe o cache.
+            </p>
+          </div>
+        )}
+
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mt-6">
           <div className="p-8 sm:p-12 text-center border-b border-gray-100 pb-8">
             <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">{currentInspection.clientName || 'Inspeção'}</h1>
-            <p className="mt-2 text-gray-500 font-medium">{template.name}</p>
+            <p className="mt-2 text-gray-500 font-medium">{displayTemplate?.name}</p>
             <p className="text-sm text-gray-400 mt-1">Concluída em {formatDateTime(currentInspection.completedAt || new Date())}</p>
           </div>
           
           <div className="p-6 sm:p-8 bg-gray-50 space-y-8">
-            <ScorePanel inspection={currentInspection} responses={responses} />
+            <ScorePanel inspection={currentInspection} responses={responses} template={displayTemplate} />
 
             {/* List of Non-Conformities */}
             <div className="space-y-4">
@@ -436,7 +451,7 @@ export function InspectionSummary() {
                 {responses
                   .filter(r => r.result === 'not_complies')
                   .map((nc) => {
-                    const it = template.sections.flatMap(s => s.items).find(i => i.id === nc.itemId);
+                    const it = displayTemplate?.sections.flatMap(s => s.items).find(i => i.id === nc.itemId);
                     return (
                       <div key={nc.id} className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm space-y-2">
                         <div className="flex justify-between items-start gap-3">
@@ -502,11 +517,11 @@ export function InspectionSummary() {
       <div className="pb-10"></div>
 
       {/* PDF Pre-generation Modal */}
-      {template && (
+      {displayTemplate && (
         <PdfPreviewModal
           open={showPdfModal}
           onClose={() => setShowPdfModal(false)}
-          template={template}
+          template={displayTemplate}
           responses={responses}
           onGenerate={handleGeneratePDF}
           isGenerating={isGenerating}

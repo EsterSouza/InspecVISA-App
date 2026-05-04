@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Loader2, PlusCircle, WifiOff, X, RefreshCw } from 'lucide-react';
 import { db } from '../db/database';
 import { getTemplateById, getEffectiveTemplate } from '../data/templates';
-import { type Inspection, type InspectionResponse, type InspectionPhoto } from '../types';
+import { type ChecklistTemplate, type Inspection, type InspectionResponse, type InspectionPhoto } from '../types';
 import { ILPIStaffCalculator } from '../components/inspection/ILPIStaffCalculator';
 import { useInspectionStore } from '../store/useInspectionStore';
 import { useSettingsStore } from '../store/useSettingsStore';
@@ -15,6 +15,7 @@ import { InspectionService } from '../services/inspectionService';
 import { ScheduleService } from '../services/scheduleService';
 import { getLocalActor } from '../utils/localActor';
 import { belongsToActiveTenant, filterByActiveTenant } from '../utils/localScope';
+import { buildRecoveryTemplate } from '../utils/templateRecovery';
 
 
 import { Button } from '../components/ui/Button';
@@ -126,7 +127,7 @@ export function InspectionExecution() {
           
           if (!tpl && navigator.onLine) {
             // Keep loading UI visible during remote fetch
-            setLoading(true); 
+            if (!localInsp) setLoading(true);
             try {
               const { TemplateService } = await import('../services/templateService');
               // 10s timeout for remote template fetch
@@ -184,12 +185,13 @@ export function InspectionExecution() {
 
   // ─── TEMPLATE RESOLUTION ──────────────────────────────────────────────────
   const effectiveTemplate = useMemo(() => {
-    if (!template || !currentInspection) return [];
+    if (!currentInspection) return null;
+    if (!template) return buildRecoveryTemplate(currentInspection, responses);
     const role = useSettingsStore.getState().settings.consultantRole || 'saude';
     const ctx = { ...currentInspection, category: (currentInspection as any).clientCategory || (currentInspection as any).category };
     try { return getEffectiveTemplate(template, ctx as any, role, false); }
     catch (err) { console.error('getEffectiveTemplate error:', err); return template; }
-  }, [template, currentInspection?.templateId, currentInspection?.state, currentInspection?.city]);
+  }, [template, responses, currentInspection?.templateId, currentInspection?.state, currentInspection?.city]);
 
   const visibleSections = effectiveTemplate?.sections || [];
 
@@ -427,20 +429,13 @@ export function InspectionExecution() {
     );
   }
 
-  if (!currentInspection || !template) {
-    const missingId = currentInspection?.templateId;
+  if (!currentInspection) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4 bg-gray-50 p-8 text-center">
         <div className="mb-4 rounded-full bg-amber-50 p-3">
           <RefreshCw className="h-8 w-8 text-amber-600" />
         </div>
         <p className="text-gray-600 font-semibold">O roteiro desta inspeção não pôde ser carregado.</p>
-        {missingId && (
-          <div className="rounded border border-gray-200 bg-gray-100 px-3 py-2">
-             <p className="text-[10px] text-gray-400 font-mono uppercase tracking-wider mb-1">ID do Roteiro</p>
-             <p className="text-xs text-gray-600 font-mono">{missingId}</p>
-          </div>
-        )}
         <div className="flex flex-col sm:flex-row gap-3 mt-4">
           <Button 
             variant="default"
@@ -462,6 +457,7 @@ export function InspectionExecution() {
   }
 
   const isCompleted = currentInspection.status === 'completed';
+  const usingRecoveryTemplate = !template;
 
   return (
     <div className="flex h-screen flex-col bg-gray-50 pb-safe pb-16 lg:pb-0">
@@ -475,6 +471,7 @@ export function InspectionExecution() {
               <h1 className="text-lg font-bold text-gray-900 truncate max-w-xs sm:max-w-sm md:max-w-lg">{currentInspection.clientName}</h1>
               <div className="flex items-center space-x-2 text-[10px] font-bold uppercase tracking-wider">
                 {isCompleted && <Badge variant="neutral" className="bg-green-100 text-green-700 border-green-200">Finalizada</Badge>}
+                {usingRecoveryTemplate && <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">Modo Recuperação</Badge>}
                 {!isOnline && <span className="text-amber-600 flex items-center bg-amber-50 px-2 py-0.5 rounded-md"><WifiOff className="mr-1 h-3 w-3" /> Offline</span>}
                 {saveStatus === 'saving' && <span className="text-primary-600 animate-pulse">Sincronizando...</span>}
                 {saveStatus === 'saved' && <span className="text-green-600">Dados Protegidos</span>}
@@ -516,6 +513,14 @@ export function InspectionExecution() {
 
       <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 lg:grid lg:grid-cols-12 lg:gap-8 overflow-y-auto">
         <div className="lg:col-span-8 space-y-6">
+          {usingRecoveryTemplate && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+              <strong>Roteiro original indisponível.</strong>
+              <p className="mt-1">
+                O app carregou {responses.length} respostas/fotos salvas localmente para recuperação. Não limpe o cache.
+              </p>
+            </div>
+          )}
           {visibleSections.map((section: any, idx: number) => {
             const sectionResponses = section.items
               .map((i: any) => responses.find(r => r.itemId === i.id))
@@ -649,7 +654,7 @@ export function InspectionExecution() {
         </div>
 
         <div className="hidden lg:block lg:col-span-4 sticky top-24 h-fit">
-          <ScorePanel template={effectiveTemplate} />
+          <ScorePanel template={effectiveTemplate as ChecklistTemplate} />
         </div>
       </div>
 

@@ -87,9 +87,17 @@ export async function initializeDatabase(templates: ChecklistTemplate[]) {
     return;
   }
 
+  const existingTemplates = await db.templates.toArray().catch(() => [] as ChecklistTemplate[]);
+  const existingRemoteTemplates = existingTemplates.filter(t => !t.id.startsWith('tpl-'));
+
   // Separate remote (have Supabase UUIDs) from static (have tpl-* IDs)
-  const remoteTemplates = templates.filter(t => !t.id.startsWith('tpl-'));
+  const incomingRemoteTemplates = templates.filter(t => !t.id.startsWith('tpl-'));
   const staticTemplates = templates.filter(t => t.id.startsWith('tpl-'));
+
+  const remoteById = new Map<string, ChecklistTemplate>();
+  for (const template of existingRemoteTemplates) remoteById.set(template.id, template);
+  for (const template of incomingRemoteTemplates) remoteById.set(template.id, template);
+  const remoteTemplates = Array.from(remoteById.values());
 
   // Build a set of names already covered by remote templates
   const remoteNames = new Set(remoteTemplates.map(t => t.name));
@@ -100,6 +108,8 @@ export async function initializeDatabase(templates: ChecklistTemplate[]) {
   // Merge: remote first, then non-duplicate statics
   const deduped = [...remoteTemplates, ...uniqueStatics];
 
+  // Never drop cached remote templates just because the network refresh timed out.
+  // Inspections created from dynamic templates depend on those UUIDs to reopen offline.
   await db.templates.clear();
   await db.templates.bulkPut(deduped);
 }
