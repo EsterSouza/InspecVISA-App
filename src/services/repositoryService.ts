@@ -253,14 +253,49 @@ export const RepositoryService = {
 
     } catch (err: any) {
       const attempts = (record.syncAttempts || 0) + 1;
+
+      // TIMEOUT RECOVERY: The push may have succeeded server-side but the HTTP
+      // response was too slow to arrive back (e.g. Brazil→US-East RTT on mobile).
+      // Before marking as pending/failed, do a lightweight GET to verify.
+      if (err.message?.startsWith('TIMEOUT') && navigator.onLine) {
+        try {
+          const { data: serverRow } = await supabase
+            .from(tableName)
+            .select('id, updated_at')
+            .eq('id', record.id)
+            .maybeSingle();
+
+          if (serverRow?.updated_at) {
+            const serverTs = new Date(serverRow.updated_at).getTime();
+            const localTs  = new Date(record.updatedAt).getTime();
+            // 2 s tolerance covers Postgres microsecond vs JS millisecond rounding
+            if (Math.abs(serverTs - localTs) <= 2000) {
+              console.log(`[SyncVerify] ✅ ${tableName}/${record.id}: confirmed synced (response was slow).`);
+              const current = await dexieTable.get(record.id);
+              if (current && sameTimestamp(current.updatedAt, record.updatedAt)) {
+                await dexieTable.update(record.id, {
+                  syncStatus: 'synced',
+                  dataVerifiedAt: new Date(),
+                  syncError: null,
+                  syncAttempts: 0
+                });
+              }
+              return true;
+            }
+          }
+        } catch {
+          // Verification GET itself failed — fall through to normal error handling
+        }
+      }
+
       const shouldMarkFailed = attempts >= 3;
-      
+
       console.error(`[SyncFailure] ❌ Error in ${tableName}/${record.id}:`, err.message);
-      
+
       const current = await dexieTable.get(record.id);
       if (current && sameTimestamp(current.updatedAt, record.updatedAt)) {
-        await dexieTable.update(record.id, { 
-          syncStatus: shouldMarkFailed ? 'failed' : 'pending', 
+        await dexieTable.update(record.id, {
+          syncStatus: shouldMarkFailed ? 'failed' : 'pending',
           syncError: err.message,
           syncAttempts: attempts
         });
@@ -401,13 +436,42 @@ export const RepositoryService = {
       console.log(`[Repository] ✅ Bulk Upsert completo para ${tableName}.`);
     } catch (err: any) {
       console.error(`[Repository] ❌ Erro no Bulk Upsert para ${tableName}:`, err.message);
-      
-      // 5. Error handling per item (increment attempts)
+
+      // 5. Error handling per item — if the chunk timed out, verify each record
+      // individually before marking as failed (the server may have persisted them).
+      const isTimeout = err.message?.startsWith('TIMEOUT');
       for (const item of items) {
         const attempts = (item.syncAttempts || 0) + 1;
         const shouldMarkFailed = attempts >= 3;
         const current = await dexieTable.get(item.id);
-        if (current && sameTimestamp(current.updatedAt, item.updatedAt)) {
+        if (!current) continue;
+
+        if (isTimeout && navigator.onLine) {
+          try {
+            const { data: serverRow } = await supabase
+              .from(tableName)
+              .select('id, updated_at')
+              .eq('id', item.id)
+              .maybeSingle();
+            if (serverRow?.updated_at) {
+              const serverTs = new Date(serverRow.updated_at).getTime();
+              const localTs  = new Date(item.updatedAt).getTime();
+              if (Math.abs(serverTs - localTs) <= 2000) {
+                if (sameTimestamp(current.updatedAt, item.updatedAt)) {
+                  await dexieTable.update(item.id, {
+                    syncStatus: 'synced',
+                    dataVerifiedAt: new Date(),
+                    syncError: null,
+                    syncAttempts: 0
+                  });
+                }
+                continue; // verified synced — skip the error update below
+              }
+            }
+          } catch { /* fall through */ }
+        }
+
+        if (sameTimestamp(current.updatedAt, item.updatedAt)) {
           await dexieTable.update(item.id, {
             syncStatus: shouldMarkFailed ? 'failed' : 'pending',
             syncError: err.message,
