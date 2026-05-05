@@ -14,7 +14,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { RepositoryService } from './repositoryService';
 import { InspectionService } from './inspectionService';
 
-const BUNDLE_RPC_TIMEOUT_MS = 90000;
+const BUNDLE_RPC_TIMEOUT_MS = 180000;
 const BUNDLE_ERROR_UNAVAILABLE = 'RPC sync_inspection_bundle indisponivel. Migration 006 precisa estar aplicada no Supabase.';
 const QUEUED_STATUSES: SyncStatus[] = ['pending'];
 const UNSAFE_STATUSES: SyncStatus[] = ['pending', 'syncing', 'failed'];
@@ -22,6 +22,15 @@ const UNSAFE_STATUSES: SyncStatus[] = ['pending', 'syncing', 'failed'];
 function sameTimestamp(a?: Date | string, b?: Date | string) {
   if (!a || !b) return false;
   return new Date(a).getTime() === new Date(b).getTime();
+}
+
+function timestampsClose(a?: Date | string, b?: Date | string) {
+  if (!a || !b) return false;
+  return Math.abs(new Date(a).getTime() - new Date(b).getTime()) <= 2000;
+}
+
+function isTimeoutError(err: any) {
+  return err?.message?.startsWith('TIMEOUT');
 }
 
 function normalizeRpcResult(data: any, inspectionId: string): InspectionBundleResult {
@@ -42,6 +51,47 @@ function bundleErrorMessage(err: any) {
     return BUNDLE_ERROR_UNAVAILABLE;
   }
   return message;
+}
+
+async function verifyBundlePersisted(
+  inspection: Inspection,
+  responses: InspectionResponse[]
+): Promise<boolean> {
+  try {
+    const { data: remoteInspection, error: inspectionError } = await withTimeout(
+      supabase
+        .from('inspections')
+        .select('id, updated_at')
+        .eq('id', inspection.id)
+        .maybeSingle(),
+      20000,
+      `VerifyBundleInspection_${inspection.id}`
+    );
+
+    if (inspectionError || !remoteInspection?.updated_at) return false;
+    if (!timestampsClose(remoteInspection.updated_at, inspection.updatedAt)) return false;
+
+    if (responses.length === 0) return true;
+
+    const responseIds = responses.map(response => response.id);
+    const { data: remoteResponses, error: responsesError } = await withTimeout(
+      supabase
+        .from('responses')
+        .select('id, updated_at')
+        .in('id', responseIds),
+      30000,
+      `VerifyBundleResponses_${inspection.id}`
+    );
+
+    if (responsesError || !Array.isArray(remoteResponses)) return false;
+    if (remoteResponses.length !== responseIds.length) return false;
+
+    const remoteById = new Map(remoteResponses.map((row: any) => [row.id, row.updated_at]));
+    return responses.every(response => timestampsClose(remoteById.get(response.id), response.updatedAt));
+  } catch (err) {
+    console.warn(`[BundleSync] Verification after timeout failed for ${inspection.id}:`, err);
+    return false;
+  }
 }
 
 async function markBundleStatus(
@@ -240,9 +290,10 @@ export const InspectionBundleSyncService = {
 
     const bundle = await getInspectionBundle(inspectionId, options.inspectionOverride);
     await markBundleStatus(bundle.inspection, bundle.responses, bundle.photos, 'syncing', null);
+    let preparedPhotos: InspectionPhoto[] = bundle.photos;
 
     try {
-      const preparedPhotos = await preparePhotos(bundle.photos, bundle.inspection.tenantId!);
+      preparedPhotos = await preparePhotos(bundle.photos, bundle.inspection.tenantId!);
       const payload = buildPayload(bundle.inspection, bundle.responses, preparedPhotos, Boolean(options.finalizeReport));
       const { data, error } = await withTimeout(
         supabase.rpc('sync_inspection_bundle', { p_payload: payload }),
@@ -260,6 +311,21 @@ export const InspectionBundleSyncService = {
       await markBundleSuccess(bundle.inspection, bundle.responses, preparedPhotos);
       return result;
     } catch (err) {
+      if (isTimeoutError(err)) {
+        const persisted = await verifyBundlePersisted(bundle.inspection, bundle.responses);
+        if (persisted) {
+          console.log(`[BundleSync] Bundle ${inspectionId} confirmed on server after slow response.`);
+          await markBundleSuccess(bundle.inspection, bundle.responses, preparedPhotos);
+          return {
+            ok: true,
+            inspectionId,
+            serverUpdatedAt: new Date().toISOString(),
+            reportVersionId: null,
+            failedItems: [],
+          };
+        }
+      }
+
       await markBundleFailure(bundle.inspection, bundle.responses, bundle.photos, err);
       throw err;
     }
