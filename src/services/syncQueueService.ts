@@ -11,10 +11,12 @@ import { useAuthStore } from '../store/useAuthStore';
  */
 
 let isProcessing = false;
+let processingStartedAt: number | null = null;
 let syncInterval: number | null = null;
 let lastSummary = { pending: 0, syncing: 0, conflict: 0, failed: 0 };
 type ConflictTable = 'inspections' | 'responses' | 'photos';
 type ProcessOptions = { force?: boolean };
+const STALE_PROCESSING_LOCK_MS = 5 * 60 * 1000;
 
 function tableForConflict(tableName: ConflictTable) {
   if (tableName === 'inspections') return db.inspections;
@@ -80,11 +82,20 @@ export const SyncQueueService = {
     }
 
     if (isProcessing && options.force) {
+      const isStale = processingStartedAt && Date.now() - processingStartedAt > STALE_PROCESSING_LOCK_MS;
+      if (!isStale) {
+        console.warn('[SyncQueue] Sync already running; force retry postponed until current cycle finishes.');
+        this.getQueueSummary();
+        return;
+      }
+
       console.warn('[SyncQueue] Force sync requested; releasing stale processing lock.');
       isProcessing = false;
+      processingStartedAt = null;
     }
 
     isProcessing = true;
+    processingStartedAt = Date.now();
 
     try {
       await this.cleanupStuckSyncing();
@@ -102,14 +113,23 @@ export const SyncQueueService = {
       console.error('[SyncQueue] Error during background sync:', err);
     } finally {
       isProcessing = false;
+      processingStartedAt = null;
       this.getQueueSummary(); // Refresh cache after processing
     }
   },
 
   async retryFailed() {
     if (isProcessing) {
-      console.warn('[SyncQueue] Releasing processing lock before forced retry.');
+      const isStale = processingStartedAt && Date.now() - processingStartedAt > STALE_PROCESSING_LOCK_MS;
+      if (!isStale) {
+        console.warn('[SyncQueue] Retry requested while sync is active; waiting for current cycle.');
+        await this.getQueueSummary();
+        return;
+      }
+
+      console.warn('[SyncQueue] Releasing stale processing lock before forced retry.');
       isProcessing = false;
+      processingStartedAt = null;
     }
     console.log('[SyncQueue] ⚠️ Iniciando reprocessamento forçado da fila...');
     const tables = [db.clients, db.inspections, db.responses, db.schedules, db.photos];
@@ -268,13 +288,17 @@ export const SyncQueueService = {
   },
 
   isLocked() {
-    return isProcessing;
+    return Boolean(isProcessing && processingStartedAt && Date.now() - processingStartedAt > STALE_PROCESSING_LOCK_MS);
   },
 
   resetLock() {
-    if (isProcessing) {
-      console.warn('[SyncQueue] Manually resetting stuck isProcessing lock');
+    const isStale = processingStartedAt && Date.now() - processingStartedAt > STALE_PROCESSING_LOCK_MS;
+    if (isProcessing && isStale) {
+      console.warn('[SyncQueue] Manually resetting stale isProcessing lock');
       isProcessing = false;
+      processingStartedAt = null;
+    } else if (isProcessing) {
+      console.warn('[SyncQueue] Sync is active, not stale; lock reset ignored.');
     }
   }
 };

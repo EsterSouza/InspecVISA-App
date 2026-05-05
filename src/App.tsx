@@ -106,6 +106,13 @@ function App() {
         void (async () => {
           import('./services/templateService').then(async ({ TemplateService }) => {
             try {
+              const queue = await SyncQueueService.getQueueSummary();
+              const operationalBacklog = queue.pending + queue.syncing + queue.failed + queue.conflict;
+              if (operationalBacklog > 0) {
+                console.log(`[App] Skipping background template sync while ${operationalBacklog} operational items are queued.`);
+                return;
+              }
+
               const remoteTemplates = await TemplateService.syncAllTemplatesToDexie();
               if (remoteTemplates?.length) {
                 await initializeDatabase([...getTemplates(), ...remoteTemplates]);
