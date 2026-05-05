@@ -4,7 +4,7 @@ import {
   inspectionIdFromPayload,
   json,
   tenantIdFromPayload,
-} from './_syncJobCore';
+} from './syncJobCore';
 
 export const config = {
   maxDuration: 10,

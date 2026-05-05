@@ -1,4 +1,4 @@
-import { authenticate, json, processSyncJob } from './_syncJobCore';
+import { authenticate, json, processSyncJob } from './syncJobCore';
 
 export const config = {
   maxDuration: 60,
