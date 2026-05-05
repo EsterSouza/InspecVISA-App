@@ -11,7 +11,6 @@ import type {
 import { ensurePreBundleBackup } from '../utils/backup';
 import { withTimeout } from '../utils/network';
 import { useAuthStore } from '../store/useAuthStore';
-import { RepositoryService } from './repositoryService';
 import { InspectionService } from './inspectionService';
 
 const BUNDLE_API_TIMEOUT_MS = 70000;
@@ -351,15 +350,6 @@ async function getInspectionBundle(inspectionId: string, inspectionOverride?: In
   return { inspection, responses, photos };
 }
 
-async function preparePhotos(photos: InspectionPhoto[], tenantId: string) {
-  const prepared: InspectionPhoto[] = [];
-  for (const photo of photos) {
-    const uploaded = await RepositoryService.preparePhotoForRemote(photo, db.photos, tenantId);
-    prepared.push(uploaded as InspectionPhoto);
-  }
-  return prepared;
-}
-
 function buildPayload(
   inspection: Inspection,
   responses: InspectionResponse[],
@@ -376,7 +366,10 @@ function buildPayload(
   return {
     inspection: InspectionService.mapToPostgres(inspection),
     responses: responses.map(InspectionService.mapResponseToPostgres),
-    photos: photos.map(InspectionService.mapPhotoToPostgres),
+    photos: photos.map(photo => ({
+      ...InspectionService.mapPhotoToPostgres(photo),
+      local_data_url: photo.storagePath ? null : photo.dataUrl,
+    })),
     clientSyncId: [
       inspection.id,
       changeStamp,
@@ -440,18 +433,16 @@ export const InspectionBundleSyncService = {
 
     const bundle = await getInspectionBundle(inspectionId, options.inspectionOverride);
     await markBundleStatus(bundle.inspection, bundle.responses, bundle.photos, 'syncing', null);
-    let preparedPhotos: InspectionPhoto[] = bundle.photos;
 
     try {
-      preparedPhotos = await preparePhotos(bundle.photos, bundle.inspection.tenantId!);
-      const payload = buildPayload(bundle.inspection, bundle.responses, preparedPhotos, Boolean(options.finalizeReport));
+      const payload = buildPayload(bundle.inspection, bundle.responses, bundle.photos, Boolean(options.finalizeReport));
       let result = await enqueueBundleThroughApi(payload);
 
       if (result.jobId) {
         await markBundleStatus(
           bundle.inspection,
           bundle.responses,
-          preparedPhotos,
+          bundle.photos,
           'syncing',
           jobSyncError(result.jobId, result.status)
         );
@@ -473,7 +464,7 @@ export const InspectionBundleSyncService = {
         throw new Error(result.error || 'Job de sincronizacao falhou no servidor.');
       }
 
-      await markBundleSuccess(bundle.inspection, bundle.responses, preparedPhotos);
+      await markBundleSuccess(bundle.inspection, bundle.responses, bundle.photos);
       return result;
     } catch (err) {
       await markBundleFailure(bundle.inspection, bundle.responses, bundle.photos, err);

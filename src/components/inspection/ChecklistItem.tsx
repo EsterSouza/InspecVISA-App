@@ -12,7 +12,7 @@ interface ChecklistItemProps {
   wasNonCompliant?: boolean;
   onChange: (itemId: string, result: InspectionResponse['result']) => void;
   onUpdateDetails: (itemId: string, details: Partial<InspectionResponse>) => void;
-  onAddPhoto: (itemId: string, photo: Omit<InspectionPhoto, 'id'>) => void;
+  onAddPhoto: (itemId: string, photo: Omit<InspectionPhoto, 'id'>) => void | Promise<void>;
   onRemovePhoto: (itemId: string, id: string) => void;
   onEditDescription?: (itemId: string, description: string) => void;
 }

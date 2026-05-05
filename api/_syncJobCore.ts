@@ -6,6 +6,7 @@ export const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 const WRITE_CHUNK_SIZE = 100;
 const PROCESSING_STALE_MS = 5 * 60 * 1000;
+const PHOTO_BUCKET = 'inspection-photos';
 
 export function json(res: any, status: number, body: unknown) {
   res.statusCode = status;
@@ -19,6 +20,18 @@ export function chunkArray<T>(items: T[], size: number) {
     chunks.push(items.slice(i, i + size));
   }
   return chunks;
+}
+
+function dataUrlToUpload(dataUrl: string) {
+  const match = dataUrl.match(/^data:(.*?);base64,(.*)$/);
+  if (!match) {
+    throw new Error('Formato de foto local invalido para upload.');
+  }
+
+  return {
+    contentType: match[1] || 'image/jpeg',
+    buffer: Buffer.from(match[2], 'base64'),
+  };
 }
 
 export function bearerToken(req: any) {
@@ -167,7 +180,35 @@ export async function processSyncJob(admin: any, jobId: string, userId?: string)
       if (error) throw error;
     }
 
-    for (const chunk of chunkArray(photos, WRITE_CHUNK_SIZE)) {
+    const preparedPhotos = [];
+    for (const rawPhoto of photos) {
+      const photo = { ...rawPhoto };
+      const localDataUrl = photo.local_data_url || photo.localDataUrl || null;
+      delete photo.local_data_url;
+      delete photo.localDataUrl;
+
+      if (localDataUrl && !photo.data_url?.startsWith('storage://')) {
+        const storagePath = `${tenantId}/${photo.response_id}/${photo.id}.jpg`;
+        const upload = dataUrlToUpload(localDataUrl);
+        const { error: uploadError } = await admin.storage
+          .from(PHOTO_BUCKET)
+          .upload(storagePath, upload.buffer, {
+            cacheControl: '31536000',
+            contentType: upload.contentType,
+            upsert: true,
+          });
+
+        if (uploadError) {
+          throw new Error(`Falha no upload da foto ${photo.id}: ${uploadError.message}`);
+        }
+
+        photo.data_url = `storage://${storagePath}`;
+      }
+
+      preparedPhotos.push(photo);
+    }
+
+    for (const chunk of chunkArray(preparedPhotos, WRITE_CHUNK_SIZE)) {
       const { error } = await admin.from('photos').upsert(chunk);
       if (error) throw error;
     }

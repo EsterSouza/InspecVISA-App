@@ -256,12 +256,8 @@ export const InspectionService = {
       await db.responses.put({ ...r, deletedAt: now, updatedAt: now, syncStatus: 'pending' as const });
     }
 
-    // 3. Push deletion to Supabase in the background
-    if (navigator.onLine) {
-      RepositoryService.pushToRemote('inspections', updated, db.inspections, mapToPostgres).catch(err =>
-        console.warn('[InspectionService] Failed to sync deletion:', err)
-      );
-    }
+    // 3. Deletion is now sent by the inspection bundle queue. Do not run a
+    // parallel direct push here; that old path could race the durable job.
   },
 
   async getResponsesByInspectionId(inspectionId: string, forceRefresh = false): Promise<InspectionResponse[]> {

@@ -13,6 +13,7 @@ import { dataUrlToBlob } from '../utils/imageUtils';
 
 const activePushes = new Set<string>();
 const TENANT_SCOPED_TABLES = new Set(['clients', 'inspections', 'responses', 'photos', 'schedules']);
+const BUNDLE_SYNC_TABLES = new Set(['inspections', 'responses', 'photos']);
 const UNSAFE_LOCAL_STATUSES: SyncStatus[] = ['pending', 'syncing', 'failed', 'conflict'];
 const PHOTO_BUCKET = 'inspection-photos';
 
@@ -141,7 +142,7 @@ export const RepositoryService = {
     // 1. Save locally immediately (Fire and Forget for Remote)
     await dexieTable.put(enriched);
  
-    if (navigator.onLine) {
+    if (navigator.onLine && !BUNDLE_SYNC_TABLES.has(tableName)) {
       // Background push - NO AWAIT
       RepositoryService.pushToRemote(tableName, enriched, dexieTable, mapToPostgres).catch(err => {
         console.warn(`[SyncBackground] Push failed for ${tableName}/${enriched.id}:`, err.message);
@@ -170,7 +171,7 @@ export const RepositoryService = {
 
     if (UNSAFE_LOCAL_STATUSES.includes(local.syncStatus)) {
       const diverged = remoteUpdatedAt > 0 && !sameTimestamp(remote.updatedAt || remote.createdAt, local.updatedAt || local.createdAt);
-      if (diverged && local.syncStatus !== 'conflict') {
+      if (diverged && options.preserveLocal === false && local.syncStatus !== 'conflict') {
         await dexieTable.update(local.id, {
           syncStatus: 'conflict',
           syncError: `Conflito preservado${options.label ? ` em ${options.label}` : ''}: remoto divergiu de alteracao local.`,
@@ -178,7 +179,7 @@ export const RepositoryService = {
           conflictLocal: local
         });
       }
-      return { accepted: false, conflict: diverged, record: local };
+      return { accepted: false, conflict: diverged && options.preserveLocal === false, record: local };
     }
 
     if (remoteUpdatedAt > localUpdatedAt + 1000 || options.preserveLocal === false) {

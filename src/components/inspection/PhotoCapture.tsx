@@ -8,7 +8,7 @@ import { Button } from '../ui/Button';
 interface PhotoCaptureProps {
   inputId: string;
   photos: InspectionPhoto[];
-  onAddPhoto: (photo: Omit<InspectionPhoto, 'id'>) => void;
+  onAddPhoto: (photo: Omit<InspectionPhoto, 'id'>) => void | Promise<void>;
   onRemovePhoto: (id: string) => void;
 }
 
@@ -24,7 +24,7 @@ export function PhotoCapture({ inputId, photos, onAddPhoto, onRemovePhoto }: Pho
     try {
       setIsCompressing(true);
       const dataUrl = await compressImage(file);
-      onAddPhoto({
+      await onAddPhoto({
         responseId: '', // will be set by parent
         dataUrl,
         takenAt: new Date(),
