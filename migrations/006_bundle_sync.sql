@@ -42,6 +42,10 @@ CREATE INDEX IF NOT EXISTS idx_report_versions_tenant_inspection
 ALTER TABLE public.sync_batches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inspection_report_versions ENABLE ROW LEVEL SECURITY;
 
+GRANT USAGE ON SCHEMA private TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.sync_batches TO authenticated;
+GRANT SELECT, INSERT ON public.inspection_report_versions TO authenticated;
+
 DO $$
 BEGIN
   IF NOT EXISTS (
