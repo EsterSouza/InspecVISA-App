@@ -1,4 +1,3 @@
-import { supabase } from '../lib/supabase';
 import { db } from '../db/database';
 import { RepositoryService } from './repositoryService';
 import { ClientService } from './clientService';
@@ -88,17 +87,6 @@ export const SyncQueueService = {
     isProcessing = true;
 
     try {
-      // LOCK: Ensure session is consolidated before background network calls
-      const { data: { session } } = await RepositoryService.withTimeout(
-        supabase.auth.getSession(),
-        10000,
-        'SyncQueue_getSession'
-      );
-      if (!session) {
-        console.warn('[SyncQueue] No active session; sync postponed.');
-        return;
-      }
-
       await this.cleanupStuckSyncing();
       const summary = await this.getQueueSummary();
       console.log(`[SyncQueue] Processing background sync (Pending: ${summary.pending}, Syncing: ${summary.syncing}, Failed: ${summary.failed})...`);
