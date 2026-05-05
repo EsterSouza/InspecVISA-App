@@ -15,6 +15,7 @@ import { RepositoryService } from './repositoryService';
 import { InspectionService } from './inspectionService';
 
 const BUNDLE_RPC_TIMEOUT_MS = 180000;
+const BUNDLE_API_TIMEOUT_MS = 60000;
 const BUNDLE_ERROR_UNAVAILABLE = 'RPC sync_inspection_bundle indisponivel. Migration 006 precisa estar aplicada no Supabase.';
 const QUEUED_STATUSES: SyncStatus[] = ['pending'];
 const UNSAFE_STATUSES: SyncStatus[] = ['pending', 'syncing', 'failed'];
@@ -31,6 +32,37 @@ function timestampsClose(a?: Date | string, b?: Date | string) {
 
 function isTimeoutError(err: any) {
   return err?.message?.startsWith('TIMEOUT');
+}
+
+function getStoredAccessToken(): string | null {
+  try {
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith('sb-') || !key.endsWith('-auth-token')) continue;
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      const parsed = JSON.parse(raw);
+      if (parsed?.access_token) return parsed.access_token;
+      if (parsed?.currentSession?.access_token) return parsed.currentSession.access_token;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+async function getAccessToken(): Promise<string> {
+  const stored = getStoredAccessToken();
+  if (stored) return stored;
+
+  const { data } = await withTimeout(
+    supabase.auth.getSession(),
+    10000,
+    'BundleSync_getSession'
+  );
+  const token = data.session?.access_token;
+  if (!token) throw new Error('Sessao expirada. Entre novamente para sincronizar.');
+  return token;
 }
 
 function normalizeRpcResult(data: any, inspectionId: string): InspectionBundleResult {
@@ -51,6 +83,46 @@ function bundleErrorMessage(err: any) {
     return BUNDLE_ERROR_UNAVAILABLE;
   }
   return message;
+}
+
+async function sendBundleThroughApi(payload: InspectionBundlePayload): Promise<InspectionBundleResult> {
+  const token = await getAccessToken();
+  const response = await withTimeout(
+    fetch('/api/sync-inspection-bundle', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    }),
+    BUNDLE_API_TIMEOUT_MS,
+    `InspectionBundleApi_${payload.inspection?.id || 'unknown'}`
+  );
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data?.ok) {
+    throw new Error(data?.error || `Backend bundle sync failed (${response.status})`);
+  }
+
+  return normalizeRpcResult(data, payload.inspection?.id);
+}
+
+async function sendBundleThroughRpc(payload: InspectionBundlePayload, inspectionId: string): Promise<InspectionBundleResult> {
+  const { data, error } = await withTimeout(
+    supabase.rpc('sync_inspection_bundle', { p_payload: payload }),
+    BUNDLE_RPC_TIMEOUT_MS,
+    `InspectionBundle_${inspectionId}`
+  );
+
+  if (error) throw error;
+
+  const result = normalizeRpcResult(data, inspectionId);
+  if (!result.ok) {
+    throw new Error(result.error || 'Bundle rejeitado pelo servidor.');
+  }
+
+  return result;
 }
 
 async function verifyBundlePersisted(
@@ -295,17 +367,16 @@ export const InspectionBundleSyncService = {
     try {
       preparedPhotos = await preparePhotos(bundle.photos, bundle.inspection.tenantId!);
       const payload = buildPayload(bundle.inspection, bundle.responses, preparedPhotos, Boolean(options.finalizeReport));
-      const { data, error } = await withTimeout(
-        supabase.rpc('sync_inspection_bundle', { p_payload: payload }),
-        BUNDLE_RPC_TIMEOUT_MS,
-        `InspectionBundle_${inspectionId}`
-      );
-
-      if (error) throw error;
-
-      const result = normalizeRpcResult(data, inspectionId);
-      if (!result.ok) {
-        throw new Error(result.error || 'Bundle rejeitado pelo servidor.');
+      let result: InspectionBundleResult;
+      try {
+        result = await sendBundleThroughApi(payload);
+      } catch (apiErr: any) {
+        const message = apiErr?.message || String(apiErr);
+        if (!message.includes('404') && !message.includes('Supabase server environment variables')) {
+          throw apiErr;
+        }
+        console.warn('[BundleSync] Backend API unavailable, falling back to Supabase RPC:', message);
+        result = await sendBundleThroughRpc(payload, inspectionId);
       }
 
       await markBundleSuccess(bundle.inspection, bundle.responses, preparedPhotos);
