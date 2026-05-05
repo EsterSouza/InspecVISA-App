@@ -5,6 +5,7 @@ import type {
   Inspection,
   InspectionResponse,
   InspectionPhoto,
+  LocalBackupRecord,
   Schedule,
   SyncLog,
 } from '../types';
@@ -57,6 +58,7 @@ export class InspectionDatabase extends Dexie {
   schedules!: Table<Schedule>;
   sync_logs!: Table<SyncLog>;
   deletions_sync!: Table<DeletionSync>;
+  local_backups!: Table<LocalBackupRecord>;
 
   constructor() {
     super('InspectionDB');
@@ -69,6 +71,17 @@ export class InspectionDatabase extends Dexie {
       schedules: 'id, clientId, scheduledAt, status, tenantId, deletedAt, updatedAt, syncStatus, dataVerifiedAt',
       sync_logs: '++id, timestamp, level',
       deletions_sync: '++id, table, recordId'
+    });
+    this.version(14).stores({
+      clients: 'id, category, name, city, state, tenantId, deletedAt, createdAt, updatedAt, syncStatus, dataVerifiedAt',
+      templates: 'id, category',
+      inspections: 'id, clientId, templateId, status, tenantId, deletedAt, [clientId+status], inspectionDate, completedAt, createdAt, updatedAt, syncStatus, dataVerifiedAt',
+      responses: 'id, inspectionId, itemId, result, tenantId, deletedAt, updatedAt, syncStatus, dataVerifiedAt, [inspectionId+itemId]',
+      photos: 'id, responseId, tenantId, deletedAt, syncStatus, updatedAt',
+      schedules: 'id, clientId, scheduledAt, status, tenantId, deletedAt, updatedAt, syncStatus, dataVerifiedAt',
+      sync_logs: '++id, timestamp, level',
+      deletions_sync: '++id, table, recordId',
+      local_backups: 'id, createdAt, reason'
     });
   }
 

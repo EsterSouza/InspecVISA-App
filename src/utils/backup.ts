@@ -1,25 +1,55 @@
 import { db } from '../db/database';
 
-export async function exportDatabase() {
+const PRE_BUNDLE_BACKUP_FLAG = 'inspecvisa-pre-bundle-backup-created';
+
+async function buildDatabaseBackupPayload(reason = 'manual-export') {
   const clients = await db.clients.toArray();
   const inspections = await db.inspections.toArray();
   const responses = await db.responses.toArray();
   const photos = await db.photos.toArray();
-  
-  // Get settings from local storage if available, though it's managed by Zustand
+  const schedules = await db.schedules.toArray();
+  const templates = await db.templates.toArray();
   const settings = localStorage.getItem('inspec-visa-settings');
-  
-  const backup = {
-    version: '1.0',
+
+  return {
+    version: '2.0',
+    reason,
     timestamp: new Date().toISOString(),
     data: {
       clients,
       inspections,
       responses,
       photos,
+      schedules,
+      templates,
       settings: settings ? JSON.parse(settings) : null
     }
   };
+}
+
+export async function ensurePreBundleBackup(): Promise<string> {
+  const existingId = localStorage.getItem(PRE_BUNDLE_BACKUP_FLAG);
+  if (existingId) return existingId;
+
+  const id = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `pre-bundle-${Date.now()}`;
+
+  const payload = await buildDatabaseBackupPayload('pre-bundle-sync');
+  await db.local_backups.put({
+    id,
+    createdAt: new Date(),
+    reason: 'pre-bundle-sync',
+    payload
+  });
+
+  localStorage.setItem(PRE_BUNDLE_BACKUP_FLAG, id);
+  console.log(`[Backup] Pre-bundle local backup created: ${id}`);
+  return id;
+}
+
+export async function exportDatabase() {
+  const backup = await buildDatabaseBackupPayload();
 
   const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -40,15 +70,17 @@ export async function importDatabase(jsonFile: File): Promise<string> {
           throw new Error('Arquivo de backup inválido.');
         }
 
-        const { clients, inspections, responses, photos, settings } = content.data;
+        const { clients, inspections, responses, photos, schedules, templates, settings } = content.data;
 
         // Transactional import
-        await db.transaction('rw', [db.clients, db.inspections, db.responses, db.photos], async () => {
+        await db.transaction('rw', [db.clients, db.inspections, db.responses, db.photos, db.schedules, db.templates], async () => {
           // We use put (upsert) to avoid duplicates if importing same data twice
           if (clients) await db.clients.bulkPut(clients);
           if (inspections) await db.inspections.bulkPut(inspections);
           if (responses) await db.responses.bulkPut(responses);
           if (photos) await db.photos.bulkPut(photos);
+          if (schedules) await db.schedules.bulkPut(schedules);
+          if (templates) await db.templates.bulkPut(templates);
         });
 
         if (settings) {

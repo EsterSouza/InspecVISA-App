@@ -158,11 +158,10 @@ async function recoverMissingRemoteInspection(local: Inspection): Promise<void> 
 
   if (!navigator.onLine) return;
 
-  const pushedInspection = await RepositoryService.pushToRemote('inspections', recoveredInspection, db.inspections, mapToPostgres);
-  if (!pushedInspection) return;
-
-  await RepositoryService.processBulkQueue('responses', db.responses, mapResponseToPostgres);
-  await RepositoryService.processQueue('photos', db.photos, mapPhotoToPostgres);
+  const { InspectionBundleSyncService } = await import('./inspectionBundleSyncService');
+  await InspectionBundleSyncService.syncInspectionBundle(local.id, {
+    inspectionOverride: recoveredInspection,
+  });
 }
 
 export const InspectionService = {

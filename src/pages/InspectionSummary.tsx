@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { FileDown, ArrowLeft, Loader2, Save, Info, AlertTriangle } from 'lucide-react';
 import { ClientService } from '../services/clientService';
 import { InspectionService } from '../services/inspectionService';
+import { InspectionBundleSyncService } from '../services/inspectionBundleSyncService';
 import { LegislationService, type Legislation } from '../services/legislationService';
 import { getTemplateById, enrichTemplate } from '../data/templates';
 import { calculateScore, classificationColor } from '../utils/scoring';
@@ -192,6 +193,9 @@ export function InspectionSummary() {
     }
     setIsGenerating(true);
     try {
+       if (currentInspection.status === 'completed' && currentReadiness.isReady && navigator.onLine) {
+         await InspectionBundleSyncService.syncInspectionBundle(currentInspection.id, { finalizeReport: true });
+       }
        await new Promise(resolve => setTimeout(resolve, 100));
        await generatePDF(
          currentInspection,

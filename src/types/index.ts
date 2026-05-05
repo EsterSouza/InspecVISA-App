@@ -208,6 +208,41 @@ export interface InspectionPhoto {
   conflictLocal?: any;
 }
 
+export interface InspectionBundlePayload {
+  inspection: any;
+  responses: any[];
+  photos: any[];
+  clientSyncId: string;
+  finalizeReport: boolean;
+  reportSnapshot?: {
+    generatedAt: string;
+    inspection: Inspection;
+    responses: InspectionResponse[];
+    photos: InspectionPhoto[];
+  };
+}
+
+export interface InspectionBundleResult {
+  ok: boolean;
+  inspectionId: string;
+  syncBatchId?: string;
+  serverUpdatedAt?: string;
+  reportVersionId?: string | null;
+  failedItems: Array<{
+    table: 'inspections' | 'responses' | 'photos';
+    id: string;
+    error: string;
+  }>;
+  error?: string;
+}
+
+export interface LocalBackupRecord {
+  id: string;
+  createdAt: Date;
+  reason: 'pre-bundle-sync' | string;
+  payload: any;
+}
+
 export interface SectionScore {
   sectionId: string;
   sectionTitle: string;

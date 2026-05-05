@@ -12,6 +12,7 @@ import { CollaborativeProgress } from '../components/inspection/CollaborativePro
 import { MobileScoreBar } from '../components/inspection/MobileScoreBar';
 import { ClientService } from '../services/clientService';
 import { InspectionService } from '../services/inspectionService';
+import { InspectionBundleSyncService } from '../services/inspectionBundleSyncService';
 import { ScheduleService } from '../services/scheduleService';
 import { getLocalActor } from '../utils/localActor';
 import { belongsToActiveTenant, filterByActiveTenant } from '../utils/localScope';
@@ -365,6 +366,10 @@ export function InspectionExecution() {
   const handleConfirmFinish = async () => {
     if (!currentInspection || !signature) return;
     if (!window.confirm('Encerrar Inspeção?')) return;
+    if (!navigator.onLine) {
+      alert('Para finalizar o relatório, conecte-se à internet. O rascunho local continua salvo.');
+      return;
+    }
 
     setIsFinishing(true);
     try {
@@ -374,9 +379,20 @@ export function InspectionExecution() {
         completedAt: new Date(),
         signatureDataUrl: signature,
       };
+      const finalizedInspection: Inspection = {
+        ...currentInspection,
+        ...updates,
+        updatedAt: new Date(),
+        syncStatus: 'pending',
+        syncError: undefined,
+      };
 
-      // 2. Save to Supabase
-      await InspectionService.updateInspection(currentInspection.id, updates);
+      // 2. Save locally, then confirm the whole report bundle in Supabase.
+      await db.inspections.put(finalizedInspection);
+      await InspectionBundleSyncService.syncInspectionBundle(currentInspection.id, {
+        finalizeReport: true,
+        inspectionOverride: finalizedInspection,
+      });
 
       // 2b. If linked to a schedule, complete it too
       if (linkedScheduleId) {
@@ -384,13 +400,13 @@ export function InspectionExecution() {
       }
 
       // 3. Update the store
-      setCurrentInspection({ ...currentInspection, ...updates });
+      setCurrentInspection({ ...finalizedInspection, syncStatus: 'synced' });
 
       // 4. Navigate
       navigate('/summary', { state: { inspectionId: currentInspection.id } });
     } catch (err) {
       console.error('[handleConfirmFinish] Error:', err);
-      alert('Erro ao finalizar a inspeção. Tente novamente.');
+      alert('Relatório salvo como rascunho local, mas ainda não foi finalizado na nuvem. Abra a Central de Sincronização e tente novamente.');
     } finally {
       setIsFinishing(false);
       setShowSignatureModal(false);

@@ -2,8 +2,8 @@ import { supabase } from '../lib/supabase';
 import { db } from '../db/database';
 import { RepositoryService } from './repositoryService';
 import { ClientService } from './clientService';
-import { InspectionService } from './inspectionService';
 import { ScheduleService } from './scheduleService';
+import { InspectionBundleSyncService } from './inspectionBundleSyncService';
 import { useAuthStore } from '../store/useAuthStore';
 
 /**
@@ -85,12 +85,8 @@ export const SyncQueueService = {
 
       // Process in order of dependency using Bulk strategy for light data
       await RepositoryService.processBulkQueue('clients', db.clients, ClientService.mapToPostgres);
-      await RepositoryService.processBulkQueue('inspections', db.inspections, InspectionService.mapToPostgres);
-      await RepositoryService.processBulkQueue('responses', db.responses, InspectionService.mapResponseToPostgres);
+      await InspectionBundleSyncService.syncPendingInspectionBundles();
       await RepositoryService.processBulkQueue('schedules', db.schedules, ScheduleService.mapToPostgres);
-      
-      // Photos remain sequential due to payload size
-      await RepositoryService.processQueue('photos', db.photos, InspectionService.mapPhotoToPostgres);
 
       console.log('[SyncQueue] Sync completed.');
     } catch (err) {

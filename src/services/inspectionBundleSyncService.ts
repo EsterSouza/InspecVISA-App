@@ -1,0 +1,340 @@
+import { supabase } from '../lib/supabase';
+import { db } from '../db/database';
+import type {
+  Inspection,
+  InspectionBundlePayload,
+  InspectionBundleResult,
+  InspectionPhoto,
+  InspectionResponse,
+  SyncStatus,
+} from '../types';
+import { ensurePreBundleBackup } from '../utils/backup';
+import { withTimeout } from '../utils/network';
+import { useAuthStore } from '../store/useAuthStore';
+import { RepositoryService } from './repositoryService';
+import { InspectionService } from './inspectionService';
+
+const BUNDLE_RPC_TIMEOUT_MS = 90000;
+const BUNDLE_ERROR_UNAVAILABLE = 'RPC sync_inspection_bundle indisponivel. Migration 006 precisa estar aplicada no Supabase.';
+const QUEUED_STATUSES: SyncStatus[] = ['pending'];
+const UNSAFE_STATUSES: SyncStatus[] = ['pending', 'syncing', 'failed'];
+
+function sameTimestamp(a?: Date | string, b?: Date | string) {
+  if (!a || !b) return false;
+  return new Date(a).getTime() === new Date(b).getTime();
+}
+
+function normalizeRpcResult(data: any, inspectionId: string): InspectionBundleResult {
+  return {
+    ok: Boolean(data?.ok),
+    inspectionId: data?.inspectionId || data?.inspection_id || inspectionId,
+    syncBatchId: data?.syncBatchId || data?.sync_batch_id,
+    serverUpdatedAt: data?.serverUpdatedAt || data?.server_updated_at,
+    reportVersionId: data?.reportVersionId || data?.report_version_id || null,
+    failedItems: Array.isArray(data?.failedItems) ? data.failedItems : [],
+    error: data?.error,
+  };
+}
+
+function bundleErrorMessage(err: any) {
+  const message = err?.message || String(err);
+  if (err?.code === '42883' || message.includes('sync_inspection_bundle')) {
+    return BUNDLE_ERROR_UNAVAILABLE;
+  }
+  return message;
+}
+
+async function markBundleStatus(
+  inspection: Inspection,
+  responses: InspectionResponse[],
+  photos: InspectionPhoto[],
+  status: SyncStatus,
+  syncError?: string | null
+) {
+  const responseIds = responses.map(response => response.id);
+  const photoIds = photos.map(photo => photo.id);
+
+  if (inspection.syncStatus !== 'conflict') {
+    await db.inspections.update(inspection.id, { syncStatus: status, syncError: syncError || undefined });
+  }
+
+  if (responseIds.length > 0) {
+    await db.responses.where('id').anyOf(responseIds).modify((response: InspectionResponse) => {
+      if (response.syncStatus !== 'conflict') {
+        response.syncStatus = status;
+        response.syncError = syncError || undefined;
+      }
+    });
+  }
+
+  if (photoIds.length > 0) {
+    await db.photos.where('id').anyOf(photoIds).modify((photo: InspectionPhoto) => {
+      if (photo.syncStatus !== 'conflict') {
+        photo.syncStatus = status;
+        photo.syncError = syncError || undefined;
+      }
+    });
+  }
+}
+
+async function markBundleSuccess(
+  inspection: Inspection,
+  responses: InspectionResponse[],
+  photos: InspectionPhoto[]
+) {
+  const verifiedAt = new Date();
+  const currentInspection = await db.inspections.get(inspection.id);
+
+  if (currentInspection && sameTimestamp(currentInspection.updatedAt, inspection.updatedAt)) {
+    await db.inspections.update(inspection.id, {
+      syncStatus: 'synced',
+      syncError: undefined,
+      syncAttempts: 0,
+      dataVerifiedAt: verifiedAt,
+    });
+  } else if (currentInspection) {
+    await db.inspections.update(inspection.id, { syncStatus: 'pending' });
+  }
+
+  for (const response of responses) {
+    const current = await db.responses.get(response.id);
+    if (current && sameTimestamp(current.updatedAt, response.updatedAt)) {
+      await db.responses.update(response.id, {
+        syncStatus: 'synced',
+        syncError: undefined,
+        syncAttempts: 0,
+        dataVerifiedAt: verifiedAt,
+      });
+    } else if (current) {
+      await db.responses.update(response.id, { syncStatus: 'pending' });
+    }
+  }
+
+  for (const photo of photos) {
+    const current = await db.photos.get(photo.id);
+    if (current && sameTimestamp(current.updatedAt, photo.updatedAt)) {
+      await db.photos.update(photo.id, {
+        syncStatus: 'synced',
+        syncError: undefined,
+        syncAttempts: 0,
+        dataVerifiedAt: verifiedAt,
+      });
+    } else if (current) {
+      await db.photos.update(photo.id, { syncStatus: 'pending' });
+    }
+  }
+}
+
+async function markBundleFailure(
+  inspection: Inspection,
+  responses: InspectionResponse[],
+  photos: InspectionPhoto[],
+  err: any
+) {
+  const message = bundleErrorMessage(err);
+  const nextStatus: SyncStatus = (inspection.syncAttempts || 0) + 1 >= 3 ? 'failed' : 'pending';
+  const attempts = (inspection.syncAttempts || 0) + 1;
+
+  await db.inspections.update(inspection.id, {
+    syncStatus: nextStatus,
+    syncError: message,
+    syncAttempts: attempts,
+  });
+
+  for (const response of responses) {
+    const current = await db.responses.get(response.id);
+    if (!current || current.syncStatus === 'conflict') continue;
+    const responseAttempts = (current.syncAttempts || 0) + 1;
+    await db.responses.update(response.id, {
+      syncStatus: responseAttempts >= 3 ? 'failed' : 'pending',
+      syncError: message,
+      syncAttempts: responseAttempts,
+    });
+  }
+
+  for (const photo of photos) {
+    const current = await db.photos.get(photo.id);
+    if (!current || current.syncStatus === 'conflict') continue;
+    const photoAttempts = (current.syncAttempts || 0) + 1;
+    await db.photos.update(photo.id, {
+      syncStatus: photoAttempts >= 3 ? 'failed' : 'pending',
+      syncError: message,
+      syncAttempts: photoAttempts,
+    });
+  }
+}
+
+async function getInspectionBundle(inspectionId: string, inspectionOverride?: Inspection) {
+  const tenantId = useAuthStore.getState().tenantInfo?.tenantId;
+  const localInspection = inspectionOverride || await db.inspections.get(inspectionId);
+  if (!localInspection) throw new Error('Inspecao local nao encontrada para sincronizacao.');
+  if (localInspection.syncStatus === 'conflict') {
+    throw new Error('Inspecao em conflito precisa ser resolvida antes da sincronizacao.');
+  }
+
+  const inspection: Inspection = {
+    ...localInspection,
+    tenantId: localInspection.tenantId || tenantId,
+  };
+
+  if (!inspection.tenantId) {
+    throw new Error('Aguardando tenantId para sincronizar bundle.');
+  }
+
+  const responses = (await db.responses.where('inspectionId').equals(inspection.id).toArray())
+    .filter(response => response.syncStatus !== 'conflict')
+    .map(response => ({ ...response, tenantId: response.tenantId || inspection.tenantId }));
+
+  const responseIds = responses.map(response => response.id);
+  const photos = responseIds.length > 0
+    ? (await db.photos.where('responseId').anyOf(responseIds).toArray())
+      .filter(photo => photo.syncStatus !== 'conflict')
+      .map(photo => ({ ...photo, tenantId: photo.tenantId || inspection.tenantId }))
+    : [];
+
+  return { inspection, responses, photos };
+}
+
+async function preparePhotos(photos: InspectionPhoto[], tenantId: string) {
+  const prepared: InspectionPhoto[] = [];
+  for (const photo of photos) {
+    const uploaded = await RepositoryService.preparePhotoForRemote(photo, db.photos, tenantId);
+    prepared.push(uploaded as InspectionPhoto);
+  }
+  return prepared;
+}
+
+function buildPayload(
+  inspection: Inspection,
+  responses: InspectionResponse[],
+  photos: InspectionPhoto[],
+  finalizeReport: boolean
+): InspectionBundlePayload {
+  return {
+    inspection: InspectionService.mapToPostgres(inspection),
+    responses: responses.map(InspectionService.mapResponseToPostgres),
+    photos: photos.map(InspectionService.mapPhotoToPostgres),
+    clientSyncId: `${inspection.id}:${Date.now()}`,
+    finalizeReport,
+    reportSnapshot: finalizeReport
+      ? {
+        generatedAt: new Date().toISOString(),
+        inspection,
+        responses,
+        photos,
+      }
+      : undefined,
+  };
+}
+
+export const InspectionBundleSyncService = {
+  async syncInspectionBundle(
+    inspectionId: string,
+    options: { finalizeReport?: boolean; inspectionOverride?: Inspection } = {}
+  ): Promise<InspectionBundleResult> {
+    if (!navigator.onLine) {
+      throw new Error('Rascunho local aguardando conexao para sincronizar.');
+    }
+
+    await ensurePreBundleBackup();
+
+    const bundle = await getInspectionBundle(inspectionId, options.inspectionOverride);
+    await markBundleStatus(bundle.inspection, bundle.responses, bundle.photos, 'syncing', null);
+
+    try {
+      const preparedPhotos = await preparePhotos(bundle.photos, bundle.inspection.tenantId!);
+      const payload = buildPayload(bundle.inspection, bundle.responses, preparedPhotos, Boolean(options.finalizeReport));
+      const { data, error } = await withTimeout(
+        supabase.rpc('sync_inspection_bundle', { p_payload: payload }),
+        BUNDLE_RPC_TIMEOUT_MS,
+        `InspectionBundle_${inspectionId}`
+      );
+
+      if (error) throw error;
+
+      const result = normalizeRpcResult(data, inspectionId);
+      if (!result.ok) {
+        throw new Error(result.error || 'Bundle rejeitado pelo servidor.');
+      }
+
+      await markBundleSuccess(bundle.inspection, bundle.responses, preparedPhotos);
+      return result;
+    } catch (err) {
+      await markBundleFailure(bundle.inspection, bundle.responses, bundle.photos, err);
+      throw err;
+    }
+  },
+
+  async syncPendingInspectionBundles(): Promise<number> {
+    if (!navigator.onLine) return 0;
+
+    const inspectionIds = new Set<string>();
+
+    const pendingInspections = await db.inspections
+      .where('syncStatus')
+      .anyOf(QUEUED_STATUSES)
+      .toArray();
+    pendingInspections.forEach(inspection => inspectionIds.add(inspection.id));
+
+    const pendingResponses = await db.responses
+      .where('syncStatus')
+      .anyOf(QUEUED_STATUSES)
+      .toArray();
+    pendingResponses.forEach(response => inspectionIds.add(response.inspectionId));
+
+    const pendingPhotos = await db.photos
+      .where('syncStatus')
+      .anyOf(QUEUED_STATUSES)
+      .toArray();
+    const responseIds = [...new Set(pendingPhotos.map(photo => photo.responseId))];
+    if (responseIds.length > 0) {
+      const responses = await db.responses.where('id').anyOf(responseIds).toArray();
+      responses.forEach(response => inspectionIds.add(response.inspectionId));
+    }
+
+    let synced = 0;
+    for (const inspectionId of inspectionIds) {
+      const inspection = await db.inspections.get(inspectionId);
+      if (!inspection || inspection.syncStatus === 'conflict') continue;
+      const hasQueuedRoot = UNSAFE_STATUSES.includes(inspection.syncStatus);
+      const queuedResponses = await db.responses
+        .where('inspectionId')
+        .equals(inspectionId)
+        .filter(response => QUEUED_STATUSES.includes(response.syncStatus))
+        .count();
+      const responseIdsForInspection = (await db.responses.where('inspectionId').equals(inspectionId).toArray())
+        .map(response => response.id);
+      const queuedPhotos = responseIdsForInspection.length > 0
+        ? await db.photos
+          .where('responseId')
+          .anyOf(responseIdsForInspection)
+          .filter(photo => QUEUED_STATUSES.includes(photo.syncStatus))
+          .count()
+        : 0;
+
+      if (!hasQueuedRoot && queuedResponses === 0 && queuedPhotos === 0) continue;
+
+      try {
+        await this.syncInspectionBundle(inspectionId);
+        synced += 1;
+      } catch (err) {
+        console.warn(`[BundleSync] Falha ao sincronizar bundle ${inspectionId}:`, bundleErrorMessage(err));
+      }
+    }
+
+    return synced;
+  },
+
+  async getLatestReportVersion(inspectionId: string) {
+    const { data, error } = await supabase
+      .from('inspection_report_versions')
+      .select('*')
+      .eq('inspection_id', inspectionId)
+      .order('version', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data || null;
+  },
+};

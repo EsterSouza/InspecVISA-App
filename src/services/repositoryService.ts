@@ -109,6 +109,14 @@ export const RepositoryService = {
     return withTimeout(promise, ms, label);
   },
 
+  async preparePhotoForRemote<T extends { id: string; responseId?: string; dataUrl?: string; storagePath?: string; tenantId?: string }>(
+    record: T,
+    dexieTable: any,
+    tenantId?: string
+  ): Promise<T> {
+    return uploadPhotoToStorage(record, dexieTable, tenantId);
+  },
+
   /**
    * Generic Upsert (Last Write Wins)
    */
