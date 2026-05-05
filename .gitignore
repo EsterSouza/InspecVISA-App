@@ -30,6 +30,7 @@ dist-ssr
 *.sw?
 .vercel
 .claude/
+supabase/.temp/
 
 # Local backup exports
 inspec-visa-backup-*.json
