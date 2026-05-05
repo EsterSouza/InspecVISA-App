@@ -225,6 +225,8 @@ export interface InspectionBundlePayload {
 export interface InspectionBundleResult {
   ok: boolean;
   inspectionId: string;
+  jobId?: string;
+  status?: 'queued' | 'processing' | 'completed' | 'failed';
   syncBatchId?: string;
   serverUpdatedAt?: string;
   reportVersionId?: string | null;

@@ -17,6 +17,7 @@ let lastSummary = { pending: 0, syncing: 0, conflict: 0, failed: 0 };
 type ConflictTable = 'inspections' | 'responses' | 'photos';
 type ProcessOptions = { force?: boolean };
 const STALE_PROCESSING_LOCK_MS = 5 * 60 * 1000;
+const JOB_ERROR_PREFIX = '[sync-job:';
 
 function tableForConflict(tableName: ConflictTable) {
   if (tableName === 'inspections') return db.inspections;
@@ -52,10 +53,14 @@ export const SyncQueueService = {
     const tables = [db.clients, db.inspections, db.responses, db.schedules, db.photos];
     let count = 0;
     for (const table of tables) {
-      const stuck = await (table as any).where('syncStatus').equals('syncing').count();
-      if (stuck > 0) {
-        await (table as any).where('syncStatus').equals('syncing').modify({ syncStatus: 'pending', syncAttempts: 0 });
-        count += stuck;
+      const stuck = await (table as any).where('syncStatus').equals('syncing').toArray();
+      const localOnlyStuck = stuck.filter((item: any) => !item.syncError?.startsWith(JOB_ERROR_PREFIX));
+      if (localOnlyStuck.length > 0) {
+        await (table as any)
+          .where('id')
+          .anyOf(localOnlyStuck.map((item: any) => item.id))
+          .modify({ syncStatus: 'pending', syncAttempts: 0 });
+        count += localOnlyStuck.length;
       }
     }
     if (count > 0) console.log(`[SyncQueue] Reset ${count} records stuck in 'syncing' state.`);
@@ -137,8 +142,16 @@ export const SyncQueueService = {
       // Libera itens travados em 'syncing' (fila fantasma) e itens com erro 'failed'
       await (table as any)
         .where('syncStatus')
-        .anyOf(['failed', 'syncing'])
+        .equals('failed')
         .modify({ syncStatus: 'pending', syncAttempts: 0 });
+      const syncing = await (table as any).where('syncStatus').equals('syncing').toArray();
+      const localOnlyStuck = syncing.filter((item: any) => !item.syncError?.startsWith(JOB_ERROR_PREFIX));
+      if (localOnlyStuck.length > 0) {
+        await (table as any)
+          .where('id')
+          .anyOf(localOnlyStuck.map((item: any) => item.id))
+          .modify({ syncStatus: 'pending', syncAttempts: 0 });
+      }
     }
     console.log('[SyncQueue] ✅ Fila desbloqueada. Iniciando sincronização...');
     await this.processAll({ force: true });
@@ -196,6 +209,10 @@ export const SyncQueueService = {
     const table = tableForConflict(tableName) as any;
     const item = await table.get(id);
     if (!item || item.syncStatus === 'synced') return;
+    if (item.syncStatus === 'syncing' && item.syncError?.startsWith(JOB_ERROR_PREFIX)) {
+      await this.processAll();
+      return;
+    }
 
     await table.update(id, {
       syncStatus: 'pending',

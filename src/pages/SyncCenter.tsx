@@ -24,6 +24,7 @@ interface SyncItem {
   sub?: string;
   hasDataUrl?: boolean;
   hasStoragePath?: boolean;
+  jobStatus?: 'queued' | 'processing';
 }
 
 interface TableData {
@@ -52,6 +53,11 @@ function StatusBadge({ status }: { status: SyncStatus }) {
 
 function truncId(id: string) {
   return id.length > 12 ? `${id.slice(0, 8)}…` : id;
+}
+
+function jobStatusFromError(syncError?: string | null): SyncItem['jobStatus'] {
+  if (!syncError?.startsWith('[sync-job:')) return undefined;
+  return syncError.includes('processando') ? 'processing' : 'queued';
 }
 
 export function SyncCenter() {
@@ -107,6 +113,7 @@ export function SyncCenter() {
         syncStatus: raw.syncStatus,
         syncAttempts: raw.syncAttempts ?? 0,
         syncError: raw.syncError ?? null,
+        jobStatus: jobStatusFromError(raw.syncError),
         label,
         sub,
         ...extra,
@@ -452,7 +459,13 @@ export function SyncCenter() {
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0 flex-1 space-y-1">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <StatusBadge status={item.syncStatus} />
+                                {item.jobStatus ? (
+                                  <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+                                    {item.jobStatus === 'processing' ? 'Processando' : 'Na fila'}
+                                  </span>
+                                ) : (
+                                  <StatusBadge status={item.syncStatus} />
+                                )}
                                 <span className="font-medium text-gray-900 truncate max-w-[200px]">
                                   {item.label}
                                 </span>

@@ -14,24 +14,18 @@ import { useAuthStore } from '../store/useAuthStore';
 import { RepositoryService } from './repositoryService';
 import { InspectionService } from './inspectionService';
 
-const BUNDLE_RPC_TIMEOUT_MS = 180000;
-const BUNDLE_API_TIMEOUT_MS = 60000;
-const BUNDLE_ERROR_UNAVAILABLE = 'RPC sync_inspection_bundle indisponivel. Migration 006 precisa estar aplicada no Supabase.';
+const BUNDLE_API_TIMEOUT_MS = 70000;
+const JOB_STATUS_TIMEOUT_MS = 15000;
+const JOB_POLL_INTERVAL_MS = 2500;
+const JOB_POLL_TIMEOUT_MS = 75000;
+const JOB_ERROR_UNAVAILABLE = 'Fila de sincronizacao indisponivel. Migration 010 precisa estar aplicada no Supabase.';
 const QUEUED_STATUSES: SyncStatus[] = ['pending'];
 const UNSAFE_STATUSES: SyncStatus[] = ['pending', 'syncing', 'failed'];
+const JOB_ERROR_PREFIX = '[sync-job:';
 
 function sameTimestamp(a?: Date | string, b?: Date | string) {
   if (!a || !b) return false;
   return new Date(a).getTime() === new Date(b).getTime();
-}
-
-function timestampsClose(a?: Date | string, b?: Date | string) {
-  if (!a || !b) return false;
-  return Math.abs(new Date(a).getTime() - new Date(b).getTime()) <= 2000;
-}
-
-function isTimeoutError(err: any) {
-  return err?.message?.startsWith('TIMEOUT');
 }
 
 function getStoredAccessToken(): string | null {
@@ -69,6 +63,8 @@ function normalizeRpcResult(data: any, inspectionId: string): InspectionBundleRe
   return {
     ok: Boolean(data?.ok),
     inspectionId: data?.inspectionId || data?.inspection_id || inspectionId,
+    jobId: data?.jobId || data?.job_id,
+    status: data?.status,
     syncBatchId: data?.syncBatchId || data?.sync_batch_id,
     serverUpdatedAt: data?.serverUpdatedAt || data?.server_updated_at,
     reportVersionId: data?.reportVersionId || data?.report_version_id || null,
@@ -79,13 +75,32 @@ function normalizeRpcResult(data: any, inspectionId: string): InspectionBundleRe
 
 function bundleErrorMessage(err: any) {
   const message = err?.message || String(err);
-  if (err?.code === '42883' || message.includes('sync_inspection_bundle')) {
-    return BUNDLE_ERROR_UNAVAILABLE;
+  if (message.includes('sync_jobs') || message.includes('/api/sync-inspection-bundle')) {
+    return JOB_ERROR_UNAVAILABLE;
   }
   return message;
 }
 
-async function sendBundleThroughApi(payload: InspectionBundlePayload): Promise<InspectionBundleResult> {
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function jobSyncError(jobId: string, status = 'queued') {
+  const label = status === 'processing' ? 'processando' : 'na fila';
+  return `${JOB_ERROR_PREFIX}${jobId}] Job de sincronizacao ${label} no servidor.`;
+}
+
+function parseJobId(syncError?: string | null) {
+  if (!syncError?.startsWith(JOB_ERROR_PREFIX)) return null;
+  const end = syncError.indexOf(']');
+  return end > JOB_ERROR_PREFIX.length ? syncError.slice(JOB_ERROR_PREFIX.length, end) : null;
+}
+
+function isJobStillRunning(result: InspectionBundleResult) {
+  return result.ok && (result.status === 'queued' || result.status === 'processing');
+}
+
+async function enqueueBundleThroughApi(payload: InspectionBundlePayload): Promise<InspectionBundleResult> {
   const token = await getAccessToken();
   const response = await withTimeout(
     fetch('/api/sync-inspection-bundle', {
@@ -108,62 +123,67 @@ async function sendBundleThroughApi(payload: InspectionBundlePayload): Promise<I
   return normalizeRpcResult(data, payload.inspection?.id);
 }
 
-async function sendBundleThroughRpc(payload: InspectionBundlePayload, inspectionId: string): Promise<InspectionBundleResult> {
-  const { data, error } = await withTimeout(
-    supabase.rpc('sync_inspection_bundle', { p_payload: payload }),
-    BUNDLE_RPC_TIMEOUT_MS,
-    `InspectionBundle_${inspectionId}`
+async function processJobThroughApi(jobId: string): Promise<InspectionBundleResult> {
+  const token = await getAccessToken();
+  const response = await withTimeout(
+    fetch('/api/process-sync-job', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ jobId }),
+    }),
+    BUNDLE_API_TIMEOUT_MS,
+    `ProcessSyncJob_${jobId}`
   );
 
-  if (error) throw error;
-
-  const result = normalizeRpcResult(data, inspectionId);
-  if (!result.ok) {
-    throw new Error(result.error || 'Bundle rejeitado pelo servidor.');
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data?.ok === false) {
+    throw new Error(data?.error || `Backend job processing failed (${response.status})`);
   }
 
-  return result;
+  return normalizeRpcResult(data, data?.inspectionId || '');
 }
 
-async function verifyBundlePersisted(
-  inspection: Inspection,
-  responses: InspectionResponse[]
-): Promise<boolean> {
-  try {
-    const { data: remoteInspection, error: inspectionError } = await withTimeout(
-      supabase
-        .from('inspections')
-        .select('id, updated_at')
-        .eq('id', inspection.id)
-        .maybeSingle(),
-      20000,
-      `VerifyBundleInspection_${inspection.id}`
-    );
+async function getJobStatus(jobId: string): Promise<InspectionBundleResult> {
+  const token = await getAccessToken();
+  const response = await withTimeout(
+    fetch(`/api/sync-job-status?jobId=${encodeURIComponent(jobId)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    }),
+    JOB_STATUS_TIMEOUT_MS,
+    `SyncJobStatus_${jobId}`
+  );
 
-    if (inspectionError || !remoteInspection?.updated_at) return false;
-    if (!timestampsClose(remoteInspection.updated_at, inspection.updatedAt)) return false;
-
-    if (responses.length === 0) return true;
-
-    const responseIds = responses.map(response => response.id);
-    const { data: remoteResponses, error: responsesError } = await withTimeout(
-      supabase
-        .from('responses')
-        .select('id, updated_at')
-        .in('id', responseIds),
-      30000,
-      `VerifyBundleResponses_${inspection.id}`
-    );
-
-    if (responsesError || !Array.isArray(remoteResponses)) return false;
-    if (remoteResponses.length !== responseIds.length) return false;
-
-    const remoteById = new Map(remoteResponses.map((row: any) => [row.id, row.updated_at]));
-    return responses.every(response => timestampsClose(remoteById.get(response.id), response.updatedAt));
-  } catch (err) {
-    console.warn(`[BundleSync] Verification after timeout failed for ${inspection.id}:`, err);
-    return false;
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data?.ok) {
+    throw new Error(data?.error || `Backend job status failed (${response.status})`);
   }
+
+  const result = normalizeRpcResult(data.result || data, data.inspectionId || '');
+  return {
+    ...result,
+    jobId,
+    status: data.status || result.status,
+    error: data.error || result.error,
+    failedItems: data.failedItems || result.failedItems || [],
+  };
+}
+
+async function waitForJob(jobId: string, timeoutMs = JOB_POLL_TIMEOUT_MS): Promise<InspectionBundleResult> {
+  const deadline = Date.now() + timeoutMs;
+  let last = await getJobStatus(jobId);
+
+  while (Date.now() < deadline && isJobStillRunning(last)) {
+    await processJobThroughApi(jobId).catch(err => {
+      console.warn(`[BundleSync] Process kick for job ${jobId} failed:`, err?.message || err);
+    });
+    await sleep(JOB_POLL_INTERVAL_MS);
+    last = await getJobStatus(jobId);
+  }
+
+  return last;
 }
 
 async function markBundleStatus(
@@ -346,11 +366,24 @@ function buildPayload(
   photos: InspectionPhoto[],
   finalizeReport: boolean
 ): InspectionBundlePayload {
+  const updatedTimes = [
+    inspection.updatedAt,
+    ...responses.map(response => response.updatedAt),
+    ...photos.map(photo => photo.updatedAt),
+  ].map(value => new Date(value).getTime());
+  const changeStamp = Math.max(...updatedTimes);
+
   return {
     inspection: InspectionService.mapToPostgres(inspection),
     responses: responses.map(InspectionService.mapResponseToPostgres),
     photos: photos.map(InspectionService.mapPhotoToPostgres),
-    clientSyncId: `${inspection.id}:${Date.now()}`,
+    clientSyncId: [
+      inspection.id,
+      changeStamp,
+      responses.length,
+      photos.length,
+      finalizeReport ? 'final' : 'draft',
+    ].join(':'),
     finalizeReport,
     reportSnapshot: finalizeReport
       ? {
@@ -361,6 +394,37 @@ function buildPayload(
       }
       : undefined,
   };
+}
+
+async function resumeServerJobForBundle(
+  inspection: Inspection,
+  responses: InspectionResponse[],
+  photos: InspectionPhoto[],
+  jobId: string
+): Promise<'completed' | 'running' | 'failed'> {
+  try {
+    let result = await getJobStatus(jobId);
+    if (isJobStillRunning(result)) {
+      result = await waitForJob(jobId, 30000);
+    }
+
+    if (result.status === 'completed') {
+      await markBundleSuccess(inspection, responses, photos);
+      return 'completed';
+    }
+
+    if (result.status === 'failed') {
+      await markBundleFailure(inspection, responses, photos, new Error(result.error || 'Job de sincronizacao falhou no servidor.'));
+      return 'failed';
+    }
+
+    await markBundleStatus(inspection, responses, photos, 'syncing', jobSyncError(jobId, result.status));
+    return 'running';
+  } catch (err: any) {
+    console.warn(`[BundleSync] Could not refresh server job ${jobId}:`, err?.message || err);
+    await markBundleStatus(inspection, responses, photos, 'syncing', jobSyncError(jobId, 'processing'));
+    return 'running';
+  }
 }
 
 export const InspectionBundleSyncService = {
@@ -381,36 +445,37 @@ export const InspectionBundleSyncService = {
     try {
       preparedPhotos = await preparePhotos(bundle.photos, bundle.inspection.tenantId!);
       const payload = buildPayload(bundle.inspection, bundle.responses, preparedPhotos, Boolean(options.finalizeReport));
-      let result: InspectionBundleResult;
-      try {
-        result = await sendBundleThroughApi(payload);
-      } catch (apiErr: any) {
-        const message = apiErr?.message || String(apiErr);
-        if (!message.includes('404') && !message.includes('Supabase server environment variables')) {
-          throw apiErr;
+      let result = await enqueueBundleThroughApi(payload);
+
+      if (result.jobId) {
+        await markBundleStatus(
+          bundle.inspection,
+          bundle.responses,
+          preparedPhotos,
+          'syncing',
+          jobSyncError(result.jobId, result.status)
+        );
+        if (isJobStillRunning(result)) {
+          try {
+            result = await waitForJob(result.jobId, options.finalizeReport ? 120000 : JOB_POLL_TIMEOUT_MS);
+          } catch (pollErr: any) {
+            console.warn(`[BundleSync] Job ${result.jobId} still pending after poll error:`, pollErr?.message || pollErr);
+            return result;
+          }
         }
-        console.warn('[BundleSync] Backend API unavailable, falling back to Supabase RPC:', message);
-        result = await sendBundleThroughRpc(payload, inspectionId);
+      }
+
+      if (isJobStillRunning(result)) {
+        return result;
+      }
+
+      if (!result.ok || result.status === 'failed') {
+        throw new Error(result.error || 'Job de sincronizacao falhou no servidor.');
       }
 
       await markBundleSuccess(bundle.inspection, bundle.responses, preparedPhotos);
       return result;
     } catch (err) {
-      if (isTimeoutError(err)) {
-        const persisted = await verifyBundlePersisted(bundle.inspection, bundle.responses);
-        if (persisted) {
-          console.log(`[BundleSync] Bundle ${inspectionId} confirmed on server after slow response.`);
-          await markBundleSuccess(bundle.inspection, bundle.responses, preparedPhotos);
-          return {
-            ok: true,
-            inspectionId,
-            serverUpdatedAt: new Date().toISOString(),
-            reportVersionId: null,
-            failedItems: [],
-          };
-        }
-      }
-
       await markBundleFailure(bundle.inspection, bundle.responses, bundle.photos, err);
       throw err;
     }
@@ -427,11 +492,31 @@ export const InspectionBundleSyncService = {
       .toArray();
     pendingInspections.forEach(inspection => inspectionIds.add(inspection.id));
 
+    const syncingInspections = await db.inspections
+      .where('syncStatus')
+      .equals('syncing')
+      .toArray();
+    syncingInspections.forEach(inspection => {
+      if (parseJobId(inspection.syncError)) {
+        inspectionIds.add(inspection.id);
+      }
+    });
+
     const pendingResponses = await db.responses
       .where('syncStatus')
       .anyOf(QUEUED_STATUSES)
       .toArray();
     pendingResponses.forEach(response => inspectionIds.add(response.inspectionId));
+
+    const syncingResponses = await db.responses
+      .where('syncStatus')
+      .equals('syncing')
+      .toArray();
+    syncingResponses.forEach(response => {
+      if (parseJobId(response.syncError)) {
+        inspectionIds.add(response.inspectionId);
+      }
+    });
 
     const pendingPhotos = await db.photos
       .where('syncStatus')
@@ -455,6 +540,14 @@ export const InspectionBundleSyncService = {
       if (inspection.syncStatus === 'conflict') {
         console.warn(`[BundleSync] Skipping bundle ${inspectionId}: inspection is in conflict.`);
         continue;
+      }
+      const jobId = parseJobId(inspection.syncError)
+        || parseJobId((await db.responses.where('inspectionId').equals(inspectionId).filter(response => response.syncStatus === 'syncing').first())?.syncError);
+      if (jobId) {
+        const bundle = await getInspectionBundle(inspectionId, inspection);
+        const outcome = await resumeServerJobForBundle(bundle.inspection, bundle.responses, bundle.photos, jobId);
+        if (outcome === 'completed') synced += 1;
+        if (outcome !== 'failed') continue;
       }
       const hasQueuedRoot = UNSAFE_STATUSES.includes(inspection.syncStatus);
       const queuedResponses = await db.responses

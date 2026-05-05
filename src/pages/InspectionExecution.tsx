@@ -389,10 +389,13 @@ export function InspectionExecution() {
 
       // 2. Save locally, then confirm the whole report bundle in Supabase.
       await db.inspections.put(finalizedInspection);
-      await InspectionBundleSyncService.syncInspectionBundle(currentInspection.id, {
+      const syncResult = await InspectionBundleSyncService.syncInspectionBundle(currentInspection.id, {
         finalizeReport: true,
         inspectionOverride: finalizedInspection,
       });
+      if (syncResult.status !== 'completed') {
+        throw new Error('Relatorio enfileirado no servidor, mas ainda nao concluido.');
+      }
 
       // 2b. If linked to a schedule, complete it too
       if (linkedScheduleId) {
