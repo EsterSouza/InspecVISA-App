@@ -173,10 +173,14 @@ async function markBundleStatus(
   status: SyncStatus,
   syncError?: string | null
 ) {
-  const responseIds = responses.map(response => response.id);
-  const photoIds = photos.map(photo => photo.id);
+  const responseIds = responses
+    .filter(response => UNSAFE_STATUSES.includes(response.syncStatus))
+    .map(response => response.id);
+  const photoIds = photos
+    .filter(photo => UNSAFE_STATUSES.includes(photo.syncStatus))
+    .map(photo => photo.id);
 
-  if (inspection.syncStatus !== 'conflict') {
+  if (inspection.syncStatus !== 'conflict' && UNSAFE_STATUSES.includes(inspection.syncStatus)) {
     await db.inspections.update(inspection.id, { syncStatus: status, syncError: syncError || undefined });
   }
 
@@ -207,7 +211,11 @@ async function markBundleSuccess(
   const verifiedAt = new Date();
   const currentInspection = await db.inspections.get(inspection.id);
 
-  if (currentInspection && sameTimestamp(currentInspection.updatedAt, inspection.updatedAt)) {
+  if (
+    currentInspection &&
+    UNSAFE_STATUSES.includes(inspection.syncStatus) &&
+    sameTimestamp(currentInspection.updatedAt, inspection.updatedAt)
+  ) {
     await db.inspections.update(inspection.id, {
       syncStatus: 'synced',
       syncError: undefined,
@@ -219,6 +227,7 @@ async function markBundleSuccess(
   }
 
   for (const response of responses) {
+    if (!UNSAFE_STATUSES.includes(response.syncStatus)) continue;
     const current = await db.responses.get(response.id);
     if (current && sameTimestamp(current.updatedAt, response.updatedAt)) {
       await db.responses.update(response.id, {
@@ -233,6 +242,7 @@ async function markBundleSuccess(
   }
 
   for (const photo of photos) {
+    if (!UNSAFE_STATUSES.includes(photo.syncStatus)) continue;
     const current = await db.photos.get(photo.id);
     if (current && sameTimestamp(current.updatedAt, photo.updatedAt)) {
       await db.photos.update(photo.id, {
@@ -257,13 +267,16 @@ async function markBundleFailure(
   const nextStatus: SyncStatus = (inspection.syncAttempts || 0) + 1 >= 3 ? 'failed' : 'pending';
   const attempts = (inspection.syncAttempts || 0) + 1;
 
-  await db.inspections.update(inspection.id, {
-    syncStatus: nextStatus,
-    syncError: message,
-    syncAttempts: attempts,
-  });
+  if (UNSAFE_STATUSES.includes(inspection.syncStatus)) {
+    await db.inspections.update(inspection.id, {
+      syncStatus: nextStatus,
+      syncError: message,
+      syncAttempts: attempts,
+    });
+  }
 
   for (const response of responses) {
+    if (!UNSAFE_STATUSES.includes(response.syncStatus)) continue;
     const current = await db.responses.get(response.id);
     if (!current || current.syncStatus === 'conflict') continue;
     const responseAttempts = (current.syncAttempts || 0) + 1;
@@ -275,6 +288,7 @@ async function markBundleFailure(
   }
 
   for (const photo of photos) {
+    if (!UNSAFE_STATUSES.includes(photo.syncStatus)) continue;
     const current = await db.photos.get(photo.id);
     if (!current || current.syncStatus === 'conflict') continue;
     const photoAttempts = (current.syncAttempts || 0) + 1;
