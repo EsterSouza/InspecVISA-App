@@ -119,6 +119,52 @@ export function mapPhotoToPostgres(photo: InspectionPhoto): any {
   };
 }
 
+async function recoverMissingRemoteInspection(local: Inspection): Promise<void> {
+  const reason = 'Servidor nao encontrou a inspecao; reenfileirando dados locais para sincronizacao.';
+
+  const recoveredInspection = {
+    ...local,
+    syncStatus: 'pending' as const,
+    syncAttempts: 0,
+    syncError: reason,
+  };
+
+  await db.inspections.put(recoveredInspection);
+
+  const responses = await db.responses.where('inspectionId').equals(local.id).toArray();
+  for (const response of responses) {
+    if (response.syncStatus !== 'conflict') {
+      await db.responses.update(response.id, {
+        syncStatus: 'pending',
+        syncAttempts: 0,
+        syncError: reason,
+      });
+    }
+  }
+
+  const responseIds = responses.map(response => response.id);
+  if (responseIds.length > 0) {
+    const photos = await db.photos.where('responseId').anyOf(responseIds).toArray();
+    for (const photo of photos) {
+      if (photo.syncStatus !== 'conflict') {
+        await db.photos.update(photo.id, {
+          syncStatus: 'pending',
+          syncAttempts: 0,
+          syncError: reason,
+        });
+      }
+    }
+  }
+
+  if (!navigator.onLine) return;
+
+  const pushedInspection = await RepositoryService.pushToRemote('inspections', recoveredInspection, db.inspections, mapToPostgres);
+  if (!pushedInspection) return;
+
+  await RepositoryService.processBulkQueue('responses', db.responses, mapResponseToPostgres);
+  await RepositoryService.processQueue('photos', db.photos, mapPhotoToPostgres);
+}
+
 export const InspectionService = {
   mapToPostgres,
   mapResponseToPostgres,
@@ -154,11 +200,13 @@ export const InspectionService = {
           ]);
           const { data, error } = result as any;
 
-          // If server says record not found (404/PGRST116), stamp dataVerifiedAt
-          // so we stop retrying on every load — avoids infinite loop for ID mismatches
+          // If the server cannot see a local inspection, preserve the local tree
+          // and enqueue it again. Otherwise responses can remain orphaned in Dexie.
           if (error?.code === 'PGRST116') {
-            console.warn('[InspectionService] Record not found on server, stopping retry for:', id);
-            if (local) await db.inspections.update(id, { dataVerifiedAt: new Date() });
+            console.warn('[InspectionService] Record not found on server, recovering local inspection:', id);
+            if (local && !local.deletedAt) {
+              await recoverMissingRemoteInspection(local);
+            }
             return;
           }
 

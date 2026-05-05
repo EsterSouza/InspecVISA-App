@@ -77,6 +77,7 @@ export const SyncQueueService = {
     if (!session) return;
 
     try {
+      await this.cleanupStuckSyncing();
       const summary = await this.getQueueSummary();
       console.log(`[SyncQueue] Processing background sync (Pending: ${summary.pending}, Syncing: ${summary.syncing}, Failed: ${summary.failed})...`);
 
@@ -111,7 +112,7 @@ export const SyncQueueService = {
         .modify({ syncStatus: 'pending', syncAttempts: 0 });
     }
     console.log('[SyncQueue] ✅ Fila desbloqueada. Iniciando sincronização...');
-    this.processAll();
+    await this.processAll();
   },
 
   async keepLocalConflictsForInspection(inspectionId: string) {
@@ -172,6 +173,44 @@ export const SyncQueueService = {
       syncAttempts: 0,
       syncError: null
     });
+
+    await this.processAll();
+  },
+
+  async retryInspectionTree(inspectionId: string, reason = 'Reenfileirado para recuperar inspecao ausente no servidor.') {
+    const inspection = await db.inspections.get(inspectionId);
+    if (inspection && inspection.syncStatus !== 'conflict') {
+      await db.inspections.update(inspectionId, {
+        syncStatus: 'pending',
+        syncAttempts: 0,
+        syncError: reason
+      });
+    }
+
+    const responses = await db.responses.where('inspectionId').equals(inspectionId).toArray();
+    for (const response of responses) {
+      if (response.syncStatus !== 'conflict') {
+        await db.responses.update(response.id, {
+          syncStatus: 'pending',
+          syncAttempts: 0,
+          syncError: reason
+        });
+      }
+    }
+
+    const responseIds = responses.map(response => response.id);
+    if (responseIds.length > 0) {
+      const photos = await db.photos.where('responseId').anyOf(responseIds).toArray();
+      for (const photo of photos) {
+        if (photo.syncStatus !== 'conflict') {
+          await db.photos.update(photo.id, {
+            syncStatus: 'pending',
+            syncAttempts: 0,
+            syncError: reason
+          });
+        }
+      }
+    }
 
     await this.processAll();
   },

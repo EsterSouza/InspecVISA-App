@@ -29,6 +29,10 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
+.claude/
+
+# Local backup exports
+inspec-visa-backup-*.json
 
 # Local planning/context notes
 CONTEXTO_INSPECVISA.md
