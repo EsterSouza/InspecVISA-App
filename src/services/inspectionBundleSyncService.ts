@@ -292,10 +292,19 @@ export const InspectionBundleSyncService = {
       responses.forEach(response => inspectionIds.add(response.inspectionId));
     }
 
+    console.log(`[BundleSync] Candidate inspection bundles: ${inspectionIds.size}.`);
+
     let synced = 0;
     for (const inspectionId of inspectionIds) {
       const inspection = await db.inspections.get(inspectionId);
-      if (!inspection || inspection.syncStatus === 'conflict') continue;
+      if (!inspection) {
+        console.warn(`[BundleSync] Skipping bundle ${inspectionId}: local inspection not found.`);
+        continue;
+      }
+      if (inspection.syncStatus === 'conflict') {
+        console.warn(`[BundleSync] Skipping bundle ${inspectionId}: inspection is in conflict.`);
+        continue;
+      }
       const hasQueuedRoot = UNSAFE_STATUSES.includes(inspection.syncStatus);
       const queuedResponses = await db.responses
         .where('inspectionId')
@@ -312,9 +321,13 @@ export const InspectionBundleSyncService = {
           .count()
         : 0;
 
-      if (!hasQueuedRoot && queuedResponses === 0 && queuedPhotos === 0) continue;
+      if (!hasQueuedRoot && queuedResponses === 0 && queuedPhotos === 0) {
+        console.log(`[BundleSync] Skipping bundle ${inspectionId}: no queued local changes.`);
+        continue;
+      }
 
       try {
+        console.log(`[BundleSync] Sending inspection bundle ${inspectionId} (responses: ${queuedResponses}, photos: ${queuedPhotos}).`);
         await this.syncInspectionBundle(inspectionId);
         synced += 1;
       } catch (err) {

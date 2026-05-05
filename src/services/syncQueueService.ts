@@ -15,6 +15,7 @@ let isProcessing = false;
 let syncInterval: number | null = null;
 let lastSummary = { pending: 0, syncing: 0, conflict: 0, failed: 0 };
 type ConflictTable = 'inspections' | 'responses' | 'photos';
+type ProcessOptions = { force?: boolean };
 
 function tableForConflict(tableName: ConflictTable) {
   if (tableName === 'inspections') return db.inspections;
@@ -66,26 +67,46 @@ export const SyncQueueService = {
     }
   },
 
-  async processAll() {
-    if (isProcessing || !navigator.onLine) {
+  async processAll(options: ProcessOptions = {}) {
+    if (isProcessing && !options.force) {
+      console.warn('[SyncQueue] Sync already running; skipping overlapping cycle.');
       this.getQueueSummary();
       return;
     }
 
-    // LOCK: Ensure session is consolidated before background network calls
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+    if (!navigator.onLine) {
+      console.warn('[SyncQueue] Offline; sync postponed.');
+      this.getQueueSummary();
+      return;
+    }
+
+    if (isProcessing && options.force) {
+      console.warn('[SyncQueue] Force sync requested; releasing stale processing lock.');
+      isProcessing = false;
+    }
+
+    isProcessing = true;
 
     try {
+      // LOCK: Ensure session is consolidated before background network calls
+      const { data: { session } } = await RepositoryService.withTimeout(
+        supabase.auth.getSession(),
+        10000,
+        'SyncQueue_getSession'
+      );
+      if (!session) {
+        console.warn('[SyncQueue] No active session; sync postponed.');
+        return;
+      }
+
       await this.cleanupStuckSyncing();
       const summary = await this.getQueueSummary();
       console.log(`[SyncQueue] Processing background sync (Pending: ${summary.pending}, Syncing: ${summary.syncing}, Failed: ${summary.failed})...`);
 
-      isProcessing = true;
-
       // Process in order of dependency using Bulk strategy for light data
       await RepositoryService.processBulkQueue('clients', db.clients, ClientService.mapToPostgres);
-      await InspectionBundleSyncService.syncPendingInspectionBundles();
+      const bundleCount = await InspectionBundleSyncService.syncPendingInspectionBundles();
+      console.log(`[SyncQueue] Inspection bundle cycles completed: ${bundleCount}.`);
       await RepositoryService.processBulkQueue('schedules', db.schedules, ScheduleService.mapToPostgres);
 
       console.log('[SyncQueue] Sync completed.');
@@ -98,6 +119,10 @@ export const SyncQueueService = {
   },
 
   async retryFailed() {
+    if (isProcessing) {
+      console.warn('[SyncQueue] Releasing processing lock before forced retry.');
+      isProcessing = false;
+    }
     console.log('[SyncQueue] ⚠️ Iniciando reprocessamento forçado da fila...');
     const tables = [db.clients, db.inspections, db.responses, db.schedules, db.photos];
     for (const table of tables) {
@@ -108,7 +133,7 @@ export const SyncQueueService = {
         .modify({ syncStatus: 'pending', syncAttempts: 0 });
     }
     console.log('[SyncQueue] ✅ Fila desbloqueada. Iniciando sincronização...');
-    await this.processAll();
+    await this.processAll({ force: true });
   },
 
   async keepLocalConflictsForInspection(inspectionId: string) {
