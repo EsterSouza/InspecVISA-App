@@ -39,6 +39,12 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { ProfileSelection } from './pages/ProfileSelection';
 import { Login } from './pages/Login';
 
+const BOOT_DB_TIMEOUT_MS = 8000;
+const TEMPLATE_SYNC_DELAY_MS = 6000;
+const CLIENT_REPAIR_DELAY_MS = 9000;
+const SYNC_START_DELAY_MS = 1200;
+const REMOTE_RECONCILE_DELAY_MS = 12000;
+
 function App() {
   const [isInitializing, setIsInitializing] = useState(true);
   const theme = useSettingsStore((s) => s.settings.theme);
@@ -69,20 +75,20 @@ function App() {
       console.log('🚀 Iniciando InspecVISA Step 1/4: Auth...');
       // Step 1: Initialize auth (instant from cache if previously logged in)
       await useAuthStore.getState().initialize();
+      void useAuthStore.getState().checkSession().then((isAuthorized) => {
+        if (!isAuthorized && useAuthStore.getState().user) {
+          console.warn('[App] Session check failed, user state cleared');
+        }
+      }).catch((err) => {
+        console.warn('[App] Session check failed in background:', err);
+      });
 
       console.log('🚀 Iniciando InspecVISA Step 2/4: Database...');
       // Step 2: Load static templates immediately into Dexie (offline-safe)
       try {
-        // 1. Pre-flight session check (refreshes token if needed)
-        const isAuthorized = await useAuthStore.getState().checkSession();
-        if (!isAuthorized && useAuthStore.getState().user) {
-          console.warn('[App] Session check failed, user state cleared');
-        }
-
-        // 2. Initialize Database & Templates
         const staticTemplates = getTemplates();
         const dbPromise = initializeDatabase(staticTemplates);
-        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 20000));
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), BOOT_DB_TIMEOUT_MS));
         await Promise.race([dbPromise, timeoutPromise]);
       } catch (dbErr: unknown) {
         const error = dbErr as Error;
@@ -103,7 +109,8 @@ function App() {
       console.log('🚀 Iniciando InspecVISA Step 4/4: Background sync...');
       // Step 4: Fetch remote templates in background (non-blocking)
       if (navigator.onLine) {
-        void (async () => {
+        window.setTimeout(() => {
+          if (didCancel || !navigator.onLine) return;
           import('./services/templateService').then(async ({ TemplateService }) => {
             try {
               const queue = await SyncQueueService.getQueueSummary();
@@ -121,14 +128,39 @@ function App() {
               console.warn('[App] Remote templates fetch failed (non-fatal):', tErr);
             }
           }).catch(() => {});
-        })();
+        }, TEMPLATE_SYNC_DELAY_MS);
 
         // One-time repair: restore clients incorrectly soft-deleted by a previous bug
-        void (async () => {
+        window.setTimeout(() => {
+          void (async () => {
+            if (didCancel || !navigator.onLine) return;
+            try {
+              await ClientService.restoreSoftDeletedClientsFromRemote();
+            } catch { /* non-fatal */ }
+          })();
+        }, CLIENT_REPAIR_DELAY_MS);
+      }
+    };
+
+    const startBackgroundServices = async () => {
+      try {
+        await SyncQueueService.cleanupStuckSyncing();
+
+        window.setTimeout(() => {
+          if (didCancel) return;
           try {
-            await ClientService.restoreSoftDeletedClientsFromRemote();
-          } catch { /* non-fatal */ }
-        })();
+            SyncQueueService.start();
+          } catch (err) {
+            console.error('[App] Sync start error:', err);
+          }
+        }, SYNC_START_DELAY_MS);
+
+        window.setTimeout(() => {
+          if (didCancel || !navigator.onLine) return;
+          void reconcileCorruptedIds();
+        }, REMOTE_RECONCILE_DELAY_MS);
+      } catch (err) {
+        console.error('[App] Post-init sync error:', err);
       }
     };
 
@@ -143,20 +175,9 @@ function App() {
     initApp().catch((err) => {
       console.error('[App] Fatal init error:', err);
       if (!didCancel) setIsInitializing(false);
-    }).finally(async () => {
+    }).finally(() => {
       clearTimeout(safetyTimer);
-      try {
-        // 3. Clear stuck syncs from previous session
-        await SyncQueueService.cleanupStuckSyncing();
-        
-        // 4. Start background sync
-        SyncQueueService.start();
-
-        // 5. Reconcile any corrupted local IDs
-        await reconcileCorruptedIds();
-      } catch (err) {
-        console.error('[App] Post-init sync error:', err);
-      }
+      void startBackgroundServices();
     });
 
     // Warning before leaving with pending items

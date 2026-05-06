@@ -146,6 +146,10 @@ export function InspectionSummary() {
     return calculateScore(responses, displayTemplate.sections);
   }, [currentInspection, responses, displayTemplate]);
 
+  const isInspectionCompleted = currentInspection?.status === 'completed';
+  const isPdfFinalReady = Boolean(isInspectionCompleted && readiness?.isReady);
+  const needsProvisionalPdfNotice = Boolean(currentInspection && (!isInspectionCompleted || (readiness && !readiness.isReady)));
+
   useEffect(() => {
     if (currentInspection) {
       checkReportReadiness(currentInspection.id).then(setReadiness);
@@ -180,12 +184,20 @@ export function InspectionSummary() {
   };
 
   const handleGeneratePDF = async (opts: { selectedLegislations: string[]; signatureDataUrl?: string }) => {
-    if (!currentInspection || !displayTemplate || !scoreArea) return;
+    if (!currentInspection) return;
+    if (!displayTemplate || !scoreArea) {
+      alert('Nao foi possivel gerar o PDF porque o roteiro ou a pontuacao ainda nao carregou. Aguarde alguns segundos e tente novamente.');
+      return;
+    }
     const currentReadiness = await checkReportReadiness(currentInspection.id);
     setReadiness(currentReadiness);
     if (currentReadiness.conflictCount > 0) {
       alert('Existem conflitos abertos nesta inspeção. Resolva os conflitos antes de gerar o PDF.');
       return;
+    }
+    if (currentInspection.status !== 'completed') {
+      const ok = window.confirm('Esta inspecao ainda esta em andamento. Gerar um PDF de rascunho mesmo assim?');
+      if (!ok) return;
     }
     if (!currentReadiness.isReady) {
       const ok = window.confirm('Existem dados pendentes ou falhas de sincronização. Gerar PDF provisório mesmo assim?');
@@ -208,16 +220,27 @@ export function InspectionSummary() {
        );
     } catch (err) {
        console.error('PDF Error:', err);
-      alert('Erro ao gerar PDF. Verifique os dados e tente novamente.');
+      const message = err instanceof Error ? err.message : String(err);
+      alert(`Erro ao gerar PDF: ${message}`);
     } finally {
       setIsGenerating(false);
     }
   };
 
   const handleOpenPdfModal = () => {
+    if (!displayTemplate || !scoreArea) {
+      alert('Nao foi possivel preparar o PDF porque o roteiro ou a pontuacao ainda nao carregou. Aguarde alguns segundos e tente novamente.');
+      return;
+    }
+
     if (readiness?.conflictCount) {
       alert('Existem conflitos abertos nesta inspeção. Resolva os conflitos antes de gerar o PDF.');
       return;
+    }
+
+    if (currentInspection?.status !== 'completed') {
+      const ok = window.confirm('Esta inspecao ainda esta em andamento. O PDF sera um rascunho. Continuar?');
+      if (!ok) return;
     }
 
     if (readiness && !readiness.isReady) {
@@ -316,20 +339,20 @@ export function InspectionSummary() {
             </Button>
           </div>
           <div className="flex space-x-2 items-center">
-            {readiness && !readiness.isReady && (
+            {needsProvisionalPdfNotice && (
               <div className="text-[10px] text-amber-600 font-bold bg-amber-50 px-2 py-1 rounded-md border border-amber-100 hidden md:flex items-center gap-1">
                 <AlertTriangle size={10} />
-                Dados Pendentes (Offline)
+                PDF provisorio
               </div>
             )}
             <Button 
               onClick={handleOpenPdfModal} 
               disabled={isGenerating}
-              variant={readiness?.isReady ? 'default' : 'outline'}
-              className={!readiness?.isReady ? 'border-amber-200 text-amber-700' : ''}
+              variant={isPdfFinalReady ? 'default' : 'outline'}
+              className={!isPdfFinalReady ? 'border-amber-200 text-amber-700' : ''}
             >
               {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4 hidden sm:block" />}
-              {readiness?.isReady ? 'PDF Final' : 'PDF Provisório'}
+              {isPdfFinalReady ? 'PDF Final' : 'PDF Provisorio'}
             </Button>
           </div>
         </div>
@@ -424,6 +447,17 @@ export function InspectionSummary() {
         )}
 
         <InspectionIntegrityPanel inspectionId={currentInspection.id} />
+
+        {needsProvisionalPdfNotice && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <strong>PDF provisorio.</strong>
+            <p className="mt-1">
+              {isInspectionCompleted
+                ? 'Ainda existem dados pendentes de sincronizacao ou verificacao. O PDF final fica liberado quando a fila concluir.'
+                : 'Esta inspecao ainda esta em andamento. Voce pode gerar um rascunho para revisar, mas o PDF final fica para depois da finalizacao.'}
+            </p>
+          </div>
+        )}
 
         {!template && (
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
