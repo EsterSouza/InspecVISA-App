@@ -51,6 +51,10 @@ export interface InspectionIntegrityResult extends ReadinessResult {
   lastSyncConfirmedAt?: Date;
 }
 
+const READINESS_REMOTE_TIMEOUT_MS = 5000;
+const READINESS_REMOTE_RETRY_COOLDOWN_MS = 60 * 1000;
+const readinessRemoteFailures = new Map<string, { failedAt: number; message: string }>();
+
 export async function checkReportReadiness(inspectionId: string): Promise<ReadinessResult> {
   const inspection = await db.inspections.get(inspectionId);
   if (!belongsToActiveTenant(inspection)) throw new Error('Inspecao nao encontrada neste tenant.');
@@ -80,14 +84,21 @@ export async function checkReportReadiness(inspectionId: string): Promise<Readin
   const lastVerified = oldestVerified ? new Date(oldestVerified) : undefined;
   const isStale = !lastVerified || (Date.now() - lastVerified.getTime() > 5 * 60 * 1000);
 
+  const remoteFailure = readinessRemoteFailures.get(inspectionId);
+  const shouldTryRemote =
+    isStale &&
+    navigator.onLine &&
+    (!remoteFailure || Date.now() - remoteFailure.failedAt > READINESS_REMOTE_RETRY_COOLDOWN_MS);
+
   // 3. Try a quick direct fetch to verify if online (Header only)
-  if (isStale && navigator.onLine) {
+  if (shouldTryRemote) {
     try {
       const { data, error } = await withTimeout(
         supabase.from('inspections').select('updated_at').eq('id', inspectionId).single(),
-        5000,
+        READINESS_REMOTE_TIMEOUT_MS,
         `ReportReadiness_${inspectionId}`
       );
+      readinessRemoteFailures.delete(inspectionId);
       if (!error && data) {
          const remoteUpdate = new Date(data.updated_at);
          if (remoteUpdate > inspection.updatedAt) {
@@ -102,8 +113,13 @@ export async function checkReportReadiness(inspectionId: string): Promise<Readin
            };
          }
       }
-    } catch (e) {
-      console.warn('[SyncCheck] Failed to verify with server:', e);
+    } catch (e: any) {
+      const message = e?.message || String(e);
+      const previous = readinessRemoteFailures.get(inspectionId);
+      readinessRemoteFailures.set(inspectionId, { failedAt: Date.now(), message });
+      if (!previous || previous.message !== message) {
+        console.warn('[SyncCheck] Server verification unavailable; using local readiness for now:', message);
+      }
     }
   }
 

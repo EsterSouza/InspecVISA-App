@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle, Cloud, Eye, Image, RefreshCw, XCircle } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
@@ -22,23 +22,27 @@ export function InspectionIntegrityPanel({ inspectionId }: InspectionIntegrityPa
   const [loading, setLoading] = useState(true);
   const [retrying, setRetrying] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<IntegrityIssue | null>(null);
+  const refreshingRef = useRef(false);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
+    if (refreshingRef.current) return;
+    refreshingRef.current = true;
     try {
       const result = await getInspectionIntegrity(inspectionId);
       setIntegrity(result);
     } catch (err) {
       console.warn('[IntegrityPanel] Failed to load inspection integrity:', err);
     } finally {
+      refreshingRef.current = false;
       setLoading(false);
     }
-  };
+  }, [inspectionId]);
 
   useEffect(() => {
     void refresh();
-    const interval = window.setInterval(refresh, 5000);
+    const interval = window.setInterval(refresh, 30000);
     return () => clearInterval(interval);
-  }, [inspectionId]);
+  }, [refresh]);
 
   const retry = async () => {
     setRetrying(true);
