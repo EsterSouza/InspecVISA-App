@@ -1,6 +1,7 @@
 import React from 'react';
 import { Info, Users2, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { Card, CardContent } from '../ui/Card';
+import { calculateILPIStaffing } from '../../utils/ilpiStaffing';
 
 interface ILPIStaffCalculatorProps {
   level1: number;
@@ -95,8 +96,9 @@ export function ILPIStaffCalculator({
 
   // ─── Federal mode ─────────────────────────────────────────
   if (!isRJ) {
-    const req = calcFederal(level1, level2, level3);
-    const ok = currentCaregivers >= req.total;
+    const summary = calculateILPIStaffing({ level1, level2, level3, observedCaregivers: currentCaregivers, isRJ });
+    const req = summary.caregivers;
+    const ok = summary.caregiversOk;
     return (
       <Card className={ok ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}>
         <CardContent className="p-4 space-y-3">
@@ -140,11 +142,19 @@ export function ILPIStaffCalculator({
   }
 
   // ─── RJ mode ──────────────────────────────────────────────
-  const reqCare = calcRJCaregivers(level1, level2, level3);
-  const reqNurse = calcRJNursingTechs(level2, level3);
-  const careOk = currentCaregivers >= reqCare.total;
-  const nurseOk = currentNursingTechs >= reqNurse.total || reqNurse.total === 0;
-  const allOk = careOk && nurseOk;
+  const summary = calculateILPIStaffing({
+    level1,
+    level2,
+    level3,
+    observedCaregivers: currentCaregivers,
+    observedNursingTechs: currentNursingTechs,
+    isRJ,
+  });
+  const reqCare = summary.caregivers;
+  const reqNurse = summary.nursingTechs;
+  const careOk = summary.caregiversOk;
+  const nurseOk = summary.nursingTechsOk;
+  const allOk = summary.allOk;
 
   return (
     <div className="space-y-3">

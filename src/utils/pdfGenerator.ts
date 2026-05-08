@@ -5,6 +5,7 @@ import { FOOD_SEGMENT_LABELS } from '../types';
 import { classificationLabel, classificationColor, getLatestResponsesByItem } from './scoring';
 import { formatDate } from './imageUtils';
 import { enrichTemplate } from '../data/templates';
+import { calculateILPIStaffing } from './ilpiStaffing';
 
 /**
  * Extrai apenas a legislação BASE de um texto bruto de legislação,
@@ -157,6 +158,19 @@ export async function generatePDF(
   const secondaryColor: [number, number, number] = [45, 90, 142];
   const templateItemIds = new Set(template.sections.flatMap(section => section.items.map(item => item.id)));
   const reportResponses = getLatestResponsesByItem(responses, templateItemIds);
+  const isIlpiReport = template.category === 'ilpi' || inspection.clientCategory === 'ilpi';
+  const isRJInspection = ['RJ', 'RIO DE JANEIRO'].includes(String(inspection.state || '').toUpperCase());
+  const reportConsultants = isIlpiReport
+    ? [
+        { name: 'Ana Roberta Ribeiro', registration: 'CRN-RJ 10324' },
+        { name: 'Ester Caiafa', registration: 'COREN-RJ 759.561' },
+      ]
+    : [
+        {
+          name: inspection.consultantName || settings.name || '',
+          registration: settings.professionalId ? `${settings.professionalIdLabel || 'Registro'}: ${settings.professionalId}` : '',
+        },
+      ];
 
   async function drawPhotoGrid(photos: InspectionResponse['photos'], startY: number) {
     if (!photos || photos.length === 0) return startY;
@@ -276,7 +290,10 @@ export async function generatePDF(
   drawField('Estabelecimento:', inspection.clientName || '');
   drawField('Localização:', `${inspection.city || '—'} / ${inspection.state || '—'}`);
   drawField('Data da Visita:', formatDate(inspection.inspectionDate));
-  drawField('Consultora:', inspection.consultantName);
+  reportConsultants.forEach((consultant, index) => {
+    drawField(index === 0 ? (reportConsultants.length > 1 ? 'Consultoras:' : 'Consultora:') : '', consultant.name);
+    if (consultant.registration) drawField('', consultant.registration);
+  });
 
   if (inspection.clientCategory === 'alimentos' && inspection.foodTypes && inspection.foodTypes.length > 0) {
     const segments = inspection.foodTypes.map(ft => FOOD_SEGMENT_LABELS[ft] || ft).join(', ');
@@ -287,7 +304,7 @@ export async function generatePDF(
     drawField('Acompanhante:', `${inspection.accompanistName} ${inspection.accompanistRole ? `(${inspection.accompanistRole})` : ''}`);
   }
 
-  if (settings.professionalId) {
+  if (!isIlpiReport && settings.professionalId) {
     drawField(`${settings.professionalIdLabel || 'Registro'}:`, settings.professionalId);
   }
 
@@ -321,16 +338,24 @@ export async function generatePDF(
     const l1 = inspection.dependencyLevel1 || 0;
     const l2 = inspection.dependencyLevel2 || 0;
     const l3 = inspection.dependencyLevel3 || 0;
-    const isRJ = (inspection as any).state === 'RJ';
+    const staffing = calculateILPIStaffing({
+      level1: l1,
+      level2: l2,
+      level3: l3,
+      observedCaregivers: inspection.observedStaff || 0,
+      observedNursingTechs: inspection.observedNursingTechs || 0,
+      isRJ: isRJInspection,
+    });
+    const isRJ = isRJInspection;
 
     // RDC 502/2021 (federal): Grau I 1:20, Grau II 1:10, Grau III 1:6
-    const reqFederal = Math.ceil(l1 / 20 + l2 / 10 + l3 / 6);
+    const reqFederal = staffing.caregivers.total;
     // Lei 8.049/2018 (RJ específico): Grau I 1:20, Grau II 1:8, Grau III 1:5
-    const reqRJ = isRJ ? Math.ceil(l1 / 20 + l2 / 8 + l3 / 5) : 0;
+    const reqRJ = isRJ ? staffing.caregivers.total : 0;
     const maxReq = isRJ ? Math.max(reqFederal, reqRJ) : reqFederal;
 
-    const observed = (inspection as any).observedStaff || 0;
-    const isCompliant = observed >= maxReq;
+    const observed = staffing.observedCaregivers;
+    const isCompliant = staffing.allOk;
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
@@ -349,6 +374,11 @@ export async function generatePDF(
       ? 'Base legal: RDC 502/2021 e Lei 8.049/2018 (RJ)'
       : 'Base legal: RDC 502/2021';
     doc.text(`${baseLegal}. Status: ${isCompliant ? 'ADEQUADO' : 'INSUFICIENTE'}`, margin, y);
+    if (isRJInspection) {
+      y += 4;
+      const techStatus = staffing.nursingTechsOk ? 'ADEQUADO' : 'INSUFICIENTE';
+      doc.text(`Tecnicos de enfermagem: ${staffing.observedNursingTechs} em turno (minimo exigido: ${staffing.nursingTechs.total}). Status: ${techStatus}`, margin, y);
+    }
 
     y += 10;
   }
@@ -770,11 +800,14 @@ export async function generatePDF(
   doc.setDrawColor(200, 200, 200);
   doc.line(margin, y, margin + 80, y);
   y += 5;
-  doc.text(settings.name, margin, y);
-  if (settings.professionalId) {
+  reportConsultants.forEach((consultant) => {
+    doc.text(consultant.name, margin, y);
+    if (consultant.registration) {
+      y += 5;
+      doc.text(consultant.registration, margin, y);
+    }
     y += 5;
-    doc.text(`${settings.professionalIdLabel || 'Registro'}: ${settings.professionalId}`, margin, y);
-  }
+  });
 
   // Add footers
   const totalPages = (doc.internal as any).getNumberOfPages();
@@ -810,12 +843,14 @@ export async function generatePDF(
     doc.text('Consultora Responsável:', sigMargin, sigY);
     sigY += 7;
     doc.setFont('helvetica', 'normal');
-    doc.text(inspection.consultantName || '', sigMargin, sigY);
-    sigY += 5;
-    if (settings.professionalId) {
-      doc.text(`${settings.professionalIdLabel || 'Registro'}: ${settings.professionalId}`, sigMargin, sigY);
+    reportConsultants.forEach((consultant) => {
+      doc.text(consultant.name || '', sigMargin, sigY);
       sigY += 5;
-    }
+      if (consultant.registration) {
+        doc.text(consultant.registration, sigMargin, sigY);
+        sigY += 5;
+      }
+    });
     sigY += 10;
 
     // Signature image box

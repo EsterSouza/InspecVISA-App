@@ -614,7 +614,7 @@ export function InspectionExecution() {
                     <div className="space-y-4 mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-100">
                       <div className="flex items-center justify-between">
                         <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Dimensionamento ILPI</label>
-                        {currentInspection.state === 'RJ' && (
+                        {['RJ', 'RIO DE JANEIRO'].includes((currentInspection.state || '').toUpperCase()) && (
                           <Badge variant="outline" className="text-[10px] border-blue-200 text-blue-600 bg-blue-50 font-bold">
                             Rio de Janeiro (Lei 8.049/18)
                           </Badge>
@@ -635,7 +635,7 @@ export function InspectionExecution() {
                           </div>
                         ))}
                       </div>
-                      <div className="grid grid-cols-2 gap-4 pb-4 border-b border-slate-200">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-4 border-b border-slate-200">
                         <div>
                           <span className="text-[10px] text-primary-600 font-bold block mb-1 uppercase tracking-tight">Equipe Cuidadores Atual</span>
                           <input
@@ -667,7 +667,7 @@ export function InspectionExecution() {
                         level3={currentInspection.dependencyLevel3 || 0}
                         currentCaregivers={currentInspection.observedStaff || 0}
                         currentNursingTechs={currentInspection.observedNursingTechs || 0}
-                        isRJ={currentInspection.state === 'RJ'}
+                        isRJ={['RJ', 'RIO DE JANEIRO'].includes((currentInspection.state || '').toUpperCase())}
                       />
                     </div>
                   )}

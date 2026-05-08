@@ -499,6 +499,31 @@ export function InspectionSummary() {
 
               {currentInspection.clientCategory === 'ilpi' && (
                 <div className="pt-4 border-t border-primary-100 space-y-3">
+                  <p className="text-[10px] font-bold text-primary-700 uppercase">Dados Tecnicos ILPI</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-gray-500 font-semibold uppercase">Capacidade</label>
+                      <input
+                        type="number"
+                        id="ilpiCapacity"
+                        name="ilpiCapacity"
+                        value={currentInspection.ilpiCapacity || 0}
+                        onChange={(e) => setInspection({...currentInspection, ilpiCapacity: parseInt(e.target.value) || 0})}
+                        className="w-full border-gray-300 rounded-lg text-sm shadow-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-gray-500 font-semibold uppercase">Numero de Residentes</label>
+                      <input
+                        type="number"
+                        id="residentsTotal"
+                        name="residentsTotal"
+                        value={currentInspection.residentsTotal || 0}
+                        onChange={(e) => setInspection({...currentInspection, residentsTotal: parseInt(e.target.value) || 0})}
+                        className="w-full border-gray-300 rounded-lg text-sm shadow-sm"
+                      />
+                    </div>
+                  </div>
                   <p className="text-[10px] font-bold text-primary-700 uppercase">Residentes por Grau de Dependência</p>
                   <div className="grid grid-cols-3 gap-3">
                     <div className="space-y-1">
@@ -534,6 +559,33 @@ export function InspectionSummary() {
                         className="w-full border-gray-300 rounded-lg text-sm shadow-sm"
                       />
                     </div>
+                  </div>
+                  <p className="text-[10px] font-bold text-primary-700 uppercase">Equipe em Turno</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-gray-500 font-semibold uppercase">Cuidadores / Colaboradores</label>
+                      <input
+                        type="number"
+                        id="observedStaff"
+                        name="observedStaff"
+                        value={currentInspection.observedStaff || 0}
+                        onChange={(e) => setInspection({...currentInspection, observedStaff: parseInt(e.target.value) || 0})}
+                        className="w-full border-gray-300 rounded-lg text-sm shadow-sm"
+                      />
+                    </div>
+                    {['RJ', 'RIO DE JANEIRO'].includes((currentInspection.state || '').toUpperCase()) && (
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-gray-500 font-semibold uppercase">Tecnicos de Enfermagem</label>
+                        <input
+                          type="number"
+                          id="observedNursingTechs"
+                          name="observedNursingTechs"
+                          value={currentInspection.observedNursingTechs || 0}
+                          onChange={(e) => setInspection({...currentInspection, observedNursingTechs: parseInt(e.target.value) || 0})}
+                          className="w-full border-gray-300 rounded-lg text-sm shadow-sm"
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

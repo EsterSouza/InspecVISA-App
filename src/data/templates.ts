@@ -8,6 +8,7 @@
 import type { ChecklistTemplate, Client } from '../types';
 import { templateIlpiGoiasSuplement } from './templates-ilpi-goias-supplement';
 import { templateIlpiBeloHorizonteSupplement } from './Roteiro_ILPI_BH';
+import { templateIlpiRioDeJaneiroSupplement } from './Roteiro_ILPI_RJ';
 import { templateIlpiGoias } from './templates_ilpi_go';
 import { alimentosTemplates } from './templates_alimentos';
 import { getExtraSections } from './templates_alimentos_segmentos';
@@ -562,6 +563,11 @@ function isBeloHorizonteClient(client: Client): boolean {
   return (state === 'mg' || state === 'minas gerais') && city.includes('belo horizonte');
 }
 
+function isRioDeJaneiroStateClient(client: Client): boolean {
+  const state = normalizeLocation(client.state);
+  return state === 'rj' || state === 'rio de janeiro';
+}
+
 function isIlpiFederalTemplate(template: ChecklistTemplate): boolean {
   // 1. Match by static ID (bundled template)
   if (template.id === 'tpl-ilpi-federal-v1') return true;
@@ -633,6 +639,11 @@ export function getEffectiveTemplate(
   if (isIlpiFederalTemplate(baseTemplate) && isBeloHorizonteClient(client)) {
     applySupplement(effective, templateIlpiBeloHorizonteSupplement);
     effective.name = `${baseTemplate.name} (+ Suplemento BH)`;
+  }
+
+  if (isIlpiFederalTemplate(baseTemplate) && isRioDeJaneiroStateClient(client)) {
+    applySupplement(effective, templateIlpiRioDeJaneiroSupplement);
+    effective.name = `${baseTemplate.name} (+ Suplemento RJ)`;
   }
 
   // 3. Apply Food Segment Filtering (Alimentos)
