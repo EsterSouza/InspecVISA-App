@@ -2,7 +2,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { Inspection, InspectionResponse, ChecklistTemplate, InspectionScore, ConsultantSettings, FoodEstablishmentType } from '../types';
 import { FOOD_SEGMENT_LABELS } from '../types';
-import { classificationLabel, classificationColor } from './scoring';
+import { classificationLabel, classificationColor, getLatestResponsesByItem } from './scoring';
 import { formatDate } from './imageUtils';
 import { enrichTemplate } from '../data/templates';
 
@@ -155,6 +155,8 @@ export async function generatePDF(
   const contentW = pageW - margin * 2;
   const primaryColor: [number, number, number] = [20, 40, 80]; // Navy Blue 
   const secondaryColor: [number, number, number] = [45, 90, 142];
+  const templateItemIds = new Set(template.sections.flatMap(section => section.items.map(item => item.id)));
+  const reportResponses = getLatestResponsesByItem(responses, templateItemIds);
 
   async function drawPhotoGrid(photos: InspectionResponse['photos'], startY: number) {
     if (!photos || photos.length === 0) return startY;
@@ -443,7 +445,7 @@ export async function generatePDF(
   y += 8;
 
   const allItemsList = template.sections.flatMap(s => s.items);
-  const nonCompliantItems = responses.filter(r => r.result === 'not_complies');
+  const nonCompliantItems = reportResponses.filter(r => r.result === 'not_complies');
 
   // ── ACTION PLAN SORTING LOGIC ──
   // 1. Sort by Deadline (Immediate > 7 > 15 > 30 > 60 > 90)
@@ -660,7 +662,7 @@ export async function generatePDF(
   }
 
   // ── PAGES: EXCELÊNCIA E MELHORIAS ──────────────────────
-  const excellenceItems = responses.filter(r =>
+  const excellenceItems = reportResponses.filter(r =>
     r.result === 'complies' && (r.situationDescription || r.correctiveAction || (r.photos && r.photos.length > 0))
   );
 
@@ -885,8 +887,10 @@ function drawReferencesABNT(
     uniqueRefs = [...selectedLegislations].sort();
   } else {
     // Auto-extract from template items using the smart extractor
-    const evaluatedItemIds = new Set(responses.map(r => r.itemId));
     const allItems = template.sections.flatMap(s => s.items);
+    const itemIds = new Set(allItems.map(item => item.id));
+    const latestResponses = getLatestResponsesByItem(responses, itemIds);
+    const evaluatedItemIds = new Set(latestResponses.map(r => r.itemId));
     const mentionedSet = new Set<string>();
 
     allItems.forEach(item => {

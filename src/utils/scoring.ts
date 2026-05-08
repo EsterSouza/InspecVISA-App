@@ -52,6 +52,29 @@ function calcMARPValues(items: ChecklistItem[], responseMap: Map<string, Inspect
   return { ic, inc, cr, rp };
 }
 
+function responseTime(response: InspectionResponse) {
+  return response.updatedAt?.getTime?.() || response.createdAt?.getTime?.() || 0;
+}
+
+export function getLatestResponsesByItem(
+  responses: InspectionResponse[],
+  itemIds?: Set<string>
+): InspectionResponse[] {
+  const byItemId = new Map<string, InspectionResponse>();
+
+  for (const response of responses) {
+    if (!response?.itemId || response.deletedAt) continue;
+    if (itemIds && !itemIds.has(response.itemId)) continue;
+
+    const current = byItemId.get(response.itemId);
+    if (!current || responseTime(response) >= responseTime(current)) {
+      byItemId.set(response.itemId, response);
+    }
+  }
+
+  return Array.from(byItemId.values());
+}
+
 /**
  * Main score calculation for the entire inspection
  */
@@ -61,7 +84,7 @@ export function calculateScore(responses: InspectionResponse[], sections: Sectio
   
   // ISOLATION: Only consider responses for items that exist in the CURRENT template sections
   // This avoids "ghost" responses from other templates or versions.
-  const relevantResponses = responses.filter((r: InspectionResponse) => r && r.itemId && itemIds.has(r.itemId));
+  const relevantResponses = getLatestResponsesByItem(responses, itemIds);
 
   const responseMap = new Map<string, InspectionResponse>(
     relevantResponses.map((r: InspectionResponse) => [r.itemId, r] as [string, InspectionResponse])
@@ -86,7 +109,7 @@ export function calculateScore(responses: InspectionResponse[], sections: Sectio
   
   // X / Y where X is the count of items with ANY definitive answer (C, NC, NA, NO)
   const evaluatedCount = evaluatedResponses.length;
-  const notEvaluatedCount = totalItemsCount - evaluatedCount;
+  const notEvaluatedCount = Math.max(0, totalItemsCount - evaluatedCount);
 
   // Bug 2: scorePercentage denominator = only items that ARE C or NC (exclude NA/NO/Unanswered)
   const scoreDenominator = compliesCount + notCompliesCount;
@@ -186,4 +209,3 @@ export function classificationColor(c: ScoreClassification): string {
     excellent: '#22C55E', // Green
   }[c];
 }
-

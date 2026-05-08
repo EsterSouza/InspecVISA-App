@@ -54,10 +54,14 @@ export async function checkReportReadiness(inspectionId: string): Promise<Readin
   const inspection = await db.inspections.get(inspectionId);
   if (!belongsToActiveTenant(inspection)) throw new Error('Inspecao nao encontrada neste tenant.');
 
-  const responses = filterByActiveTenant(await db.responses.where('inspectionId').equals(inspectionId).toArray());
+  const responses = filterByActiveTenant(await db.responses
+    .where('inspectionId')
+    .equals(inspectionId)
+    .filter(r => !r.deletedAt)
+    .toArray());
   const responseIds = responses.map(r => r.id);
   const photos = responseIds.length > 0
-    ? filterByActiveTenant(await db.photos.where('responseId').anyOf(responseIds).toArray())
+    ? filterByActiveTenant(await db.photos.where('responseId').anyOf(responseIds).filter(p => !p.deletedAt).toArray())
     : [];
   
   // 1. Check for non-synced items

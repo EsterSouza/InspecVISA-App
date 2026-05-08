@@ -6,7 +6,7 @@ import { InspectionService } from '../services/inspectionService';
 import { InspectionBundleSyncService } from '../services/inspectionBundleSyncService';
 import { LegislationService, type Legislation } from '../services/legislationService';
 import { getTemplateById, enrichTemplate } from '../data/templates';
-import { calculateScore, classificationColor } from '../utils/scoring';
+import { calculateScore, classificationColor, getLatestResponsesByItem } from '../utils/scoring';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { db } from '../db/database';
 import type { Inspection, InspectionResponse, ChecklistTemplate } from '../types';
@@ -194,6 +194,17 @@ export function InspectionSummary() {
     return calculateScore(responses, displayTemplate.sections);
   }, [currentInspection, responses, displayTemplate]);
 
+  const reportResponses = useMemo(() => {
+    if (!displayTemplate) return responses.filter(response => !response.deletedAt);
+    const itemIds = new Set(displayTemplate.sections.flatMap(section => section.items.map(item => item.id)));
+    return getLatestResponsesByItem(responses, itemIds);
+  }, [displayTemplate, responses]);
+
+  const nonCompliantResponses = useMemo(
+    () => reportResponses.filter(response => response.result === 'not_complies'),
+    [reportResponses]
+  );
+
   const isInspectionCompleted = currentInspection?.status === 'completed';
   const isPdfFinalReady = Boolean(isInspectionCompleted && readiness?.isReady);
   const needsProvisionalPdfNotice = Boolean(currentInspection && (!isInspectionCompleted || (readiness && !readiness.isReady)));
@@ -254,8 +265,8 @@ export function InspectionSummary() {
     setIsGenerating(true);
     setPdfPhotoProgress(null);
     try {
-       let pdfResponses = responses;
-       const responseIds = responses.map(response => response.id);
+       let pdfResponses = reportResponses;
+       const responseIds = reportResponses.map(response => response.id);
        if (navigator.onLine && responseIds.length > 0) {
          const hydration = await InspectionService.hydratePhotosByResponseIds(responseIds, {
            forceRefresh: true,
@@ -266,7 +277,7 @@ export function InspectionSummary() {
          });
 
          if (hydration.total > 0) {
-           pdfResponses = attachPhotosToResponses(responses, hydration.photos);
+           pdfResponses = attachPhotosToResponses(reportResponses, hydration.photos);
            setResponses(pdfResponses);
          }
 
@@ -279,7 +290,11 @@ export function InspectionSummary() {
        }
 
        if (currentInspection.status === 'completed' && currentReadiness.isReady && navigator.onLine) {
-         await InspectionBundleSyncService.syncInspectionBundle(currentInspection.id, { finalizeReport: true });
+         try {
+           await InspectionBundleSyncService.syncInspectionBundle(currentInspection.id, { finalizeReport: true });
+         } catch (err) {
+           console.warn('[Summary] Final report snapshot sync failed; generating local PDF anyway:', err);
+         }
        }
        await new Promise(resolve => setTimeout(resolve, 100));
        const { generatePDF } = await import('../utils/pdfGenerator');
@@ -359,7 +374,7 @@ export function InspectionSummary() {
         <div className="mx-auto max-w-4xl p-6 space-y-6 flex-1 overflow-y-auto">
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-amber-800 text-sm">
             <strong>⚠️ Roteiro original não encontrado</strong>
-            <p className="mt-1">O modelo de inspeção usado neste relatório não está disponível neste dispositivo. Os dados brutos foram preservados ({responses.length} respostas registradas).</p>
+            <p className="mt-1">O modelo de inspeção usado neste relatório não está disponível neste dispositivo. Os dados brutos foram preservados ({reportResponses.length} respostas registradas).</p>
           </div>
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center">
             <h1 className="text-2xl font-extrabold text-gray-900">{currentInspection?.clientName || 'Inspeção'}</h1>
@@ -367,15 +382,15 @@ export function InspectionSummary() {
             <p className="text-sm text-gray-400 mt-1 mb-6">Concluída em {formatDateTime(currentInspection?.completedAt || currentInspection?.createdAt || new Date())}</p>
             <div className="grid grid-cols-3 gap-4 max-w-sm mx-auto">
               <div className="bg-green-50 rounded-xl p-4 text-center">
-                <p className="text-2xl font-bold text-green-700">{responses.filter(r => r.result === 'complies').length}</p>
+                <p className="text-2xl font-bold text-green-700">{reportResponses.filter(r => r.result === 'complies').length}</p>
                 <p className="text-xs text-green-600 font-semibold mt-1">Cumpre</p>
               </div>
               <div className="bg-red-50 rounded-xl p-4 text-center">
-                <p className="text-2xl font-bold text-red-700">{responses.filter(r => r.result === 'not_complies').length}</p>
+                <p className="text-2xl font-bold text-red-700">{nonCompliantResponses.length}</p>
                 <p className="text-xs text-red-600 font-semibold mt-1">Não Cumpre</p>
               </div>
               <div className="bg-gray-50 rounded-xl p-4 text-center">
-                <p className="text-2xl font-bold text-gray-700">{responses.length}</p>
+                <p className="text-2xl font-bold text-gray-700">{reportResponses.length}</p>
                 <p className="text-xs text-gray-500 font-semibold mt-1">Total</p>
               </div>
             </div>
@@ -557,7 +572,7 @@ export function InspectionSummary() {
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
             <strong>Roteiro original indisponível.</strong>
             <p className="mt-1">
-              O relatório foi aberto em modo recuperação com {responses.length} respostas/fotos locais. Não limpe o cache.
+              O relatório foi aberto em modo recuperação com {reportResponses.length} respostas/fotos locais. Não limpe o cache.
             </p>
           </div>
         )}
@@ -570,18 +585,17 @@ export function InspectionSummary() {
           </div>
           
           <div className="p-6 sm:p-8 bg-gray-50 space-y-8">
-            <ScorePanel inspection={currentInspection} responses={responses} template={displayTemplate} />
+            <ScorePanel inspection={currentInspection} responses={reportResponses} template={displayTemplate} />
 
             {/* List of Non-Conformities */}
             <div className="space-y-4">
               <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 text-red-500" />
-                Ações Corretivas Necessárias ({responses.filter(r => r.result === 'not_complies').length})
+                Ações Corretivas Necessárias ({nonCompliantResponses.length})
               </h3>
               
               <div className="space-y-3">
-                {responses
-                  .filter(r => r.result === 'not_complies')
+                {nonCompliantResponses
                   .map((nc) => {
                     const it = displayTemplate?.sections.flatMap(s => s.items).find(i => i.id === nc.itemId);
                     return (
@@ -635,7 +649,7 @@ export function InspectionSummary() {
                     );
                   })}
                 
-                {responses.filter(r => r.result === 'not_complies').length === 0 && (
+                {nonCompliantResponses.length === 0 && (
                   <div className="py-12 text-center bg-white rounded-xl border border-dashed border-gray-200">
                     <p className="text-gray-400 text-sm">Nenhuma não conformidade registrada.</p>
                   </div>
@@ -654,7 +668,7 @@ export function InspectionSummary() {
           open={showPdfModal}
           onClose={() => setShowPdfModal(false)}
           template={displayTemplate}
-          responses={responses}
+          responses={reportResponses}
           onGenerate={handleGeneratePDF}
           isGenerating={isGenerating}
           progressLabel={pdfPhotoProgress ? `Fotos ${pdfPhotoProgress.completed + pdfPhotoProgress.failed}/${pdfPhotoProgress.total}` : undefined}
