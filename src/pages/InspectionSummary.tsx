@@ -38,6 +38,50 @@ export function InspectionSummary() {
   const [isEditing, setIsEditing] = useState(false);
   const [savingMeta, setSavingMeta] = useState(false);
   const [readiness, setReadiness] = useState<ReadinessResult | null>(null);
+  const [photoHydration, setPhotoHydration] = useState<{ total: number; completed: number; failed: number } | null>(null);
+  const [pdfPhotoProgress, setPdfPhotoProgress] = useState<{ total: number; completed: number; failed: number } | null>(null);
+
+  const attachPhotosToResponses = (baseResponses: InspectionResponse[], photos: any[]) => {
+    return baseResponses.map(response => ({
+      ...response,
+      photos: photos.filter(photo => photo.responseId === response.id),
+    }));
+  };
+
+  const mergePhotosIntoResponses = (photos: any[]) => {
+    if (photos.length === 0) return;
+
+    setResponses(current => current.map(response => {
+      const incoming = photos.filter(photo => photo.responseId === response.id);
+      if (incoming.length === 0) return response;
+
+      const byId = new Map((response.photos || []).map(photo => [photo.id, photo]));
+      for (const photo of incoming) byId.set(photo.id, photo);
+      return { ...response, photos: Array.from(byId.values()) };
+    }));
+  };
+
+  const hydratePhotosInBackground = (responseIds: string[]) => {
+    if (responseIds.length === 0 || !navigator.onLine) return;
+
+    void InspectionService.hydratePhotosByResponseIds(responseIds, {
+      onProgress: (progress, photo) => {
+        setPhotoHydration(progress.total > 0 ? progress : null);
+        if (photo) mergePhotosIntoResponses([photo]);
+      },
+    }).then(result => {
+      mergePhotosIntoResponses(result.photos);
+      setPhotoHydration(result.total > 0 ? {
+        total: result.total,
+        completed: result.completed,
+        failed: result.failed,
+      } : null);
+      window.setTimeout(() => setPhotoHydration(null), 2500);
+    }).catch(err => {
+      console.warn('[Summary] Photo hydration failed:', err);
+      setPhotoHydration(null);
+    });
+  };
 
   useEffect(() => {
     const inspectionId = location.state?.inspectionId;
@@ -59,18 +103,17 @@ export function InspectionSummary() {
             .where('inspectionId').equals(inspectionId)
             .filter(r => !r.deletedAt)
             .toArray());
-          const localPhotos = await InspectionService.getPhotosByResponseIds(localResps.map(r => r.id));
-          for (const r of localResps) {
-            r.photos = localPhotos.filter(p => p.responseId === r.id);
-          }
+          const localPhotos = await InspectionService.getPhotosByResponseIds(localResps.map(r => r.id), false, { remote: false });
+          const localWithPhotos = attachPhotosToResponses(localResps, localPhotos);
 
           let tpl: ChecklistTemplate | undefined = await db.templates.get(localInsp.templateId);
           if (!tpl) tpl = getTemplateById(localInsp.templateId) as any;
 
           setInspection(localInsp);
-          setResponses(localResps);
+          setResponses(localWithPhotos);
           if (tpl) setTemplate(enrichTemplate(tpl, localInsp as any) as any);
           setLoading(false); // ← unblock UI immediately
+          hydratePhotosInBackground(localResps.map(r => r.id));
         }
 
         // ── PHASE 2: Background enrichment from Supabase ───────────────────
@@ -93,13 +136,16 @@ export function InspectionSummary() {
 
             const clients = await ClientService.getClients();
             setAllClients(clients);
+            setInspection(insp);
 
             // Responses
             const remoteResps = await InspectionService.getResponsesByInspectionId(inspectionId, true);
+            const localPhotosForRemote = await InspectionService.getPhotosByResponseIds(remoteResps.map(r => r.id), false, { remote: false });
+            setResponses(attachPhotosToResponses(remoteResps, localPhotosForRemote));
+            setLoading(false);
+
             const remotePhotos = await InspectionService.getPhotosByResponseIds(remoteResps.map(r => r.id), true);
-            for (const r of remoteResps) {
-              r.photos = remotePhotos.filter(p => p.responseId === r.id);
-            }
+            const remoteWithPhotos = attachPhotosToResponses(remoteResps, remotePhotos);
 
             // Template (static → Dexie → Supabase)
             let tpl: ChecklistTemplate | undefined | null = await db.templates.get(insp.templateId);
@@ -118,7 +164,8 @@ export function InspectionSummary() {
 
             setInspection(insp);
             if (remoteResps && remoteResps.length > 0) {
-              setResponses(remoteResps);
+              setResponses(remoteWithPhotos);
+              hydratePhotosInBackground(remoteResps.map(r => r.id));
             }
             setLegislations(legs);
             setTemplate(tpl ? enrichTemplate(tpl, client || (insp as any)) as any : null);
@@ -206,14 +253,39 @@ export function InspectionSummary() {
       if (!ok) return;
     }
     setIsGenerating(true);
+    setPdfPhotoProgress(null);
     try {
+       let pdfResponses = responses;
+       const responseIds = responses.map(response => response.id);
+       if (navigator.onLine && responseIds.length > 0) {
+         const hydration = await InspectionService.hydratePhotosByResponseIds(responseIds, {
+           forceRefresh: true,
+           onProgress: (progress, photo) => {
+             setPdfPhotoProgress(progress.total > 0 ? progress : null);
+             if (photo) mergePhotosIntoResponses([photo]);
+           },
+         });
+
+         if (hydration.total > 0) {
+           pdfResponses = attachPhotosToResponses(responses, hydration.photos);
+           setResponses(pdfResponses);
+         }
+
+         if (hydration.failed > 0) {
+           const ok = window.confirm(
+             `Nao foi possivel baixar ${hydration.failed} foto(s) para este dispositivo agora. Gerar o PDF sem essas imagens? Cancele para tentar novamente depois.`
+           );
+           if (!ok) return;
+         }
+       }
+
        if (currentInspection.status === 'completed' && currentReadiness.isReady && navigator.onLine) {
          await InspectionBundleSyncService.syncInspectionBundle(currentInspection.id, { finalizeReport: true });
        }
        await new Promise(resolve => setTimeout(resolve, 100));
        await generatePDF(
          currentInspection,
-         responses,
+         pdfResponses,
          displayTemplate,
          scoreArea,
          settings as any,
@@ -226,6 +298,7 @@ export function InspectionSummary() {
       alert(`Erro ao gerar PDF: ${message}`);
     } finally {
       setIsGenerating(false);
+      setPdfPhotoProgress(null);
     }
   };
 
@@ -354,7 +427,9 @@ export function InspectionSummary() {
               className={!isPdfFinalReady ? 'border-amber-200 text-amber-700' : ''}
             >
               {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4 hidden sm:block" />}
-              {isPdfFinalReady ? 'PDF Final' : 'PDF Provisorio'}
+              {pdfPhotoProgress
+                ? `Fotos ${pdfPhotoProgress.completed + pdfPhotoProgress.failed}/${pdfPhotoProgress.total}`
+                : isPdfFinalReady ? 'PDF Final' : 'PDF Provisorio'}
             </Button>
           </div>
         </div>
@@ -458,6 +533,23 @@ export function InspectionSummary() {
                 ? 'Ainda existem dados pendentes de sincronizacao ou verificacao. O PDF final fica liberado quando a fila concluir.'
                 : 'Esta inspecao ainda esta em andamento. Voce pode gerar um rascunho para revisar, mas o PDF final fica para depois da finalizacao.'}
             </p>
+          </div>
+        )}
+
+        {photoHydration && (
+          <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+            <strong>Carregando fotos em segundo plano.</strong>
+            <p className="mt-1">
+              Fotos baixadas: {photoHydration.completed + photoHydration.failed} de {photoHydration.total}
+              {photoHydration.failed > 0 ? ` (${photoHydration.failed} com falha temporaria)` : ''}.
+            </p>
+          </div>
+        )}
+
+        {pdfPhotoProgress && (
+          <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+            <strong>Preparando fotos para o PDF.</strong>
+            <p className="mt-1">Baixando fotos {pdfPhotoProgress.completed + pdfPhotoProgress.failed} de {pdfPhotoProgress.total}.</p>
           </div>
         )}
 
@@ -565,6 +657,7 @@ export function InspectionSummary() {
           responses={responses}
           onGenerate={handleGeneratePDF}
           isGenerating={isGenerating}
+          progressLabel={pdfPhotoProgress ? `Fotos ${pdfPhotoProgress.completed + pdfPhotoProgress.failed}/${pdfPhotoProgress.total}` : undefined}
         />
       )}
     </div>

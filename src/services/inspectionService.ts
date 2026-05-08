@@ -4,8 +4,25 @@ import { db } from '../db/database';
 import { RepositoryService } from './repositoryService';
 import { withLocalActor } from '../utils/localActor';
 import { belongsToActiveTenant, filterByActiveTenant } from '../utils/localScope';
+import { withTimeout } from '../utils/network';
 
 const PHOTO_BUCKET = 'inspection-photos';
+const PHOTO_DOWNLOAD_TIMEOUT_MS = 20000;
+const PHOTO_DOWNLOAD_CONCURRENCY = 2;
+
+export interface PhotoHydrationProgress {
+  total: number;
+  completed: number;
+  failed: number;
+  currentPhotoId?: string;
+}
+
+export interface PhotoHydrationResult {
+  photos: InspectionPhoto[];
+  total: number;
+  completed: number;
+  failed: number;
+}
 
 function isInlineDataUrl(value?: string | null): value is string {
   return /^data:image\/(jpeg|jpg|png|webp);base64,/i.test(value || '');
@@ -13,6 +30,10 @@ function isInlineDataUrl(value?: string | null): value is string {
 
 function storagePathFromDataUrl(value?: string | null) {
   return value?.startsWith('storage://') ? value.slice('storage://'.length) : undefined;
+}
+
+function canHydratePhoto(photo: InspectionPhoto) {
+  return Boolean(!isInlineDataUrl(photo.dataUrl) && (photo.storagePath || storagePathFromDataUrl(photo.dataUrl)));
 }
 
 function blobToDataUrl(blob: Blob): Promise<string> {
@@ -157,18 +178,25 @@ export function mapPhotoFromPostgres(row: any): InspectionPhoto {
   };
 }
 
-async function hydrateStoragePhoto(photo: InspectionPhoto): Promise<InspectionPhoto> {
+async function hydrateStoragePhoto(photo: InspectionPhoto, timeoutMs = PHOTO_DOWNLOAD_TIMEOUT_MS): Promise<InspectionPhoto> {
   if (isInlineDataUrl(photo.dataUrl)) return photo;
 
   const storagePath = photo.storagePath || storagePathFromDataUrl(photo.dataUrl);
   if (!storagePath) return photo;
 
-  const { data, error } = await supabase.storage
-    .from(PHOTO_BUCKET)
-    .download(storagePath);
+  const { data, error } = await withTimeout(
+    supabase.storage.from(PHOTO_BUCKET).download(storagePath),
+    timeoutMs,
+    `PhotoDownload_${photo.id}`
+  );
 
   if (error || !data) {
-    console.warn(`[PhotoHydrate] Failed to download ${storagePath}:`, error?.message || error);
+    const message = error?.message || 'Falha ao baixar foto do Storage.';
+    console.warn(`[PhotoHydrate] Failed to download ${storagePath}:`, message);
+    await db.photos.update(photo.id, {
+      syncError: `Foto sincronizada, mas ainda nao baixou neste dispositivo: ${message}`,
+      dataVerifiedAt: new Date(),
+    });
     return photo;
   }
 
@@ -180,11 +208,41 @@ async function hydrateStoragePhoto(photo: InspectionPhoto): Promise<InspectionPh
     dataUrl,
     storagePath,
     syncStatus: 'synced' as const,
+    syncError: undefined,
     dataVerifiedAt: new Date()
   };
 
   await db.photos.put(hydrated);
   return hydrated;
+}
+
+async function mergeRemotePhoto(remote: InspectionPhoto): Promise<InspectionPhoto> {
+  const local = await db.photos.get(remote.id);
+  const remoteWithLocalImage = local && isInlineDataUrl(local.dataUrl) && !isInlineDataUrl(remote.dataUrl)
+    ? { ...remote, dataUrl: local.dataUrl, storagePath: remote.storagePath || local.storagePath }
+    : remote;
+
+  const result = await RepositoryService.mergeRemoteRecord(db.photos, remoteWithLocalImage, { label: 'fotos' });
+  return result.record;
+}
+
+async function runLimited<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = [];
+  let nextIndex = 0;
+
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex++;
+      results[index] = await worker(items[index]);
+    }
+  });
+
+  await Promise.all(runners);
+  return results;
 }
 
 async function recoverMissingRemoteInspection(local: Inspection): Promise<void> {
@@ -371,7 +429,11 @@ export const InspectionService = {
     await RepositoryService.upsert('photos', withLocalActor(photo), db.photos, mapPhotoToPostgres);
   },
 
-  async getPhotosByResponseIds(responseIds: string[], forceRefresh = false): Promise<InspectionPhoto[]> {
+  async getPhotosByResponseIds(
+    responseIds: string[],
+    forceRefresh = false,
+    options: { remote?: boolean } = {}
+  ): Promise<InspectionPhoto[]> {
     if (responseIds.length === 0) return [];
 
     const local = filterByActiveTenant(await db.photos
@@ -380,13 +442,14 @@ export const InspectionService = {
       .filter(p => !p.deletedAt)
       .toArray());
 
-    const needsHydration = local.some(photo => !isInlineDataUrl(photo.dataUrl) && Boolean(photo.storagePath || storagePathFromDataUrl(photo.dataUrl)));
     const lastCheck = local.length > 0 ? Math.min(...local.map(photo => photo.dataVerifiedAt?.getTime() || 0)) : 0;
-    const isStale = (Date.now() - lastCheck > 2 * 60 * 1000) || forceRefresh || needsHydration;
+    const isStale = (Date.now() - lastCheck > 2 * 60 * 1000) || forceRefresh;
 
     let photos = local;
 
-    if (isStale && navigator.onLine) {
+    const allowRemote = options.remote ?? true;
+
+    if (allowRemote && isStale && navigator.onLine) {
       try {
         const { data, error } = await supabase
           .from('photos')
@@ -397,7 +460,7 @@ export const InspectionService = {
         if (!error && data) {
           const remotePhotos = data.map(mapPhotoFromPostgres);
           for (const remote of remotePhotos) {
-            await RepositoryService.mergeRemoteRecord(db.photos, remote, { label: 'fotos' });
+            await mergeRemotePhoto(remote);
           }
           const merged = filterByActiveTenant(await db.photos
             .where('responseId')
@@ -413,8 +476,68 @@ export const InspectionService = {
       }
     }
 
-    const hydrated = await Promise.all(photos.map(hydrateStoragePhoto));
-    return filterByActiveTenant(hydrated).filter(photo => !photo.deletedAt);
+    return filterByActiveTenant(photos).filter(photo => !photo.deletedAt);
+  },
+
+  async hydratePhotosByResponseIds(
+    responseIds: string[],
+    options: {
+      forceRefresh?: boolean;
+      timeoutMs?: number;
+      concurrency?: number;
+      onProgress?: (progress: PhotoHydrationProgress, photo?: InspectionPhoto) => void;
+    } = {}
+  ): Promise<PhotoHydrationResult> {
+    if (responseIds.length === 0) {
+      return { photos: [], total: 0, completed: 0, failed: 0 };
+    }
+
+    const photos = await this.getPhotosByResponseIds(responseIds, Boolean(options.forceRefresh));
+    const pending = photos.filter(canHydratePhoto);
+    const total = pending.length;
+    let completed = 0;
+    let failed = 0;
+
+    if (!navigator.onLine || total === 0) {
+      return { photos, total, completed, failed };
+    }
+
+    const hydratedById = new Map(photos.map(photo => [photo.id, photo]));
+    options.onProgress?.({ total, completed, failed });
+
+    await runLimited(
+      pending,
+      Math.max(1, options.concurrency || PHOTO_DOWNLOAD_CONCURRENCY),
+      async (photo) => {
+        try {
+          const hydrated = await hydrateStoragePhoto(photo, options.timeoutMs || PHOTO_DOWNLOAD_TIMEOUT_MS);
+          if (isInlineDataUrl(hydrated.dataUrl)) {
+            completed += 1;
+          } else {
+            failed += 1;
+          }
+          hydratedById.set(hydrated.id, hydrated);
+          options.onProgress?.({ total, completed, failed, currentPhotoId: hydrated.id }, hydrated);
+        } catch (err: any) {
+          failed += 1;
+          const message = err?.message || 'Falha ao baixar foto do Storage.';
+          await db.photos.update(photo.id, {
+            syncError: `Foto sincronizada, mas ainda nao baixou neste dispositivo: ${message}`,
+            dataVerifiedAt: new Date(),
+          });
+          const current = await db.photos.get(photo.id);
+          if (current) hydratedById.set(photo.id, current);
+          options.onProgress?.({ total, completed, failed, currentPhotoId: photo.id }, current || photo);
+        }
+      }
+    );
+
+    return {
+      photos: Array.from(hydratedById.values()).filter(photo => !photo.deletedAt),
+      total,
+      completed,
+      failed,
+    };
   },
 
   async deletePhoto(id: string): Promise<void> {

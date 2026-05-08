@@ -94,37 +94,12 @@ export function PhotoCapture({ inputId, photos, onAddPhoto, onRemovePhoto }: Pho
       {photos.length > 0 && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {photos.map((photo) => (
-            <div
+            <PhotoTile
               key={photo.id}
-              className="group relative aspect-square overflow-hidden rounded-lg border border-gray-200 bg-gray-100"
-            >
-              <img
-                src={photo.dataUrl}
-                alt="Evidência"
-                className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
-                onClick={() => setFullscreenPhoto(photo.dataUrl)}
-              />
-              <PhotoSyncBadge status={photo.syncStatus} />
-              <div className="absolute inset-0 bg-black/40 opacity-0 transition-opacity group-hover:opacity-100 flex items-center justify-center space-x-2">
-                <button
-                  type="button"
-                  onClick={() => setFullscreenPhoto(photo.dataUrl)}
-                  className="rounded-full bg-white/20 p-2 text-white hover:bg-white/40"
-                >
-                  <Maximize className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onRemovePhoto(photo.id);
-                  }}
-                  className="rounded-full bg-red-500/80 p-2 text-white hover:bg-red-600"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
+              photo={photo}
+              onPreview={(dataUrl) => setFullscreenPhoto(dataUrl)}
+              onRemove={() => onRemovePhoto(photo.id)}
+            />
           ))}
         </div>
       )}
@@ -146,7 +121,80 @@ export function PhotoCapture({ inputId, photos, onAddPhoto, onRemovePhoto }: Pho
   );
 }
 
-function PhotoSyncBadge({ status }: { status: InspectionPhoto['syncStatus'] }) {
+function isInlineImage(dataUrl?: string | null) {
+  return /^data:image\/(jpeg|jpg|png|webp);base64,/i.test(dataUrl || '');
+}
+
+function PhotoTile({ photo, onPreview, onRemove }: { photo: InspectionPhoto; onPreview: (dataUrl: string) => void; onRemove: () => void }) {
+  const hasLocalImage = isInlineImage(photo.dataUrl);
+  const hasHydrationError = Boolean(photo.syncError?.includes('ainda nao baixou'));
+
+  return (
+    <div className="group relative aspect-square overflow-hidden rounded-lg border border-gray-200 bg-gray-100">
+      {hasLocalImage ? (
+        <img
+          src={photo.dataUrl}
+          alt="Evidência"
+          className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+          onClick={() => onPreview(photo.dataUrl)}
+        />
+      ) : (
+        <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-slate-50 p-3 text-center text-[11px] font-semibold text-slate-500">
+          {hasHydrationError ? (
+            <>
+              <XCircle className="h-5 w-5 text-amber-500" />
+              <span>Foto no servidor</span>
+              <span className="font-normal text-slate-400">Tente abrir online novamente</span>
+            </>
+          ) : (
+            <>
+              <Clock className="h-5 w-5 animate-pulse text-blue-500" />
+              <span>Baixando foto</span>
+              <span className="font-normal text-slate-400">As respostas ja estao visiveis</span>
+            </>
+          )}
+        </div>
+      )}
+
+      <PhotoSyncBadge photo={photo} />
+      <div className="absolute inset-0 bg-black/40 opacity-0 transition-opacity group-hover:opacity-100 flex items-center justify-center space-x-2">
+        {hasLocalImage && (
+          <button
+            type="button"
+            onClick={() => onPreview(photo.dataUrl)}
+            className="rounded-full bg-white/20 p-2 text-white hover:bg-white/40"
+          >
+            <Maximize className="h-4 w-4" />
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
+          className="rounded-full bg-red-500/80 p-2 text-white hover:bg-red-600"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PhotoSyncBadge({ photo }: { photo: InspectionPhoto }) {
+  if (!isInlineImage(photo.dataUrl) && (photo.storagePath || photo.dataUrl?.startsWith('storage://'))) {
+    const failed = Boolean(photo.syncError?.includes('ainda nao baixou'));
+    const Icon = failed ? AlertTriangle : Clock;
+    return (
+      <div className={`absolute left-1 top-1 flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase shadow ${failed ? 'bg-amber-500 text-white' : 'bg-blue-600 text-white'}`}>
+        <Icon className="h-3 w-3" />
+        {failed ? 'Remota' : 'Baixando'}
+      </div>
+    );
+  }
+
+  const status = photo.syncStatus;
   const config = {
     synced: { label: 'OK', className: 'bg-emerald-600 text-white', icon: CheckCircle },
     pending: { label: 'Pendente', className: 'bg-blue-600 text-white', icon: Clock },

@@ -11,10 +11,11 @@ interface PdfPreviewModalProps {
   responses: InspectionResponse[];
   onGenerate: (opts: { selectedLegislations: string[]; signatureDataUrl: string | undefined }) => Promise<void>;
   isGenerating: boolean;
+  progressLabel?: string;
 }
 
 export function PdfPreviewModal({
-  open, onClose, template, responses, onGenerate, isGenerating
+  open, onClose, template, responses, onGenerate, isGenerating, progressLabel
 }: PdfPreviewModalProps) {
   const [step, setStep] = useState<1 | 2>(1);
   const [legislations, setLegislations] = useState<string[]>([]);
@@ -267,7 +268,7 @@ export function PdfPreviewModal({
               className="flex items-center gap-2 ml-auto"
             >
               {isGenerating
-                ? <><Loader2 className="h-4 w-4 animate-spin" /> Gerando...</>
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> {progressLabel || 'Gerando...'}</>
                 : <><FileDown className="h-4 w-4" /> Gerar PDF</>
               }
             </Button>

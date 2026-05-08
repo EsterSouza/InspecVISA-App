@@ -46,6 +46,7 @@ export function InspectionExecution() {
   const [prevNCIds, setPrevNCIds] = useState<string[]>([]);
   const [expandedSectionIds] = useState<string[]>([]);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [photoHydration, setPhotoHydration] = useState<{ total: number; completed: number; failed: number } | null>(null);
 
   useEffect(() => {
     const update = () => setIsOnline(navigator.onLine);
@@ -55,6 +56,56 @@ export function InspectionExecution() {
   }, []);
 
   const [template, setTemplate] = useState<any>(null);
+
+  const attachPhotosToResponses = useCallback((baseResponses: InspectionResponse[], photos: InspectionPhoto[]) => {
+    return baseResponses.map(response => ({
+      ...response,
+      photos: photos.filter(photo => photo.responseId === response.id),
+    }));
+  }, []);
+
+  const mergePhotosIntoCurrentResponses = useCallback((photos: InspectionPhoto[]) => {
+    const currentResponses = useInspectionStore.getState().responses;
+    if (currentResponses.length === 0 || photos.length === 0) return;
+
+    const photosByResponse = new Map<string, InspectionPhoto[]>();
+    for (const photo of photos) {
+      const list = photosByResponse.get(photo.responseId) || [];
+      list.push(photo);
+      photosByResponse.set(photo.responseId, list);
+    }
+
+    setResponses(currentResponses.map(response => {
+      const incoming = photosByResponse.get(response.id);
+      if (!incoming?.length) return response;
+
+      const byId = new Map((response.photos || []).map(photo => [photo.id, photo]));
+      for (const photo of incoming) byId.set(photo.id, photo);
+      return { ...response, photos: Array.from(byId.values()) };
+    }));
+  }, [setResponses]);
+
+  const hydratePhotosInBackground = useCallback((responseIds: string[]) => {
+    if (responseIds.length === 0 || !navigator.onLine) return;
+
+    void InspectionService.hydratePhotosByResponseIds(responseIds, {
+      onProgress: (progress, photo) => {
+        setPhotoHydration(progress.total > 0 ? progress : null);
+        if (photo) mergePhotosIntoCurrentResponses([photo]);
+      },
+    }).then(result => {
+      mergePhotosIntoCurrentResponses(result.photos);
+      setPhotoHydration(result.total > 0 ? {
+        total: result.total,
+        completed: result.completed,
+        failed: result.failed,
+      } : null);
+      window.setTimeout(() => setPhotoHydration(null), 2500);
+    }).catch(err => {
+      console.warn('[Execution] Photo hydration failed:', err);
+      setPhotoHydration(null);
+    });
+  }, [mergePhotosIntoCurrentResponses]);
 
   // ─── LOAD DATA ────────────────────────────────────────────────────────────
   // Runs when the page is opened, whether via navigation state or direct URL.
@@ -86,14 +137,13 @@ export function InspectionExecution() {
           .where('inspectionId').equals(id)
           .filter(r => !r.deletedAt)
           .toArray());
-        const localPhotos = await InspectionService.getPhotosByResponseIds(localResps.map(r => r.id));
-        for (const r of localResps) {
-          r.photos = localPhotos.filter(p => p.responseId === r.id);
-        }
+        const localPhotos = await InspectionService.getPhotosByResponseIds(localResps.map(r => r.id), false, { remote: false });
+        const localWithPhotos = attachPhotosToResponses(localResps, localPhotos);
 
         setCurrentInspection(localInsp);
-        setResponses(localResps);
+        setResponses(localWithPhotos);
         setLoading(false); // ← render now with local data
+        hydratePhotosInBackground(localResps.map(r => r.id));
       }
 
       // ── PHASE 2: Background enrichment from Supabase ──────────────────────
@@ -148,12 +198,15 @@ export function InspectionExecution() {
 
           // Fetch responses (service returns local + triggers background Supabase pull)
           const resps = await InspectionService.getResponsesByInspectionId(id);
-          const photos = await InspectionService.getPhotosByResponseIds(resps.map(r => r.id), true);
-          for (const r of resps) {
-            r.photos = photos.filter(p => p.responseId === r.id);
-          }
+          const localPhotos = await InspectionService.getPhotosByResponseIds(resps.map(r => r.id), false, { remote: false });
+          setResponses(attachPhotosToResponses(resps, localPhotos));
+          setLoading(false);
 
-          setResponses(resps);
+          const photos = await InspectionService.getPhotosByResponseIds(resps.map(r => r.id), true);
+          const respsWithPhotos = attachPhotosToResponses(resps, photos);
+
+          setResponses(respsWithPhotos);
+          hydratePhotosInBackground(resps.map(r => r.id));
 
           // Load previous inspection NCs if applicable
           if (previousInspectionId) {
@@ -173,7 +226,7 @@ export function InspectionExecution() {
       setLoadError('Erro ao carregar dados da inspeção.');
       setLoading(false);
     }
-  }, [location.state?.inspectionId, location.state?.previousInspectionId]);
+  }, [location.state?.inspectionId, location.state?.previousInspectionId, attachPhotosToResponses, hydratePhotosInBackground]);
 
 
   // Re-run loadData whenever the inspectionId in navigation state changes
@@ -487,6 +540,11 @@ export function InspectionExecution() {
                 {isCompleted && <Badge variant="neutral" className="bg-green-100 text-green-700 border-green-200">Finalizada</Badge>}
                 {usingRecoveryTemplate && <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">Modo Recuperação</Badge>}
                 {!isOnline && <span className="text-amber-600 flex items-center bg-amber-50 px-2 py-0.5 rounded-md"><WifiOff className="mr-1 h-3 w-3" /> Offline</span>}
+                {photoHydration && (
+                  <span className="text-blue-600 flex items-center bg-blue-50 px-2 py-0.5 rounded-md">
+                    Fotos {photoHydration.completed + photoHydration.failed}/{photoHydration.total}
+                  </span>
+                )}
                 {saveStatus === 'saving' && <span className="text-primary-600 animate-pulse">Sincronizando...</span>}
                 {saveStatus === 'saved' && <span className="text-green-600">Dados Protegidos</span>}
               </div>
