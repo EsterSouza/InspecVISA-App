@@ -99,6 +99,46 @@ async function loadImageSize(dataUrl: string, timeoutMs = 8000): Promise<{ width
   });
 }
 
+function savePdfWithFallback(doc: jsPDF, filename: string) {
+  const blob = doc.output('blob');
+  if (!(blob instanceof Blob) || blob.size === 0) {
+    throw new Error('PDF gerado vazio.');
+  }
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const canDownload = 'download' in link && !isIOS;
+
+  try {
+    if (canDownload) {
+      link.href = url;
+      link.download = filename;
+      link.rel = 'noopener';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+      return;
+    }
+
+    const opened = window.open(url, '_blank', 'noopener,noreferrer');
+    if (!opened) {
+      window.location.href = url;
+    } else {
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+    }
+  } catch (err) {
+    URL.revokeObjectURL(url);
+    try {
+      doc.save(filename);
+    } catch {
+      throw err;
+    }
+  }
+}
+
 export async function generatePDF(
   inspection: Inspection,
   responses: InspectionResponse[],
@@ -822,7 +862,7 @@ export async function generatePDF(
   }
 
   const filename = `Inspecao_${(inspection.clientName || 'cliente').replace(/\s+/g, '_')}_${formatDate(inspection.inspectionDate).replace(/\//g, '-')}.pdf`;
-  doc.save(filename);
+  savePdfWithFallback(doc, filename);
 }
 
 /**

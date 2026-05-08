@@ -113,8 +113,15 @@ export function NewInspection() {
     setIsStarting(true);
 
     try {
-      // Pega a última inspeção completada para este cliente (para levar as fotos/respostas se necessário)
-      const previousInspectionId = await InspectionService.getLastCompletedInspectionId(selectedClient.id);
+      let previousInspectionId: string | undefined;
+      try {
+        previousInspectionId = await Promise.race([
+          InspectionService.getLastCompletedInspectionId(selectedClient.id),
+          new Promise<undefined>((resolve) => window.setTimeout(() => resolve(undefined), 3000)),
+        ]);
+      } catch (err) {
+        console.warn('[NewInspection] Previous inspection lookup skipped:', err);
+      }
 
       const newInspectionId = generateId();
       const actor = getLocalActor();
