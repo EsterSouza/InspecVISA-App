@@ -2,6 +2,7 @@ import { db } from '../db/database';
 import { supabase } from '../lib/supabase';
 import type { InspectionPhoto, SyncStatus } from '../types';
 import { belongsToActiveTenant, filterByActiveTenant } from './localScope';
+import { withTimeout } from './network';
 
 /**
  * ReportReadinessCheck
@@ -82,7 +83,11 @@ export async function checkReportReadiness(inspectionId: string): Promise<Readin
   // 3. Try a quick direct fetch to verify if online (Header only)
   if (isStale && navigator.onLine) {
     try {
-      const { data, error } = await supabase.from('inspections').select('updated_at').eq('id', inspectionId).single();
+      const { data, error } = await withTimeout(
+        supabase.from('inspections').select('updated_at').eq('id', inspectionId).single(),
+        5000,
+        `ReportReadiness_${inspectionId}`
+      );
       if (!error && data) {
          const remoteUpdate = new Date(data.updated_at);
          if (remoteUpdate > inspection.updatedAt) {

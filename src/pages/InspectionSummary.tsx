@@ -248,6 +248,9 @@ export function InspectionSummary() {
       alert('Nao foi possivel gerar o PDF porque o roteiro ou a pontuacao ainda nao carregou. Aguarde alguns segundos e tente novamente.');
       return;
     }
+    setIsGenerating(true);
+    setPdfPhotoProgress(null);
+    try {
     const currentReadiness = await checkReportReadiness(currentInspection.id);
     setReadiness(currentReadiness);
     if (currentReadiness.conflictCount > 0) {
@@ -256,15 +259,20 @@ export function InspectionSummary() {
     }
     if (currentInspection.status !== 'completed') {
       const ok = window.confirm('Esta inspecao ainda esta em andamento. Gerar um PDF de rascunho mesmo assim?');
-      if (!ok) return;
+      if (!ok) {
+        setIsGenerating(false);
+        setPdfPhotoProgress(null);
+        return;
+      }
     }
     if (!currentReadiness.isReady) {
       const ok = window.confirm('Existem dados pendentes ou falhas de sincronização. Gerar PDF provisório mesmo assim?');
-      if (!ok) return;
+      if (!ok) {
+        setIsGenerating(false);
+        setPdfPhotoProgress(null);
+        return;
+      }
     }
-    setIsGenerating(true);
-    setPdfPhotoProgress(null);
-    try {
        let pdfResponses = reportResponses;
        const responseIds = reportResponses.map(response => response.id);
        if (navigator.onLine && responseIds.length > 0) {
