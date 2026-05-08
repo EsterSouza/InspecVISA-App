@@ -5,6 +5,25 @@ import { RepositoryService } from './repositoryService';
 import { withLocalActor } from '../utils/localActor';
 import { belongsToActiveTenant, filterByActiveTenant } from '../utils/localScope';
 
+const PHOTO_BUCKET = 'inspection-photos';
+
+function isInlineDataUrl(value?: string | null): value is string {
+  return /^data:image\/(jpeg|jpg|png|webp);base64,/i.test(value || '');
+}
+
+function storagePathFromDataUrl(value?: string | null) {
+  return value?.startsWith('storage://') ? value.slice('storage://'.length) : undefined;
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error || new Error('Falha ao ler foto baixada.'));
+    reader.readAsDataURL(blob);
+  });
+}
+
 /**
  * Mappers
  */
@@ -119,6 +138,55 @@ export function mapPhotoToPostgres(photo: InspectionPhoto): any {
   };
 }
 
+export function mapPhotoFromPostgres(row: any): InspectionPhoto {
+  const dataUrl = row.data_url || '';
+  const storagePath = row.storage_path || storagePathFromDataUrl(dataUrl);
+
+  return {
+    id: row.id,
+    responseId: row.response_id,
+    dataUrl,
+    storagePath,
+    caption: row.caption || undefined,
+    takenAt: new Date(row.taken_at || row.created_at || row.updated_at),
+    updatedAt: new Date(row.updated_at || row.taken_at || row.created_at),
+    tenantId: row.tenant_id,
+    deletedAt: row.deleted_at ? new Date(row.deleted_at) : null,
+    syncStatus: 'synced',
+    dataVerifiedAt: new Date()
+  };
+}
+
+async function hydrateStoragePhoto(photo: InspectionPhoto): Promise<InspectionPhoto> {
+  if (isInlineDataUrl(photo.dataUrl)) return photo;
+
+  const storagePath = photo.storagePath || storagePathFromDataUrl(photo.dataUrl);
+  if (!storagePath) return photo;
+
+  const { data, error } = await supabase.storage
+    .from(PHOTO_BUCKET)
+    .download(storagePath);
+
+  if (error || !data) {
+    console.warn(`[PhotoHydrate] Failed to download ${storagePath}:`, error?.message || error);
+    return photo;
+  }
+
+  const dataUrl = await blobToDataUrl(data);
+  if (!isInlineDataUrl(dataUrl)) return photo;
+
+  const hydrated = {
+    ...photo,
+    dataUrl,
+    storagePath,
+    syncStatus: 'synced' as const,
+    dataVerifiedAt: new Date()
+  };
+
+  await db.photos.put(hydrated);
+  return hydrated;
+}
+
 async function recoverMissingRemoteInspection(local: Inspection): Promise<void> {
   const reason = 'Servidor nao encontrou a inspecao; reenfileirando dados locais para sincronizacao.';
 
@@ -169,6 +237,7 @@ export const InspectionService = {
   mapResponseToPostgres,
   mapPhotoToPostgres,
   mapResponseFromPostgres,
+  mapPhotoFromPostgres,
 
   async mergeRemoteResponses(remoteResponses: InspectionResponse[]): Promise<InspectionResponse[]> {
     const accepted: InspectionResponse[] = [];
@@ -300,6 +369,52 @@ export const InspectionService = {
 
   async upsertPhoto(photo: InspectionPhoto): Promise<void> {
     await RepositoryService.upsert('photos', withLocalActor(photo), db.photos, mapPhotoToPostgres);
+  },
+
+  async getPhotosByResponseIds(responseIds: string[], forceRefresh = false): Promise<InspectionPhoto[]> {
+    if (responseIds.length === 0) return [];
+
+    const local = filterByActiveTenant(await db.photos
+      .where('responseId')
+      .anyOf(responseIds)
+      .filter(p => !p.deletedAt)
+      .toArray());
+
+    const needsHydration = local.some(photo => !isInlineDataUrl(photo.dataUrl) && Boolean(photo.storagePath || storagePathFromDataUrl(photo.dataUrl)));
+    const lastCheck = local.length > 0 ? Math.min(...local.map(photo => photo.dataVerifiedAt?.getTime() || 0)) : 0;
+    const isStale = (Date.now() - lastCheck > 2 * 60 * 1000) || forceRefresh || needsHydration;
+
+    let photos = local;
+
+    if (isStale && navigator.onLine) {
+      try {
+        const { data, error } = await supabase
+          .from('photos')
+          .select('*')
+          .in('response_id', responseIds)
+          .is('deleted_at', null);
+
+        if (!error && data) {
+          const remotePhotos = data.map(mapPhotoFromPostgres);
+          for (const remote of remotePhotos) {
+            await RepositoryService.mergeRemoteRecord(db.photos, remote, { label: 'fotos' });
+          }
+          const merged = filterByActiveTenant(await db.photos
+            .where('responseId')
+            .anyOf(responseIds)
+            .filter(p => !p.deletedAt)
+            .toArray());
+          photos = merged;
+        } else if (error) {
+          console.warn('[InspectionService] Remote photos fetch failed:', error.message);
+        }
+      } catch (err) {
+        console.warn('[InspectionService] Remote photos fetch failed:', err);
+      }
+    }
+
+    const hydrated = await Promise.all(photos.map(hydrateStoragePhoto));
+    return filterByActiveTenant(hydrated).filter(photo => !photo.deletedAt);
   },
 
   async deletePhoto(id: string): Promise<void> {

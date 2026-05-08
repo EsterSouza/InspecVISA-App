@@ -59,8 +59,9 @@ export function InspectionSummary() {
             .where('inspectionId').equals(inspectionId)
             .filter(r => !r.deletedAt)
             .toArray());
+          const localPhotos = await InspectionService.getPhotosByResponseIds(localResps.map(r => r.id));
           for (const r of localResps) {
-            r.photos = filterByActiveTenant(await db.photos.where('responseId').equals(r.id).toArray()).filter(p => !p.deletedAt);
+            r.photos = localPhotos.filter(p => p.responseId === r.id);
           }
 
           let tpl: ChecklistTemplate | undefined = await db.templates.get(localInsp.templateId);
@@ -95,8 +96,9 @@ export function InspectionSummary() {
 
             // Responses
             const remoteResps = await InspectionService.getResponsesByInspectionId(inspectionId, true);
+            const remotePhotos = await InspectionService.getPhotosByResponseIds(remoteResps.map(r => r.id), true);
             for (const r of remoteResps) {
-              r.photos = filterByActiveTenant(await db.photos.where('responseId').equals(r.id).toArray()).filter(p => !p.deletedAt);
+              r.photos = remotePhotos.filter(p => p.responseId === r.id);
             }
 
             // Template (static → Dexie → Supabase)

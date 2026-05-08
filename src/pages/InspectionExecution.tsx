@@ -86,8 +86,9 @@ export function InspectionExecution() {
           .where('inspectionId').equals(id)
           .filter(r => !r.deletedAt)
           .toArray());
+        const localPhotos = await InspectionService.getPhotosByResponseIds(localResps.map(r => r.id));
         for (const r of localResps) {
-          r.photos = filterByActiveTenant(await db.photos.where('responseId').equals(r.id).filter(p => !p.deletedAt).toArray());
+          r.photos = localPhotos.filter(p => p.responseId === r.id);
         }
 
         setCurrentInspection(localInsp);
@@ -147,8 +148,9 @@ export function InspectionExecution() {
 
           // Fetch responses (service returns local + triggers background Supabase pull)
           const resps = await InspectionService.getResponsesByInspectionId(id);
+          const photos = await InspectionService.getPhotosByResponseIds(resps.map(r => r.id), true);
           for (const r of resps) {
-            r.photos = filterByActiveTenant(await db.photos.where('responseId').equals(r.id).filter(p => !p.deletedAt).toArray());
+            r.photos = photos.filter(p => p.responseId === r.id);
           }
 
           setResponses(resps);
