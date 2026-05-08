@@ -563,7 +563,7 @@ export function InspectionSummary() {
                   <p className="text-[10px] font-bold text-primary-700 uppercase">Equipe em Turno</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <label className="text-[10px] text-gray-500 font-semibold uppercase">Cuidadores / Colaboradores</label>
+                      <label className="text-[10px] text-gray-500 font-semibold uppercase">Cuidadores em turno</label>
                       <input
                         type="number"
                         id="observedStaff"

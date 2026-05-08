@@ -637,24 +637,24 @@ export function InspectionExecution() {
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-4 border-b border-slate-200">
                         <div>
-                          <span className="text-[10px] text-primary-600 font-bold block mb-1 uppercase tracking-tight">Equipe Cuidadores Atual</span>
+                          <span className="text-[10px] text-primary-600 font-bold block mb-1 uppercase tracking-tight">Cuidadores em Turno</span>
                           <input
                             type="number"
                             id="observedStaff"
                             name="observedStaff"
-                            placeholder="Qtd. Cuidadores..."
+                            placeholder="Qtd. cuidadores..."
                             className="w-full bg-white border border-primary-100 rounded-lg p-2 font-bold text-primary-900 shadow-sm"
                             value={currentInspection.observedStaff || 0}
                             onChange={(e) => updateStaffData('observedStaff', parseInt(e.target.value) || 0)}
                           />
                         </div>
                         <div>
-                          <span className="text-[10px] text-primary-600 font-bold block mb-1 uppercase tracking-tight">Equipe Técnica Atual</span>
+                          <span className="text-[10px] text-primary-600 font-bold block mb-1 uppercase tracking-tight">Técnicos de Enfermagem em Turno</span>
                           <input
                             type="number"
                             id="observedNursingTechs"
                             name="observedNursingTechs"
-                            placeholder="Técnicos/Enf..."
+                            placeholder="Técnicos de enfermagem..."
                             className="w-full bg-white border border-primary-100 rounded-lg p-2 font-bold text-primary-900 shadow-sm"
                             value={currentInspection.observedNursingTechs || 0}
                             onChange={(e) => updateStaffData('observedNursingTechs', parseInt(e.target.value) || 0)}

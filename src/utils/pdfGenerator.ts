@@ -346,38 +346,26 @@ export async function generatePDF(
       observedNursingTechs: inspection.observedNursingTechs || 0,
       isRJ: isRJInspection,
     });
-    const isRJ = isRJInspection;
-
-    // RDC 502/2021 (federal): Grau I 1:20, Grau II 1:10, Grau III 1:6
-    const reqFederal = staffing.caregivers.total;
-    // Lei 8.049/2018 (RJ específico): Grau I 1:20, Grau II 1:8, Grau III 1:5
-    const reqRJ = isRJ ? staffing.caregivers.total : 0;
-    const maxReq = isRJ ? Math.max(reqFederal, reqRJ) : reqFederal;
-
     const observed = staffing.observedCaregivers;
-    const isCompliant = staffing.allOk;
+    const isCompliant = staffing.caregiversOk;
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
-    if (isCompliant) {
-      doc.setTextColor(30, 90, 60);
-    } else {
-      doc.setTextColor(180, 40, 40);
-    }
-    doc.text(`DIMENSIONAMENTO: ${observed} COLABORADORES EM TURNO (MÍNIMO EXIGIDO: ${maxReq})`, margin, y);
+    doc.setTextColor(isCompliant ? 30 : 180, isCompliant ? 90 : 40, isCompliant ? 60 : 40);
+    doc.text(`CUIDADORES EM TURNO: ${observed} (MÍNIMO EXIGIDO: ${staffing.caregivers.total}) - ${isCompliant ? 'ADEQUADO' : 'INSUFICIENTE'}`, margin, y);
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(100, 100, 100);
     y += 4;
 
-    const baseLegal = isRJ
+    const baseLegal = isRJInspection
       ? 'Base legal: RDC 502/2021 e Lei 8.049/2018 (RJ)'
       : 'Base legal: RDC 502/2021';
-    doc.text(`${baseLegal}. Status: ${isCompliant ? 'ADEQUADO' : 'INSUFICIENTE'}`, margin, y);
+    doc.text(`${baseLegal}. Técnico de enfermagem não substitui cuidador para este cálculo.`, margin, y);
     if (isRJInspection) {
       y += 4;
       const techStatus = staffing.nursingTechsOk ? 'ADEQUADO' : 'INSUFICIENTE';
-      doc.text(`Tecnicos de enfermagem: ${staffing.observedNursingTechs} em turno (minimo exigido: ${staffing.nursingTechs.total}). Status: ${techStatus}`, margin, y);
+      doc.text(`TÉCNICOS DE ENFERMAGEM EM TURNO: ${staffing.observedNursingTechs} (MÍNIMO EXIGIDO GRAU II/III: ${staffing.nursingTechs.total}) - ${techStatus}`, margin, y);
     }
 
     y += 10;
