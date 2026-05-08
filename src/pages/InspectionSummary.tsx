@@ -7,7 +7,6 @@ import { InspectionBundleSyncService } from '../services/inspectionBundleSyncSer
 import { LegislationService, type Legislation } from '../services/legislationService';
 import { getTemplateById, enrichTemplate } from '../data/templates';
 import { calculateScore, classificationColor } from '../utils/scoring';
-import { generatePDF } from '../utils/pdfGenerator';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { db } from '../db/database';
 import type { Inspection, InspectionResponse, ChecklistTemplate } from '../types';
@@ -283,6 +282,7 @@ export function InspectionSummary() {
          await InspectionBundleSyncService.syncInspectionBundle(currentInspection.id, { finalizeReport: true });
        }
        await new Promise(resolve => setTimeout(resolve, 100));
+       const { generatePDF } = await import('../utils/pdfGenerator');
        await generatePDF(
          currentInspection,
          pdfResponses,

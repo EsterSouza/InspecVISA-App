@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, 
@@ -25,17 +25,12 @@ import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
-import { 
-  LineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer 
-} from 'recharts';
 
 type RecurringNC = { itemId: string; description: string; count: number };
+
+const ComplianceTrendChart = lazy(() =>
+  import('../components/client/ComplianceTrendChart').then(m => ({ default: m.ComplianceTrendChart }))
+);
 
 export function ClientDetails() {
   const { id } = useParams<{ id: string }>();
@@ -231,36 +226,9 @@ export function ClientDetails() {
               
               {chartData.length > 1 ? (
                 <div className="h-64 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                      <XAxis 
-                        dataKey="date" 
-                        axisLine={false} 
-                        tickLine={false} 
-                        style={{ fontSize: '12px', fill: '#94a3b8' }} 
-                      />
-                      <YAxis 
-                        domain={[0, 100]} 
-                        axisLine={false} 
-                        tickLine={false} 
-                        style={{ fontSize: '12px', fill: '#94a3b8' }}
-                        tickFormatter={(v) => `${v}%`}
-                      />
-                      <Tooltip 
-                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                        formatter={(value) => [`${value}%`, 'Conformidade']}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="score" 
-                        stroke="#1e6b5e" 
-                        strokeWidth={3} 
-                        dot={{ r: 4, fill: '#1e6b5e', strokeWidth: 2, stroke: '#fff' }}
-                        activeDot={{ r: 6, strokeWidth: 0 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <Suspense fallback={<div className="h-full animate-pulse rounded-xl bg-gray-50" />}>
+                    <ComplianceTrendChart data={chartData} />
+                  </Suspense>
                 </div>
               ) : (
                 <div className="h-64 flex flex-col items-center justify-center text-gray-400 border-2 border-dashed border-gray-100 rounded-xl">

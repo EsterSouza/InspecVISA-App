@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { X, ChevronRight, ChevronLeft, Trash2, FileDown, Loader2, CheckSquare, Square } from 'lucide-react';
 import { Button } from '../ui/Button';
-import { extractBaseLegislation } from '../../utils/pdfGenerator';
+import { extractBaseLegislation } from '../../utils/legislationRefs';
 import type { ChecklistTemplate, InspectionResponse } from '../../types';
 
 interface PdfPreviewModalProps {

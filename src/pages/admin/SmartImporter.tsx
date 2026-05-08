@@ -4,7 +4,6 @@ import { Upload, FileText, Check, AlertCircle, Save, Trash2, FileUp, Loader2 } f
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { TemplateService } from '../../services/templateService';
-import { DocumentParser } from '../../utils/documentParser';
 
 interface ParsedItem {
   id: number;
@@ -31,6 +30,7 @@ export function SmartImporter() {
 
     setIsParsingFile(true);
     try {
+      const { DocumentParser } = await import('../../utils/documentParser');
       let text = '';
       if (file.type === 'application/pdf') {
         text = await DocumentParser.parsePDF(file);
@@ -64,9 +64,10 @@ export function SmartImporter() {
     }
   };
 
-  const handleParseText = () => {
+  const handleParseText = async () => {
     setIsProcessing(true);
     try {
+      const { DocumentParser } = await import('../../utils/documentParser');
       const looksLikeTypescript = /export\s+const|description:\s*['"`]|sectionId:\s*['"`]/.test(pastedText);
       const parsedItems: Array<{ section: string; description: string; legislation?: string; weight?: number; isCritical?: boolean }> = looksLikeTypescript
         ? DocumentParser.parseTypeScript(pastedText)
