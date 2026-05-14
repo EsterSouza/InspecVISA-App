@@ -21,6 +21,7 @@ const JOB_ERROR_UNAVAILABLE = 'Fila de sincronizacao indisponivel. Migration 010
 const QUEUED_STATUSES: SyncStatus[] = ['pending'];
 const UNSAFE_STATUSES: SyncStatus[] = ['pending', 'syncing', 'failed'];
 const JOB_ERROR_PREFIX = '[sync-job:';
+const AUTH_TOKEN_EXPIRY_SKEW_SECONDS = 60;
 
 function sameTimestamp(a?: Date | string, b?: Date | string) {
   if (!a || !b) return false;
@@ -44,18 +45,70 @@ function getStoredAccessToken(): string | null {
   return null;
 }
 
-async function getAccessToken(): Promise<string> {
-  const stored = getStoredAccessToken();
-  if (stored) return stored;
+function isJwtExpired(token: string, skewSeconds = AUTH_TOKEN_EXPIRY_SKEW_SECONDS): boolean {
+  try {
+    const [, payload] = token.split('.');
+    if (!payload) return true;
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const decoded = JSON.parse(atob(normalized));
+    return typeof decoded?.exp !== 'number' || decoded.exp <= Math.floor(Date.now() / 1000) + skewSeconds;
+  } catch {
+    return true;
+  }
+}
 
-  const { data } = await withTimeout(
-    supabase.auth.getSession(),
-    10000,
-    'BundleSync_getSession'
-  );
-  const token = data.session?.access_token;
-  if (!token) throw new Error('Sessao expirada. Entre novamente para sincronizar.');
-  return token;
+async function getAccessToken(forceRefresh = false): Promise<string> {
+  try {
+    const sessionPromise: Promise<any> = forceRefresh
+      ? supabase.auth.refreshSession()
+      : supabase.auth.getSession();
+    const { data, error } = await withTimeout(
+      sessionPromise,
+      10000,
+      forceRefresh ? 'BundleSync_refreshSession' : 'BundleSync_getSession'
+    );
+    if (error) throw error;
+
+    const token = data.session?.access_token;
+    if (token && !isJwtExpired(token)) return token;
+  } catch (err) {
+    if (forceRefresh) throw err;
+  }
+
+  if (!forceRefresh) {
+    try {
+      return await getAccessToken(true);
+    } catch {
+      const stored = getStoredAccessToken();
+      if (stored && !isJwtExpired(stored)) return stored;
+    }
+  }
+
+  throw new Error('Sessao expirada. Entre novamente para sincronizar.');
+}
+
+async function fetchWithAuth(
+  input: RequestInfo | URL,
+  init: RequestInit,
+  timeoutMs: number,
+  timeoutLabel: string
+): Promise<Response> {
+  const buildInit = async (forceRefresh = false): Promise<RequestInit> => {
+    const token = await getAccessToken(forceRefresh);
+    return {
+      ...init,
+      headers: {
+        ...(init.headers || {}),
+        Authorization: `Bearer ${token}`,
+      },
+    };
+  };
+
+  let response = await withTimeout(fetch(input, await buildInit()), timeoutMs, timeoutLabel);
+  if (response.status !== 401) return response;
+
+  response = await withTimeout(fetch(input, await buildInit(true)), timeoutMs, `${timeoutLabel}_retry`);
+  return response;
 }
 
 function normalizeRpcResult(data: any, inspectionId: string): InspectionBundleResult {
@@ -100,16 +153,15 @@ function isJobStillRunning(result: InspectionBundleResult) {
 }
 
 async function enqueueBundleThroughApi(payload: InspectionBundlePayload): Promise<InspectionBundleResult> {
-  const token = await getAccessToken();
-  const response = await withTimeout(
-    fetch('/api/sync-inspection-bundle', {
+  const response = await fetchWithAuth(
+    '/api/sync-inspection-bundle',
+    {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(payload),
-    }),
+    },
     BUNDLE_API_TIMEOUT_MS,
     `InspectionBundleApi_${payload.inspection?.id || 'unknown'}`
   );
@@ -123,16 +175,15 @@ async function enqueueBundleThroughApi(payload: InspectionBundlePayload): Promis
 }
 
 async function processJobThroughApi(jobId: string): Promise<InspectionBundleResult> {
-  const token = await getAccessToken();
-  const response = await withTimeout(
-    fetch('/api/process-sync-job', {
+  const response = await fetchWithAuth(
+    '/api/process-sync-job',
+    {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ jobId }),
-    }),
+    },
     BUNDLE_API_TIMEOUT_MS,
     `ProcessSyncJob_${jobId}`
   );
@@ -146,11 +197,9 @@ async function processJobThroughApi(jobId: string): Promise<InspectionBundleResu
 }
 
 async function getJobStatus(jobId: string): Promise<InspectionBundleResult> {
-  const token = await getAccessToken();
-  const response = await withTimeout(
-    fetch(`/api/sync-job-status?jobId=${encodeURIComponent(jobId)}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    }),
+  const response = await fetchWithAuth(
+    `/api/sync-job-status?jobId=${encodeURIComponent(jobId)}`,
+    {},
     JOB_STATUS_TIMEOUT_MS,
     `SyncJobStatus_${jobId}`
   );
