@@ -13,10 +13,10 @@ import { withTimeout } from '../utils/network';
 import { useAuthStore } from '../store/useAuthStore';
 import { InspectionService } from './inspectionService';
 
-const BUNDLE_API_TIMEOUT_MS = 70000;
+const BUNDLE_API_TIMEOUT_MS = 120000;
 const JOB_STATUS_TIMEOUT_MS = 15000;
 const JOB_POLL_INTERVAL_MS = 2500;
-const JOB_POLL_TIMEOUT_MS = 75000;
+const JOB_POLL_TIMEOUT_MS = 120000;
 const JOB_ERROR_UNAVAILABLE = 'Fila de sincronizacao indisponivel. Migration 010 precisa estar aplicada no Supabase.';
 const QUEUED_STATUSES: SyncStatus[] = ['pending'];
 const UNSAFE_STATUSES: SyncStatus[] = ['pending', 'syncing', 'failed'];

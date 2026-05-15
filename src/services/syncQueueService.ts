@@ -12,6 +12,7 @@ import { useAuthStore } from '../store/useAuthStore';
 
 let isProcessing = false;
 let processingStartedAt: number | null = null;
+let rerunRequested = false;
 let syncInterval: number | null = null;
 let lastSummary = { pending: 0, syncing: 0, conflict: 0, failed: 0 };
 type ConflictTable = 'inspections' | 'responses' | 'photos';
@@ -76,6 +77,7 @@ export const SyncQueueService = {
   async processAll(options: ProcessOptions = {}) {
     if (isProcessing && !options.force) {
       console.warn('[SyncQueue] Sync already running; skipping overlapping cycle.');
+      rerunRequested = true;
       this.getQueueSummary();
       return;
     }
@@ -90,6 +92,7 @@ export const SyncQueueService = {
       const isStale = processingStartedAt && Date.now() - processingStartedAt > STALE_PROCESSING_LOCK_MS;
       if (!isStale) {
         console.warn('[SyncQueue] Sync already running; force retry postponed until current cycle finishes.');
+        rerunRequested = true;
         this.getQueueSummary();
         return;
       }
@@ -120,6 +123,10 @@ export const SyncQueueService = {
       isProcessing = false;
       processingStartedAt = null;
       this.getQueueSummary(); // Refresh cache after processing
+      if (rerunRequested && navigator.onLine) {
+        rerunRequested = false;
+        void this.processAll({ force: true });
+      }
     }
   },
 
@@ -128,6 +135,7 @@ export const SyncQueueService = {
       const isStale = processingStartedAt && Date.now() - processingStartedAt > STALE_PROCESSING_LOCK_MS;
       if (!isStale) {
         console.warn('[SyncQueue] Retry requested while sync is active; waiting for current cycle.');
+        rerunRequested = true;
         await this.getQueueSummary();
         return;
       }

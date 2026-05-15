@@ -38,6 +38,7 @@ const STORAGE_UPLOAD_TIMEOUT_MS = 120000; // 2 min — large photos on slow mobi
 
 function pushTimeoutMs(tableName: string) {
   if (tableName === 'photos') return 120000;   // DB upsert after storage (metadata only, but may be slow)
+  if (tableName === 'clients' || tableName === 'schedules') return 120000;
   if (tableName === 'responses') return 45000;  // Brazil→Ohio RTT on mobile needs headroom
   return 45000;
 }
