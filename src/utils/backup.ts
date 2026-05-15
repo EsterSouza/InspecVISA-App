@@ -1,4 +1,5 @@
 import { db } from '../db/database';
+import { supabase } from '../lib/supabase';
 
 const PRE_BUNDLE_BACKUP_FLAG = 'inspecvisa-pre-bundle-backup-created';
 const DATE_FIELDS = [
@@ -34,6 +35,51 @@ function reviveDateFields<T extends Record<string, any>>(record: T): T {
 
 function reviveRecords<T extends Record<string, any>>(records: T[]) {
   return records.map(reviveDateFields);
+}
+
+async function markRecordsSynced(content: any) {
+  const data = content?.data || {};
+  const verifiedAt = new Date();
+  const mark = { syncStatus: 'synced' as const, syncError: undefined, syncAttempts: 0, dataVerifiedAt: verifiedAt };
+
+  if (Array.isArray(data.clients) && data.clients.length > 0) {
+    await db.clients.where('id').anyOf(data.clients.map((item: any) => item.id)).modify(mark);
+  }
+  if (Array.isArray(data.inspections) && data.inspections.length > 0) {
+    await db.inspections.where('id').anyOf(data.inspections.map((item: any) => item.id)).modify(mark);
+  }
+  if (Array.isArray(data.responses) && data.responses.length > 0) {
+    await db.responses.where('id').anyOf(data.responses.map((item: any) => item.id)).modify(mark);
+  }
+  if (Array.isArray(data.photos) && data.photos.length > 0) {
+    await db.photos.where('id').anyOf(data.photos.map((item: any) => item.id)).modify(mark);
+  }
+  if (Array.isArray(data.schedules) && data.schedules.length > 0) {
+    await db.schedules.where('id').anyOf(data.schedules.map((item: any) => item.id)).modify(mark);
+  }
+}
+
+async function syncBackupToCloud(content: any) {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  const token = data.session?.access_token;
+  if (!token) throw new Error('Sessao expirada. Entre novamente antes de importar o backup.');
+
+  const response = await fetch('/api/sync-backup-import', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(content),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !result?.ok) {
+    throw new Error(result?.error || `Resgate do backup falhou (${response.status}).`);
+  }
+
+  await markRecordsSynced(content);
+  return result.counts as Record<string, number>;
 }
 
 async function buildDatabaseBackupPayload(reason = 'manual-export') {
@@ -94,7 +140,7 @@ export async function exportDatabase() {
   URL.revokeObjectURL(url);
 }
 
-export async function importDatabase(jsonFile: File): Promise<string> {
+export async function importDatabase(jsonFile: File, options: { syncToCloud?: boolean } = {}): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = async (e) => {
@@ -120,6 +166,15 @@ export async function importDatabase(jsonFile: File): Promise<string> {
         if (settings) {
           localStorage.setItem('inspec-visa-settings', JSON.stringify(settings));
           // Note: Zustand state won't update automatically without a reload or manual trigger
+        }
+
+        if (options.syncToCloud) {
+          const counts = await syncBackupToCloud(content);
+          resolve(
+            `Backup importado e enviado para a nuvem. ` +
+            `Clientes: ${counts.clients || 0}, inspeções: ${counts.inspections || 0}, respostas: ${counts.responses || 0}, fotos: ${counts.photos || 0}, agendamentos: ${counts.schedules || 0}.`
+          );
+          return;
         }
 
         resolve('Importação concluída com sucesso! Recarregando aplicação...');

@@ -262,8 +262,9 @@ export function SyncCenter() {
       return;
     }
 
-    await withAction('import', 'Backup importado. Recarregando dados locais...', async () => {
-      await importDatabase(file);
+    await withAction('import', 'Backup importado e enviado para a nuvem. Recarregando dados locais...', async () => {
+      const message = await importDatabase(file, { syncToCloud: true });
+      console.log(`[SyncCenter] ${message}`);
     });
     event.target.value = '';
     window.location.reload();
