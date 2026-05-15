@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { db } from '../db/database';
 import { SyncQueueService } from '../services/syncQueueService';
-import { exportDatabase, importDatabase } from '../utils/backup';
+import { exportDatabase, exportInternalBackups, importDatabase } from '../utils/backup';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import {
@@ -259,6 +259,11 @@ export function SyncCenter() {
       await exportDatabase();
     });
 
+  const handleExportInternalBackups = () =>
+    withAction('internalBackups', 'Backups internos exportados com sucesso.', async () => {
+      await exportInternalBackups();
+    });
+
   const handleImportBackup = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -417,6 +422,15 @@ export function SyncCenter() {
             >
               <Download className={`h-3.5 w-3.5 mr-1.5 ${actionLoading === 'export' ? 'animate-pulse' : ''}`} />
               Exportar Backup
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportInternalBackups}
+              disabled={isBusy}
+            >
+              <Download className={`h-3.5 w-3.5 mr-1.5 ${actionLoading === 'internalBackups' ? 'animate-pulse' : ''}`} />
+              Backups Internos
             </Button>
             <input
               ref={importInputRef}

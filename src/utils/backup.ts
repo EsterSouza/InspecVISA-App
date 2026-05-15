@@ -140,6 +140,24 @@ export async function exportDatabase() {
   URL.revokeObjectURL(url);
 }
 
+export async function exportInternalBackups() {
+  const backups = await db.local_backups.toArray();
+  const payload = {
+    version: 'internal-backups-1.0',
+    timestamp: new Date().toISOString(),
+    count: backups.length,
+    backups,
+  };
+
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `inspec-visa-backups-internos-${new Date().toISOString().split('T')[0]}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export async function importDatabase(jsonFile: File, options: { syncToCloud?: boolean } = {}): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
