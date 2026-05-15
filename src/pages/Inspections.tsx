@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, Calendar, Activity, CheckCircle, Trash2, Edit } from 'lucide-react';
+import { Search, Plus, Calendar, Activity, CheckCircle, Trash2, Edit, RotateCcw } from 'lucide-react';
 import { ClientService } from '../services/clientService';
 import { InspectionService } from '../services/inspectionService';
 import type { Inspection, Client } from '../types';
@@ -14,6 +14,7 @@ import { useSettingsStore } from '../store/useSettingsStore';
 export function Inspections() {
   const navigate = useNavigate();
   const [inspections, setInspections] = useState<Inspection[]>([]);
+  const [deletedInspections, setDeletedInspections] = useState<Inspection[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'in_progress' | 'completed'>('all');
@@ -49,6 +50,17 @@ export function Inspections() {
       }
 
       setInspections(list);
+
+      let deleted = await InspectionService.getDeletedInspections();
+      deleted = deleted.map(insp => {
+        const c = clientMap.get(insp.clientId);
+        return {
+          ...insp,
+          clientName: c?.name || insp.clientName || 'Cliente',
+          clientCategory: c?.category || insp.clientCategory,
+        };
+      });
+      setDeletedInspections(deleted);
     } catch (err) {
       console.error('Error loading inspections:', err);
     } finally {
@@ -75,6 +87,18 @@ export function Inspections() {
         loadInspections();
         alert('Erro ao excluir inspeção. Tente novamente.');
       });
+    }
+  };
+
+  const handleRestore = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (!window.confirm('Restaurar esta inspeção excluída com respostas e fotos locais?')) return;
+    try {
+      await InspectionService.restoreInspection(id);
+      await loadInspections();
+      alert('Inspeção restaurada. Abra a inspeção e confira os dados antes de sincronizar.');
+    } catch (err: any) {
+      alert(err?.message || 'Erro ao restaurar inspeção.');
     }
   };
 
@@ -114,6 +138,32 @@ export function Inspections() {
       </div>
 
       <div className="space-y-4">
+        {deletedInspections.length > 0 && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-bold text-amber-900">Inspeções excluídas recentemente</h2>
+                <p className="text-xs text-amber-700">Dados locais ainda podem ser restaurados antes da limpeza definitiva.</p>
+              </div>
+              <Badge variant="outline" className="border-amber-300 bg-white text-amber-700">{deletedInspections.length}</Badge>
+            </div>
+            <div className="space-y-2">
+              {deletedInspections.map(insp => (
+                <div key={insp.id} className="flex items-center justify-between gap-3 rounded-lg border border-amber-100 bg-white p-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-gray-900">{insp.clientName || 'Cliente'}</p>
+                    <p className="text-xs text-gray-500">{formatDateTime(insp.inspectionDate)} • excluída em {insp.deletedAt ? formatDateTime(insp.deletedAt) : '-'}</p>
+                  </div>
+                  <Button size="sm" variant="outline" onClick={(e) => handleRestore(e, insp.id)} className="shrink-0 border-amber-300 text-amber-700 hover:bg-amber-50">
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Restaurar
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="flex justify-center py-12">
             <Activity className="h-8 w-8 animate-spin text-primary-600" />

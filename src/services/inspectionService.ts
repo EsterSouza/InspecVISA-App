@@ -391,6 +391,52 @@ export const InspectionService = {
     // parallel direct push here; that old path could race the durable job.
   },
 
+  async getDeletedInspections(): Promise<Inspection[]> {
+    return filterByActiveTenant(await db.inspections
+      .filter(i => Boolean(i.deletedAt))
+      .toArray());
+  },
+
+  async restoreInspection(id: string): Promise<void> {
+    const local = await db.inspections.get(id);
+    if (!belongsToActiveTenant(local)) throw new Error('Inspecao nao encontrada neste tenant.');
+    if (!local) throw new Error('Inspecao nao encontrada localmente.');
+
+    const now = new Date();
+    await db.inspections.put({
+      ...local,
+      deletedAt: null,
+      updatedAt: now,
+      syncStatus: 'pending',
+      syncError: undefined,
+    });
+
+    const responses = await db.responses.where('inspectionId').equals(id).toArray();
+    for (const response of responses) {
+      await db.responses.put({
+        ...response,
+        deletedAt: null,
+        updatedAt: now,
+        syncStatus: 'pending',
+        syncError: undefined,
+      });
+    }
+
+    const responseIds = responses.map(response => response.id);
+    if (responseIds.length > 0) {
+      const photos = await db.photos.where('responseId').anyOf(responseIds).toArray();
+      for (const photo of photos) {
+        await db.photos.put({
+          ...photo,
+          deletedAt: null,
+          updatedAt: now,
+          syncStatus: 'pending',
+          syncError: undefined,
+        });
+      }
+    }
+  },
+
   async getResponsesByInspectionId(inspectionId: string, forceRefresh = false): Promise<InspectionResponse[]> {
     const local = filterByActiveTenant(await db.responses
       .where('inspectionId')
