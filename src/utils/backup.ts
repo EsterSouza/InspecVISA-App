@@ -1,6 +1,40 @@
 import { db } from '../db/database';
 
 const PRE_BUNDLE_BACKUP_FLAG = 'inspecvisa-pre-bundle-backup-created';
+const DATE_FIELDS = [
+  'createdAt',
+  'updatedAt',
+  'deletedAt',
+  'dataVerifiedAt',
+  'inspectionDate',
+  'completedAt',
+  'takenAt',
+  'scheduledAt',
+  'timestamp',
+];
+
+function reviveDate(value: unknown) {
+  if (!value) return value;
+  if (value instanceof Date) return value;
+  if (typeof value !== 'string') return value;
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date;
+}
+
+function reviveDateFields<T extends Record<string, any>>(record: T): T {
+  const revived: Record<string, any> = { ...record };
+  for (const field of DATE_FIELDS) {
+    if (field in revived) {
+      revived[field] = reviveDate(revived[field]);
+    }
+  }
+  return revived as T;
+}
+
+function reviveRecords<T extends Record<string, any>>(records: T[]) {
+  return records.map(reviveDateFields);
+}
 
 async function buildDatabaseBackupPayload(reason = 'manual-export') {
   const clients = await db.clients.toArray();
@@ -75,12 +109,12 @@ export async function importDatabase(jsonFile: File): Promise<string> {
         // Transactional import
         await db.transaction('rw', [db.clients, db.inspections, db.responses, db.photos, db.schedules, db.templates], async () => {
           // We use put (upsert) to avoid duplicates if importing same data twice
-          if (clients) await db.clients.bulkPut(clients);
-          if (inspections) await db.inspections.bulkPut(inspections);
-          if (responses) await db.responses.bulkPut(responses);
-          if (photos) await db.photos.bulkPut(photos);
-          if (schedules) await db.schedules.bulkPut(schedules);
-          if (templates) await db.templates.bulkPut(templates);
+          if (Array.isArray(clients)) await db.clients.bulkPut(reviveRecords(clients));
+          if (Array.isArray(inspections)) await db.inspections.bulkPut(reviveRecords(inspections));
+          if (Array.isArray(responses)) await db.responses.bulkPut(reviveRecords(responses));
+          if (Array.isArray(photos)) await db.photos.bulkPut(reviveRecords(photos));
+          if (Array.isArray(schedules)) await db.schedules.bulkPut(reviveRecords(schedules));
+          if (Array.isArray(templates)) await db.templates.bulkPut(reviveRecords(templates));
         });
 
         if (settings) {
