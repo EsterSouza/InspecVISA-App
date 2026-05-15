@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { db } from '../db/database';
 import { SyncQueueService } from '../services/syncQueueService';
-import { exportDatabase } from '../utils/backup';
+import { exportDatabase, importDatabase } from '../utils/backup';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import {
   RefreshCw, AlertTriangle, CheckCircle2, Clock, XCircle,
-  Download, Wifi, WifiOff, ChevronDown, ChevronRight,
+  Download, Upload, Wifi, WifiOff, ChevronDown, ChevronRight,
   RotateCcw, Play, Image, Users, ClipboardCheck, FileText,
   Calendar, Activity, Lock,
 } from 'lucide-react';
@@ -61,6 +61,7 @@ function jobStatusFromError(syncError?: string | null): SyncItem['jobStatus'] {
 }
 
 export function SyncCenter() {
+  const importInputRef = useRef<HTMLInputElement>(null);
   const [tables, setTables] = useState<TableData[]>([]);
   const [summary, setSummary] = useState({ pending: 0, syncing: 0, failed: 0, conflict: 0 });
   const [logs, setLogs] = useState<any[]>([]);
@@ -224,12 +225,21 @@ export function SyncCenter() {
 
   const handleForceSync = () =>
     withAction('force', 'Sincronização disparada.', async () => {
-      await SyncQueueService.processAll();
+      await SyncQueueService.processAll({ force: true });
     });
 
   const handleResetStuck = () =>
     withAction('reset', 'Registros travados resetados para pendente.', async () => {
       await SyncQueueService.cleanupStuckSyncing();
+    });
+
+  const handleForcePush = () =>
+    withAction('forcePush', 'Push direto concluido. Verifique os contadores da fila.', async () => {
+      const { forcePushFinalData } = await import('../utils/forceSync');
+      const result = await forcePushFinalData();
+      if (result.errors > 0) {
+        throw new Error(`Push direto terminou com ${result.errors} itens ainda pendentes.`);
+      }
     });
 
   const handleResetLock = () =>
@@ -241,6 +251,23 @@ export function SyncCenter() {
     withAction('export', 'Backup exportado com sucesso.', async () => {
       await exportDatabase();
     });
+
+  const handleImportBackup = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const ok = window.confirm('Deseja importar este backup? Registros novos serao adicionados e os existentes serao atualizados.');
+    if (!ok) {
+      event.target.value = '';
+      return;
+    }
+
+    await withAction('import', 'Backup importado. Recarregando dados locais...', async () => {
+      await importDatabase(file);
+    });
+    event.target.value = '';
+    window.location.reload();
+  };
 
   const handleRetryItem = (item: SyncItem) =>
     withAction(`item-${item.id}`, 'Item reenviado.', async () => {
@@ -350,6 +377,15 @@ export function SyncCenter() {
             <Button
               variant="secondary"
               size="sm"
+              onClick={handleForcePush}
+              disabled={isBusy || !isOnline}
+            >
+              <Upload className={`h-3.5 w-3.5 mr-1.5 ${actionLoading === 'forcePush' ? 'animate-pulse' : ''}`} />
+              Forcar Push
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={handleResetStuck}
               disabled={isBusy}
             >
@@ -364,6 +400,22 @@ export function SyncCenter() {
             >
               <Download className={`h-3.5 w-3.5 mr-1.5 ${actionLoading === 'export' ? 'animate-pulse' : ''}`} />
               Exportar Backup
+            </Button>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={handleImportBackup}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => importInputRef.current?.click()}
+              disabled={isBusy}
+            >
+              <Upload className={`h-3.5 w-3.5 mr-1.5 ${actionLoading === 'import' ? 'animate-pulse' : ''}`} />
+              Importar Backup
             </Button>
             {syncLocked && (
               <Button
