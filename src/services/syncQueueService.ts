@@ -107,6 +107,8 @@ export const SyncQueueService = {
 
     try {
       await this.cleanupStuckSyncing();
+      const { reconcileCloudSyncedItems } = await import('../utils/syncReconciliation');
+      await reconcileCloudSyncedItems();
       const summary = await this.getQueueSummary();
       console.log(`[SyncQueue] Processing background sync (Pending: ${summary.pending}, Syncing: ${summary.syncing}, Failed: ${summary.failed})...`);
 

@@ -247,6 +247,13 @@ export function SyncCenter() {
       SyncQueueService.resetLock();
     });
 
+  const handleReconcileCloud = () =>
+    withAction('reconcile', 'Pendencias ja presentes na nuvem foram confirmadas localmente.', async () => {
+      const { reconcileCloudSyncedItems } = await import('../utils/syncReconciliation');
+      const totals = await reconcileCloudSyncedItems();
+      console.log('[SyncCenter] Cloud reconciliation:', totals);
+    });
+
   const handleExportBackup = () =>
     withAction('export', 'Backup exportado com sucesso.', async () => {
       await exportDatabase();
@@ -392,6 +399,15 @@ export function SyncCenter() {
             >
               <RotateCcw className={`h-3.5 w-3.5 mr-1.5 ${actionLoading === 'reset' ? 'animate-spin' : ''}`} />
               Resetar Travados
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleReconcileCloud}
+              disabled={isBusy || !isOnline}
+            >
+              <CheckCircle2 className={`h-3.5 w-3.5 mr-1.5 ${actionLoading === 'reconcile' ? 'animate-pulse' : ''}`} />
+              Confirmar Nuvem
             </Button>
             <Button
               variant="outline"
