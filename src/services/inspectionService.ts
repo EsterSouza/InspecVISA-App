@@ -402,6 +402,28 @@ export const InspectionService = {
     const lastCheck = local.length > 0 ? Math.min(...local.map(r => r.dataVerifiedAt?.getTime() || 0)) : 0;
     const isStale = (Date.now() - lastCheck > 2 * 60 * 1000) || forceRefresh;
 
+    if (forceRefresh && isStale && navigator.onLine) {
+      try {
+        const { data, error } = await RepositoryService.withTimeout(
+          Promise.resolve(supabase.from('responses').select('*').eq('inspection_id', inspectionId).is('deleted_at', null)),
+          25000,
+          `ResponsesRefresh_${inspectionId}`
+        ) as any;
+
+        if (error || !data || (data.length === 0 && local.length > 0)) {
+          console.warn(`[SafetyGate] Blocked forced remote overwrite for ${inspectionId}. Error: ${error?.message || 'Empty result'}. Local records preserved: ${local.length}`);
+          return local;
+        }
+
+        const merged = await InspectionService.mergeRemoteResponses(data.map(mapResponseFromPostgres));
+        console.log(`[InspectionService] Forced refresh loaded ${merged.length} responses from remote.`);
+        return merged;
+      } catch (err: any) {
+        console.warn(`[InspectionService] Forced responses refresh failed for ${inspectionId}:`, err?.message || err);
+        return local;
+      }
+    }
+
     if (isStale && navigator.onLine) {
       // Trigger background refresh for responses
       // Safety: Only update Dexie if we have a successful, non-masked result.
