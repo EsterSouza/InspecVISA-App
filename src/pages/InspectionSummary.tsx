@@ -20,6 +20,18 @@ import { InspectionIntegrityPanel } from '../components/inspection/InspectionInt
 import { belongsToActiveTenant, filterByActiveTenant } from '../utils/localScope';
 import { buildRecoveryTemplate } from '../utils/templateRecovery';
 
+const PDF_PHOTO_HYDRATION_TIMEOUT_MS = 12000;
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => reject(new Error(`TIMEOUT: ${label}`)), timeoutMs);
+    promise
+      .then(resolve)
+      .catch(reject)
+      .finally(() => window.clearTimeout(timeout));
+  });
+}
+
 export function InspectionSummary() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -278,15 +290,19 @@ export function InspectionSummary() {
        const responseIds = reportResponses.map(response => response.id);
        if (navigator.onLine && responseIds.length > 0) {
          try {
-           const hydration = await InspectionService.hydratePhotosByResponseIds(responseIds, {
-             forceRefresh: true,
-             timeoutMs: 8000,
-             concurrency: 2,
-             onProgress: (progress, photo) => {
-               setPdfPhotoProgress(progress.total > 0 ? progress : null);
-               if (photo) mergePhotosIntoResponses([photo]);
-             },
-           });
+           const hydration = await withTimeout(
+             InspectionService.hydratePhotosByResponseIds(responseIds, {
+               forceRefresh: true,
+               timeoutMs: 5000,
+               concurrency: 3,
+               onProgress: (progress, photo) => {
+                 setPdfPhotoProgress(progress.total > 0 ? progress : null);
+                 if (photo) mergePhotosIntoResponses([photo]);
+               },
+             }),
+             PDF_PHOTO_HYDRATION_TIMEOUT_MS,
+             'PDF photo hydration'
+           );
 
            if (hydration.total > 0) {
              pdfResponses = attachPhotosToResponses(reportResponses, hydration.photos);
