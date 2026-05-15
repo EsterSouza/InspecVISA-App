@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { FileDown, ArrowLeft, Loader2, Save, Info, AlertTriangle } from 'lucide-react';
+import { Eye, EyeOff, FileDown, ArrowLeft, Loader2, Save, Info, AlertTriangle } from 'lucide-react';
 import { ClientService } from '../services/clientService';
 import { InspectionService } from '../services/inspectionService';
 import { InspectionBundleSyncService } from '../services/inspectionBundleSyncService';
@@ -36,6 +36,7 @@ export function InspectionSummary() {
   const [allClients, setAllClients] = useState<any[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [savingMeta, setSavingMeta] = useState(false);
+  const [hideClientInfo, setHideClientInfo] = useState(false);
   const [readiness, setReadiness] = useState<ReadinessResult | null>(null);
   const [photoHydration, setPhotoHydration] = useState<{ total: number; completed: number; failed: number } | null>(null);
   const [pdfPhotoProgress, setPdfPhotoProgress] = useState<{ total: number; completed: number; failed: number } | null>(null);
@@ -276,34 +277,36 @@ export function InspectionSummary() {
        let pdfResponses = reportResponses;
        const responseIds = reportResponses.map(response => response.id);
        if (navigator.onLine && responseIds.length > 0) {
-         const hydration = await InspectionService.hydratePhotosByResponseIds(responseIds, {
-           forceRefresh: true,
-           onProgress: (progress, photo) => {
-             setPdfPhotoProgress(progress.total > 0 ? progress : null);
-             if (photo) mergePhotosIntoResponses([photo]);
-           },
-         });
+         try {
+           const hydration = await InspectionService.hydratePhotosByResponseIds(responseIds, {
+             forceRefresh: true,
+             timeoutMs: 8000,
+             concurrency: 2,
+             onProgress: (progress, photo) => {
+               setPdfPhotoProgress(progress.total > 0 ? progress : null);
+               if (photo) mergePhotosIntoResponses([photo]);
+             },
+           });
 
-         if (hydration.total > 0) {
-           pdfResponses = attachPhotosToResponses(reportResponses, hydration.photos);
-           setResponses(pdfResponses);
-         }
+           if (hydration.total > 0) {
+             pdfResponses = attachPhotosToResponses(reportResponses, hydration.photos);
+             setResponses(pdfResponses);
+           }
 
-         if (hydration.failed > 0) {
-           const ok = window.confirm(
-             `Nao foi possivel baixar ${hydration.failed} foto(s) para este dispositivo agora. Gerar o PDF sem essas imagens? Cancele para tentar novamente depois.`
-           );
+           if (hydration.failed > 0) {
+             const ok = window.confirm(
+               `Nao foi possivel baixar ${hydration.failed} foto(s) para este dispositivo agora. Gerar o PDF sem essas imagens? Cancele para tentar novamente depois.`
+             );
+             if (!ok) return;
+           }
+         } catch (err) {
+           console.warn('[Summary] PDF photo hydration failed; generating with local photos only:', err);
+           const ok = window.confirm('As fotos da nuvem nao terminaram de baixar agora. Gerar o PDF com as fotos que ja aparecem nesta tela?');
            if (!ok) return;
          }
        }
 
-       if (currentInspection.status === 'completed' && currentReadiness.isReady && navigator.onLine) {
-         try {
-           await InspectionBundleSyncService.syncInspectionBundle(currentInspection.id, { finalizeReport: true });
-         } catch (err) {
-           console.warn('[Summary] Final report snapshot sync failed; generating local PDF anyway:', err);
-         }
-       }
+       const shouldSyncFinalSnapshot = currentInspection.status === 'completed' && currentReadiness.isReady && navigator.onLine;
        await new Promise(resolve => setTimeout(resolve, 100));
        const { generatePDF } = await import('../utils/pdfGenerator');
        await generatePDF(
@@ -315,6 +318,10 @@ export function InspectionSummary() {
          legislations,
          { selectedLegislations: opts.selectedLegislations, signatureDataUrl: opts.signatureDataUrl }
        );
+       if (shouldSyncFinalSnapshot) {
+         void InspectionBundleSyncService.syncInspectionBundle(currentInspection.id, { finalizeReport: true })
+           .catch((err) => console.warn('[Summary] Final report snapshot sync failed after local PDF generation:', err));
+       }
     } catch (err) {
        console.error('PDF Error:', err);
       const message = err instanceof Error ? err.message : String(err);
