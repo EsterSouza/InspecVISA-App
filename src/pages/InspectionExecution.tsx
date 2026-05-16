@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Loader2, PlusCircle, WifiOff, X, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, Loader2, PlusCircle, WifiOff, X, RefreshCw } from 'lucide-react';
 import { db } from '../db/database';
 import { getTemplateById, getEffectiveTemplate } from '../data/templates';
 import { type ChecklistTemplate, type Inspection, type InspectionResponse, type InspectionPhoto } from '../types';
@@ -46,6 +46,7 @@ export function InspectionExecution() {
   const [prevNCIds, setPrevNCIds] = useState<string[]>([]);
   const [expandedSectionIds] = useState<string[]>([]);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [hideClientInfo, setHideClientInfo] = useState(false);
   const [photoHydration, setPhotoHydration] = useState<{ total: number; completed: number; failed: number } | null>(null);
 
   useEffect(() => {
@@ -525,6 +526,7 @@ export function InspectionExecution() {
 
   const isCompleted = currentInspection.status === 'completed';
   const usingRecoveryTemplate = !template;
+  const displayClientName = hideClientInfo ? 'Cliente oculto' : currentInspection.clientName;
 
   return (
     <div className="flex h-screen flex-col bg-gray-50 pb-safe pb-16 lg:pb-0">
@@ -535,7 +537,7 @@ export function InspectionExecution() {
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div className="min-w-0 flex-1">
-              <h1 className="text-lg font-bold text-gray-900 truncate max-w-xs sm:max-w-sm md:max-w-lg">{currentInspection.clientName}</h1>
+              <h1 className="text-lg font-bold text-gray-900 truncate max-w-xs sm:max-w-sm md:max-w-lg">{displayClientName}</h1>
               <div className="flex items-center space-x-2 text-[10px] font-bold uppercase tracking-wider">
                 {isCompleted && <Badge variant="neutral" className="bg-green-100 text-green-700 border-green-200">Finalizada</Badge>}
                 {usingRecoveryTemplate && <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">Modo Recuperação</Badge>}
@@ -550,6 +552,14 @@ export function InspectionExecution() {
               </div>
             </div>
           </div>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setHideClientInfo((value) => !value)}
+            title={hideClientInfo ? 'Mostrar dados do cliente' : 'Ocultar dados do cliente'}
+          >
+            {hideClientInfo ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </Button>
           {!isCompleted && (
             <Button onClick={() => setShowSignatureModal(true)} className="shadow-lg shadow-primary-100">
               Finalizar Visita
@@ -661,12 +671,40 @@ export function InspectionExecution() {
                           />
                         </div>
                       </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-4 border-b border-slate-200">
+                        <div>
+                          <span className="text-[10px] text-slate-500 font-bold block mb-1 uppercase tracking-tight">Area util aproximada (m2)</span>
+                          <input
+                            type="number"
+                            id="usableAreaM2"
+                            name="usableAreaM2"
+                            placeholder="Area da licenca sanitaria..."
+                            className="w-full bg-white border border-slate-200 rounded-lg p-2 font-bold text-slate-900 shadow-sm"
+                            value={currentInspection.usableAreaM2 || 0}
+                            onChange={(e) => updateStaffData('usableAreaM2', parseInt(e.target.value) || 0)}
+                          />
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-500 font-bold block mb-1 uppercase tracking-tight">Profissionais de limpeza</span>
+                          <input
+                            type="number"
+                            id="observedCleaningStaff"
+                            name="observedCleaningStaff"
+                            placeholder="Equipe de limpeza..."
+                            className="w-full bg-white border border-slate-200 rounded-lg p-2 font-bold text-slate-900 shadow-sm"
+                            value={currentInspection.observedCleaningStaff || 0}
+                            onChange={(e) => updateStaffData('observedCleaningStaff', parseInt(e.target.value) || 0)}
+                          />
+                        </div>
+                      </div>
                       <ILPIStaffCalculator
                         level1={currentInspection.dependencyLevel1 || 0}
                         level2={currentInspection.dependencyLevel2 || 0}
                         level3={currentInspection.dependencyLevel3 || 0}
                         currentCaregivers={currentInspection.observedStaff || 0}
                         currentNursingTechs={currentInspection.observedNursingTechs || 0}
+                        usableAreaM2={currentInspection.usableAreaM2 || 0}
+                        currentCleaningStaff={currentInspection.observedCleaningStaff || 0}
                         isRJ={['RJ', 'RIO DE JANEIRO'].includes((currentInspection.state || '').toUpperCase())}
                       />
                     </div>

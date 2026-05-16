@@ -634,7 +634,7 @@ export function SyncCenter() {
                         ? new Date(log.timestamp).toLocaleTimeString('pt-BR')
                         : '—'}{' '}
                     </span>
-                    {log.message ?? log.details ?? JSON.stringify(log)}
+                    {log.message}
                   </div>
                   );
                 })}

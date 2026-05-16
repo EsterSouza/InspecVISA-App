@@ -150,6 +150,8 @@ export interface Inspection {
   dependencyLevel3?: number;
   observedStaff?: number;
   observedNursingTechs?: number; // RJ specific staff
+  usableAreaM2?: number;
+  observedCleaningStaff?: number;
   signatureDataUrl?: string;
   updatedAt: Date;
   deletedAt?: Date | null;

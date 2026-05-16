@@ -391,6 +391,8 @@ export function InspectionSummary() {
     );
   }
 
+  const displayClientName = hideClientInfo ? 'Cliente oculto' : (currentInspection.clientName || 'Inspeção');
+
   // Template missing: show summary with warning, don't block!
   if (!displayTemplate) {
     return (
@@ -400,6 +402,14 @@ export function InspectionSummary() {
             <button onClick={() => navigate('/inspections')} className="flex items-center text-gray-500 hover:text-gray-900 text-sm font-medium gap-2">
               ← Voltar
             </button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setHideClientInfo((value) => !value)}
+              title={hideClientInfo ? 'Mostrar cliente' : 'Ocultar cliente'}
+            >
+              {hideClientInfo ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </Button>
           </div>
         </header>
         <div className="mx-auto max-w-4xl p-6 space-y-6 flex-1 overflow-y-auto">
@@ -408,7 +418,7 @@ export function InspectionSummary() {
             <p className="mt-1">O modelo de inspeção usado neste relatório não está disponível neste dispositivo. Os dados brutos foram preservados ({reportResponses.length} respostas registradas).</p>
           </div>
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center">
-            <h1 className="text-2xl font-extrabold text-gray-900">{currentInspection?.clientName || 'Inspeção'}</h1>
+            <h1 className="text-2xl font-extrabold text-gray-900">{displayClientName}</h1>
             <p className="mt-1 text-gray-500">Template ID: <code className="text-xs">{currentInspection?.templateId}</code></p>
             <p className="text-sm text-gray-400 mt-1 mb-6">Concluída em {formatDateTime(currentInspection?.completedAt || currentInspection?.createdAt || new Date())}</p>
             <div className="grid grid-cols-3 gap-4 max-w-sm mx-auto">
@@ -460,6 +470,14 @@ export function InspectionSummary() {
             </Button>
           </div>
           <div className="flex space-x-2 items-center">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setHideClientInfo((value) => !value)}
+              title={hideClientInfo ? 'Mostrar cliente' : 'Ocultar cliente'}
+            >
+              {hideClientInfo ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </Button>
             {needsProvisionalPdfNotice && (
               <div className="text-[10px] text-amber-600 font-bold bg-amber-50 px-2 py-1 rounded-md border border-amber-100 hidden md:flex items-center gap-1">
                 <AlertTriangle size={10} />
@@ -501,8 +519,10 @@ export function InspectionSummary() {
                     onChange={(e) => setInspection({...currentInspection, clientId: e.target.value})}
                     className="w-full border-gray-300 rounded-lg text-sm shadow-sm focus:ring-primary-500 focus:border-primary-500"
                   >
-                    {allClients.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
+                    {allClients.map((c, index) => (
+                      <option key={c.id} value={c.id}>
+                        {hideClientInfo ? (c.id === currentInspection.clientId ? 'Cliente atual' : `Cliente ${index + 1}`) : c.name}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -610,6 +630,31 @@ export function InspectionSummary() {
                       </div>
                     )}
                   </div>
+                  <p className="text-[10px] font-bold text-primary-700 uppercase">Limpeza</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-gray-500 font-semibold uppercase">Area util aproximada (m2)</label>
+                      <input
+                        type="number"
+                        id="usableAreaM2"
+                        name="usableAreaM2"
+                        value={currentInspection.usableAreaM2 || 0}
+                        onChange={(e) => setInspection({...currentInspection, usableAreaM2: parseInt(e.target.value) || 0})}
+                        className="w-full border-gray-300 rounded-lg text-sm shadow-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-gray-500 font-semibold uppercase">Profissionais de limpeza observados</label>
+                      <input
+                        type="number"
+                        id="observedCleaningStaff"
+                        name="observedCleaningStaff"
+                        value={currentInspection.observedCleaningStaff || 0}
+                        onChange={(e) => setInspection({...currentInspection, observedCleaningStaff: parseInt(e.target.value) || 0})}
+                        className="w-full border-gray-300 rounded-lg text-sm shadow-sm"
+                      />
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -662,7 +707,7 @@ export function InspectionSummary() {
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mt-6">
           <div className="p-8 sm:p-12 text-center border-b border-gray-100 pb-8">
-            <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">{currentInspection.clientName || 'Inspeção'}</h1>
+            <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">{displayClientName}</h1>
             <p className="mt-2 text-gray-500 font-medium">{displayTemplate?.name}</p>
             <p className="text-sm text-gray-400 mt-1">Concluída em {formatDateTime(currentInspection.completedAt || new Date())}</p>
           </div>
