@@ -17,6 +17,19 @@ import { ProfileModal } from '../components/profile/ProfileModal';
 import { ScheduleService } from '../services/scheduleService';
 import type { Schedule } from '../types';
 
+function startOfWeek(date: Date) {
+  const copy = new Date(date);
+  copy.setHours(0, 0, 0, 0);
+  const day = copy.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  copy.setDate(copy.getDate() + diff);
+  return copy;
+}
+
+function isSameInspectionWeek(a: Date | string, b: Date | string) {
+  return startOfWeek(new Date(a)).getTime() === startOfWeek(new Date(b)).getTime();
+}
+
 export function NewInspection() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -113,6 +126,35 @@ export function NewInspection() {
     setIsStarting(true);
 
     try {
+      if (selectedClient.category === 'ilpi') {
+        const existingSameWeek = (await db.inspections
+          .where('clientId').equals(selectedClient.id)
+          .toArray())
+          .filter(insp =>
+            !insp.deletedAt &&
+            isSameInspectionWeek(insp.inspectionDate, inspectionDate + 'T12:00:00') &&
+            (insp.status === 'in_progress' || insp.status === 'completed')
+          )
+          .sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime())[0];
+
+        if (existingSameWeek) {
+          const existingDate = new Date(existingSameWeek.inspectionDate).toLocaleDateString('pt-BR');
+          const ok = window.confirm(
+            `Ja existe uma inspeção ILPI para este local nesta semana (${existingDate}). ` +
+            'Deseja continuar essa inspeção para manter saúde e nutrição no mesmo relatório?'
+          );
+          if (ok) {
+            navigate('/execute', {
+              state: {
+                inspectionId: existingSameWeek.id,
+                linkedScheduleId: matchingSchedule?.id,
+              }
+            });
+            return;
+          }
+        }
+      }
+
       let previousInspectionId: string | undefined;
       try {
         previousInspectionId = await Promise.race([
