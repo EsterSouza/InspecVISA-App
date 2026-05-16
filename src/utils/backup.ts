@@ -129,6 +129,7 @@ async function markRecordsSynced(content: any) {
 
 async function syncBackupToCloud(content: any) {
   const token = await getBackupAccessToken();
+  const body = JSON.stringify(content);
 
   const response = await fetchWithTimeout(
     '/api/sync-backup-import',
@@ -138,18 +139,78 @@ async function syncBackupToCloud(content: any) {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify(content),
+      body,
     },
     BACKUP_CLOUD_SYNC_TIMEOUT_MS,
     'SyncBackupImport'
   );
-  const result = await response.json().catch(() => ({}));
+  const raw = await response.text().catch(() => '');
+  let result: any = {};
+  try {
+    result = raw ? JSON.parse(raw) : {};
+  } catch {
+    result = {};
+  }
   if (!response.ok || !result?.ok) {
-    throw new Error(result?.error || `Resgate do backup falhou (${response.status}).`);
+    const detail = result?.error || raw?.slice(0, 500);
+    throw new Error(detail || `Resgate do backup falhou (${response.status}, payload ${Math.round(body.length / 1024)} KB).`);
   }
 
   await markRecordsSynced(content);
   return result.counts as Record<string, number>;
+}
+
+function emptyPayloadFrom(payload: any, reason: string) {
+  return {
+    ...payload,
+    reason,
+    timestamp: new Date().toISOString(),
+    data: {
+      ...payload.data,
+      clients: [],
+      inspections: [],
+      responses: [],
+      photos: [],
+      schedules: [],
+      templates: [],
+      settings: null,
+    },
+  };
+}
+
+function splitQueuedPayload(payload: any) {
+  const data = payload.data || {};
+  const clients = Array.isArray(data.clients) ? data.clients : [];
+  const inspections = Array.isArray(data.inspections) ? data.inspections : [];
+  const responses = Array.isArray(data.responses) ? data.responses : [];
+  const photos = Array.isArray(data.photos) ? data.photos : [];
+
+  const clientsById = new Map(clients.map((client: any) => [client.id, client]));
+  const inspectionsById = new Map(inspections.map((inspection: any) => [inspection.id, inspection]));
+  const responsesById = new Map(responses.map((response: any) => [response.id, response]));
+
+  const withoutPhotos = {
+    ...payload,
+    reason: `${payload.reason || 'manual-queued-sync'}:records`,
+    data: {
+      ...data,
+      photos: [],
+    },
+  };
+
+  const photoPayloads = photos.map((photo: any, index: number) => {
+    const response = responsesById.get(photo.responseId || photo.response_id);
+    const inspection = response ? inspectionsById.get((response as any).inspectionId || (response as any).inspection_id) : null;
+    const client = inspection ? clientsById.get((inspection as any).clientId || (inspection as any).client_id) : null;
+    const photoPayload = emptyPayloadFrom(payload, `${payload.reason || 'manual-queued-sync'}:photo:${index + 1}/${photos.length}`);
+    photoPayload.data.clients = client ? [client] : clients;
+    photoPayload.data.inspections = inspection ? [inspection] : inspections;
+    photoPayload.data.responses = response ? [response] : responses;
+    photoPayload.data.photos = [photo];
+    return photoPayload;
+  });
+
+  return { withoutPhotos, photoPayloads };
 }
 
 async function buildQueuedBackupPayload(reason = 'manual-queued-sync') {
@@ -222,8 +283,29 @@ async function buildQueuedBackupPayload(reason = 'manual-queued-sync') {
 
 export async function syncQueuedDataToCloud() {
   const payload = await buildQueuedBackupPayload();
-  const counts = await syncBackupToCloud(payload);
-  return counts;
+  const { withoutPhotos, photoPayloads } = splitQueuedPayload(payload);
+  const totalCounts: Record<string, number> = {};
+  const addCounts = (counts: Record<string, number>) => {
+    for (const [key, value] of Object.entries(counts || {})) {
+      totalCounts[key] = (totalCounts[key] || 0) + Number(value || 0);
+    }
+  };
+
+  const hasRecords =
+    withoutPhotos.data.clients.length > 0 ||
+    withoutPhotos.data.inspections.length > 0 ||
+    withoutPhotos.data.responses.length > 0 ||
+    withoutPhotos.data.schedules.length > 0;
+
+  if (hasRecords) {
+    addCounts(await syncBackupToCloud(withoutPhotos));
+  }
+
+  for (const photoPayload of photoPayloads) {
+    addCounts(await syncBackupToCloud(photoPayload));
+  }
+
+  return totalCounts;
 }
 
 async function buildDatabaseBackupPayload(reason = 'manual-export') {
