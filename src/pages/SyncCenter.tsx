@@ -1,13 +1,12 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { db } from '../db/database';
 import { SyncQueueService } from '../services/syncQueueService';
-import { exportDatabase, exportInternalBackups, importDatabase } from '../utils/backup';
-import { forcePushFinalData } from '../utils/forceSync';
+import { exportDatabase } from '../utils/backup';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import {
   RefreshCw, AlertTriangle, CheckCircle2, Clock, XCircle,
-  Download, Upload, Wifi, WifiOff, ChevronDown, ChevronRight,
+  Download, Wifi, WifiOff, ChevronDown, ChevronRight,
   RotateCcw, Play, Image, Users, ClipboardCheck, FileText,
   Calendar, Activity, Lock,
 } from 'lucide-react';
@@ -62,7 +61,6 @@ function jobStatusFromError(syncError?: string | null): SyncItem['jobStatus'] {
 }
 
 export function SyncCenter() {
-  const importInputRef = useRef<HTMLInputElement>(null);
   const [tables, setTables] = useState<TableData[]>([]);
   const [summary, setSummary] = useState({ pending: 0, syncing: 0, failed: 0, conflict: 0 });
   const [logs, setLogs] = useState<any[]>([]);
@@ -226,7 +224,7 @@ export function SyncCenter() {
 
   const handleForceSync = () =>
     withAction('force', 'Sincronização disparada.', async () => {
-      await SyncQueueService.processAll({ force: true });
+      await SyncQueueService.processAll();
     });
 
   const handleResetStuck = () =>
@@ -234,53 +232,15 @@ export function SyncCenter() {
       await SyncQueueService.cleanupStuckSyncing();
     });
 
-  const handleForcePush = () =>
-    withAction('forcePush', 'Push direto concluido. Verifique os contadores da fila.', async () => {
-      const result = await forcePushFinalData();
-      if (result.errors > 0) {
-        throw new Error(`Push direto terminou com ${result.errors} itens ainda pendentes.`);
-      }
-    });
-
   const handleResetLock = () =>
     withAction('lock', 'Trava de sincronização liberada.', async () => {
       SyncQueueService.resetLock();
-    });
-
-  const handleReconcileCloud = () =>
-    withAction('reconcile', 'Pendencias ja presentes na nuvem foram confirmadas localmente.', async () => {
-      const { reconcileCloudSyncedItems } = await import('../utils/syncReconciliation');
-      const totals = await reconcileCloudSyncedItems();
-      console.log('[SyncCenter] Cloud reconciliation:', totals);
     });
 
   const handleExportBackup = () =>
     withAction('export', 'Backup exportado com sucesso.', async () => {
       await exportDatabase();
     });
-
-  const handleExportInternalBackups = () =>
-    withAction('internalBackups', 'Backups internos exportados com sucesso.', async () => {
-      await exportInternalBackups();
-    });
-
-  const handleImportBackup = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const ok = window.confirm('Deseja importar este backup? Registros novos serao adicionados e os existentes serao atualizados.');
-    if (!ok) {
-      event.target.value = '';
-      return;
-    }
-
-    await withAction('import', 'Backup importado e enviado para a nuvem. Recarregando dados locais...', async () => {
-      const message = await importDatabase(file, { syncToCloud: true });
-      console.log(`[SyncCenter] ${message}`);
-    });
-    event.target.value = '';
-    window.location.reload();
-  };
 
   const handleRetryItem = (item: SyncItem) =>
     withAction(`item-${item.id}`, 'Item reenviado.', async () => {
@@ -390,70 +350,27 @@ export function SyncCenter() {
             <Button
               variant="secondary"
               size="sm"
-              onClick={handleForcePush}
-              disabled={isBusy || !isOnline}
-            >
-              <Upload className={`h-3.5 w-3.5 mr-1.5 ${actionLoading === 'forcePush' ? 'animate-pulse' : ''}`} />
-              Forcar Push
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
               onClick={handleResetStuck}
-              disabled={actionLoading === 'reset'}
+              disabled={isBusy}
             >
               <RotateCcw className={`h-3.5 w-3.5 mr-1.5 ${actionLoading === 'reset' ? 'animate-spin' : ''}`} />
               Resetar Travados
             </Button>
             <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleReconcileCloud}
-              disabled={isBusy || !isOnline}
-            >
-              <CheckCircle2 className={`h-3.5 w-3.5 mr-1.5 ${actionLoading === 'reconcile' ? 'animate-pulse' : ''}`} />
-              Confirmar Nuvem
-            </Button>
-            <Button
               variant="outline"
               size="sm"
               onClick={handleExportBackup}
-              disabled={actionLoading === 'export'}
+              disabled={isBusy}
             >
               <Download className={`h-3.5 w-3.5 mr-1.5 ${actionLoading === 'export' ? 'animate-pulse' : ''}`} />
               Exportar Backup
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExportInternalBackups}
-              disabled={actionLoading === 'internalBackups'}
-            >
-              <Download className={`h-3.5 w-3.5 mr-1.5 ${actionLoading === 'internalBackups' ? 'animate-pulse' : ''}`} />
-              Backups Internos
-            </Button>
-            <input
-              ref={importInputRef}
-              type="file"
-              accept="application/json,.json"
-              className="hidden"
-              onChange={handleImportBackup}
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => importInputRef.current?.click()}
-              disabled={isBusy}
-            >
-              <Upload className={`h-3.5 w-3.5 mr-1.5 ${actionLoading === 'import' ? 'animate-pulse' : ''}`} />
-              Importar Backup
             </Button>
             {syncLocked && (
               <Button
                 variant="danger"
                 size="sm"
                 onClick={handleResetLock}
-                disabled={actionLoading === 'lock'}
+                disabled={isBusy}
                 title="O loop de sincronização está travado. Clique para liberar."
               >
                 <Lock className={`h-3.5 w-3.5 mr-1.5 ${actionLoading === 'lock' ? 'animate-spin' : ''}`} />
