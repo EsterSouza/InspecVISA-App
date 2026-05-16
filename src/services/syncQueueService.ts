@@ -4,6 +4,7 @@ import { ClientService } from './clientService';
 import { ScheduleService } from './scheduleService';
 import { InspectionBundleSyncService } from './inspectionBundleSyncService';
 import { useAuthStore } from '../store/useAuthStore';
+import { syncQueuedDataToCloud } from '../utils/backup';
 
 /**
  * SyncQueueService
@@ -17,8 +18,21 @@ let syncInterval: number | null = null;
 let lastSummary = { pending: 0, syncing: 0, conflict: 0, failed: 0 };
 type ConflictTable = 'inspections' | 'responses' | 'photos';
 type ProcessOptions = { force?: boolean };
-const STALE_PROCESSING_LOCK_MS = 5 * 60 * 1000;
+const STALE_PROCESSING_LOCK_MS = 150 * 1000;
 const JOB_ERROR_PREFIX = '[sync-job:';
+
+async function writeSyncLog(level: 'info' | 'warn' | 'error', message: string, details?: any) {
+  try {
+    await db.sync_logs.add({
+      timestamp: new Date(),
+      level,
+      message,
+      details: details ? JSON.parse(JSON.stringify(details)) : undefined,
+    });
+  } catch {
+    // Sync logging must never block the sync queue.
+  }
+}
 
 function tableForConflict(tableName: ConflictTable) {
   if (tableName === 'inspections') return db.inspections;
@@ -84,6 +98,7 @@ export const SyncQueueService = {
 
     if (!navigator.onLine) {
       console.warn('[SyncQueue] Offline; sync postponed.');
+      void writeSyncLog('warn', 'Sincronizacao adiada: dispositivo offline.');
       this.getQueueSummary();
       return;
     }
@@ -98,6 +113,7 @@ export const SyncQueueService = {
       }
 
       console.warn('[SyncQueue] Force sync requested; releasing stale processing lock.');
+      await writeSyncLog('warn', 'Trava antiga de sincronizacao liberada automaticamente para nova tentativa.');
       isProcessing = false;
       processingStartedAt = null;
     }
@@ -111,6 +127,7 @@ export const SyncQueueService = {
       await reconcileCloudSyncedItems();
       const summary = await this.getQueueSummary();
       console.log(`[SyncQueue] Processing background sync (Pending: ${summary.pending}, Syncing: ${summary.syncing}, Failed: ${summary.failed})...`);
+      await writeSyncLog('info', `Sincronizacao iniciada. Pendentes: ${summary.pending}, enviando: ${summary.syncing}, falhas: ${summary.failed}.`, summary);
 
       // Process in order of dependency using Bulk strategy for light data
       await RepositoryService.processBulkQueue('clients', db.clients, ClientService.mapToPostgres);
@@ -118,9 +135,31 @@ export const SyncQueueService = {
       console.log(`[SyncQueue] Inspection bundle cycles completed: ${bundleCount}.`);
       await RepositoryService.processBulkQueue('schedules', db.schedules, ScheduleService.mapToPostgres);
 
+      const afterStandardSync = await this.getQueueSummary();
+      if (afterStandardSync.pending > 0 && bundleCount === 0) {
+        await writeSyncLog(
+          'warn',
+          `Fila ainda tem ${afterStandardSync.pending} pendente(s), mas nenhum bundle foi candidato. Tentando resgate direto pelo backend.`,
+          afterStandardSync
+        );
+        try {
+          const counts = await syncQueuedDataToCloud();
+          await writeSyncLog('info', 'Resgate direto pelo backend concluido.', counts);
+        } catch (rescueErr: any) {
+          const message = rescueErr?.message || String(rescueErr);
+          console.error('[SyncQueue] Backend queued rescue failed:', rescueErr);
+          await writeSyncLog('error', `Resgate direto pelo backend falhou: ${message}`, { message });
+          throw rescueErr;
+        }
+      }
+
       console.log('[SyncQueue] Sync completed.');
+      const finalSummary = await this.getQueueSummary();
+      await writeSyncLog('info', `Sincronizacao concluida. Pendentes: ${finalSummary.pending}, falhas: ${finalSummary.failed}.`, finalSummary);
     } catch (err) {
       console.error('[SyncQueue] Error during background sync:', err);
+      const message = err instanceof Error ? err.message : String(err);
+      await writeSyncLog('error', `Erro na sincronizacao: ${message}`, { message });
     } finally {
       isProcessing = false;
       processingStartedAt = null;
