@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 
 const PRE_BUNDLE_BACKUP_FLAG = 'inspecvisa-pre-bundle-backup-created';
 const BACKUP_CLOUD_SYNC_TIMEOUT_MS = 60000;
+const BACKUP_AUTH_TIMEOUT_MS = 8000;
 const DATE_FIELDS = [
   'createdAt',
   'updatedAt',
@@ -38,6 +39,16 @@ function reviveRecords<T extends Record<string, any>>(records: T[]) {
   return records.map(reviveDateFields);
 }
 
+function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => reject(new Error(`TIMEOUT: ${label}`)), timeoutMs);
+    Promise.resolve(promise)
+      .then(resolve)
+      .catch(reject)
+      .finally(() => window.clearTimeout(timeout));
+  });
+}
+
 async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit, timeoutMs: number, label: string) {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(new Error(`TIMEOUT: ${label}`)), timeoutMs);
@@ -46,6 +57,52 @@ async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit, tim
   } finally {
     window.clearTimeout(timeout);
   }
+}
+
+function getStoredAccessToken(): string | null {
+  try {
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith('sb-') || !key.endsWith('-auth-token')) continue;
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      const parsed = JSON.parse(raw);
+      if (parsed?.access_token) return parsed.access_token;
+      if (parsed?.currentSession?.access_token) return parsed.currentSession.access_token;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+async function getBackupAccessToken() {
+  try {
+    let { data, error } = await withTimeout(
+      supabase.auth.getSession(),
+      BACKUP_AUTH_TIMEOUT_MS,
+      'BackupGetSession'
+    );
+    if (error) throw error;
+
+    if (!data.session?.access_token) {
+      const refreshed = await withTimeout(
+        supabase.auth.refreshSession(),
+        BACKUP_AUTH_TIMEOUT_MS,
+        'BackupRefreshSession'
+      );
+      data = refreshed.data;
+      if (refreshed.error) throw refreshed.error;
+    }
+
+    if (data.session?.access_token) return data.session.access_token;
+  } catch (err) {
+    console.warn('[Backup] Auth session lookup failed, trying stored token:', err);
+  }
+
+  const stored = getStoredAccessToken();
+  if (stored) return stored;
+  throw new Error('Sessao expirada. Entre novamente antes de importar ou sincronizar backup.');
 }
 
 async function markRecordsSynced(content: any) {
@@ -71,17 +128,7 @@ async function markRecordsSynced(content: any) {
 }
 
 async function syncBackupToCloud(content: any) {
-  let { data, error } = await supabase.auth.getSession();
-  if (error) throw error;
-
-  if (!data.session?.access_token) {
-    const refreshed = await supabase.auth.refreshSession();
-    data = refreshed.data;
-    if (refreshed.error) throw refreshed.error;
-  }
-
-  const token = data.session?.access_token;
-  if (!token) throw new Error('Sessao expirada. Entre novamente antes de importar o backup.');
+  const token = await getBackupAccessToken();
 
   const response = await fetchWithTimeout(
     '/api/sync-backup-import',
