@@ -76,7 +76,7 @@ function getStoredAccessToken(): string | null {
   return null;
 }
 
-async function getBackupAccessToken() {
+export async function getBackupAccessToken() {
   try {
     let { data, error } = await withTimeout(
       supabase.auth.getSession(),
