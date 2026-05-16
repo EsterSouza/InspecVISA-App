@@ -60,8 +60,15 @@ async function markRecordsSynced(content: any) {
 }
 
 async function syncBackupToCloud(content: any) {
-  const { data, error } = await supabase.auth.getSession();
+  let { data, error } = await supabase.auth.getSession();
   if (error) throw error;
+
+  if (!data.session?.access_token) {
+    const refreshed = await supabase.auth.refreshSession();
+    data = refreshed.data;
+    if (refreshed.error) throw refreshed.error;
+  }
+
   const token = data.session?.access_token;
   if (!token) throw new Error('Sessao expirada. Entre novamente antes de importar o backup.');
 
@@ -80,6 +87,80 @@ async function syncBackupToCloud(content: any) {
 
   await markRecordsSynced(content);
   return result.counts as Record<string, number>;
+}
+
+async function buildQueuedBackupPayload(reason = 'manual-queued-sync') {
+  const queuedStatuses = ['pending', 'failed', 'syncing'];
+  const [queuedClients, queuedInspections, queuedResponses, queuedPhotos, queuedSchedules] = await Promise.all([
+    db.clients.where('syncStatus').anyOf(queuedStatuses).toArray(),
+    db.inspections.where('syncStatus').anyOf(queuedStatuses).toArray(),
+    db.responses.where('syncStatus').anyOf(queuedStatuses).toArray(),
+    db.photos.where('syncStatus').anyOf(queuedStatuses).toArray(),
+    db.schedules.where('syncStatus').anyOf(queuedStatuses).toArray(),
+  ]);
+
+  const clientIds = new Set<string>(queuedClients.map((client: any) => client.id));
+  const inspectionIds = new Set<string>(queuedInspections.map((inspection: any) => inspection.id));
+  const responseIds = new Set<string>(queuedResponses.map((response: any) => response.id));
+
+  queuedInspections.forEach((inspection: any) => {
+    if (inspection.clientId) clientIds.add(inspection.clientId);
+  });
+  queuedSchedules.forEach((schedule: any) => {
+    if (schedule.clientId) clientIds.add(schedule.clientId);
+    if (schedule.inspectionId) inspectionIds.add(schedule.inspectionId);
+  });
+  queuedResponses.forEach((response: any) => {
+    if (response.inspectionId) inspectionIds.add(response.inspectionId);
+  });
+  queuedPhotos.forEach((photo: any) => {
+    if (photo.responseId) responseIds.add(photo.responseId);
+  });
+
+  if (responseIds.size > 0) {
+    const relatedResponses = await db.responses.where('id').anyOf([...responseIds]).toArray();
+    relatedResponses.forEach((response: any) => {
+      if (response.inspectionId) inspectionIds.add(response.inspectionId);
+    });
+    queuedResponses.push(...relatedResponses.filter((response: any) => !queuedResponses.some((item: any) => item.id === response.id)));
+  }
+
+  if (inspectionIds.size > 0) {
+    const relatedInspections = await db.inspections.where('id').anyOf([...inspectionIds]).toArray();
+    relatedInspections.forEach((inspection: any) => {
+      if (inspection.clientId) clientIds.add(inspection.clientId);
+    });
+    queuedInspections.push(...relatedInspections.filter((inspection: any) => !queuedInspections.some((item: any) => item.id === inspection.id)));
+  }
+
+  if (clientIds.size > 0) {
+    const relatedClients = await db.clients.where('id').anyOf([...clientIds]).toArray();
+    queuedClients.push(...relatedClients.filter((client: any) => !queuedClients.some((item: any) => item.id === client.id)));
+  }
+
+  const uniqueById = <T extends { id: string }>(items: T[]) =>
+    [...new Map(items.filter(item => item?.id).map(item => [item.id, item])).values()];
+
+  return {
+    version: '2.0',
+    reason,
+    timestamp: new Date().toISOString(),
+    data: {
+      clients: uniqueById(queuedClients as any[]),
+      inspections: uniqueById(queuedInspections as any[]),
+      responses: uniqueById(queuedResponses as any[]),
+      photos: uniqueById(queuedPhotos as any[]),
+      schedules: uniqueById(queuedSchedules as any[]),
+      templates: [],
+      settings: null,
+    },
+  };
+}
+
+export async function syncQueuedDataToCloud() {
+  const payload = await buildQueuedBackupPayload();
+  const counts = await syncBackupToCloud(payload);
+  return counts;
 }
 
 async function buildDatabaseBackupPayload(reason = 'manual-export') {

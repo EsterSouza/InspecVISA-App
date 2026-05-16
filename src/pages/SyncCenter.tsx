@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { db } from '../db/database';
 import { SyncQueueService } from '../services/syncQueueService';
 import { exportDatabase, exportInternalBackups, importDatabase } from '../utils/backup';
+import { forcePushFinalData } from '../utils/forceSync';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import {
@@ -235,7 +236,6 @@ export function SyncCenter() {
 
   const handleForcePush = () =>
     withAction('forcePush', 'Push direto concluido. Verifique os contadores da fila.', async () => {
-      const { forcePushFinalData } = await import('../utils/forceSync');
       const result = await forcePushFinalData();
       if (result.errors > 0) {
         throw new Error(`Push direto terminou com ${result.errors} itens ainda pendentes.`);

@@ -3,11 +3,26 @@ import { ClientService } from '../services/clientService';
 import { InspectionService } from '../services/inspectionService';
 import { RepositoryService } from '../services/repositoryService';
 import { ScheduleService } from '../services/scheduleService';
+import { syncQueuedDataToCloud } from './backup';
 
 export async function forcePushFinalData() {
   console.log('Iniciando push final de dados locais...');
 
   const before = await countQueued();
+  if (before === 0) {
+    return { totalSynced: 0, errors: 0 };
+  }
+
+  try {
+    const counts = await syncQueuedDataToCloud();
+    const afterBackend = await countQueued();
+    const totalSynced = Math.max(before - afterBackend, 0);
+    const errors = afterBackend;
+    console.log('[ForceSync] Push via backend concluido:', counts, { totalSynced, errors });
+    if (errors === 0) return { totalSynced, errors };
+  } catch (err) {
+    console.warn('[ForceSync] Push via backend falhou; tentando fila local como fallback:', err);
+  }
 
   await RepositoryService.processBulkQueue('clients', db.clients, ClientService.mapToPostgres);
   await RepositoryService.processBulkQueue('inspections', db.inspections, InspectionService.mapToPostgres);

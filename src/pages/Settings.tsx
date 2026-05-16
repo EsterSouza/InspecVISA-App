@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { compressImage } from '../utils/imageUtils';
 import { db } from '../db/database';
 import { exportDatabase, importDatabase } from '../utils/backup';
+import { forcePushFinalData } from '../utils/forceSync';
 import { 
   Save, Upload, Trash2, LogOut, RefreshCw, FileText
 } from 'lucide-react';
@@ -261,7 +262,6 @@ export function Settings() {
               variant="outline" 
               className="whitespace-nowrap shrink-0 border-blue-300 text-blue-700 hover:bg-blue-100"
               onClick={async () => {
-                const { forcePushFinalData } = await import('../utils/forceSync');
                 setSaveStatus('saving');
                 try {
                   const res = await forcePushFinalData();
