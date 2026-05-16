@@ -34,6 +34,14 @@ interface TableData {
   items: SyncItem[];
 }
 
+interface SyncSessionEvent {
+  id: string;
+  table: TableName;
+  label: string;
+  sub?: string;
+  verifiedAt: Date;
+}
+
 const STATUS_STYLE: Record<SyncStatus, { label: string; color: string; bg: string }> = {
   pending:  { label: 'Pendente',     color: 'text-yellow-700', bg: 'bg-yellow-50 border-yellow-200' },
   syncing:  { label: 'Enviando',     color: 'text-blue-700',   bg: 'bg-blue-50 border-blue-200' },
@@ -61,9 +69,10 @@ function jobStatusFromError(syncError?: string | null): SyncItem['jobStatus'] {
 }
 
 export function SyncCenter() {
+  const [sessionStartedAt] = useState(() => new Date());
   const [tables, setTables] = useState<TableData[]>([]);
   const [summary, setSummary] = useState({ pending: 0, syncing: 0, failed: 0, conflict: 0 });
-  const [logs, setLogs] = useState<any[]>([]);
+  const [sessionEvents, setSessionEvents] = useState<SyncSessionEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
@@ -87,9 +96,13 @@ export function SyncCenter() {
         ]);
 
       // Build lookup maps from full tables (local only, very fast)
-      const allClients = await db.clients.toArray();
-      const allInspections = await db.inspections.toArray();
-      const allResponses = await db.responses.toArray();
+      const [allClients, allInspections, allResponses, allPhotos, allSchedules] = await Promise.all([
+        db.clients.toArray(),
+        db.inspections.toArray(),
+        db.responses.toArray(),
+        db.photos.toArray(),
+        db.schedules.toArray(),
+      ]);
 
       const clientName = new Map<string, string>(
         allClients.map(c => [c.id, (c as any).name ?? truncId(c.id)])
@@ -171,14 +184,55 @@ export function SyncCenter() {
       );
       setSummary(total);
 
-      // Sync logs (best-effort)
-      try {
-        const syncLogs = await (db as any).sync_logs
-          ?.orderBy('timestamp').reverse().limit(50).toArray();
-        if (Array.isArray(syncLogs)) setLogs(syncLogs);
-      } catch {
-        // table may not exist
-      }
+      const eventFrom = (
+        table: TableName,
+        raw: any,
+        label: string,
+        sub?: string
+      ): SyncSessionEvent | null => {
+        if (!raw?.dataVerifiedAt || raw.syncStatus !== 'synced') return null;
+        const verifiedAt = new Date(raw.dataVerifiedAt);
+        if (Number.isNaN(verifiedAt.getTime()) || verifiedAt < sessionStartedAt) return null;
+        return { id: `${table}-${raw.id}`, table, label, sub, verifiedAt };
+      };
+
+      const recentEvents = [
+        ...allClients.map((c: any) => eventFrom(
+          'clients',
+          c,
+          c.name ?? truncId(c.id),
+          [c.city, c.state].filter(Boolean).join(', ') || undefined
+        )),
+        ...allInspections.map((i: any) => eventFrom(
+          'inspections',
+          i,
+          clientName.get(i.clientId) ?? truncId(i.clientId ?? i.id),
+          i.inspectionDate ? new Date(i.inspectionDate).toLocaleDateString('pt-BR') : i.status
+        )),
+        ...allResponses.map((r: any) => eventFrom(
+          'responses',
+          r,
+          inspClientName.get(r.inspectionId) ?? truncId(r.inspectionId ?? r.id),
+          `Item: ${String(r.itemId ?? '---').slice(0, 12)} | ${r.result ?? '---'}`
+        )),
+        ...allPhotos.map((p: any) => eventFrom(
+          'photos',
+          p,
+          inspClientName.get(respInspId.get(p.responseId) ?? '') ?? 'Cliente',
+          `Resp: ${truncId(p.responseId ?? '---')}`
+        )),
+        ...allSchedules.map((s: any) => eventFrom(
+          'schedules',
+          s,
+          clientName.get(s.clientId) ?? truncId(s.clientId ?? s.id),
+          s.scheduledAt ? new Date(s.scheduledAt).toLocaleDateString('pt-BR') : s.status
+        )),
+      ]
+        .filter((event): event is SyncSessionEvent => Boolean(event))
+        .sort((a, b) => b.verifiedAt.getTime() - a.verifiedAt.getTime())
+        .slice(0, 50);
+
+      setSessionEvents(recentEvents);
     } catch (err) {
       console.error('[SyncCenter] loadData error:', err);
     } finally {
@@ -186,7 +240,7 @@ export function SyncCenter() {
       setSyncLocked(SyncQueueService.isLocked());
       setLastChecked(new Date());
     }
-  }, []);
+  }, [sessionStartedAt]);
 
   useEffect(() => {
     loadData();
@@ -537,10 +591,10 @@ export function SyncCenter() {
         >
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Logs de Sincronização</CardTitle>
+              <CardTitle className="text-base">Ultimas sincronizacoes desta sessao</CardTitle>
               <div className="flex items-center gap-2">
-                {logs.length > 0 ? (
-                  <span className="text-xs text-gray-500">{logs.length} entradas</span>
+                {sessionEvents.length > 0 ? (
+                  <span className="text-xs text-gray-500">{sessionEvents.length} itens</span>
                 ) : (
                   <span className="text-xs text-gray-400">sem registros</span>
                 )}
@@ -554,13 +608,19 @@ export function SyncCenter() {
 
         {expanded['logs'] && (
           <CardContent className="pt-0">
-            {logs.length === 0 ? (
+            {sessionEvents.length === 0 ? (
               <p className="text-sm text-gray-500 py-2">
-                Nenhum log registrado. Logs aparecem aqui durante a sincronização.
+                Nenhuma sincronizacao nesta sessao.
               </p>
             ) : (
               <div className="max-h-80 overflow-y-auto space-y-1 font-mono text-xs rounded border border-gray-100 p-2 bg-gray-50">
-                {logs.map((log, i) => (
+                {sessionEvents.map((event, i) => {
+                  const log = {
+                    level: 'info',
+                    timestamp: event.verifiedAt,
+                    message: `${event.table} - ${event.label}${event.sub ? ` - ${event.sub}` : ''}`,
+                  };
+                  return (
                   <div
                     key={i}
                     className={`px-2 py-1 rounded ${
@@ -576,7 +636,8 @@ export function SyncCenter() {
                     </span>
                     {log.message ?? log.details ?? JSON.stringify(log)}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>
