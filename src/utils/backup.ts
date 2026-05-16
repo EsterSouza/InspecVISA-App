@@ -2,6 +2,7 @@ import { db } from '../db/database';
 import { supabase } from '../lib/supabase';
 
 const PRE_BUNDLE_BACKUP_FLAG = 'inspecvisa-pre-bundle-backup-created';
+const BACKUP_CLOUD_SYNC_TIMEOUT_MS = 60000;
 const DATE_FIELDS = [
   'createdAt',
   'updatedAt',
@@ -35,6 +36,16 @@ function reviveDateFields<T extends Record<string, any>>(record: T): T {
 
 function reviveRecords<T extends Record<string, any>>(records: T[]) {
   return records.map(reviveDateFields);
+}
+
+async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit, timeoutMs: number, label: string) {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(new Error(`TIMEOUT: ${label}`)), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    window.clearTimeout(timeout);
+  }
 }
 
 async function markRecordsSynced(content: any) {
@@ -72,14 +83,19 @@ async function syncBackupToCloud(content: any) {
   const token = data.session?.access_token;
   if (!token) throw new Error('Sessao expirada. Entre novamente antes de importar o backup.');
 
-  const response = await fetch('/api/sync-backup-import', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
+  const response = await fetchWithTimeout(
+    '/api/sync-backup-import',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(content),
     },
-    body: JSON.stringify(content),
-  });
+    BACKUP_CLOUD_SYNC_TIMEOUT_MS,
+    'SyncBackupImport'
+  );
   const result = await response.json().catch(() => ({}));
   if (!response.ok || !result?.ok) {
     throw new Error(result?.error || `Resgate do backup falhou (${response.status}).`);

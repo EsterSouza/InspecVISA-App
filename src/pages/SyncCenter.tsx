@@ -400,7 +400,7 @@ export function SyncCenter() {
               variant="secondary"
               size="sm"
               onClick={handleResetStuck}
-              disabled={isBusy}
+              disabled={actionLoading === 'reset'}
             >
               <RotateCcw className={`h-3.5 w-3.5 mr-1.5 ${actionLoading === 'reset' ? 'animate-spin' : ''}`} />
               Resetar Travados
@@ -418,7 +418,7 @@ export function SyncCenter() {
               variant="outline"
               size="sm"
               onClick={handleExportBackup}
-              disabled={isBusy}
+              disabled={actionLoading === 'export'}
             >
               <Download className={`h-3.5 w-3.5 mr-1.5 ${actionLoading === 'export' ? 'animate-pulse' : ''}`} />
               Exportar Backup
@@ -427,7 +427,7 @@ export function SyncCenter() {
               variant="outline"
               size="sm"
               onClick={handleExportInternalBackups}
-              disabled={isBusy}
+              disabled={actionLoading === 'internalBackups'}
             >
               <Download className={`h-3.5 w-3.5 mr-1.5 ${actionLoading === 'internalBackups' ? 'animate-pulse' : ''}`} />
               Backups Internos
@@ -453,7 +453,7 @@ export function SyncCenter() {
                 variant="danger"
                 size="sm"
                 onClick={handleResetLock}
-                disabled={isBusy}
+                disabled={actionLoading === 'lock'}
                 title="O loop de sincronização está travado. Clique para liberar."
               >
                 <Lock className={`h-3.5 w-3.5 mr-1.5 ${actionLoading === 'lock' ? 'animate-spin' : ''}`} />
