@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   ChevronRight,
   ExternalLink,
+  Image as ImageIcon,
   Edit2,
   Trash2
 } from 'lucide-react';
@@ -17,16 +18,14 @@ import { db } from '../db/database';
 import { type Client, type Inspection, type InspectionScore, FOOD_SEGMENT_LABELS } from '../types';
 import { calculateScore } from '../utils/scoring';
 import { formatDateTime } from '../utils/imageUtils';
-import { getTemplates } from '../data/templates';
 import { ClientService } from '../services/clientService';
 import { InspectionService } from '../services/inspectionService';
 import { filterByActiveTenant } from '../utils/localScope';
+import { getClientActionPlanContext, type ClientActionPlanContext, type PreviousNCContext } from '../utils/actionPlanContext';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
-
-type RecurringNC = { itemId: string; description: string; count: number };
 
 const ComplianceTrendChart = lazy(() =>
   import('../components/client/ComplianceTrendChart').then(m => ({ default: m.ComplianceTrendChart }))
@@ -37,7 +36,7 @@ export function ClientDetails() {
   const navigate = useNavigate();
   const [client, setClient] = useState<Client | null>(null);
   const [inspections, setInspections] = useState<(Inspection & { score: InspectionScore })[]>([]);
-  const [recurringNCs, setRecurringNCs] = useState<RecurringNC[]>([]);
+  const [actionPlan, setActionPlan] = useState<ClientActionPlanContext>({ latestOpenItems: [], recurringItems: [] });
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -66,43 +65,18 @@ export function ClientDetails() {
           ? filterByActiveTenant(await db.responses.where('inspectionId').anyOf(allInspIds).toArray()).filter(r => !r.deletedAt)
           : [];
 
-        const inspectionsWithScores = await Promise.all(
+        const inspectionsWithScores = (await Promise.all(
           rawInspections.map(async (insp: any) => {
             const responses = allResponses.filter((r: any) => r.inspectionId === insp.id);
             const template = await db.templates.get(insp.templateId); // Keep templates in Dexie
             const score = calculateScore(responses, template?.sections || []);
             return { ...insp, score };
           })
-        );
+        )).sort((a, b) => new Date(b.inspectionDate || b.createdAt).getTime() - new Date(a.inspectionDate || a.createdAt).getTime());
 
         setInspections(inspectionsWithScores);
+        setActionPlan(await getClientActionPlanContext(id));
 
-        // --- Calcular Não Conformidades Recorrentes deste cliente ---
-        const notCompliesResponses = allResponses.filter((r: any) => r.result === 'not_complies');
-
-        // Contar por itemId
-        const countMap: Record<string, number> = {};
-        for (const r of notCompliesResponses) {
-          countMap[r.itemId] = (countMap[r.itemId] || 0) + 1;
-        }
-
-        // Buscar descrição de cada item nos templates
-        const templates = getTemplates();
-        const allItems = templates.flatMap(t => t.sections.flatMap(s => s.items));
-
-        const ncs: RecurringNC[] = Object.entries(countMap)
-          .filter(([, count]) => count >= 2)
-          .sort(([, a], [, b]) => b - a)
-          .map(([itemId, count]) => {
-            const item = allItems.find(i => i.id === itemId);
-            return {
-              itemId,
-              description: item?.description || `Item ${itemId}`,
-              count,
-            };
-          });
-
-        setRecurringNCs(ncs);
       } catch (err) {
         console.error('Error loading client details:', err);
         setLoadError('Erro ao carregar os detalhes. Verifique a conexao com a internet.');
@@ -182,6 +156,18 @@ export function ClientDetails() {
     }));
 
   const latestInspection = inspections.find(i => i.status === 'completed');
+  const latestActionInspection = actionPlan.latestInspection || latestInspection;
+  const openActionItems = actionPlan.latestOpenItems;
+  const recurringActionItems = actionPlan.recurringItems;
+  const openActionPlan = () => {
+    if (!client || !latestActionInspection || openActionItems.length === 0) return;
+    const params = new URLSearchParams({
+      clientId: client.id,
+      previousInspectionId: latestActionInspection.id,
+      mode: 'action-plan',
+    });
+    navigate(`/new?${params.toString()}`);
+  };
 
   return (
     <div className="mx-auto max-w-4xl p-4 sm:p-6 lg:p-8">
@@ -290,12 +276,15 @@ export function ClientDetails() {
                 <AlertCircle className="mr-2 h-4 w-4 text-amber-500" />
                 Plano de Ação Aberto
               </h3>
-              {!latestInspection ? (
+              {!latestActionInspection ? (
                 <p className="text-sm text-gray-500 bg-gray-50 p-3 rounded">Aguardando primeira inspeção concluída.</p>
               ) : (
                 <div className="space-y-3">
-                  <p className="text-xs text-gray-500 mb-2">Baseado na última visita ({latestInspection.score.notCompliesCount} itens pendentes):</p>
-                  <Button variant="outline" size="sm" className="w-full text-xs" onClick={() => navigate('/summary', { state: { inspectionId: latestInspection.id }})}>
+                  <p className="text-xs text-gray-500 mb-2">Baseado na ultima visita ({openActionItems.length} itens pendentes):</p>
+                  <Button size="sm" className="w-full text-xs" disabled={openActionItems.length === 0} onClick={openActionPlan}>
+                    Abrir Plano de Acao
+                  </Button>
+                  <Button variant="outline" size="sm" className="w-full text-xs" onClick={() => navigate('/summary', { state: { inspectionId: latestActionInspection.id }})}>
                     Ver Último Relatório <ExternalLink className="ml-2 h-3 w-3" />
                   </Button>
                 </div>
@@ -311,7 +300,7 @@ export function ClientDetails() {
                 NC Recorrentes
               </h3>
               <p className="text-[10px] text-gray-400 mb-4">Itens com ≥ 2 falhas neste cliente</p>
-              {recurringNCs.length === 0 ? (
+              {recurringActionItems.length === 0 ? (
                 <p className="text-xs text-gray-500 bg-gray-50 p-3 rounded text-center">
                   {inspections.length === 0
                     ? 'Aguardando inspeções.'
@@ -319,16 +308,8 @@ export function ClientDetails() {
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {recurringNCs.map(nc => (
-                    <div
-                      key={nc.itemId}
-                      className="flex items-start gap-3 bg-red-50 border border-red-100 rounded-lg p-3"
-                    >
-                      <span className="mt-0.5 flex-shrink-0 h-5 w-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
-                        {nc.count}
-                      </span>
-                      <p className="text-xs text-gray-700 leading-snug">{nc.description}</p>
-                    </div>
+                  {recurringActionItems.map(nc => (
+                    <RecurringNCItem key={nc.itemId} nc={nc} />
                   ))}
                 </div>
               )}
@@ -493,6 +474,64 @@ export function ClientDetails() {
         </form>
       </Modal>
     </div>
+  );
+}
+
+function RecurringNCItem({ nc }: { nc: PreviousNCContext }) {
+  return (
+    <details className="group rounded-lg border border-red-100 bg-red-50 p-3">
+      <summary className="flex cursor-pointer list-none items-start gap-3">
+        <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+          {nc.count}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-semibold leading-snug text-gray-800">{nc.description}</p>
+          {nc.sectionTitle && <p className="mt-1 text-[10px] text-gray-500">{nc.sectionTitle}</p>}
+          {(nc.correctiveAction || nc.situationDescription) && (
+            <p className="mt-1 text-[10px] font-medium text-red-700 group-open:hidden">
+              {nc.correctiveAction || nc.situationDescription}
+            </p>
+          )}
+        </div>
+      </summary>
+      <div className="mt-3 space-y-2 border-t border-red-100 pt-3 text-xs text-gray-700">
+        {nc.situationDescription && (
+          <div>
+            <span className="font-bold text-gray-900">Situacao: </span>
+            {nc.situationDescription}
+          </div>
+        )}
+        {nc.correctiveAction && (
+          <div>
+            <span className="font-bold text-gray-900">Acao: </span>
+            {nc.correctiveAction}
+          </div>
+        )}
+        {(nc.responsible || nc.deadline) && (
+          <div className="flex flex-wrap gap-2 text-[11px] text-gray-500">
+            {nc.responsible && <span>Responsavel: {nc.responsible}</span>}
+            {nc.deadline && <span>Prazo: {nc.deadline}</span>}
+          </div>
+        )}
+        {nc.photos.length > 0 ? (
+          <div className="grid grid-cols-3 gap-2 pt-1">
+            {nc.photos.slice(0, 3).map(photo => (
+              <img
+                key={photo.id}
+                src={photo.dataUrl}
+                alt="Evidencia anterior"
+                className="aspect-square rounded-md border border-red-100 object-cover"
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="flex items-center gap-1 text-[11px] text-gray-400">
+            <ImageIcon className="h-3 w-3" />
+            Sem foto local anexada
+          </div>
+        )}
+      </div>
+    </details>
   );
 }
 

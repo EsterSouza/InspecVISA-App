@@ -5,11 +5,12 @@ import { Badge } from '../ui/Badge';
 import { PhotoCapture } from './PhotoCapture';
 import type { ChecklistItem as ItemType, InspectionResponse, InspectionPhoto } from '../../types';
 import { generateId } from '../../utils/imageUtils';
+import type { PreviousNCContext } from '../../utils/actionPlanContext';
 
 interface ChecklistItemProps {
   item: ItemType;
   response?: InspectionResponse;
-  wasNonCompliant?: boolean;
+  previousNC?: PreviousNCContext;
   onChange: (itemId: string, result: InspectionResponse['result']) => void;
   onUpdateDetails: (itemId: string, details: Partial<InspectionResponse>) => void;
   onAddPhoto: (itemId: string, photo: Omit<InspectionPhoto, 'id'>) => void | Promise<void>;
@@ -20,7 +21,7 @@ interface ChecklistItemProps {
 export const ChecklistItem = memo(function ChecklistItem({
   item,
   response,
-  wasNonCompliant,
+  previousNC,
   onChange,
   onUpdateDetails,
   onAddPhoto,
@@ -101,7 +102,7 @@ export const ChecklistItem = memo(function ChecklistItem({
                 CRÍTICO
               </Badge>
             )}
-            {wasNonCompliant && (
+            {previousNC && (
               <Badge variant="warning" className="border-amber-200 bg-amber-50 text-amber-800">
                 <AlertTriangle className="mr-1 h-3 w-3" />
                 REINCIDÊNCIA
@@ -156,6 +157,46 @@ export const ChecklistItem = memo(function ChecklistItem({
           </button>
         )}
       </div>
+
+      {previousNC && (
+        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <Badge variant="warning" className="bg-amber-100 text-amber-800 border-amber-200">
+              Plano de acao anterior
+            </Badge>
+            <span className="text-[11px] font-semibold text-amber-700">
+              {new Date(previousNC.inspectionDate).toLocaleDateString('pt-BR')}
+            </span>
+          </div>
+          <div className="space-y-2 text-xs leading-relaxed">
+            {previousNC.situationDescription && (
+              <p><span className="font-bold">Situacao encontrada: </span>{previousNC.situationDescription}</p>
+            )}
+            {previousNC.correctiveAction && (
+              <p><span className="font-bold">Acao recomendada: </span>{previousNC.correctiveAction}</p>
+            )}
+            {(previousNC.responsible || previousNC.deadline) && (
+              <p className="text-amber-800">
+                {previousNC.responsible ? `Responsavel: ${previousNC.responsible}` : ''}
+                {previousNC.responsible && previousNC.deadline ? ' | ' : ''}
+                {previousNC.deadline ? `Prazo: ${previousNC.deadline}` : ''}
+              </p>
+            )}
+          </div>
+          {previousNC.photos.length > 0 && (
+            <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
+              {previousNC.photos.slice(0, 4).map(photo => (
+                <img
+                  key={photo.id}
+                  src={photo.dataUrl}
+                  alt="Evidencia da visita anterior"
+                  className="aspect-square rounded-md border border-amber-200 object-cover"
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Action Buttons */}
       <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">

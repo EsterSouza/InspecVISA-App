@@ -17,6 +17,7 @@ import { ScheduleService } from '../services/scheduleService';
 import { getLocalActor } from '../utils/localActor';
 import { belongsToActiveTenant, filterByActiveTenant } from '../utils/localScope';
 import { buildRecoveryTemplate } from '../utils/templateRecovery';
+import { getPreviousNCContextByInspection, type PreviousNCContext } from '../utils/actionPlanContext';
 
 
 import { Button } from '../components/ui/Button';
@@ -30,7 +31,7 @@ import { SignaturePad } from '../components/ui/SignaturePad';
 export function InspectionExecution() {
   const location = useLocation();
   const navigate = useNavigate();
-  const state = location.state as { inspectionId: string; previousInspectionId?: string; linkedScheduleId?: string };
+  const state = location.state as { inspectionId: string; previousInspectionId?: string; linkedScheduleId?: string; actionPlanMode?: boolean };
   const linkedScheduleId = state?.linkedScheduleId;
   const {
     currentInspection,
@@ -43,7 +44,7 @@ export function InspectionExecution() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
-  const [prevNCIds, setPrevNCIds] = useState<string[]>([]);
+  const [previousNCs, setPreviousNCs] = useState<Map<string, PreviousNCContext>>(new Map());
   const [expandedSectionIds] = useState<string[]>([]);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [hideClientInfo, setHideClientInfo] = useState(false);
@@ -211,8 +212,9 @@ export function InspectionExecution() {
 
           // Load previous inspection NCs if applicable
           if (previousInspectionId) {
-            const prevResps = await InspectionService.getResponsesByInspectionId(previousInspectionId);
-            setPrevNCIds(prevResps.filter(r => r.result === 'not_complies').map(r => r.itemId));
+            setPreviousNCs(await getPreviousNCContextByInspection(previousInspectionId));
+          } else {
+            setPreviousNCs(new Map());
           }
         } catch (err) {
           console.error('[loadData] Background enrichment error:', err);
@@ -540,6 +542,7 @@ export function InspectionExecution() {
               <h1 className="text-lg font-bold text-gray-900 truncate max-w-xs sm:max-w-sm md:max-w-lg">{displayClientName}</h1>
               <div className="flex items-center space-x-2 text-[10px] font-bold uppercase tracking-wider">
                 {isCompleted && <Badge variant="neutral" className="bg-green-100 text-green-700 border-green-200">Finalizada</Badge>}
+                {state?.actionPlanMode && <Badge variant="warning">Plano de Acao</Badge>}
                 {usingRecoveryTemplate && <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">Modo Recuperação</Badge>}
                 {!isOnline && <span className="text-amber-600 flex items-center bg-amber-50 px-2 py-0.5 rounded-md"><WifiOff className="mr-1 h-3 w-3" /> Offline</span>}
                 {photoHydration && (
@@ -718,7 +721,7 @@ export function InspectionExecution() {
                         key={item.id}
                         item={item}
                         response={resp}
-                        wasNonCompliant={prevNCIds.includes(item.id)}
+                        previousNC={previousNCs.get(item.id)}
                         onChange={handleResponseChange}
                         onUpdateDetails={handleUpdateDetails}
                         onAddPhoto={handleAddPhoto}

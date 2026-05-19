@@ -34,6 +34,8 @@ export function NewInspection() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const preSelectedClientId = searchParams.get('clientId');
+  const actionPlanInspectionId = searchParams.get('previousInspectionId') || undefined;
+  const isActionPlanMode = searchParams.get('mode') === 'action-plan';
   
   const settings = useSettingsStore((s) => s.settings);
   const tenantInfo = useAuthStore((s) => s.tenantInfo);
@@ -155,12 +157,14 @@ export function NewInspection() {
         }
       }
 
-      let previousInspectionId: string | undefined;
+      let previousInspectionId: string | undefined = actionPlanInspectionId;
       try {
-        previousInspectionId = await Promise.race([
-          InspectionService.getLastCompletedInspectionId(selectedClient.id),
-          new Promise<undefined>((resolve) => window.setTimeout(() => resolve(undefined), 3000)),
-        ]);
+        if (!previousInspectionId) {
+          previousInspectionId = await Promise.race([
+            InspectionService.getLastCompletedInspectionId(selectedClient.id),
+            new Promise<undefined>((resolve) => window.setTimeout(() => resolve(undefined), 3000)),
+          ]);
+        }
       } catch (err) {
         console.warn('[NewInspection] Previous inspection lookup skipped:', err);
       }
@@ -213,6 +217,7 @@ export function NewInspection() {
         state: { 
           inspectionId: newInspectionId,
           previousInspectionId,
+          actionPlanMode: isActionPlanMode,
           linkedScheduleId: linkedScheduleId
         } 
       });
