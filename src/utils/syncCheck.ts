@@ -51,11 +51,14 @@ export interface InspectionIntegrityResult extends ReadinessResult {
   lastSyncConfirmedAt?: Date;
 }
 
-const READINESS_REMOTE_TIMEOUT_MS = 5000;
+const READINESS_REMOTE_TIMEOUT_MS = 2500;
 const READINESS_REMOTE_RETRY_COOLDOWN_MS = 60 * 1000;
 const readinessRemoteFailures = new Map<string, { failedAt: number; message: string }>();
 
-export async function checkReportReadiness(inspectionId: string): Promise<ReadinessResult> {
+export async function checkReportReadiness(
+  inspectionId: string,
+  options: { verifyRemote?: boolean } = {}
+): Promise<ReadinessResult> {
   const inspection = await db.inspections.get(inspectionId);
   if (!belongsToActiveTenant(inspection)) throw new Error('Inspecao nao encontrada neste tenant.');
 
@@ -85,7 +88,9 @@ export async function checkReportReadiness(inspectionId: string): Promise<Readin
   const isStale = !lastVerified || (Date.now() - lastVerified.getTime() > 5 * 60 * 1000);
 
   const remoteFailure = readinessRemoteFailures.get(inspectionId);
+  const verifyRemote = options.verifyRemote ?? true;
   const shouldTryRemote =
+    verifyRemote &&
     isStale &&
     navigator.onLine &&
     (!remoteFailure || Date.now() - remoteFailure.failedAt > READINESS_REMOTE_RETRY_COOLDOWN_MS);

@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { withTimeout } from '../utils/network';
 
 export interface Legislation {
   id: string;
@@ -8,17 +9,7 @@ export interface Legislation {
   created_at: string;
 }
 
-const LEGISLATION_QUERY_TIMEOUT_MS = 8000;
-
-function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number, label: string): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timeout = window.setTimeout(() => reject(new Error(`TIMEOUT: ${label}`)), timeoutMs);
-    Promise.resolve(promise)
-      .then(resolve)
-      .catch(reject)
-      .finally(() => window.clearTimeout(timeout));
-  });
-}
+const LEGISLATION_QUERY_TIMEOUT_MS = 2500;
 
 const DEFAULT_LEGISLATIONS: Omit<Legislation, 'id' | 'created_at'>[] = [
   {
@@ -193,8 +184,22 @@ const DEFAULT_LEGISLATIONS: Omit<Legislation, 'id' | 'created_at'>[] = [
   },
 ];
 
+function defaultLegislations(): Legislation[] {
+  const createdAt = new Date().toISOString();
+  return DEFAULT_LEGISLATIONS.map((leg, idx) => ({
+    ...leg,
+    id: `default-${idx}`,
+    created_at: createdAt,
+  }));
+}
+
+let cachedLegislations: Legislation[] | null = null;
+let lastListWarningAt = 0;
+
 export const LegislationService = {
   async listLegislations(): Promise<Legislation[]> {
+    if (cachedLegislations) return cachedLegislations;
+
     try {
       const { data, error } = await withTimeout(
         supabase
@@ -206,15 +211,17 @@ export const LegislationService = {
       );
       
       if (error) throw error;
-      return data || [];
+      cachedLegislations = data?.length ? data : defaultLegislations();
+      return cachedLegislations;
     } catch (err) {
-      console.warn('[LegislationService] Falha ao buscar do Supabase, usando defaults:', err);
-      // Return defaults with mock IDs so the UI doesn't crash
-      return DEFAULT_LEGISLATIONS.map((leg, idx) => ({
-        ...leg,
-        id: `default-${idx}`,
-        created_at: new Date().toISOString(),
-      }));
+      const now = Date.now();
+      if (now - lastListWarningAt > 60_000) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.warn('[LegislationService] Supabase indisponivel; usando biblioteca padrao local:', message);
+        lastListWarningAt = now;
+      }
+      cachedLegislations = defaultLegislations();
+      return cachedLegislations;
     }
   },
 

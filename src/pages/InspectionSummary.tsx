@@ -172,15 +172,16 @@ export function InspectionSummary() {
               }
             }
 
-            const legs = await LegislationService.listLegislations();
-
             setInspection(insp);
             if (remoteResps && remoteResps.length > 0) {
               setResponses(remoteWithPhotos);
               hydratePhotosInBackground(remoteResps.map(r => r.id));
             }
-            setLegislations(legs);
             setTemplate(tpl ? enrichTemplate(tpl, client || (insp as any)) as any : null);
+
+            LegislationService.listLegislations()
+              .then(setLegislations)
+              .catch(err => console.warn('[Summary] Failed to load legislations:', err));
           } catch (err) {
             console.error('[InspectionSummary] Background enrichment error:', err);
           } finally {
@@ -224,7 +225,7 @@ export function InspectionSummary() {
 
   useEffect(() => {
     if (currentInspection) {
-      checkReportReadiness(currentInspection.id).then(setReadiness);
+      checkReportReadiness(currentInspection.id, { verifyRemote: false }).then(setReadiness);
     }
   }, [currentInspection, responses]);
 

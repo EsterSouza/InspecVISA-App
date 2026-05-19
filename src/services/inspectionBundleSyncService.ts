@@ -405,25 +405,34 @@ function buildPayload(
   photos: InspectionPhoto[],
   finalizeReport: boolean
 ): InspectionBundlePayload {
+  const photosForPayload = finalizeReport
+    ? photos
+    : photos.filter(photo => UNSAFE_STATUSES.includes(photo.syncStatus));
+  const photoResponseIds = new Set(photosForPayload.map(photo => photo.responseId));
+  const responsesForPayload = finalizeReport
+    ? responses
+    : responses.filter(response =>
+      UNSAFE_STATUSES.includes(response.syncStatus) || photoResponseIds.has(response.id)
+    );
   const updatedTimes = [
     inspection.updatedAt,
-    ...responses.map(response => response.updatedAt),
-    ...photos.map(photo => photo.updatedAt),
+    ...responsesForPayload.map(response => response.updatedAt),
+    ...photosForPayload.map(photo => photo.updatedAt),
   ].map(value => new Date(value).getTime());
   const changeStamp = Math.max(...updatedTimes);
 
   return {
     inspection: InspectionService.mapToPostgres(inspection),
-    responses: responses.map(InspectionService.mapResponseToPostgres),
-    photos: photos.map(photo => ({
+    responses: responsesForPayload.map(InspectionService.mapResponseToPostgres),
+    photos: photosForPayload.map(photo => ({
       ...InspectionService.mapPhotoToPostgres(photo),
       local_data_url: photo.storagePath ? null : photo.dataUrl,
     })),
     clientSyncId: [
       inspection.id,
       changeStamp,
-      responses.length,
-      photos.length,
+      responsesForPayload.length,
+      photosForPayload.length,
       finalizeReport ? 'final' : 'draft',
     ].join(':'),
     finalizeReport,
@@ -485,6 +494,13 @@ export const InspectionBundleSyncService = {
 
     try {
       const payload = buildPayload(bundle.inspection, bundle.responses, bundle.photos, Boolean(options.finalizeReport));
+      const inlinePhotoBytes = payload.photos.reduce(
+        (total: number, photo: any) => total + (photo.local_data_url ? String(photo.local_data_url).length : 0),
+        0
+      );
+      console.log(
+        `[BundleSync] Payload ${inspectionId}: responses=${payload.responses.length}, photos=${payload.photos.length}, inlinePhotoMB=${(inlinePhotoBytes / 1024 / 1024).toFixed(2)}, finalize=${Boolean(options.finalizeReport)}.`
+      );
       let result = await enqueueBundleThroughApi(payload);
 
       if (result.jobId) {

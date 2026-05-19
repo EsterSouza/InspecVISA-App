@@ -5,6 +5,7 @@ const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const PHOTO_BUCKET = 'inspection-photos';
 const WRITE_CHUNK_SIZE = 100;
+const PHOTO_UPLOAD_CONCURRENCY = 3;
 const PROCESSING_STALE_MS = 5 * 60 * 1000;
 
 function json(res: any, status: number, body: unknown) {
@@ -17,6 +18,25 @@ function chunkArray<T>(items: T[], size: number) {
   const chunks: T[][] = [];
   for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
   return chunks;
+}
+
+async function runLimited<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = [];
+  let nextIndex = 0;
+
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex++;
+      results[index] = await worker(items[index]);
+    }
+  });
+
+  await Promise.all(runners);
+  return results;
 }
 
 function bearerToken(req: any) {
@@ -145,8 +165,7 @@ async function processSyncJob(admin: any, jobId: string, userId: string) {
       if (error) throw error;
     }
 
-    const preparedPhotos = [];
-    for (const rawPhoto of photos) {
+    const preparedPhotos = await runLimited(photos, PHOTO_UPLOAD_CONCURRENCY, async (rawPhoto) => {
       const photo = { ...rawPhoto };
       const localDataUrl = photo.local_data_url || photo.localDataUrl || null;
       delete photo.local_data_url;
@@ -166,8 +185,8 @@ async function processSyncJob(admin: any, jobId: string, userId: string) {
         photo.data_url = `storage://${storagePath}`;
       }
 
-      preparedPhotos.push(photo);
-    }
+      return photo;
+    });
 
     for (const chunk of chunkArray(preparedPhotos, WRITE_CHUNK_SIZE)) {
       const { error } = await admin.from('photos').upsert(chunk);
