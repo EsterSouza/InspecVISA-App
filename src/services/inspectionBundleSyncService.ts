@@ -438,47 +438,6 @@ function buildPayload(
   };
 }
 
-async function syncInspectionMetadataOnly(inspection: Inspection) {
-  const current = await db.inspections.get(inspection.id);
-  if (!current || current.syncStatus === 'conflict') return false;
-
-  const tenantId = current.tenantId || useAuthStore.getState().tenantInfo?.tenantId;
-  if (!tenantId) throw new Error('Aguardando tenantId para sincronizar dados gerais da inspecao.');
-
-  const payload = InspectionService.mapToPostgres({ ...current, tenantId });
-  await db.inspections.update(current.id, { syncStatus: 'syncing', syncError: undefined });
-
-  try {
-    const { error } = await withTimeout(
-      supabase.from('inspections').upsert(payload),
-      30000,
-      `InspectionMetadata_${current.id}`
-    );
-    if (error) throw error;
-
-    const latest = await db.inspections.get(current.id);
-    if (latest && sameTimestamp(latest.updatedAt, current.updatedAt)) {
-      await db.inspections.update(current.id, {
-        syncStatus: 'synced',
-        syncError: undefined,
-        syncAttempts: 0,
-        dataVerifiedAt: new Date(),
-      });
-    } else if (latest) {
-      await db.inspections.update(current.id, { syncStatus: 'pending' });
-    }
-    return true;
-  } catch (err: any) {
-    const attempts = (current.syncAttempts || 0) + 1;
-    await db.inspections.update(current.id, {
-      syncStatus: attempts >= 3 ? 'failed' : 'pending',
-      syncError: err?.message || String(err),
-      syncAttempts: attempts,
-    });
-    throw err;
-  }
-}
-
 async function resumeServerJobForBundle(
   inspection: Inspection,
   responses: InspectionResponse[],
@@ -645,17 +604,6 @@ export const InspectionBundleSyncService = {
           .filter(photo => QUEUED_STATUSES.includes(photo.syncStatus))
           .count()
         : 0;
-
-      if (hasQueuedRoot && queuedResponses === 0 && queuedPhotos === 0 && !parseJobId(inspection.syncError)) {
-        try {
-          console.log(`[BundleSync] Sending metadata-only inspection update ${inspectionId}.`);
-          await syncInspectionMetadataOnly(inspection);
-          synced += 1;
-        } catch (err) {
-          console.warn(`[BundleSync] Falha ao sincronizar dados gerais ${inspectionId}:`, bundleErrorMessage(err));
-        }
-        continue;
-      }
 
       if (!hasQueuedRoot && queuedResponses === 0 && queuedPhotos === 0) {
         console.log(`[BundleSync] Skipping bundle ${inspectionId}: no queued local changes.`);
