@@ -71,11 +71,15 @@ export const ClientService = {
     if (navigator.onLine) {
       void (async () => {
         try {
-          const { data, error } = await supabase
-            .from('clients')
-            .select('*')
-            .is('deleted_at', null)
-            .order('created_at', { ascending: false });
+          const { data, error } = await RepositoryService.withTimeout(
+            supabase
+              .from('clients')
+              .select('*')
+              .is('deleted_at', null)
+              .order('created_at', { ascending: false }),
+            10000,
+            'ClientsBackgroundRefresh'
+          ) as any;
           if (error || !data) return;
           for (const row of data) {
             await RepositoryService.mergeRemoteRecord(db.clients, mapFromPostgres(row), { label: 'clientes' });

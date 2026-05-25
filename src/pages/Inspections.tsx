@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, Calendar, Activity, CheckCircle, Trash2, Edit, RotateCcw, AlertTriangle } from 'lucide-react';
+import { Search, Plus, Calendar, Activity, CheckCircle, Trash2, Edit, RotateCcw } from 'lucide-react';
 import { ClientService } from '../services/clientService';
 import { InspectionService } from '../services/inspectionService';
 import type { Inspection, Client } from '../types';
@@ -10,7 +10,18 @@ import { Badge } from '../components/ui/Badge';
 import { formatDateTime } from '../utils/imageUtils';
 import { ProfileModal } from '../components/profile/ProfileModal';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { getTrashDaysRemaining } from '../utils/trashRetention';
+
+function attachClientData(list: Inspection[], clients: Client[]) {
+  const clientMap = new Map<string, Client>(clients.map(client => [client.id, client]));
+  return list.map(inspection => {
+    const client = clientMap.get(inspection.clientId);
+    return {
+      ...inspection,
+      clientName: client?.name || inspection.clientName || 'Cliente',
+      clientCategory: client?.category || inspection.clientCategory,
+    };
+  });
+}
 
 export function Inspections() {
   const navigate = useNavigate();
@@ -22,25 +33,16 @@ export function Inspections() {
   const [showTrash, setShowTrash] = useState(false);
   const settings = useSettingsStore((s) => s.settings);
   const [showProfileModal, setShowProfileModal] = useState(!settings.name);
+  const trashRefreshPromise = useRef<Promise<void> | null>(null);
 
-  const loadInspections = async () => {
+  const loadInspections = useCallback(async () => {
     try {
       setLoading(true);
-      await InspectionService.purgeExpiredDeletedInspections();
       let list = await InspectionService.getAllInspections();
       
       // Join client data
       const clients = await ClientService.getClients();
-      const clientMap = new Map<string, Client>(clients.map(c => [c.id, c]));
-
-      list = list.map(insp => {
-        const c = clientMap.get(insp.clientId);
-        return {
-          ...insp,
-          clientName: c?.name || 'Cliente deletado',
-          clientCategory: c?.category,
-        };
-      });
+      list = attachClientData(list, clients);
 
       if (filterStatus !== 'all') {
         list = list.filter(i => i.status === filterStatus);
@@ -54,32 +56,45 @@ export function Inspections() {
 
       setInspections(list);
 
-      let deleted = await InspectionService.getDeletedInspections();
-      deleted = deleted.map(insp => {
-        const c = clientMap.get(insp.clientId);
-        return {
-          ...insp,
-          clientName: c?.name || insp.clientName || 'Cliente',
-          clientCategory: c?.category || insp.clientCategory,
-        };
-      });
+      const deleted = attachClientData(await InspectionService.getDeletedInspections(), clients);
       setDeletedInspections(deleted);
     } catch (err) {
       console.error('Error loading inspections:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [filterStatus, search]);
 
-  useEffect(() => { loadInspections(); }, [search, filterStatus]);
+  const refreshTrashInBackground = useCallback(async () => {
+    if (trashRefreshPromise.current) return trashRefreshPromise.current;
+
+    const refresh = (async () => {
+      try {
+        const clients = await ClientService.getClients();
+        const deleted = await InspectionService.refreshDeletedInspectionsFromRemote();
+        setDeletedInspections(attachClientData(deleted, clients));
+      } catch (err) {
+        console.warn('[Inspections] Background trash refresh failed:', err);
+      } finally {
+        trashRefreshPromise.current = null;
+      }
+    })();
+
+    trashRefreshPromise.current = refresh;
+    return refresh;
+  }, []);
+
+  useEffect(() => { void loadInspections(); }, [loadInspections]);
+
+  useEffect(() => { void refreshTrashInBackground(); }, [refreshTrashInBackground]);
 
   useEffect(() => {
     return InspectionService.subscribeToInspectionChanges(loadInspections);
-  }, []);
+  }, [loadInspections]);
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (window.confirm('Mover esta inspeção para a Lixeira? Ela poderá ser restaurada por 30 dias.')) {
+    if (window.confirm('Mover esta inspeção para a Lixeira? Ela permanecerá disponível para restauração até uma exclusão definitiva manual.')) {
       // Optimistic update: remove from UI immediately
       setInspections(prev => prev.filter(i => i.id !== id));
       
@@ -117,11 +132,6 @@ export function Inspections() {
     }
   };
 
-  const daysRemaining = (inspection: Inspection) => {
-    if (!inspection.deletedAt) return 30;
-    return getTrashDaysRemaining(inspection.deletedAt);
-  };
-
   return (
     <div className="mx-auto max-w-5xl p-4 sm:p-6 lg:p-8">
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -136,7 +146,14 @@ export function Inspections() {
       </div>
 
       <div className="mb-6 flex justify-end">
-        <Button variant="outline" onClick={() => setShowTrash(value => !value)} className="gap-2">
+        <Button
+          variant="outline"
+          onClick={() => {
+            setShowTrash(value => !value);
+            if (!showTrash) void refreshTrashInBackground();
+          }}
+          className="gap-2"
+        >
           <Trash2 className="h-4 w-4" />
           Lixeira
           {deletedInspections.length > 0 && (
@@ -176,7 +193,7 @@ export function Inspections() {
                   <Trash2 className="h-4 w-4" />
                   Lixeira de relatórios
                 </h2>
-                <p className="text-xs text-amber-700">Relatórios podem ser restaurados por 30 dias. Depois disso, são eliminados ao abrir o app online.</p>
+                <p className="text-xs text-amber-700">Relatórios permanecem aqui até serem restaurados ou excluídos definitivamente por você.</p>
               </div>
               <Badge variant="outline" className="border-amber-300 bg-white text-amber-700">{deletedInspections.length}</Badge>
             </div>
@@ -188,10 +205,6 @@ export function Inspections() {
                   <div className="min-w-0">
                     <p className="truncate text-sm font-bold text-gray-900">{insp.clientName || 'Cliente'}</p>
                     <p className="text-xs text-gray-500">{formatDateTime(insp.inspectionDate)} • excluída em {insp.deletedAt ? formatDateTime(insp.deletedAt) : '-'}</p>
-                    <p className="mt-1 flex items-center gap-1 text-xs font-medium text-amber-700">
-                      <AlertTriangle className="h-3 w-3" />
-                      Eliminação automática em {daysRemaining(insp)} dia(s)
-                    </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     <Button size="sm" variant="outline" onClick={(e) => handleRestore(e, insp.id)} className="border-amber-300 text-amber-700 hover:bg-amber-50">

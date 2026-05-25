@@ -5,7 +5,6 @@ import { RepositoryService } from './repositoryService';
 import { withLocalActor } from '../utils/localActor';
 import { belongsToActiveTenant, filterByActiveTenant } from '../utils/localScope';
 import { withTimeout } from '../utils/network';
-import { isTrashExpired, TRASH_RETENTION_DAYS } from '../utils/trashRetention';
 
 const PHOTO_BUCKET = 'inspection-photos';
 const PHOTO_DOWNLOAD_TIMEOUT_MS = 20000;
@@ -355,11 +354,11 @@ export const InspectionService = {
     if (isStale && navigator.onLine) {
       void (async () => {
         try {
-          const result = await Promise.race([
+          const { data, error } = await RepositoryService.withTimeout(
             supabase.from('inspections').select('*').eq('id', id).is('deleted_at', null).single(),
-            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('TIMEOUT: getInspectionById')), 25000))
-          ]);
-          const { data, error } = result as any;
+            25000,
+            `InspectionById_${id}`
+          ) as any;
 
           // If the server cannot see a local inspection, preserve the local tree
           // and enqueue it again. Otherwise responses can remain orphaned in Dexie.
@@ -466,27 +465,35 @@ export const InspectionService = {
   },
 
   async getDeletedInspections(): Promise<Inspection[]> {
-    if (navigator.onLine) {
-      try {
-        const { data, error } = await supabase
-          .from('inspections')
-          .select('*')
-          .not('deleted_at', 'is', null)
-          .order('deleted_at', { ascending: false });
-
-        if (error) throw error;
-        for (const row of data || []) {
-          await RepositoryService.mergeRemoteRecord(db.inspections, mapFromPostgres(row), { label: 'lixeira', preserveLocal: false });
-        }
-      } catch (err) {
-        console.warn('[InspectionService] Remote trash refresh failed; using local records:', err);
-      }
-    }
-
     return filterByActiveTenant(await db.inspections
       .filter(i => Boolean(i.deletedAt))
       .toArray())
       .sort((a, b) => (b.deletedAt?.getTime() || 0) - (a.deletedAt?.getTime() || 0));
+  },
+
+  async refreshDeletedInspectionsFromRemote(): Promise<Inspection[]> {
+    if (!navigator.onLine) return this.getDeletedInspections();
+
+    try {
+      const { data, error } = await RepositoryService.withTimeout(
+        supabase
+          .from('inspections')
+          .select('*')
+          .not('deleted_at', 'is', null)
+          .order('deleted_at', { ascending: false }),
+        10000,
+        'TrashRefresh'
+      ) as any;
+
+      if (error) throw error;
+      for (const row of data || []) {
+        await RepositoryService.mergeRemoteRecord(db.inspections, mapFromPostgres(row), { label: 'lixeira', preserveLocal: false });
+      }
+    } catch (err) {
+      console.warn('[InspectionService] Remote trash refresh failed; using local records:', err);
+    }
+
+    return this.getDeletedInspections();
   },
 
   async restoreInspection(id: string): Promise<void> {
@@ -617,22 +624,6 @@ export const InspectionService = {
     await db.inspections.delete(id);
   },
 
-  async purgeExpiredDeletedInspections(retentionDays = TRASH_RETENTION_DAYS): Promise<number> {
-    if (!navigator.onLine) return 0;
-    const deleted = await this.getDeletedInspections();
-    const expired = deleted.filter(inspection => inspection.deletedAt && isTrashExpired(inspection.deletedAt, new Date(), retentionDays));
-    let removed = 0;
-    for (const inspection of expired) {
-      try {
-        await this.permanentlyDeleteInspection(inspection.id);
-        removed += 1;
-      } catch (err) {
-        console.warn(`[InspectionService] Expired trash item ${inspection.id} could not be removed yet:`, err);
-      }
-    }
-    return removed;
-  },
-
   async getResponsesByInspectionId(inspectionId: string, forceRefresh = false): Promise<InspectionResponse[]> {
     const local = filterByActiveTenant(await db.responses
       .where('inspectionId')
@@ -647,7 +638,7 @@ export const InspectionService = {
     if (forceRefresh && isStale && navigator.onLine) {
       try {
         const { data, error } = await RepositoryService.withTimeout(
-          Promise.resolve(supabase.from('responses').select('*').eq('inspection_id', inspectionId).is('deleted_at', null)),
+          supabase.from('responses').select('*').eq('inspection_id', inspectionId).is('deleted_at', null),
           25000,
           `ResponsesRefresh_${inspectionId}`
         ) as any;
@@ -674,7 +665,11 @@ export const InspectionService = {
     if (isStale && navigator.onLine) {
       // Trigger background refresh for responses
       // Safety: Only update Dexie if we have a successful, non-masked result.
-      supabase.from('responses').select('*').eq('inspection_id', inspectionId).is('deleted_at', null)
+      RepositoryService.withTimeout(
+        supabase.from('responses').select('*').eq('inspection_id', inspectionId).is('deleted_at', null),
+        10000,
+        `ResponsesBackground_${inspectionId}`
+      )
         .then(async ({ data, error }) => {
           // STRICT SAFETY GATE: 
           // If fetch fails, returns an error, or returns an empty array while local has data:
@@ -686,8 +681,8 @@ export const InspectionService = {
 
           const merged = await InspectionService.mergeRemoteResponses(data.map(mapResponseFromPostgres));
           console.log(`[InspectionService] Updated ${merged.length} safe local responses from remote.`);
-
-
+        }).catch(err => {
+          console.warn(`[InspectionService] Background responses refresh timed out for ${inspectionId}:`, err?.message || err);
         });
     }
 
@@ -700,7 +695,7 @@ export const InspectionService = {
     }
 
     const { data: responseRows, error: responseError } = await RepositoryService.withTimeout(
-      Promise.resolve(supabase.from('responses').select('*').eq('inspection_id', inspectionId).is('deleted_at', null)),
+      supabase.from('responses').select('*').eq('inspection_id', inspectionId).is('deleted_at', null),
       25000,
       `RemoteViewerResponses_${inspectionId}`
     ) as any;
@@ -715,7 +710,7 @@ export const InspectionService = {
     }
 
     const { data: photoRows, error: photoError } = await RepositoryService.withTimeout(
-      Promise.resolve(supabase.from('photos').select('*').in('response_id', responses.map(response => response.id)).is('deleted_at', null)),
+      supabase.from('photos').select('*').in('response_id', responses.map(response => response.id)).is('deleted_at', null),
       25000,
       `RemoteViewerPhotos_${inspectionId}`
     ) as any;
@@ -891,11 +886,15 @@ export const InspectionService = {
           const { data: { session } } = await supabase.auth.getSession();
           if (!session) return;
 
-          const { data, error } = await supabase
-            .from('inspections')
-            .select('*')
-            .is('deleted_at', null)
-            .order('created_at', { ascending: false });
+          const { data, error } = await RepositoryService.withTimeout(
+            supabase
+              .from('inspections')
+              .select('*')
+              .is('deleted_at', null)
+              .order('created_at', { ascending: false }),
+            10000,
+            'InspectionsBackgroundRefresh'
+          ) as any;
           if (error || !data) return;
 
 

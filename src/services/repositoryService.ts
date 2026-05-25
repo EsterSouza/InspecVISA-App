@@ -107,7 +107,7 @@ export const RepositoryService = {
   /**
    * withTimeout: Wraps a promise with a timeout
    */
-  async withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  async withTimeout<T>(promise: Promise<T> | PromiseLike<T>, ms: number, label: string): Promise<T> {
     return withTimeout(promise, ms, label);
   },
 

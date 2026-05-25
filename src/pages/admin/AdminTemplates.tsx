@@ -26,10 +26,13 @@ export function AdminTemplates() {
       // Load from Dexie first for instant display
       const { db } = await import('../../db/database');
       const localTemplates = await db.templates.toArray();
-      if (localTemplates.length > 0) {
-        setTemplates(localTemplates);
-        setIsLoading(false); // Stop spinner early!
-      }
+      const staticTemplates = getTemplates().map(t => ({
+        ...t,
+        isStatic: true,
+        updated_at: new Date().toISOString(),
+      }));
+      setTemplates(localTemplates.length > 0 ? localTemplates : staticTemplates);
+      setIsLoading(false);
 
       // Fetch remote templates (editable, Supabase)
       let remoteData: any[] = [];
