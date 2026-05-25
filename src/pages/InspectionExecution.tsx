@@ -198,8 +198,8 @@ export function InspectionExecution() {
           if (tpl) setTemplate(tpl);
           setCurrentInspection(enrichedInsp);
 
-          // Fetch responses (service returns local + triggers background Supabase pull)
-          const resps = await InspectionService.getResponsesByInspectionId(id);
+          // Editing must await cloud reconciliation so a fresh/empty cache cannot show a completed report as blank.
+          const resps = await InspectionService.getResponsesByInspectionId(id, true);
           const localPhotos = await InspectionService.getPhotosByResponseIds(resps.map(r => r.id), false, { remote: false });
           setResponses(attachPhotosToResponses(resps, localPhotos));
           setLoading(false);
@@ -431,6 +431,15 @@ export function InspectionExecution() {
 
     setIsFinishing(true);
     try {
+      if (responses.length === 0) {
+        const recovered = await InspectionService.getResponsesByInspectionId(currentInspection.id, true);
+        if (recovered.length > 0) {
+          setResponses(recovered);
+          alert('Foram recuperadas respostas já salvas na nuvem. Revise o roteiro carregado antes de finalizar.');
+          return;
+        }
+      }
+
       // 1. Build final inspection record updates
       const updates: Partial<Inspection> = {
         status: 'completed' as const,
@@ -440,6 +449,7 @@ export function InspectionExecution() {
       const finalizedInspection: Inspection = {
         ...currentInspection,
         ...updates,
+        reportTemplateSnapshot: effectiveTemplate || undefined,
         updatedAt: new Date(),
         syncStatus: 'pending',
         syncError: undefined,

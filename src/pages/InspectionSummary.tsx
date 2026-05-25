@@ -5,7 +5,7 @@ import { ClientService } from '../services/clientService';
 import { InspectionService } from '../services/inspectionService';
 import { InspectionBundleSyncService } from '../services/inspectionBundleSyncService';
 import { LegislationService, type Legislation } from '../services/legislationService';
-import { getTemplateById, enrichTemplate } from '../data/templates';
+import { getTemplateById } from '../data/templates';
 import { calculateScore, classificationColor, getLatestResponsesByItem } from '../utils/scoring';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { db } from '../db/database';
@@ -19,6 +19,7 @@ import { checkReportReadiness, type ReadinessResult } from '../utils/syncCheck';
 import { InspectionIntegrityPanel } from '../components/inspection/InspectionIntegrityPanel';
 import { belongsToActiveTenant, filterByActiveTenant } from '../utils/localScope';
 import { buildRecoveryTemplate } from '../utils/templateRecovery';
+import { resolveReportTemplate } from '../utils/reportTemplate';
 
 const PDF_PHOTO_HYDRATION_TIMEOUT_MS = 12000;
 
@@ -118,12 +119,12 @@ export function InspectionSummary() {
           const localPhotos = await InspectionService.getPhotosByResponseIds(localResps.map(r => r.id), false, { remote: false });
           const localWithPhotos = attachPhotosToResponses(localResps, localPhotos);
 
-          let tpl: ChecklistTemplate | undefined = await db.templates.get(localInsp.templateId);
-          if (!tpl) tpl = getTemplateById(localInsp.templateId) as any;
+          let tpl: ChecklistTemplate | undefined = getTemplateById(localInsp.templateId);
+          if (!tpl) tpl = await db.templates.get(localInsp.templateId);
 
           setInspection(localInsp);
           setResponses(localWithPhotos);
-          if (tpl) setTemplate(enrichTemplate(tpl, localInsp as any) as any);
+          if (tpl) setTemplate(resolveReportTemplate(tpl, localInsp, localResps));
           setLoading(false); // ← unblock UI immediately
           hydratePhotosInBackground(localResps.map(r => r.id));
         }
@@ -148,7 +149,6 @@ export function InspectionSummary() {
 
             const clients = await ClientService.getClients();
             setAllClients(clients);
-            setInspection(insp);
 
             // Responses
             const remoteResps = await InspectionService.getResponsesByInspectionId(inspectionId, true);
@@ -160,8 +160,8 @@ export function InspectionSummary() {
             const remoteWithPhotos = attachPhotosToResponses(remoteResps, remotePhotos);
 
             // Template (static → Dexie → Supabase)
-            let tpl: ChecklistTemplate | undefined | null = await db.templates.get(insp.templateId);
-            if (!tpl) tpl = getTemplateById(insp.templateId) as any;
+            let tpl: ChecklistTemplate | undefined | null = getTemplateById(insp.templateId);
+            if (!tpl) tpl = await db.templates.get(insp.templateId);
             if (!tpl && navigator.onLine) {
               try {
                 const { TemplateService } = await import('../services/templateService');
@@ -172,12 +172,22 @@ export function InspectionSummary() {
               }
             }
 
+            if (insp.status === 'completed' && navigator.onLine) {
+              try {
+                const version = await InspectionBundleSyncService.getLatestReportVersion(inspectionId);
+                const frozenTemplate = version?.snapshot_json?.reportSnapshot?.template as ChecklistTemplate | undefined;
+                if (frozenTemplate) insp.reportTemplateSnapshot = frozenTemplate;
+              } catch (e) {
+                console.warn('[Summary] Failed to load final report template snapshot:', e);
+              }
+            }
+
             setInspection(insp);
             if (remoteResps && remoteResps.length > 0) {
               setResponses(remoteWithPhotos);
               hydratePhotosInBackground(remoteResps.map(r => r.id));
             }
-            setTemplate(tpl ? enrichTemplate(tpl, client || (insp as any)) as any : null);
+            setTemplate(tpl ? resolveReportTemplate(tpl, insp, remoteResps) : insp.reportTemplateSnapshot || null);
 
             LegislationService.listLegislations()
               .then(setLegislations)
@@ -336,7 +346,11 @@ export function InspectionSummary() {
          { selectedLegislations: opts.selectedLegislations, signatureDataUrl: opts.signatureDataUrl }
        );
        if (shouldSyncFinalSnapshot) {
-         void InspectionBundleSyncService.syncInspectionBundle(currentInspection.id, { finalizeReport: true })
+         const snapshotInspection = { ...currentInspection, reportTemplateSnapshot: displayTemplate };
+         void InspectionBundleSyncService.syncInspectionBundle(currentInspection.id, {
+           finalizeReport: true,
+           inspectionOverride: snapshotInspection,
+         })
            .catch((err) => console.warn('[Summary] Final report snapshot sync failed after local PDF generation:', err));
        }
     } catch (err) {

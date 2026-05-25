@@ -442,6 +442,7 @@ function buildPayload(
         inspection,
         responses,
         photos,
+        template: inspection.reportTemplateSnapshot,
       }
       : undefined,
   };

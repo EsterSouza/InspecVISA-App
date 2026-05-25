@@ -465,9 +465,14 @@ export const InspectionService = {
           return local;
         }
 
-        const merged = await InspectionService.mergeRemoteResponses(data.map(mapResponseFromPostgres));
-        console.log(`[InspectionService] Forced refresh loaded ${merged.length} responses from remote.`);
-        return merged;
+        await InspectionService.mergeRemoteResponses(data.map(mapResponseFromPostgres));
+        const reconciled = filterByActiveTenant(await db.responses
+          .where('inspectionId')
+          .equals(inspectionId)
+          .filter(r => !r.deletedAt)
+          .toArray());
+        console.log(`[InspectionService] Forced refresh reconciled ${reconciled.length} responses from remote.`);
+        return reconciled;
       } catch (err: any) {
         console.warn(`[InspectionService] Forced responses refresh failed for ${inspectionId}:`, err?.message || err);
         return local;

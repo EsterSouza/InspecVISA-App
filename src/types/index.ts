@@ -153,6 +153,8 @@ export interface Inspection {
   usableAreaM2?: number;
   observedCleaningStaff?: number;
   signatureDataUrl?: string;
+  // Immutable template used when the inspection was completed.
+  reportTemplateSnapshot?: ChecklistTemplate;
   updatedAt: Date;
   deletedAt?: Date | null;
   tenantId?: string;
@@ -221,6 +223,7 @@ export interface InspectionBundlePayload {
     inspection: Inspection;
     responses: InspectionResponse[];
     photos: InspectionPhoto[];
+    template?: ChecklistTemplate;
   };
 }
 
