@@ -696,7 +696,7 @@ export const InspectionService = {
 
   async getRemoteInspectionSnapshot(inspectionId: string): Promise<RemoteInspectionSnapshot> {
     if (!navigator.onLine) {
-      throw new Error('Conecte-se a internet para consultar o preenchimento sincronizado.');
+      throw new Error('Conecte-se à internet para consultar o preenchimento sincronizado.');
     }
 
     const { data: responseRows, error: responseError } = await RepositoryService.withTimeout(

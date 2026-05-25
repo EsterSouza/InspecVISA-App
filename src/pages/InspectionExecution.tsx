@@ -580,7 +580,7 @@ export function InspectionExecution() {
                 variant="outline"
                 onClick={() => setShowTeamResponses(true)}
                 className="gap-2"
-                title="Ver respostas e fotos ja sincronizadas sem editar"
+                title="Ver respostas e fotos já sincronizadas sem editar"
               >
                 <Eye className="h-4 w-4" />
                 <span className="hidden md:inline">Ver preenchimento da equipe</span>
