@@ -26,6 +26,7 @@ import { Badge } from '../components/ui/Badge';
 import { SectionAccordion } from '../components/inspection/SectionAccordion';
 import { ChecklistItem } from '../components/inspection/ChecklistItem';
 import { ScorePanel } from '../components/inspection/ScorePanel';
+import { TeamResponsesViewer } from '../components/inspection/TeamResponsesViewer';
 import { SignaturePad } from '../components/ui/SignaturePad';
 
 export function InspectionExecution() {
@@ -49,6 +50,7 @@ export function InspectionExecution() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [hideClientInfo, setHideClientInfo] = useState(false);
   const [photoHydration, setPhotoHydration] = useState<{ total: number; completed: number; failed: number } | null>(null);
+  const [showTeamResponses, setShowTeamResponses] = useState(false);
 
   useEffect(() => {
     const update = () => setIsOnline(navigator.onLine);
@@ -246,6 +248,13 @@ export function InspectionExecution() {
   }, [template, responses, currentInspection?.templateId, currentInspection?.state, currentInspection?.city]);
 
   const visibleSections = effectiveTemplate?.sections || [];
+  const collaborationTemplate = useMemo(() => {
+    if (!currentInspection) return null;
+    if (!template) return buildRecoveryTemplate(currentInspection, responses);
+    const ctx = { ...currentInspection, category: (currentInspection as any).clientCategory || (currentInspection as any).category };
+    try { return getEffectiveTemplate(template, ctx as any, 'ambos', true); }
+    catch (err) { console.error('getEffectiveTemplate collaboration error:', err); return template; }
+  }, [template, responses, currentInspection?.templateId, currentInspection?.state, currentInspection?.city]);
 
   // ─── REALTIME SYNC: Listen for updates from Supabase ─────────────────────
   useEffect(() => {
@@ -565,39 +574,51 @@ export function InspectionExecution() {
               </div>
             </div>
           </div>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setHideClientInfo((value) => !value)}
-            title={hideClientInfo ? 'Mostrar dados do cliente' : 'Ocultar dados do cliente'}
-          >
-            {hideClientInfo ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-          </Button>
-          {!isCompleted && (
-            <Button onClick={() => setShowSignatureModal(true)} className="shadow-lg shadow-primary-100">
-              Finalizar Visita
-            </Button>
-          )}
-          {isCompleted && (
+          <div className="flex items-center gap-2">
+            {!isCompleted && (
+              <Button
+                variant="outline"
+                onClick={() => setShowTeamResponses(true)}
+                className="gap-2"
+                title="Ver respostas e fotos ja sincronizadas sem editar"
+              >
+                <Eye className="h-4 w-4" />
+                <span className="hidden md:inline">Ver preenchimento da equipe</span>
+              </Button>
+            )}
             <Button
               variant="outline"
-              onClick={async () => {
-                if (window.confirm('Reabrir esta inspeção para edição?')) {
-                  const updates: Partial<Inspection> = { status: 'in_progress' as const, completedAt: undefined };
-                  try {
-                    await InspectionService.updateInspection(currentInspection.id, updates);
-                    setCurrentInspection({ ...currentInspection, ...updates });
-                  } catch (err) {
-                    alert('Erro ao reabrir inspeção: ' + err);
-                  }
-                }
-              }}
-
-              className="border-amber-300 text-amber-700 hover:bg-amber-50"
+              size="icon"
+              onClick={() => setHideClientInfo((value) => !value)}
+              title={hideClientInfo ? 'Mostrar dados do cliente' : 'Ocultar dados do cliente'}
             >
-              Reabrir Inspeção
+              {hideClientInfo ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </Button>
-          )}
+            {!isCompleted && (
+              <Button onClick={() => setShowSignatureModal(true)} className="shadow-lg shadow-primary-100">
+                Finalizar Visita
+              </Button>
+            )}
+            {isCompleted && (
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  if (window.confirm('Reabrir esta inspeção para edição?')) {
+                    const updates: Partial<Inspection> = { status: 'in_progress' as const, completedAt: undefined };
+                    try {
+                      await InspectionService.updateInspection(currentInspection.id, updates);
+                      setCurrentInspection({ ...currentInspection, ...updates });
+                    } catch (err) {
+                      alert('Erro ao reabrir inspeção: ' + err);
+                    }
+                  }
+                }}
+                className="border-amber-300 text-amber-700 hover:bg-amber-50"
+              >
+                Reabrir Inspeção
+              </Button>
+            )}
+          </div>
         </div>
       </header>
 
@@ -780,6 +801,13 @@ export function InspectionExecution() {
           <ScorePanel template={effectiveTemplate as ChecklistTemplate} />
         </div>
       </div>
+
+      <TeamResponsesViewer
+        inspectionId={currentInspection.id}
+        isOpen={showTeamResponses}
+        onClose={() => setShowTeamResponses(false)}
+        template={collaborationTemplate as ChecklistTemplate | null}
+      />
 
       {showSignatureModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">

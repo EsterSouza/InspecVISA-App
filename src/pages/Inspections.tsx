@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, Calendar, Activity, CheckCircle, Trash2, Edit, RotateCcw } from 'lucide-react';
+import { Search, Plus, Calendar, Activity, CheckCircle, Trash2, Edit, RotateCcw, AlertTriangle } from 'lucide-react';
 import { ClientService } from '../services/clientService';
 import { InspectionService } from '../services/inspectionService';
 import type { Inspection, Client } from '../types';
@@ -10,6 +10,7 @@ import { Badge } from '../components/ui/Badge';
 import { formatDateTime } from '../utils/imageUtils';
 import { ProfileModal } from '../components/profile/ProfileModal';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { getTrashDaysRemaining } from '../utils/trashRetention';
 
 export function Inspections() {
   const navigate = useNavigate();
@@ -18,12 +19,14 @@ export function Inspections() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'in_progress' | 'completed'>('all');
+  const [showTrash, setShowTrash] = useState(false);
   const settings = useSettingsStore((s) => s.settings);
   const [showProfileModal, setShowProfileModal] = useState(!settings.name);
 
   const loadInspections = async () => {
     try {
       setLoading(true);
+      await InspectionService.purgeExpiredDeletedInspections();
       let list = await InspectionService.getAllInspections();
       
       // Join client data
@@ -76,16 +79,17 @@ export function Inspections() {
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (window.confirm('Tem certeza que deseja excluir esta inspeção? Todos os dados e fotos serão perdidos permanentemente.')) {
+    if (window.confirm('Mover esta inspeção para a Lixeira? Ela poderá ser restaurada por 30 dias.')) {
       // Optimistic update: remove from UI immediately
       setInspections(prev => prev.filter(i => i.id !== id));
       
-      // Fire-and-forget: soft-delete locally + sync to Supabase in background
-      InspectionService.deleteInspection(id).catch(err => {
+      InspectionService.deleteInspection(id).then(() => {
+        setShowTrash(true);
+        void loadInspections();
+      }).catch(err => {
         console.error('[Delete] Failed:', err);
-        // Revert optimistic update on failure
-        loadInspections();
-        alert('Erro ao excluir inspeção. Tente novamente.');
+        void loadInspections();
+        alert('A inspeção foi movida localmente para a Lixeira, mas ainda precisa sincronizar na nuvem.');
       });
     }
   };
@@ -102,6 +106,22 @@ export function Inspections() {
     }
   };
 
+  const handlePermanentDelete = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (!window.confirm('Excluir definitivamente este relatório, suas respostas e fotos? Esta ação não pode ser desfeita.')) return;
+    try {
+      await InspectionService.permanentlyDeleteInspection(id);
+      await loadInspections();
+    } catch (err: any) {
+      alert(err?.message || 'Erro ao excluir definitivamente o relatório.');
+    }
+  };
+
+  const daysRemaining = (inspection: Inspection) => {
+    if (!inspection.deletedAt) return 30;
+    return getTrashDaysRemaining(inspection.deletedAt);
+  };
+
   return (
     <div className="mx-auto max-w-5xl p-4 sm:p-6 lg:p-8">
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -112,6 +132,16 @@ export function Inspections() {
         <Button onClick={() => navigate('/new')} className="w-full sm:w-auto shadow-md">
           <Plus className="mr-2 h-5 w-5" />
           Nova Inspeção
+        </Button>
+      </div>
+
+      <div className="mb-6 flex justify-end">
+        <Button variant="outline" onClick={() => setShowTrash(value => !value)} className="gap-2">
+          <Trash2 className="h-4 w-4" />
+          Lixeira
+          {deletedInspections.length > 0 && (
+            <Badge variant="warning" className="ml-1">{deletedInspections.length}</Badge>
+          )}
         </Button>
       </div>
 
@@ -138,29 +168,44 @@ export function Inspections() {
       </div>
 
       <div className="space-y-4">
-        {deletedInspections.length > 0 && (
+        {showTrash && (
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
-                <h2 className="text-sm font-bold text-amber-900">Inspeções excluídas recentemente</h2>
-                <p className="text-xs text-amber-700">Dados locais ainda podem ser restaurados antes da limpeza definitiva.</p>
+                <h2 className="flex items-center gap-2 text-sm font-bold text-amber-900">
+                  <Trash2 className="h-4 w-4" />
+                  Lixeira de relatórios
+                </h2>
+                <p className="text-xs text-amber-700">Relatórios podem ser restaurados por 30 dias. Depois disso, são eliminados ao abrir o app online.</p>
               </div>
               <Badge variant="outline" className="border-amber-300 bg-white text-amber-700">{deletedInspections.length}</Badge>
             </div>
-            <div className="space-y-2">
+            {deletedInspections.length === 0 ? (
+              <p className="rounded-lg border border-amber-100 bg-white p-4 text-center text-sm text-gray-500">A Lixeira está vazia.</p>
+            ) : <div className="space-y-2">
               {deletedInspections.map(insp => (
                 <div key={insp.id} className="flex items-center justify-between gap-3 rounded-lg border border-amber-100 bg-white p-3">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-bold text-gray-900">{insp.clientName || 'Cliente'}</p>
                     <p className="text-xs text-gray-500">{formatDateTime(insp.inspectionDate)} • excluída em {insp.deletedAt ? formatDateTime(insp.deletedAt) : '-'}</p>
+                    <p className="mt-1 flex items-center gap-1 text-xs font-medium text-amber-700">
+                      <AlertTriangle className="h-3 w-3" />
+                      Eliminação automática em {daysRemaining(insp)} dia(s)
+                    </p>
                   </div>
-                  <Button size="sm" variant="outline" onClick={(e) => handleRestore(e, insp.id)} className="shrink-0 border-amber-300 text-amber-700 hover:bg-amber-50">
-                    <RotateCcw className="mr-2 h-4 w-4" />
-                    Restaurar
-                  </Button>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Button size="sm" variant="outline" onClick={(e) => handleRestore(e, insp.id)} className="border-amber-300 text-amber-700 hover:bg-amber-50">
+                      <RotateCcw className="mr-2 h-4 w-4" />
+                      Restaurar
+                    </Button>
+                    <Button size="sm" variant="danger" onClick={(e) => handlePermanentDelete(e, insp.id)}>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Excluir agora
+                    </Button>
+                  </div>
                 </div>
               ))}
-            </div>
+            </div>}
           </div>
         )}
 

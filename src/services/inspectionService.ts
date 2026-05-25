@@ -5,6 +5,7 @@ import { RepositoryService } from './repositoryService';
 import { withLocalActor } from '../utils/localActor';
 import { belongsToActiveTenant, filterByActiveTenant } from '../utils/localScope';
 import { withTimeout } from '../utils/network';
+import { isTrashExpired, TRASH_RETENTION_DAYS } from '../utils/trashRetention';
 
 const PHOTO_BUCKET = 'inspection-photos';
 const PHOTO_DOWNLOAD_TIMEOUT_MS = 20000;
@@ -22,6 +23,12 @@ export interface PhotoHydrationResult {
   total: number;
   completed: number;
   failed: number;
+}
+
+export interface RemoteInspectionSnapshot {
+  responses: InspectionResponse[];
+  photos: InspectionPhoto[];
+  fetchedAt: Date;
 }
 
 function isInlineDataUrl(value?: string | null): value is string {
@@ -224,6 +231,26 @@ async function hydrateStoragePhoto(photo: InspectionPhoto, timeoutMs = PHOTO_DOW
   return hydrated;
 }
 
+async function downloadStoragePhotoForView(photo: InspectionPhoto, timeoutMs = PHOTO_DOWNLOAD_TIMEOUT_MS): Promise<InspectionPhoto> {
+  if (isInlineDataUrl(photo.dataUrl)) return photo;
+
+  const storagePath = photo.storagePath || storagePathFromDataUrl(photo.dataUrl);
+  if (!storagePath) return photo;
+
+  const { data, error } = await withTimeout(
+    supabase.storage.from(PHOTO_BUCKET).download(storagePath),
+    timeoutMs,
+    `PhotoPreview_${photo.id}`
+  );
+
+  if (error || !data) return photo;
+
+  const dataUrl = await blobToDataUrl(data);
+  if (!isInlineDataUrl(dataUrl)) return photo;
+
+  return { ...photo, dataUrl, storagePath, dataVerifiedAt: new Date() };
+}
+
 async function mergeRemotePhoto(remote: InspectionPhoto): Promise<InspectionPhoto> {
   const local = await db.photos.get(remote.id);
   const remoteWithLocalImage = local && isInlineDataUrl(local.dataUrl) && !isInlineDataUrl(remote.dataUrl)
@@ -381,6 +408,37 @@ export const InspectionService = {
 
     const now = new Date();
 
+    // A deletion started on another device must still include the whole remote tree.
+    if (navigator.onLine) {
+      const { data: remoteResponseRows, error: responseReadError } = await supabase
+        .from('responses')
+        .select('*')
+        .eq('inspection_id', id)
+        .is('deleted_at', null);
+      if (responseReadError) throw responseReadError;
+
+      for (const row of remoteResponseRows || []) {
+        if (!(await db.responses.get(row.id))) {
+          await db.responses.put(mapResponseFromPostgres(row));
+        }
+      }
+
+      const remoteResponseIds = (remoteResponseRows || []).map(row => row.id);
+      if (remoteResponseIds.length > 0) {
+        const { data: remotePhotoRows, error: photoReadError } = await supabase
+          .from('photos')
+          .select('*')
+          .in('response_id', remoteResponseIds)
+          .is('deleted_at', null);
+        if (photoReadError) throw photoReadError;
+        for (const row of remotePhotoRows || []) {
+          if (!(await db.photos.get(row.id))) {
+            await db.photos.put(mapPhotoFromPostgres(row));
+          }
+        }
+      }
+    }
+
     // 1. Soft-delete the inspection in Dexie immediately (so UI updates before network)
     const updated = { ...local, deletedAt: now, updatedAt: now, syncStatus: 'pending' as const };
     await db.inspections.put(updated);
@@ -391,29 +449,91 @@ export const InspectionService = {
       await db.responses.put({ ...r, deletedAt: now, updatedAt: now, syncStatus: 'pending' as const });
     }
 
-    // 3. Deletion is now sent by the inspection bundle queue. Do not run a
-    // parallel direct push here; that old path could race the durable job.
+    // 3. Cascade soft-delete related photos so no attachment remains visible remotely.
+    const responseIds = responses.map(response => response.id);
+    if (responseIds.length > 0) {
+      const photos = await db.photos.where('responseId').anyOf(responseIds).toArray();
+      for (const photo of photos) {
+        await db.photos.put({ ...photo, deletedAt: now, updatedAt: now, syncStatus: 'pending' as const });
+      }
+    }
+
+    // 4. Prefer immediate bundle sync; if it fails, pending records remain retryable.
+    if (navigator.onLine) {
+      const { InspectionBundleSyncService } = await import('./inspectionBundleSyncService');
+      await InspectionBundleSyncService.syncInspectionBundle(id, { inspectionOverride: updated });
+    }
   },
 
   async getDeletedInspections(): Promise<Inspection[]> {
+    if (navigator.onLine) {
+      try {
+        const { data, error } = await supabase
+          .from('inspections')
+          .select('*')
+          .not('deleted_at', 'is', null)
+          .order('deleted_at', { ascending: false });
+
+        if (error) throw error;
+        for (const row of data || []) {
+          await RepositoryService.mergeRemoteRecord(db.inspections, mapFromPostgres(row), { label: 'lixeira', preserveLocal: false });
+        }
+      } catch (err) {
+        console.warn('[InspectionService] Remote trash refresh failed; using local records:', err);
+      }
+    }
+
     return filterByActiveTenant(await db.inspections
       .filter(i => Boolean(i.deletedAt))
-      .toArray());
+      .toArray())
+      .sort((a, b) => (b.deletedAt?.getTime() || 0) - (a.deletedAt?.getTime() || 0));
   },
 
   async restoreInspection(id: string): Promise<void> {
-    const local = await db.inspections.get(id);
+    let local = await db.inspections.get(id);
+    if (!local && navigator.onLine) {
+      const { data, error } = await supabase.from('inspections').select('*').eq('id', id).maybeSingle();
+      if (error) throw error;
+      if (data) {
+        local = mapFromPostgres(data);
+        await db.inspections.put(local);
+      }
+    }
     if (!belongsToActiveTenant(local)) throw new Error('Inspecao nao encontrada neste tenant.');
     if (!local) throw new Error('Inspecao nao encontrada localmente.');
 
+    if (navigator.onLine) {
+      const { data: responseRows, error: responseError } = await supabase
+        .from('responses')
+        .select('*')
+        .eq('inspection_id', id);
+      if (responseError) throw responseError;
+      for (const row of responseRows || []) {
+        await db.responses.put(mapResponseFromPostgres(row));
+      }
+
+      const remoteResponseIds = (responseRows || []).map(row => row.id);
+      if (remoteResponseIds.length > 0) {
+        const { data: photoRows, error: photoError } = await supabase
+          .from('photos')
+          .select('*')
+          .in('response_id', remoteResponseIds);
+        if (photoError) throw photoError;
+        for (const row of photoRows || []) {
+          await db.photos.put(mapPhotoFromPostgres(row));
+        }
+      }
+    }
+
     const now = new Date();
-    await db.inspections.put({
+    const restoredInspection = {
       ...local,
       deletedAt: null,
       updatedAt: now,
-      syncStatus: 'pending',
+      syncStatus: 'pending' as const,
       syncError: undefined,
-    });
+    };
+    await db.inspections.put(restoredInspection);
 
     const responses = await db.responses.where('inspectionId').equals(id).toArray();
     for (const response of responses) {
@@ -439,6 +559,78 @@ export const InspectionService = {
         });
       }
     }
+
+    if (navigator.onLine) {
+      const { InspectionBundleSyncService } = await import('./inspectionBundleSyncService');
+      await InspectionBundleSyncService.syncInspectionBundle(id, { inspectionOverride: restoredInspection });
+    }
+  },
+
+  async permanentlyDeleteInspection(id: string): Promise<void> {
+    const inspection = await db.inspections.get(id);
+    if (!belongsToActiveTenant(inspection)) throw new Error('Inspecao nao encontrada neste tenant.');
+    if (!inspection?.deletedAt) throw new Error('Somente itens da lixeira podem ser excluidos definitivamente.');
+    if (!navigator.onLine) throw new Error('Conecte-se a internet para excluir definitivamente.');
+
+    const { data: responseRows, error: responseError } = await supabase
+      .from('responses')
+      .select('id')
+      .eq('inspection_id', id);
+    if (responseError) throw responseError;
+
+    const responseIds = (responseRows || []).map(row => row.id);
+    let remotePhotos: any[] = [];
+    if (responseIds.length > 0) {
+      const { data: photoRows, error: photoReadError } = await supabase
+        .from('photos')
+        .select('*')
+        .in('response_id', responseIds);
+      if (photoReadError) throw photoReadError;
+      remotePhotos = photoRows || [];
+
+      const storagePaths = remotePhotos
+        .map(row => row.storage_path || storagePathFromDataUrl(row.data_url))
+        .filter(Boolean);
+      if (storagePaths.length > 0) {
+        const { error: storageError } = await supabase.storage.from(PHOTO_BUCKET).remove(storagePaths);
+        if (storageError) throw storageError;
+      }
+
+      const { error: photoDeleteError } = await supabase.from('photos').delete().in('response_id', responseIds);
+      if (photoDeleteError) throw photoDeleteError;
+      const { error: responsesDeleteError } = await supabase.from('responses').delete().eq('inspection_id', id);
+      if (responsesDeleteError) throw responsesDeleteError;
+    }
+
+    const { error: inspectionDeleteError } = await supabase.from('inspections').delete().eq('id', id);
+    if (inspectionDeleteError) throw inspectionDeleteError;
+
+    const localResponses = await db.responses.where('inspectionId').equals(id).toArray();
+    const allResponseIds = [...new Set([
+      ...responseIds,
+      ...localResponses.map(response => response.id),
+    ])];
+    if (allResponseIds.length > 0) {
+      await db.photos.where('responseId').anyOf(allResponseIds).delete();
+    }
+    await db.responses.where('inspectionId').equals(id).delete();
+    await db.inspections.delete(id);
+  },
+
+  async purgeExpiredDeletedInspections(retentionDays = TRASH_RETENTION_DAYS): Promise<number> {
+    if (!navigator.onLine) return 0;
+    const deleted = await this.getDeletedInspections();
+    const expired = deleted.filter(inspection => inspection.deletedAt && isTrashExpired(inspection.deletedAt, new Date(), retentionDays));
+    let removed = 0;
+    for (const inspection of expired) {
+      try {
+        await this.permanentlyDeleteInspection(inspection.id);
+        removed += 1;
+      } catch (err) {
+        console.warn(`[InspectionService] Expired trash item ${inspection.id} could not be removed yet:`, err);
+      }
+    }
+    return removed;
   },
 
   async getResponsesByInspectionId(inspectionId: string, forceRefresh = false): Promise<InspectionResponse[]> {
@@ -500,6 +692,58 @@ export const InspectionService = {
     }
 
     return local;
+  },
+
+  async getRemoteInspectionSnapshot(inspectionId: string): Promise<RemoteInspectionSnapshot> {
+    if (!navigator.onLine) {
+      throw new Error('Conecte-se a internet para consultar o preenchimento sincronizado.');
+    }
+
+    const { data: responseRows, error: responseError } = await RepositoryService.withTimeout(
+      Promise.resolve(supabase.from('responses').select('*').eq('inspection_id', inspectionId).is('deleted_at', null)),
+      25000,
+      `RemoteViewerResponses_${inspectionId}`
+    ) as any;
+
+    if (responseError) {
+      throw new Error(responseError.message || 'Falha ao consultar respostas sincronizadas.');
+    }
+
+    const responses: InspectionResponse[] = (responseRows || []).map(mapResponseFromPostgres);
+    if (responses.length === 0) {
+      return { responses: [], photos: [], fetchedAt: new Date() };
+    }
+
+    const { data: photoRows, error: photoError } = await RepositoryService.withTimeout(
+      Promise.resolve(supabase.from('photos').select('*').in('response_id', responses.map(response => response.id)).is('deleted_at', null)),
+      25000,
+      `RemoteViewerPhotos_${inspectionId}`
+    ) as any;
+
+    if (photoError) {
+      throw new Error(photoError.message || 'Falha ao consultar fotos sincronizadas.');
+    }
+
+    const photos = await runLimited<InspectionPhoto, InspectionPhoto>(
+      (photoRows || []).map(mapPhotoFromPostgres) as InspectionPhoto[],
+      PHOTO_DOWNLOAD_CONCURRENCY,
+      photo => downloadStoragePhotoForView(photo)
+    );
+    const photosByResponse = new Map<string, InspectionPhoto[]>();
+    for (const photo of photos) {
+      const current = photosByResponse.get(photo.responseId) || [];
+      current.push(photo);
+      photosByResponse.set(photo.responseId, current);
+    }
+
+    return {
+      responses: responses.map(response => ({
+        ...response,
+        photos: photosByResponse.get(response.id) || [],
+      })),
+      photos,
+      fetchedAt: new Date(),
+    };
   },
 
   async upsertResponse(response: InspectionResponse): Promise<void> {
