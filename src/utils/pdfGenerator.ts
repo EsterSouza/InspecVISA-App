@@ -637,73 +637,115 @@ export async function generatePDF(
     drawGroupHeading();
 
     items.forEach((response) => {
+      const cardInnerX = margin + 8;
+      const cardInnerW = contentW - 20;
+      const pageBottom = pageH - 24;
+      const bodyFontSize = 10;
+      const bodyLineHeight = 5.1;
+      const requirementFontSize = 9;
+      const requirementLineHeight = 4.7;
       const item = allItemsList.find(candidate => candidate.id === response.itemId);
       const cardNumber = sortedNonCompliant.indexOf(response) + 1;
       const situation = response.situationDescription || 'Achado registrado durante a visita técnica.';
       const correction = response.correctiveAction || 'Definir medida corretiva e registrar evidência de conclusão.';
       const requirement = item?.description || response.customDescription || 'Requisito avaliado.';
-      const situationLines = doc.splitTextToSize(situation, contentW - 16);
-      const correctionLines = doc.splitTextToSize(correction, contentW - 16);
-      const requirementLines = doc.splitTextToSize(requirement, contentW - 16);
-      const cardHeight = 25 + situationLines.length * 4.1 + correctionLines.length * 4.1 + requirementLines.length * 3.5 + 10;
 
-      if (y + cardHeight > pageH - 20) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(bodyFontSize);
+      const situationLines: string[] = doc.splitTextToSize(situation, cardInnerW);
+      const correctionLines: string[] = doc.splitTextToSize(correction, cardInnerW);
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(requirementFontSize);
+      const requirementLines: string[] = doc.splitTextToSize(requirement, cardInnerW);
+
+      const cardHeight = 58
+        + situationLines.length * bodyLineHeight
+        + correctionLines.length * bodyLineHeight
+        + requirementLines.length * requirementLineHeight;
+      const fullPageCardHeight = pageBottom - margin - 8;
+
+      if (y + cardHeight > pageBottom && cardHeight <= fullPageCardHeight) {
         drawPlanContinuation();
         drawGroupHeading(true);
       }
 
-      doc.setFillColor(...background);
-      doc.setDrawColor(...borderColor);
-      doc.roundedRect(margin, y, contentW, cardHeight, 2.5, 2.5, 'FD');
-      doc.setFillColor(...accent);
-      doc.roundedRect(margin, y, 3, cardHeight, 1.5, 1.5, 'F');
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.setTextColor(...textColor);
-      doc.text(`AÇÃO ${String(cardNumber).padStart(2, '0')}`, margin + 8, y + 8);
-
       const deadline = response.deadline || defaultDeadline;
       const responsible = response.responsible || 'RT / Gestor';
       const chipText = `${deadline}  |  ${responsible}`;
-      doc.setFontSize(7.5);
-      const chipWidth = Math.min(74, doc.getTextWidth(chipText) + 8);
-      doc.setFillColor(255, 255, 255);
-      doc.roundedRect(pageW - margin - chipWidth - 5, y + 3, chipWidth, 8, 3, 3, 'F');
-      doc.setTextColor(...accent);
-      doc.text(chipText, pageW - margin - chipWidth - 1, y + 8.3);
 
-      let cardY = y + 17;
-      doc.setFontSize(7);
-      doc.setTextColor(...mutedColor);
-      doc.text('SITUAÇÃO ENCONTRADA', margin + 8, cardY);
-      cardY += 4;
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8.5);
-      doc.setTextColor(...textColor);
-      doc.text(situationLines, margin + 8, cardY);
-      cardY += situationLines.length * 4.1 + 4;
+      const drawCardFrame = (height: number, continuation = false) => {
+        doc.setFillColor(...background);
+        doc.setDrawColor(...borderColor);
+        doc.roundedRect(margin, y, contentW, height, 2.5, 2.5, 'FD');
+        doc.setFillColor(...accent);
+        doc.roundedRect(margin, y, 3, height, 1.5, 1.5, 'F');
 
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7);
-      doc.setTextColor(...mutedColor);
-      doc.text('AÇÃO RECOMENDADA', margin + 8, cardY);
-      cardY += 4;
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8.5);
-      doc.setTextColor(...textColor);
-      doc.text(correctionLines, margin + 8, cardY);
-      cardY += correctionLines.length * 4.1 + 4;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(...textColor);
+        doc.text(
+          `AÇÃO ${String(cardNumber).padStart(2, '0')}${continuation ? ' - CONTINUAÇÃO' : ''}`,
+          cardInnerX,
+          y + 9
+        );
 
-      doc.setDrawColor(...borderColor);
-      doc.line(margin + 8, cardY, pageW - margin - 8, cardY);
-      cardY += 4;
-      doc.setFont('helvetica', 'italic');
-      doc.setFontSize(7.5);
-      doc.setTextColor(...mutedColor);
-      doc.text(requirementLines, margin + 8, cardY);
+        if (!continuation) {
+          doc.setFontSize(8);
+          const chipWidth = Math.min(74, doc.getTextWidth(chipText) + 8);
+          doc.setFillColor(255, 255, 255);
+          doc.roundedRect(pageW - margin - chipWidth - 5, y + 3, chipWidth, 9, 3, 3, 'F');
+          doc.setTextColor(...accent);
+          doc.text(chipText, pageW - margin - chipWidth - 1, y + 8.8);
+        }
+      };
 
-      y += cardHeight + 6;
+      const drawTextBlock = (label: string, lines: string[], startY: number, isRequirement = false) => {
+        let blockY = startY;
+        if (isRequirement) {
+          doc.setDrawColor(...borderColor);
+          doc.line(cardInnerX, blockY, margin + contentW - 8, blockY);
+          blockY += 5;
+        }
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(...mutedColor);
+        doc.text(label, cardInnerX, blockY);
+        blockY += 5;
+        doc.setFont('helvetica', isRequirement ? 'italic' : 'normal');
+        doc.setFontSize(isRequirement ? requirementFontSize : bodyFontSize);
+        doc.setTextColor(...textColor);
+        doc.text(lines, cardInnerX, blockY, { maxWidth: cardInnerW });
+        return blockY + lines.length * (isRequirement ? requirementLineHeight : bodyLineHeight) + 5;
+      };
+
+      if (cardHeight <= fullPageCardHeight) {
+        drawCardFrame(cardHeight);
+        let cardY = y + 19;
+        cardY = drawTextBlock('SITUAÇÃO ENCONTRADA', situationLines, cardY);
+        cardY = drawTextBlock('AÇÃO RECOMENDADA', correctionLines, cardY);
+        drawTextBlock('REQUISITO AVALIADO', requirementLines, cardY, true);
+        y += cardHeight + 6;
+        return;
+      }
+
+      const blocks = [
+        { label: 'SITUAÇÃO ENCONTRADA', lines: situationLines, isRequirement: false },
+        { label: 'AÇÃO RECOMENDADA', lines: correctionLines, isRequirement: false },
+        { label: 'REQUISITO AVALIADO', lines: requirementLines, isRequirement: true },
+      ];
+
+      blocks.forEach((block, blockIndex) => {
+        const continuation = blockIndex > 0;
+        const lineHeight = block.isRequirement ? requirementLineHeight : bodyLineHeight;
+        const blockHeight = 34 + block.lines.length * lineHeight + (block.isRequirement ? 5 : 0);
+        if (continuation || y + blockHeight > pageBottom) {
+          drawPlanContinuation();
+          drawGroupHeading(true);
+        }
+        drawCardFrame(blockHeight, continuation);
+        drawTextBlock(block.label, block.lines, y + 19, block.isRequirement);
+        y += blockHeight + 6;
+      });
     });
   };
 
