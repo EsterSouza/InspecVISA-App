@@ -156,6 +156,10 @@ export async function generatePDF(
   const contentW = pageW - margin * 2;
   const primaryColor: [number, number, number] = [20, 40, 80]; // Navy Blue 
   const secondaryColor: [number, number, number] = [45, 90, 142];
+  const textColor: [number, number, number] = [31, 41, 55];
+  const mutedColor: [number, number, number] = [100, 116, 139];
+  const borderColor: [number, number, number] = [226, 232, 240];
+  const surfaceColor: [number, number, number] = [248, 250, 252];
   const templateItemIds = new Set(template.sections.flatMap(section => section.items.map(item => item.id)));
   const reportResponses = getLatestResponsesByItem(responses, templateItemIds);
   const isIlpiReport = template.category === 'ilpi' || inspection.clientCategory === 'ilpi';
@@ -171,6 +175,46 @@ export async function generatePDF(
           registration: settings.professionalId ? `${settings.professionalIdLabel || 'Registro'}: ${settings.professionalId}` : '',
         },
       ];
+
+  function drawSectionTitle(title: string, subtitle?: string) {
+    doc.setFillColor(...primaryColor);
+    doc.roundedRect(margin, y - 5, 3, subtitle ? 18 : 12, 1.5, 1.5, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(...primaryColor);
+    doc.text(title, margin + 9, y + 2);
+    if (subtitle) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(...mutedColor);
+      doc.text(subtitle, margin + 9, y + 10);
+      y += 20;
+      return;
+    }
+    y += 15;
+  }
+
+  function drawMetricCard(
+    x: number,
+    width: number,
+    label: string,
+    value: string,
+    accent: [number, number, number]
+  ) {
+    doc.setFillColor(...surfaceColor);
+    doc.setDrawColor(...borderColor);
+    doc.roundedRect(x, y, width, 19, 2, 2, 'FD');
+    doc.setFillColor(...accent);
+    doc.roundedRect(x, y, 2.5, 19, 1, 1, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(...textColor);
+    doc.text(value, x + 7, y + 9);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...mutedColor);
+    doc.text(label.toUpperCase(), x + 7, y + 15);
+  }
 
   async function drawPhotoGrid(photos: InspectionResponse['photos'], startY: number) {
     if (!photos || photos.length === 0) return startY;
@@ -235,8 +279,11 @@ export async function generatePDF(
   // Helper: footer on every page
   function addFooter(pageNum: number, totalPages: number) {
     const y = pageH - 10;
+    doc.setDrawColor(...borderColor);
+    doc.setLineWidth(0.2);
+    doc.line(margin, y - 6, pageW - margin, y - 6);
     doc.setFontSize(8);
-    doc.setTextColor(120, 120, 120);
+    doc.setTextColor(...mutedColor);
     doc.setFont('helvetica', 'normal');
     doc.text(settings.companyName || settings.name, margin, y);
     doc.text(`Página ${pageNum} de ${totalPages}`, pageW - margin, y, { align: 'right' });
@@ -309,7 +356,7 @@ export async function generatePDF(
   }
 
   // ILPI Extra Information
-  if (inspection.ilpiCapacity || inspection.residentsTotal) {
+  if (inspection.ilpiCapacity || inspection.residentsTotal || inspection.usableAreaM2) {
     y += 5;
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
@@ -344,30 +391,54 @@ export async function generatePDF(
       level3: l3,
       observedCaregivers: inspection.observedStaff || 0,
       observedNursingTechs: inspection.observedNursingTechs || 0,
+      usableAreaM2: inspection.usableAreaM2 || 0,
+      observedCleaningStaff: inspection.observedCleaningStaff || 0,
       isRJ: isRJInspection,
     });
-    const observed = staffing.observedCaregivers;
-    const isCompliant = staffing.caregiversOk;
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(isCompliant ? 30 : 180, isCompliant ? 90 : 40, isCompliant ? 60 : 40);
-    doc.text(`CUIDADORES EM TURNO: ${observed} (MÍNIMO EXIGIDO: ${staffing.caregivers.total}) - ${isCompliant ? 'ADEQUADO' : 'INSUFICIENTE'}`, margin, y);
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(100, 100, 100);
-    y += 4;
-
-    const baseLegal = isRJInspection
-      ? 'Base legal: RDC 502/2021 e Lei 8.049/2018 (RJ)'
-      : 'Base legal: RDC 502/2021';
-    doc.text(`${baseLegal}. Técnico de enfermagem não substitui cuidador para este cálculo.`, margin, y);
+    const status = (ok: boolean) => ok ? 'ADEQUADO' : 'INSUFICIENTE';
+    const teamRows: Array<[string, number, number, string]> = [
+      ['Cuidadores', staffing.observedCaregivers, staffing.caregivers.total, status(staffing.caregiversOk)],
+    ];
     if (isRJInspection) {
-      y += 4;
-      const techStatus = staffing.nursingTechsOk ? 'ADEQUADO' : 'INSUFICIENTE';
-      doc.text(`TÉCNICOS DE ENFERMAGEM EM TURNO: ${staffing.observedNursingTechs} (MÍNIMO EXIGIDO GRAU II/III: ${staffing.nursingTechs.total}) - ${techStatus}`, margin, y);
+      teamRows.push(['Técnicos de enfermagem', staffing.observedNursingTechs, staffing.nursingTechs.total, status(staffing.nursingTechsOk)]);
+    }
+    if (staffing.cleaningStaff.areaM2 > 0) {
+      teamRows.push([
+        `Limpeza (${staffing.cleaningStaff.areaM2} m²)`,
+        staffing.observedCleaningStaff,
+        staffing.cleaningStaff.total,
+        status(staffing.cleaningStaffOk),
+      ]);
     }
 
+    autoTable(doc, {
+      startY: y,
+      head: [['Equipe em turno', 'Observado', 'Mínimo exigido', 'Resultado']],
+      body: teamRows,
+      headStyles: { fillColor: primaryColor, fontSize: 8.5, fontStyle: 'bold' },
+      bodyStyles: { fontSize: 9, textColor },
+      columnStyles: {
+        0: { cellWidth: 63 },
+        1: { cellWidth: 29, halign: 'center' },
+        2: { cellWidth: 33, halign: 'center' },
+        3: { cellWidth: 45, halign: 'center', fontStyle: 'bold' },
+      },
+      didParseCell: (data) => {
+        if (data.section === 'body' && data.column.index === 3) {
+          const ok = String(data.cell.raw) === 'ADEQUADO';
+          data.cell.styles.textColor = ok ? [22, 101, 52] : [185, 28, 28];
+          data.cell.styles.fillColor = ok ? [240, 253, 244] : [254, 242, 242];
+        }
+      },
+      margin: { left: margin, right: margin },
+      theme: 'grid',
+    });
+    y = (doc as any).lastAutoTable.finalY + 5;
+
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...mutedColor);
+    doc.text(`Base legal: ${staffing.legalBase}. Técnico de enfermagem não substitui cuidador no dimensionamento.`, margin, y);
     y += 10;
   }
 
@@ -404,15 +475,30 @@ export async function generatePDF(
   doc.roundedRect(margin, y, (contentW * scorePercent) / 100, 3, 1.5, 1.5, 'F');
   y += 10;
 
+  const coverGap = 4;
+  const coverCardW = (contentW - coverGap * 3) / 4;
+  drawMetricCard(margin, coverCardW, 'Cumpre', `${score.compliesCount}`, [22, 163, 74]);
+  drawMetricCard(margin + coverCardW + coverGap, coverCardW, 'Não cumpre', `${score.notCompliesCount}`, [220, 38, 38]);
+  drawMetricCard(margin + (coverCardW + coverGap) * 2, coverCardW, 'Críticos', `${score.criticalNotCompliesCount}`, [185, 28, 28]);
+  drawMetricCard(margin + (coverCardW + coverGap) * 3, coverCardW, 'Não avaliados', `${score.notEvaluatedCount}`, [100, 116, 139]);
+  y += 25;
+
 
   // ── PAGE 2: RESUMO ───────────────────────────────────────
   doc.addPage();
   y = margin;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
-  doc.setTextColor(...primaryColor);
-  doc.text('RESUMO EXECUTIVO', margin, y);
-  y += 8;
+  drawSectionTitle(
+    'RESUMO EXECUTIVO',
+    'Leitura rápida dos achados e distribuição dos resultados por área inspecionada.'
+  );
+
+  const summaryGap = 4;
+  const summaryCardW = (contentW - summaryGap * 3) / 4;
+  drawMetricCard(margin, summaryCardW, 'Conformidades', `${score.compliesCount}`, [22, 163, 74]);
+  drawMetricCard(margin + summaryCardW + summaryGap, summaryCardW, 'Não conformidades', `${score.notCompliesCount}`, [220, 38, 38]);
+  drawMetricCard(margin + (summaryCardW + summaryGap) * 2, summaryCardW, 'Urgentes', `${score.urgentActionsCount}`, [234, 88, 12]);
+  drawMetricCard(margin + (summaryCardW + summaryGap) * 3, summaryCardW, 'Não observados', `${score.notObservedCount}`, [71, 85, 105]);
+  y += 27;
 
   // Summary table
   autoTable(doc, {
@@ -443,24 +529,47 @@ export async function generatePDF(
       score.notApplicableCount,
       `${Math.round(score.scorePercentage)}%`,
     ]],
-    headStyles: { fillColor: primaryColor, fontSize: 9, fontStyle: 'bold' },
-    footStyles: { fillColor: [240, 240, 240], fontStyle: 'bold', fontSize: 9, textColor: [30, 30, 30] },
-    bodyStyles: { fontSize: 9 },
-    columnStyles: { 0: { cellWidth: 80 } },
+    headStyles: { fillColor: primaryColor, fontSize: 8, fontStyle: 'bold', cellPadding: 2.5 },
+    footStyles: { fillColor: [226, 232, 240], fontStyle: 'bold', fontSize: 8.5, textColor },
+    bodyStyles: { fontSize: 8.5, textColor, cellPadding: 2.3 },
+    alternateRowStyles: { fillColor: surfaceColor },
+    columnStyles: {
+      0: { cellWidth: 77 },
+      1: { cellWidth: 15, halign: 'center' },
+      2: { cellWidth: 17, halign: 'center' },
+      3: { cellWidth: 21, halign: 'center' },
+      4: { cellWidth: 13, halign: 'center' },
+      5: { cellWidth: 13, halign: 'center' },
+      6: { cellWidth: 14, halign: 'center', fontStyle: 'bold' },
+    },
     margin: { left: margin, right: margin },
-    theme: 'striped',
+    theme: 'plain',
   });
 
-  y = (doc as any).lastAutoTable.finalY + 15;
+  y = (doc as any).lastAutoTable.finalY + 12;
+  doc.setFillColor(255, 251, 235);
+  doc.setDrawColor(253, 230, 138);
+  doc.roundedRect(margin, y, contentW, 18, 2, 2, 'FD');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(146, 64, 14);
+  doc.text('PRIORIDADE DE TRATAMENTO', margin + 5, y + 7);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(...textColor);
+  doc.text(
+    `${score.urgentActionsCount} ação(ões) urgente(s) e ${score.importantActionsCount} importante(s) detalhadas nas páginas seguintes.`,
+    margin + 5,
+    y + 13
+  );
 
   // ── NEW PAGE: PLANO DE AÇÃO RECOMENDADO ──────────────────
   doc.addPage();
   y = margin;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(14);
-  doc.setTextColor(...primaryColor);
-  doc.text('PLANO DE AÇÃO RECOMENDADO', margin, y);
-  y += 8;
+  drawSectionTitle(
+    'PLANO DE AÇÃO RECOMENDADO',
+    'Itens priorizados para correção, com achado, medida indicada, prazo e responsável.'
+  );
 
   const allItemsList = template.sections.flatMap(s => s.items);
   const nonCompliantItems = reportResponses.filter(r => r.result === 'not_complies');
@@ -502,52 +611,104 @@ export async function generatePDF(
     return !it?.isCritical && (it?.weight || 0) >= 5;
   });
 
-  const drawActionTable = (title: string, items: any[], rowColor: [number, number, number], defaultDeadline: string) => {
-    if (y > pageH - 60) { doc.addPage(); y = margin; }
-    doc.setFontSize(10);
-    doc.setTextColor(rgb[0], rgb[1], rgb[2]);
-    doc.text(title.toUpperCase(), margin, y);
-    y += 4;
-
-    autoTable(doc, {
-      startY: y,
-      head: [['Nº', 'Descrição da Ação (O que resolver)', 'Prazo', 'Responsável']],
-      body: items.map((r, idx) => {
-        const it = allItemsList.find(i => i.id === r.itemId);
-        const actionDesc = [
-          r.situationDescription ? `SITUAÇÃO: ${r.situationDescription}` : '',
-          r.correctiveAction ? `AÇÃO: ${r.correctiveAction}` : '',
-          `(${it?.description || r.customDescription || ''})`
-        ].filter(Boolean).join('\n');
-
-        return [
-          idx + 1,
-          actionDesc,
-          r.deadline || defaultDeadline,
-          r.responsible || 'RT / Gestor'
-        ];
-      }),
-      headStyles: { fillColor: rgb as [number, number, number], fontSize: 8 },
-      bodyStyles: { fontSize: 8, fillColor: rowColor as [number, number, number] },
-      columnStyles: {
-        0: { cellWidth: 8 },
-        1: { cellWidth: 120 },
-        2: { cellWidth: 20 },
-        3: { cellWidth: 22 }
-      },
-      margin: { left: margin, right: margin },
-      theme: 'grid'
-    });
-    y = (doc as any).lastAutoTable.finalY + 10;
+  const drawPlanContinuation = () => {
+    doc.addPage();
+    y = margin;
+    drawSectionTitle('PLANO DE AÇÃO', 'Continuação dos itens priorizados para correção.');
   };
 
-  if (urgentItems.length > 0) {
-    drawActionTable('GRUPO 1 — AÇÕES URGENTES (ITENS CRÍTICOS)', urgentItems, [254, 242, 242], '15 dias');
-  }
+  const drawActionCards = (
+    title: string,
+    items: InspectionResponse[],
+    accent: [number, number, number],
+    background: [number, number, number],
+    defaultDeadline: string
+  ) => {
+    if (items.length === 0) return;
+    if (y > pageH - 35) drawPlanContinuation();
 
-  if (importantItems.length > 0) {
-    drawActionTable('GRUPO 2 — AÇÕES IMPORTANTES (NECESSÁRIO)', importantItems, [255, 251, 235], '60 dias');
-  }
+    const drawGroupHeading = (continuation = false) => {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(...accent);
+      doc.text(`${title}${continuation ? ' - CONTINUAÇÃO' : ''} (${items.length})`, margin, y);
+      y += 8;
+    };
+    drawGroupHeading();
+
+    items.forEach((response) => {
+      const item = allItemsList.find(candidate => candidate.id === response.itemId);
+      const cardNumber = sortedNonCompliant.indexOf(response) + 1;
+      const situation = response.situationDescription || 'Achado registrado durante a visita técnica.';
+      const correction = response.correctiveAction || 'Definir medida corretiva e registrar evidência de conclusão.';
+      const requirement = item?.description || response.customDescription || 'Requisito avaliado.';
+      const situationLines = doc.splitTextToSize(situation, contentW - 16);
+      const correctionLines = doc.splitTextToSize(correction, contentW - 16);
+      const requirementLines = doc.splitTextToSize(requirement, contentW - 16);
+      const cardHeight = 25 + situationLines.length * 4.1 + correctionLines.length * 4.1 + requirementLines.length * 3.5 + 10;
+
+      if (y + cardHeight > pageH - 20) {
+        drawPlanContinuation();
+        drawGroupHeading(true);
+      }
+
+      doc.setFillColor(...background);
+      doc.setDrawColor(...borderColor);
+      doc.roundedRect(margin, y, contentW, cardHeight, 2.5, 2.5, 'FD');
+      doc.setFillColor(...accent);
+      doc.roundedRect(margin, y, 3, cardHeight, 1.5, 1.5, 'F');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(...textColor);
+      doc.text(`AÇÃO ${String(cardNumber).padStart(2, '0')}`, margin + 8, y + 8);
+
+      const deadline = response.deadline || defaultDeadline;
+      const responsible = response.responsible || 'RT / Gestor';
+      const chipText = `${deadline}  |  ${responsible}`;
+      doc.setFontSize(7.5);
+      const chipWidth = Math.min(74, doc.getTextWidth(chipText) + 8);
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(pageW - margin - chipWidth - 5, y + 3, chipWidth, 8, 3, 3, 'F');
+      doc.setTextColor(...accent);
+      doc.text(chipText, pageW - margin - chipWidth - 1, y + 8.3);
+
+      let cardY = y + 17;
+      doc.setFontSize(7);
+      doc.setTextColor(...mutedColor);
+      doc.text('SITUAÇÃO ENCONTRADA', margin + 8, cardY);
+      cardY += 4;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(...textColor);
+      doc.text(situationLines, margin + 8, cardY);
+      cardY += situationLines.length * 4.1 + 4;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(...mutedColor);
+      doc.text('AÇÃO RECOMENDADA', margin + 8, cardY);
+      cardY += 4;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(...textColor);
+      doc.text(correctionLines, margin + 8, cardY);
+      cardY += correctionLines.length * 4.1 + 4;
+
+      doc.setDrawColor(...borderColor);
+      doc.line(margin + 8, cardY, pageW - margin - 8, cardY);
+      cardY += 4;
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(7.5);
+      doc.setTextColor(...mutedColor);
+      doc.text(requirementLines, margin + 8, cardY);
+
+      y += cardHeight + 6;
+    });
+  };
+
+  drawActionCards('URGENTES - ITENS CRÍTICOS', urgentItems, [185, 28, 28], [254, 242, 242], '15 dias');
+  drawActionCards('IMPORTANTES - NECESSÁRIOS', importantItems, [180, 83, 9], [255, 251, 235], '60 dias');
 
   // Summary of Conformance
   if (y > pageH - 40) { doc.addPage(); y = margin; }
