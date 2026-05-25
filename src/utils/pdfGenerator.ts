@@ -529,7 +529,7 @@ export async function generatePDF(
       score.notApplicableCount,
       `${Math.round(score.scorePercentage)}%`,
     ]],
-    headStyles: { fillColor: primaryColor, fontSize: 8, fontStyle: 'bold', cellPadding: 2.5 },
+    headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontSize: 8, fontStyle: 'bold', cellPadding: 2.5 },
     footStyles: { fillColor: [226, 232, 240], fontStyle: 'bold', fontSize: 8.5, textColor },
     bodyStyles: { fontSize: 8.5, textColor, cellPadding: 2.3 },
     alternateRowStyles: { fillColor: surfaceColor },
@@ -785,86 +785,102 @@ export async function generatePDF(
   if (nonCompliantItems.length > 0) {
     doc.addPage();
     y = margin;
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(13);
-    doc.setTextColor(...primaryColor);
-    doc.text('NÃO CONFORMIDADES IDENTIFICADAS', margin, y);
-    y += 2;
-    doc.setDrawColor(...primaryColor);
-    doc.line(margin, y, margin + contentW, y);
-    y += 8;
+    const drawNonComplianceHeading = (continuation = false) => {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(13);
+      doc.setTextColor(...primaryColor);
+      doc.text(`NÃO CONFORMIDADES IDENTIFICADAS${continuation ? ' - CONTINUAÇÃO' : ''}`, margin, y);
+      y += 3;
+      doc.setDrawColor(...primaryColor);
+      doc.setLineWidth(0.4);
+      doc.line(margin, y, margin + contentW, y);
+      y += 10;
+    };
+    const continueNonCompliancePage = () => {
+      doc.addPage();
+      y = margin;
+      drawNonComplianceHeading(true);
+    };
+    const ensureNonComplianceSpace = (height: number) => {
+      if (y + height > pageH - 22) continueNonCompliancePage();
+    };
+
+    drawNonComplianceHeading();
 
     let ncNum = 1;
     for (const response of nonCompliantItems) {
       const item = allItems.find(i => i.id === response.itemId);
       if (!item) continue;
 
-      if (y > pageH - 60) { doc.addPage(); y = margin; }
-
-      // NC header
-      doc.setFillColor(245, 245, 245);
-      doc.rect(margin, y - 4, contentW, 7, 'F');
+      const title = `[NC-${String(ncNum).padStart(3, '0')}] ${item.description}`;
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.setTextColor(30, 30, 30);
-      doc.text(`[NC-${String(ncNum).padStart(3, '0')}] ${item.description.substring(0, 90)}`, margin + 2, y);
-      y += 5;
-      if (item.description.length > 90) {
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9);
-        const rest = doc.splitTextToSize(item.description.substring(90), contentW - 4);
-        doc.text(rest, margin + 2, y);
-        y += rest.length * 4;
+      doc.setFontSize(10.5);
+      const titleLines: string[] = doc.splitTextToSize(title, contentW - 12);
+      const titleHeight = titleLines.length * 5.2;
+      const badgeHeight = item.isCritical ? 8 : 0;
+      const headerHeight = 10 + titleHeight + badgeHeight;
+      ensureNonComplianceSpace(headerHeight + 12);
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(...borderColor);
+      doc.roundedRect(margin, y, contentW, headerHeight, 2, 2, 'FD');
+      const headerAccent: [number, number, number] = item.isCritical ? [185, 28, 28] : secondaryColor;
+      doc.setFillColor(...headerAccent);
+      doc.roundedRect(margin, y, 3, headerHeight, 1.5, 1.5, 'F');
+      doc.setTextColor(...textColor);
+      doc.text(titleLines, margin + 8, y + 8);
+      let headerY = y + 8 + titleHeight;
+      if (item.isCritical) {
+        doc.setFillColor(185, 28, 28);
+        doc.roundedRect(margin + 8, headerY, 33, 6.5, 2, 2, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.5);
+        doc.setTextColor(255, 255, 255);
+        doc.text('ITEM CRÍTICO', margin + 24.5, headerY + 4.4, { align: 'center' });
       }
-
+      y += headerHeight + 4;
       if (item.legislation) {
         doc.setFont('helvetica', 'italic');
-        doc.setFontSize(8);
-        doc.setTextColor(80, 80, 80);
-        // Show only citation abbreviation inline, full reference is in appendix
+        doc.setFontSize(8.7);
+        doc.setTextColor(...mutedColor);
         const legText = `Base legal: ${item.legislation}`;
-        const legLines = doc.splitTextToSize(legText, contentW - 4);
-        doc.text(legLines, margin + 2, y);
-        y += legLines.length * 4;
-
-        if (item.isCritical) {
-          doc.setFillColor(254, 226, 226); // red-100
-          doc.roundedRect(margin + 2, y, 30, 5, 2, 2, 'F');
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(7);
-          doc.setTextColor(185, 28, 28); // red-700
-          doc.text('ITEM CRÍTICO', margin + 7, y + 3.5);
-          y += 6;
-        } else {
-          y += 2;
-        }
+        const legLines: string[] = doc.splitTextToSize(legText, contentW - 8);
+        ensureNonComplianceSpace(legLines.length * 4.5 + 4);
+        doc.text(legLines, margin + 8, y);
+        y += legLines.length * 4.5 + 4;
       }
 
       if (response.situationDescription) {
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
-        doc.setTextColor(180, 50, 50);
-        doc.text('Situação encontrada:', margin + 2, y);
-        y += 4;
         doc.setFont('helvetica', 'normal');
-        doc.setTextColor(30, 30, 30);
-        const lines = doc.splitTextToSize(response.situationDescription, contentW - 4);
-        doc.text(lines, margin + 2, y);
-        y += lines.length * 4 + 2;
+        doc.setFontSize(9.8);
+        const lines: string[] = doc.splitTextToSize(response.situationDescription, contentW - 16);
+        ensureNonComplianceSpace(lines.length * 5 + 12);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9.5);
+        doc.setTextColor(153, 27, 27);
+        doc.text('Situação encontrada:', margin + 8, y);
+        y += 5;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9.8);
+        doc.setTextColor(...textColor);
+        doc.text(lines, margin + 8, y, { maxWidth: contentW - 16 });
+        y += lines.length * 5 + 5;
       }
 
       if (response.correctiveAction) {
-        if (y > pageH - 40) { doc.addPage(); y = margin; }
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
-        doc.setTextColor(30, 90, 60);
-        doc.text('Ação corretiva:', margin + 2, y);
-        y += 4;
         doc.setFont('helvetica', 'normal');
-        doc.setTextColor(30, 30, 30);
-        const lines = doc.splitTextToSize(response.correctiveAction, contentW - 4);
-        doc.text(lines, margin + 2, y);
-        y += lines.length * 4 + 2;
+        doc.setFontSize(9.8);
+        const lines: string[] = doc.splitTextToSize(response.correctiveAction, contentW - 16);
+        ensureNonComplianceSpace(lines.length * 5 + 12);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9.5);
+        doc.setTextColor(21, 101, 52);
+        doc.text('Ação corretiva:', margin + 8, y);
+        y += 5;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9.8);
+        doc.setTextColor(...textColor);
+        doc.text(lines, margin + 8, y, { maxWidth: contentW - 16 });
+        y += lines.length * 5 + 5;
       }
 
       // Photos
