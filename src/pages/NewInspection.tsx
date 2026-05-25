@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronRight, ArrowLeft, WifiOff, Loader2 } from 'lucide-react';
+import { ChevronRight, ArrowLeft, WifiOff, Loader2, AlertTriangle, FileText } from 'lucide-react';
 import { db } from '../db/database';
 import { ClientService } from '../services/clientService';
 import { InspectionService } from '../services/inspectionService';
@@ -16,19 +16,6 @@ import { generateId } from '../utils/imageUtils';
 import { ProfileModal } from '../components/profile/ProfileModal';
 import { ScheduleService } from '../services/scheduleService';
 import type { Schedule } from '../types';
-
-function startOfWeek(date: Date) {
-  const copy = new Date(date);
-  copy.setHours(0, 0, 0, 0);
-  const day = copy.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  copy.setDate(copy.getDate() + diff);
-  return copy;
-}
-
-function isSameInspectionWeek(a: Date | string, b: Date | string) {
-  return startOfWeek(new Date(a)).getTime() === startOfWeek(new Date(b)).getTime();
-}
 
 export function NewInspection() {
   const navigate = useNavigate();
@@ -49,6 +36,9 @@ export function NewInspection() {
   const [selectedTemplate, setSelectedTemplate] = useState<ChecklistTemplate | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(!settings.name);
   const [matchingSchedule, setMatchingSchedule] = useState<Schedule | null>(null);
+  const [existingVisits, setExistingVisits] = useState<Inspection[]>([]);
+  const [checkingExistingVisits, setCheckingExistingVisits] = useState(false);
+  const [confirmedSeparateVisit, setConfirmedSeparateVisit] = useState(false);
 
   const [accompanistName, setAccompanistName] = useState('');
   const [accompanistRole, setAccompanistRole] = useState('');
@@ -123,38 +113,63 @@ export function NewInspection() {
     }
   }, [selectedClient, inspectionDate, step]);
 
+  useEffect(() => {
+    setConfirmedSeparateVisit(false);
+    if (!selectedClient || !inspectionDate || step !== 3) {
+      setExistingVisits([]);
+      return;
+    }
+
+    let active = true;
+    setCheckingExistingVisits(true);
+    void InspectionService
+      .getRecentInspectionCandidates(selectedClient.id, new Date(inspectionDate + 'T12:00:00'))
+      .then(candidates => {
+        if (active) setExistingVisits(candidates);
+      })
+      .catch(err => console.warn('[NewInspection] Existing report lookup failed:', err))
+      .finally(() => {
+        if (active) setCheckingExistingVisits(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedClient, inspectionDate, step]);
+
+  const continueExistingInspection = (inspection: Inspection) => {
+    navigate('/execute', {
+      state: {
+        inspectionId: inspection.id,
+        linkedScheduleId: matchingSchedule?.id,
+      }
+    });
+  };
+
   const handleStart = async () => {
     if (!selectedClient || !selectedTemplate) return;
     setIsStarting(true);
 
     try {
-      if (selectedClient.category === 'ilpi') {
-        const existingSameWeek = (await db.inspections
-          .where('clientId').equals(selectedClient.id)
-          .toArray())
-          .filter(insp =>
-            !insp.deletedAt &&
-            isSameInspectionWeek(insp.inspectionDate, inspectionDate + 'T12:00:00') &&
-            (insp.status === 'in_progress' || insp.status === 'completed')
-          )
-          .sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime())[0];
+      const candidates = await InspectionService.getRecentInspectionCandidates(
+        selectedClient.id,
+        new Date(inspectionDate + 'T12:00:00')
+      );
+      setExistingVisits(candidates);
+      const existingInspection = candidates[0];
 
-        if (existingSameWeek) {
-          const existingDate = new Date(existingSameWeek.inspectionDate).toLocaleDateString('pt-BR');
-          const ok = window.confirm(
-            `Ja existe uma inspeção ILPI para este local nesta semana (${existingDate}). ` +
-            'Deseja continuar essa inspeção para manter saúde e nutrição no mesmo relatório?'
-          );
-          if (ok) {
-            navigate('/execute', {
-              state: {
-                inspectionId: existingSameWeek.id,
-                linkedScheduleId: matchingSchedule?.id,
-              }
-            });
-            return;
-          }
+      if (existingInspection && !confirmedSeparateVisit) {
+        const existingDate = new Date(existingInspection.inspectionDate).toLocaleDateString('pt-BR');
+        const ok = window.confirm(
+          `Já existe uma inspeção para este local em ${existingDate}. Pela regra de 31 dias, ` +
+          'todo complemento deve continuar no mesmo relatório. Se for uma visita realmente nova, confirme essa opção na tela. Deseja abrir o relatório existente agora?'
+        );
+        if (ok) {
+          continueExistingInspection(existingInspection);
+          return;
         }
+        alert('Para criar outra inspeção em menos de 31 dias, confirme na tela que esta é uma visita realmente separada.');
+        return;
       }
 
       let previousInspectionId: string | undefined = actionPlanInspectionId;
@@ -322,6 +337,62 @@ export function NewInspection() {
         {step === 3 && selectedClient && selectedTemplate && (
           <div className="animate-in fade-in slide-in-from-right-8 duration-500">
             <div className="bg-white rounded-3xl border border-gray-100 shadow-xl shadow-gray-200/50 p-8 space-y-8">
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 space-y-4">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                    <div>
+                      <h3 className="font-bold text-gray-900">Já existe inspeção deste local nos últimos 31 dias?</h3>
+                      <p className="mt-1 text-sm text-gray-600">
+                        Se for complemento da mesma visita, continue no relatório existente. Só crie outro relatório se for uma visita nova e independente.
+                      </p>
+                    </div>
+                  </div>
+
+                  {matchingSchedule && (
+                    <p className="rounded-xl bg-white px-4 py-3 text-sm text-primary-800 border border-primary-100">
+                      Existe um agendamento para esta unidade na data selecionada. Use o relatório vinculado, se ele já tiver sido iniciado.
+                    </p>
+                  )}
+
+                  {checkingExistingVisits ? (
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Verificando relatórios recentes na nuvem...
+                    </div>
+                  ) : existingVisits.length > 0 ? (
+                    <div className="space-y-2">
+                      {existingVisits.slice(0, 4).map(inspection => (
+                        <div key={inspection.id} className="flex flex-col gap-3 rounded-xl border border-amber-100 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex items-start gap-2">
+                            <FileText className="mt-0.5 h-4 w-4 text-primary-600" />
+                            <div className="text-sm">
+                              <p className="font-semibold text-gray-900">
+                                {new Date(inspection.inspectionDate).toLocaleDateString('pt-BR')} - {inspection.status === 'completed' ? 'Concluída' : 'Em andamento'}
+                              </p>
+                              <p className="text-gray-500">Este é o relatório obrigatório para complementar a avaliação.</p>
+                            </div>
+                          </div>
+                          <Button variant="outline" size="sm" onClick={() => continueExistingInspection(inspection)}>
+                            Continuar relatório
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">Nenhum relatório recente encontrado para esta unidade.</p>
+                  )}
+                  {existingVisits.length > 0 && (
+                    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-amber-200 bg-white p-4 text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        className="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        checked={confirmedSeparateVisit}
+                        onChange={(event) => setConfirmedSeparateVisit(event.target.checked)}
+                      />
+                      <span>Confirmo que esta é uma visita nova e independente, mesmo ocorrendo em menos de 31 dias.</span>
+                    </label>
+                  )}
+              </div>
+
               <div>
                  <label className="text-xs font-bold uppercase text-gray-400 tracking-widest">Responsável no Local</label>
                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">

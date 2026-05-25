@@ -945,6 +945,79 @@ export const InspectionService = {
     }
   },
 
+  async getRecentInspectionCandidates(clientId: string, referenceDate: Date, windowDays = 31): Promise<Inspection[]> {
+    const rangeStart = new Date(referenceDate);
+    rangeStart.setDate(rangeStart.getDate() - windowDays);
+    rangeStart.setHours(0, 0, 0, 0);
+    const rangeEnd = new Date(referenceDate);
+    rangeEnd.setDate(rangeEnd.getDate() + windowDays);
+    rangeEnd.setHours(23, 59, 59, 999);
+    const isWithinSingleInspectionWindow = (inspection: Inspection) =>
+      Math.abs(inspection.inspectionDate.getTime() - referenceDate.getTime()) < windowDays * 24 * 60 * 60 * 1000;
+
+    const localCandidates = filterByActiveTenant(await db.inspections
+      .where('clientId')
+      .equals(clientId)
+      .filter(inspection =>
+        !inspection.deletedAt &&
+        (inspection.status === 'in_progress' || inspection.status === 'completed') &&
+        isWithinSingleInspectionWindow(inspection)
+      )
+      .toArray());
+
+    let remoteCandidates: Inspection[] | null = null;
+    if (navigator.onLine) {
+      try {
+        const { data, error } = await RepositoryService.withTimeout(
+          supabase
+            .from('inspections')
+            .select('*')
+            .eq('client_id', clientId)
+            .is('deleted_at', null)
+            .in('status', ['in_progress', 'completed'])
+            .gte('inspection_date', rangeStart.toISOString())
+            .lte('inspection_date', rangeEnd.toISOString())
+            .order('inspection_date', { ascending: false })
+            .limit(10),
+          10000,
+          `InspectionCandidates_${clientId}`
+        ) as any;
+
+        if (!error && data) {
+          const fetchedCandidates = data
+            .map(mapFromPostgres)
+            .filter(isWithinSingleInspectionWindow);
+          remoteCandidates = fetchedCandidates;
+          for (const remote of fetchedCandidates) {
+            await RepositoryService.mergeRemoteRecord(
+              db.inspections,
+              remote,
+              { label: 'inspecoes candidatas' }
+            );
+          }
+        }
+      } catch (err) {
+        console.warn('[InspectionService] Candidate lookup failed; using local records:', err);
+      }
+    }
+
+    const refreshed = filterByActiveTenant(await db.inspections
+      .where('clientId')
+      .equals(clientId)
+      .filter(inspection =>
+        !inspection.deletedAt &&
+        (inspection.status === 'in_progress' || inspection.status === 'completed') &&
+        isWithinSingleInspectionWindow(inspection)
+      )
+      .toArray());
+
+    const candidates = remoteCandidates ?? (refreshed.length > 0 ? refreshed : localCandidates);
+    return candidates.sort(
+      (a, b) => b.inspectionDate.getTime() - a.inspectionDate.getTime() ||
+        b.updatedAt.getTime() - a.updatedAt.getTime()
+    );
+  },
+
   async importMissingRemoteInspections(): Promise<void> {
     const { data: remoteInspections, error } = await supabase
       .from('inspections')
