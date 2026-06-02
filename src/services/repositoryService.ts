@@ -35,6 +35,7 @@ function currentActorId() {
 }
 
 const STORAGE_UPLOAD_TIMEOUT_MS = 120000; // 2 min — large photos on slow mobile connections
+const REMOTE_VERIFY_TIMEOUT_MS = 15000;
 
 function pushTimeoutMs(tableName: string) {
   if (tableName === 'photos') return 120000;   // DB upsert after storage (metadata only, but may be slow)
@@ -47,6 +48,30 @@ function bulkChunkSize(tableName: string) {
   if (tableName === 'responses') return 5;  // was 1 — 36 × 1-req = 36 round-trips; 5 = 8 round-trips
   if (tableName === 'inspections' || tableName === 'schedules') return 3;
   return 5;
+}
+
+async function confirmRemoteTimestamp(
+  tableName: string,
+  id: string,
+  updatedAt: Date | string,
+  timeoutLabel: string
+) {
+  const { data: serverRow, error } = await withTimeout(
+    supabase
+      .from(tableName)
+      .select('id, updated_at')
+      .eq('id', id)
+      .maybeSingle(),
+    REMOTE_VERIFY_TIMEOUT_MS,
+    timeoutLabel
+  ) as any;
+
+  if (error || !serverRow?.updated_at) return false;
+
+  const serverTs = new Date(serverRow.updated_at).getTime();
+  const localTs = new Date(updatedAt).getTime();
+  // 2 s tolerance covers Postgres microsecond vs JS millisecond rounding.
+  return Math.abs(serverTs - localTs) <= 2000;
 }
 
 function isInlineDataUrl(value?: string) {
@@ -269,29 +294,25 @@ export const RepositoryService = {
       // Before marking as pending/failed, do a lightweight GET to verify.
       if (err.message?.startsWith('TIMEOUT') && navigator.onLine) {
         try {
-          const { data: serverRow } = await supabase
-            .from(tableName)
-            .select('id, updated_at')
-            .eq('id', record.id)
-            .maybeSingle();
+          const confirmed = await confirmRemoteTimestamp(
+            tableName,
+            record.id,
+            record.updatedAt,
+            `PushVerify_${tableName}`
+          );
 
-          if (serverRow?.updated_at) {
-            const serverTs = new Date(serverRow.updated_at).getTime();
-            const localTs  = new Date(record.updatedAt).getTime();
-            // 2 s tolerance covers Postgres microsecond vs JS millisecond rounding
-            if (Math.abs(serverTs - localTs) <= 2000) {
-              console.log(`[SyncVerify] ✅ ${tableName}/${record.id}: confirmed synced (response was slow).`);
-              const current = await dexieTable.get(record.id);
-              if (current && sameTimestamp(current.updatedAt, record.updatedAt)) {
-                await dexieTable.update(record.id, {
-                  syncStatus: 'synced',
-                  dataVerifiedAt: new Date(),
-                  syncError: null,
-                  syncAttempts: 0
-                });
-              }
-              return true;
+          if (confirmed) {
+            console.log(`[SyncVerify] ✅ ${tableName}/${record.id}: confirmed synced (response was slow).`);
+            const current = await dexieTable.get(record.id);
+            if (current && sameTimestamp(current.updatedAt, record.updatedAt)) {
+              await dexieTable.update(record.id, {
+                syncStatus: 'synced',
+                dataVerifiedAt: new Date(),
+                syncError: null,
+                syncAttempts: 0
+              });
             }
+            return true;
           }
         } catch {
           // Verification GET itself failed — fall through to normal error handling
@@ -458,25 +479,22 @@ export const RepositoryService = {
 
         if (isTimeout && navigator.onLine) {
           try {
-            const { data: serverRow } = await supabase
-              .from(tableName)
-              .select('id, updated_at')
-              .eq('id', item.id)
-              .maybeSingle();
-            if (serverRow?.updated_at) {
-              const serverTs = new Date(serverRow.updated_at).getTime();
-              const localTs  = new Date(item.updatedAt).getTime();
-              if (Math.abs(serverTs - localTs) <= 2000) {
-                if (sameTimestamp(current.updatedAt, item.updatedAt)) {
-                  await dexieTable.update(item.id, {
-                    syncStatus: 'synced',
-                    dataVerifiedAt: new Date(),
-                    syncError: null,
-                    syncAttempts: 0
-                  });
-                }
-                continue; // verified synced — skip the error update below
+            const confirmed = await confirmRemoteTimestamp(
+              tableName,
+              item.id,
+              item.updatedAt,
+              `BulkVerify_${tableName}`
+            );
+            if (confirmed) {
+              if (sameTimestamp(current.updatedAt, item.updatedAt)) {
+                await dexieTable.update(item.id, {
+                  syncStatus: 'synced',
+                  dataVerifiedAt: new Date(),
+                  syncError: null,
+                  syncAttempts: 0
+                });
               }
+              continue; // verified synced — skip the error update below
             }
           } catch { /* fall through */ }
         }

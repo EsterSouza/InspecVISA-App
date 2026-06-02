@@ -37,7 +37,7 @@ export function mapToPostgres(client: Client): any {
   return {
     id: client.id,
     name: client.name,
-    cnpj: client.cnpj || null,
+    cnpj: client.cnpj?.trim() || null,
     address: client.address || null,
     city: client.city || null,
     state: client.state || null,
@@ -77,7 +77,7 @@ export const ClientService = {
               .select('*')
               .is('deleted_at', null)
               .order('created_at', { ascending: false }),
-            10000,
+            25000,
             'ClientsBackgroundRefresh'
           ) as any;
           if (error || !data) return;

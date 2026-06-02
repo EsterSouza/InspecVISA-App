@@ -481,7 +481,7 @@ export const InspectionService = {
           .select('*')
           .not('deleted_at', 'is', null)
           .order('deleted_at', { ascending: false }),
-        10000,
+        25000,
         'TrashRefresh'
       ) as any;
 
