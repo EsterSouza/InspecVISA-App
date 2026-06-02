@@ -213,6 +213,7 @@ export interface InspectionPhoto {
 }
 
 export interface InspectionBundlePayload {
+  client?: any;
   inspection: any;
   responses: any[];
   photos: any[];
@@ -220,6 +221,7 @@ export interface InspectionBundlePayload {
   finalizeReport: boolean;
   reportSnapshot?: {
     generatedAt: string;
+    client: Client;
     inspection: Inspection;
     responses: InspectionResponse[];
     photos: InspectionPhoto[];
@@ -236,7 +238,7 @@ export interface InspectionBundleResult {
   serverUpdatedAt?: string;
   reportVersionId?: string | null;
   failedItems: Array<{
-    table: 'inspections' | 'responses' | 'photos';
+    table: 'clients' | 'inspections' | 'responses' | 'photos';
     id: string;
     error: string;
   }>;

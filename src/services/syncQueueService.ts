@@ -107,10 +107,11 @@ export const SyncQueueService = {
       const summary = await this.getQueueSummary();
       console.log(`[SyncQueue] Processing background sync (Pending: ${summary.pending}, Syncing: ${summary.syncing}, Failed: ${summary.failed})...`);
 
-      // Process in order of dependency using Bulk strategy for light data
-      await RepositoryService.processBulkQueue('clients', db.clients, ClientService.mapToPostgres);
+      // Bundles carry their client payload and upsert it server-side before
+      // inspections, so a slow browser-side clients push cannot block inspection FK recovery.
       const bundleCount = await InspectionBundleSyncService.syncPendingInspectionBundles();
       console.log(`[SyncQueue] Inspection bundle cycles completed: ${bundleCount}.`);
+      await RepositoryService.processBulkQueue('clients', db.clients, ClientService.mapToPostgres);
       await RepositoryService.processBulkQueue('schedules', db.schedules, ScheduleService.mapToPostgres);
 
       console.log('[SyncQueue] Sync completed.');

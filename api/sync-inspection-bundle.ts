@@ -68,6 +68,7 @@ export default async function handler(req: any, res: any) {
     }
 
     const payload = await readBody(req);
+    const client = payload.client || null;
     const inspection = payload.inspection;
     const responses = Array.isArray(payload.responses) ? payload.responses : [];
     const photos = Array.isArray(payload.photos) ? payload.photos : [];
@@ -92,6 +93,10 @@ export default async function handler(req: any, res: any) {
     }
     if (!membership) {
       return json(res, 403, { ok: false, error: 'Usuario sem permissao para sincronizar este tenant.' });
+    }
+
+    if (client && client.tenant_id !== tenantId) {
+      return json(res, 400, { ok: false, error: 'Cliente com tenant_id divergente.' });
     }
 
     const invalidResponse = responses.find((response: any) => response.tenant_id !== tenantId);

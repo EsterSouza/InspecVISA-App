@@ -324,6 +324,9 @@ export const RepositoryService = {
       console.error(`[SyncFailure] ❌ Error in ${tableName}/${record.id}:`, err.message);
 
       const current = await dexieTable.get(record.id);
+      if (current?.syncStatus === 'synced' && sameTimestamp(current.updatedAt, record.updatedAt)) {
+        return true;
+      }
       if (current && sameTimestamp(current.updatedAt, record.updatedAt)) {
         await dexieTable.update(record.id, {
           syncStatus: shouldMarkFailed ? 'failed' : 'pending',
@@ -476,6 +479,7 @@ export const RepositoryService = {
         const shouldMarkFailed = attempts >= 3;
         const current = await dexieTable.get(item.id);
         if (!current) continue;
+        if (current.syncStatus === 'synced' && sameTimestamp(current.updatedAt, item.updatedAt)) continue;
 
         if (isTimeout && navigator.onLine) {
           try {

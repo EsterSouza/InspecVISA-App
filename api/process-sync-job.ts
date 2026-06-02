@@ -150,6 +150,7 @@ async function processSyncJob(admin: any, jobId: string, userId: string) {
   if (lockError) throw lockError;
 
   const payload = locked.payload || {};
+  const client = payload.client || null;
   const inspection = payload.inspection;
   const responses = Array.isArray(payload.responses) ? payload.responses : [];
   const photos = Array.isArray(payload.photos) ? payload.photos : [];
@@ -157,6 +158,16 @@ async function processSyncJob(admin: any, jobId: string, userId: string) {
   const inspectionId = locked.inspection_id;
 
   try {
+    if (client) {
+      if (client.tenant_id !== tenantId) {
+        throw new Error('Cliente com tenant_id divergente.');
+      }
+      const { error: clientError } = await admin.from('clients').upsert(client);
+      if (clientError) {
+        throw new Error(`Falha ao sincronizar cliente antes da inspecao: ${clientError.message}`);
+      }
+    }
+
     const { error: inspectionError } = await admin.from('inspections').upsert(inspection);
     if (inspectionError) throw inspectionError;
 

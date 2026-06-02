@@ -6,12 +6,14 @@ import type {
   InspectionBundleResult,
   InspectionPhoto,
   InspectionResponse,
+  Client,
   SyncStatus,
 } from '../types';
 import { ensurePreBundleBackup } from '../utils/backup';
 import { withTimeout } from '../utils/network';
 import { useAuthStore } from '../store/useAuthStore';
 import { InspectionService } from './inspectionService';
+import { ClientService } from './clientService';
 
 const BUNDLE_API_TIMEOUT_MS = 120000;
 const JOB_STATUS_TIMEOUT_MS = 15000;
@@ -235,6 +237,7 @@ async function waitForJob(jobId: string, timeoutMs = JOB_POLL_TIMEOUT_MS): Promi
 }
 
 async function markBundleStatus(
+  client: Client | null,
   inspection: Inspection,
   responses: InspectionResponse[],
   photos: InspectionPhoto[],
@@ -247,6 +250,10 @@ async function markBundleStatus(
   const photoIds = photos
     .filter(photo => UNSAFE_STATUSES.includes(photo.syncStatus))
     .map(photo => photo.id);
+
+  if (client && client.syncStatus !== 'conflict' && UNSAFE_STATUSES.includes(client.syncStatus)) {
+    await db.clients.update(client.id, { syncStatus: status, syncError: syncError || undefined });
+  }
 
   if (inspection.syncStatus !== 'conflict' && UNSAFE_STATUSES.includes(inspection.syncStatus)) {
     await db.inspections.update(inspection.id, { syncStatus: status, syncError: syncError || undefined });
@@ -272,11 +279,30 @@ async function markBundleStatus(
 }
 
 async function markBundleSuccess(
+  client: Client | null,
   inspection: Inspection,
   responses: InspectionResponse[],
   photos: InspectionPhoto[]
 ) {
   const verifiedAt = new Date();
+  if (client) {
+    const currentClient = await db.clients.get(client.id);
+    if (
+      currentClient &&
+      UNSAFE_STATUSES.includes(client.syncStatus) &&
+      sameTimestamp(currentClient.updatedAt, client.updatedAt)
+    ) {
+      await db.clients.update(client.id, {
+        syncStatus: 'synced',
+        syncError: undefined,
+        syncAttempts: 0,
+        dataVerifiedAt: verifiedAt,
+      });
+    } else if (currentClient && UNSAFE_STATUSES.includes(currentClient.syncStatus)) {
+      await db.clients.update(client.id, { syncStatus: 'pending' });
+    }
+  }
+
   const currentInspection = await db.inspections.get(inspection.id);
 
   if (
@@ -326,6 +352,7 @@ async function markBundleSuccess(
 }
 
 async function markBundleFailure(
+  client: Client | null,
   inspection: Inspection,
   responses: InspectionResponse[],
   photos: InspectionPhoto[],
@@ -334,6 +361,16 @@ async function markBundleFailure(
   const message = bundleErrorMessage(err);
   const nextStatus: SyncStatus = (inspection.syncAttempts || 0) + 1 >= 3 ? 'failed' : 'pending';
   const attempts = (inspection.syncAttempts || 0) + 1;
+
+  if (client && UNSAFE_STATUSES.includes(client.syncStatus)) {
+    const currentClient = await db.clients.get(client.id);
+    const clientAttempts = (currentClient?.syncAttempts || 0) + 1;
+    await db.clients.update(client.id, {
+      syncStatus: clientAttempts >= 3 ? 'failed' : 'pending',
+      syncError: message,
+      syncAttempts: clientAttempts,
+    });
+  }
 
   if (UNSAFE_STATUSES.includes(inspection.syncStatus)) {
     await db.inspections.update(inspection.id, {
@@ -396,10 +433,25 @@ async function getInspectionBundle(inspectionId: string, inspectionOverride?: In
       .map(photo => ({ ...photo, tenantId: photo.tenantId || inspection.tenantId }))
     : [];
 
-  return { inspection, responses, photos };
+  const localClient = await db.clients.get(inspection.clientId);
+  if (!localClient) {
+    throw new Error('Cliente local nao encontrado para sincronizar a inspecao.');
+  }
+
+  const client: Client = {
+    ...localClient,
+    tenantId: localClient.tenantId || inspection.tenantId,
+  };
+
+  if (!client.tenantId) {
+    throw new Error('Aguardando tenantId do cliente para sincronizar bundle.');
+  }
+
+  return { client, inspection, responses, photos };
 }
 
 function buildPayload(
+  client: Client,
   inspection: Inspection,
   responses: InspectionResponse[],
   photos: InspectionPhoto[],
@@ -415,6 +467,7 @@ function buildPayload(
       UNSAFE_STATUSES.includes(response.syncStatus) || photoResponseIds.has(response.id)
     );
   const updatedTimes = [
+    client.updatedAt,
     inspection.updatedAt,
     ...responsesForPayload.map(response => response.updatedAt),
     ...photosForPayload.map(photo => photo.updatedAt),
@@ -422,6 +475,7 @@ function buildPayload(
   const changeStamp = Math.max(...updatedTimes);
 
   return {
+    client: ClientService.mapToPostgres(client),
     inspection: InspectionService.mapToPostgres(inspection),
     responses: responsesForPayload.map(InspectionService.mapResponseToPostgres),
     photos: photosForPayload.map(photo => ({
@@ -439,6 +493,7 @@ function buildPayload(
     reportSnapshot: finalizeReport
       ? {
         generatedAt: new Date().toISOString(),
+        client,
         inspection,
         responses,
         photos,
@@ -449,6 +504,7 @@ function buildPayload(
 }
 
 async function resumeServerJobForBundle(
+  client: Client | null,
   inspection: Inspection,
   responses: InspectionResponse[],
   photos: InspectionPhoto[],
@@ -461,20 +517,20 @@ async function resumeServerJobForBundle(
     }
 
     if (result.status === 'completed') {
-      await markBundleSuccess(inspection, responses, photos);
+      await markBundleSuccess(client, inspection, responses, photos);
       return 'completed';
     }
 
     if (result.status === 'failed') {
-      await markBundleFailure(inspection, responses, photos, new Error(result.error || 'Job de sincronizacao falhou no servidor.'));
+      await markBundleFailure(client, inspection, responses, photos, new Error(result.error || 'Job de sincronizacao falhou no servidor.'));
       return 'failed';
     }
 
-    await markBundleStatus(inspection, responses, photos, 'syncing', jobSyncError(jobId, result.status));
+    await markBundleStatus(client, inspection, responses, photos, 'syncing', jobSyncError(jobId, result.status));
     return 'running';
   } catch (err: any) {
     console.warn(`[BundleSync] Could not refresh server job ${jobId}:`, err?.message || err);
-    await markBundleStatus(inspection, responses, photos, 'syncing', jobSyncError(jobId, 'processing'));
+    await markBundleStatus(client, inspection, responses, photos, 'syncing', jobSyncError(jobId, 'processing'));
     return 'running';
   }
 }
@@ -491,10 +547,10 @@ export const InspectionBundleSyncService = {
     await ensurePreBundleBackup();
 
     const bundle = await getInspectionBundle(inspectionId, options.inspectionOverride);
-    await markBundleStatus(bundle.inspection, bundle.responses, bundle.photos, 'syncing', null);
+    await markBundleStatus(bundle.client, bundle.inspection, bundle.responses, bundle.photos, 'syncing', null);
 
     try {
-      const payload = buildPayload(bundle.inspection, bundle.responses, bundle.photos, Boolean(options.finalizeReport));
+      const payload = buildPayload(bundle.client, bundle.inspection, bundle.responses, bundle.photos, Boolean(options.finalizeReport));
       const inlinePhotoBytes = payload.photos.reduce(
         (total: number, photo: any) => total + (photo.local_data_url ? String(photo.local_data_url).length : 0),
         0
@@ -506,6 +562,7 @@ export const InspectionBundleSyncService = {
 
       if (result.jobId) {
         await markBundleStatus(
+          bundle.client,
           bundle.inspection,
           bundle.responses,
           bundle.photos,
@@ -530,10 +587,10 @@ export const InspectionBundleSyncService = {
         throw new Error(result.error || 'Job de sincronizacao falhou no servidor.');
       }
 
-      await markBundleSuccess(bundle.inspection, bundle.responses, bundle.photos);
+      await markBundleSuccess(bundle.client, bundle.inspection, bundle.responses, bundle.photos);
       return result;
     } catch (err) {
-      await markBundleFailure(bundle.inspection, bundle.responses, bundle.photos, err);
+      await markBundleFailure(bundle.client, bundle.inspection, bundle.responses, bundle.photos, err);
       throw err;
     }
   },
@@ -602,7 +659,7 @@ export const InspectionBundleSyncService = {
         || parseJobId((await db.responses.where('inspectionId').equals(inspectionId).filter(response => response.syncStatus === 'syncing').first())?.syncError);
       if (jobId) {
         const bundle = await getInspectionBundle(inspectionId, inspection);
-        const outcome = await resumeServerJobForBundle(bundle.inspection, bundle.responses, bundle.photos, jobId);
+        const outcome = await resumeServerJobForBundle(bundle.client, bundle.inspection, bundle.responses, bundle.photos, jobId);
         if (outcome === 'completed') synced += 1;
         if (outcome !== 'failed') continue;
       }
