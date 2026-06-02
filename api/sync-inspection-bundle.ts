@@ -72,6 +72,7 @@ export default async function handler(req: any, res: any) {
     const inspection = payload.inspection;
     const responses = Array.isArray(payload.responses) ? payload.responses : [];
     const photos = Array.isArray(payload.photos) ? payload.photos : [];
+    const schedules = Array.isArray(payload.schedules) ? payload.schedules : [];
     const tenantId = tenantIdFromPayload(payload);
     const inspectionId = inspectionIdFromPayload(payload);
     const serverUpdatedAt = new Date().toISOString();
@@ -107,6 +108,11 @@ export default async function handler(req: any, res: any) {
     const invalidPhoto = photos.find((photo: any) => photo.tenant_id !== tenantId);
     if (invalidPhoto) {
       return json(res, 400, { ok: false, error: 'Foto com tenant_id divergente.' });
+    }
+
+    const invalidSchedule = schedules.find((schedule: any) => schedule.tenant_id !== tenantId);
+    if (invalidSchedule) {
+      return json(res, 400, { ok: false, error: 'Agendamento com tenant_id divergente.' });
     }
 
     const clientSyncId = payload.clientSyncId || `${inspectionId}:${serverUpdatedAt}`;

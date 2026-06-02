@@ -7,6 +7,7 @@ import type {
   InspectionPhoto,
   InspectionResponse,
   Client,
+  Schedule,
   SyncStatus,
 } from '../types';
 import { ensurePreBundleBackup } from '../utils/backup';
@@ -14,6 +15,7 @@ import { withTimeout } from '../utils/network';
 import { useAuthStore } from '../store/useAuthStore';
 import { InspectionService } from './inspectionService';
 import { ClientService } from './clientService';
+import { ScheduleService } from './scheduleService';
 
 const BUNDLE_API_TIMEOUT_MS = 120000;
 const JOB_STATUS_TIMEOUT_MS = 15000;
@@ -241,6 +243,7 @@ async function markBundleStatus(
   inspection: Inspection,
   responses: InspectionResponse[],
   photos: InspectionPhoto[],
+  schedules: Schedule[],
   status: SyncStatus,
   syncError?: string | null
 ) {
@@ -250,6 +253,9 @@ async function markBundleStatus(
   const photoIds = photos
     .filter(photo => UNSAFE_STATUSES.includes(photo.syncStatus))
     .map(photo => photo.id);
+  const scheduleIds = schedules
+    .filter(schedule => UNSAFE_STATUSES.includes(schedule.syncStatus))
+    .map(schedule => schedule.id);
 
   if (client && client.syncStatus !== 'conflict' && UNSAFE_STATUSES.includes(client.syncStatus)) {
     await db.clients.update(client.id, { syncStatus: status, syncError: syncError || undefined });
@@ -276,13 +282,23 @@ async function markBundleStatus(
       }
     });
   }
+
+  if (scheduleIds.length > 0) {
+    await db.schedules.where('id').anyOf(scheduleIds).modify((schedule: Schedule) => {
+      if (schedule.syncStatus !== 'conflict') {
+        schedule.syncStatus = status;
+        schedule.syncError = syncError || undefined;
+      }
+    });
+  }
 }
 
 async function markBundleSuccess(
   client: Client | null,
   inspection: Inspection,
   responses: InspectionResponse[],
-  photos: InspectionPhoto[]
+  photos: InspectionPhoto[],
+  schedules: Schedule[]
 ) {
   const verifiedAt = new Date();
   if (client) {
@@ -349,6 +365,21 @@ async function markBundleSuccess(
       await db.photos.update(photo.id, { syncStatus: 'pending' });
     }
   }
+
+  for (const schedule of schedules) {
+    if (!UNSAFE_STATUSES.includes(schedule.syncStatus)) continue;
+    const current = await db.schedules.get(schedule.id);
+    if (current && sameTimestamp(current.updatedAt, schedule.updatedAt)) {
+      await db.schedules.update(schedule.id, {
+        syncStatus: 'synced',
+        syncError: undefined,
+        syncAttempts: 0,
+        dataVerifiedAt: verifiedAt,
+      });
+    } else if (current) {
+      await db.schedules.update(schedule.id, { syncStatus: 'pending' });
+    }
+  }
 }
 
 async function markBundleFailure(
@@ -356,6 +387,7 @@ async function markBundleFailure(
   inspection: Inspection,
   responses: InspectionResponse[],
   photos: InspectionPhoto[],
+  schedules: Schedule[],
   err: any
 ) {
   const message = bundleErrorMessage(err);
@@ -403,6 +435,18 @@ async function markBundleFailure(
       syncAttempts: photoAttempts,
     });
   }
+
+  for (const schedule of schedules) {
+    if (!UNSAFE_STATUSES.includes(schedule.syncStatus)) continue;
+    const current = await db.schedules.get(schedule.id);
+    if (!current || current.syncStatus === 'conflict') continue;
+    const scheduleAttempts = (current.syncAttempts || 0) + 1;
+    await db.schedules.update(schedule.id, {
+      syncStatus: scheduleAttempts >= 3 ? 'failed' : 'pending',
+      syncError: message,
+      syncAttempts: scheduleAttempts,
+    });
+  }
 }
 
 async function getInspectionBundle(inspectionId: string, inspectionOverride?: Inspection) {
@@ -433,6 +477,10 @@ async function getInspectionBundle(inspectionId: string, inspectionOverride?: In
       .map(photo => ({ ...photo, tenantId: photo.tenantId || inspection.tenantId }))
     : [];
 
+  const schedules = (await db.schedules.where('inspectionId').equals(inspection.id).toArray())
+    .filter(schedule => schedule.syncStatus !== 'conflict')
+    .map(schedule => ({ ...schedule, tenantId: schedule.tenantId || inspection.tenantId }));
+
   const localClient = await db.clients.get(inspection.clientId);
   if (!localClient) {
     throw new Error('Cliente local nao encontrado para sincronizar a inspecao.');
@@ -447,7 +495,7 @@ async function getInspectionBundle(inspectionId: string, inspectionOverride?: In
     throw new Error('Aguardando tenantId do cliente para sincronizar bundle.');
   }
 
-  return { client, inspection, responses, photos };
+  return { client, inspection, responses, photos, schedules };
 }
 
 function buildPayload(
@@ -455,6 +503,7 @@ function buildPayload(
   inspection: Inspection,
   responses: InspectionResponse[],
   photos: InspectionPhoto[],
+  schedules: Schedule[],
   finalizeReport: boolean
 ): InspectionBundlePayload {
   const photosForPayload = finalizeReport
@@ -471,6 +520,7 @@ function buildPayload(
     inspection.updatedAt,
     ...responsesForPayload.map(response => response.updatedAt),
     ...photosForPayload.map(photo => photo.updatedAt),
+    ...schedules.map(schedule => schedule.updatedAt),
   ].map(value => new Date(value).getTime());
   const changeStamp = Math.max(...updatedTimes);
 
@@ -482,6 +532,9 @@ function buildPayload(
       ...InspectionService.mapPhotoToPostgres(photo),
       local_data_url: photo.storagePath ? null : photo.dataUrl,
     })),
+    schedules: schedules
+      .filter(schedule => finalizeReport || UNSAFE_STATUSES.includes(schedule.syncStatus))
+      .map(ScheduleService.mapToPostgres),
     clientSyncId: [
       inspection.id,
       changeStamp,
@@ -497,6 +550,7 @@ function buildPayload(
         inspection,
         responses,
         photos,
+        schedules,
         template: inspection.reportTemplateSnapshot,
       }
       : undefined,
@@ -508,6 +562,7 @@ async function resumeServerJobForBundle(
   inspection: Inspection,
   responses: InspectionResponse[],
   photos: InspectionPhoto[],
+  schedules: Schedule[],
   jobId: string
 ): Promise<'completed' | 'running' | 'failed'> {
   try {
@@ -517,20 +572,20 @@ async function resumeServerJobForBundle(
     }
 
     if (result.status === 'completed') {
-      await markBundleSuccess(client, inspection, responses, photos);
+      await markBundleSuccess(client, inspection, responses, photos, schedules);
       return 'completed';
     }
 
     if (result.status === 'failed') {
-      await markBundleFailure(client, inspection, responses, photos, new Error(result.error || 'Job de sincronizacao falhou no servidor.'));
+      await markBundleFailure(client, inspection, responses, photos, schedules, new Error(result.error || 'Job de sincronizacao falhou no servidor.'));
       return 'failed';
     }
 
-    await markBundleStatus(client, inspection, responses, photos, 'syncing', jobSyncError(jobId, result.status));
+    await markBundleStatus(client, inspection, responses, photos, schedules, 'syncing', jobSyncError(jobId, result.status));
     return 'running';
   } catch (err: any) {
     console.warn(`[BundleSync] Could not refresh server job ${jobId}:`, err?.message || err);
-    await markBundleStatus(client, inspection, responses, photos, 'syncing', jobSyncError(jobId, 'processing'));
+    await markBundleStatus(client, inspection, responses, photos, schedules, 'syncing', jobSyncError(jobId, 'processing'));
     return 'running';
   }
 }
@@ -547,10 +602,10 @@ export const InspectionBundleSyncService = {
     await ensurePreBundleBackup();
 
     const bundle = await getInspectionBundle(inspectionId, options.inspectionOverride);
-    await markBundleStatus(bundle.client, bundle.inspection, bundle.responses, bundle.photos, 'syncing', null);
+    await markBundleStatus(bundle.client, bundle.inspection, bundle.responses, bundle.photos, bundle.schedules, 'syncing', null);
 
     try {
-      const payload = buildPayload(bundle.client, bundle.inspection, bundle.responses, bundle.photos, Boolean(options.finalizeReport));
+      const payload = buildPayload(bundle.client, bundle.inspection, bundle.responses, bundle.photos, bundle.schedules, Boolean(options.finalizeReport));
       const inlinePhotoBytes = payload.photos.reduce(
         (total: number, photo: any) => total + (photo.local_data_url ? String(photo.local_data_url).length : 0),
         0
@@ -566,6 +621,7 @@ export const InspectionBundleSyncService = {
           bundle.inspection,
           bundle.responses,
           bundle.photos,
+          bundle.schedules,
           'syncing',
           jobSyncError(result.jobId, result.status)
         );
@@ -587,10 +643,10 @@ export const InspectionBundleSyncService = {
         throw new Error(result.error || 'Job de sincronizacao falhou no servidor.');
       }
 
-      await markBundleSuccess(bundle.client, bundle.inspection, bundle.responses, bundle.photos);
+      await markBundleSuccess(bundle.client, bundle.inspection, bundle.responses, bundle.photos, bundle.schedules);
       return result;
     } catch (err) {
-      await markBundleFailure(bundle.client, bundle.inspection, bundle.responses, bundle.photos, err);
+      await markBundleFailure(bundle.client, bundle.inspection, bundle.responses, bundle.photos, bundle.schedules, err);
       throw err;
     }
   },
@@ -659,7 +715,7 @@ export const InspectionBundleSyncService = {
         || parseJobId((await db.responses.where('inspectionId').equals(inspectionId).filter(response => response.syncStatus === 'syncing').first())?.syncError);
       if (jobId) {
         const bundle = await getInspectionBundle(inspectionId, inspection);
-        const outcome = await resumeServerJobForBundle(bundle.client, bundle.inspection, bundle.responses, bundle.photos, jobId);
+        const outcome = await resumeServerJobForBundle(bundle.client, bundle.inspection, bundle.responses, bundle.photos, bundle.schedules, jobId);
         if (outcome === 'completed') synced += 1;
         if (outcome !== 'failed') continue;
       }

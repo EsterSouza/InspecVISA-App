@@ -154,6 +154,7 @@ async function processSyncJob(admin: any, jobId: string, userId: string) {
   const inspection = payload.inspection;
   const responses = Array.isArray(payload.responses) ? payload.responses : [];
   const photos = Array.isArray(payload.photos) ? payload.photos : [];
+  const schedules = Array.isArray(payload.schedules) ? payload.schedules : [];
   const tenantId = locked.tenant_id;
   const inspectionId = locked.inspection_id;
 
@@ -201,6 +202,13 @@ async function processSyncJob(admin: any, jobId: string, userId: string) {
 
     for (const chunk of chunkArray(preparedPhotos, WRITE_CHUNK_SIZE)) {
       const { error } = await admin.from('photos').upsert(chunk);
+      if (error) throw error;
+    }
+
+    for (const chunk of chunkArray(schedules, WRITE_CHUNK_SIZE)) {
+      const invalidSchedule = chunk.find((schedule: any) => schedule.tenant_id !== tenantId);
+      if (invalidSchedule) throw new Error('Agendamento com tenant_id divergente.');
+      const { error } = await admin.from('schedules').upsert(chunk);
       if (error) throw error;
     }
 

@@ -217,6 +217,7 @@ export interface InspectionBundlePayload {
   inspection: any;
   responses: any[];
   photos: any[];
+  schedules?: any[];
   clientSyncId: string;
   finalizeReport: boolean;
   reportSnapshot?: {
@@ -225,6 +226,7 @@ export interface InspectionBundlePayload {
     inspection: Inspection;
     responses: InspectionResponse[];
     photos: InspectionPhoto[];
+    schedules?: Schedule[];
     template?: ChecklistTemplate;
   };
 }
@@ -238,7 +240,7 @@ export interface InspectionBundleResult {
   serverUpdatedAt?: string;
   reportVersionId?: string | null;
   failedItems: Array<{
-    table: 'clients' | 'inspections' | 'responses' | 'photos';
+    table: 'clients' | 'inspections' | 'responses' | 'photos' | 'schedules';
     id: string;
     error: string;
   }>;

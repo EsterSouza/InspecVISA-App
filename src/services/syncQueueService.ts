@@ -25,6 +25,25 @@ function tableForConflict(tableName: ConflictTable) {
   return db.photos;
 }
 
+async function processStandaloneSchedules() {
+  const pendingSchedules = await db.schedules
+    .where('syncStatus')
+    .equals('pending')
+    .toArray();
+  const linkedPending = pendingSchedules.filter(schedule => schedule.inspectionId);
+  if (linkedPending.length > 0) {
+    await db.schedules
+      .where('id')
+      .anyOf(linkedPending.map(schedule => schedule.id))
+      .modify({ syncError: 'Aguardando bundle da inspecao sincronizar o agendamento.' });
+  }
+
+  const standalone = pendingSchedules.filter(schedule => !schedule.inspectionId);
+  for (const schedule of standalone) {
+    await RepositoryService.pushToRemote('schedules', schedule, db.schedules, ScheduleService.mapToPostgres);
+  }
+}
+
 export const SyncQueueService = {
   start() {
     if (syncInterval) return;
@@ -112,7 +131,7 @@ export const SyncQueueService = {
       const bundleCount = await InspectionBundleSyncService.syncPendingInspectionBundles();
       console.log(`[SyncQueue] Inspection bundle cycles completed: ${bundleCount}.`);
       await RepositoryService.processBulkQueue('clients', db.clients, ClientService.mapToPostgres);
-      await RepositoryService.processBulkQueue('schedules', db.schedules, ScheduleService.mapToPostgres);
+      await processStandaloneSchedules();
 
       console.log('[SyncQueue] Sync completed.');
     } catch (err) {
