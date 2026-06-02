@@ -16,6 +16,7 @@ import {
   FileText,
   Loader2,
   PlusCircle,
+  RefreshCw,
   TrendingUp,
 } from 'lucide-react';
 import { formatDateTime } from '../utils/imageUtils';
@@ -30,9 +31,9 @@ type DashboardStats = {
 
 type AttentionStats = {
   dueToday: number;
-  overdue: number;
+  upcoming: number;
   inProgress: number;
-  recurring: number;
+  syncQueue: number;
 };
 
 type RecurringIssue = {
@@ -57,7 +58,7 @@ function getScheduleTiming(schedule: Schedule, now = new Date()) {
   const todayEnd = endOfDay(now);
 
   if (schedule.scheduledAt < todayStart) {
-    return { label: 'Atrasado', variant: 'danger' as const, tone: 'text-red-600' };
+    return { label: 'Reagendar', variant: 'danger' as const, tone: 'text-red-600' };
   }
 
   if (schedule.scheduledAt <= todayEnd) {
@@ -77,7 +78,7 @@ export function Dashboard() {
   const [recentInspections, setRecentInspections] = useState<Inspection[]>([]);
   const [nextSchedules, setNextSchedules] = useState<Schedule[]>([]);
   const [stats, setStats] = useState<DashboardStats>({ totalActive: 0, totalCompleted: 0, avgScore: 0 });
-  const [attention, setAttention] = useState<AttentionStats>({ dueToday: 0, overdue: 0, inProgress: 0, recurring: 0 });
+  const [attention, setAttention] = useState<AttentionStats>({ dueToday: 0, upcoming: 0, inProgress: 0, syncQueue: 0 });
   const [recurringIssues, setRecurringIssues] = useState<RecurringIssue[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -107,6 +108,8 @@ export function Dashboard() {
         const now = new Date();
         const todayStart = startOfDay(now);
         const todayEnd = endOfDay(now);
+        const nextSevenDays = new Date(todayEnd);
+        nextSevenDays.setDate(nextSevenDays.getDate() + 7);
 
         const pendingSchedules = allSchedules
           .filter((schedule) => schedule.status === 'pending')
@@ -133,12 +136,15 @@ export function Dashboard() {
 
         const active = allInspections.filter((inspection) => inspection.status === 'in_progress').length;
         const completedList = allInspections.filter((inspection) => inspection.status === 'completed');
+        const completedForAnalytics = [...completedList]
+          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+          .slice(0, 12);
         const allTemplates = getTemplates();
 
         let totalPct = 0;
         const itemCounts: Record<string, number> = {};
 
-        for (const inspection of completedList) {
+        for (const inspection of completedForAnalytics) {
           const responses = await InspectionService.getResponsesByInspectionId(inspection.id);
           const template = allTemplates.find((item) => item.id === inspection.templateId);
 
@@ -169,16 +175,21 @@ export function Dashboard() {
         setStats({
           totalActive: active,
           totalCompleted: completedList.length,
-          avgScore: completedList.length > 0 ? Math.round(totalPct / completedList.length) : 0,
+          avgScore: completedForAnalytics.length > 0 ? Math.round(totalPct / completedForAnalytics.length) : 0,
         });
+
+        const { SyncQueueService } = await import('../services/syncQueueService');
+        const queue = await SyncQueueService.getQueueSummary();
 
         setAttention({
           dueToday: pendingSchedules.filter(
             (schedule) => schedule.scheduledAt >= todayStart && schedule.scheduledAt <= todayEnd
           ).length,
-          overdue: pendingSchedules.filter((schedule) => schedule.scheduledAt < todayStart).length,
+          upcoming: pendingSchedules.filter(
+            (schedule) => schedule.scheduledAt > todayEnd && schedule.scheduledAt <= nextSevenDays
+          ).length,
           inProgress: active,
-          recurring: issues.filter((issue) => issue.count >= 2).length,
+          syncQueue: queue.pending + queue.syncing + queue.failed + queue.conflict,
         });
 
         setRecurringIssues(issues);
@@ -204,12 +215,12 @@ export function Dashboard() {
       onClick: () => navigate('/schedules'),
     },
     {
-      label: 'Atrasados',
-      value: attention.overdue,
-      detail: 'visitas precisam de revisão',
-      icon: AlertTriangle,
-      className: 'border-l-4 border-l-red-500 bg-red-50/70',
-      iconClassName: 'bg-red-100 text-red-700',
+      label: 'Próximas',
+      value: attention.upcoming,
+      detail: 'visitas nos próximos 7 dias',
+      icon: Clock,
+      className: 'border-l-4 border-l-emerald-500 bg-emerald-50/70',
+      iconClassName: 'bg-emerald-100 text-emerald-700',
       onClick: () => navigate('/schedules'),
     },
     {
@@ -222,13 +233,13 @@ export function Dashboard() {
       onClick: () => navigate('/inspections'),
     },
     {
-      label: 'Recorrências',
-      value: attention.recurring,
-      detail: 'itens repetidos no histórico',
-      icon: TrendingUp,
+      label: 'Fila de sync',
+      value: attention.syncQueue,
+      detail: 'itens aguardando nuvem',
+      icon: RefreshCw,
       className: 'border-l-4 border-l-amber-500 bg-amber-50/70',
       iconClassName: 'bg-amber-100 text-amber-700',
-      onClick: () => navigate('/inspections'),
+      onClick: () => navigate('/sync'),
     },
   ];
 
@@ -318,7 +329,7 @@ export function Dashboard() {
             </div>
             <div>
               <div className="text-2xl font-bold text-gray-950">{stats.avgScore}%</div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">Média global</div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">Média recente</div>
             </div>
           </CardContent>
         </Card>

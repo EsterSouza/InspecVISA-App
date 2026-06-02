@@ -6,12 +6,6 @@ import { useSettingsStore } from './store/useSettingsStore';
 import { useAuthStore } from './store/useAuthStore';
 import type { AuthState } from './store/useAuthStore';
 import { Loader2 } from 'lucide-react';
-import { SyncIndicator } from './components/ui/SyncIndicator';
-import { SyncQueueService } from './services/syncQueueService';
-import { ClientService } from './services/clientService';
-import { InspectionService } from './services/inspectionService';
-import { InspectionExecution } from './pages/InspectionExecution';
-import { InspectionSummary } from './pages/InspectionSummary';
 
 // Layout
 import { Sidebar } from './components/layout/Sidebar';
@@ -26,6 +20,8 @@ const Settings = lazy(() => import('./pages/Settings').then(m => ({ default: m.S
 const SyncCenter = lazy(() => import('./pages/SyncCenter').then(m => ({ default: m.SyncCenter })));
 const Inspections = lazy(() => import('./pages/Inspections').then(m => ({ default: m.Inspections })));
 const NewInspection = lazy(() => import('./pages/NewInspection').then(m => ({ default: m.NewInspection })));
+const InspectionExecution = lazy(() => import('./pages/InspectionExecution').then(m => ({ default: m.InspectionExecution })));
+const InspectionSummary = lazy(() => import('./pages/InspectionSummary').then(m => ({ default: m.InspectionSummary })));
 const AccessDenied = lazy(() => import('./pages/AccessDenied').then(m => ({ default: m.AccessDenied })));
 
 const AdminLayout = lazy(() => import('./components/layout/AdminLayout').then(m => ({ default: m.AdminLayout })));
@@ -44,6 +40,18 @@ const TEMPLATE_SYNC_DELAY_MS = 6000;
 const CLIENT_REPAIR_DELAY_MS = 9000;
 const SYNC_START_DELAY_MS = 1200;
 const REMOTE_RECONCILE_DELAY_MS = 12000;
+
+type SyncQueueModule = typeof import('./services/syncQueueService');
+let syncQueueModulePromise: Promise<SyncQueueModule> | null = null;
+let syncQueueModule: SyncQueueModule | null = null;
+
+function loadSyncQueueModule() {
+  syncQueueModulePromise ??= import('./services/syncQueueService').then((module) => {
+    syncQueueModule = module;
+    return module;
+  });
+  return syncQueueModulePromise;
+}
 
 function App() {
   const [isInitializing, setIsInitializing] = useState(true);
@@ -113,6 +121,7 @@ function App() {
           if (didCancel || !navigator.onLine) return;
           import('./services/templateService').then(async ({ TemplateService }) => {
             try {
+              const { SyncQueueService } = await loadSyncQueueModule();
               const queue = await SyncQueueService.getQueueSummary();
               const operationalBacklog = queue.pending + queue.syncing + queue.failed + queue.conflict;
               if (operationalBacklog > 0) {
@@ -135,6 +144,7 @@ function App() {
           void (async () => {
             if (didCancel || !navigator.onLine) return;
             try {
+              const { ClientService } = await import('./services/clientService');
               await ClientService.restoreSoftDeletedClientsFromRemote();
             } catch { /* non-fatal */ }
           })();
@@ -144,6 +154,7 @@ function App() {
 
     const startBackgroundServices = async () => {
       try {
+        const { SyncQueueService } = await loadSyncQueueModule();
         await SyncQueueService.cleanupStuckSyncing();
 
         window.setTimeout(() => {
@@ -182,7 +193,7 @@ function App() {
 
     // Warning before leaving with pending items
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (SyncQueueService.hasPending()) {
+      if (syncQueueModule?.SyncQueueService.hasPending()) {
         e.preventDefault();
         e.returnValue = 'Você tem alterações pendentes que ainda não foram salvas na nuvem. Deseja realmente sair?';
         return e.returnValue;
@@ -219,7 +230,6 @@ function App() {
       <div className="flex h-screen flex-col items-center justify-center bg-gray-50">
         <Loader2 className="h-10 w-10 animate-spin text-primary-600 mb-4" />
         <p className="text-gray-500 font-medium">Conectando ao InspecVISA...</p>
-        <div className="mt-4"><SyncIndicator /></div>
       </div>
     );
   }
@@ -278,6 +288,7 @@ function App() {
 
 async function reconcileCorruptedIds() {
   try {
+    const { InspectionService } = await import('./services/inspectionService');
     await InspectionService.importMissingRemoteInspections();
   } catch (err) {
     console.warn('[App] ID reconciliation failed:', err);

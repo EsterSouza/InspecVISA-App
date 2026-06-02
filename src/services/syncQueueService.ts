@@ -14,10 +14,21 @@ let isProcessing = false;
 let processingStartedAt: number | null = null;
 let syncInterval: number | null = null;
 let lastSummary = { pending: 0, syncing: 0, conflict: 0, failed: 0 };
+type QueueSummary = typeof lastSummary;
+type SummaryListener = (summary: QueueSummary) => void;
 type ConflictTable = 'inspections' | 'responses' | 'photos';
 type ProcessOptions = { force?: boolean };
 const STALE_PROCESSING_LOCK_MS = 5 * 60 * 1000;
 const JOB_ERROR_PREFIX = '[sync-job:';
+const summaryListeners = new Set<SummaryListener>();
+
+function publishSummary(summary: QueueSummary) {
+  lastSummary = summary;
+  summaryListeners.forEach((listener) => listener(summary));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('inspecvisa:sync-summary', { detail: summary }));
+  }
+}
 
 function tableForConflict(tableName: ConflictTable) {
   if (tableName === 'inspections') return db.inspections;
@@ -124,6 +135,10 @@ export const SyncQueueService = {
     try {
       await this.cleanupStuckSyncing();
       const summary = await this.getQueueSummary();
+      if (!options.force && summary.pending === 0 && summary.syncing === 0) {
+        return;
+      }
+
       console.log(`[SyncQueue] Processing background sync (Pending: ${summary.pending}, Syncing: ${summary.syncing}, Failed: ${summary.failed})...`);
 
       // Bundles carry their client payload and upsert it server-side before
@@ -316,8 +331,20 @@ export const SyncQueueService = {
       counts.failed += await (table as any).where('syncStatus').equals('failed').count();
     }
 
-    lastSummary = counts;
+    publishSummary(counts);
     return counts;
+  },
+
+  getCachedSummary() {
+    return lastSummary;
+  },
+
+  subscribeSummary(listener: SummaryListener) {
+    summaryListeners.add(listener);
+    listener(lastSummary);
+    return () => {
+      summaryListeners.delete(listener);
+    };
   },
 
   hasPending() {
