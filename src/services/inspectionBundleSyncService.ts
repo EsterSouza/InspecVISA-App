@@ -477,7 +477,8 @@ async function getInspectionBundle(inspectionId: string, inspectionOverride?: In
       .map(photo => ({ ...photo, tenantId: photo.tenantId || inspection.tenantId }))
     : [];
 
-  const schedules = (await db.schedules.where('inspectionId').equals(inspection.id).toArray())
+  const schedules = (await db.schedules.where('clientId').equals(inspection.clientId).toArray())
+    .filter(schedule => schedule.inspectionId === inspection.id)
     .filter(schedule => schedule.syncStatus !== 'conflict')
     .map(schedule => ({ ...schedule, tenantId: schedule.tenantId || inspection.tenantId }));
 
@@ -540,6 +541,7 @@ function buildPayload(
       changeStamp,
       responsesForPayload.length,
       photosForPayload.length,
+      schedules.filter(schedule => finalizeReport || UNSAFE_STATUSES.includes(schedule.syncStatus)).length,
       finalizeReport ? 'final' : 'draft',
     ].join(':'),
     finalizeReport,
@@ -698,6 +700,13 @@ export const InspectionBundleSyncService = {
       responses.forEach(response => inspectionIds.add(response.inspectionId));
     }
 
+    const pendingLinkedSchedules = (await db.schedules
+      .where('syncStatus')
+      .anyOf(QUEUED_STATUSES)
+      .toArray())
+      .filter(schedule => schedule.inspectionId);
+    pendingLinkedSchedules.forEach(schedule => inspectionIds.add(schedule.inspectionId!));
+
     console.log(`[BundleSync] Candidate inspection bundles: ${inspectionIds.size}.`);
 
     let synced = 0;
@@ -734,14 +743,19 @@ export const InspectionBundleSyncService = {
           .filter(photo => QUEUED_STATUSES.includes(photo.syncStatus))
           .count()
         : 0;
+      const queuedSchedules = await db.schedules
+        .where('clientId')
+        .equals(inspection.clientId)
+        .filter(schedule => schedule.inspectionId === inspectionId && QUEUED_STATUSES.includes(schedule.syncStatus))
+        .count();
 
-      if (!hasQueuedRoot && queuedResponses === 0 && queuedPhotos === 0) {
+      if (!hasQueuedRoot && queuedResponses === 0 && queuedPhotos === 0 && queuedSchedules === 0) {
         console.log(`[BundleSync] Skipping bundle ${inspectionId}: no queued local changes.`);
         continue;
       }
 
       try {
-        console.log(`[BundleSync] Sending inspection bundle ${inspectionId} (responses: ${queuedResponses}, photos: ${queuedPhotos}).`);
+        console.log(`[BundleSync] Sending inspection bundle ${inspectionId} (responses: ${queuedResponses}, photos: ${queuedPhotos}, schedules: ${queuedSchedules}).`);
         await this.syncInspectionBundle(inspectionId);
         synced += 1;
       } catch (err) {
