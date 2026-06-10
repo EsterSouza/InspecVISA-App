@@ -222,6 +222,17 @@ export function PublicSchedule() {
               <Copy className="h-4 w-4" />
               {copied ? 'Link copiado' : 'Copiar link'}
             </button>
+            <a
+              href={`https://wa.me/?text=${encodeURIComponent(
+                `Acompanhe sua inspeção sanitária pelo link: ${window.location.origin}/portal/${token}`
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md border border-green-200 bg-green-50 px-5 py-3 text-sm font-semibold text-green-700 transition-colors hover:bg-green-100"
+            >
+              <Phone className="h-4 w-4" />
+              Guardar link no WhatsApp
+            </a>
           </div>
         </main>
       </div>

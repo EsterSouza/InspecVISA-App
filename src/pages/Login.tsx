@@ -3,10 +3,9 @@ import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/useAuthStore';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
-import { LogIn, UserPlus, Mail, Lock, ShieldCheck, ArrowRight } from 'lucide-react';
+import { LogIn, Mail, Lock, ArrowRight } from 'lucide-react';
 
 export function Login() {
-  const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -18,26 +17,11 @@ export function Login() {
     setError(null);
 
     try {
-      if (isLogin) {
-        const { error: authError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (authError) throw authError;
-      } else {
-        const { error: authError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              full_name: email.split('@')[0],
-            },
-            emailRedirectTo: `${import.meta.env.VITE_SITE_URL}/login`
-          }
-        });
-        if (authError) throw authError;
-        alert('Cadastro realizado! Verifique seu e-mail para confirmar a conta.');
-      }
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (authError) throw authError;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao processar autenticação.');
     } finally {
@@ -53,8 +37,8 @@ export function Login() {
 
       <div className="w-full max-w-md relative animate-in fade-in zoom-in duration-700">
         <div className="mb-8 text-center">
-          <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 mb-4 shadow-2xl">
-            <ShieldCheck className="h-10 w-10 text-white" />
+          <div className="inline-flex items-center justify-center rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 mb-4 shadow-2xl overflow-hidden">
+            <img src="/favicon.svg" alt="TreinaVISA" className="h-20 w-20" />
           </div>
           <h1 className="text-3xl font-bold text-white tracking-tight">InspecVISA</h1>
           <p className="text-primary-100/60 mt-1">Inspeção Sanitária Inteligente</p>
@@ -63,8 +47,8 @@ export function Login() {
         <Card className="border-white/10 bg-white/5 backdrop-blur-2xl shadow-2xl">
           <CardContent className="p-8">
             <h2 className="text-xl font-semibold text-white mb-6 flex items-center">
-              {isLogin ? <LogIn className="mr-2 h-5 w-5" /> : <UserPlus className="mr-2 h-5 w-5" />}
-              {isLogin ? 'Entrar na conta' : 'Criar nova conta'}
+              <LogIn className="mr-2 h-5 w-5" />
+              Entrar na conta
             </h2>
 
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -111,7 +95,7 @@ export function Login() {
               >
                 {loading ? 'Processando...' : (
                   <>
-                    {isLogin ? 'Entrar Agora' : 'Cadastrar'}
+                    Entrar Agora
                     <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
                   </>
                 )}
@@ -119,13 +103,13 @@ export function Login() {
             </form>
 
             <div className="mt-8 pt-6 border-t border-white/10 text-center">
-              <button
-                type="button"
-                onClick={() => setIsLogin(!isLogin)}
-                className="text-sm text-primary-100/60 hover:text-white transition-colors"
-              >
-                {isLogin ? 'Não tem uma conta? Cadastre-se' : 'Já possui conta? Entre aqui'}
-              </button>
+              <p className="text-xs text-primary-100/50">
+                Acesso restrito à equipe. Cliente? Acompanhe suas inspeções pelo{' '}
+                <a href="/cliente" className="font-semibold text-primary-100/80 hover:text-white underline">
+                  Portal do Cliente
+                </a>
+                .
+              </p>
             </div>
           </CardContent>
         </Card>

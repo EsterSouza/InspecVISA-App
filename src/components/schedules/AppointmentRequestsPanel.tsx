@@ -1,17 +1,22 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   CalendarDays,
+  CalendarOff,
   CheckCircle,
   Clock,
+  Copy,
   FileUp,
   ImagePlus,
   Inbox,
+  KeyRound,
   Loader2,
   MapPin,
   Paperclip,
   Phone,
   Play,
   RefreshCw,
+  Trash2,
+  UserPlus,
   XCircle,
 } from 'lucide-react';
 import type {
@@ -21,6 +26,8 @@ import type {
 } from '../../types';
 import {
   AppointmentAdminService,
+  type BlockedDateRow,
+  type ClientPortalAccountRow,
   type InspectionOption,
   type InspectionPhotoOption,
 } from '../../services/appointmentAdminService';
@@ -82,6 +89,8 @@ function formatCreatedAt(value: string): string {
 export function AppointmentRequestsPanel() {
   const [requests, setRequests] = useState<AppointmentRequest[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [portalAccounts, setPortalAccounts] = useState<ClientPortalAccountRow[]>([]);
+  const [blockedDates, setBlockedDates] = useState<BlockedDateRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null); // id da request em operação
@@ -97,9 +106,11 @@ export function AppointmentRequestsPanel() {
     setLoading(true);
     setLoadError(null);
     try {
-      const [reqResult, clientResult] = await Promise.allSettled([
+      const [reqResult, clientResult, accountResult, blockedResult] = await Promise.allSettled([
         AppointmentAdminService.listRequests(),
         ClientService.getClients(),
+        AppointmentAdminService.listPortalAccounts(),
+        AppointmentAdminService.listBlockedDates(),
       ]);
 
       if (reqResult.status === 'fulfilled') {
@@ -109,6 +120,8 @@ export function AppointmentRequestsPanel() {
       }
 
       setClients(clientResult.status === 'fulfilled' ? clientResult.value : []);
+      setPortalAccounts(accountResult.status === 'fulfilled' ? accountResult.value : []);
+      setBlockedDates(blockedResult.status === 'fulfilled' ? blockedResult.value : []);
     } catch (err) {
       console.error('[AppointmentRequestsPanel] Falha ao carregar solicitações:', err);
       setLoadError(errorMessage(err));
@@ -328,6 +341,16 @@ export function AppointmentRequestsPanel() {
           </div>
         )}
       </section>
+
+      {/* ─── Acessos do Portal do Cliente ───────────────────── */}
+      <PortalAccountsSection
+        accounts={portalAccounts}
+        clients={clients}
+        onChanged={() => void loadData()}
+      />
+
+      {/* ─── Datas bloqueadas ───────────────────────────────── */}
+      <BlockedDatesSection blockedDates={blockedDates} onChanged={() => void loadData()} />
 
       {/* ─── Modais ─────────────────────────────────────────── */}
       {confirmTarget && (
@@ -994,6 +1017,410 @@ function DueDateModal({ request, onClose, onSaved }: DueDateModalProps) {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+// ─── Acessos do Portal do Cliente ─────────────────────────────
+
+function generateAccessCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const bytes = crypto.getRandomValues(new Uint8Array(8));
+  return Array.from(bytes, (b) => chars[b % chars.length]).join('');
+}
+
+interface PortalAccountsSectionProps {
+  accounts: ClientPortalAccountRow[];
+  clients: Client[];
+  onChanged: () => void;
+}
+
+function PortalAccountsSection({ accounts, clients, onChanged }: PortalAccountsSectionProps) {
+  const [showCreate, setShowCreate] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [newCode, setNewCode] = useState<{ email: string; code: string } | null>(null);
+
+  const portalUrl = `${window.location.origin}/cliente`;
+
+  const handleRegenerate = async (account: ClientPortalAccountRow) => {
+    if (!confirm(`Gerar um novo código de acesso para "${account.name}"? O código atual deixa de funcionar.`)) return;
+    setBusyId(account.id);
+    try {
+      const code = generateAccessCode();
+      await AppointmentAdminService.setPortalAccessCode(account.id, code);
+      setNewCode({ email: account.email, code });
+    } catch (err) {
+      alert(`Erro: ${errorMessage(err)}`);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleDelete = async (account: ClientPortalAccountRow) => {
+    if (!confirm(`Remover o acesso de "${account.name}"? O cliente não conseguirá mais entrar no portal.`)) return;
+    setBusyId(account.id);
+    try {
+      await AppointmentAdminService.deletePortalAccount(account.id);
+      onChanged();
+    } catch (err) {
+      alert(`Erro: ${errorMessage(err)}`);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <section>
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="flex items-center text-lg font-semibold text-gray-900">
+          <KeyRound className="mr-2 h-5 w-5 text-primary-600" />
+          Portal do Cliente — acessos
+        </h2>
+        <Button size="sm" onClick={() => setShowCreate(true)}>
+          <UserPlus className="mr-1.5 h-4 w-4" /> Criar acesso
+        </Button>
+      </div>
+
+      <p className="mb-4 text-sm text-gray-500">
+        O cliente entra em <span className="font-mono font-medium text-primary-700">{portalUrl}</span>{' '}
+        com e-mail e código de acesso, e acompanha todas as unidades vinculadas (agendamentos,
+        relatórios, fotos e anexos).
+      </p>
+
+      {accounts.length === 0 ? (
+        <Card className="border-dashed bg-gray-50 py-8 text-center">
+          <p className="text-sm text-gray-500">Nenhum acesso criado ainda.</p>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {accounts.map((account) => (
+            <div
+              key={account.id}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-100 bg-white p-3"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold text-gray-900">{account.name}</p>
+                <p className="truncate text-xs text-gray-500">
+                  {account.email} · {account.client_ids.length} unidade{account.client_ids.length === 1 ? '' : 's'}
+                </p>
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={busyId === account.id}
+                  onClick={() => void handleRegenerate(account)}
+                  title="Gerar novo código de acesso"
+                >
+                  <KeyRound className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={busyId === account.id}
+                  onClick={() => void handleDelete(account)}
+                  className="text-red-500 hover:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showCreate && (
+        <CreatePortalAccountModal
+          clients={clients}
+          onClose={() => setShowCreate(false)}
+          onCreated={(email, code) => {
+            setShowCreate(false);
+            setNewCode({ email, code });
+            onChanged();
+          }}
+        />
+      )}
+
+      {newCode && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <Card className="w-full max-w-sm shadow-2xl">
+            <CardContent className="p-6 text-center">
+              <h3 className="text-lg font-bold text-gray-900">Código de acesso gerado</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Envie ao cliente. Por segurança, ele não poderá ser consultado depois — apenas
+                gerado novamente.
+              </p>
+              <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <p className="text-xs text-gray-400">{newCode.email}</p>
+                <p className="mt-1 font-mono text-2xl font-bold tracking-widest text-gray-900">
+                  {newCode.code}
+                </p>
+              </div>
+              <Button
+                className="mt-4 w-full"
+                onClick={() => {
+                  void navigator.clipboard
+                    .writeText(`Portal do Cliente: ${portalUrl}\nE-mail: ${newCode.email}\nCódigo de acesso: ${newCode.code}`)
+                    .catch(() => {});
+                }}
+              >
+                <Copy className="mr-1.5 h-4 w-4" /> Copiar dados de acesso
+              </Button>
+              <Button variant="ghost" className="mt-2 w-full" onClick={() => setNewCode(null)}>
+                Fechar
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </section>
+  );
+}
+
+interface CreatePortalAccountModalProps {
+  clients: Client[];
+  onClose: () => void;
+  onCreated: (email: string, code: string) => void;
+}
+
+function CreatePortalAccountModal({ clients, onClose, onCreated }: CreatePortalAccountModalProps) {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [search, setSearch] = useState('');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const filtered = search
+    ? clients.filter((c) => c.name.toLowerCase().includes(search.toLowerCase()))
+    : clients;
+
+  const toggle = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleCreate = async () => {
+    if (!name.trim() || !email.trim()) {
+      setError('Informe o nome e o e-mail do cliente.');
+      return;
+    }
+    if (selectedIds.size === 0) {
+      setError('Selecione ao menos uma unidade.');
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const code = generateAccessCode();
+      await AppointmentAdminService.createPortalAccount({
+        name: name.trim(),
+        email: email.trim(),
+        code,
+        clientIds: [...selectedIds],
+      });
+      onCreated(email.trim().toLowerCase(), code);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <Card className="max-h-[90vh] w-full max-w-lg overflow-y-auto shadow-2xl">
+        <CardContent className="p-6">
+          <h3 className="mb-1 text-xl font-bold text-gray-900">Criar acesso do cliente</h3>
+          <p className="mb-5 text-sm text-gray-500">
+            Ideal para franquias e redes: um login acompanha várias unidades.
+          </p>
+
+          <div className="space-y-4">
+            <input
+              type="text"
+              placeholder="Nome do acesso (ex.: Rede Sênior — Matriz)"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full rounded-xl border border-gray-300 p-3 text-sm"
+            />
+            <input
+              type="email"
+              placeholder="E-mail de login do cliente"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-xl border border-gray-300 p-3 text-sm"
+            />
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">
+                Unidades vinculadas ({selectedIds.size} selecionada{selectedIds.size === 1 ? '' : 's'})
+              </label>
+              <input
+                type="text"
+                placeholder="Filtrar unidades..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full rounded-xl border border-gray-300 p-2.5 text-sm"
+              />
+              <div className="max-h-48 space-y-1 overflow-y-auto rounded-xl border border-gray-100 p-2">
+                {filtered.length === 0 ? (
+                  <p className="p-2 text-sm text-gray-400">Nenhuma unidade encontrada.</p>
+                ) : (
+                  filtered.map((client) => (
+                    <label
+                      key={client.id}
+                      className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-gray-50"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(client.id)}
+                        onChange={() => toggle(client.id)}
+                        className="h-4 w-4 rounded border-gray-300 text-primary-600"
+                      />
+                      <span className="min-w-0 flex-1 truncate text-gray-800">{client.name}</span>
+                    </label>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {error && (
+              <div className="rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">
+                {error}
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-1">
+              <Button type="button" variant="ghost" className="flex-1" onClick={onClose}>
+                Cancelar
+              </Button>
+              <Button type="button" className="flex-1" disabled={saving} onClick={() => void handleCreate()}>
+                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Criar acesso
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ─── Datas bloqueadas ─────────────────────────────────────────
+
+interface BlockedDatesSectionProps {
+  blockedDates: BlockedDateRow[];
+  onChanged: () => void;
+}
+
+function BlockedDatesSection({ blockedDates, onChanged }: BlockedDatesSectionProps) {
+  const [day, setDay] = useState('');
+  const [reason, setReason] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!day) return;
+    setSaving(true);
+    try {
+      await AppointmentAdminService.addBlockedDate(day, reason);
+      setDay('');
+      setReason('');
+      onChanged();
+    } catch (err) {
+      alert(`Erro: ${errorMessage(err)}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRemove = async (row: BlockedDateRow) => {
+    setBusyId(row.id);
+    try {
+      await AppointmentAdminService.removeBlockedDate(row.id);
+      onChanged();
+    } catch (err) {
+      alert(`Erro: ${errorMessage(err)}`);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <section>
+      <h2 className="mb-2 flex items-center text-lg font-semibold text-gray-900">
+        <CalendarOff className="mr-2 h-5 w-5 text-primary-600" />
+        Datas bloqueadas
+      </h2>
+      <p className="mb-4 text-sm text-gray-500">
+        Feriados, férias e compromissos: os dias bloqueados desaparecem do calendário público.
+      </p>
+
+      <Card className="mb-4 shadow-sm">
+        <CardContent className="p-4">
+          <form onSubmit={handleAdd} className="flex flex-wrap items-end gap-3">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium text-gray-600">Data</label>
+              <input
+                type="date"
+                required
+                value={day}
+                min={new Date().toISOString().split('T')[0]}
+                onChange={(e) => setDay(e.target.value)}
+                className="rounded-xl border border-gray-300 p-2.5 text-sm"
+              />
+            </div>
+            <div className="min-w-[180px] flex-1 space-y-1.5">
+              <label className="block text-xs font-medium text-gray-600">Motivo (opcional)</label>
+              <input
+                type="text"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Ex.: Feriado de Corpus Christi"
+                className="w-full rounded-xl border border-gray-300 p-2.5 text-sm"
+              />
+            </div>
+            <Button type="submit" size="sm" disabled={saving || !day}>
+              {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <CalendarOff className="mr-1.5 h-4 w-4" />}
+              Bloquear
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {blockedDates.length === 0 ? (
+        <p className="text-sm text-gray-400">Nenhuma data bloqueada nos próximos dias.</p>
+      ) : (
+        <div className="space-y-2">
+          {blockedDates.map((row) => (
+            <div
+              key={row.id}
+              className="flex items-center justify-between rounded-xl border border-gray-100 bg-white p-3"
+            >
+              <div className="flex items-center gap-3 text-sm">
+                <CalendarOff className="h-4 w-4 text-gray-400" />
+                <span className="font-medium text-gray-800">{formatDateBR(row.day)}</span>
+                {row.reason && <span className="text-gray-500">{row.reason}</span>}
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={busyId === row.id}
+                onClick={() => void handleRemove(row)}
+                className="text-red-500 hover:bg-red-50"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 

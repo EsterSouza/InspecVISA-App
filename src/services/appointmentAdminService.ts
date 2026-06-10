@@ -19,6 +19,21 @@ export interface InspectionPhotoOption {
   previewUrl?: string;
 }
 
+export interface ClientPortalAccountRow {
+  id: string;
+  name: string;
+  email: string;
+  is_active: boolean;
+  created_at: string;
+  client_ids: string[];
+}
+
+export interface BlockedDateRow {
+  id: string;
+  day: string;
+  reason: string | null;
+}
+
 export interface InspectionOption {
   id: string;
   inspectionDate: string;
@@ -301,6 +316,92 @@ export const AppointmentAdminService = {
     if (request.inspection_id !== inspectionId) {
       await this.updateRequest(request.id, { inspection_id: inspectionId });
     }
+  },
+
+  // ─── Acessos do Portal do Cliente ──────────────────────────
+
+  async listPortalAccounts(): Promise<ClientPortalAccountRow[]> {
+    const tenantId = requireTenantId();
+    const { data, error } = await withTimeout(
+      supabase
+        .from('client_portal_accounts')
+        .select('id, name, email, is_active, created_at, client_portal_account_clients(client_id)')
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false }),
+      'AcessosPortal'
+    );
+    if (error) throw error;
+    return (data ?? []).map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      email: row.email,
+      is_active: row.is_active,
+      created_at: row.created_at,
+      client_ids: (row.client_portal_account_clients ?? []).map((c: any) => c.client_id),
+    }));
+  },
+
+  async createPortalAccount(params: {
+    name: string;
+    email: string;
+    code: string;
+    clientIds: string[];
+  }): Promise<void> {
+    const tenantId = requireTenantId();
+    const { data, error } = await supabase.rpc('admin_create_client_portal_account', {
+      p_tenant_id: tenantId,
+      p_name: params.name,
+      p_email: params.email,
+      p_code: params.code,
+      p_client_ids: params.clientIds,
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+  },
+
+  async setPortalAccessCode(accountId: string, code: string): Promise<void> {
+    const { error } = await supabase.rpc('admin_set_portal_access_code', {
+      p_account_id: accountId,
+      p_code: code,
+    });
+    if (error) throw error;
+  },
+
+  async deletePortalAccount(accountId: string): Promise<void> {
+    const { error } = await supabase.from('client_portal_accounts').delete().eq('id', accountId);
+    if (error) throw error;
+  },
+
+  // ─── Datas bloqueadas (feriados/férias) ────────────────────
+
+  async listBlockedDates(): Promise<BlockedDateRow[]> {
+    const tenantId = requireTenantId();
+    const { data, error } = await withTimeout(
+      supabase
+        .from('appointment_blocked_dates')
+        .select('id, day, reason')
+        .eq('tenant_id', tenantId)
+        .gte('day', new Date().toISOString().split('T')[0])
+        .order('day', { ascending: true }),
+      'DatasBloqueadas'
+    );
+    if (error) throw error;
+    return (data ?? []) as BlockedDateRow[];
+  },
+
+  async addBlockedDate(day: string, reason: string): Promise<void> {
+    const tenantId = requireTenantId();
+    const { error } = await supabase.from('appointment_blocked_dates').insert({
+      tenant_id: tenantId,
+      day,
+      reason: reason.trim() || null,
+    });
+    if (error) throw error;
+  },
+
+  async removeBlockedDate(id: string): Promise<void> {
+    const { error } = await supabase.from('appointment_blocked_dates').delete().eq('id', id);
+    if (error) throw error;
   },
 
   // ─── Disponibilidade pública (slots) ───────────────────────

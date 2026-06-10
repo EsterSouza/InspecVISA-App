@@ -33,6 +33,7 @@ const TemplateEditor = lazy(() => import('./pages/admin/TemplateEditor').then(m 
 // Public portal pages (no auth required)
 const PublicSchedule = lazy(() => import('./pages/PublicSchedule').then(m => ({ default: m.PublicSchedule })));
 const PublicAppointmentStatus = lazy(() => import('./pages/PublicAppointmentStatus').then(m => ({ default: m.PublicAppointmentStatus })));
+const ClientPortal = lazy(() => import('./pages/ClientPortal').then(m => ({ default: m.ClientPortal })));
 
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ProfileSelection } from './pages/ProfileSelection';
@@ -323,6 +324,14 @@ function App() {
           element={
             <Suspense fallback={<RouteFallback />}>
               <PublicAppointmentStatus />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/cliente"
+          element={
+            <Suspense fallback={<RouteFallback />}>
+              <ClientPortal />
             </Suspense>
           }
         />
