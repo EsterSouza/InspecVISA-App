@@ -1,50 +1,75 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   CalendarDays,
   CheckCircle2,
   ClipboardCheck,
+  Clock,
   Copy,
   Loader2,
   MapPin,
+  Monitor,
   Phone,
+  Search,
   Send,
-  Users,
+  UserRound,
 } from 'lucide-react';
-import type { AppointmentSlot, SlotPeriod } from '../types';
+import type { AttendanceMode, PublicAvailableTime, PublicCalendarDay, PublicClientSuggestion } from '../types';
 import { publicAppointmentService } from '../services/publicAppointmentService';
 import { PublicHeader } from '../components/public/PublicHeader';
 import { formatProtocol } from '../utils/protocol';
 
-const PERIOD_LABELS: Record<SlotPeriod, string> = {
-  manha: 'Manhã',
-  tarde: 'Tarde',
-  noite: 'Noite',
-  integral: 'Integral',
-};
+const WEEKDAY_LABELS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex'];
+const RIO_MUNICIPALITIES = [
+  'Rio de Janeiro',
+  'Niteroi',
+  'Sao Goncalo',
+  'Duque de Caxias',
+  'Nova Iguacu',
+  'Belford Roxo',
+  'Sao Joao de Meriti',
+  'Nilopolis',
+  'Mesquita',
+  'Queimados',
+  'Itaborai',
+  'Marica',
+];
 
-function formatSlotDate(startsAt: string | null): string {
-  if (!startsAt) return 'Data a combinar';
-  const d = new Date(startsAt);
-  return d.toLocaleDateString('pt-BR', {
-    weekday: 'short',
+function formatDay(value: string): string {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString('pt-BR', {
     day: '2-digit',
     month: 'short',
   });
 }
 
+function formatFullDay(value: string): string {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString('pt-BR', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+  });
+}
+
 export function PublicSchedule() {
-  const [slots, setSlots] = useState<AppointmentSlot[]>([]);
-  const [slotsLoading, setSlotsLoading] = useState(true);
-  const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
+  const [days, setDays] = useState<PublicCalendarDay[]>([]);
+  const [times, setTimes] = useState<PublicAvailableTime[]>([]);
+  const [selectedDay, setSelectedDay] = useState('');
+  const [selectedTime, setSelectedTime] = useState<PublicAvailableTime | null>(null);
+  const [calendarLoading, setCalendarLoading] = useState(true);
+  const [timesLoading, setTimesLoading] = useState(false);
 
   const [unitName, setUnitName] = useState('');
+  const [selectedClient, setSelectedClient] = useState<PublicClientSuggestion | null>(null);
+  const [clientSuggestions, setClientSuggestions] = useState<PublicClientSuggestion[]>([]);
+  const [searchingClients, setSearchingClients] = useState(false);
+  const [attendanceMode, setAttendanceMode] = useState<AttendanceMode>('presencial');
+  const [municipality, setMunicipality] = useState('Rio de Janeiro');
   const [district, setDistrict] = useState('');
   const [responsibleName, setResponsibleName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
-  const [requestedDate, setRequestedDate] = useState('');
-  const [requestedPeriod, setRequestedPeriod] = useState('');
   const [notes, setNotes] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
@@ -52,29 +77,108 @@ export function PublicSchedule() {
   const [token, setToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  const selectedDayLabel = useMemo(
+    () => (selectedDay ? formatFullDay(selectedDay) : 'Escolha uma data'),
+    [selectedDay]
+  );
+
   useEffect(() => {
     let cancelled = false;
+    setCalendarLoading(true);
     publicAppointmentService
-      .listAvailableSlots()
+      .listCalendarDays()
       .then((data) => {
-        if (!cancelled) setSlots(data);
+        if (cancelled) return;
+        setDays(data);
+        const first = data[0]?.day || '';
+        setSelectedDay(first);
       })
       .catch((err) => {
-        console.warn('[PublicSchedule] Falha ao carregar datas disponíveis:', err);
-        if (!cancelled) setSlots([]);
+        console.warn('[PublicSchedule] Falha ao carregar calendario:', err);
+        if (!cancelled) setError('Nao foi possivel carregar o calendario agora. Tente novamente em alguns instantes.');
       })
       .finally(() => {
-        if (!cancelled) setSlotsLoading(false);
+        if (!cancelled) setCalendarLoading(false);
       });
     return () => {
       cancelled = true;
     };
   }, []);
 
+  useEffect(() => {
+    if (!selectedDay) {
+      setTimes([]);
+      setSelectedTime(null);
+      return;
+    }
+
+    let cancelled = false;
+    setTimesLoading(true);
+    setSelectedTime(null);
+    publicAppointmentService
+      .listAvailableTimes(selectedDay)
+      .then((data) => {
+        if (cancelled) return;
+        setTimes(data);
+      })
+      .catch((err) => {
+        console.warn('[PublicSchedule] Falha ao carregar horarios:', err);
+        if (!cancelled) setTimes([]);
+      })
+      .finally(() => {
+        if (!cancelled) setTimesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedDay]);
+
+  useEffect(() => {
+    const query = unitName.trim();
+    setSelectedClient((current) => (current && current.name !== unitName ? null : current));
+    if (query.length < 2) {
+      setClientSuggestions([]);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setSearchingClients(true);
+      publicAppointmentService
+        .searchClients(query)
+        .then(setClientSuggestions)
+        .catch((err) => {
+          console.warn('[PublicSchedule] Busca de clientes falhou:', err);
+          setClientSuggestions([]);
+        })
+        .finally(() => setSearchingClients(false));
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, [unitName]);
+
+  const handleSelectClient = (client: PublicClientSuggestion) => {
+    setSelectedClient(client);
+    setUnitName(client.name);
+    setClientSuggestions([]);
+    if (client.city) setMunicipality(client.city);
+  };
+
+  const validate = () => {
+    if (!selectedTime) return 'Escolha um horario disponivel.';
+    if (!unitName.trim()) return 'Informe o nome da unidade.';
+    if (!phone.trim()) return 'Informe um telefone/WhatsApp para contato.';
+    if (attendanceMode === 'presencial') {
+      if (!municipality.trim()) return 'Informe o municipio do atendimento presencial.';
+      if (!district.trim()) return 'Informe o bairro do atendimento presencial.';
+    }
+    return null;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!unitName.trim() || !district.trim() || !phone.trim()) {
-      setError('Preencha os campos obrigatórios: nome da unidade, bairro e telefone.');
+    const validation = validate();
+    if (validation) {
+      setError(validation);
       return;
     }
 
@@ -82,23 +186,26 @@ export function PublicSchedule() {
     setError(null);
     try {
       const result = await publicAppointmentService.createAppointmentRequest({
-        slot_id: selectedSlotId ?? undefined,
+        existing_client_id: selectedClient?.id,
+        matched_client_name: selectedClient?.name,
         unit_name: unitName.trim(),
-        district: district.trim(),
+        attendance_mode: attendanceMode,
+        municipality: attendanceMode === 'presencial' ? municipality.trim() : undefined,
+        district: attendanceMode === 'presencial' ? district.trim() : 'Online',
         responsible_name: responsibleName.trim() || undefined,
         phone: phone.trim(),
         email: email.trim() || undefined,
-        requested_date: !selectedSlotId && requestedDate ? requestedDate : undefined,
-        requested_period: !selectedSlotId && requestedPeriod ? requestedPeriod : undefined,
+        requested_starts_at: selectedTime!.starts_at,
+        requested_ends_at: selectedTime!.ends_at,
         notes: notes.trim() || undefined,
       });
       setToken(result.public_token);
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch (err) {
-      console.warn('[PublicSchedule] Falha ao enviar solicitação:', err);
-      setError(
-        'Não foi possível enviar sua solicitação agora. Verifique sua conexão e tente novamente em alguns instantes.'
-      );
+    } catch (err: any) {
+      console.warn('[PublicSchedule] Falha ao enviar agendamento:', err);
+      setError(err?.message?.includes('horario indisponivel')
+        ? 'Este horario acabou de ser reservado. Escolha outro horario disponivel.'
+        : 'Nao foi possivel enviar seu agendamento agora. Tente novamente em alguns instantes.');
     } finally {
       setSubmitting(false);
     }
@@ -109,50 +216,45 @@ export function PublicSchedule() {
     try {
       await navigator.clipboard.writeText(`${window.location.origin}/portal/${token}`);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
+      window.setTimeout(() => setCopied(false), 2500);
     } catch {
-      /* clipboard indisponível — sem ação */
+      // clipboard indisponivel
     }
   };
 
-  // ─── Tela de sucesso ─────────────────────────────────────────
   if (token) {
     return (
       <div className="min-h-screen bg-white">
         <PublicHeader />
-        <main className="mx-auto max-w-[600px] px-4 py-10">
-          <div className="rounded-2xl border border-green-100 bg-green-50/60 p-6 text-center shadow-sm">
+        <main className="mx-auto max-w-[640px] px-4 py-10">
+          <div className="rounded-xl border border-green-100 bg-green-50/70 p-6 text-center shadow-sm">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100">
               <CheckCircle2 className="h-8 w-8 text-green-600" />
             </div>
-            <h2 className="text-xl font-bold text-gray-900">Solicitação enviada!</h2>
+            <h2 className="text-xl font-bold text-gray-900">Agendamento solicitado</h2>
             <p className="mt-2 text-sm text-gray-600">
-              Recebemos sua solicitação de inspeção. Guarde o protocolo abaixo para acompanhar o
-              andamento e baixar o relatório quando estiver pronto.
+              Guarde este link. Ele fica disponivel para acompanhar a inspeção, relatórios, fotos e anexos.
             </p>
-
-            <div className="mt-6 rounded-xl border border-gray-200 bg-white p-4">
+            <div className="mt-6 rounded-lg border border-gray-200 bg-white p-4">
               <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Protocolo</p>
               <p className="mt-1 font-mono text-2xl font-bold tracking-widest text-gray-900">
                 {formatProtocol(token)}
               </p>
             </div>
-
             <Link
               to={`/portal/${token}`}
-              className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary-600 px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700"
+              className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary-700 px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-800"
             >
               <ClipboardCheck className="h-4 w-4" />
-              Acompanhar minha solicitação
+              Abrir meu portal
             </Link>
-
             <button
               type="button"
               onClick={handleCopy}
-              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-5 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md border border-gray-200 bg-white px-5 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
             >
               <Copy className="h-4 w-4" />
-              {copied ? 'Link copiado!' : 'Copiar link de acompanhamento'}
+              {copied ? 'Link copiado' : 'Copiar link'}
             </button>
           </div>
         </main>
@@ -160,208 +262,277 @@ export function PublicSchedule() {
     );
   }
 
-  // ─── Formulário ──────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-white">
       <PublicHeader />
-      <main className="mx-auto max-w-[600px] px-4 py-8">
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900">Agendar inspeção sanitária</h2>
+      <main className="mx-auto max-w-5xl px-4 py-8 pb-16">
+        <div className="mb-7">
+          <h2 className="text-2xl font-bold text-gray-950">Agendar inspeção</h2>
           <p className="mt-1 text-sm text-gray-500">
-            Preencha os dados abaixo e nossa equipe entrará em contato para confirmar a visita.
+            Escolha uma data útil e um horário entre 09h30 e 16h. O calendário já remove horários ocupados.
           </p>
         </div>
 
-        {/* Datas disponíveis */}
-        <section className="mb-8">
-          <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-600">
-            <CalendarDays className="h-4 w-4 text-primary-600" />
-            Datas disponíveis
-          </h3>
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)]">
+          <section className="space-y-4">
+            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-gray-700">
+                  <CalendarDays className="h-4 w-4 text-primary-700" />
+                  Datas disponíveis
+                </h3>
+                <span className="text-xs font-medium text-gray-400">Segunda a sexta</span>
+              </div>
 
-          {slotsLoading ? (
-            <div className="flex items-center justify-center rounded-xl border border-gray-100 bg-gray-50 py-8">
-              <Loader2 className="h-5 w-5 animate-spin text-primary-600" />
+              {calendarLoading ? (
+                <div className="flex h-48 items-center justify-center">
+                  <Loader2 className="h-7 w-7 animate-spin text-primary-700" />
+                </div>
+              ) : days.length === 0 ? (
+                <div className="rounded-md border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
+                  Nao ha horários disponíveis nos próximos dias úteis.
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5">
+                  {days.map((day) => {
+                    const selected = selectedDay === day.day;
+                    return (
+                      <button
+                        key={day.day}
+                        type="button"
+                        onClick={() => setSelectedDay(day.day)}
+                        className={`rounded-md border p-3 text-left transition-all ${
+                          selected
+                            ? 'border-primary-700 bg-primary-50 text-primary-950 ring-2 ring-primary-100'
+                            : 'border-gray-200 bg-white text-gray-800 hover:border-primary-300'
+                        }`}
+                      >
+                        <p className="text-xs font-bold uppercase text-gray-400">
+                          {WEEKDAY_LABELS[day.weekday - 1] || ''}
+                        </p>
+                        <p className="mt-1 text-base font-black capitalize">{formatDay(day.day)}</p>
+                        <p className="mt-1 text-xs font-medium text-primary-700">
+                          {day.available_count} horário{day.available_count === 1 ? '' : 's'}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          ) : slots.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
-              No momento não há datas pré-definidas. Informe abaixo sua data e turno de preferência —
-              o agendamento está sujeito à disponibilidade da equipe.
+
+            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+              <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-gray-700">
+                <Clock className="h-4 w-4 text-primary-700" />
+                {selectedDayLabel}
+              </h3>
+              {timesLoading ? (
+                <div className="flex h-24 items-center justify-center">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary-700" />
+                </div>
+              ) : times.length === 0 ? (
+                <p className="rounded-md border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
+                  Selecione outra data. Este dia nao tem horários livres.
+                </p>
+              ) : (
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                  {times.map((time) => {
+                    const selected = selectedTime?.starts_at === time.starts_at;
+                    return (
+                      <button
+                        key={time.starts_at}
+                        type="button"
+                        onClick={() => setSelectedTime(time)}
+                        className={`h-11 rounded-md border text-sm font-bold transition-all ${
+                          selected
+                            ? 'border-primary-700 bg-primary-700 text-white shadow-sm'
+                            : 'border-gray-200 bg-white text-gray-700 hover:border-primary-300 hover:bg-primary-50'
+                        }`}
+                      >
+                        {time.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {slots.map((slot) => {
-                const selected = selectedSlotId === slot.id;
-                return (
-                  <button
-                    key={slot.id}
-                    type="button"
-                    onClick={() => setSelectedSlotId(selected ? null : slot.id)}
-                    className={`rounded-xl border p-3 text-left shadow-sm transition-all ${
-                      selected
-                        ? 'border-primary-600 bg-primary-50 ring-2 ring-primary-200'
-                        : 'border-gray-200 bg-white hover:border-primary-300'
-                    }`}
-                  >
-                    <p className="text-sm font-bold capitalize text-gray-900">
-                      {formatSlotDate(slot.starts_at)}
-                    </p>
-                    <p className="mt-0.5 text-xs font-medium text-primary-700">
-                      {slot.period ? PERIOD_LABELS[slot.period] : 'Horário a combinar'}
-                    </p>
-                    <p className="mt-1 flex items-center gap-1 text-[11px] text-gray-500">
-                      <Users className="h-3 w-3" />
-                      {slot.spots_left ?? Math.max(slot.capacity - slot.booked_count, 0)}{' '}
-                      {(slot.spots_left ?? slot.capacity - slot.booked_count) === 1 ? 'vaga' : 'vagas'}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-          {selectedSlotId && (
-            <p className="mt-2 text-xs text-gray-500">
-              Data selecionada. Toque novamente no card para desmarcar e sugerir outra data.
-            </p>
-          )}
-        </section>
+          </section>
 
-        {/* Formulário */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-700">
-              Nome da unidade <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              required
-              value={unitName}
-              onChange={(e) => setUnitName(e.target.value)}
-              placeholder="Ex.: Clínica Estética Bela Vida"
-              className="w-full rounded-xl border border-gray-300 p-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
-              <MapPin className="h-4 w-4 text-gray-400" />
-              Bairro <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              required
-              value={district}
-              onChange={(e) => setDistrict(e.target.value)}
-              placeholder="Ex.: Centro"
-              className="w-full rounded-xl border border-gray-300 p-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-700">Nome do responsável</label>
-            <input
-              type="text"
-              value={responsibleName}
-              onChange={(e) => setResponsibleName(e.target.value)}
-              placeholder="Quem acompanhará a inspeção"
-              className="w-full rounded-xl border border-gray-300 p-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
-            />
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
-                <Phone className="h-4 w-4 text-gray-400" />
-                Telefone/WhatsApp <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="tel"
-                required
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="(00) 00000-0000"
-                className="w-full rounded-xl border border-gray-300 p-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-gray-700">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="contato@empresa.com.br"
-                className="w-full rounded-xl border border-gray-300 p-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
-              />
-            </div>
-          </div>
-
-          {!selectedSlotId && (
-            <div className="grid gap-4 sm:grid-cols-2">
+          <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+            <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-gray-700">
+              Dados da unidade
+            </h3>
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700">Data desejada</label>
+                <label className="text-sm font-medium text-gray-700">Nome da unidade ou cliente</label>
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    required
+                    value={unitName}
+                    onChange={(e) => setUnitName(e.target.value)}
+                    placeholder="Digite para buscar ou cadastrar"
+                    className="w-full rounded-md border border-gray-300 py-3 pl-9 pr-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+                  />
+                  {searchingClients && (
+                    <Loader2 className="absolute right-3 top-3.5 h-4 w-4 animate-spin text-gray-400" />
+                  )}
+                  {clientSuggestions.length > 0 && !selectedClient && (
+                    <div className="absolute z-20 mt-1 max-h-52 w-full overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg">
+                      {clientSuggestions.map((client) => (
+                        <button
+                          key={client.id}
+                          type="button"
+                          onClick={() => handleSelectClient(client)}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
+                        >
+                          <UserRound className="h-4 w-4 text-gray-400" />
+                          <span className="min-w-0 flex-1 truncate font-medium text-gray-800">{client.name}</span>
+                          {client.city && <span className="text-xs text-gray-400">{client.city}</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {selectedClient ? (
+                  <p className="text-xs font-medium text-green-700">Cliente existente selecionado.</p>
+                ) : (
+                  <p className="text-xs text-gray-400">Se não aparecer na lista, o nome digitado será usado como nova unidade.</p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAttendanceMode('presencial')}
+                  className={`flex h-11 items-center justify-center gap-2 rounded-md border text-sm font-bold ${
+                    attendanceMode === 'presencial'
+                      ? 'border-primary-700 bg-primary-50 text-primary-800'
+                      : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <MapPin className="h-4 w-4" />
+                  Presencial
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAttendanceMode('online')}
+                  className={`flex h-11 items-center justify-center gap-2 rounded-md border text-sm font-bold ${
+                    attendanceMode === 'online'
+                      ? 'border-primary-700 bg-primary-50 text-primary-800'
+                      : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <Monitor className="h-4 w-4" />
+                  Online
+                </button>
+              </div>
+
+              {attendanceMode === 'presencial' && (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-gray-700">Município</label>
+                    <input
+                      list="rio-municipios"
+                      value={municipality}
+                      onChange={(e) => setMunicipality(e.target.value)}
+                      className="w-full rounded-md border border-gray-300 p-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+                    />
+                    <datalist id="rio-municipios">
+                      {RIO_MUNICIPALITIES.map((city) => (
+                        <option key={city} value={city} />
+                      ))}
+                    </datalist>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-gray-700">Bairro</label>
+                    <input
+                      type="text"
+                      value={district}
+                      onChange={(e) => setDistrict(e.target.value)}
+                      placeholder="Ex.: Tijuca"
+                      className="w-full rounded-md border border-gray-300 p-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-gray-700">Responsável</label>
                 <input
-                  type="date"
-                  value={requestedDate}
-                  onChange={(e) => setRequestedDate(e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
-                  className="w-full rounded-xl border border-gray-300 p-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+                  type="text"
+                  value={responsibleName}
+                  onChange={(e) => setResponsibleName(e.target.value)}
+                  placeholder="Quem acompanhará a inspeção"
+                  className="w-full rounded-md border border-gray-300 p-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
                 />
               </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700">Turno sugerido</label>
-                <select
-                  value={requestedPeriod}
-                  onChange={(e) => setRequestedPeriod(e.target.value)}
-                  className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
-                >
-                  <option value="">Indiferente</option>
-                  <option value="manha">Manhã</option>
-                  <option value="tarde">Tarde</option>
-                  <option value="noite">Noite</option>
-                </select>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
+                    <Phone className="h-4 w-4 text-gray-400" />
+                    WhatsApp
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="(21) 00000-0000"
+                    className="w-full rounded-md border border-gray-300 p-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-gray-700">Email</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="contato@empresa.com.br"
+                    className="w-full rounded-md border border-gray-300 p-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+                  />
+                </div>
               </div>
-            </div>
-          )}
 
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-700">Observações</label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              placeholder="Informações adicionais sobre a unidade ou a inspeção..."
-              className="w-full rounded-xl border border-gray-300 p-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
-            />
-          </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-gray-700">Observações</label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={3}
+                  placeholder="Detalhes sobre a unidade, acesso, preferência ou documentos..."
+                  className="w-full rounded-md border border-gray-300 p-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+                />
+              </div>
 
-          {error && (
-            <div className="rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">
-              {error}
-            </div>
-          )}
+              {error && (
+                <div className="rounded-md border border-red-100 bg-red-50 p-3 text-sm text-red-700">
+                  {error}
+                </div>
+              )}
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary-600 px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {submitting ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Enviando...
-              </>
-            ) : (
-              <>
-                <Send className="h-4 w-4" />
-                Enviar solicitação
-              </>
-            )}
-          </button>
-
-          <p className="pb-6 text-center text-xs text-gray-400">
-            Seus dados são usados apenas para organizar a inspeção e o contato da equipe.
-          </p>
-        </form>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="flex w-full items-center justify-center gap-2 rounded-md bg-primary-700 px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Enviando...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4" />
+                    Solicitar agendamento
+                  </>
+                )}
+              </button>
+            </form>
+          </section>
+        </div>
       </main>
     </div>
   );

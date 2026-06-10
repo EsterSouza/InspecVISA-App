@@ -40,7 +40,6 @@ import { Card, CardContent } from '../ui/Card';
 const PERIOD_LABELS: Record<string, string> = {
   manha: 'Manhã',
   tarde: 'Tarde',
-  noite: 'Noite',
   integral: 'Integral',
 };
 
@@ -90,6 +89,7 @@ export function AppointmentRequestsPanel() {
   const [slots, setSlots] = useState<AppointmentSlot[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null); // id da request em operação
 
   // Modal de confirmação
@@ -100,17 +100,26 @@ export function AppointmentRequestsPanel() {
   const [dueDateTarget, setDueDateTarget] = useState<AppointmentRequest | null>(null);
 
   const loadData = async () => {
+    setLoading(true);
+    setLoadError(null);
     try {
-      const [reqs, slotList, clientList] = await Promise.all([
+      const [reqResult, slotResult, clientResult] = await Promise.allSettled([
         AppointmentAdminService.listRequests(),
         AppointmentAdminService.listSlots(),
         ClientService.getClients(),
       ]);
-      setRequests(reqs);
-      setSlots(slotList);
-      setClients(clientList);
+
+      if (reqResult.status === 'fulfilled') {
+        setRequests(reqResult.value);
+      } else {
+        throw reqResult.reason;
+      }
+
+      setSlots(slotResult.status === 'fulfilled' ? slotResult.value : []);
+      setClients(clientResult.status === 'fulfilled' ? clientResult.value : []);
     } catch (err) {
       console.error('[AppointmentRequestsPanel] Falha ao carregar solicitações:', err);
+      setLoadError(errorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -173,6 +182,30 @@ export function AppointmentRequestsPanel() {
       <div className="flex h-64 items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
       </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <Card className="border-red-100 bg-red-50/70 shadow-sm">
+        <CardContent className="p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-sm font-bold text-red-800">Não foi possível carregar as solicitações</h2>
+              <p className="mt-1 text-sm text-red-700">{loadError}</p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void loadData()}
+              className="border-red-200 text-red-700 hover:bg-red-100"
+            >
+              <RefreshCw className="mr-1.5 h-4 w-4" />
+              Tentar novamente
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
@@ -1029,7 +1062,6 @@ function PublicAvailabilitySection({ slots, onChanged }: PublicAvailabilitySecti
               >
                 <option value="manha">Manhã</option>
                 <option value="tarde">Tarde</option>
-                <option value="noite">Noite</option>
                 <option value="integral">Integral</option>
               </select>
             </div>

@@ -341,6 +341,7 @@ export interface SyncLog {
 
 export type SlotPeriod = 'manha' | 'tarde' | 'noite' | 'integral';
 export type SlotStatus = 'available' | 'blocked' | 'full' | 'cancelled';
+export type AttendanceMode = 'presencial' | 'online';
 export type AppointmentStatus =
   | 'requested'
   | 'confirmed'
@@ -384,6 +385,11 @@ export interface AppointmentRequest {
   requested_date: string | null;
   requested_period: string | null;
   requested_time: string | null;
+  requested_starts_at?: string | null;
+  requested_ends_at?: string | null;
+  attendance_mode?: AttendanceMode | null;
+  municipality?: string | null;
+  matched_client_name?: string | null;
   status: AppointmentStatus;
   report_due_at: string | null;
   report_due_source: ReportDueSource | null;
@@ -419,6 +425,12 @@ export interface PublicAppointmentPayload {
   email?: string;
   requested_date?: string;
   requested_period?: string;
+  requested_starts_at?: string;
+  requested_ends_at?: string;
+  attendance_mode?: AttendanceMode;
+  municipality?: string;
+  existing_client_id?: string;
+  matched_client_name?: string;
   notes?: string;
 }
 
@@ -426,11 +438,35 @@ export interface PublicAppointmentStatusResult {
   id: string;
   unit_name: string;
   district: string;
+  municipality?: string | null;
+  attendance_mode?: AttendanceMode | null;
   status: AppointmentStatus;
   requested_date: string | null;
   requested_period: string | null;
+  requested_time?: string | null;
+  requested_starts_at?: string | null;
+  requested_ends_at?: string | null;
   report_due_at: string | null;
   report_due_source: ReportDueSource | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface PublicCalendarDay {
+  day: string;
+  weekday: number;
+  available_count: number;
+}
+
+export interface PublicAvailableTime {
+  starts_at: string;
+  ends_at: string;
+  label: string;
+}
+
+export interface PublicClientSuggestion {
+  id: string;
+  name: string;
+  city: string | null;
+  state: string | null;
 }

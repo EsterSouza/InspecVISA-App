@@ -10,6 +10,7 @@ import { getActiveTenantId } from '../utils/localScope';
 
 const PORTAL_BUCKET = 'client-portal-files';
 const INSPECTION_PHOTO_BUCKET = 'inspection-photos';
+const ADMIN_TIMEOUT_MS = 15000;
 
 export interface InspectionPhotoOption {
   photoId: string;
@@ -40,6 +41,16 @@ function sanitizeFileName(name: string): string {
     .replace(/[^a-zA-Z0-9._-]/g, '_');
 }
 
+function withTimeout<T>(promise: PromiseLike<T>, label: string, timeoutMs = ADMIN_TIMEOUT_MS): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} demorou demais para responder.`)), timeoutMs);
+  });
+  return Promise.race([Promise.resolve(promise), timeout]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
 /**
  * Operações internas (autenticadas) do portal público de agendamento.
  * Usa o client supabase com a sessão do consultor — as RPCs públicas
@@ -50,10 +61,13 @@ export const AppointmentAdminService = {
   // ─── Solicitações ──────────────────────────────────────────
 
   async listRequests(): Promise<AppointmentRequest[]> {
-    const { data, error } = await supabase
-      .from('appointment_requests')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const { data, error } = await withTimeout(
+      supabase
+        .from('appointment_requests')
+        .select('*')
+        .order('created_at', { ascending: false }),
+      'Solicitacoes'
+    );
     if (error) throw error;
     return (data ?? []) as AppointmentRequest[];
   },
@@ -260,10 +274,13 @@ export const AppointmentAdminService = {
   // ─── Disponibilidade pública (slots) ───────────────────────
 
   async listSlots(): Promise<AppointmentSlot[]> {
-    const { data, error } = await supabase
-      .from('appointment_slots')
-      .select('*')
-      .order('starts_at', { ascending: true, nullsFirst: false });
+    const { data, error } = await withTimeout(
+      supabase
+        .from('appointment_slots')
+        .select('*')
+        .order('starts_at', { ascending: true, nullsFirst: false }),
+      'DisponibilidadePublica'
+    );
     if (error) throw error;
     return (data ?? []) as AppointmentSlot[];
   },

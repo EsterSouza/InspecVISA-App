@@ -12,6 +12,7 @@ import {
   Image as ImageIcon,
   Loader2,
   MapPin,
+  Monitor,
   Paperclip,
   Plus,
   RefreshCw,
@@ -276,8 +277,16 @@ export function PublicAppointmentStatus() {
             <div className="flex items-start gap-3">
               <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
               <div>
-                <dt className="text-xs text-gray-400">Bairro</dt>
+                <dt className="text-xs text-gray-400">Atendimento</dt>
                 <dd className="font-medium text-gray-900">{status.district}</dd>
+                {status.attendance_mode === 'presencial' && status.municipality && (
+                  <dd className="text-xs text-gray-500">{status.municipality}</dd>
+                )}
+                {status.attendance_mode === 'online' && (
+                  <dd className="flex items-center gap-1 text-xs text-gray-500">
+                    <Monitor className="h-3 w-3" /> Online
+                  </dd>
+                )}
               </div>
             </div>
             <div className="flex items-start gap-3">
@@ -286,6 +295,7 @@ export function PublicAppointmentStatus() {
                 <dt className="text-xs text-gray-400">Data solicitada</dt>
                 <dd className="font-medium text-gray-900">
                   {formatDateBR(status.requested_date)}
+                  {status.requested_time ? ` às ${status.requested_time}` : ''}
                   {status.requested_period && PERIOD_LABELS[status.requested_period]
                     ? ` — ${PERIOD_LABELS[status.requested_period]}`
                     : status.requested_period
