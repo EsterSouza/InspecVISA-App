@@ -24,8 +24,11 @@ export function formatReportDueDate(
   inspectionCompletedAt?: Date | null
 ): string {
   if (reportDueAt && reportDueSource === 'manual') {
-    const d = new Date(reportDueAt);
-    return `Relatório previsto para ${d.toLocaleDateString('pt-BR')}`;
+    // Parse por partes para não deslocar o dia no fuso de Brasília
+    const [y, m, d] = reportDueAt.split('T')[0].split('-').map(Number);
+    if (y && m && d) {
+      return `Relatório previsto para ${new Date(y, m - 1, d).toLocaleDateString('pt-BR')}`;
+    }
   }
   if (inspectionCompletedAt) {
     const due = addBusinessDays(inspectionCompletedAt, 5);

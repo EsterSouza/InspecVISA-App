@@ -1,12 +1,10 @@
 import { supabase } from '../lib/supabase';
 import type {
-  AppointmentSlot,
   PublicAppointmentPayload,
   PublicAppointmentStatusResult,
   AppointmentAttachment,
   PublicAvailableTime,
   PublicCalendarDay,
-  PublicClientSuggestion,
 } from '../types';
 
 const DEFAULT_TENANT_ID = import.meta.env.VITE_DEFAULT_TENANT_ID as string;
@@ -46,30 +44,6 @@ export const publicAppointmentService = {
     );
     if (error) throw error;
     return (data ?? []) as PublicAvailableTime[];
-  },
-
-  async searchClients(query: string): Promise<PublicClientSuggestion[]> {
-    if (query.trim().length < 2) return [];
-    const { data, error } = await withTimeout(
-      supabase.rpc('public_search_clients', {
-        p_tenant_id: DEFAULT_TENANT_ID,
-        p_query: query,
-      }),
-      'BuscaClientes'
-    );
-    if (error) throw error;
-    return (data ?? []) as PublicClientSuggestion[];
-  },
-
-  async listAvailableSlots(): Promise<AppointmentSlot[]> {
-    const { data, error } = await withTimeout(
-      supabase.rpc('public_list_available_slots', {
-        p_tenant_id: DEFAULT_TENANT_ID,
-      }),
-      'SlotsPublicos'
-    );
-    if (error) throw error;
-    return (data ?? []) as AppointmentSlot[];
   },
 
   async createAppointmentRequest(

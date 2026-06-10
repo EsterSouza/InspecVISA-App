@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  Building2,
   CalendarDays,
   CheckCircle2,
   ClipboardCheck,
@@ -11,11 +12,9 @@ import {
   Monitor,
   Phone,
   RefreshCw,
-  Search,
   Send,
-  UserRound,
 } from 'lucide-react';
-import type { AttendanceMode, PublicAvailableTime, PublicCalendarDay, PublicClientSuggestion } from '../types';
+import type { AttendanceMode, PublicAvailableTime, PublicCalendarDay } from '../types';
 import { publicAppointmentService } from '../services/publicAppointmentService';
 import { PublicHeader } from '../components/public/PublicHeader';
 import { formatProtocol } from '../utils/protocol';
@@ -63,9 +62,6 @@ export function PublicSchedule() {
   const [calendarReloadKey, setCalendarReloadKey] = useState(0);
 
   const [unitName, setUnitName] = useState('');
-  const [selectedClient, setSelectedClient] = useState<PublicClientSuggestion | null>(null);
-  const [clientSuggestions, setClientSuggestions] = useState<PublicClientSuggestion[]>([]);
-  const [searchingClients, setSearchingClients] = useState(false);
   const [attendanceMode, setAttendanceMode] = useState<AttendanceMode>('presencial');
   const [municipality, setMunicipality] = useState('Rio de Janeiro');
   const [district, setDistrict] = useState('');
@@ -136,36 +132,6 @@ export function PublicSchedule() {
     };
   }, [selectedDay]);
 
-  useEffect(() => {
-    const query = unitName.trim();
-    setSelectedClient((current) => (current && current.name !== unitName ? null : current));
-    if (query.length < 2) {
-      setClientSuggestions([]);
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      setSearchingClients(true);
-      publicAppointmentService
-        .searchClients(query)
-        .then(setClientSuggestions)
-        .catch((err) => {
-          console.warn('[PublicSchedule] Busca de clientes falhou:', err);
-          setClientSuggestions([]);
-        })
-        .finally(() => setSearchingClients(false));
-    }, 250);
-
-    return () => window.clearTimeout(timer);
-  }, [unitName]);
-
-  const handleSelectClient = (client: PublicClientSuggestion) => {
-    setSelectedClient(client);
-    setUnitName(client.name);
-    setClientSuggestions([]);
-    if (client.city) setMunicipality(client.city);
-  };
-
   const validate = () => {
     if (!selectedTime) return 'Escolha um horario disponivel.';
     if (!unitName.trim()) return 'Informe o nome da unidade.';
@@ -188,8 +154,6 @@ export function PublicSchedule() {
     setError(null);
     try {
       const result = await publicAppointmentService.createAppointmentRequest({
-        existing_client_id: selectedClient?.id,
-        matched_client_name: selectedClient?.name,
         unit_name: unitName.trim(),
         attendance_mode: attendanceMode,
         municipality: attendanceMode === 'presencial' ? municipality.trim() : undefined,
@@ -271,7 +235,8 @@ export function PublicSchedule() {
         <div className="mb-7">
           <h2 className="text-2xl font-bold text-gray-950">Agendar inspeção</h2>
           <p className="mt-1 text-sm text-gray-500">
-            Escolha uma data útil e um horário entre 09h30 e 16h. O calendário já remove horários ocupados.
+            Escolha uma data útil e um horário entre 09h30 e 16h. A agenda é limitada e os
+            horários ocupados já são removidos automaticamente.
           </p>
         </div>
 
@@ -379,42 +344,18 @@ export function PublicSchedule() {
             </h3>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700">Nome da unidade ou cliente</label>
+                <label className="text-sm font-medium text-gray-700">Nome fantasia da unidade</label>
                 <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
+                  <Building2 className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
                   <input
                     type="text"
                     required
                     value={unitName}
                     onChange={(e) => setUnitName(e.target.value)}
-                    placeholder="Digite para buscar ou cadastrar"
+                    placeholder="Ex.: Clínica Bela Vida — Unidade Tijuca"
                     className="w-full rounded-md border border-gray-300 py-3 pl-9 pr-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
                   />
-                  {searchingClients && (
-                    <Loader2 className="absolute right-3 top-3.5 h-4 w-4 animate-spin text-gray-400" />
-                  )}
-                  {clientSuggestions.length > 0 && !selectedClient && (
-                    <div className="absolute z-20 mt-1 max-h-52 w-full overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg">
-                      {clientSuggestions.map((client) => (
-                        <button
-                          key={client.id}
-                          type="button"
-                          onClick={() => handleSelectClient(client)}
-                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
-                        >
-                          <UserRound className="h-4 w-4 text-gray-400" />
-                          <span className="min-w-0 flex-1 truncate font-medium text-gray-800">{client.name}</span>
-                          {client.city && <span className="text-xs text-gray-400">{client.city}</span>}
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
-                {selectedClient ? (
-                  <p className="text-xs font-medium text-green-700">Cliente existente selecionado.</p>
-                ) : (
-                  <p className="text-xs text-gray-400">Se não aparecer na lista, o nome digitado será usado como nova unidade.</p>
-                )}
               </div>
 
               <div className="grid grid-cols-2 gap-2">

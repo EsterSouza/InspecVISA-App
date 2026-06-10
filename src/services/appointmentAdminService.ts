@@ -88,16 +88,25 @@ export const AppointmentAdminService = {
     id: string,
     params: {
       confirmedDate: string;
+      confirmedTime: string;
       clientId: string;
       scheduleId: string;
       manualDueDate?: string;
     }
   ): Promise<void> {
+    // Mantém data, hora e janela de bloqueio do calendário público
+    // consistentes com o horário realmente confirmado.
+    const startsAt = new Date(`${params.confirmedDate}T${params.confirmedTime || '09:00'}`);
+    const endsAt = new Date(startsAt.getTime() + 60 * 60 * 1000);
     const updates: Partial<AppointmentRequest> = {
       status: 'confirmed',
       client_id: params.clientId,
       schedule_id: params.scheduleId,
       requested_date: params.confirmedDate,
+      requested_time: params.confirmedTime || '09:00',
+      requested_period: startsAt.getHours() < 12 ? 'manha' : 'tarde',
+      requested_starts_at: startsAt.toISOString(),
+      requested_ends_at: endsAt.toISOString(),
     };
     if (params.manualDueDate) {
       updates.report_due_at = params.manualDueDate;
@@ -106,14 +115,31 @@ export const AppointmentAdminService = {
     await this.updateRequest(id, updates);
   },
 
+  async markInProgress(id: string): Promise<void> {
+    await this.updateRequest(id, { status: 'in_progress' });
+  },
+
+  async markCompleted(id: string): Promise<void> {
+    await this.updateRequest(id, { status: 'completed' });
+  },
+
   async rescheduleRequest(id: string, suggestedDate?: string): Promise<void> {
     const updates: Partial<AppointmentRequest> = { status: 'rescheduled' };
     if (suggestedDate) updates.requested_date = suggestedDate;
     await this.updateRequest(id, updates);
   },
 
-  async cancelRequest(id: string): Promise<void> {
-    await this.updateRequest(id, { status: 'cancelled' });
+  async cancelRequest(request: AppointmentRequest): Promise<void> {
+    await this.updateRequest(request.id, { status: 'cancelled' });
+    // Libera a agenda interna: o Schedule criado na confirmação deixa de bloquear o calendário.
+    if (request.schedule_id) {
+      try {
+        const { ScheduleService } = await import('./scheduleService');
+        await ScheduleService.deleteSchedule(request.schedule_id);
+      } catch (err) {
+        console.warn('[AppointmentAdmin] Falha ao remover o agendamento interno vinculado:', err);
+      }
+    }
   },
 
   async setManualDueDate(id: string, dueDate: string): Promise<void> {

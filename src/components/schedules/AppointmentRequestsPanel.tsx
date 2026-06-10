@@ -1,28 +1,23 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   CalendarDays,
-  CalendarPlus,
   CheckCircle,
   Clock,
   FileUp,
-  Globe,
-  GlobeLock,
   ImagePlus,
   Inbox,
   Loader2,
   MapPin,
   Paperclip,
   Phone,
+  Play,
   RefreshCw,
-  Trash2,
   XCircle,
 } from 'lucide-react';
 import type {
   AppointmentRequest,
-  AppointmentSlot,
   Client,
   Schedule,
-  SlotPeriod,
 } from '../../types';
 import {
   AppointmentAdminService,
@@ -86,7 +81,6 @@ function formatCreatedAt(value: string): string {
 
 export function AppointmentRequestsPanel() {
   const [requests, setRequests] = useState<AppointmentRequest[]>([]);
-  const [slots, setSlots] = useState<AppointmentSlot[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -103,9 +97,8 @@ export function AppointmentRequestsPanel() {
     setLoading(true);
     setLoadError(null);
     try {
-      const [reqResult, slotResult, clientResult] = await Promise.allSettled([
+      const [reqResult, clientResult] = await Promise.allSettled([
         AppointmentAdminService.listRequests(),
-        AppointmentAdminService.listSlots(),
         ClientService.getClients(),
       ]);
 
@@ -115,7 +108,6 @@ export function AppointmentRequestsPanel() {
         throw reqResult.reason;
       }
 
-      setSlots(slotResult.status === 'fulfilled' ? slotResult.value : []);
       setClients(clientResult.status === 'fulfilled' ? clientResult.value : []);
     } catch (err) {
       console.error('[AppointmentRequestsPanel] Falha ao carregar solicitações:', err);
@@ -155,7 +147,15 @@ export function AppointmentRequestsPanel() {
 
   const handleCancel = (request: AppointmentRequest) => {
     if (!confirm(`Cancelar a solicitação de "${request.unit_name}"?`)) return;
-    void withBusy(request.id, () => AppointmentAdminService.cancelRequest(request.id));
+    void withBusy(request.id, () => AppointmentAdminService.cancelRequest(request));
+  };
+
+  const handleMarkInProgress = (request: AppointmentRequest) => {
+    void withBusy(request.id, () => AppointmentAdminService.markInProgress(request.id));
+  };
+
+  const handleMarkCompleted = (request: AppointmentRequest) => {
+    void withBusy(request.id, () => AppointmentAdminService.markCompleted(request.id));
   };
 
   const handlePublishReport = (request: AppointmentRequest, file: File | null) => {
@@ -321,14 +321,13 @@ export function AppointmentRequestsPanel() {
                 onAddPhotos={() => setPhotoTarget(request)}
                 onSetDueDate={() => setDueDateTarget(request)}
                 onCancel={() => handleCancel(request)}
+                onMarkInProgress={() => handleMarkInProgress(request)}
+                onMarkCompleted={() => handleMarkCompleted(request)}
               />
             ))}
           </div>
         )}
       </section>
-
-      {/* ─── Disponibilidade pública ────────────────────────── */}
-      <PublicAvailabilitySection slots={slots} onChanged={() => void loadData()} />
 
       {/* ─── Modais ─────────────────────────────────────────── */}
       {confirmTarget && (
@@ -378,6 +377,8 @@ interface ActiveRequestCardProps {
   onAddPhotos: () => void;
   onSetDueDate: () => void;
   onCancel: () => void;
+  onMarkInProgress: () => void;
+  onMarkCompleted: () => void;
 }
 
 function ActiveRequestCard({
@@ -388,6 +389,8 @@ function ActiveRequestCard({
   onAddPhotos,
   onSetDueDate,
   onCancel,
+  onMarkInProgress,
+  onMarkCompleted,
 }: ActiveRequestCardProps) {
   const reportInputRef = useRef<HTMLInputElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
@@ -453,6 +456,28 @@ function ActiveRequestCard({
               }}
             />
 
+            {(request.status === 'confirmed' || request.status === 'rescheduled') && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={busy}
+                onClick={onMarkInProgress}
+                className="border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+              >
+                <Play className="mr-1.5 h-4 w-4" /> Iniciar inspeção
+              </Button>
+            )}
+            {request.status === 'in_progress' && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={busy}
+                onClick={onMarkCompleted}
+                className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+              >
+                <CheckCircle className="mr-1.5 h-4 w-4" /> Concluir inspeção
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -576,6 +601,7 @@ function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: Confirm
       // 3. Atualizar a solicitação
       await AppointmentAdminService.confirmRequest(request.id, {
         confirmedDate,
+        confirmedTime: confirmedTime || '09:00',
         clientId,
         scheduleId: schedule.id,
         manualDueDate: manualDueDate || undefined,
@@ -971,194 +997,3 @@ function DueDateModal({ request, onClose, onSaved }: DueDateModalProps) {
   );
 }
 
-// ─── Disponibilidade pública (slots) ──────────────────────────
-
-interface PublicAvailabilitySectionProps {
-  slots: AppointmentSlot[];
-  onChanged: () => void;
-}
-
-function PublicAvailabilitySection({ slots, onChanged }: PublicAvailabilitySectionProps) {
-  const [date, setDate] = useState('');
-  const [period, setPeriod] = useState<SlotPeriod>('manha');
-  const [capacity, setCapacity] = useState(1);
-  const [isPublic, setIsPublic] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [busySlotId, setBusySlotId] = useState<string | null>(null);
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!date) return;
-    setSaving(true);
-    try {
-      await AppointmentAdminService.createSlot({ date, period, capacity, isPublic });
-      setDate('');
-      setCapacity(1);
-      onChanged();
-    } catch (err) {
-      console.error(err);
-      alert(`Erro ao criar disponibilidade: ${errorMessage(err)}`);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleTogglePublic = async (slot: AppointmentSlot) => {
-    setBusySlotId(slot.id);
-    try {
-      await AppointmentAdminService.setSlotPublic(slot.id, !slot.is_public);
-      onChanged();
-    } catch (err) {
-      console.error(err);
-      alert(`Erro: ${errorMessage(err)}`);
-    } finally {
-      setBusySlotId(null);
-    }
-  };
-
-  const handleCancelSlot = async (slot: AppointmentSlot) => {
-    if (!confirm('Cancelar esta disponibilidade? Ela deixará de aparecer no portal público.')) return;
-    setBusySlotId(slot.id);
-    try {
-      await AppointmentAdminService.cancelSlot(slot.id);
-      onChanged();
-    } catch (err) {
-      console.error(err);
-      alert(`Erro: ${errorMessage(err)}`);
-    } finally {
-      setBusySlotId(null);
-    }
-  };
-
-  const visibleSlots = slots.filter((s) => s.status !== 'cancelled');
-
-  return (
-    <section>
-      <h2 className="mb-4 flex items-center text-lg font-semibold text-gray-900">
-        <Globe className="mr-2 h-5 w-5 text-primary-600" />
-        Disponibilidade pública
-      </h2>
-
-      <Card className="mb-4 shadow-sm">
-        <CardContent className="p-5">
-          <form onSubmit={handleCreate} className="flex flex-wrap items-end gap-3">
-            <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-gray-600">Data</label>
-              <input
-                type="date"
-                required
-                value={date}
-                min={new Date().toISOString().split('T')[0]}
-                onChange={(e) => setDate(e.target.value)}
-                className="rounded-xl border border-gray-300 p-2.5 text-sm"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-gray-600">Turno</label>
-              <select
-                value={period}
-                onChange={(e) => setPeriod(e.target.value as SlotPeriod)}
-                className="rounded-xl border border-gray-300 bg-white p-2.5 text-sm"
-              >
-                <option value="manha">Manhã</option>
-                <option value="tarde">Tarde</option>
-                <option value="integral">Integral</option>
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-gray-600">Vagas</label>
-              <input
-                type="number"
-                min={1}
-                max={20}
-                value={capacity}
-                onChange={(e) => setCapacity(Math.max(1, Number(e.target.value) || 1))}
-                className="w-20 rounded-xl border border-gray-300 p-2.5 text-sm"
-              />
-            </div>
-            <label className="flex items-center gap-2 pb-2.5 text-sm text-gray-700">
-              <input
-                type="checkbox"
-                checked={isPublic}
-                onChange={(e) => setIsPublic(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-primary-600"
-              />
-              Visível no portal
-            </label>
-            <Button type="submit" size="sm" disabled={saving}>
-              {saving ? (
-                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-              ) : (
-                <CalendarPlus className="mr-1.5 h-4 w-4" />
-              )}
-              Criar
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      {visibleSlots.length === 0 ? (
-        <p className="text-sm text-gray-400">
-          Nenhuma disponibilidade cadastrada. Sem slots, o portal aceita apenas sugestões de data.
-        </p>
-      ) : (
-        <div className="space-y-2">
-          {visibleSlots.map((slot) => (
-            <div
-              key={slot.id}
-              className="flex items-center justify-between rounded-xl border border-gray-100 bg-white p-3"
-            >
-              <div className="flex items-center gap-3 text-sm">
-                {slot.is_public ? (
-                  <Globe className="h-4 w-4 text-green-600" />
-                ) : (
-                  <GlobeLock className="h-4 w-4 text-gray-400" />
-                )}
-                <span className="font-medium text-gray-800">
-                  {slot.starts_at
-                    ? new Date(slot.starts_at).toLocaleDateString('pt-BR', {
-                        weekday: 'short',
-                        day: '2-digit',
-                        month: 'short',
-                      })
-                    : 'Data a combinar'}
-                </span>
-                <span className="text-gray-500">
-                  {slot.period ? PERIOD_LABELS[slot.period] : ''}
-                </span>
-                <span className="text-xs text-gray-400">
-                  {slot.booked_count}/{slot.capacity} reservas
-                </span>
-                {slot.status === 'full' && (
-                  <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold uppercase text-red-600">
-                    Lotado
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={busySlotId === slot.id}
-                  onClick={() => void handleTogglePublic(slot)}
-                  title={slot.is_public ? 'Ocultar do portal' : 'Publicar no portal'}
-                >
-                  {slot.is_public ? <GlobeLock className="h-4 w-4" /> : <Globe className="h-4 w-4" />}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={busySlotId === slot.id}
-                  onClick={() => void handleCancelSlot(slot)}
-                  className="text-red-500 hover:bg-red-50"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </section>
-  );
-}

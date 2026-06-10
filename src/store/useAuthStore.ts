@@ -83,15 +83,23 @@ export const useAuthStore = create<AuthState>()(
           }
         }
 
-        // Listen for future auth state changes
-        supabase.auth.onAuthStateChange(async (event, session) => {
+        // Listen for future auth state changes.
+        // IMPORTANTE: nunca usar await de chamadas Supabase dentro deste callback —
+        // o supabase-js segura o lock de auth durante o dispatch e qualquer
+        // getSession()/query aqui causa deadlock de TODAS as requisições REST.
+        supabase.auth.onAuthStateChange((event, session) => {
           console.log('[Auth] State change event:', event);
           const u = session?.user ?? null;
-          let t: TenantInfo | null = null;
-          if (u) {
-            t = await getCurrentTenant().catch(() => null);
+          set({ user: u });
+          if (!u) {
+            set({ tenantInfo: null });
+            return;
           }
-          set({ user: u, tenantInfo: t });
+          setTimeout(() => {
+            getCurrentTenant()
+              .then((t) => set({ tenantInfo: t }))
+              .catch(() => {});
+          }, 0);
         });
       },
       checkSession: async () => {
