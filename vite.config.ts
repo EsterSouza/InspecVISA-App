@@ -8,13 +8,13 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
+      includeAssets: ['favicon.svg', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
       manifest: {
         name: 'InspecVISA — Inspeção Sanitária',
         short_name: 'InspecVISA',
         description: 'App de roteiro de inspeção sanitária — C&C Consultoria',
-        theme_color: '#1E6B5E',
-        background_color: '#F9FAFB',
+        theme_color: '#06122F',
+        background_color: '#F8FAFC',
         display: 'standalone',
         orientation: 'any',
         start_url: '/',

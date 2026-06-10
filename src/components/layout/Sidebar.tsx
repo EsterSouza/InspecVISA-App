@@ -47,9 +47,11 @@ export function Sidebar() {
       <div className="px-5 pb-4 pt-5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-700 text-sm font-black tracking-tight text-white shadow-sm">
-              IV
-            </div>
+            <img
+              src="/favicon.svg"
+              alt="InspecVISA"
+              className="h-10 w-10 shrink-0 rounded-xl bg-primary-900 shadow-sm"
+            />
             <div className="min-w-0">
               <p className="truncate text-lg font-black tracking-tight text-gray-950">InspecVISA</p>
               <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-gray-400">
