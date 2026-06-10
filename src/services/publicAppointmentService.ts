@@ -10,7 +10,7 @@ import type {
 } from '../types';
 
 const DEFAULT_TENANT_ID = import.meta.env.VITE_DEFAULT_TENANT_ID as string;
-const REQUEST_TIMEOUT_MS = 15000;
+const REQUEST_TIMEOUT_MS = 45000;
 
 function withTimeout<T>(promise: PromiseLike<T>, label: string, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;

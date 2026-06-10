@@ -10,6 +10,7 @@ import {
   MapPin,
   Monitor,
   Phone,
+  RefreshCw,
   Search,
   Send,
   UserRound,
@@ -59,6 +60,7 @@ export function PublicSchedule() {
   const [selectedTime, setSelectedTime] = useState<PublicAvailableTime | null>(null);
   const [calendarLoading, setCalendarLoading] = useState(true);
   const [timesLoading, setTimesLoading] = useState(false);
+  const [calendarReloadKey, setCalendarReloadKey] = useState(0);
 
   const [unitName, setUnitName] = useState('');
   const [selectedClient, setSelectedClient] = useState<PublicClientSuggestion | null>(null);
@@ -89,6 +91,7 @@ export function PublicSchedule() {
       .listCalendarDays()
       .then((data) => {
         if (cancelled) return;
+        setError(null);
         setDays(data);
         const first = data[0]?.day || '';
         setSelectedDay(first);
@@ -103,7 +106,7 @@ export function PublicSchedule() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [calendarReloadKey]);
 
   useEffect(() => {
     if (!selectedDay) {
@@ -166,7 +169,6 @@ export function PublicSchedule() {
   const validate = () => {
     if (!selectedTime) return 'Escolha um horario disponivel.';
     if (!unitName.trim()) return 'Informe o nome da unidade.';
-    if (!phone.trim()) return 'Informe um telefone/WhatsApp para contato.';
     if (attendanceMode === 'presencial') {
       if (!municipality.trim()) return 'Informe o municipio do atendimento presencial.';
       if (!district.trim()) return 'Informe o bairro do atendimento presencial.';
@@ -290,7 +292,20 @@ export function PublicSchedule() {
                 </div>
               ) : days.length === 0 ? (
                 <div className="rounded-md border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
-                  Nao ha horários disponíveis nos próximos dias úteis.
+                  <p>Nao ha horarios disponiveis nos proximos dias uteis.</p>
+                  {error && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setError(null);
+                        setCalendarReloadKey((key) => key + 1);
+                      }}
+                      className="mt-3 inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-primary-700 hover:bg-primary-50"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" />
+                      Tentar novamente
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5">
@@ -477,7 +492,6 @@ export function PublicSchedule() {
                   </label>
                   <input
                     type="tel"
-                    required
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="(21) 00000-0000"
