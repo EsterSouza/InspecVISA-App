@@ -10,7 +10,7 @@ import { getActiveTenantId } from '../utils/localScope';
 
 const PORTAL_BUCKET = 'client-portal-files';
 const INSPECTION_PHOTO_BUCKET = 'inspection-photos';
-const ADMIN_TIMEOUT_MS = 15000;
+const ADMIN_TIMEOUT_MS = 45000;
 
 export interface InspectionPhotoOption {
   photoId: string;
@@ -61,10 +61,12 @@ export const AppointmentAdminService = {
   // ─── Solicitações ──────────────────────────────────────────
 
   async listRequests(): Promise<AppointmentRequest[]> {
+    const tenantId = requireTenantId();
     const { data, error } = await withTimeout(
       supabase
         .from('appointment_requests')
         .select('*')
+        .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false }),
       'Solicitacoes'
     );
@@ -73,10 +75,12 @@ export const AppointmentAdminService = {
   },
 
   async updateRequest(id: string, updates: Partial<AppointmentRequest>): Promise<void> {
+    const tenantId = requireTenantId();
     const { error } = await supabase
       .from('appointment_requests')
       .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq('id', id);
+      .eq('id', id)
+      .eq('tenant_id', tenantId);
     if (error) throw error;
   },
 
@@ -171,9 +175,11 @@ export const AppointmentAdminService = {
   },
 
   async listAttachments(requestId: string): Promise<AppointmentAttachment[]> {
+    const tenantId = requireTenantId();
     const { data, error } = await supabase
       .from('appointment_attachments')
       .select('*')
+      .eq('tenant_id', tenantId)
       .eq('appointment_request_id', requestId)
       .order('created_at', { ascending: false });
     if (error) throw error;
@@ -274,10 +280,12 @@ export const AppointmentAdminService = {
   // ─── Disponibilidade pública (slots) ───────────────────────
 
   async listSlots(): Promise<AppointmentSlot[]> {
+    const tenantId = requireTenantId();
     const { data, error } = await withTimeout(
       supabase
         .from('appointment_slots')
         .select('*')
+        .eq('tenant_id', tenantId)
         .order('starts_at', { ascending: true, nullsFirst: false }),
       'DisponibilidadePublica'
     );
@@ -294,10 +302,10 @@ export const AppointmentAdminService = {
     const tenantId = requireTenantId();
 
     const periodTimes: Record<SlotPeriod, [string, string]> = {
-      manha: ['08:00:00', '12:00:00'],
-      tarde: ['13:00:00', '17:00:00'],
-      noite: ['18:00:00', '21:00:00'],
-      integral: ['08:00:00', '17:00:00'],
+      manha: ['09:30:00', '12:00:00'],
+      tarde: ['13:00:00', '16:00:00'],
+      integral: ['09:30:00', '16:00:00'],
+      noite: ['09:30:00', '16:00:00'],
     };
     const [startTime, endTime] = periodTimes[params.period];
 

@@ -4,7 +4,7 @@ import type { Client, Schedule } from '../types';
 import { formatDateTime, generateId } from '../utils/imageUtils';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
-import { Calendar, Clock, Plus, Trash2, CheckCircle, AlertCircle, User, Play, Edit2, Loader2, WifiOff } from 'lucide-react';
+import { Calendar, Clock, Plus, Trash2, CheckCircle, AlertCircle, User, Play, Edit2, Loader2, WifiOff, Link2, Copy, ExternalLink } from 'lucide-react';
 import { ScheduleService } from '../services/scheduleService';
 import { ClientService } from '../services/clientService';
 import { useAuthStore } from '../store/useAuthStore';
@@ -24,6 +24,7 @@ export function Schedules() {
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   // Form State
   const [selectedClientId, setSelectedClientId] = useState('');
@@ -163,6 +164,18 @@ export function Schedules() {
     }
   };
 
+  const publicScheduleUrl = `${window.location.origin}/agendar`;
+
+  const copyPublicScheduleLink = async () => {
+    try {
+      await navigator.clipboard.writeText(publicScheduleUrl);
+      setLinkCopied(true);
+      window.setTimeout(() => setLinkCopied(false), 2500);
+    } catch {
+      prompt('Copie o link de agendamento:', publicScheduleUrl);
+    }
+  };
+
   const upcomingSchedules = schedules.filter(s => s.status === 'pending');
   const pastSchedules = schedules.filter(s => s.status !== 'pending').slice(0, 10);
 
@@ -187,6 +200,33 @@ export function Schedules() {
             Agendar Visita
           </Button>
         )}
+      </div>
+
+      <div className="mb-6 rounded-2xl border border-primary-100 bg-primary-50/60 p-4 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-sm font-bold text-primary-900">
+              <Link2 className="h-4 w-4 shrink-0" />
+              Link do cliente
+            </div>
+            <p className="mt-1 text-sm text-primary-800">
+              Envie este link para o cliente escolher data e horario disponivel.
+            </p>
+            <div className="mt-2 truncate rounded-lg border border-primary-100 bg-white px-3 py-2 text-xs font-medium text-primary-900">
+              {publicScheduleUrl}
+            </div>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <Button variant="outline" size="sm" onClick={copyPublicScheduleLink} className="border-primary-200 bg-white text-primary-700 hover:bg-primary-50">
+              <Copy className="mr-1.5 h-4 w-4" />
+              {linkCopied ? 'Copiado' : 'Copiar'}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => window.open(publicScheduleUrl, '_blank', 'noopener,noreferrer')} className="text-primary-700 hover:bg-primary-100">
+              <ExternalLink className="mr-1.5 h-4 w-4" />
+              Abrir
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* Abas: agenda interna x solicitações do portal público */}
