@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { initializeDatabase } from './db/database';
 import { getTemplates } from './data/templates';
 import { useSettingsStore } from './store/useSettingsStore';
@@ -24,12 +24,15 @@ const InspectionExecution = lazy(() => import('./pages/InspectionExecution').the
 const InspectionSummary = lazy(() => import('./pages/InspectionSummary').then(m => ({ default: m.InspectionSummary })));
 const AccessDenied = lazy(() => import('./pages/AccessDenied').then(m => ({ default: m.AccessDenied })));
 
-const AdminLayout = lazy(() => import('./components/layout/AdminLayout').then(m => ({ default: m.AdminLayout })));
 const AdminTemplates = lazy(() => import('./pages/admin/AdminTemplates').then(m => ({ default: m.AdminTemplates })));
 const SmartImporter = lazy(() => import('./pages/admin/SmartImporter').then(m => ({ default: m.SmartImporter })));
 const LegislationsManager = lazy(() => import('./pages/admin/LegislationsManager').then(m => ({ default: m.LegislationsManager })));
 const TemplateDetail = lazy(() => import('./pages/TemplateDetail').then(m => ({ default: m.TemplateDetail })));
 const TemplateEditor = lazy(() => import('./pages/admin/TemplateEditor').then(m => ({ default: m.TemplateEditor })));
+
+// Public portal pages (no auth required)
+const PublicSchedule = lazy(() => import('./pages/PublicSchedule').then(m => ({ default: m.PublicSchedule })));
+const PublicAppointmentStatus = lazy(() => import('./pages/PublicAppointmentStatus').then(m => ({ default: m.PublicAppointmentStatus })));
 
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ProfileSelection } from './pages/ProfileSelection';
@@ -53,12 +56,92 @@ function loadSyncQueueModule() {
   return syncQueueModulePromise;
 }
 
-function App() {
-  const [isInitializing, setIsInitializing] = useState(true);
-  const theme = useSettingsStore((s) => s.settings.theme);
+function RouteFallback() {
+  return (
+    <div className="flex h-full min-h-[50vh] items-center justify-center bg-gray-50/50 backdrop-blur-sm">
+      <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+    </div>
+  );
+}
+
+function LoginRoute() {
+  const auth = useAuthStore() as AuthState;
+  if (auth.user) return <Navigate to="/" replace />;
+  return <Login />;
+}
+
+interface InternalAppProps {
+  isInitializing: boolean;
+}
+
+/**
+ * Internal (authenticated) area of the app. Keeps the original layout,
+ * boot loading gate and profile selection flow intact.
+ */
+function InternalApp({ isInitializing }: InternalAppProps) {
   const auth = useAuthStore() as AuthState;
   const user = auth.user;
   const initialized = auth.initialized;
+  const name = useSettingsStore((s) => s.settings.name);
+
+  if (!initialized || isInitializing) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center bg-gray-50">
+        <Loader2 className="h-10 w-10 animate-spin text-primary-600 mb-4" />
+        <p className="text-gray-500 font-medium">Conectando ao InspecVISA...</p>
+      </div>
+    );
+  }
+
+  if (!user) return <Navigate to="/login" replace />;
+  if (!name) return <ProfileSelection />;
+
+  return (
+    <div className="flex h-screen overflow-hidden bg-gray-50 font-sans text-gray-900 antialiased">
+      <div className="hidden lg:block">
+         <Routes>
+           <Route path="/execute" element={null} />
+           <Route path="*" element={<Sidebar />} />
+         </Routes>
+      </div>
+
+      <main className="flex-1 overflow-y-auto w-full relative pb-24 lg:pb-0">
+        <Suspense fallback={<RouteFallback />}>
+          <Routes>
+            <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/clients" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
+            <Route path="/clients/:id" element={<ProtectedRoute><ClientDetails /></ProtectedRoute>} />
+            <Route path="/schedules" element={<ProtectedRoute><Schedules /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+            <Route path="/inspections" element={<ProtectedRoute><Inspections /></ProtectedRoute>} />
+            <Route path="/new" element={<ProtectedRoute><NewInspection /></ProtectedRoute>} />
+            <Route path="/execute" element={<ProtectedRoute><InspectionExecution /></ProtectedRoute>} />
+            <Route path="/summary" element={<ProtectedRoute><InspectionSummary /></ProtectedRoute>} />
+            <Route path="/templates" element={<ProtectedRoute><AdminTemplates /></ProtectedRoute>} />
+            <Route path="/templates/new" element={<ProtectedRoute><TemplateEditor /></ProtectedRoute>} />
+            <Route path="/templates/import" element={<ProtectedRoute><SmartImporter /></ProtectedRoute>} />
+            <Route path="/templates/:id" element={<ProtectedRoute><TemplateDetail /></ProtectedRoute>} />
+            <Route path="/templates/:id/edit" element={<ProtectedRoute><TemplateEditor /></ProtectedRoute>} />
+            <Route path="/legislations" element={<ProtectedRoute><LegislationsManager /></ProtectedRoute>} />
+            <Route path="/sync" element={<ProtectedRoute><SyncCenter /></ProtectedRoute>} />
+            <Route path="/access-denied" element={<AccessDenied />} />
+          </Routes>
+        </Suspense>
+      </main>
+
+      <div className="lg:hidden">
+        <Routes>
+           <Route path="/execute" element={null} />
+           <Route path="*" element={<BottomNav />} />
+        </Routes>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [isInitializing, setIsInitializing] = useState(true);
+  const theme = useSettingsStore((s) => s.settings.theme);
 
   useEffect(() => {
     if (theme === 'dark') {
@@ -201,9 +284,9 @@ function App() {
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
 
-    return () => { 
-      didCancel = true; 
-      clearTimeout(safetyTimer); 
+    return () => {
+      didCancel = true;
+      clearTimeout(safetyTimer);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, []);
@@ -213,75 +296,41 @@ function App() {
     // We could add a global listener for online/offline here if needed for UI
     const handleOnline = () => console.log('🌐 App Online');
     const handleOffline = () => console.log('🚫 App Offline');
-    
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-    
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
-  const name = useSettingsStore((s) => s.settings.name);
-
-  if (!initialized || isInitializing) {
-    return (
-      <div className="flex h-screen flex-col items-center justify-center bg-gray-50">
-        <Loader2 className="h-10 w-10 animate-spin text-primary-600 mb-4" />
-        <p className="text-gray-500 font-medium">Conectando ao InspecVISA...</p>
-      </div>
-    );
-  }
-
-  if (!user) return <Login />;
-  if (!name) return <ProfileSelection />;
-
   return (
     <BrowserRouter>
-      <div className="flex h-screen overflow-hidden bg-gray-50 font-sans text-gray-900 antialiased">
-        <div className="hidden lg:block">
-           <Routes>
-             <Route path="/execute" element={null} />
-             <Route path="*" element={<Sidebar />} />
-           </Routes>
-        </div>
+      <Routes>
+        {/* Public routes — no authentication required */}
+        <Route
+          path="/agendar"
+          element={
+            <Suspense fallback={<RouteFallback />}>
+              <PublicSchedule />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/portal/:token"
+          element={
+            <Suspense fallback={<RouteFallback />}>
+              <PublicAppointmentStatus />
+            </Suspense>
+          }
+        />
+        <Route path="/login" element={<LoginRoute />} />
 
-        <main className="flex-1 overflow-y-auto w-full relative pb-24 lg:pb-0">
-          <Suspense fallback={
-            <div className="flex h-full items-center justify-center bg-gray-50/50 backdrop-blur-sm">
-              <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
-            </div>
-          }>
-            <Routes>
-              <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="/clients" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
-              <Route path="/clients/:id" element={<ProtectedRoute><ClientDetails /></ProtectedRoute>} />
-              <Route path="/schedules" element={<ProtectedRoute><Schedules /></ProtectedRoute>} />
-              <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-              <Route path="/inspections" element={<Inspections />} />
-              <Route path="/new" element={<NewInspection />} />
-              <Route path="/execute" element={<InspectionExecution />} />
-              <Route path="/summary" element={<InspectionSummary />} />
-              <Route path="/templates" element={<AdminTemplates />} />
-              <Route path="/templates/new" element={<TemplateEditor />} />
-              <Route path="/templates/import" element={<SmartImporter />} />
-              <Route path="/templates/:id" element={<TemplateDetail />} />
-              <Route path="/templates/:id/edit" element={<TemplateEditor />} />
-              <Route path="/legislations" element={<LegislationsManager />} />
-              <Route path="/sync" element={<ProtectedRoute><SyncCenter /></ProtectedRoute>} />
-              <Route path="/access-denied" element={<AccessDenied />} />
-            </Routes>
-          </Suspense>
-        </main>
-
-        <div className="lg:hidden">
-          <Routes>
-             <Route path="/execute" element={null} />
-             <Route path="*" element={<BottomNav />} />
-          </Routes>
-        </div>
-      </div>
+        {/* Internal (protected) area */}
+        <Route path="*" element={<InternalApp isInitializing={isInitializing} />} />
+      </Routes>
     </BrowserRouter>
   );
 }

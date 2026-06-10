@@ -9,10 +9,14 @@ import { ScheduleService } from '../services/scheduleService';
 import { ClientService } from '../services/clientService';
 import { useAuthStore } from '../store/useAuthStore';
 import { getLocalActor } from '../utils/localActor';
+import { AppointmentRequestsPanel } from '../components/schedules/AppointmentRequestsPanel';
+
+type SchedulesTab = 'agenda' | 'solicitacoes';
 
 export function Schedules() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const [activeTab, setActiveTab] = useState<SchedulesTab>('agenda');
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -172,17 +176,48 @@ export function Schedules() {
 
   return (
     <div className="mx-auto max-w-4xl p-4 sm:p-6 lg:p-8">
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Agendamentos</h1>
           <p className="text-sm text-gray-500">Organize suas próximas inspeções e auditorias.</p>
         </div>
-        <Button onClick={() => { resetForm(); setIsModalOpen(true); }}>
-          <Plus className="mr-2 h-4 w-4" />
-          Agendar Visita
-        </Button>
+        {activeTab === 'agenda' && (
+          <Button onClick={() => { resetForm(); setIsModalOpen(true); }}>
+            <Plus className="mr-2 h-4 w-4" />
+            Agendar Visita
+          </Button>
+        )}
       </div>
 
+      {/* Abas: agenda interna x solicitações do portal público */}
+      <div className="mb-8 flex gap-1 rounded-xl bg-gray-100 p-1">
+        <button
+          type="button"
+          onClick={() => setActiveTab('agenda')}
+          className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
+            activeTab === 'agenda'
+              ? 'bg-white text-primary-700 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Agenda
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('solicitacoes')}
+          className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
+            activeTab === 'solicitacoes'
+              ? 'bg-white text-primary-700 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Solicitações
+        </button>
+      </div>
+
+      {activeTab === 'solicitacoes' ? (
+        <AppointmentRequestsPanel />
+      ) : (
       <div className="space-y-8">
         <section>
           <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
@@ -262,6 +297,7 @@ export function Schedules() {
           </section>
         )}
       </div>
+      )}
 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">

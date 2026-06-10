@@ -336,3 +336,101 @@ export interface SyncLog {
   message: string;
   details?: any;
 }
+
+// ─── Portal Público ───────────────────────────────────────────────────────────
+
+export type SlotPeriod = 'manha' | 'tarde' | 'noite' | 'integral';
+export type SlotStatus = 'available' | 'blocked' | 'full' | 'cancelled';
+export type AppointmentStatus =
+  | 'requested'
+  | 'confirmed'
+  | 'in_progress'
+  | 'rescheduled'
+  | 'completed'
+  | 'report_available'
+  | 'cancelled';
+export type AttachmentKind = 'report_pdf' | 'photo' | 'attachment';
+export type ReportDueSource = 'business_days' | 'manual';
+
+export interface AppointmentSlot {
+  id: string;
+  tenant_id: string;
+  starts_at: string | null;
+  ends_at: string | null;
+  period: SlotPeriod | null;
+  capacity: number;
+  booked_count: number;
+  is_public: boolean;
+  status: SlotStatus;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  spots_left?: number; // calculado: capacity - booked_count
+}
+
+export interface AppointmentRequest {
+  id: string;
+  tenant_id: string;
+  slot_id: string | null;
+  client_id: string | null;
+  schedule_id: string | null;
+  inspection_id: string | null;
+  public_token: string;
+  unit_name: string;
+  district: string;
+  responsible_name: string | null;
+  phone: string | null;
+  email: string | null;
+  requested_date: string | null;
+  requested_period: string | null;
+  requested_time: string | null;
+  status: AppointmentStatus;
+  report_due_at: string | null;
+  report_due_source: ReportDueSource | null;
+  report_pdf_path: string | null;
+  notes: string | null;
+  internal_notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AppointmentAttachment {
+  id: string;
+  tenant_id: string;
+  appointment_request_id: string;
+  inspection_id: string | null;
+  kind: AttachmentKind;
+  storage_bucket: string;
+  storage_path: string;
+  file_name: string | null;
+  mime_type: string | null;
+  caption: string | null;
+  signed_url?: string; // preenchido pelo serviço, nunca expor storage_path bruto ao cliente
+  created_at: string;
+}
+
+export interface PublicAppointmentPayload {
+  tenant_id: string;
+  slot_id?: string;
+  unit_name: string;
+  district: string;
+  responsible_name?: string;
+  phone: string;
+  email?: string;
+  requested_date?: string;
+  requested_period?: string;
+  notes?: string;
+}
+
+export interface PublicAppointmentStatusResult {
+  id: string;
+  unit_name: string;
+  district: string;
+  status: AppointmentStatus;
+  requested_date: string | null;
+  requested_period: string | null;
+  report_due_at: string | null;
+  report_due_source: ReportDueSource | null;
+  created_at: string;
+  updated_at: string;
+}
