@@ -7,7 +7,22 @@ import type {
   PublicCalendarDay,
 } from '../types';
 
-const DEFAULT_TENANT_ID = import.meta.env.VITE_DEFAULT_TENANT_ID as string;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function cleanTenantId(value: unknown): string {
+  const cleaned = String(value ?? '')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .trim()
+    .replace(/^['"]|['"]$/g, '');
+
+  if (!UUID_RE.test(cleaned)) {
+    console.warn('[PublicAppointment] VITE_DEFAULT_TENANT_ID invalido ou ausente.');
+  }
+
+  return cleaned;
+}
+
+const DEFAULT_TENANT_ID = cleanTenantId(import.meta.env.VITE_DEFAULT_TENANT_ID);
 const REQUEST_TIMEOUT_MS = 45000;
 
 function withTimeout<T>(promise: PromiseLike<T>, label: string, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
