@@ -19,6 +19,9 @@ export interface ClientPortalVisit {
   requested_date: string | null;
   requested_time: string | null;
   report_due_at: string | null;
+  report_count?: number;
+  photo_count?: number;
+  attachment_count?: number;
   created_at: string;
 }
 
@@ -26,6 +29,7 @@ export interface ClientPortalUnit {
   client_id: string;
   client_name: string;
   city: string | null;
+  state: string | null;
   visits: ClientPortalVisit[];
 }
 

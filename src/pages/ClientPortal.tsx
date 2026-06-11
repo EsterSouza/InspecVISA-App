@@ -5,11 +5,14 @@ import {
   CalendarDays,
   CalendarPlus,
   ClipboardCheck,
+  FileText,
+  Image,
   KeyRound,
   Loader2,
   LogOut,
   Mail,
   MapPin,
+  Paperclip,
 } from 'lucide-react';
 import { PublicHeader } from '../components/public/PublicHeader';
 import {
@@ -36,6 +39,28 @@ const STATUS_BADGES: Record<string, string> = {
   report_available: 'bg-green-100 text-green-700',
   cancelled: 'bg-gray-100 text-gray-500',
 };
+
+const ACTIVE_VISIT_STATUSES = new Set(['requested', 'confirmed', 'in_progress', 'rescheduled', 'completed']);
+const CALENDAR_WEEKDAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'];
+
+function parseLocalDate(value: string): Date {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function toDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function formatMonthTitle(value: string): string {
+  return parseLocalDate(`${value}-01`).toLocaleDateString('pt-BR', {
+    month: 'long',
+    year: 'numeric',
+  });
+}
 
 function formatDateBR(value: string | null): string {
   if (!value) return 'A confirmar';
@@ -182,11 +207,28 @@ export function ClientPortal() {
 
   // ─── Painel do cliente ───────────────────────────────────────
   const totalVisits = overview.units.reduce((sum, u) => sum + u.visits.length, 0);
+  const allVisits = overview.units.flatMap((unit) =>
+    unit.visits.map((visit) => ({ ...visit, unitName: unit.client_name, city: unit.city }))
+  );
+  const activeVisits = allVisits.filter((visit) => ACTIVE_VISIT_STATUSES.has(visit.status)).length;
+  const reportCount = allVisits.reduce((sum, visit) => sum + (visit.report_count || 0), 0);
+  const photoCount = allVisits.reduce((sum, visit) => sum + (visit.photo_count || 0), 0);
+  const attachmentCount = allVisits.reduce((sum, visit) => sum + (visit.attachment_count || 0), 0);
+  const visitsByDate = new Map<string, typeof allVisits>();
+  for (const visit of allVisits) {
+    if (!visit.requested_date) continue;
+    const list = visitsByDate.get(visit.requested_date) || [];
+    list.push(visit);
+    visitsByDate.set(visit.requested_date, list);
+  }
+  const monthKeys = Array.from(
+    new Set(allVisits.map((visit) => visit.requested_date?.slice(0, 7)).filter(Boolean) as string[])
+  ).sort();
 
   return (
     <div className="min-h-screen bg-gray-50">
       <PublicHeader />
-      <main className="mx-auto max-w-3xl px-4 py-8 pb-16">
+      <main className="mx-auto max-w-6xl px-4 py-8 pb-16 sm:px-6">
         <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-2xl font-bold text-gray-950">{overview.account_name}</h2>
@@ -204,6 +246,25 @@ export function ClientPortal() {
           </button>
         </div>
 
+        <div className="mb-6 grid gap-3 sm:grid-cols-4">
+          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-bold uppercase text-gray-400">Em acompanhamento</p>
+            <p className="mt-1 text-2xl font-black text-gray-950">{activeVisits}</p>
+          </div>
+          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-bold uppercase text-gray-400">Relatorios</p>
+            <p className="mt-1 text-2xl font-black text-gray-950">{reportCount}</p>
+          </div>
+          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-bold uppercase text-gray-400">Fotos</p>
+            <p className="mt-1 text-2xl font-black text-gray-950">{photoCount}</p>
+          </div>
+          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-bold uppercase text-gray-400">Anexos</p>
+            <p className="mt-1 text-2xl font-black text-gray-950">{attachmentCount}</p>
+          </div>
+        </div>
+
         <Link
           to="/agendar"
           className="mb-8 flex w-full items-center justify-center gap-2 rounded-md bg-primary-700 px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-800"
@@ -211,6 +272,81 @@ export function ClientPortal() {
           <CalendarPlus className="h-4 w-4" />
           Agendar nova inspeção
         </Link>
+
+        <section className="mb-8 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-gray-700">
+            <CalendarDays className="h-4 w-4 text-primary-700" />
+            Calendario de inspeções
+          </h3>
+          {monthKeys.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-5 text-sm text-gray-500">
+              Nenhuma inspeção agendada ainda.
+            </p>
+          ) : (
+            <div className="space-y-7">
+              {monthKeys.map((month) => {
+                const monthStart = parseLocalDate(`${month}-01`);
+                const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+                const start = new Date(monthStart);
+                const end = new Date(monthEnd);
+                start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+                end.setDate(end.getDate() + (6 - ((end.getDay() + 6) % 7)));
+                const cells: Date[] = [];
+                for (const cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
+                  cells.push(new Date(cursor));
+                }
+                return (
+                  <div key={month}>
+                    <p className="mb-2 text-sm font-bold capitalize text-gray-900">{formatMonthTitle(month)}</p>
+                    <div className="grid grid-cols-7 gap-1.5 text-center text-[11px] font-bold uppercase text-gray-400 sm:gap-2">
+                      {CALENDAR_WEEKDAYS.map((label) => (
+                        <div key={label} className="py-1">{label}</div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+                      {cells.map((date) => {
+                        const key = toDateKey(date);
+                        const visits = visitsByDate.get(key) || [];
+                        const inMonth = key.startsWith(month);
+                        return (
+                          <div
+                            key={key}
+                            className={`min-h-[86px] rounded-md border p-1.5 sm:min-h-[104px] sm:p-2 ${
+                              visits.length > 0
+                                ? 'border-primary-200 bg-primary-50/60'
+                                : inMonth
+                                  ? 'border-gray-100 bg-white'
+                                  : 'border-transparent bg-transparent'
+                            }`}
+                          >
+                            <p className={`text-base font-black leading-none ${inMonth ? 'text-gray-900' : 'text-gray-200'}`}>
+                              {date.getDate()}
+                            </p>
+                            <div className="mt-2 space-y-1">
+                              {visits.slice(0, 2).map((visit) => (
+                                <Link
+                                  key={visit.public_token}
+                                  to={`/portal/${visit.public_token}`}
+                                  className="block truncate rounded bg-white/80 px-1.5 py-1 text-[10px] font-semibold text-primary-900 shadow-sm"
+                                  title={`${visit.unitName} - ${STATUS_LABELS[visit.status] || visit.status}`}
+                                >
+                                  {visit.requested_time ? `${visit.requested_time} ` : ''}{visit.unitName}
+                                </Link>
+                              ))}
+                              {visits.length > 2 && (
+                                <p className="text-[10px] font-semibold text-primary-700">+{visits.length - 2}</p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
 
         {overview.units.length === 0 ? (
           <div className="rounded-xl border border-dashed border-gray-200 bg-white p-8 text-center text-sm text-gray-500">
@@ -251,6 +387,23 @@ export function ClientPortal() {
                           <span className="min-w-0 flex-1 text-sm font-medium text-gray-800">
                             {formatDateBR(visit.requested_date)}
                             {visit.requested_time ? ` às ${visit.requested_time}` : ''}
+                          </span>
+                          <span className="hidden flex-wrap items-center gap-2 text-[11px] text-gray-500 sm:flex">
+                            {(visit.report_count || 0) > 0 && (
+                              <span className="inline-flex items-center gap-1">
+                                <FileText className="h-3 w-3" /> {visit.report_count}
+                              </span>
+                            )}
+                            {(visit.photo_count || 0) > 0 && (
+                              <span className="inline-flex items-center gap-1">
+                                <Image className="h-3 w-3" /> {visit.photo_count}
+                              </span>
+                            )}
+                            {(visit.attachment_count || 0) > 0 && (
+                              <span className="inline-flex items-center gap-1">
+                                <Paperclip className="h-3 w-3" /> {visit.attachment_count}
+                              </span>
+                            )}
                           </span>
                           <span
                             className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${

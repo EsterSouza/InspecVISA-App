@@ -10,6 +10,7 @@ import {
   Inbox,
   KeyRound,
   Loader2,
+  Mail,
   MapPin,
   Paperclip,
   Pencil,
@@ -1192,10 +1193,34 @@ interface PortalAccountsSectionProps {
 function PortalAccountsSection({ accounts, clients, onChanged }: PortalAccountsSectionProps) {
   const [showCreate, setShowCreate] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [newCode, setNewCode] = useState<{ email: string; code: string } | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [newCode, setNewCode] = useState<{
+    email: string;
+    code: string;
+    accountName: string;
+    unitCount: number;
+    emailSent: boolean;
+    emailError?: string;
+  } | null>(null);
   const [editTarget, setEditTarget] = useState<ClientPortalAccountRow | null>(null);
 
   const portalUrl = `${window.location.origin}/cliente`;
+  const clientNameMap = new Map(clients.map((client) => [client.id, client.name]));
+
+  const sendAccessEmail = async (params: {
+    email: string;
+    code: string;
+    accountName: string;
+    unitCount: number;
+  }) => {
+    await AppointmentAdminService.sendPortalAccessEmail({
+      email: params.email,
+      code: params.code,
+      accountName: params.accountName,
+      portalUrl,
+      unitCount: params.unitCount,
+    });
+  };
 
   const handleRegenerate = async (account: ClientPortalAccountRow) => {
     if (!confirm(`Gerar um novo código de acesso para "${account.name}"? O código atual deixa de funcionar.`)) return;
@@ -1203,7 +1228,27 @@ function PortalAccountsSection({ accounts, clients, onChanged }: PortalAccountsS
     try {
       const code = generateAccessCode();
       await AppointmentAdminService.setPortalAccessCode(account.id, code);
-      setNewCode({ email: account.email, code });
+      let emailSent = false;
+      let emailError: string | undefined;
+      try {
+        await sendAccessEmail({
+          email: account.email,
+          code,
+          accountName: account.name,
+          unitCount: account.client_ids.length,
+        });
+        emailSent = true;
+      } catch (err) {
+        emailError = errorMessage(err);
+      }
+      setNewCode({
+        email: account.email,
+        code,
+        accountName: account.name,
+        unitCount: account.client_ids.length,
+        emailSent,
+        emailError,
+      });
     } catch (err) {
       alert(`Erro: ${errorMessage(err)}`);
     } finally {
@@ -1253,13 +1298,33 @@ function PortalAccountsSection({ accounts, clients, onChanged }: PortalAccountsS
               key={account.id}
               className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-100 bg-white p-3"
             >
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold text-gray-900">{account.name}</p>
                 <p className="truncate text-xs text-gray-500">
                   {account.email} · {account.client_ids.length} unidade{account.client_ids.length === 1 ? '' : 's'}
                 </p>
+                <p className="mt-1 max-w-2xl truncate text-xs text-gray-500">
+                  Unidades: {account.client_ids.map((id) => clientNameMap.get(id) || id).join(', ')}
+                </p>
               </div>
               <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={busyId === account.id}
+                  onClick={() => {
+                    void navigator.clipboard
+                      .writeText(`Portal do Cliente: ${portalUrl}\nE-mail: ${account.email}`)
+                      .then(() => {
+                        setCopiedId(account.id);
+                        window.setTimeout(() => setCopiedId(null), 2000);
+                      })
+                      .catch(() => {});
+                  }}
+                  title={copiedId === account.id ? 'Link copiado' : 'Copiar link de acesso ao portal'}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1276,7 +1341,7 @@ function PortalAccountsSection({ accounts, clients, onChanged }: PortalAccountsS
                   onClick={() => void handleRegenerate(account)}
                   title="Gerar novo código de acesso"
                 >
-                  <KeyRound className="h-4 w-4" />
+                  {busyId === account.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
                 </Button>
                 <Button
                   variant="ghost"
@@ -1298,9 +1363,17 @@ function PortalAccountsSection({ accounts, clients, onChanged }: PortalAccountsS
         <CreatePortalAccountModal
           clients={clients}
           onClose={() => setShowCreate(false)}
-          onCreated={(email, code) => {
+          onCreated={async (email, code, accountName, unitCount) => {
             setShowCreate(false);
-            setNewCode({ email, code });
+            let emailSent = false;
+            let emailError: string | undefined;
+            try {
+              await sendAccessEmail({ email, code, accountName, unitCount });
+              emailSent = true;
+            } catch (err) {
+              emailError = errorMessage(err);
+            }
+            setNewCode({ email, code, accountName, unitCount, emailSent, emailError });
             onChanged();
           }}
         />
@@ -1315,10 +1388,23 @@ function PortalAccountsSection({ accounts, clients, onChanged }: PortalAccountsS
                 Envie ao cliente. Por segurança, ele não poderá ser consultado depois — apenas
                 gerado novamente.
               </p>
+              <div className={`mt-3 rounded-md border p-2 text-xs ${
+                newCode.emailSent
+                  ? 'border-green-100 bg-green-50 text-green-700'
+                  : 'border-amber-100 bg-amber-50 text-amber-800'
+              }`}>
+                {newCode.emailSent
+                  ? 'E-mail enviado automaticamente para o cliente.'
+                  : `E-mail nao enviado. ${newCode.emailError || 'Copie os dados e envie manualmente.'}`}
+              </div>
               <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <p className="text-xs font-semibold text-gray-500">{newCode.accountName}</p>
                 <p className="text-xs text-gray-400">{newCode.email}</p>
                 <p className="mt-1 font-mono text-2xl font-bold tracking-widest text-gray-900">
                   {newCode.code}
+                </p>
+                <p className="mt-2 text-xs text-gray-400">
+                  {newCode.unitCount} unidade{newCode.unitCount === 1 ? '' : 's'} vinculada{newCode.unitCount === 1 ? '' : 's'}
                 </p>
               </div>
               <Button
@@ -1459,7 +1545,7 @@ function EditPortalUnitsModal({ account, clients, onClose, onSaved }: EditPortal
 interface CreatePortalAccountModalProps {
   clients: Client[];
   onClose: () => void;
-  onCreated: (email: string, code: string) => void;
+  onCreated: (email: string, code: string, accountName: string, unitCount: number) => void | Promise<void>;
 }
 
 function CreatePortalAccountModal({ clients, onClose, onCreated }: CreatePortalAccountModalProps) {
@@ -1502,7 +1588,7 @@ function CreatePortalAccountModal({ clients, onClose, onCreated }: CreatePortalA
         code,
         clientIds: [...selectedIds],
       });
-      onCreated(email.trim().toLowerCase(), code);
+      await onCreated(email.trim().toLowerCase(), code, name.trim(), selectedIds.size);
     } catch (err) {
       setError(errorMessage(err));
     } finally {

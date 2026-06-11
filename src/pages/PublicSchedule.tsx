@@ -21,7 +21,6 @@ import { clientPortalService, type ClientPortalUnit } from '../services/clientPo
 import { PublicHeader } from '../components/public/PublicHeader';
 import { formatProtocol } from '../utils/protocol';
 
-const WEEKDAY_LABELS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex'];
 const RIO_MUNICIPALITIES = [
   'Rio de Janeiro',
   'Niteroi',
@@ -37,17 +36,49 @@ const RIO_MUNICIPALITIES = [
   'Marica',
 ];
 
-function formatDay(value: string): string {
+const CALENDAR_WEEKDAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'];
+const ACTIVE_VISIT_STATUSES = new Set(['requested', 'confirmed', 'in_progress', 'rescheduled', 'completed']);
+
+function parseLocalDate(value: string): Date {
   const [year, month, day] = value.split('-').map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: 'short',
-  });
+  return new Date(year, month - 1, day);
+}
+
+function toDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function monthKey(value: string): string {
+  return value.slice(0, 7);
+}
+
+function formatMonthTitle(value: string): string {
+  const date = parseLocalDate(`${value}-01`);
+  return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+}
+
+function isRioState(value: string | null | undefined): boolean {
+  const normalized = (value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toUpperCase();
+  return normalized === 'RJ' || normalized === 'RIO DE JANEIRO';
+}
+
+function isActiveVisit(visit: { status: string; requested_date: string | null }): boolean {
+  return !!visit.requested_date && ACTIVE_VISIT_STATUSES.has(visit.status);
+}
+
+function formatDay(value: string): string {
+  return String(parseLocalDate(value).getDate()).padStart(2, '0');
 }
 
 function formatFullDay(value: string): string {
-  const [year, month, day] = value.split('-').map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString('pt-BR', {
+  return parseLocalDate(value).toLocaleDateString('pt-BR', {
     weekday: 'long',
     day: '2-digit',
     month: 'long',
@@ -88,6 +119,70 @@ export function PublicSchedule() {
   );
 
   const portalMode = !!portalToken && portalUnits.length > 0;
+  const selectedUnit = useMemo(
+    () => portalUnits.find((unit) => unit.client_id === selectedClientId) || null,
+    [portalUnits, selectedClientId]
+  );
+  const selectedMonth = selectedDay ? monthKey(selectedDay) : '';
+  const selectedUnitAllowsInPerson = !portalMode || isRioState(selectedUnit?.state);
+  const unitBlockedInSelectedMonth = useMemo(() => {
+    if (!portalMode || !selectedMonth) return new Set<string>();
+    return new Set(
+      portalUnits
+        .filter((unit) =>
+          unit.visits.some((visit) => isActiveVisit(visit) && monthKey(visit.requested_date!) === selectedMonth)
+        )
+        .map((unit) => unit.client_id)
+    );
+  }, [portalMode, portalUnits, selectedMonth]);
+  const selectedUnitBlockedInMonth = !!selectedClientId && unitBlockedInSelectedMonth.has(selectedClientId);
+  const dayAvailability = useMemo(() => new Map(days.map((day) => [day.day, day])), [days]);
+  const portalVisitsByDay = useMemo(() => {
+    const map = new Map<string, ClientPortalUnit[]>();
+    for (const unit of portalUnits) {
+      for (const visit of unit.visits) {
+        if (!isActiveVisit(visit)) continue;
+        const list = map.get(visit.requested_date!) || [];
+        list.push(unit);
+        map.set(visit.requested_date!, list);
+      }
+    }
+    return map;
+  }, [portalUnits]);
+  const calendarCells = useMemo(() => {
+    if (days.length === 0) return [];
+    const first = parseLocalDate(days[0].day);
+    const last = parseLocalDate(days[days.length - 1].day);
+    const start = new Date(first.getFullYear(), first.getMonth(), 1);
+    const end = new Date(last.getFullYear(), last.getMonth() + 1, 0);
+    start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+    end.setDate(end.getDate() + (6 - ((end.getDay() + 6) % 7)));
+
+    const cells: Array<{
+      key: string;
+      date: Date;
+      inRange: boolean;
+      month: string;
+      available?: PublicCalendarDay;
+      bookings: ClientPortalUnit[];
+    }> = [];
+    for (const cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
+      const key = toDateKey(cursor);
+      cells.push({
+        key,
+        date: new Date(cursor),
+        inRange: cursor >= first && cursor <= last,
+        month: monthKey(key),
+        available: dayAvailability.get(key),
+        bookings: portalVisitsByDay.get(key) || [],
+      });
+    }
+    return cells;
+  }, [dayAvailability, days, portalVisitsByDay]);
+  const calendarMonths = useMemo(
+    () => Array.from(new Set(calendarCells.map((cell) => cell.month))),
+    [calendarCells]
+  );
 
   // Detecta sessão do portal do cliente e carrega só as unidades vinculadas.
   useEffect(() => {
@@ -114,6 +209,20 @@ export function PublicSchedule() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!portalMode || !selectedMonth) return;
+    if (selectedClientId && !unitBlockedInSelectedMonth.has(selectedClientId)) return;
+    const nextUnit = portalUnits.find((unit) => !unitBlockedInSelectedMonth.has(unit.client_id));
+    setSelectedClientId(nextUnit?.client_id || '');
+    if (nextUnit?.city) setMunicipality(nextUnit.city);
+  }, [portalMode, portalUnits, selectedClientId, selectedMonth, unitBlockedInSelectedMonth]);
+
+  useEffect(() => {
+    if (portalMode && !selectedUnitAllowsInPerson && attendanceMode === 'presencial') {
+      setAttendanceMode('online');
+    }
+  }, [attendanceMode, portalMode, selectedUnitAllowsInPerson]);
 
   useEffect(() => {
     let cancelled = false;
@@ -171,6 +280,10 @@ export function PublicSchedule() {
     if (!selectedTime) return 'Escolha um horario disponivel.';
     if (portalMode) {
       if (!selectedClientId) return 'Selecione a unidade.';
+      if (selectedUnitBlockedInMonth) return 'Esta unidade ja possui uma vistoria marcada neste mes.';
+      if (attendanceMode === 'presencial' && !selectedUnitAllowsInPerson) {
+        return 'Vistoria presencial esta disponivel apenas para unidades cadastradas no RJ.';
+      }
     } else if (!unitName.trim()) {
       return 'Informe o nome da unidade.';
     }
@@ -294,16 +407,26 @@ export function PublicSchedule() {
   return (
     <div className="min-h-screen bg-white">
       <PublicHeader />
-      <main className="mx-auto max-w-5xl px-4 py-8 pb-16">
+      <main className="mx-auto max-w-7xl px-4 py-8 pb-16 sm:px-6">
         <div className="mb-7">
-          <h2 className="text-2xl font-bold text-gray-950">Agendar inspeção</h2>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <h2 className="text-2xl font-bold text-gray-950">Agendar inspeção</h2>
+            {portalMode && (
+              <Link
+                to="/cliente"
+                className="inline-flex items-center justify-center rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Voltar ao painel do cliente
+              </Link>
+            )}
+          </div>
           <p className="mt-1 text-sm text-gray-500">
             Escolha uma data útil e um horário entre 09h30 e 16h. A agenda é limitada e os
             horários ocupados já são removidos automaticamente.
           </p>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)]">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(420px,0.8fr)]">
           <section className="space-y-4">
             <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
               <div className="mb-4 flex items-center justify-between">
@@ -336,30 +459,71 @@ export function PublicSchedule() {
                   )}
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5">
-                  {days.map((day) => {
-                    const selected = selectedDay === day.day;
-                    return (
-                      <button
-                        key={day.day}
-                        type="button"
-                        onClick={() => setSelectedDay(day.day)}
-                        className={`rounded-md border p-3 text-left transition-all ${
-                          selected
-                            ? 'border-primary-700 bg-primary-50 text-primary-950 ring-2 ring-primary-100'
-                            : 'border-gray-200 bg-white text-gray-800 hover:border-primary-300'
-                        }`}
-                      >
-                        <p className="text-xs font-bold uppercase text-gray-400">
-                          {WEEKDAY_LABELS[day.weekday - 1] || ''}
+                <div className="space-y-6">
+                  {calendarMonths.map((calendarMonth) => (
+                    <div key={calendarMonth}>
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <p className="text-sm font-bold capitalize text-gray-900">
+                          {formatMonthTitle(calendarMonth)}
                         </p>
-                        <p className="mt-1 text-base font-black capitalize">{formatDay(day.day)}</p>
-                        <p className="mt-1 text-xs font-medium text-primary-700">
-                          {day.available_count} horário{day.available_count === 1 ? '' : 's'}
-                        </p>
-                      </button>
-                    );
-                  })}
+                        {portalMode && (
+                          <p className="text-xs text-gray-400">Ponto azul: vistoria já marcada</p>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-7 gap-1.5 text-center text-[11px] font-bold uppercase text-gray-400 sm:gap-2">
+                        {CALENDAR_WEEKDAYS.map((label) => (
+                          <div key={label} className="py-1">{label}</div>
+                        ))}
+                      </div>
+                      <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+                        {calendarCells
+                          .filter((cell) => cell.month === calendarMonth)
+                          .map((cell) => {
+                            const selected = selectedDay === cell.key;
+                            const available = !!cell.available;
+                            const hasBooking = cell.bookings.length > 0;
+                            return (
+                              <button
+                                key={cell.key}
+                                type="button"
+                                disabled={!available}
+                                onClick={() => available && setSelectedDay(cell.key)}
+                                className={`min-h-[72px] rounded-md border p-1.5 text-left transition-all sm:min-h-[86px] sm:p-2 ${
+                                  selected
+                                    ? 'border-primary-700 bg-primary-50 text-primary-950 ring-2 ring-primary-100'
+                                    : available
+                                      ? 'border-gray-200 bg-white text-gray-800 hover:border-primary-300'
+                                      : cell.inRange
+                                        ? 'border-gray-100 bg-gray-50 text-gray-300'
+                                        : 'border-transparent bg-transparent text-gray-200'
+                                }`}
+                              >
+                                <div className="flex items-start justify-between gap-1">
+                                  <span className="text-base font-black leading-none sm:text-lg">
+                                    {cell.date.getDate()}
+                                  </span>
+                                  {hasBooking && (
+                                    <span className="mt-0.5 h-2 w-2 rounded-full bg-primary-700" />
+                                  )}
+                                </div>
+                                {available ? (
+                                  <p className="mt-2 text-[10px] font-semibold leading-tight text-primary-700 sm:text-xs">
+                                    {cell.available!.available_count} horário{cell.available!.available_count === 1 ? '' : 's'}
+                                  </p>
+                                ) : cell.inRange ? (
+                                  <p className="mt-2 text-[10px] leading-tight text-gray-300">sem vaga</p>
+                                ) : null}
+                                {portalMode && hasBooking && (
+                                  <p className="mt-1 truncate text-[10px] font-semibold leading-tight text-gray-500">
+                                    {cell.bookings.length} marcada{cell.bookings.length === 1 ? '' : 's'}
+                                  </p>
+                                )}
+                              </button>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -419,7 +583,7 @@ export function PublicSchedule() {
             <form onSubmit={handleSubmit} className="space-y-4">
               {portalMode ? (
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-700">Unidade</label>
+                  <label className="text-sm font-medium text-gray-700">Unidade <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <Building2 className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
                     <select
@@ -432,18 +596,29 @@ export function PublicSchedule() {
                       }}
                       className="w-full appearance-none rounded-md border border-gray-300 bg-white py-3 pl-9 pr-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
                     >
+                      <option value="">Selecione uma unidade...</option>
                       {portalUnits.map((u) => (
-                        <option key={u.client_id} value={u.client_id}>
+                        <option
+                          key={u.client_id}
+                          value={u.client_id}
+                          disabled={unitBlockedInSelectedMonth.has(u.client_id)}
+                        >
                           {u.client_name}
                           {u.city ? ` — ${u.city}` : ''}
+                          {unitBlockedInSelectedMonth.has(u.client_id) ? ' — já marcada neste mês' : ''}
                         </option>
                       ))}
                     </select>
                   </div>
+                  {selectedUnitBlockedInMonth && (
+                    <p className="text-xs text-amber-700">
+                      Esta unidade já possui vistoria marcada em {selectedMonth ? formatMonthTitle(selectedMonth) : 'este mês'}.
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-700">Nome fantasia da unidade</label>
+                  <label className="text-sm font-medium text-gray-700">Nome fantasia da unidade <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <Building2 className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
                     <input
@@ -461,11 +636,14 @@ export function PublicSchedule() {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => setAttendanceMode('presencial')}
+                  onClick={() => selectedUnitAllowsInPerson && setAttendanceMode('presencial')}
+                  disabled={!selectedUnitAllowsInPerson}
                   className={`flex h-11 items-center justify-center gap-2 rounded-md border text-sm font-bold ${
                     attendanceMode === 'presencial'
                       ? 'border-primary-700 bg-primary-50 text-primary-800'
-                      : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                      : selectedUnitAllowsInPerson
+                        ? 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                        : 'cursor-not-allowed border-gray-200 bg-gray-50 text-gray-300'
                   }`}
                 >
                   <MapPin className="h-4 w-4" />
@@ -484,11 +662,16 @@ export function PublicSchedule() {
                   Online
                 </button>
               </div>
+              {portalMode && !selectedUnitAllowsInPerson && (
+                <p className="rounded-md border border-amber-100 bg-amber-50 p-3 text-xs text-amber-800">
+                  Vistoria presencial só fica disponível para unidade com estado RJ no cadastro.
+                </p>
+              )}
 
               {attendanceMode === 'presencial' && (
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-gray-700">Município</label>
+                    <label className="text-sm font-medium text-gray-700">Município <span className="text-red-500">*</span></label>
                     <input
                       list="rio-municipios"
                       value={municipality}
@@ -502,7 +685,7 @@ export function PublicSchedule() {
                     </datalist>
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-gray-700">Bairro</label>
+                    <label className="text-sm font-medium text-gray-700">Bairro <span className="text-red-500">*</span></label>
                     <input
                       type="text"
                       value={district}
@@ -515,7 +698,7 @@ export function PublicSchedule() {
               )}
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700">Responsável</label>
+                <label className="text-sm font-medium text-gray-700">Responsável <span className="text-gray-400">(opcional)</span></label>
                 <input
                   type="text"
                   value={responsibleName}
@@ -529,7 +712,7 @@ export function PublicSchedule() {
                 <div className="space-y-1.5">
                   <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
                     <Phone className="h-4 w-4 text-gray-400" />
-                    WhatsApp
+                    WhatsApp <span className="text-gray-400">(opcional)</span>
                   </label>
                   <input
                     type="tel"
@@ -540,7 +723,7 @@ export function PublicSchedule() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-700">Email</label>
+                  <label className="text-sm font-medium text-gray-700">Email <span className="text-gray-400">(opcional)</span></label>
                   <input
                     type="email"
                     value={email}
@@ -552,7 +735,7 @@ export function PublicSchedule() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700">Observações</label>
+                <label className="text-sm font-medium text-gray-700">Observações <span className="text-gray-400">(opcional)</span></label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
@@ -561,6 +744,9 @@ export function PublicSchedule() {
                   className="w-full rounded-md border border-gray-300 p-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
                 />
               </div>
+              <p className="text-xs text-gray-400">
+                Campos com <span className="font-bold text-red-500">*</span> são obrigatórios.
+              </p>
 
               {error && (
                 <div className="rounded-md border border-red-100 bg-red-50 p-3 text-sm text-red-700">

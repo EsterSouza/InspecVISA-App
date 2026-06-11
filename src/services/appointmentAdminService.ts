@@ -28,6 +28,14 @@ export interface ClientPortalAccountRow {
   client_ids: string[];
 }
 
+export interface ClientPortalAccessEmailPayload {
+  email: string;
+  accountName: string;
+  code: string;
+  portalUrl: string;
+  unitCount: number;
+}
+
 export interface BlockedDateRow {
   id: string;
   day: string;
@@ -399,6 +407,17 @@ export const AppointmentAdminService = {
       p_account_id: accountId,
       p_code: code,
     });
+    if (error) throw error;
+  },
+
+  async sendPortalAccessEmail(payload: ClientPortalAccessEmailPayload): Promise<void> {
+    const { error } = await withTimeout(
+      supabase.functions.invoke('notify-client-portal-access', {
+        body: payload,
+      }),
+      'EmailPortalCliente',
+      30000
+    );
     if (error) throw error;
   },
 
