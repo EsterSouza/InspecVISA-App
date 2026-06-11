@@ -128,15 +128,6 @@ export const ScheduleService = {
     }
   },
 
-  async completeSchedule(id: string): Promise<void> {
-    const local = await db.schedules.get(id);
-    if (belongsToActiveTenant(local)) {
-      const updated = { ...local, status: 'completed' as const, updatedAt: new Date(), syncStatus: 'pending' as const };
-      await this.saveSchedule(updated);
-      void syncLinkedAppointmentRequest(id, 'completed');
-    }
-  },
-
   async linkInspection(id: string, inspectionId: string): Promise<void> {
     const local = await db.schedules.get(id);
     if (belongsToActiveTenant(local)) {

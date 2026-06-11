@@ -293,7 +293,7 @@ export function Settings() {
         <CardContent className="p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h3 className="font-semibold text-blue-900 text-lg">Forçar Sincronização (Legacy)</h3>
+              <h3 className="font-semibold text-blue-900 text-lg">Forçar Sincronização</h3>
               <p className="text-sm text-blue-700 mt-1">Se houver inspeções pendentes presas no dispositivo, clique aqui para forçar o envio ao servidor.</p>
             </div>
             <Button 
