@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
       `Acesso: ${accountName}`,
       `Link: ${portalUrl}`,
       `E-mail: ${email}`,
-      `Codigo de acesso: ${code}`,
+      `Senha: ${code}`,
       unitCount > 0 ? `Unidades vinculadas: ${unitCount}` : '',
       '',
       'Use este portal para acompanhar agendamentos, status da inspeção, relatorios, fotos e anexos.',
@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
           <p style="margin:0 0 16px;font-weight:bold">${esc(accountName)}</p>
           <p style="margin:0 0 6px;color:#6b7280;font-size:12px;text-transform:uppercase">E-mail</p>
           <p style="margin:0 0 16px">${esc(email)}</p>
-          <p style="margin:0 0 6px;color:#6b7280;font-size:12px;text-transform:uppercase">Codigo de acesso</p>
+          <p style="margin:0 0 6px;color:#6b7280;font-size:12px;text-transform:uppercase">Senha</p>
           <p style="margin:0;font-family:Consolas,monospace;font-size:24px;font-weight:bold;letter-spacing:3px;color:#101D45">${esc(code)}</p>
         </div>
         ${unitCount > 0 ? `<p style="color:#4b5563;margin:14px 0 0">Unidades vinculadas: <strong>${unitCount}</strong></p>` : ''}

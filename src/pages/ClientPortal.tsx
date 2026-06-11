@@ -107,7 +107,7 @@ export function ClientPortal() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!identifier.trim() || !code.trim()) {
-      setError('Informe o e-mail/usuario e o codigo de acesso.');
+      setError('Informe o e-mail/usuario e a senha.');
       return;
     }
     setSubmitting(true);
@@ -172,14 +172,14 @@ export function ClientPortal() {
               </div>
               <div className="space-y-1.5">
                 <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
-                  <KeyRound className="h-4 w-4 text-gray-400" /> Código de acesso
+                  <KeyRound className="h-4 w-4 text-gray-400" /> Senha
                 </label>
                 <input
                   type="password"
                   required
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
-                  placeholder="Fornecido pela consultoria"
+                  placeholder="Senha permanente fornecida pela consultoria"
                   className="w-full rounded-md border border-gray-300 p-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
                 />
               </div>
@@ -201,7 +201,7 @@ export function ClientPortal() {
             </form>
 
             <p className="mt-6 border-t border-gray-100 pt-4 text-xs text-gray-400">
-              Ainda não tem acesso? Solicite o código à equipe da consultoria. Para acompanhar
+              Ainda não tem acesso? Solicite a senha à equipe da consultoria. Para acompanhar
               uma única visita, use o link do protocolo recebido no agendamento.
             </p>
           </div>

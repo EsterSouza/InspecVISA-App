@@ -1585,7 +1585,7 @@ function PortalAccountsSection({ accounts, clients, onChanged }: PortalAccountsS
   };
 
   const handleRegenerate = async (account: ClientPortalAccountRow) => {
-    if (!confirm(`Gerar um novo código de acesso para "${account.name}"? O código atual deixa de funcionar.`)) return;
+    if (!confirm(`Gerar uma nova senha para "${account.name}"? A senha atual deixa de funcionar.`)) return;
     setBusyId(account.id);
     try {
       const code = generateAccessCode();
@@ -1645,8 +1645,8 @@ function PortalAccountsSection({ accounts, clients, onChanged }: PortalAccountsS
 
       <p className="mb-4 text-sm text-gray-500">
         O cliente entra em <span className="font-mono font-medium text-primary-700">{portalUrl}</span>{' '}
-        com e-mail e código de acesso, e acompanha todas as unidades vinculadas (agendamentos,
-        relatórios, fotos e anexos).
+        com e-mail/usuario e senha permanente, e acompanha todas as unidades vinculadas (agendamentos,
+        relatorios, fotos e anexos).
       </p>
 
       {accounts.length === 0 ? (
@@ -1676,7 +1676,12 @@ function PortalAccountsSection({ accounts, clients, onChanged }: PortalAccountsS
                   disabled={busyId === account.id}
                   onClick={() => {
                     void navigator.clipboard
-                      .writeText(`Portal do Cliente: ${portalUrl}\nE-mail: ${account.email}`)
+                      .writeText([
+                        `Portal do Cliente: ${portalUrl}`,
+                        `E-mail: ${account.email}`,
+                        account.username ? `Usuario: ${account.username}` : '',
+                        account.access_code_plain ? `Senha: ${account.access_code_plain}` : '',
+                      ].filter(Boolean).join('\n'))
                       .then(() => {
                         setCopiedId(account.id);
                         window.setTimeout(() => setCopiedId(null), 2000);
@@ -1701,7 +1706,7 @@ function PortalAccountsSection({ accounts, clients, onChanged }: PortalAccountsS
                   size="sm"
                   disabled={busyId === account.id}
                   onClick={() => void handleRegenerate(account)}
-                  title="Gerar novo código de acesso"
+                  title="Gerar nova senha"
                 >
                   {busyId === account.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
                 </Button>
@@ -1745,10 +1750,9 @@ function PortalAccountsSection({ accounts, clients, onChanged }: PortalAccountsS
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <Card className="w-full max-w-sm shadow-2xl">
             <CardContent className="p-6 text-center">
-              <h3 className="text-lg font-bold text-gray-900">Código de acesso gerado</h3>
+              <h3 className="text-lg font-bold text-gray-900">Senha gerada</h3>
               <p className="mt-1 text-sm text-gray-500">
-                Envie ao cliente. Por segurança, ele não poderá ser consultado depois — apenas
-                gerado novamente.
+                Envie ao cliente. Esta senha permanece valida ate voce gerar uma nova.
               </p>
               <div className={`mt-3 rounded-md border p-2 text-xs ${
                 newCode.emailSent
@@ -1773,7 +1777,7 @@ function PortalAccountsSection({ accounts, clients, onChanged }: PortalAccountsS
                 className="mt-4 w-full"
                 onClick={() => {
                   void navigator.clipboard
-                    .writeText(`Portal do Cliente: ${portalUrl}\nE-mail: ${newCode.email}\nCódigo de acesso: ${newCode.code}`)
+                    .writeText(`Portal do Cliente: ${portalUrl}\nE-mail: ${newCode.email}\nSenha: ${newCode.code}`)
                     .catch(() => {});
                 }}
               >

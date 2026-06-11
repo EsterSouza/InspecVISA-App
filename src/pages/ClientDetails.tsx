@@ -181,7 +181,7 @@ export function ClientDetails() {
       `Portal do Cliente: ${portalDirectUrl}`,
       `E-mail: ${portalAccount.email}`,
       portalAccount.username ? `Usuario: ${portalAccount.username}` : '',
-      portalAccount.access_code_plain ? `Codigo: ${portalAccount.access_code_plain}` : '',
+      portalAccount.access_code_plain ? `Senha: ${portalAccount.access_code_plain}` : '',
       `Token: ${portalAccount.portal_token}`,
     ].filter(Boolean).join('\n'));
     setCopiedAccess(true);
@@ -226,7 +226,7 @@ export function ClientDetails() {
       setNewAccessCode(code);
       await refreshPortalAccounts();
     } catch (err: any) {
-      alert(err.message || 'Falha ao gerar novo codigo.');
+      alert(err.message || 'Falha ao gerar nova senha.');
     } finally {
       setAccessBusy(false);
     }
@@ -469,7 +469,7 @@ export function ClientDetails() {
                       <p className="mt-1 truncate font-mono">{portalAccount.username || '-'}</p>
                     </div>
                     <div className="rounded-md border border-gray-100 p-2">
-                      <p className="font-bold text-gray-400">Codigo</p>
+                      <p className="font-bold text-gray-400">Senha</p>
                       <p className="mt-1 truncate font-mono">{portalAccount.access_code_plain || newAccessCode || '-'}</p>
                     </div>
                   </div>
@@ -482,7 +482,7 @@ export function ClientDetails() {
                       <Copy className="mr-1.5 h-3.5 w-3.5" /> {copiedAccess ? 'Copiado' : 'Copiar'}
                     </Button>
                     <Button variant="outline" size="sm" className="text-xs" disabled={accessBusy} onClick={regenerateAccessCode}>
-                      Novo codigo
+                      Nova senha
                     </Button>
                     <Button variant="outline" size="sm" className="col-span-2 text-xs" disabled={accessBusy} onClick={regeneratePortalToken}>
                       Gerar novo token/link

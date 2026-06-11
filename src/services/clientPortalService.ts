@@ -77,13 +77,13 @@ export const clientPortalService = {
     } catch { /* armazenamento indisponível */ }
   },
 
-  async login(identifier: string, code: string): Promise<{ portal_token: string; account_name: string }> {
+  async login(identifier: string, password: string): Promise<{ portal_token: string; account_name: string }> {
     const { data, error } = await withTimeout(
-      supabase.rpc('client_portal_login', { p_email: identifier, p_code: code }),
+      supabase.rpc('client_portal_login', { p_email: identifier, p_code: password }),
       'LoginPortalCliente'
     );
     if (error) throw error;
-    if (data?.error) throw new Error('E-mail ou código de acesso inválidos.');
+    if (data?.error) throw new Error('E-mail/usuario ou senha invalidos.');
     return data as { portal_token: string; account_name: string };
   },
 
