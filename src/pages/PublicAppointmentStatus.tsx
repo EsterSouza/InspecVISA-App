@@ -6,6 +6,8 @@ import {
   CalendarClock,
   CalendarDays,
   Check,
+  ChevronLeft,
+  ChevronRight,
   Download,
   Home,
   FileText,
@@ -17,6 +19,7 @@ import {
   Paperclip,
   Plus,
   RefreshCw,
+  X,
   XCircle,
 } from 'lucide-react';
 import type { AppointmentAttachment, PublicAppointmentStatusResult } from '../types';
@@ -86,6 +89,7 @@ export function PublicAppointmentStatus() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [invalidToken, setInvalidToken] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const load = useCallback(async (isRefresh = false) => {
     if (!token) {
@@ -168,7 +172,7 @@ export function PublicAppointmentStatus() {
   return (
     <div className="min-h-screen bg-white">
       <PublicHeader />
-      <main className="mx-auto max-w-[600px] px-4 py-8 pb-16">
+      <main className="mx-auto max-w-3xl px-4 py-8 pb-16 sm:px-6">
         <Link
           to="/cliente"
           className="mb-4 inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
@@ -353,17 +357,17 @@ export function PublicAppointmentStatus() {
 
             {photos.length > 0 && (
               <div className="mt-6">
-                <h4 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  Fotos da inspeção
+                <h4 className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  <span>Fotos da inspeção</span>
+                  <span className="text-gray-400">{photos.length} foto{photos.length === 1 ? '' : 's'}</span>
                 </h4>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {photos.map((photo) => (
-                    <a
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  {photos.map((photo, i) => (
+                    <button
                       key={photo.id}
-                      href={photo.signed_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group relative aspect-square overflow-hidden rounded-xl border border-gray-100 bg-gray-50"
+                      type="button"
+                      onClick={() => setLightboxIndex(i)}
+                      className="group relative aspect-square overflow-hidden rounded-xl border border-gray-100 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-400"
                     >
                       <img
                         src={photo.signed_url}
@@ -376,7 +380,7 @@ export function PublicAppointmentStatus() {
                           {photo.caption}
                         </span>
                       )}
-                    </a>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -443,6 +447,138 @@ export function PublicAppointmentStatus() {
           </Link>
         </div>
       </main>
+
+      {lightboxIndex !== null && photos[lightboxIndex] && (
+        <PhotoLightbox
+          photos={photos}
+          index={lightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+          onNavigate={setLightboxIndex}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Lightbox de fotos (tela cheia + carrossel) ───────────────
+
+interface PhotoLightboxProps {
+  photos: AppointmentAttachment[];
+  index: number;
+  onClose: () => void;
+  onNavigate: (index: number) => void;
+}
+
+function PhotoLightbox({ photos, index, onClose, onNavigate }: PhotoLightboxProps) {
+  const photo = photos[index];
+  const go = useCallback(
+    (delta: number) => {
+      const next = (index + delta + photos.length) % photos.length;
+      onNavigate(next);
+    },
+    [index, photos.length, onNavigate]
+  );
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      else if (e.key === 'ArrowRight') go(1);
+      else if (e.key === 'ArrowLeft') go(-1);
+    };
+    window.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+    };
+  }, [go, onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex flex-col bg-black/95"
+      onClick={onClose}
+    >
+      <div className="flex items-center justify-between px-4 py-3 text-white/90">
+        <span className="text-sm font-medium">
+          {index + 1} / {photos.length}
+        </span>
+        <div className="flex items-center gap-2">
+          {photo.signed_url && (
+            <a
+              href={photo.signed_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="rounded-full bg-white/10 p-2 hover:bg-white/20"
+              title="Baixar foto"
+            >
+              <Download className="h-5 w-5" />
+            </a>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full bg-white/10 p-2 hover:bg-white/20"
+            title="Fechar"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+
+      <div className="relative flex flex-1 items-center justify-center overflow-hidden px-2 pb-4">
+        {photos.length > 1 && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); go(-1); }}
+            className="absolute left-2 z-10 rounded-full bg-white/10 p-2 text-white hover:bg-white/20 sm:left-4 sm:p-3"
+            title="Anterior"
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </button>
+        )}
+
+        <figure className="flex max-h-full max-w-full flex-col items-center" onClick={(e) => e.stopPropagation()}>
+          <img
+            src={photo.signed_url}
+            alt={photo.caption || 'Foto da inspeção'}
+            className="max-h-[80vh] max-w-full rounded-lg object-contain"
+          />
+          {photo.caption && (
+            <figcaption className="mt-3 max-w-2xl px-4 text-center text-sm text-white/80">
+              {photo.caption}
+            </figcaption>
+          )}
+        </figure>
+
+        {photos.length > 1 && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); go(1); }}
+            className="absolute right-2 z-10 rounded-full bg-white/10 p-2 text-white hover:bg-white/20 sm:right-4 sm:p-3"
+            title="Próxima"
+          >
+            <ChevronRight className="h-6 w-6" />
+          </button>
+        )}
+      </div>
+
+      {photos.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto px-4 py-3" onClick={(e) => e.stopPropagation()}>
+          {photos.map((p, i) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => onNavigate(i)}
+              className={`h-14 w-14 shrink-0 overflow-hidden rounded-md border-2 ${
+                i === index ? 'border-white' : 'border-transparent opacity-60 hover:opacity-100'
+              }`}
+            >
+              <img src={p.signed_url} alt="" className="h-full w-full object-cover" />
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -4,6 +4,8 @@ import {
   Building2,
   CalendarDays,
   CalendarPlus,
+  ChevronLeft,
+  ChevronRight,
   ClipboardCheck,
   FileText,
   Image,
@@ -13,6 +15,7 @@ import {
   Mail,
   MapPin,
   Paperclip,
+  RotateCcw,
 } from 'lucide-react';
 import { PublicHeader } from '../components/public/PublicHeader';
 import {
@@ -43,23 +46,11 @@ const STATUS_BADGES: Record<string, string> = {
 const ACTIVE_VISIT_STATUSES = new Set(['requested', 'confirmed', 'in_progress', 'rescheduled', 'completed']);
 const CALENDAR_WEEKDAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'];
 
-function parseLocalDate(value: string): Date {
-  const [year, month, day] = value.split('-').map(Number);
-  return new Date(year, month - 1, day);
-}
-
 function toDateKey(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
-}
-
-function formatMonthTitle(value: string): string {
-  return parseLocalDate(`${value}-01`).toLocaleDateString('pt-BR', {
-    month: 'long',
-    year: 'numeric',
-  });
 }
 
 function formatDateBR(value: string | null): string {
@@ -78,6 +69,11 @@ export function ClientPortal() {
   const [code, setCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Calendário: começa sempre no mês corrente
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
 
   const loadOverview = useCallback(async (portalToken: string) => {
     setLoading(true);
@@ -221,9 +217,6 @@ export function ClientPortal() {
     list.push(visit);
     visitsByDate.set(visit.requested_date, list);
   }
-  const monthKeys = Array.from(
-    new Set(allVisits.map((visit) => visit.requested_date?.slice(0, 7)).filter(Boolean) as string[])
-  ).sort();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -274,78 +267,109 @@ export function ClientPortal() {
         </Link>
 
         <section className="mb-8 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-          <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-gray-700">
-            <CalendarDays className="h-4 w-4 text-primary-700" />
-            Calendario de inspeções
-          </h3>
-          {monthKeys.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-5 text-sm text-gray-500">
-              Nenhuma inspeção agendada ainda.
-            </p>
-          ) : (
-            <div className="space-y-7">
-              {monthKeys.map((month) => {
-                const monthStart = parseLocalDate(`${month}-01`);
-                const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
-                const start = new Date(monthStart);
-                const end = new Date(monthEnd);
-                start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
-                end.setDate(end.getDate() + (6 - ((end.getDay() + 6) % 7)));
-                const cells: Date[] = [];
-                for (const cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
-                  cells.push(new Date(cursor));
-                }
-                return (
-                  <div key={month}>
-                    <p className="mb-2 text-sm font-bold capitalize text-gray-900">{formatMonthTitle(month)}</p>
-                    <div className="grid grid-cols-7 gap-1.5 text-center text-[11px] font-bold uppercase text-gray-400 sm:gap-2">
-                      {CALENDAR_WEEKDAYS.map((label) => (
-                        <div key={label} className="py-1">{label}</div>
-                      ))}
-                    </div>
-                    <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
-                      {cells.map((date) => {
-                        const key = toDateKey(date);
-                        const visits = visitsByDate.get(key) || [];
-                        const inMonth = key.startsWith(month);
-                        return (
-                          <div
-                            key={key}
-                            className={`min-h-[86px] rounded-md border p-1.5 sm:min-h-[104px] sm:p-2 ${
-                              visits.length > 0
-                                ? 'border-primary-200 bg-primary-50/60'
-                                : inMonth
-                                  ? 'border-gray-100 bg-white'
-                                  : 'border-transparent bg-transparent'
-                            }`}
-                          >
-                            <p className={`text-base font-black leading-none ${inMonth ? 'text-gray-900' : 'text-gray-200'}`}>
-                              {date.getDate()}
-                            </p>
-                            <div className="mt-2 space-y-1">
-                              {visits.slice(0, 2).map((visit) => (
-                                <Link
-                                  key={visit.public_token}
-                                  to={`/portal/${visit.public_token}`}
-                                  className="block truncate rounded bg-white/80 px-1.5 py-1 text-[10px] font-semibold text-primary-900 shadow-sm"
-                                  title={`${visit.unitName} - ${STATUS_LABELS[visit.status] || visit.status}`}
-                                >
-                                  {visit.requested_time ? `${visit.requested_time} ` : ''}{visit.unitName}
-                                </Link>
-                              ))}
-                              {visits.length > 2 && (
-                                <p className="text-[10px] font-semibold text-primary-700">+{visits.length - 2}</p>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
+          <div className="mb-4 flex items-center justify-between gap-2">
+            <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-gray-700">
+              <CalendarDays className="h-4 w-4 text-primary-700" />
+              Calendário de inspeções
+            </h3>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setCalendarMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
+                className="rounded-md border border-gray-200 p-1.5 text-gray-600 hover:bg-gray-50"
+                title="Mês anterior"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <span className="min-w-[140px] text-center text-sm font-bold capitalize text-gray-900">
+                {calendarMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+              </span>
+              <button
+                type="button"
+                onClick={() => setCalendarMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
+                className="rounded-md border border-gray-200 p-1.5 text-gray-600 hover:bg-gray-50"
+                title="Próximo mês"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => { const n = new Date(); setCalendarMonth(new Date(n.getFullYear(), n.getMonth(), 1)); }}
+                className="ml-1 inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+                title="Voltar ao mês atual"
+              >
+                <RotateCcw className="h-3.5 w-3.5" /> Hoje
+              </button>
             </div>
-          )}
+          </div>
+          {(() => {
+            const month = `${calendarMonth.getFullYear()}-${String(calendarMonth.getMonth() + 1).padStart(2, '0')}`;
+            const monthStart = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1);
+            const monthEnd = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 0);
+            const start = new Date(monthStart);
+            const end = new Date(monthEnd);
+            start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+            end.setDate(end.getDate() + (6 - ((end.getDay() + 6) % 7)));
+            const cells: Date[] = [];
+            for (const cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
+              cells.push(new Date(cursor));
+            }
+            const todayKey = toDateKey(new Date());
+            const monthVisitCount = allVisits.filter((v) => v.requested_date?.startsWith(month)).length;
+            return (
+              <div>
+                <div className="grid grid-cols-7 gap-1.5 text-center text-[11px] font-bold uppercase text-gray-400 sm:gap-2">
+                  {CALENDAR_WEEKDAYS.map((label) => (
+                    <div key={label} className="py-1">{label}</div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+                  {cells.map((date) => {
+                    const key = toDateKey(date);
+                    const visits = visitsByDate.get(key) || [];
+                    const inMonth = key.startsWith(month);
+                    const isToday = key === todayKey;
+                    return (
+                      <div
+                        key={key}
+                        className={`min-h-[86px] rounded-md border p-1.5 sm:min-h-[104px] sm:p-2 ${
+                          visits.length > 0
+                            ? 'border-primary-200 bg-primary-50/60'
+                            : inMonth
+                              ? 'border-gray-100 bg-white'
+                              : 'border-transparent bg-transparent'
+                        } ${isToday ? 'ring-2 ring-primary-300' : ''}`}
+                      >
+                        <p className={`text-base font-black leading-none ${inMonth ? 'text-gray-900' : 'text-gray-200'}`}>
+                          {date.getDate()}
+                        </p>
+                        <div className="mt-2 space-y-1">
+                          {visits.slice(0, 2).map((visit) => (
+                            <Link
+                              key={visit.public_token}
+                              to={`/portal/${visit.public_token}`}
+                              className="block truncate rounded bg-white/80 px-1.5 py-1 text-[10px] font-semibold text-primary-900 shadow-sm"
+                              title={`${visit.unitName} - ${STATUS_LABELS[visit.status] || visit.status}`}
+                            >
+                              {visit.requested_time ? `${visit.requested_time} ` : ''}{visit.unitName}
+                            </Link>
+                          ))}
+                          {visits.length > 2 && (
+                            <p className="text-[10px] font-semibold text-primary-700">+{visits.length - 2}</p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {monthVisitCount === 0 && (
+                  <p className="mt-3 text-center text-xs text-gray-400">
+                    Nenhuma inspeção neste mês. Use as setas para ver outros meses.
+                  </p>
+                )}
+              </div>
+            );
+          })()}
         </section>
 
         {overview.units.length === 0 ? (

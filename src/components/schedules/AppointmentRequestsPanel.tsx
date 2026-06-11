@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   CalendarDays,
   CalendarOff,
+  CalendarPlus,
   CheckCircle,
   Clock,
   Copy,
@@ -107,6 +108,8 @@ export function AppointmentRequestsPanel() {
   const [rescheduleTarget, setRescheduleTarget] = useState<AppointmentRequest | null>(null);
   // Encerradas (relatório publicado / canceladas)
   const [showClosed, setShowClosed] = useState(false);
+  // Nova visita (agendamento direto pela equipe)
+  const [showNewVisit, setShowNewVisit] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -224,6 +227,19 @@ export function AppointmentRequestsPanel() {
 
   return (
     <div className="space-y-10">
+      {/* ─── Nova visita (agendamento direto pela equipe) ───── */}
+      <div className="flex items-center justify-between rounded-xl border border-primary-100 bg-primary-50/50 p-4">
+        <div>
+          <p className="text-sm font-bold text-gray-900">Agendar você mesma</p>
+          <p className="text-xs text-gray-500">
+            Cria uma visita já confirmada e vinculada ao cliente — aparece no portal dele com rastreio completo.
+          </p>
+        </div>
+        <Button size="sm" onClick={() => setShowNewVisit(true)}>
+          <CalendarPlus className="mr-1.5 h-4 w-4" /> Nova visita
+        </Button>
+      </div>
+
       {/* ─── Solicitações pendentes ─────────────────────────── */}
       <section>
         <div className="mb-4 flex items-center justify-between">
@@ -442,6 +458,17 @@ export function AppointmentRequestsPanel() {
           onClose={() => setRescheduleTarget(null)}
           onSaved={() => {
             setRescheduleTarget(null);
+            void loadData();
+          }}
+        />
+      )}
+
+      {showNewVisit && (
+        <NewVisitModal
+          clients={clients}
+          onClose={() => setShowNewVisit(false)}
+          onCreated={() => {
+            setShowNewVisit(false);
             void loadData();
           }}
         />
@@ -859,10 +886,37 @@ function AddPhotosModal({ request, onClose, onAdded }: AddPhotosModalProps) {
   const [selectedInspectionId, setSelectedInspectionId] = useState(request.inspection_id || '');
   const [photos, setPhotos] = useState<InspectionPhotoOption[]>([]);
   const [selectedPhotoIds, setSelectedPhotoIds] = useState<Set<string>>(new Set());
+  const [published, setPublished] = useState<{ id: string; caption: string | null; previewUrl?: string }[]>([]);
+  const [removingId, setRemovingId] = useState<string | null>(null);
   const [loadingInspections, setLoadingInspections] = useState(true);
   const [loadingPhotos, setLoadingPhotos] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const loadPublished = () => {
+    AppointmentAdminService.listPublishedPhotos(request.id)
+      .then(setPublished)
+      .catch((err) => console.warn('[AddPhotosModal] Falha ao carregar fotos publicadas:', err));
+  };
+  useEffect(loadPublished, [request.id]);
+
+  const allSelected = photos.length > 0 && selectedPhotoIds.size === photos.length;
+  const toggleAll = () => {
+    setSelectedPhotoIds(allSelected ? new Set() : new Set(photos.map((p) => p.photoId)));
+  };
+
+  const handleRemovePublished = async (id: string) => {
+    if (!confirm('Remover esta foto do portal do cliente?')) return;
+    setRemovingId(id);
+    try {
+      await AppointmentAdminService.removePublishedAttachment(id);
+      loadPublished();
+    } catch (err) {
+      alert(`Erro: ${errorMessage(err)}`);
+    } finally {
+      setRemovingId(null);
+    }
+  };
 
   useEffect(() => {
     if (!request.client_id) {
@@ -971,6 +1025,19 @@ function AddPhotosModal({ request, onClose, onAdded }: AddPhotosModalProps) {
                 </p>
               ) : (
                 photos.length > 0 && (
+                  <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-500">
+                      {selectedPhotoIds.size} de {photos.length} selecionada(s)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={toggleAll}
+                      className="text-xs font-bold text-primary-700 hover:underline"
+                    >
+                      {allSelected ? 'Limpar seleção' : 'Selecionar todas'}
+                    </button>
+                  </div>
                   <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                     {photos.map((photo) => {
                       const selected = selectedPhotoIds.has(photo.photoId);
@@ -1003,7 +1070,36 @@ function AddPhotosModal({ request, onClose, onAdded }: AddPhotosModalProps) {
                       );
                     })}
                   </div>
+                  </div>
                 )
+              )}
+
+              {published.length > 0 && (
+                <div className="space-y-2 border-t border-gray-100 pt-4">
+                  <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
+                    Já publicadas no portal ({published.length})
+                  </p>
+                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                    {published.map((p) => (
+                      <div key={p.id} className="group relative aspect-square overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+                        {p.previewUrl ? (
+                          <img src={p.previewUrl} alt={p.caption || ''} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-xs text-gray-400">foto</div>
+                        )}
+                        <button
+                          type="button"
+                          disabled={removingId === p.id}
+                          onClick={() => void handleRemovePublished(p.id)}
+                          title="Remover do portal"
+                          className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-600/90 text-white opacity-0 transition-opacity hover:bg-red-700 group-hover:opacity-100"
+                        >
+                          {removingId === p.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           )}
@@ -1080,6 +1176,151 @@ function DueDateModal({ request, onClose, onSaved }: DueDateModalProps) {
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Salvar prazo
             </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ─── Modal: nova visita (agendamento direto pela equipe) ──────
+
+interface NewVisitModalProps {
+  clients: Client[];
+  onClose: () => void;
+  onCreated: () => void;
+}
+
+function NewVisitModal({ clients, onClose, onCreated }: NewVisitModalProps) {
+  const [search, setSearch] = useState('');
+  const [clientId, setClientId] = useState('');
+  const [date, setDate] = useState('');
+  const [time, setTime] = useState('09:00');
+  const [attendanceMode, setAttendanceMode] = useState<'presencial' | 'online'>('presencial');
+  const [municipality, setMunicipality] = useState('');
+  const [district, setDistrict] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const filtered = search
+    ? clients.filter((c) => c.name.toLowerCase().includes(search.toLowerCase()))
+    : clients;
+  const selectedClient = clients.find((c) => c.id === clientId);
+
+  const handleSave = async () => {
+    if (!clientId || !date) {
+      setError('Selecione o cliente e a data.');
+      return;
+    }
+    if (attendanceMode === 'presencial' && !district.trim()) {
+      setError('Informe o bairro do atendimento presencial.');
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const actor = getLocalActor();
+      const tenantId = getActiveTenantId();
+      const now = new Date();
+      const schedule: Schedule = {
+        id: generateId(),
+        clientId,
+        scheduledAt: new Date(`${date}T${time || '09:00'}`),
+        status: 'pending',
+        notes: `Visita agendada pela equipe — ${selectedClient?.name ?? ''}`,
+        updatedAt: now,
+        tenantId,
+        localActorId: actor.id,
+        syncStatus: 'pending',
+      };
+      await ScheduleService.saveSchedule(schedule);
+      await AppointmentAdminService.insertConfirmedRequest({
+        clientId,
+        unitName: selectedClient?.name ?? 'Unidade',
+        scheduleId: schedule.id,
+        date,
+        time: time || '09:00',
+        attendanceMode,
+        municipality: municipality.trim() || selectedClient?.city || undefined,
+        district: district.trim() || undefined,
+      });
+      onCreated();
+    } catch (err) {
+      setError(errorMessage(err) || 'Falha ao criar a visita.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <Card className="max-h-[90vh] w-full max-w-lg overflow-y-auto shadow-2xl">
+        <CardContent className="p-6">
+          <h3 className="mb-1 text-xl font-bold text-gray-900">Nova visita</h3>
+          <p className="mb-5 text-sm text-gray-500">
+            Cria a visita já confirmada e vinculada ao cliente. Ela aparece no portal do cliente.
+          </p>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Cliente / unidade</label>
+              <input
+                type="text"
+                placeholder="Buscar cliente..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full rounded-xl border border-gray-300 p-2.5 text-sm"
+              />
+              <select
+                value={clientId}
+                onChange={(e) => {
+                  setClientId(e.target.value);
+                  const c = clients.find((x) => x.id === e.target.value);
+                  if (c?.city) setMunicipality(c.city);
+                }}
+                className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm"
+              >
+                <option value="">Selecione...</option>
+                {filtered.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-gray-700">Data</label>
+                <input type="date" value={date} min={new Date().toISOString().split('T')[0]} onChange={(e) => setDate(e.target.value)} className="w-full rounded-xl border border-gray-300 p-3 text-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-gray-700">Horário</label>
+                <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="w-full rounded-xl border border-gray-300 p-3 text-sm" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setAttendanceMode('presencial')} className={`h-11 rounded-xl border text-sm font-bold ${attendanceMode === 'presencial' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600'}`}>Presencial</button>
+              <button type="button" onClick={() => setAttendanceMode('online')} className={`h-11 rounded-xl border text-sm font-bold ${attendanceMode === 'online' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600'}`}>Online</button>
+            </div>
+
+            {attendanceMode === 'presencial' && (
+              <div className="grid grid-cols-2 gap-3">
+                <input type="text" value={municipality} onChange={(e) => setMunicipality(e.target.value)} placeholder="Município" className="w-full rounded-xl border border-gray-300 p-3 text-sm" />
+                <input type="text" value={district} onChange={(e) => setDistrict(e.target.value)} placeholder="Bairro" className="w-full rounded-xl border border-gray-300 p-3 text-sm" />
+              </div>
+            )}
+
+            {error && (
+              <div className="rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+            )}
+
+            <div className="flex gap-3 pt-1">
+              <Button type="button" variant="ghost" className="flex-1" onClick={onClose}>Cancelar</Button>
+              <Button type="button" className="flex-1" disabled={saving} onClick={() => void handleSave()}>
+                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Criar visita
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>

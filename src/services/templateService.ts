@@ -160,8 +160,11 @@ export const TemplateService = {
         .select('*')
         .eq('id', templateId)
         .abortSignal(controller.signal)
-        .single();
+        .maybeSingle();
       if (tError) throw tError;
+      // Templates locais/estáticos (ex.: tpl-ilpi-v1) não existem no remoto —
+      // sinaliza ausência limpa para o chamador usar a versão local.
+      if (!template) throw new Error(`Template ${templateId} não encontrado no remoto`);
 
       const { data: sections, error: sError } = await supabase
         .from('checklist_sections')

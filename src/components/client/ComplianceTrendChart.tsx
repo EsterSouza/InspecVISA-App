@@ -14,8 +14,15 @@ type CompliancePoint = {
 };
 
 export function ComplianceTrendChart({ data }: { data: CompliancePoint[] }) {
+  if (!data || data.length === 0) {
+    return (
+      <div className="flex h-full w-full items-center justify-center rounded-xl bg-gray-50 text-sm text-gray-400">
+        Sem dados de conformidade ainda.
+      </div>
+    );
+  }
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
       <LineChart data={data}>
         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
         <XAxis

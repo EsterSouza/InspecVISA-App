@@ -146,6 +146,39 @@ export const AppointmentAdminService = {
     await this.updateRequest(id, { status: 'completed' });
   },
 
+  // Cria uma visita direto pela equipe, já confirmada e vinculada ao cliente,
+  // para aparecer no portal do cliente com rastreio completo (timeline/relatório/fotos).
+  async insertConfirmedRequest(params: {
+    clientId: string;
+    unitName: string;
+    scheduleId: string;
+    date: string;
+    time: string;
+    attendanceMode: 'presencial' | 'online';
+    municipality?: string;
+    district?: string;
+  }): Promise<void> {
+    const tenantId = requireTenantId();
+    const startsAt = new Date(`${params.date}T${params.time || '09:00'}`);
+    const endsAt = new Date(startsAt.getTime() + 60 * 60 * 1000);
+    const { error } = await supabase.from('appointment_requests').insert({
+      tenant_id: tenantId,
+      client_id: params.clientId,
+      schedule_id: params.scheduleId,
+      unit_name: params.unitName,
+      district: params.attendanceMode === 'presencial' ? params.district || '' : 'Online',
+      municipality: params.attendanceMode === 'presencial' ? params.municipality || null : null,
+      attendance_mode: params.attendanceMode,
+      requested_date: params.date,
+      requested_time: params.time || '09:00',
+      requested_period: startsAt.getHours() < 12 ? 'manha' : 'tarde',
+      requested_starts_at: startsAt.toISOString(),
+      requested_ends_at: endsAt.toISOString(),
+      status: 'confirmed',
+    });
+    if (error) throw error;
+  },
+
   async rescheduleRequest(
     request: AppointmentRequest,
     suggestedDate?: string,
@@ -359,6 +392,40 @@ export const AppointmentAdminService = {
     if (request.inspection_id !== inspectionId) {
       await this.updateRequest(request.id, { inspection_id: inspectionId });
     }
+  },
+
+  async listPublishedPhotos(requestId: string): Promise<{ id: string; caption: string | null; previewUrl?: string }[]> {
+    const tenantId = requireTenantId();
+    const { data, error } = await supabase
+      .from('appointment_attachments')
+      .select('id, storage_bucket, storage_path, caption')
+      .eq('tenant_id', tenantId)
+      .eq('appointment_request_id', requestId)
+      .eq('kind', 'photo')
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    const rows = (data ?? []) as any[];
+    await Promise.all(
+      rows.map(async (r) => {
+        try {
+          const { data: u } = await supabase.storage.from(r.storage_bucket).createSignedUrl(r.storage_path, 3600);
+          r.previewUrl = u?.signedUrl;
+        } catch { /* sem preview */ }
+      })
+    );
+    return rows.map((r) => ({ id: r.id, caption: r.caption ?? null, previewUrl: r.previewUrl }));
+  },
+
+  async removePublishedAttachment(attachmentId: string): Promise<void> {
+    // Despublica do portal (remove o vínculo). Não apaga a foto original do Storage,
+    // que pertence à inspeção e é compartilhada.
+    const tenantId = requireTenantId();
+    const { error } = await supabase
+      .from('appointment_attachments')
+      .delete()
+      .eq('id', attachmentId)
+      .eq('tenant_id', tenantId);
+    if (error) throw error;
   },
 
   // ─── Acessos do Portal do Cliente ──────────────────────────
