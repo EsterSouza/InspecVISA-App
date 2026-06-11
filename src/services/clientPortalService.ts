@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { formatAppointmentLeadTimeMessage, isAppointmentAtLeast24hAhead } from '../utils/appointmentLeadTime';
 
 const TIMEOUT_MS = 30000;
 
@@ -100,6 +101,9 @@ export const clientPortalService = {
     token: string,
     payload: ClientPortalAppointmentPayload
   ): Promise<{ public_token: string }> {
+    if (!isAppointmentAtLeast24hAhead(payload.requested_starts_at)) {
+      throw new Error(formatAppointmentLeadTimeMessage());
+    }
     const { data, error } = await withTimeout(
       supabase.rpc('client_portal_create_appointment', {
         p_payload: { ...payload, portal_token: token },

@@ -22,6 +22,7 @@ import { publicAppointmentService } from '../services/publicAppointmentService';
 import { clientPortalService, type ClientPortalUnit } from '../services/clientPortalService';
 import { PublicHeader } from '../components/public/PublicHeader';
 import { formatProtocol } from '../utils/protocol';
+import { isAppointmentAtLeast24hAhead } from '../utils/appointmentLeadTime';
 
 const RIO_MUNICIPALITIES = [
   'Rio de Janeiro',
@@ -156,6 +157,10 @@ export function PublicSchedule() {
   }, [portalMode, portalUnits, selectedMonth]);
   const selectedUnitBlockedInMonth = !!selectedClientId && unitBlockedInSelectedMonth.has(selectedClientId);
   const dayAvailability = useMemo(() => new Map(days.map((day) => [day.day, day])), [days]);
+  const visibleTimes = useMemo(
+    () => times.filter((time) => isAppointmentAtLeast24hAhead(time.starts_at)),
+    [times]
+  );
   const portalVisitsByDay = useMemo(() => {
     const map = new Map<string, ClientPortalUnit[]>();
     for (const unit of portalUnits) {
@@ -579,13 +584,13 @@ export function PublicSchedule() {
                 <div className="flex h-24 items-center justify-center">
                   <Loader2 className="h-6 w-6 animate-spin text-primary-700" />
                 </div>
-              ) : times.length === 0 ? (
+              ) : visibleTimes.length === 0 ? (
                 <p className="rounded-md border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
                   Selecione outra data. Este dia nao tem horários livres.
                 </p>
               ) : (
                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-                  {times.map((time) => {
+                  {visibleTimes.map((time) => {
                     const selected = selectedTime?.starts_at === time.starts_at;
                     return (
                       <button

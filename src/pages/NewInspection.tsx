@@ -21,6 +21,7 @@ export function NewInspection() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const preSelectedClientId = searchParams.get('clientId');
+  const preSelectedScheduleId = searchParams.get('scheduleId') || undefined;
   const actionPlanInspectionId = searchParams.get('previousInspectionId') || undefined;
   const isActionPlanMode = searchParams.get('mode') === 'action-plan';
   
@@ -72,6 +73,13 @@ export function NewInspection() {
           const found = cList.find(c => c.id === preSelectedClientId);
           if (found) setSelectedClient(found);
         }
+        if (preSelectedScheduleId) {
+          const schedules = await ScheduleService.getSchedules();
+          const schedule = schedules.find(s => s.id === preSelectedScheduleId);
+          if (schedule) {
+            setInspectionDate(schedule.scheduledAt.toISOString().split('T')[0]);
+          }
+        }
         
         const dbTemplates = await db.templates.toArray();
         const staticTemplates = getTemplates();
@@ -88,7 +96,7 @@ export function NewInspection() {
       }
     };
     init();
-  }, [preSelectedClientId]);
+  }, [preSelectedClientId, preSelectedScheduleId]);
 
   // Detect matching schedule
   useEffect(() => {
@@ -98,7 +106,10 @@ export function NewInspection() {
           const schedules = await ScheduleService.getSchedules();
           const targetDateStr = inspectionDate; // "YYYY-MM-DD"
           
-          const match = schedules.find(s => {
+          const forcedMatch = preSelectedScheduleId
+            ? schedules.find(s => s.id === preSelectedScheduleId && s.clientId === selectedClient.id && s.status === 'pending')
+            : undefined;
+          const match = forcedMatch || schedules.find(s => {
             const sDateStr = s.scheduledAt.toISOString().split('T')[0];
             return s.clientId === selectedClient.id && sDateStr === targetDateStr && s.status === 'pending';
           });
@@ -111,7 +122,7 @@ export function NewInspection() {
     } else {
       setMatchingSchedule(null);
     }
-  }, [selectedClient, inspectionDate, step]);
+  }, [selectedClient, inspectionDate, step, preSelectedScheduleId]);
 
   useEffect(() => {
     setConfirmedSeparateVisit(false);
@@ -165,6 +176,10 @@ export function NewInspection() {
           'todo complemento deve continuar no mesmo relatório. Se for uma visita realmente nova, confirme essa opção na tela. Deseja abrir o relatório existente agora?'
         );
         if (ok) {
+          const linkedScheduleId = matchingSchedule?.id;
+          if (linkedScheduleId) {
+            await ScheduleService.linkInspection(linkedScheduleId, existingInspection.id);
+          }
           continueExistingInspection(existingInspection);
           return;
         }
@@ -212,7 +227,7 @@ export function NewInspection() {
 
       // Se houver um agendamento compatível, pergunta se quer vincular
       let linkedScheduleId = matchingSchedule?.id;
-      if (matchingSchedule) {
+      if (matchingSchedule && !preSelectedScheduleId) {
         if (window.confirm(`Existe um agendamento para ${selectedClient.name} hoje. Deseja vinculá-lo a esta inspeção?`)) {
           // Link will be processed below
         } else {

@@ -10,6 +10,12 @@ import { ClientService } from '../services/clientService';
 import { useAuthStore } from '../store/useAuthStore';
 import { getLocalActor } from '../utils/localActor';
 import { AppointmentRequestsPanel } from '../components/schedules/AppointmentRequestsPanel';
+import {
+  formatAppointmentLeadTimeMessage,
+  getMinAppointmentDateTime,
+  isAppointmentAtLeast24hAhead,
+  toDateInputValue,
+} from '../utils/appointmentLeadTime';
 
 type SchedulesTab = 'agenda' | 'solicitacoes';
 
@@ -28,9 +34,20 @@ export function Schedules() {
 
   // Form State
   const [selectedClientId, setSelectedClientId] = useState('');
+  const [clientSearch, setClientSearch] = useState('');
   const [scheduledDate, setScheduledDate] = useState('');
   const [scheduledTime, setScheduledTime] = useState('');
   const [notes, setNotes] = useState('');
+  const minScheduleDate = toDateInputValue(getMinAppointmentDateTime());
+  const filteredClients = clientSearch
+    ? clients.filter((client) => client.name.toLowerCase().includes(clientSearch.toLowerCase()))
+    : clients;
+  const selectedClient = clients.find((client) => client.id === selectedClientId);
+
+  const selectClient = (client: Client) => {
+    setSelectedClientId(client.id);
+    setClientSearch(client.name);
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -85,6 +102,10 @@ export function Schedules() {
 
     try {
       const scheduledAt = new Date(`${scheduledDate}T${scheduledTime}`);
+      if (!isAppointmentAtLeast24hAhead(scheduledAt)) {
+        alert(formatAppointmentLeadTimeMessage());
+        return;
+      }
       const actor = getLocalActor();
       
       if (isEditing && editingId) {
@@ -125,6 +146,7 @@ export function Schedules() {
     const time = schedule.scheduledAt.toTimeString().split(' ')[0].substring(0, 5);
     
     setSelectedClientId(schedule.clientId);
+    setClientSearch(schedule.clientName || clients.find(c => c.id === schedule.clientId)?.name || '');
     setScheduledDate(date);
     setScheduledTime(time);
     setNotes(schedule.notes || '');
@@ -135,6 +157,7 @@ export function Schedules() {
 
   const resetForm = () => {
     setSelectedClientId('');
+    setClientSearch('');
     setScheduledDate('');
     setScheduledTime('');
     setNotes('');
@@ -294,7 +317,7 @@ export function Schedules() {
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
-                       <Button variant="outline" size="sm" onClick={() => navigate(`/new?clientId=${schedule.clientId}`)} className="text-primary-600 border-primary-100 hover:bg-primary-50">
+                       <Button variant="outline" size="sm" onClick={() => navigate(`/new?clientId=${schedule.clientId}&scheduleId=${schedule.id}`)} className="text-primary-600 border-primary-100 hover:bg-primary-50">
                          <Play className="mr-2 h-4 w-4 fill-current" />
                          Iniciar
                        </Button>
@@ -351,17 +374,40 @@ export function Schedules() {
                   <label className="text-sm font-medium text-gray-700 flex items-center">
                     <User className="mr-2 h-4 w-4 text-gray-400" /> Cliente
                   </label>
-                  <select
-                    required
-                    value={selectedClientId}
-                    onChange={(e) => setSelectedClientId(e.target.value)}
-                    className="w-full rounded-xl border border-gray-300 p-3 text-sm bg-white"
-                  >
-                    <option value="">Selecione um cliente...</option>
-                    {clients.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
+                  <input
+                    type="text"
+                    placeholder="Buscar cliente..."
+                    value={clientSearch}
+                    onChange={(e) => {
+                      setClientSearch(e.target.value);
+                      setSelectedClientId('');
+                    }}
+                    className="w-full rounded-xl border border-gray-300 p-3 text-sm"
+                  />
+                  <div className="max-h-44 overflow-y-auto rounded-xl border border-gray-200 bg-white">
+                    {filteredClients.length > 0 ? (
+                      filteredClients.slice(0, 8).map((client) => (
+                        <button
+                          key={client.id}
+                          type="button"
+                          onClick={() => selectClient(client)}
+                          className={`flex w-full items-center justify-between gap-3 border-b border-gray-100 px-3 py-2 text-left text-sm last:border-b-0 hover:bg-primary-50 ${
+                            selectedClientId === client.id ? 'bg-primary-50 text-primary-700' : 'text-gray-700'
+                          }`}
+                        >
+                          <span className="font-medium">{client.name}</span>
+                          <span className="shrink-0 text-xs text-gray-400">{client.category?.toUpperCase()}</span>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-3 py-2 text-sm text-gray-400">Nenhum cliente encontrado.</div>
+                    )}
+                  </div>
+                  {selectedClient && (
+                    <div className="rounded-xl border border-green-100 bg-green-50 px-3 py-2 text-sm text-green-800">
+                      Agendamento vinculado a: <strong>{selectedClient.name}</strong>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -372,6 +418,7 @@ export function Schedules() {
                     <input
                       type="date"
                       required
+                      min={minScheduleDate}
                       value={scheduledDate}
                       onChange={(e) => setScheduledDate(e.target.value)}
                       className="w-full rounded-xl border border-gray-300 p-3 text-sm"

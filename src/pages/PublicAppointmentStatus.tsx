@@ -45,8 +45,8 @@ const TIMELINE_STEPS: TimelineStep[] = [
   { label: 'Solicitação recebida' },
   { label: 'Confirmada / Agendada' },
   { label: 'Inspeção em andamento' },
-  { label: 'Finalizada' },
-  { label: 'Relatório em preparação' },
+  { label: 'Inspecao finalizada' },
+  { label: 'Relatorio concluido' },
   { label: 'Relatório disponível' },
 ];
 
@@ -57,7 +57,7 @@ function currentStepIndex(status: PublicAppointmentStatusResult['status']): numb
     case 'confirmed': return 1;
     case 'rescheduled': return 1; // aguardando nova confirmação de data
     case 'in_progress': return 2;
-    case 'completed': return 4; // finalizada concluída → relatório em preparação
+    case 'completed': return 4;
     case 'report_available': return 5;
     case 'cancelled': return -1;
     default: return 0;

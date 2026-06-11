@@ -6,6 +6,7 @@ import type {
   PublicAvailableTime,
   PublicCalendarDay,
 } from '../types';
+import { formatAppointmentLeadTimeMessage, isAppointmentAtLeast24hAhead } from '../utils/appointmentLeadTime';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -64,6 +65,9 @@ export const publicAppointmentService = {
   async createAppointmentRequest(
     payload: Omit<PublicAppointmentPayload, 'tenant_id'>
   ): Promise<{ public_token: string }> {
+    if (!payload.requested_starts_at || !isAppointmentAtLeast24hAhead(payload.requested_starts_at)) {
+      throw new Error(formatAppointmentLeadTimeMessage());
+    }
     const { data, error } = await withTimeout(
       supabase.rpc('public_create_calendar_appointment_request', {
         p_payload: { ...payload, tenant_id: DEFAULT_TENANT_ID },

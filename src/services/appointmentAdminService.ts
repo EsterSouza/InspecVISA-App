@@ -7,6 +7,7 @@ import type {
   SlotPeriod,
 } from '../types';
 import { getActiveTenantId } from '../utils/localScope';
+import { formatAppointmentLeadTimeMessage, isAppointmentAtLeast24hAhead } from '../utils/appointmentLeadTime';
 
 const PORTAL_BUCKET = 'client-portal-files';
 const INSPECTION_PHOTO_BUCKET = 'inspection-photos';
@@ -123,6 +124,9 @@ export const AppointmentAdminService = {
     // Mantém data, hora e janela de bloqueio do calendário público
     // consistentes com o horário realmente confirmado.
     const startsAt = new Date(`${params.confirmedDate}T${params.confirmedTime || '09:00'}`);
+    if (!isAppointmentAtLeast24hAhead(startsAt)) {
+      throw new Error(formatAppointmentLeadTimeMessage());
+    }
     const endsAt = new Date(startsAt.getTime() + 60 * 60 * 1000);
     const updates: Partial<AppointmentRequest> = {
       status: 'confirmed',
@@ -163,6 +167,9 @@ export const AppointmentAdminService = {
   }): Promise<void> {
     const tenantId = requireTenantId();
     const startsAt = new Date(`${params.date}T${params.time || '09:00'}`);
+    if (!isAppointmentAtLeast24hAhead(startsAt)) {
+      throw new Error(formatAppointmentLeadTimeMessage());
+    }
     const endsAt = new Date(startsAt.getTime() + 60 * 60 * 1000);
     const { error } = await supabase.from('appointment_requests').insert({
       tenant_id: tenantId,

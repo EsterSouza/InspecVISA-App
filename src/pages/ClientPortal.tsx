@@ -29,7 +29,7 @@ const STATUS_LABELS: Record<string, string> = {
   confirmed: 'Confirmada',
   in_progress: 'Em andamento',
   rescheduled: 'Remarcada',
-  completed: 'Finalizada',
+  completed: 'Relatorio concluido',
   report_available: 'Relatório disponível',
   cancelled: 'Cancelada',
 };
