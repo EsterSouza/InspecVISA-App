@@ -405,6 +405,9 @@ export function ClientPortal() {
                               </span>
                             )}
                           </span>
+                          <span className="hidden shrink-0 text-xs font-semibold text-primary-700 md:inline">
+                            Abrir detalhes e arquivos
+                          </span>
                           <span
                             className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
                               STATUS_BADGES[visit.status] || 'bg-gray-100 text-gray-500'

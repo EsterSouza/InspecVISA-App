@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Search, Plus, Building2, Phone, MapPin, Edit2, Trash2, Loader2, WifiOff } from 'lucide-react';
+import { Search, Plus, Phone, MapPin, Edit2, Trash2, Loader2, WifiOff, KeyRound } from 'lucide-react';
 import { type Client, type ClientCategory, type FoodEstablishmentType, FOOD_SEGMENT_LABELS } from '../types';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -10,6 +10,7 @@ import { generateId } from '../utils/imageUtils';
 import { useNavigate } from 'react-router-dom';
 import { ClientService } from '../services/clientService';
 import { useAuthStore } from '../store/useAuthStore';
+import { AppointmentAdminService, type ClientPortalAccountRow } from '../services/appointmentAdminService';
 
 export function Clients() {
   const navigate = useNavigate();
@@ -22,13 +23,19 @@ export function Clients() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
+  const [portalAccounts, setPortalAccounts] = useState<ClientPortalAccountRow[]>([]);
   
   const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<Client>();
 
   const loadClients = async () => {
     setIsFetching(true);
     try {
-      let list = await ClientService.getClients();
+      const [clientList, accountList] = await Promise.allSettled([
+        ClientService.getClients(),
+        AppointmentAdminService.listPortalAccounts(),
+      ]);
+      if (accountList.status === 'fulfilled') setPortalAccounts(accountList.value);
+      let list = clientList.status === 'fulfilled' ? clientList.value : [];
 
       if (filterCat !== 'all') {
         list = list.filter(c => c.category === filterCat);
@@ -119,6 +126,14 @@ export function Clients() {
   };
 
   const selectedCategory = watch('category');
+  const portalAccessByClient = new Map<string, ClientPortalAccountRow[]>();
+  for (const account of portalAccounts) {
+    for (const clientId of account.client_ids) {
+      const current = portalAccessByClient.get(clientId) || [];
+      current.push(account);
+      portalAccessByClient.set(clientId, current);
+    }
+  }
 
   return (
     <div className="mx-auto max-w-4xl p-4 sm:p-6 lg:p-8">
@@ -179,6 +194,9 @@ export function Clients() {
               className="p-5 hover:border-primary-200 hover:shadow-md transition-all cursor-pointer group"
               onClick={() => navigate(`/clients/${client.id}`)}
             >
+              {(() => {
+                const portalAccesses = portalAccessByClient.get(client.id) || [];
+                return (
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <h3 className="text-lg font-bold text-gray-900 group-hover:text-primary-700 transition-colors">{client.name}</h3>
@@ -194,6 +212,12 @@ export function Clients() {
                          {FOOD_SEGMENT_LABELS[ft as FoodEstablishmentType] || ft}
                        </Badge>
                      ))}
+                     {portalAccesses.length > 0 && (
+                       <Badge variant="outline" className="bg-primary-50 text-primary-700 border-primary-200">
+                         <KeyRound className="mr-1 h-3 w-3" />
+                         Portal: {portalAccesses.map((account) => account.name).join(', ')}
+                       </Badge>
+                     )}
                   </div>
                   <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 text-sm text-gray-600">
                     {client.phone && <div className="flex items-center"><Phone className="mr-2 h-4 w-4 text-gray-400" /> {client.phone}</div>}
@@ -205,6 +229,8 @@ export function Clients() {
                   <button onClick={(e) => handleDelete(client, e)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl"><Trash2 className="h-5 w-5" /></button>
                 </div>
               </div>
+                );
+              })()}
             </Card>
           ))
         )}

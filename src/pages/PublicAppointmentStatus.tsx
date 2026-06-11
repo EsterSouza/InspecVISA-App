@@ -7,6 +7,7 @@ import {
   CalendarDays,
   Check,
   Download,
+  Home,
   FileText,
   FileType,
   Image as ImageIcon,
@@ -98,13 +99,12 @@ export function PublicAppointmentStatus() {
       setStatus(result);
       setInvalidToken(false);
 
-      if (result.status === 'report_available') {
-        try {
-          const list = await publicAppointmentService.getAppointmentAssets(token);
-          setAssets(list);
-        } catch (err) {
-          console.warn('[PublicAppointmentStatus] Falha ao carregar anexos:', err);
-        }
+      try {
+        const list = await publicAppointmentService.getAppointmentAssets(token);
+        setAssets(list);
+      } catch (err) {
+        setAssets([]);
+        console.warn('[PublicAppointmentStatus] Falha ao carregar anexos:', err);
       }
     } catch (err) {
       console.warn('[PublicAppointmentStatus] Token inválido ou erro de consulta:', err);
@@ -169,6 +169,14 @@ export function PublicAppointmentStatus() {
     <div className="min-h-screen bg-white">
       <PublicHeader />
       <main className="mx-auto max-w-[600px] px-4 py-8 pb-16">
+        <Link
+          to="/cliente"
+          className="mb-4 inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
+        >
+          <Home className="h-4 w-4" />
+          Voltar ao painel do cliente
+        </Link>
+
         {/* Protocolo */}
         <div className="mb-6 rounded-2xl border border-gray-100 bg-gray-50 p-5 text-center shadow-sm">
           <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Protocolo</p>
@@ -320,10 +328,9 @@ export function PublicAppointmentStatus() {
         )}
 
         {/* Relatório e anexos */}
-        {status.status === 'report_available' && (
-          <section className="mb-6 rounded-2xl border border-green-100 bg-white p-5 shadow-sm">
+        <section className="mb-6 rounded-2xl border border-green-100 bg-white p-5 shadow-sm">
             <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-green-700">
-              Relatório disponível
+              Relatório, fotos e anexos
             </h3>
 
             {reportPdf ? (
@@ -337,9 +344,11 @@ export function PublicAppointmentStatus() {
                 Baixar relatório (PDF)
               </a>
             ) : (
-              <p className="text-sm text-gray-500">
-                O relatório está sendo disponibilizado. Atualize a página em alguns instantes.
-              </p>
+              <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
+                {status.status === 'report_available'
+                  ? 'O relatório está sendo disponibilizado. Atualize a página em alguns instantes.'
+                  : 'Quando o relatório, fotos ou anexos forem publicados pela equipe, os botões de download aparecem aqui.'}
+              </div>
             )}
 
             {photos.length > 0 && (
@@ -408,7 +417,6 @@ export function PublicAppointmentStatus() {
               </div>
             )}
           </section>
-        )}
 
         {/* Ações */}
         <div className="space-y-3">
