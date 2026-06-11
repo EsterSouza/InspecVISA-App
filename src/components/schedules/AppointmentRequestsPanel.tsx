@@ -12,6 +12,7 @@ import {
   Loader2,
   MapPin,
   Paperclip,
+  Pencil,
   Phone,
   Play,
   RefreshCw,
@@ -1192,6 +1193,7 @@ function PortalAccountsSection({ accounts, clients, onChanged }: PortalAccountsS
   const [showCreate, setShowCreate] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [newCode, setNewCode] = useState<{ email: string; code: string } | null>(null);
+  const [editTarget, setEditTarget] = useState<ClientPortalAccountRow | null>(null);
 
   const portalUrl = `${window.location.origin}/cliente`;
 
@@ -1262,6 +1264,15 @@ function PortalAccountsSection({ accounts, clients, onChanged }: PortalAccountsS
                   variant="ghost"
                   size="sm"
                   disabled={busyId === account.id}
+                  onClick={() => setEditTarget(account)}
+                  title="Editar unidades vinculadas"
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={busyId === account.id}
                   onClick={() => void handleRegenerate(account)}
                   title="Gerar novo código de acesso"
                 >
@@ -1273,6 +1284,7 @@ function PortalAccountsSection({ accounts, clients, onChanged }: PortalAccountsS
                   disabled={busyId === account.id}
                   onClick={() => void handleDelete(account)}
                   className="text-red-500 hover:bg-red-50"
+                  title="Remover acesso"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -1326,7 +1338,121 @@ function PortalAccountsSection({ accounts, clients, onChanged }: PortalAccountsS
           </Card>
         </div>
       )}
+
+      {editTarget && (
+        <EditPortalUnitsModal
+          account={editTarget}
+          clients={clients}
+          onClose={() => setEditTarget(null)}
+          onSaved={() => {
+            setEditTarget(null);
+            onChanged();
+          }}
+        />
+      )}
     </section>
+  );
+}
+
+interface EditPortalUnitsModalProps {
+  account: ClientPortalAccountRow;
+  clients: Client[];
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+function EditPortalUnitsModal({ account, clients, onClose, onSaved }: EditPortalUnitsModalProps) {
+  const [search, setSearch] = useState('');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(account.client_ids));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const filtered = search
+    ? clients.filter((c) => c.name.toLowerCase().includes(search.toLowerCase()))
+    : clients;
+
+  const toggle = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleSave = async () => {
+    if (selectedIds.size === 0) {
+      setError('Selecione ao menos uma unidade (ou remova o acesso).');
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      await AppointmentAdminService.setPortalAccountClients(account.id, [...selectedIds]);
+      onSaved();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <Card className="max-h-[90vh] w-full max-w-lg overflow-y-auto shadow-2xl">
+        <CardContent className="p-6">
+          <h3 className="mb-1 text-xl font-bold text-gray-900">Editar unidades</h3>
+          <p className="mb-5 text-sm text-gray-500">
+            {account.name} — {selectedIds.size} unidade{selectedIds.size === 1 ? '' : 's'} vinculada
+            {selectedIds.size === 1 ? '' : 's'}
+          </p>
+
+          <input
+            type="text"
+            placeholder="Filtrar unidades..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="mb-2 w-full rounded-xl border border-gray-300 p-2.5 text-sm"
+          />
+          <div className="max-h-64 space-y-1 overflow-y-auto rounded-xl border border-gray-100 p-2">
+            {filtered.length === 0 ? (
+              <p className="p-2 text-sm text-gray-400">Nenhuma unidade encontrada.</p>
+            ) : (
+              filtered.map((client) => (
+                <label
+                  key={client.id}
+                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-gray-50"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(client.id)}
+                    onChange={() => toggle(client.id)}
+                    className="h-4 w-4 rounded border-gray-300 text-primary-600"
+                  />
+                  <span className="min-w-0 flex-1 truncate text-gray-800">{client.name}</span>
+                </label>
+              ))
+            )}
+          </div>
+
+          {error && (
+            <div className="mt-4 rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
+          <div className="mt-5 flex gap-3">
+            <Button type="button" variant="ghost" className="flex-1" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button type="button" className="flex-1" disabled={saving} onClick={() => void handleSave()}>
+              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Salvar unidades
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 

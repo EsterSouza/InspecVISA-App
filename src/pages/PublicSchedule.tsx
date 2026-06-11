@@ -13,9 +13,11 @@ import {
   Phone,
   RefreshCw,
   Send,
+  ShieldCheck,
 } from 'lucide-react';
 import type { AttendanceMode, PublicAvailableTime, PublicCalendarDay } from '../types';
 import { publicAppointmentService } from '../services/publicAppointmentService';
+import { clientPortalService, type ClientPortalUnit } from '../services/clientPortalService';
 import { PublicHeader } from '../components/public/PublicHeader';
 import { formatProtocol } from '../utils/protocol';
 
@@ -62,6 +64,11 @@ export function PublicSchedule() {
   const [calendarReloadKey, setCalendarReloadKey] = useState(0);
 
   const [unitName, setUnitName] = useState('');
+  // Modo portal: cliente logado agenda só para as próprias unidades vinculadas
+  const [portalToken, setPortalToken] = useState<string | null>(null);
+  const [portalAccount, setPortalAccount] = useState<string>('');
+  const [portalUnits, setPortalUnits] = useState<ClientPortalUnit[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState('');
   const [attendanceMode, setAttendanceMode] = useState<AttendanceMode>('presencial');
   const [municipality, setMunicipality] = useState('Rio de Janeiro');
   const [district, setDistrict] = useState('');
@@ -79,6 +86,34 @@ export function PublicSchedule() {
     () => (selectedDay ? formatFullDay(selectedDay) : 'Escolha uma data'),
     [selectedDay]
   );
+
+  const portalMode = !!portalToken && portalUnits.length > 0;
+
+  // Detecta sessão do portal do cliente e carrega só as unidades vinculadas.
+  useEffect(() => {
+    const stored = clientPortalService.getStoredToken();
+    if (!stored) return;
+    let cancelled = false;
+    clientPortalService
+      .overview(stored)
+      .then((data) => {
+        if (cancelled) return;
+        setPortalToken(stored);
+        setPortalAccount(data.account_name);
+        setPortalUnits(data.units);
+        if (data.units.length > 0) {
+          setSelectedClientId(data.units[0].client_id);
+          if (data.units[0].city) setMunicipality(data.units[0].city);
+        }
+      })
+      .catch(() => {
+        // token inválido/expirado — segue como público
+        clientPortalService.clearToken();
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -134,7 +169,11 @@ export function PublicSchedule() {
 
   const validate = () => {
     if (!selectedTime) return 'Escolha um horario disponivel.';
-    if (!unitName.trim()) return 'Informe o nome da unidade.';
+    if (portalMode) {
+      if (!selectedClientId) return 'Selecione a unidade.';
+    } else if (!unitName.trim()) {
+      return 'Informe o nome da unidade.';
+    }
     if (attendanceMode === 'presencial') {
       if (!municipality.trim()) return 'Informe o municipio do atendimento presencial.';
       if (!district.trim()) return 'Informe o bairro do atendimento presencial.';
@@ -153,18 +192,31 @@ export function PublicSchedule() {
     setSubmitting(true);
     setError(null);
     try {
-      const result = await publicAppointmentService.createAppointmentRequest({
-        unit_name: unitName.trim(),
-        attendance_mode: attendanceMode,
-        municipality: attendanceMode === 'presencial' ? municipality.trim() : undefined,
-        district: attendanceMode === 'presencial' ? district.trim() : 'Online',
-        responsible_name: responsibleName.trim() || undefined,
-        phone: phone.trim(),
-        email: email.trim() || undefined,
-        requested_starts_at: selectedTime!.starts_at,
-        requested_ends_at: selectedTime!.ends_at,
-        notes: notes.trim() || undefined,
-      });
+      const result = portalMode
+        ? await clientPortalService.createAppointment(portalToken!, {
+            client_id: selectedClientId,
+            attendance_mode: attendanceMode,
+            municipality: attendanceMode === 'presencial' ? municipality.trim() : undefined,
+            district: attendanceMode === 'presencial' ? district.trim() : 'Online',
+            responsible_name: responsibleName.trim() || undefined,
+            phone: phone.trim() || undefined,
+            email: email.trim() || undefined,
+            requested_starts_at: selectedTime!.starts_at,
+            requested_ends_at: selectedTime!.ends_at,
+            notes: notes.trim() || undefined,
+          })
+        : await publicAppointmentService.createAppointmentRequest({
+            unit_name: unitName.trim(),
+            attendance_mode: attendanceMode,
+            municipality: attendanceMode === 'presencial' ? municipality.trim() : undefined,
+            district: attendanceMode === 'presencial' ? district.trim() : 'Online',
+            responsible_name: responsibleName.trim() || undefined,
+            phone: phone.trim(),
+            email: email.trim() || undefined,
+            requested_starts_at: selectedTime!.starts_at,
+            requested_ends_at: selectedTime!.ends_at,
+            notes: notes.trim() || undefined,
+          });
       setToken(result.public_token);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: any) {
@@ -353,21 +405,58 @@ export function PublicSchedule() {
             <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-gray-700">
               Dados da unidade
             </h3>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700">Nome fantasia da unidade</label>
-                <div className="relative">
-                  <Building2 className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
-                  <input
-                    type="text"
-                    required
-                    value={unitName}
-                    onChange={(e) => setUnitName(e.target.value)}
-                    placeholder="Ex.: Clínica Bela Vida — Unidade Tijuca"
-                    className="w-full rounded-md border border-gray-300 py-3 pl-9 pr-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
-                  />
-                </div>
+
+            {portalMode && (
+              <div className="mb-4 flex items-start gap-2 rounded-md border border-primary-100 bg-primary-50/60 p-3">
+                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary-700" />
+                <p className="text-xs text-primary-900">
+                  Agendando como <span className="font-bold">{portalAccount}</span>. Você só vê e
+                  agenda as unidades do seu cadastro.
+                </p>
               </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {portalMode ? (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-gray-700">Unidade</label>
+                  <div className="relative">
+                    <Building2 className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
+                    <select
+                      required
+                      value={selectedClientId}
+                      onChange={(e) => {
+                        setSelectedClientId(e.target.value);
+                        const u = portalUnits.find((x) => x.client_id === e.target.value);
+                        if (u?.city) setMunicipality(u.city);
+                      }}
+                      className="w-full appearance-none rounded-md border border-gray-300 bg-white py-3 pl-9 pr-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+                    >
+                      {portalUnits.map((u) => (
+                        <option key={u.client_id} value={u.client_id}>
+                          {u.client_name}
+                          {u.city ? ` — ${u.city}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-gray-700">Nome fantasia da unidade</label>
+                  <div className="relative">
+                    <Building2 className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      required
+                      value={unitName}
+                      onChange={(e) => setUnitName(e.target.value)}
+                      placeholder="Ex.: Clínica Bela Vida — Unidade Tijuca"
+                      className="w-full rounded-md border border-gray-300 py-3 pl-9 pr-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-2">
                 <button

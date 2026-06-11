@@ -23,9 +23,23 @@ export interface ClientPortalVisit {
 }
 
 export interface ClientPortalUnit {
+  client_id: string;
   client_name: string;
   city: string | null;
   visits: ClientPortalVisit[];
+}
+
+export interface ClientPortalAppointmentPayload {
+  client_id: string;
+  attendance_mode: 'presencial' | 'online';
+  municipality?: string;
+  district?: string;
+  responsible_name?: string;
+  phone?: string;
+  email?: string;
+  requested_starts_at: string;
+  requested_ends_at: string;
+  notes?: string;
 }
 
 export interface ClientPortalOverview {
@@ -74,5 +88,20 @@ export const clientPortalService = {
     if (error) throw error;
     if (data?.error) throw new Error('acesso invalido');
     return data as ClientPortalOverview;
+  },
+
+  async createAppointment(
+    token: string,
+    payload: ClientPortalAppointmentPayload
+  ): Promise<{ public_token: string }> {
+    const { data, error } = await withTimeout(
+      supabase.rpc('client_portal_create_appointment', {
+        p_payload: { ...payload, portal_token: token },
+      }),
+      'AgendarPortalCliente'
+    );
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    return data as { public_token: string };
   },
 };

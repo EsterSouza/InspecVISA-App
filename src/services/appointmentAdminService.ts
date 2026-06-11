@@ -402,6 +402,22 @@ export const AppointmentAdminService = {
     if (error) throw error;
   },
 
+  async setPortalAccountClients(accountId: string, clientIds: string[]): Promise<void> {
+    // Substitui o conjunto de unidades vinculadas (RLS restringe ao staff do tenant).
+    const { error: delError } = await supabase
+      .from('client_portal_account_clients')
+      .delete()
+      .eq('account_id', accountId);
+    if (delError) throw delError;
+
+    if (clientIds.length > 0) {
+      const { error: insError } = await supabase
+        .from('client_portal_account_clients')
+        .insert(clientIds.map((client_id) => ({ account_id: accountId, client_id })));
+      if (insError) throw insError;
+    }
+  },
+
   async deletePortalAccount(accountId: string): Promise<void> {
     const { error } = await supabase.from('client_portal_accounts').delete().eq('id', accountId);
     if (error) throw error;
