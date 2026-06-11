@@ -111,6 +111,40 @@ export const AppointmentAdminService = {
     if (error) throw error;
   },
 
+  async getRequestByInspectionId(inspectionId: string): Promise<AppointmentRequest | null> {
+    const tenantId = requireTenantId();
+    const { data, error } = await withTimeout(
+      supabase
+        .from('appointment_requests')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('inspection_id', inspectionId)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      'SolicitacaoPorInspecao'
+    );
+    if (error) throw error;
+    return (data ?? null) as AppointmentRequest | null;
+  },
+
+  async getRequestByScheduleId(scheduleId: string): Promise<AppointmentRequest | null> {
+    const tenantId = requireTenantId();
+    const { data, error } = await withTimeout(
+      supabase
+        .from('appointment_requests')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('schedule_id', scheduleId)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      'SolicitacaoPorAgenda'
+    );
+    if (error) throw error;
+    return (data ?? null) as AppointmentRequest | null;
+  },
+
   async confirmRequest(
     id: string,
     params: {
@@ -147,10 +181,6 @@ export const AppointmentAdminService = {
 
   async markInProgress(id: string): Promise<void> {
     await this.updateRequest(id, { status: 'in_progress' });
-  },
-
-  async markCompleted(id: string): Promise<void> {
-    await this.updateRequest(id, { status: 'completed' });
   },
 
   // Cria uma visita direto pela equipe, já confirmada e vinculada ao cliente,
@@ -243,6 +273,25 @@ export const AppointmentAdminService = {
     }
   },
 
+  async deleteRequest(request: AppointmentRequest): Promise<void> {
+    const tenantId = requireTenantId();
+    if (request.schedule_id) {
+      try {
+        const { ScheduleService } = await import('./scheduleService');
+        await ScheduleService.deleteSchedule(request.schedule_id);
+      } catch (err) {
+        console.warn('[AppointmentAdmin] Falha ao remover o agendamento interno vinculado antes da exclusao:', err);
+      }
+    }
+
+    const { error } = await supabase
+      .from('appointment_requests')
+      .delete()
+      .eq('id', request.id)
+      .eq('tenant_id', tenantId);
+    if (error) throw error;
+  },
+
   async setManualDueDate(id: string, dueDate: string): Promise<void> {
     await this.updateRequest(id, {
       report_due_at: dueDate,
@@ -260,6 +309,14 @@ export const AppointmentAdminService = {
       .from(PORTAL_BUCKET)
       .upload(path, file, { contentType: file.type || 'application/pdf', upsert: true });
     if (uploadError) throw uploadError;
+
+    const { error: deletePreviousError } = await supabase
+      .from('appointment_attachments')
+      .delete()
+      .eq('tenant_id', tenantId)
+      .eq('appointment_request_id', request.id)
+      .eq('kind', 'report_pdf');
+    if (deletePreviousError) throw deletePreviousError;
 
     const { error: insertError } = await supabase.from('appointment_attachments').insert({
       tenant_id: tenantId,

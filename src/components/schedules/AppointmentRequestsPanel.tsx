@@ -165,12 +165,13 @@ export function AppointmentRequestsPanel() {
     void withBusy(request.id, () => AppointmentAdminService.cancelRequest(request));
   };
 
-  const handleMarkInProgress = (request: AppointmentRequest) => {
-    void withBusy(request.id, () => AppointmentAdminService.markInProgress(request.id));
+  const handleDelete = (request: AppointmentRequest) => {
+    if (!confirm(`Excluir definitivamente "${request.unit_name}" do registro de solicitações?`)) return;
+    void withBusy(request.id, () => AppointmentAdminService.deleteRequest(request));
   };
 
-  const handleMarkCompleted = (request: AppointmentRequest) => {
-    void withBusy(request.id, () => AppointmentAdminService.markCompleted(request.id));
+  const handleMarkInProgress = (request: AppointmentRequest) => {
+    void withBusy(request.id, () => AppointmentAdminService.markInProgress(request.id));
   };
 
   const handlePublishReport = (request: AppointmentRequest, file: File | null) => {
@@ -318,6 +319,15 @@ export function AppointmentRequestsPanel() {
                       >
                         <XCircle className="h-4 w-4" />
                       </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={busy === request.id}
+                        onClick={() => handleDelete(request)}
+                        className="text-red-600 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 </CardContent>
@@ -351,8 +361,8 @@ export function AppointmentRequestsPanel() {
                 onSetDueDate={() => setDueDateTarget(request)}
                 onCancel={() => handleCancel(request)}
                 onMarkInProgress={() => handleMarkInProgress(request)}
-                onMarkCompleted={() => handleMarkCompleted(request)}
                 onReschedule={() => handleReschedule(request)}
+                onDelete={() => handleDelete(request)}
               />
             ))}
           </div>
@@ -385,7 +395,7 @@ export function AppointmentRequestsPanel() {
                     onSetDueDate={() => setDueDateTarget(request)}
                     onCancel={() => handleCancel(request)}
                     onMarkInProgress={() => handleMarkInProgress(request)}
-                    onMarkCompleted={() => handleMarkCompleted(request)}
+                    onDelete={() => handleDelete(request)}
                   />
                 ) : (
                   <div
@@ -398,7 +408,18 @@ export function AppointmentRequestsPanel() {
                         {STATUS_LABELS[request.status]}
                       </span>
                     </div>
-                    <span className="shrink-0 text-xs text-gray-400">{formatDateBR(request.requested_date)}</span>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="text-xs text-gray-400">{formatDateBR(request.requested_date)}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={busy === request.id}
+                        onClick={() => handleDelete(request)}
+                        className="text-red-600 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 )
               )}
@@ -488,8 +509,8 @@ interface ActiveRequestCardProps {
   onSetDueDate: () => void;
   onCancel: () => void;
   onMarkInProgress: () => void;
-  onMarkCompleted: () => void;
   onReschedule?: () => void;
+  onDelete: () => void;
 }
 
 function ActiveRequestCard({
@@ -501,8 +522,8 @@ function ActiveRequestCard({
   onSetDueDate,
   onCancel,
   onMarkInProgress,
-  onMarkCompleted,
   onReschedule,
+  onDelete,
 }: ActiveRequestCardProps) {
   const reportInputRef = useRef<HTMLInputElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
@@ -579,17 +600,6 @@ function ActiveRequestCard({
                 <Play className="mr-1.5 h-4 w-4" /> Iniciar inspeção
               </Button>
             )}
-            {request.status === 'in_progress' && (
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={busy}
-                onClick={onMarkCompleted}
-                className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-              >
-                <CheckCircle className="mr-1.5 h-4 w-4" /> Concluir inspeção
-              </Button>
-            )}
             {onReschedule && (request.status === 'confirmed' || request.status === 'rescheduled') && (
               <Button variant="outline" size="sm" disabled={busy} onClick={onReschedule}>
                 <CalendarDays className="mr-1.5 h-4 w-4" /> Remarcar
@@ -626,6 +636,15 @@ function ActiveRequestCard({
               className="ml-auto text-red-500 hover:bg-red-50"
             >
               <XCircle className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              onClick={onDelete}
+              className="text-red-600 hover:bg-red-50"
+            >
+              <Trash2 className="h-4 w-4" />
             </Button>
           </div>
         </div>

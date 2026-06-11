@@ -10,6 +10,7 @@ import { ClientService } from '../services/clientService';
 import { useAuthStore } from '../store/useAuthStore';
 import { getLocalActor } from '../utils/localActor';
 import { AppointmentRequestsPanel } from '../components/schedules/AppointmentRequestsPanel';
+import { AppointmentAdminService } from '../services/appointmentAdminService';
 import {
   formatAppointmentLeadTimeMessage,
   getMinAppointmentDateTime,
@@ -48,6 +49,11 @@ export function Schedules() {
     setSelectedClientId(client.id);
     setClientSearch(client.name);
   };
+
+  const portalPlaceForClient = (client: Client) => ({
+    municipality: client.city || 'Rio de Janeiro',
+    district: client.address || client.city || 'A definir',
+  });
 
   const loadData = async () => {
     setLoading(true);
@@ -106,6 +112,15 @@ export function Schedules() {
         alert(formatAppointmentLeadTimeMessage());
         return;
       }
+      if (!navigator.onLine) {
+        alert('Sem conexão com a internet. O agendamento precisa sincronizar com o portal do cliente.');
+        return;
+      }
+      const selectedClient = clients.find((client) => client.id === selectedClientId);
+      if (!selectedClient) {
+        alert('Cliente selecionado nao encontrado.');
+        return;
+      }
       const actor = getLocalActor();
       
       if (isEditing && editingId) {
@@ -119,6 +134,35 @@ export function Schedules() {
           localActorId: actor.id,
         };
         await ScheduleService.saveSchedule(updated);
+        const linkedRequest = await AppointmentAdminService.getRequestByScheduleId(updated.id);
+        const place = portalPlaceForClient(selectedClient);
+        if (linkedRequest) {
+          const startsAt = new Date(`${scheduledDate}T${scheduledTime}`);
+          const endsAt = new Date(startsAt.getTime() + 60 * 60 * 1000);
+          await AppointmentAdminService.updateRequest(linkedRequest.id, {
+            status: 'confirmed',
+            client_id: selectedClient.id,
+            unit_name: selectedClient.name,
+            municipality: place.municipality,
+            district: place.district,
+            requested_date: scheduledDate,
+            requested_time: scheduledTime,
+            requested_period: startsAt.getHours() < 12 ? 'manha' : 'tarde',
+            requested_starts_at: startsAt.toISOString(),
+            requested_ends_at: endsAt.toISOString(),
+          });
+        } else {
+          await AppointmentAdminService.insertConfirmedRequest({
+            clientId: selectedClient.id,
+            unitName: selectedClient.name,
+            scheduleId: updated.id,
+            date: scheduledDate,
+            time: scheduledTime,
+            attendanceMode: 'presencial',
+            municipality: place.municipality,
+            district: place.district,
+          });
+        }
       } else {
         const newSchedule: Schedule = {
           id: generateId(),
@@ -131,6 +175,17 @@ export function Schedules() {
           syncStatus: 'pending'
         };
         await ScheduleService.saveSchedule(newSchedule);
+        const place = portalPlaceForClient(selectedClient);
+        await AppointmentAdminService.insertConfirmedRequest({
+          clientId: selectedClient.id,
+          unitName: selectedClient.name,
+          scheduleId: newSchedule.id,
+          date: scheduledDate,
+          time: scheduledTime,
+          attendanceMode: 'presencial',
+          municipality: place.municipality,
+          district: place.district,
+        });
       }
 
       setIsModalOpen(false);

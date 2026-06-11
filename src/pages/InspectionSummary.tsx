@@ -4,6 +4,7 @@ import { Eye, EyeOff, FileDown, ArrowLeft, Loader2, Save, Info, AlertTriangle } 
 import { ClientService } from '../services/clientService';
 import { InspectionService } from '../services/inspectionService';
 import { InspectionBundleSyncService } from '../services/inspectionBundleSyncService';
+import { AppointmentAdminService } from '../services/appointmentAdminService';
 import { LegislationService, type Legislation } from '../services/legislationService';
 import { getTemplateById } from '../data/templates';
 import { calculateScore, classificationColor, getLatestResponsesByItem } from '../utils/scoring';
@@ -336,7 +337,7 @@ export function InspectionSummary() {
        const shouldSyncFinalSnapshot = currentInspection.status === 'completed' && currentReadiness.isReady && navigator.onLine;
        await new Promise(resolve => setTimeout(resolve, 100));
        const { generatePDF } = await import('../utils/pdfGenerator');
-       await generatePDF(
+       const generatedPdf = await generatePDF(
          currentInspection,
          pdfResponses,
          displayTemplate,
@@ -347,11 +348,17 @@ export function InspectionSummary() {
        );
        if (shouldSyncFinalSnapshot) {
          const snapshotInspection = { ...currentInspection, reportTemplateSnapshot: displayTemplate };
-         void InspectionBundleSyncService.syncInspectionBundle(currentInspection.id, {
+         await InspectionBundleSyncService.syncInspectionBundle(currentInspection.id, {
            finalizeReport: true,
            inspectionOverride: snapshotInspection,
-         })
-           .catch((err) => console.warn('[Summary] Final report snapshot sync failed after local PDF generation:', err));
+         });
+         const linkedRequest = await AppointmentAdminService.getRequestByInspectionId(currentInspection.id);
+         if (linkedRequest) {
+           const file = new File([generatedPdf.blob], generatedPdf.filename, { type: 'application/pdf' });
+           await AppointmentAdminService.publishReport(linkedRequest, file);
+         } else {
+           console.warn('[Summary] PDF final gerado, mas nao ha solicitacao/agendamento vinculado para publicar no portal.');
+         }
        }
     } catch (err) {
        console.error('PDF Error:', err);

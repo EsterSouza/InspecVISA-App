@@ -100,7 +100,12 @@ async function loadImageSize(dataUrl: string, timeoutMs = 8000): Promise<{ width
   });
 }
 
-function savePdfWithFallback(doc: jsPDF, filename: string) {
+export interface GeneratedPdfFile {
+  blob: Blob;
+  filename: string;
+}
+
+function savePdfWithFallback(doc: jsPDF, filename: string): GeneratedPdfFile {
   const blob = doc.output('blob');
   if (!(blob instanceof Blob) || blob.size === 0) {
     throw new Error('PDF gerado vazio.');
@@ -121,7 +126,7 @@ function savePdfWithFallback(doc: jsPDF, filename: string) {
       link.click();
       link.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 60000);
-      return;
+      return { blob, filename };
     }
 
     const opened = window.open(url, '_blank', 'noopener,noreferrer');
@@ -130,10 +135,12 @@ function savePdfWithFallback(doc: jsPDF, filename: string) {
     } else {
       window.setTimeout(() => URL.revokeObjectURL(url), 60000);
     }
+    return { blob, filename };
   } catch (err) {
     URL.revokeObjectURL(url);
     try {
       doc.save(filename);
+      return { blob, filename };
     } catch {
       throw err;
     }
@@ -148,7 +155,7 @@ export async function generatePDF(
   settings: ConsultantSettings,
   legislations: any[] = [],
   options: { selectedLegislations?: string[]; signatureDataUrl?: string } = {}
-): Promise<void> {
+): Promise<GeneratedPdfFile> {
   const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -1106,7 +1113,7 @@ export async function generatePDF(
   }
 
   const filename = `Inspecao_${(inspection.clientName || 'cliente').replace(/\s+/g, '_')}_${formatDate(inspection.inspectionDate).replace(/\//g, '-')}.pdf`;
-  savePdfWithFallback(doc, filename);
+  return savePdfWithFallback(doc, filename);
 }
 
 /**
