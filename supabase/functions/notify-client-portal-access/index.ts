@@ -1,5 +1,22 @@
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+
+function jsonResponse(body: unknown, init: ResponseInit = {}) {
+  return new Response(JSON.stringify(body), {
+    ...init,
+    headers: {
+      ...corsHeaders,
+      'Content-Type': 'application/json',
+      ...(init.headers || {}),
+    },
+  });
+}
+
 function esc(value: unknown): string {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -43,8 +60,12 @@ async function sendMail(params: {
 
 Deno.serve(async (req) => {
   try {
+    if (req.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: corsHeaders });
+    }
+
     if (!req.headers.get('authorization')) {
-      return new Response('unauthorized', { status: 401 });
+      return new Response('unauthorized', { status: 401, headers: corsHeaders });
     }
 
     const payload = await req.json().catch(() => ({}));
@@ -55,10 +76,7 @@ Deno.serve(async (req) => {
     const unitCount = Number(payload.unitCount ?? 0);
 
     if (!email || !code || !portalUrl) {
-      return new Response(JSON.stringify({ error: 'email, code e portalUrl sao obrigatorios' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ error: 'email, code e portalUrl sao obrigatorios' }, { status: 400 });
     }
 
     const plain = [
@@ -104,14 +122,9 @@ Deno.serve(async (req) => {
       html,
     });
 
-    return new Response(JSON.stringify({ ok: true }), {
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return jsonResponse({ ok: true });
   } catch (err) {
     console.error('[notify-client-portal-access] erro:', err);
-    return new Response(JSON.stringify({ error: String(err) }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return jsonResponse({ error: String(err) }, { status: 500 });
   }
 });
