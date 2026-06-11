@@ -44,15 +44,18 @@ export function mapToPostgres(schedule: Schedule): any {
  */
 async function syncLinkedAppointmentRequest(
   scheduleId: string,
-  status: 'in_progress' | 'completed'
+  status: 'in_progress' | 'completed',
+  inspectionId?: string
 ): Promise<void> {
   if (!navigator.onLine) return;
   try {
     const fromStatuses =
       status === 'in_progress' ? ['confirmed', 'rescheduled'] : ['confirmed', 'rescheduled', 'in_progress'];
+    const payload: Record<string, string> = { status, updated_at: new Date().toISOString() };
+    if (inspectionId) payload.inspection_id = inspectionId;
     const { error } = await supabase
       .from('appointment_requests')
-      .update({ status, updated_at: new Date().toISOString() })
+      .update(payload)
       .eq('schedule_id', scheduleId)
       .in('status', fromStatuses);
     if (error) throw error;
@@ -145,7 +148,7 @@ export const ScheduleService = {
         syncStatus: 'pending' as const
       };
       await this.saveSchedule(updated);
-      void syncLinkedAppointmentRequest(id, 'in_progress');
+      void syncLinkedAppointmentRequest(id, 'in_progress', inspectionId);
     }
   },
 
@@ -160,7 +163,7 @@ export const ScheduleService = {
         syncStatus: 'pending' as const
       };
       await this.saveSchedule(updated);
-      void syncLinkedAppointmentRequest(id, 'completed');
+      void syncLinkedAppointmentRequest(id, 'completed', inspectionId);
     }
   }
 };

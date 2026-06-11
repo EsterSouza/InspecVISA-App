@@ -38,6 +38,7 @@ const ClientPortal = lazy(() => import('./pages/ClientPortal').then(m => ({ defa
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ProfileSelection } from './pages/ProfileSelection';
 import { Login } from './pages/Login';
+import { SettingsService } from './services/settingsService';
 
 const BOOT_DB_TIMEOUT_MS = 8000;
 const TEMPLATE_SYNC_DELAY_MS = 6000;
@@ -167,6 +168,16 @@ function App() {
       console.log('🚀 Iniciando InspecVISA Step 1/4: Auth...');
       // Step 1: Initialize auth (instant from cache if previously logged in)
       await useAuthStore.getState().initialize();
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser && navigator.onLine) {
+        void SettingsService.load()
+          .then((remoteSettings) => {
+            if (remoteSettings?.name) {
+              useSettingsStore.getState().replaceSettings(remoteSettings);
+            }
+          })
+          .catch((err) => console.warn('[App] Remote settings load failed:', err));
+      }
       void useAuthStore.getState().checkSession().then((isAuthorized) => {
         if (!isAuthorized && useAuthStore.getState().user) {
           console.warn('[App] Session check failed, user state cleared');

@@ -17,6 +17,7 @@ export interface Settings {
 interface SettingsState {
   settings: Settings;
   updateSettings: (settings: Partial<Settings>) => void;
+  replaceSettings: (settings: Settings) => void;
   setConsultant: (consultant: 'ana' | 'ester') => void;
   clearData: () => Promise<void>;
 }
@@ -35,6 +36,7 @@ export const useSettingsStore = create<SettingsState>()(
         set((state) => ({
           settings: { ...state.settings, ...newSettings },
         })),
+      replaceSettings: (settings) => set({ settings }),
       clearData: async () => {
         set({ settings: { name: '', theme: 'light', consultantRole: 'ambos', professionalId: '', phone: '' } });
       },

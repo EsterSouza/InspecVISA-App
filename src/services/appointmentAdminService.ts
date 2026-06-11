@@ -435,7 +435,7 @@ export const AppointmentAdminService = {
 
   async listPortalAccounts(): Promise<ClientPortalAccountRow[]> {
     const tenantId = requireTenantId();
-    const { data, error } = await withTimeout(
+    let { data, error }: { data: any[] | null; error: any } = await withTimeout(
       supabase
         .from('client_portal_accounts')
         .select('id, name, email, username, portal_token, access_code_plain, is_active, created_at, client_portal_account_clients(client_id)')
@@ -443,13 +443,31 @@ export const AppointmentAdminService = {
         .order('created_at', { ascending: false }),
       'AcessosPortal'
     );
+    if (error) {
+      const missingColumn =
+        error.code === '42703' ||
+        error.message?.includes('username') ||
+        error.message?.includes('access_code_plain') ||
+        error.message?.includes('portal_token');
+      if (!missingColumn) throw error;
+      const fallback: { data: any[] | null; error: any } = await withTimeout(
+        supabase
+          .from('client_portal_accounts')
+          .select('id, name, email, is_active, created_at, client_portal_account_clients(client_id)')
+          .eq('tenant_id', tenantId)
+          .order('created_at', { ascending: false }),
+        'AcessosPortalLegado'
+      );
+      data = fallback.data;
+      error = fallback.error;
+    }
     if (error) throw error;
     return (data ?? []).map((row: any) => ({
       id: row.id,
       name: row.name,
       email: row.email,
       username: row.username ?? null,
-      portal_token: row.portal_token,
+      portal_token: row.portal_token ?? '',
       access_code_plain: row.access_code_plain ?? null,
       is_active: row.is_active,
       created_at: row.created_at,

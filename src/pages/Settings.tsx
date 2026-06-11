@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { SyncQueueService } from '../services/syncQueueService';
 import { Button } from '../components/ui/Button';
@@ -11,12 +11,37 @@ import {
   Save, Upload, Trash2, LogOut, RefreshCw, FileText
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
+import { SettingsService } from '../services/settingsService';
 
 export function Settings() {
-  const { settings, updateSettings, clearData } = useSettingsStore();
+  const { settings, updateSettings, replaceSettings, clearData } = useSettingsStore();
   const { signOut } = useAuthStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [loadStatus, setLoadStatus] = useState<'idle' | 'loading' | 'loaded' | 'failed'>('idle');
+
+  useEffect(() => {
+    if (!navigator.onLine) return;
+    let cancelled = false;
+    setLoadStatus('loading');
+    SettingsService.load()
+      .then((remoteSettings) => {
+        if (cancelled) return;
+        if (remoteSettings?.name) {
+          replaceSettings(remoteSettings);
+          setLoadStatus('loaded');
+        } else {
+          setLoadStatus('idle');
+        }
+      })
+      .catch((err) => {
+        console.warn('[Settings] Falha ao carregar configuracoes remotas:', err);
+        if (!cancelled) setLoadStatus('failed');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [replaceSettings]);
 
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -36,14 +61,18 @@ export function Settings() {
     updateSettings({ logoDataUrl: undefined });
   };
 
-  const saveForm = (e: React.FormEvent) => {
+  const saveForm = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaveStatus('saving');
-    // LocalStorage zustand persist is automatic, just show feedback
-    setTimeout(() => {
+    try {
+      await SettingsService.save(settings);
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 2000);
-    }, 500);
+    } catch (err: any) {
+      console.error('[Settings] Falha ao salvar perfil remoto:', err);
+      setSaveStatus('idle');
+      alert(err?.message || 'Nao foi possivel salvar o perfil na nuvem.');
+    }
   };
 
   const handleExport = async () => {
@@ -99,6 +128,15 @@ export function Settings() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Configurações</h1>
         <p className="text-sm text-gray-500">Ajuste seu perfil e preferências do relátorio.</p>
+        {loadStatus === 'loading' && (
+          <p className="mt-1 text-xs text-primary-600">Carregando perfil salvo na nuvem...</p>
+        )}
+        {loadStatus === 'loaded' && (
+          <p className="mt-1 text-xs text-green-600">Perfil carregado da nuvem.</p>
+        )}
+        {loadStatus === 'failed' && (
+          <p className="mt-1 text-xs text-amber-600">Nao foi possivel carregar o perfil remoto agora.</p>
+        )}
       </div>
 
       <Card>

@@ -92,15 +92,23 @@ export function ClientDetails() {
         setInspections(inspectionsWithScores);
         setActionPlan(await getClientActionPlanContext(id));
         if (navigator.onLine) {
-          const [accounts, requests] = await Promise.all([
+          const [accountsResult, requestsResult] = await Promise.allSettled([
             AppointmentAdminService.listPortalAccounts(),
             AppointmentAdminService.listRequests(),
           ]);
+          const accounts = accountsResult.status === 'fulfilled' ? accountsResult.value : [];
+          const requests = requestsResult.status === 'fulfilled' ? requestsResult.value : [];
+          if (accountsResult.status === 'rejected') {
+            console.warn('[ClientDetails] Falha ao carregar acessos do portal:', accountsResult.reason);
+          }
+          if (requestsResult.status === 'rejected') {
+            console.warn('[ClientDetails] Falha ao carregar visitas do portal:', requestsResult.reason);
+          }
           setPortalAccounts(accounts);
           const mine = requests.filter((request) => request.client_id === id);
           setClientRequests(mine);
           const assets: Record<string, AppointmentAttachment[]> = {};
-          await Promise.all(
+          await Promise.allSettled(
             mine.map(async (request) => {
               assets[request.id] = await AppointmentAdminService.listAttachments(request.id);
             })
@@ -362,7 +370,7 @@ export function ClientDetails() {
             <Button variant="outline" size="sm" onClick={() => setIsVisitModalOpen(true)}>
               <CalendarPlus className="mr-2 h-4 w-4" /> Nova visita
             </Button>
-            <Button onClick={() => navigate('/new')}>
+            <Button onClick={() => navigate(`/new?clientId=${client.id}`)}>
               <Calendar className="mr-2 h-4 w-4" /> Nova Inspeção
             </Button>
           </div>

@@ -658,6 +658,12 @@ function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: Confirm
   const filteredClients = clientSearch
     ? clients.filter((c) => c.name.toLowerCase().includes(clientSearch.toLowerCase()))
     : clients;
+  const selectedClient = clients.find((c) => c.id === selectedClientId);
+
+  const selectExistingClient = (client: Client) => {
+    setSelectedClientId(client.id);
+    setClientSearch(client.name);
+  };
 
   const handleConfirm = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -798,12 +804,43 @@ function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: Confirm
                     type="text"
                     placeholder="Buscar cliente..."
                     value={clientSearch}
-                    onChange={(e) => setClientSearch(e.target.value)}
+                    onChange={(e) => {
+                      setClientSearch(e.target.value);
+                      setSelectedClientId('');
+                    }}
                     className="w-full rounded-xl border border-gray-300 p-3 text-sm"
                   />
+                  <div className="max-h-44 overflow-y-auto rounded-xl border border-gray-200 bg-white">
+                    {filteredClients.length > 0 ? (
+                      filteredClients.slice(0, 8).map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => selectExistingClient(c)}
+                          className={`flex w-full items-center justify-between gap-3 border-b border-gray-100 px-3 py-2 text-left text-sm last:border-b-0 hover:bg-primary-50 ${
+                            selectedClientId === c.id ? 'bg-primary-50 text-primary-700' : 'text-gray-700'
+                          }`}
+                        >
+                          <span className="font-medium">{c.name}</span>
+                          <span className="shrink-0 text-xs text-gray-400">{c.category?.toUpperCase()}</span>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-3 py-2 text-sm text-gray-400">Nenhum cliente encontrado.</div>
+                    )}
+                  </div>
+                  {selectedClient && (
+                    <div className="rounded-xl border border-green-100 bg-green-50 px-3 py-2 text-sm text-green-800">
+                      Vinculado a: <strong>{selectedClient.name}</strong>
+                    </div>
+                  )}
                   <select
                     value={selectedClientId}
-                    onChange={(e) => setSelectedClientId(e.target.value)}
+                    onChange={(e) => {
+                      setSelectedClientId(e.target.value);
+                      const c = clients.find((x) => x.id === e.target.value);
+                      if (c) setClientSearch(c.name);
+                    }}
                     className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm"
                   >
                     <option value="">Selecione um cliente...</option>
@@ -1207,6 +1244,12 @@ function NewVisitModal({ clients, onClose, onCreated }: NewVisitModalProps) {
     : clients;
   const selectedClient = clients.find((c) => c.id === clientId);
 
+  const selectClient = (client: Client) => {
+    setClientId(client.id);
+    setSearch(client.name);
+    if (client.city) setMunicipality(client.city);
+  };
+
   const handleSave = async () => {
     if (!clientId || !date) {
       setError('Selecione o cliente e a data.');
@@ -1268,15 +1311,45 @@ function NewVisitModal({ clients, onClose, onCreated }: NewVisitModalProps) {
                 type="text"
                 placeholder="Buscar cliente..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setClientId('');
+                }}
                 className="w-full rounded-xl border border-gray-300 p-2.5 text-sm"
               />
+              <div className="max-h-44 overflow-y-auto rounded-xl border border-gray-200 bg-white">
+                {filtered.length > 0 ? (
+                  filtered.slice(0, 8).map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => selectClient(c)}
+                      className={`flex w-full items-center justify-between gap-3 border-b border-gray-100 px-3 py-2 text-left text-sm last:border-b-0 hover:bg-primary-50 ${
+                        clientId === c.id ? 'bg-primary-50 text-primary-700' : 'text-gray-700'
+                      }`}
+                    >
+                      <span className="font-medium">{c.name}</span>
+                      <span className="shrink-0 text-xs text-gray-400">{c.category?.toUpperCase()}</span>
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-3 py-2 text-sm text-gray-400">Nenhum cliente encontrado.</div>
+                )}
+              </div>
+              {selectedClient && (
+                <div className="rounded-xl border border-green-100 bg-green-50 px-3 py-2 text-sm text-green-800">
+                  Visita vinculada a: <strong>{selectedClient.name}</strong>
+                </div>
+              )}
               <select
                 value={clientId}
                 onChange={(e) => {
                   setClientId(e.target.value);
                   const c = clients.find((x) => x.id === e.target.value);
-                  if (c?.city) setMunicipality(c.city);
+                  if (c) {
+                    setSearch(c.name);
+                    if (c.city) setMunicipality(c.city);
+                  }
                 }}
                 className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm"
               >
