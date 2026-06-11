@@ -4,6 +4,7 @@ import {
   CalendarOff,
   CalendarPlus,
   CheckCircle,
+  CreditCard,
   Clock,
   Copy,
   FileUp,
@@ -1565,6 +1566,7 @@ function PortalAccountsSection({ accounts, clients, onChanged }: PortalAccountsS
     emailError?: string;
   } | null>(null);
   const [editTarget, setEditTarget] = useState<ClientPortalAccountRow | null>(null);
+  const [paymentTarget, setPaymentTarget] = useState<ClientPortalAccountRow | null>(null);
 
   const portalUrl = `${window.location.origin}/cliente`;
   const clientNameMap = new Map(clients.map((client) => [client.id, client.name]));
@@ -1661,7 +1663,17 @@ function PortalAccountsSection({ accounts, clients, onChanged }: PortalAccountsS
               className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-100 bg-white p-3"
             >
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-bold text-gray-900">{account.name}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="truncate text-sm font-bold text-gray-900">{account.name}</p>
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                      account.payment_status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                    }`}
+                  >
+                    {account.payment_status === 'paid' ? 'Pago' : 'Pgto pendente'}
+                    {account.payment_type ? ` · ${account.payment_type === 'monthly' ? 'mensal' : 'único'}` : ''}
+                  </span>
+                </div>
                 <p className="truncate text-xs text-gray-500">
                   {account.email} · {account.client_ids.length} unidade{account.client_ids.length === 1 ? '' : 's'}
                 </p>
@@ -1670,6 +1682,15 @@ function PortalAccountsSection({ accounts, clients, onChanged }: PortalAccountsS
                 </p>
               </div>
               <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={busyId === account.id}
+                  onClick={() => setPaymentTarget(account)}
+                  title="Pagamento (link, tipo e status)"
+                >
+                  <CreditCard className="h-4 w-4" />
+                </Button>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1802,7 +1823,100 @@ function PortalAccountsSection({ accounts, clients, onChanged }: PortalAccountsS
           }}
         />
       )}
+
+      {paymentTarget && (
+        <PaymentModal
+          account={paymentTarget}
+          onClose={() => setPaymentTarget(null)}
+          onSaved={() => {
+            setPaymentTarget(null);
+            onChanged();
+          }}
+        />
+      )}
     </section>
+  );
+}
+
+// ─── Modal: pagamento do acesso do cliente ────────────────────
+
+interface PaymentModalProps {
+  account: ClientPortalAccountRow;
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+function PaymentModal({ account, onClose, onSaved }: PaymentModalProps) {
+  const [type, setType] = useState<'monthly' | 'one_time' | null>(account.payment_type);
+  const [status, setStatus] = useState<'pending' | 'paid'>(account.payment_status);
+  const [link, setLink] = useState(account.payment_link || '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      await AppointmentAdminService.setPortalPayment(account.id, { type, status, link });
+      onSaved();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <Card className="w-full max-w-md shadow-2xl">
+        <CardContent className="p-6">
+          <h3 className="mb-1 text-xl font-bold text-gray-900">Pagamento</h3>
+          <p className="mb-5 text-sm text-gray-500">{account.name}</p>
+
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-700">Link de pagamento</label>
+              <input
+                type="url"
+                value={link}
+                onChange={(e) => setLink(e.target.value)}
+                placeholder="Cole o link (Mercado Pago, Pix, Stripe...)"
+                className="w-full rounded-xl border border-gray-300 p-3 text-sm"
+              />
+              <p className="text-xs text-gray-400">O cliente vê um botão "Pagar agora" no portal enquanto estiver pendente.</p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Tipo de pagamento</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => setType('monthly')} className={`h-11 rounded-xl border text-sm font-bold ${type === 'monthly' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600'}`}>Mensal</button>
+                <button type="button" onClick={() => setType('one_time')} className={`h-11 rounded-xl border text-sm font-bold ${type === 'one_time' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600'}`}>Único</button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Situação</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => setStatus('pending')} className={`h-11 rounded-xl border text-sm font-bold ${status === 'pending' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-gray-200 text-gray-600'}`}>Pendente</button>
+                <button type="button" onClick={() => setStatus('paid')} className={`h-11 rounded-xl border text-sm font-bold ${status === 'paid' ? 'border-green-600 bg-green-50 text-green-700' : 'border-gray-200 text-gray-600'}`}>Pago</button>
+              </div>
+            </div>
+
+            {error && (
+              <div className="rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+            )}
+
+            <div className="flex gap-3 pt-1">
+              <Button type="button" variant="ghost" className="flex-1" onClick={onClose}>Cancelar</Button>
+              <Button type="button" className="flex-1" disabled={saving} onClick={() => void handleSave()}>
+                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Salvar
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 

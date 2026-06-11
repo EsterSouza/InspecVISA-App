@@ -4,9 +4,11 @@ import {
   Building2,
   CalendarDays,
   CalendarPlus,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   ClipboardCheck,
+  CreditCard,
   FileText,
   FolderOpen,
   Image,
@@ -264,6 +266,50 @@ export function ClientPortal() {
             <p className="mt-1 text-2xl font-black text-gray-950">{attachmentCount}</p>
           </div>
         </div>
+
+        {overview.payment && (overview.payment.type || overview.payment.link || overview.payment.status === 'paid') && (
+          <div
+            className={`mb-6 flex flex-col gap-3 rounded-xl border p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between ${
+              overview.payment.status === 'paid'
+                ? 'border-green-200 bg-green-50/70'
+                : 'border-amber-200 bg-amber-50/70'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              {overview.payment.status === 'paid' ? (
+                <CheckCircle2 className="h-6 w-6 shrink-0 text-green-600" />
+              ) : (
+                <CreditCard className="h-6 w-6 shrink-0 text-amber-600" />
+              )}
+              <div>
+                <p className="text-sm font-bold text-gray-900">
+                  {overview.payment.status === 'paid' ? 'Pagamento confirmado' : 'Pagamento pendente'}
+                  {overview.payment.type && (
+                    <span className="ml-2 rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-bold uppercase text-gray-600">
+                      {overview.payment.type === 'monthly' ? 'Mensal' : 'Único'}
+                    </span>
+                  )}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {overview.payment.status === 'paid'
+                    ? 'Obrigado! Seu pagamento está em dia.'
+                    : 'Use o botão para efetuar o pagamento e liberar o acompanhamento completo.'}
+                </p>
+              </div>
+            </div>
+            {overview.payment.status !== 'paid' && overview.payment.link && (
+              <a
+                href={overview.payment.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-amber-700"
+              >
+                <CreditCard className="h-4 w-4" />
+                Pagar agora
+              </a>
+            )}
+          </div>
+        )}
 
         <Link
           to="/agendar"

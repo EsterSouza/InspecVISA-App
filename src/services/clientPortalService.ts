@@ -50,8 +50,16 @@ export interface ClientPortalAppointmentPayload {
   notes?: string;
 }
 
+export interface ClientPortalPayment {
+  type: 'monthly' | 'one_time' | null;
+  status: 'pending' | 'paid';
+  link: string | null;
+  updated_at: string | null;
+}
+
 export interface ClientPortalOverview {
   account_name: string;
+  payment?: ClientPortalPayment;
   units: ClientPortalUnit[];
 }
 

@@ -30,6 +30,9 @@ export interface ClientPortalAccountRow {
   is_active: boolean;
   created_at: string;
   client_ids: string[];
+  payment_type: 'monthly' | 'one_time' | null;
+  payment_status: 'pending' | 'paid';
+  payment_link: string | null;
 }
 
 export interface ClientPortalAccessEmailPayload {
@@ -580,7 +583,7 @@ export const AppointmentAdminService = {
     let { data, error }: { data: any[] | null; error: any } = await withTimeout(
       supabase
         .from('client_portal_accounts')
-        .select('id, name, email, username, portal_token, access_code_plain, is_active, created_at, client_portal_account_clients(client_id)')
+        .select('id, name, email, username, portal_token, access_code_plain, is_active, created_at, payment_type, payment_status, payment_link, client_portal_account_clients(client_id)')
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false }),
       'AcessosPortal'
@@ -590,6 +593,7 @@ export const AppointmentAdminService = {
         error.code === '42703' ||
         error.message?.includes('username') ||
         error.message?.includes('access_code_plain') ||
+        error.message?.includes('payment_') ||
         error.message?.includes('portal_token');
       if (!missingColumn) throw error;
       const fallback: { data: any[] | null; error: any } = await withTimeout(
@@ -614,7 +618,23 @@ export const AppointmentAdminService = {
       is_active: row.is_active,
       created_at: row.created_at,
       client_ids: (row.client_portal_account_clients ?? []).map((c: any) => c.client_id),
+      payment_type: row.payment_type ?? null,
+      payment_status: row.payment_status ?? 'pending',
+      payment_link: row.payment_link ?? null,
     }));
+  },
+
+  async setPortalPayment(
+    accountId: string,
+    params: { type: 'monthly' | 'one_time' | null; status: 'pending' | 'paid'; link: string }
+  ): Promise<void> {
+    const { error } = await supabase.rpc('admin_set_portal_payment', {
+      p_account_id: accountId,
+      p_type: params.type,
+      p_status: params.status,
+      p_link: params.link,
+    });
+    if (error) throw error;
   },
 
   async createPortalAccount(params: {
