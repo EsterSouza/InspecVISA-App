@@ -448,13 +448,13 @@ export function PublicSchedule() {
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(420px,0.8fr)]">
           <section className="space-y-4">
-            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-              <div className="mb-4 flex items-center justify-between">
+            <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm sm:p-4">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-gray-700">
-                  <CalendarDays className="h-4 w-4 text-primary-700" />
+                  <CalendarDays className="h-4 w-4 shrink-0 text-primary-700" />
                   Datas disponíveis
                 </h3>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center justify-between gap-1 sm:justify-end">
                   <button
                     type="button"
                     onClick={() => setCalendarMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
@@ -463,7 +463,7 @@ export function PublicSchedule() {
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </button>
-                  <span className="min-w-[132px] text-center text-xs font-bold capitalize text-gray-700">
+                  <span className="flex-1 text-center text-xs font-bold capitalize text-gray-700 sm:min-w-[132px] sm:flex-none">
                     {formatMonthTitle(visibleMonth)}
                   </span>
                   <button
