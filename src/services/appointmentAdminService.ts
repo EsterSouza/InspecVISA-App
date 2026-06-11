@@ -23,6 +23,9 @@ export interface ClientPortalAccountRow {
   id: string;
   name: string;
   email: string;
+  username: string | null;
+  portal_token: string;
+  access_code_plain: string | null;
   is_active: boolean;
   created_at: string;
   client_ids: string[];
@@ -435,7 +438,7 @@ export const AppointmentAdminService = {
     const { data, error } = await withTimeout(
       supabase
         .from('client_portal_accounts')
-        .select('id, name, email, is_active, created_at, client_portal_account_clients(client_id)')
+        .select('id, name, email, username, portal_token, access_code_plain, is_active, created_at, client_portal_account_clients(client_id)')
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false }),
       'AcessosPortal'
@@ -445,6 +448,9 @@ export const AppointmentAdminService = {
       id: row.id,
       name: row.name,
       email: row.email,
+      username: row.username ?? null,
+      portal_token: row.portal_token,
+      access_code_plain: row.access_code_plain ?? null,
       is_active: row.is_active,
       created_at: row.created_at,
       client_ids: (row.client_portal_account_clients ?? []).map((c: any) => c.client_id),
@@ -454,6 +460,7 @@ export const AppointmentAdminService = {
   async createPortalAccount(params: {
     name: string;
     email: string;
+    username?: string;
     code: string;
     clientIds: string[];
   }): Promise<void> {
@@ -462,6 +469,7 @@ export const AppointmentAdminService = {
       p_tenant_id: tenantId,
       p_name: params.name,
       p_email: params.email,
+      p_username: params.username?.trim() || null,
       p_code: params.code,
       p_client_ids: params.clientIds,
     });
@@ -475,6 +483,15 @@ export const AppointmentAdminService = {
       p_code: code,
     });
     if (error) throw error;
+  },
+
+  async regeneratePortalToken(accountId: string): Promise<{ portal_token: string }> {
+    const { data, error } = await supabase.rpc('admin_regenerate_client_portal_token', {
+      p_account_id: accountId,
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    return data as { portal_token: string };
   },
 
   async sendPortalAccessEmail(payload: ClientPortalAccessEmailPayload): Promise<void> {

@@ -8,6 +8,7 @@ import {
   ChevronRight,
   ClipboardCheck,
   FileText,
+  FolderOpen,
   Image,
   KeyRound,
   Loader2,
@@ -65,7 +66,7 @@ export function ClientPortal() {
   const [overview, setOverview] = useState<ClientPortalOverview | null>(null);
   const [loading, setLoading] = useState(!!clientPortalService.getStoredToken());
 
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [code, setCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,19 +93,27 @@ export function ClientPortal() {
   }, []);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlToken = params.get('token');
+    if (urlToken) {
+      clientPortalService.storeToken(urlToken);
+      setToken(urlToken);
+      window.history.replaceState(null, '', window.location.pathname);
+      return;
+    }
     if (token) void loadOverview(token);
   }, [token, loadOverview]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !code.trim()) {
-      setError('Informe o e-mail e o código de acesso.');
+    if (!identifier.trim() || !code.trim()) {
+      setError('Informe o e-mail/usuario e o codigo de acesso.');
       return;
     }
     setSubmitting(true);
     setError(null);
     try {
-      const result = await clientPortalService.login(email.trim(), code.trim());
+      const result = await clientPortalService.login(identifier.trim(), code.trim());
       clientPortalService.storeToken(result.portal_token);
       setToken(result.portal_token);
     } catch (err) {
@@ -118,7 +127,7 @@ export function ClientPortal() {
     clientPortalService.clearToken();
     setToken(null);
     setOverview(null);
-    setEmail('');
+    setIdentifier('');
     setCode('');
   };
 
@@ -150,14 +159,14 @@ export function ClientPortal() {
             <form onSubmit={handleLogin} className="mt-6 space-y-4">
               <div className="space-y-1.5">
                 <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
-                  <Mail className="h-4 w-4 text-gray-400" /> E-mail
+                  <Mail className="h-4 w-4 text-gray-400" /> E-mail ou usuario
                 </label>
                 <input
-                  type="email"
+                  type="text"
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="contato@suaempresa.com.br"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  placeholder="contato@suaempresa.com.br ou usuario"
                   className="w-full rounded-md border border-gray-300 p-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
                 />
               </div>
@@ -394,6 +403,19 @@ export function ClientPortal() {
                     </span>
                   )}
                 </header>
+                {unit.has_personalized_sanitary_folder && unit.personalized_sanitary_folder_url && (
+                  <div className="border-b border-emerald-100 bg-emerald-50/70 px-5 py-3">
+                    <a
+                      href={unit.personalized_sanitary_folder_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700"
+                    >
+                      <FolderOpen className="h-3.5 w-3.5" />
+                      Abrir pasta sanitaria personalizada
+                    </a>
+                  </div>
+                )}
 
                 {unit.visits.length === 0 ? (
                   <p className="px-5 py-4 text-sm text-gray-400">

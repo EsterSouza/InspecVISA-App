@@ -41,6 +41,8 @@ export interface Client {
   responsibleName?: string;
   phone?: string;
   email?: string;
+  hasPersonalizedSanitaryFolder?: boolean;
+  personalizedSanitaryFolderUrl?: string;
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date | null;
@@ -436,6 +438,7 @@ export interface PublicAppointmentPayload {
 
 export interface PublicAppointmentStatusResult {
   id: string;
+  client_id?: string | null;
   unit_name: string;
   district: string;
   municipality?: string | null;
@@ -448,6 +451,8 @@ export interface PublicAppointmentStatusResult {
   requested_ends_at?: string | null;
   report_due_at: string | null;
   report_due_source: ReportDueSource | null;
+  has_personalized_sanitary_folder?: boolean;
+  personalized_sanitary_folder_url?: string | null;
   created_at: string;
   updated_at: string;
 }

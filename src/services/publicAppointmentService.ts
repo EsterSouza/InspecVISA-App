@@ -36,12 +36,12 @@ function withTimeout<T>(promise: PromiseLike<T>, label: string, timeoutMs = REQU
 }
 
 export const publicAppointmentService = {
-  async listCalendarDays(startDate?: string): Promise<PublicCalendarDay[]> {
+  async listCalendarDays(startDate?: string, days = 45): Promise<PublicCalendarDay[]> {
     const { data, error } = await withTimeout(
       supabase.rpc('public_list_calendar_days', {
         p_tenant_id: DEFAULT_TENANT_ID,
         p_start_date: startDate || new Date().toISOString().split('T')[0],
-        p_days: 45,
+        p_days: days,
       }),
       'CalendarioPublico'
     );

@@ -12,6 +12,7 @@ import {
   Home,
   FileText,
   FileType,
+  FolderOpen,
   Image as ImageIcon,
   Loader2,
   MapPin,
@@ -90,6 +91,7 @@ export function PublicAppointmentStatus() {
   const [refreshing, setRefreshing] = useState(false);
   const [invalidToken, setInvalidToken] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [showGallery, setShowGallery] = useState(false);
 
   const load = useCallback(async (isRefresh = false) => {
     if (!token) {
@@ -331,6 +333,23 @@ export function PublicAppointmentStatus() {
           </section>
         )}
 
+        {status.has_personalized_sanitary_folder && status.personalized_sanitary_folder_url && (
+          <section className="mb-6 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-5 shadow-sm">
+            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-emerald-700">
+              Pasta sanitaria personalizada
+            </h3>
+            <a
+              href={status.personalized_sanitary_folder_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700"
+            >
+              <FolderOpen className="h-4 w-4" />
+              Abrir pasta no Drive
+            </a>
+          </section>
+        )}
+
         {/* Relatório e anexos */}
         <section className="mb-6 rounded-2xl border border-green-100 bg-white p-5 shadow-sm">
             <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-green-700">
@@ -361,28 +380,17 @@ export function PublicAppointmentStatus() {
                   <span>Fotos da inspeção</span>
                   <span className="text-gray-400">{photos.length} foto{photos.length === 1 ? '' : 's'}</span>
                 </h4>
-                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                  {photos.map((photo, i) => (
-                    <button
-                      key={photo.id}
-                      type="button"
-                      onClick={() => setLightboxIndex(i)}
-                      className="group relative aspect-square overflow-hidden rounded-xl border border-gray-100 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-400"
-                    >
-                      <img
-                        src={photo.signed_url}
-                        alt={photo.caption || 'Foto da inspeção'}
-                        loading="lazy"
-                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                      />
-                      {photo.caption && (
-                        <span className="absolute inset-x-0 bottom-0 truncate bg-black/50 px-2 py-1 text-[10px] text-white">
-                          {photo.caption}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowGallery(true);
+                    setLightboxIndex(0);
+                  }}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-primary-100 bg-primary-50 px-5 py-3 text-sm font-semibold text-primary-800 transition-colors hover:bg-primary-100"
+                >
+                  <ImageIcon className="h-4 w-4" />
+                  Ver galeria de fotos ({photos.length})
+                </button>
               </div>
             )}
 
@@ -448,11 +456,14 @@ export function PublicAppointmentStatus() {
         </div>
       </main>
 
-      {lightboxIndex !== null && photos[lightboxIndex] && (
+      {showGallery && lightboxIndex !== null && photos[lightboxIndex] && (
         <PhotoLightbox
           photos={photos}
           index={lightboxIndex}
-          onClose={() => setLightboxIndex(null)}
+          onClose={() => {
+            setShowGallery(false);
+            setLightboxIndex(null);
+          }}
           onNavigate={setLightboxIndex}
         />
       )}

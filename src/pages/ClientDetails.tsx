@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, 
   Calendar, 
+  CalendarPlus,
+  Copy,
   FileText, 
   TrendingUp, 
   AlertCircle, 
@@ -15,11 +17,13 @@ import {
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { db } from '../db/database';
-import { type Client, type Inspection, type InspectionScore, FOOD_SEGMENT_LABELS } from '../types';
+import { type AppointmentAttachment, type AppointmentRequest, type Client, type Inspection, type InspectionScore, type Schedule, FOOD_SEGMENT_LABELS } from '../types';
 import { calculateScore } from '../utils/scoring';
 import { formatDateTime } from '../utils/imageUtils';
 import { ClientService } from '../services/clientService';
 import { InspectionService } from '../services/inspectionService';
+import { AppointmentAdminService, type ClientPortalAccountRow } from '../services/appointmentAdminService';
+import { ScheduleService } from '../services/scheduleService';
 import { filterByActiveTenant } from '../utils/localScope';
 import { getClientActionPlanContext, type ClientActionPlanContext, type PreviousNCContext } from '../utils/actionPlanContext';
 import { Button } from '../components/ui/Button';
@@ -37,9 +41,20 @@ export function ClientDetails() {
   const [client, setClient] = useState<Client | null>(null);
   const [inspections, setInspections] = useState<(Inspection & { score: InspectionScore })[]>([]);
   const [actionPlan, setActionPlan] = useState<ClientActionPlanContext>({ latestOpenItems: [], recurringItems: [] });
+  const [portalAccounts, setPortalAccounts] = useState<ClientPortalAccountRow[]>([]);
+  const [clientRequests, setClientRequests] = useState<AppointmentRequest[]>([]);
+  const [publishedAssets, setPublishedAssets] = useState<Record<string, AppointmentAttachment[]>>({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [accessBusy, setAccessBusy] = useState(false);
+  const [copiedAccess, setCopiedAccess] = useState(false);
+  const [newAccessCode, setNewAccessCode] = useState<string | null>(null);
+  const [isVisitModalOpen, setIsVisitModalOpen] = useState(false);
+  const [visitDate, setVisitDate] = useState('');
+  const [visitTime, setVisitTime] = useState('09:00');
+  const [visitMode, setVisitMode] = useState<'presencial' | 'online'>('presencial');
+  const [visitDistrict, setVisitDistrict] = useState('');
   
   const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<Client>();
   const selectedCategory = watch('category');
@@ -76,6 +91,22 @@ export function ClientDetails() {
 
         setInspections(inspectionsWithScores);
         setActionPlan(await getClientActionPlanContext(id));
+        if (navigator.onLine) {
+          const [accounts, requests] = await Promise.all([
+            AppointmentAdminService.listPortalAccounts(),
+            AppointmentAdminService.listRequests(),
+          ]);
+          setPortalAccounts(accounts);
+          const mine = requests.filter((request) => request.client_id === id);
+          setClientRequests(mine);
+          const assets: Record<string, AppointmentAttachment[]> = {};
+          await Promise.all(
+            mine.map(async (request) => {
+              assets[request.id] = await AppointmentAdminService.listAttachments(request.id);
+            })
+          );
+          setPublishedAssets(assets);
+        }
 
       } catch (err) {
         console.error('Error loading client details:', err);
@@ -111,6 +142,143 @@ export function ClientDetails() {
     } catch (err: any) {
       console.error(err);
       alert(err.message || 'Erro ao atualizar cliente.');
+    }
+  };
+
+  const makeAccessCode = () => {
+    const bytes = new Uint8Array(4);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+  };
+
+  const makeUsername = (value: string) =>
+    value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '.')
+      .replace(/(^\.|\.$)/g, '')
+      .slice(0, 28);
+
+  const portalAccount = client
+    ? portalAccounts.find((account) => account.client_ids.includes(client.id)) || null
+    : null;
+
+  const portalUrl = `${window.location.origin}/cliente`;
+  const portalDirectUrl = portalAccount ? `${portalUrl}?token=${portalAccount.portal_token}` : portalUrl;
+
+  const copyPortalAccess = async () => {
+    if (!portalAccount) return;
+    await navigator.clipboard.writeText([
+      `Portal do Cliente: ${portalDirectUrl}`,
+      `E-mail: ${portalAccount.email}`,
+      portalAccount.username ? `Usuario: ${portalAccount.username}` : '',
+      portalAccount.access_code_plain ? `Codigo: ${portalAccount.access_code_plain}` : '',
+      `Token: ${portalAccount.portal_token}`,
+    ].filter(Boolean).join('\n'));
+    setCopiedAccess(true);
+    window.setTimeout(() => setCopiedAccess(false), 2500);
+  };
+
+  const refreshPortalAccounts = async () => {
+    setPortalAccounts(await AppointmentAdminService.listPortalAccounts());
+  };
+
+  const createPortalAccess = async () => {
+    if (!client) return;
+    if (!client.email) {
+      alert('Informe um e-mail no cadastro do cliente antes de criar o acesso.');
+      return;
+    }
+    setAccessBusy(true);
+    try {
+      const code = makeAccessCode();
+      await AppointmentAdminService.createPortalAccount({
+        name: client.responsibleName || client.name,
+        email: client.email,
+        username: `${makeUsername(client.name)}.${client.id.slice(0, 4)}`,
+        code,
+        clientIds: [client.id],
+      });
+      setNewAccessCode(code);
+      await refreshPortalAccounts();
+    } catch (err: any) {
+      alert(err.message || 'Falha ao criar acesso do cliente.');
+    } finally {
+      setAccessBusy(false);
+    }
+  };
+
+  const regenerateAccessCode = async () => {
+    if (!portalAccount) return;
+    setAccessBusy(true);
+    try {
+      const code = makeAccessCode();
+      await AppointmentAdminService.setPortalAccessCode(portalAccount.id, code);
+      setNewAccessCode(code);
+      await refreshPortalAccounts();
+    } catch (err: any) {
+      alert(err.message || 'Falha ao gerar novo codigo.');
+    } finally {
+      setAccessBusy(false);
+    }
+  };
+
+  const regeneratePortalToken = async () => {
+    if (!portalAccount) return;
+    if (!confirm('Gerar novo token? Links diretos antigos deixam de funcionar.')) return;
+    setAccessBusy(true);
+    try {
+      await AppointmentAdminService.regeneratePortalToken(portalAccount.id);
+      await refreshPortalAccounts();
+    } catch (err: any) {
+      alert(err.message || 'Falha ao gerar novo token.');
+    } finally {
+      setAccessBusy(false);
+    }
+  };
+
+  const removePublishedAsset = async (asset: AppointmentAttachment) => {
+    if (!confirm('Remover este arquivo do portal do cliente? O arquivo original nao sera apagado.')) return;
+    await AppointmentAdminService.removePublishedAttachment(asset.id);
+    setPublishedAssets((current) => ({
+      ...current,
+      [asset.appointment_request_id]: (current[asset.appointment_request_id] || []).filter((item) => item.id !== asset.id),
+    }));
+  };
+
+  const createConfirmedVisit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!client || !visitDate) return;
+    try {
+      const scheduledAt = new Date(`${visitDate}T${visitTime || '09:00'}`);
+      const schedule: Schedule = {
+        id: crypto.randomUUID(),
+        clientId: client.id,
+        clientName: client.name,
+        scheduledAt,
+        status: 'pending',
+        updatedAt: new Date(),
+        tenantId: client.tenantId,
+        syncStatus: 'pending',
+      };
+      await ScheduleService.saveSchedule(schedule);
+      await AppointmentAdminService.insertConfirmedRequest({
+        clientId: client.id,
+        unitName: client.name,
+        scheduleId: schedule.id,
+        date: visitDate,
+        time: visitTime || '09:00',
+        attendanceMode: visitMode,
+        municipality: client.city,
+        district: visitMode === 'presencial' ? visitDistrict || client.city || '' : 'Online',
+      });
+      setIsVisitModalOpen(false);
+      setVisitDate('');
+      const requests = await AppointmentAdminService.listRequests();
+      setClientRequests(requests.filter((request) => request.client_id === client.id));
+    } catch (err: any) {
+      alert(err.message || 'Falha ao criar nova visita.');
     }
   };
 
@@ -191,6 +359,9 @@ export function ClientDetails() {
             <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={handleDelete}>
               <Trash2 className="mr-2 h-4 w-4" /> Excluir
             </Button>
+            <Button variant="outline" size="sm" onClick={() => setIsVisitModalOpen(true)}>
+              <CalendarPlus className="mr-2 h-4 w-4" /> Nova visita
+            </Button>
             <Button onClick={() => navigate('/new')}>
               <Calendar className="mr-2 h-4 w-4" /> Nova Inspeção
             </Button>
@@ -270,6 +441,112 @@ export function ClientDetails() {
 
         {/* Sidebar Info */}
         <div className="space-y-6">
+          <Card>
+            <CardContent className="p-5">
+              <h3 className="mb-4 flex items-center text-sm font-bold uppercase tracking-wider text-gray-900">
+                Portal do Cliente
+              </h3>
+              {portalAccount ? (
+                <div className="space-y-3 text-sm">
+                  <div className="rounded-md bg-gray-50 p-3">
+                    <p className="text-xs font-bold uppercase text-gray-400">Link direto</p>
+                    <p className="mt-1 break-all font-mono text-xs text-gray-700">{portalDirectUrl}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="rounded-md border border-gray-100 p-2">
+                      <p className="font-bold text-gray-400">Usuario</p>
+                      <p className="mt-1 truncate font-mono">{portalAccount.username || '-'}</p>
+                    </div>
+                    <div className="rounded-md border border-gray-100 p-2">
+                      <p className="font-bold text-gray-400">Codigo</p>
+                      <p className="mt-1 truncate font-mono">{portalAccount.access_code_plain || newAccessCode || '-'}</p>
+                    </div>
+                  </div>
+                  <div className="rounded-md border border-gray-100 p-2">
+                    <p className="text-xs font-bold text-gray-400">Token</p>
+                    <p className="mt-1 break-all font-mono text-xs">{portalAccount.portal_token}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button variant="outline" size="sm" className="text-xs" onClick={copyPortalAccess}>
+                      <Copy className="mr-1.5 h-3.5 w-3.5" /> {copiedAccess ? 'Copiado' : 'Copiar'}
+                    </Button>
+                    <Button variant="outline" size="sm" className="text-xs" disabled={accessBusy} onClick={regenerateAccessCode}>
+                      Novo codigo
+                    </Button>
+                    <Button variant="outline" size="sm" className="col-span-2 text-xs" disabled={accessBusy} onClick={regeneratePortalToken}>
+                      Gerar novo token/link
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="rounded-md bg-gray-50 p-3 text-sm text-gray-500">
+                    Este cliente ainda nao tem acesso ao painel.
+                  </p>
+                  <Button size="sm" className="w-full text-xs" disabled={accessBusy} onClick={createPortalAccess}>
+                    Criar acesso e link
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {client.hasPersonalizedSanitaryFolder && client.personalizedSanitaryFolderUrl && (
+            <Card>
+              <CardContent className="p-5">
+                <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-900">
+                  Pasta personalizada
+                </h3>
+                <a
+                  href={client.personalizedSanitaryFolderUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700"
+                >
+                  Abrir Drive <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              </CardContent>
+            </Card>
+          )}
+
+          {clientRequests.some((request) => (publishedAssets[request.id] || []).length > 0) && (
+            <Card>
+              <CardContent className="p-5">
+                <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-900">
+                  Publicado no portal
+                </h3>
+                <div className="space-y-3">
+                  {clientRequests.map((request) => {
+                    const assets = publishedAssets[request.id] || [];
+                    return assets.length > 0 ? (
+                      <div key={request.id} className="rounded-md border border-gray-100 p-3">
+                        <p className="mb-2 text-xs font-bold text-gray-500">
+                          {request.requested_date || 'Sem data'} - {assets.length} arquivo(s)
+                        </p>
+                        <div className="space-y-1.5">
+                          {assets.map((asset) => (
+                            <div key={asset.id} className="flex items-center gap-2 text-xs">
+                              <span className="min-w-0 flex-1 truncate">
+                                {asset.kind === 'photo' ? 'Foto' : asset.file_name || asset.kind}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => void removePublishedAsset(asset)}
+                                className="rounded border border-red-100 px-2 py-1 font-bold text-red-600 hover:bg-red-50"
+                              >
+                                Remover
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null;
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardContent className="p-5">
               <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center uppercase tracking-wider">
@@ -451,6 +728,26 @@ export function ClientDetails() {
             </div>
           </div>
 
+          <div className="rounded-md border border-emerald-100 bg-emerald-50/60 p-4">
+            <label className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+              <input
+                type="checkbox"
+                {...register('hasPersonalizedSanitaryFolder')}
+                className="rounded text-emerald-600 focus:ring-emerald-500"
+              />
+              Cliente tem pasta sanitaria personalizada
+            </label>
+            <div className="mt-3">
+              <label className="block text-sm font-medium text-gray-700">Link do Drive da pasta personalizada</label>
+              <input
+                {...register('personalizedSanitaryFolderUrl')}
+                type="url"
+                placeholder="https://drive.google.com/..."
+                className="mt-1 h-10 w-full rounded-md border border-gray-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">Cidade</label>
@@ -470,6 +767,78 @@ export function ClientDetails() {
           <div className="mt-6 flex justify-end space-x-3 pt-4 border-t border-gray-100">
             <Button variant="outline" type="button" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
             <Button type="submit" form="edit-client-form">Salvar Alterações</Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        isOpen={isVisitModalOpen}
+        onClose={() => setIsVisitModalOpen(false)}
+        title="Nova visita"
+      >
+        <form onSubmit={createConfirmedVisit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Data *</label>
+              <input
+                type="date"
+                required
+                value={visitDate}
+                onChange={(e) => setVisitDate(e.target.value)}
+                className="mt-1 h-10 w-full rounded-md border border-gray-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Hora</label>
+              <input
+                type="time"
+                value={visitTime}
+                onChange={(e) => setVisitTime(e.target.value)}
+                className="mt-1 h-10 w-full rounded-md border border-gray-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setVisitMode('presencial')}
+              className={`h-10 rounded-md border text-sm font-bold ${
+                visitMode === 'presencial' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600'
+              }`}
+            >
+              Presencial
+            </button>
+            <button
+              type="button"
+              onClick={() => setVisitMode('online')}
+              className={`h-10 rounded-md border text-sm font-bold ${
+                visitMode === 'online' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600'
+              }`}
+            >
+              Online
+            </button>
+          </div>
+
+          {visitMode === 'presencial' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Bairro/local do atendimento</label>
+              <input
+                value={visitDistrict}
+                onChange={(e) => setVisitDistrict(e.target.value)}
+                placeholder={client.city || 'Bairro'}
+                className="mt-1 h-10 w-full rounded-md border border-gray-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+          )}
+
+          <div className="mt-6 flex justify-end gap-3 border-t border-gray-100 pt-4">
+            <Button variant="outline" type="button" onClick={() => setIsVisitModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit">
+              Criar visita confirmada
+            </Button>
           </div>
         </form>
       </Modal>

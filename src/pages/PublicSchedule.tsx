@@ -4,6 +4,8 @@ import {
   Building2,
   CalendarDays,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   ClipboardCheck,
   Clock,
   Copy,
@@ -55,6 +57,18 @@ function monthKey(value: string): string {
   return value.slice(0, 7);
 }
 
+function daysToLoadForMonth(date: Date): number {
+  const now = new Date();
+  const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+  const startsThisMonth = date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+  const first = startsThisMonth ? new Date(now.getFullYear(), now.getMonth(), now.getDate()) : new Date(date.getFullYear(), date.getMonth(), 1);
+  return Math.max(1, Math.floor((monthEnd.getTime() - first.getTime()) / 86400000) + 1);
+}
+
+function monthStartKey(date: Date): string {
+  return toDateKey(new Date(date.getFullYear(), date.getMonth(), 1));
+}
+
 function formatMonthTitle(value: string): string {
   const date = parseLocalDate(`${value}-01`);
   return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
@@ -93,6 +107,10 @@ export function PublicSchedule() {
   const [calendarLoading, setCalendarLoading] = useState(true);
   const [timesLoading, setTimesLoading] = useState(false);
   const [calendarReloadKey, setCalendarReloadKey] = useState(0);
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
 
   const [unitName, setUnitName] = useState('');
   // Modo portal: cliente logado agenda só para as próprias unidades vinculadas
@@ -123,7 +141,8 @@ export function PublicSchedule() {
     () => portalUnits.find((unit) => unit.client_id === selectedClientId) || null,
     [portalUnits, selectedClientId]
   );
-  const selectedMonth = selectedDay ? monthKey(selectedDay) : '';
+  const visibleMonth = monthKey(monthStartKey(calendarMonth));
+  const selectedMonth = selectedDay ? monthKey(selectedDay) : visibleMonth;
   const selectedUnitAllowsInPerson = !portalMode || isRioState(selectedUnit?.state);
   const unitBlockedInSelectedMonth = useMemo(() => {
     if (!portalMode || !selectedMonth) return new Set<string>();
@@ -150,11 +169,10 @@ export function PublicSchedule() {
     return map;
   }, [portalUnits]);
   const calendarCells = useMemo(() => {
-    if (days.length === 0) return [];
-    const first = parseLocalDate(days[0].day);
-    const last = parseLocalDate(days[days.length - 1].day);
-    const start = new Date(first.getFullYear(), first.getMonth(), 1);
-    const end = new Date(last.getFullYear(), last.getMonth() + 1, 0);
+    const first = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1);
+    const last = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 0);
+    const start = new Date(first);
+    const end = new Date(last);
     start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
     end.setDate(end.getDate() + (6 - ((end.getDay() + 6) % 7)));
 
@@ -171,18 +189,14 @@ export function PublicSchedule() {
       cells.push({
         key,
         date: new Date(cursor),
-        inRange: cursor >= first && cursor <= last,
+        inRange: cursor.getMonth() === calendarMonth.getMonth(),
         month: monthKey(key),
-        available: dayAvailability.get(key),
+        available: monthKey(key) === monthKey(monthStartKey(calendarMonth)) ? dayAvailability.get(key) : undefined,
         bookings: portalVisitsByDay.get(key) || [],
       });
     }
     return cells;
-  }, [dayAvailability, days, portalVisitsByDay]);
-  const calendarMonths = useMemo(
-    () => Array.from(new Set(calendarCells.map((cell) => cell.month))),
-    [calendarCells]
-  );
+  }, [calendarMonth, dayAvailability, portalVisitsByDay]);
 
   // Detecta sessão do portal do cliente e carrega só as unidades vinculadas.
   useEffect(() => {
@@ -227,14 +241,15 @@ export function PublicSchedule() {
   useEffect(() => {
     let cancelled = false;
     setCalendarLoading(true);
+    const startDate = monthStartKey(calendarMonth);
     publicAppointmentService
-      .listCalendarDays()
+      .listCalendarDays(startDate, daysToLoadForMonth(calendarMonth))
       .then((data) => {
         if (cancelled) return;
         setError(null);
         setDays(data);
-        const first = data[0]?.day || '';
-        setSelectedDay(first);
+        const currentSelectionInMonth = selectedDay && monthKey(selectedDay) === monthKey(startDate);
+        setSelectedDay(currentSelectionInMonth ? selectedDay : (data[0]?.day || ''));
       })
       .catch((err) => {
         console.warn('[PublicSchedule] Falha ao carregar calendario:', err);
@@ -246,7 +261,7 @@ export function PublicSchedule() {
     return () => {
       cancelled = true;
     };
-  }, [calendarReloadKey]);
+  }, [calendarMonth, calendarReloadKey]);
 
   useEffect(() => {
     if (!selectedDay) {
@@ -434,14 +449,44 @@ export function PublicSchedule() {
                   <CalendarDays className="h-4 w-4 text-primary-700" />
                   Datas disponíveis
                 </h3>
-                <span className="text-xs font-medium text-gray-400">Segunda a sexta</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setCalendarMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
+                    className="rounded-md border border-gray-200 p-1.5 text-gray-600 hover:bg-gray-50"
+                    title="Mes anterior"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <span className="min-w-[132px] text-center text-xs font-bold capitalize text-gray-700">
+                    {formatMonthTitle(visibleMonth)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setCalendarMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
+                    className="rounded-md border border-gray-200 p-1.5 text-gray-600 hover:bg-gray-50"
+                    title="Proximo mes"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const n = new Date();
+                      setCalendarMonth(new Date(n.getFullYear(), n.getMonth(), 1));
+                    }}
+                    className="ml-1 rounded-md border border-gray-200 px-2 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+                  >
+                    Hoje
+                  </button>
+                </div>
               </div>
 
               {calendarLoading ? (
                 <div className="flex h-48 items-center justify-center">
                   <Loader2 className="h-7 w-7 animate-spin text-primary-700" />
                 </div>
-              ) : days.length === 0 ? (
+              ) : days.length === 0 && error ? (
                 <div className="rounded-md border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
                   <p>Nao ha horarios disponiveis nos proximos dias uteis.</p>
                   {error && (
@@ -459,12 +504,11 @@ export function PublicSchedule() {
                   )}
                 </div>
               ) : (
-                <div className="space-y-6">
-                  {calendarMonths.map((calendarMonth) => (
-                    <div key={calendarMonth}>
+                <div>
+                    <div>
                       <div className="mb-2 flex items-center justify-between gap-3">
                         <p className="text-sm font-bold capitalize text-gray-900">
-                          {formatMonthTitle(calendarMonth)}
+                          {formatMonthTitle(visibleMonth)}
                         </p>
                         {portalMode && (
                           <p className="text-xs text-gray-400">Ponto azul: vistoria já marcada</p>
@@ -477,7 +521,6 @@ export function PublicSchedule() {
                       </div>
                       <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
                         {calendarCells
-                          .filter((cell) => cell.month === calendarMonth)
                           .map((cell) => {
                             const selected = selectedDay === cell.key;
                             const available = !!cell.available;
@@ -523,7 +566,6 @@ export function PublicSchedule() {
                           })}
                       </div>
                     </div>
-                  ))}
                 </div>
               )}
             </div>

@@ -30,6 +30,8 @@ export interface ClientPortalUnit {
   client_name: string;
   city: string | null;
   state: string | null;
+  has_personalized_sanitary_folder?: boolean;
+  personalized_sanitary_folder_url?: string | null;
   visits: ClientPortalVisit[];
 }
 
@@ -74,9 +76,9 @@ export const clientPortalService = {
     } catch { /* armazenamento indisponível */ }
   },
 
-  async login(email: string, code: string): Promise<{ portal_token: string; account_name: string }> {
+  async login(identifier: string, code: string): Promise<{ portal_token: string; account_name: string }> {
     const { data, error } = await withTimeout(
-      supabase.rpc('client_portal_login', { p_email: email, p_code: code }),
+      supabase.rpc('client_portal_login', { p_email: identifier, p_code: code }),
       'LoginPortalCliente'
     );
     if (error) throw error;
