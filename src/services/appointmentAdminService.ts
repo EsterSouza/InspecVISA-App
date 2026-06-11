@@ -40,6 +40,23 @@ export interface ClientPortalAccessEmailPayload {
   unitCount: number;
 }
 
+export interface ReportAvailableNotificationPayload {
+  email?: string;
+  phone?: string;
+  unitName: string;
+  portalUrl: string;
+  reportName: string;
+}
+
+export interface ReportAvailableNotificationResult {
+  ok: boolean;
+  emailSent: boolean;
+  emailError?: string;
+  whatsappSent: boolean;
+  whatsappError?: string;
+  whatsappLink?: string | null;
+}
+
 export interface BlockedDateRow {
   id: string;
   day: string;
@@ -194,6 +211,9 @@ export const AppointmentAdminService = {
     attendanceMode: 'presencial' | 'online';
     municipality?: string;
     district?: string;
+    responsibleName?: string;
+    phone?: string;
+    email?: string;
   }): Promise<void> {
     const tenantId = requireTenantId();
     const startsAt = new Date(`${params.date}T${params.time || '09:00'}`);
@@ -209,6 +229,9 @@ export const AppointmentAdminService = {
       district: params.attendanceMode === 'presencial' ? params.district || '' : 'Online',
       municipality: params.attendanceMode === 'presencial' ? params.municipality || null : null,
       attendance_mode: params.attendanceMode,
+      responsible_name: params.responsibleName || null,
+      phone: params.phone || null,
+      email: params.email || null,
       requested_date: params.date,
       requested_time: params.time || '09:00',
       requested_period: startsAt.getHours() < 12 ? 'manha' : 'tarde',
@@ -334,6 +357,33 @@ export const AppointmentAdminService = {
       status: 'report_available',
       report_pdf_path: path,
     });
+
+    try {
+      let email = request.email || undefined;
+      let phone = request.phone || undefined;
+      let unitName = request.unit_name;
+
+      if (request.client_id && (!email || !phone)) {
+        const { data: client } = await supabase
+          .from('clients')
+          .select('name, email, phone')
+          .eq('id', request.client_id)
+          .maybeSingle();
+        email = email || client?.email || undefined;
+        phone = phone || client?.phone || undefined;
+        unitName = client?.name || unitName;
+      }
+
+      await this.notifyReportAvailable({
+        email,
+        phone,
+        unitName,
+        portalUrl: `${window.location.origin}/portal/${request.public_token}`,
+        reportName: file.name,
+      });
+    } catch (err) {
+      console.warn('[AppointmentAdmin] Relatorio publicado, mas a notificacao ao cliente falhou:', err);
+    }
   },
 
   async addAttachment(request: AppointmentRequest, file: File): Promise<void> {
@@ -585,6 +635,20 @@ export const AppointmentAdminService = {
       30000
     );
     if (error) throw error;
+  },
+
+  async notifyReportAvailable(
+    payload: ReportAvailableNotificationPayload
+  ): Promise<ReportAvailableNotificationResult> {
+    const { data, error } = await withTimeout(
+      supabase.functions.invoke('notify-report-available', {
+        body: payload,
+      }),
+      'NotificarRelatorioCliente',
+      30000
+    );
+    if (error) throw error;
+    return data as ReportAvailableNotificationResult;
   },
 
   async setPortalAccountClients(accountId: string, clientIds: string[]): Promise<void> {

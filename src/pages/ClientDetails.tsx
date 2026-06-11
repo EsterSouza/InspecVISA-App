@@ -274,6 +274,9 @@ export function ClientDetails() {
       await AppointmentAdminService.insertConfirmedRequest({
         clientId: client.id,
         unitName: client.name,
+        responsibleName: client.responsibleName,
+        phone: client.phone,
+        email: client.email,
         scheduleId: schedule.id,
         date: visitDate,
         time: visitTime || '09:00',

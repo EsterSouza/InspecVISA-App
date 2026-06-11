@@ -1299,6 +1299,9 @@ function NewVisitModal({ clients, onClose, onCreated }: NewVisitModalProps) {
       await AppointmentAdminService.insertConfirmedRequest({
         clientId,
         unitName: selectedClient?.name ?? 'Unidade',
+        responsibleName: selectedClient?.responsibleName,
+        phone: selectedClient?.phone,
+        email: selectedClient?.email,
         scheduleId: schedule.id,
         date,
         time: time || '09:00',
