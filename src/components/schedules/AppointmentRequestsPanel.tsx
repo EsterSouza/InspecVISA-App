@@ -171,7 +171,7 @@ export function AppointmentRequestsPanel() {
   };
 
   const handleShareReportWhatsapp = async (request: AppointmentRequest) => {
-    const portalUrl = `${window.location.origin}/portal/${request.public_token}`;
+    const portalUrl = `${window.location.origin}/cliente/visita/${request.public_token}`;
     const message = `O relatorio da inspecao sanitaria de ${request.unit_name} ja esta disponivel no Portal do Cliente: ${portalUrl}`;
     const digits = String(request.phone || '').replace(/\D/g, '');
     if (digits) {

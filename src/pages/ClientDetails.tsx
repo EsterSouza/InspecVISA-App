@@ -173,7 +173,7 @@ export function ClientDetails() {
     : null;
 
   const portalUrl = `${window.location.origin}/cliente`;
-  const portalDirectUrl = portalAccount ? `${portalUrl}?token=${portalAccount.portal_token}` : portalUrl;
+  const portalDirectUrl = portalUrl;
 
   const copyPortalAccess = async () => {
     if (!portalAccount) return;

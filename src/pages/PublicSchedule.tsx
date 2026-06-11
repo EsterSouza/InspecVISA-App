@@ -365,7 +365,7 @@ export function PublicSchedule() {
   const handleCopy = async () => {
     if (!token) return;
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}/portal/${token}`);
+      await navigator.clipboard.writeText(`${window.location.origin}/cliente`);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2500);
     } catch {
@@ -393,7 +393,7 @@ export function PublicSchedule() {
               </p>
             </div>
             <Link
-              to={`/portal/${token}`}
+              to="/cliente"
               className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary-700 px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-800"
             >
               <ClipboardCheck className="h-4 w-4" />
@@ -409,7 +409,7 @@ export function PublicSchedule() {
             </button>
             <a
               href={`https://wa.me/?text=${encodeURIComponent(
-                `Acompanhe sua inspeção sanitária pelo link: ${window.location.origin}/portal/${token}`
+                `Acompanhe sua inspeção sanitária pelo Portal do Cliente: ${window.location.origin}/cliente`
               )}`}
               target="_blank"
               rel="noopener noreferrer"

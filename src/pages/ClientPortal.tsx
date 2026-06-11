@@ -94,13 +94,6 @@ export function ClientPortal() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const urlToken = params.get('token');
-    if (urlToken) {
-      clientPortalService.storeToken(urlToken);
-      setToken(urlToken);
-      window.history.replaceState(null, '', window.location.pathname);
-      return;
-    }
     if (token) void loadOverview(token);
   }, [token, loadOverview]);
 
@@ -356,7 +349,7 @@ export function ClientPortal() {
                           {visits.slice(0, 2).map((visit) => (
                             <Link
                               key={visit.public_token}
-                              to={`/portal/${visit.public_token}`}
+                              to={`/cliente/visita/${visit.public_token}`}
                               className="block truncate rounded bg-white/80 px-1.5 py-1 text-[10px] font-semibold text-primary-900 shadow-sm"
                               title={`${visit.unitName} - ${STATUS_LABELS[visit.status] || visit.status}`}
                             >
@@ -426,7 +419,7 @@ export function ClientPortal() {
                     {unit.visits.map((visit) => (
                       <li key={visit.public_token}>
                         <Link
-                          to={`/portal/${visit.public_token}`}
+                          to={`/cliente/visita/${visit.public_token}`}
                           className="flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-primary-50/40"
                         >
                           <CalendarDays className="h-4 w-4 shrink-0 text-gray-400" />

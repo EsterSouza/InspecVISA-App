@@ -406,7 +406,7 @@ export const AppointmentAdminService = {
         email,
         phone,
         unitName,
-        portalUrl: `${window.location.origin}/portal/${request.public_token}`,
+        portalUrl: `${window.location.origin}/cliente/visita/${request.public_token}`,
         reportName: file.name,
       });
     } catch (err) {

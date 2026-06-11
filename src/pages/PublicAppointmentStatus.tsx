@@ -24,7 +24,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import type { AppointmentAttachment, PublicAppointmentStatusResult } from '../types';
-import { publicAppointmentService } from '../services/publicAppointmentService';
+import { clientPortalService } from '../services/clientPortalService';
 import { formatReportDueDate } from '../utils/businessDays';
 import { PublicHeader } from '../components/public/PublicHeader';
 import { formatProtocol } from '../utils/protocol';
@@ -99,19 +99,18 @@ export function PublicAppointmentStatus() {
       setLoading(false);
       return;
     }
+    const accountToken = clientPortalService.getStoredToken();
+    if (!accountToken) {
+      setInvalidToken(true);
+      setLoading(false);
+      return;
+    }
     if (isRefresh) setRefreshing(true);
     try {
-      const result = await publicAppointmentService.getAppointmentStatus(token);
-      setStatus(result);
+      const result = await clientPortalService.appointmentDetails(accountToken, token);
+      setStatus(result.status);
+      setAssets(result.assets || []);
       setInvalidToken(false);
-
-      try {
-        const list = await publicAppointmentService.getAppointmentAssets(token);
-        setAssets(list);
-      } catch (err) {
-        setAssets([]);
-        console.warn('[PublicAppointmentStatus] Falha ao carregar anexos:', err);
-      }
     } catch (err) {
       console.warn('[PublicAppointmentStatus] Token inválido ou erro de consulta:', err);
       setInvalidToken(true);
@@ -146,17 +145,16 @@ export function PublicAppointmentStatus() {
         <main className="mx-auto max-w-[600px] px-4 py-12">
           <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-6 text-center shadow-sm">
             <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-amber-500" />
-            <h2 className="text-lg font-bold text-gray-900">Protocolo não encontrado</h2>
+            <h2 className="text-lg font-bold text-gray-900">Acesso restrito</h2>
             <p className="mt-2 text-sm text-gray-600">
-              Não localizamos nenhuma solicitação com este código. Verifique se o link está completo
-              ou faça uma nova solicitação de agendamento.
+              Entre no Portal do Cliente com e-mail/usuario e senha para consultar relatorios, fotos e anexos.
             </p>
             <Link
-              to="/agendar"
+              to="/cliente"
               className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-primary-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700"
             >
-              <Plus className="h-4 w-4" />
-              Fazer nova solicitação
+              <Home className="h-4 w-4" />
+              Entrar no portal
             </Link>
           </div>
         </main>

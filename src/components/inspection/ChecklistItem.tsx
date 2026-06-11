@@ -7,6 +7,10 @@ import type { ChecklistItem as ItemType, InspectionResponse, InspectionPhoto } f
 import { generateId } from '../../utils/imageUtils';
 import type { PreviousNCContext } from '../../utils/actionPlanContext';
 
+function isInlineImage(value?: string | null) {
+  return /^data:image\/(jpeg|jpg|png|webp);base64,/i.test(value || '');
+}
+
 interface ChecklistItemProps {
   item: ItemType;
   response?: InspectionResponse;
@@ -183,9 +187,9 @@ export const ChecklistItem = memo(function ChecklistItem({
               </p>
             )}
           </div>
-          {previousNC.photos.length > 0 && (
+          {previousNC.photos.some(photo => isInlineImage(photo.dataUrl)) && (
             <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
-              {previousNC.photos.slice(0, 4).map(photo => (
+              {previousNC.photos.filter(photo => isInlineImage(photo.dataUrl)).slice(0, 4).map(photo => (
                 <img
                   key={photo.id}
                   src={photo.dataUrl}

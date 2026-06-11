@@ -339,6 +339,14 @@ function App() {
           }
         />
         <Route
+          path="/cliente/visita/:token"
+          element={
+            <Suspense fallback={<RouteFallback />}>
+              <PublicAppointmentStatus />
+            </Suspense>
+          }
+        />
+        <Route
           path="/cliente"
           element={
             <Suspense fallback={<RouteFallback />}>

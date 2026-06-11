@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { formatAppointmentLeadTimeMessage, isAppointmentAtLeast24hAhead } from '../utils/appointmentLeadTime';
+import type { AppointmentAttachment, PublicAppointmentStatusResult } from '../types';
 
 const TIMEOUT_MS = 30000;
 
@@ -52,6 +53,11 @@ export interface ClientPortalAppointmentPayload {
 export interface ClientPortalOverview {
   account_name: string;
   units: ClientPortalUnit[];
+}
+
+export interface ClientAppointmentDetails {
+  status: PublicAppointmentStatusResult;
+  assets: AppointmentAttachment[];
 }
 
 const TOKEN_KEY = 'inspecvisa-client-portal-token';
@@ -113,5 +119,17 @@ export const clientPortalService = {
     if (error) throw error;
     if (data?.error) throw new Error(data.error);
     return data as { public_token: string };
+  },
+
+  async appointmentDetails(accountToken: string, appointmentToken: string): Promise<ClientAppointmentDetails> {
+    const { data, error } = await withTimeout(
+      supabase.functions.invoke('client-appointment-assets', {
+        body: { accountToken, appointmentToken },
+      }),
+      'ArquivosPortalCliente'
+    );
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    return data as ClientAppointmentDetails;
   },
 };

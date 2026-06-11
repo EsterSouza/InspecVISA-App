@@ -1,8 +1,6 @@
 import { supabase } from '../lib/supabase';
 import type {
   PublicAppointmentPayload,
-  PublicAppointmentStatusResult,
-  AppointmentAttachment,
   PublicAvailableTime,
   PublicCalendarDay,
 } from '../types';
@@ -79,47 +77,4 @@ export const publicAppointmentService = {
     return data as { public_token: string };
   },
 
-  async getAppointmentStatus(token: string): Promise<PublicAppointmentStatusResult> {
-    const { data, error } = await withTimeout(
-      supabase.rpc('public_get_appointment_status', {
-        p_token: token,
-      }),
-      'StatusAgendamento'
-    );
-    if (error) throw error;
-    if (data?.error) throw new Error(data.error);
-    return data as PublicAppointmentStatusResult;
-  },
-
-  async getAppointmentAssets(token: string): Promise<AppointmentAttachment[]> {
-    const { data, error } = await withTimeout(
-      supabase.rpc('public_get_appointment_assets', {
-        p_token: token,
-      }),
-      'AssetsAgendamento'
-    );
-    if (error) throw error;
-    if (data?.error) throw new Error(data.error);
-
-    // Gerar signed URLs para cada asset
-    const assets = (data?.assets ?? []) as AppointmentAttachment[];
-    const assetsWithUrls = await Promise.all(
-      assets.map(async (asset) => {
-        try {
-          const { data: urlData } = await supabase.storage
-            .from(asset.storage_bucket)
-            .createSignedUrl(asset.storage_path, 3600);
-          return {
-            ...asset,
-            signed_url: urlData?.signedUrl ?? undefined,
-            storage_path: '[redacted]', // nunca expor o path bruto na UI
-          };
-        } catch {
-          return { ...asset, signed_url: undefined, storage_path: '[redacted]' };
-        }
-      })
-    );
-
-    return assetsWithUrls;
-  },
 };
