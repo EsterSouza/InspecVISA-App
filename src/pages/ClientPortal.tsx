@@ -54,6 +54,11 @@ function toDateKey(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+function parseDateParts(value: string): Date {
+  const [y, m, d] = value.split('T')[0].split('-').map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+}
+
 function formatDateBR(value: string | null): string {
   if (!value) return 'A confirmar';
   const [y, m, d] = value.split('T')[0].split('-');
@@ -241,21 +246,21 @@ export function ClientPortal() {
           </button>
         </div>
 
-        <div className="mb-6 grid gap-3 sm:grid-cols-4">
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-bold uppercase text-gray-400">Em acompanhamento</p>
+        <div className="mb-6 grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3">
+          <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm sm:p-4">
+            <p className="text-[10px] font-bold uppercase leading-tight text-gray-400 sm:text-xs">Em acompanhamento</p>
             <p className="mt-1 text-2xl font-black text-gray-950">{activeVisits}</p>
           </div>
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-bold uppercase text-gray-400">Relatorios</p>
+          <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm sm:p-4">
+            <p className="text-[10px] font-bold uppercase leading-tight text-gray-400 sm:text-xs">Relatórios</p>
             <p className="mt-1 text-2xl font-black text-gray-950">{reportCount}</p>
           </div>
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-bold uppercase text-gray-400">Fotos</p>
+          <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm sm:p-4">
+            <p className="text-[10px] font-bold uppercase leading-tight text-gray-400 sm:text-xs">Fotos</p>
             <p className="mt-1 text-2xl font-black text-gray-950">{photoCount}</p>
           </div>
-          <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-bold uppercase text-gray-400">Anexos</p>
+          <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm sm:p-4">
+            <p className="text-[10px] font-bold uppercase leading-tight text-gray-400 sm:text-xs">Anexos</p>
             <p className="mt-1 text-2xl font-black text-gray-950">{attachmentCount}</p>
           </div>
         </div>
@@ -268,13 +273,13 @@ export function ClientPortal() {
           Agendar nova inspeção
         </Link>
 
-        <section className="mb-8 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="mb-4 flex items-center justify-between gap-2">
+        <section className="mb-8 rounded-xl border border-gray-200 bg-white p-3 shadow-sm sm:p-4">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-gray-700">
-              <CalendarDays className="h-4 w-4 text-primary-700" />
+              <CalendarDays className="h-4 w-4 shrink-0 text-primary-700" />
               Calendário de inspeções
             </h3>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center justify-between gap-1 sm:justify-end">
               <button
                 type="button"
                 onClick={() => setCalendarMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
@@ -283,7 +288,7 @@ export function ClientPortal() {
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <span className="min-w-[140px] text-center text-sm font-bold capitalize text-gray-900">
+              <span className="flex-1 text-center text-sm font-bold lowercase text-gray-900 first-letter:uppercase sm:min-w-[130px] sm:flex-none">
                 {calendarMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
               </span>
               <button
@@ -317,15 +322,19 @@ export function ClientPortal() {
               cells.push(new Date(cursor));
             }
             const todayKey = toDateKey(new Date());
-            const monthVisitCount = allVisits.filter((v) => v.requested_date?.startsWith(month)).length;
+            const monthVisits = allVisits
+              .filter((v) => v.requested_date?.startsWith(month))
+              .sort((a, b) =>
+                `${a.requested_date}${a.requested_time || ''}`.localeCompare(`${b.requested_date}${b.requested_time || ''}`)
+              );
             return (
               <div>
-                <div className="grid grid-cols-7 gap-1.5 text-center text-[11px] font-bold uppercase text-gray-400 sm:gap-2">
+                <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold uppercase text-gray-400 sm:gap-2 sm:text-[11px]">
                   {CALENDAR_WEEKDAYS.map((label) => (
                     <div key={label} className="py-1">{label}</div>
                   ))}
                 </div>
-                <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+                <div className="grid grid-cols-7 gap-1 sm:gap-2">
                   {cells.map((date) => {
                     const key = toDateKey(date);
                     const visits = visitsByDate.get(key) || [];
@@ -334,7 +343,7 @@ export function ClientPortal() {
                     return (
                       <div
                         key={key}
-                        className={`min-h-[86px] rounded-md border p-1.5 sm:min-h-[104px] sm:p-2 ${
+                        className={`flex min-h-[40px] flex-col rounded-md border p-1 sm:min-h-[104px] sm:p-2 ${
                           visits.length > 0
                             ? 'border-primary-200 bg-primary-50/60'
                             : inMonth
@@ -342,10 +351,21 @@ export function ClientPortal() {
                               : 'border-transparent bg-transparent'
                         } ${isToday ? 'ring-2 ring-primary-300' : ''}`}
                       >
-                        <p className={`text-base font-black leading-none ${inMonth ? 'text-gray-900' : 'text-gray-200'}`}>
+                        <p className={`text-xs font-bold leading-none sm:text-base sm:font-black ${inMonth ? 'text-gray-900' : 'text-gray-300'}`}>
                           {date.getDate()}
                         </p>
-                        <div className="mt-2 space-y-1">
+
+                        {/* Mobile: bolinhas indicadoras */}
+                        {visits.length > 0 && (
+                          <div className="mt-auto flex flex-wrap gap-0.5 pt-1 sm:hidden">
+                            {visits.slice(0, 4).map((v) => (
+                              <span key={v.public_token} className="h-1.5 w-1.5 rounded-full bg-primary-500" />
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Desktop: chips com nome */}
+                        <div className="mt-2 hidden space-y-1 sm:block">
                           {visits.slice(0, 2).map((visit) => (
                             <Link
                               key={visit.public_token}
@@ -364,10 +384,47 @@ export function ClientPortal() {
                     );
                   })}
                 </div>
-                {monthVisitCount === 0 && (
-                  <p className="mt-3 text-center text-xs text-gray-400">
+
+                {/* Lista legível das visitas do mês (principal no celular) */}
+                {monthVisits.length === 0 ? (
+                  <p className="mt-4 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-center text-xs text-gray-400">
                     Nenhuma inspeção neste mês. Use as setas para ver outros meses.
                   </p>
+                ) : (
+                  <ul className="mt-4 space-y-2 border-t border-gray-100 pt-4">
+                    {monthVisits.map((visit) => {
+                      const d = visit.requested_date ? parseDateParts(visit.requested_date) : null;
+                      return (
+                        <li key={visit.public_token}>
+                          <Link
+                            to={`/cliente/visita/${visit.public_token}`}
+                            className="flex items-center gap-3 rounded-lg border border-gray-100 p-2.5 transition-colors hover:bg-primary-50/50"
+                          >
+                            <div className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-lg bg-primary-50 text-primary-800">
+                              <span className="text-[9px] font-bold uppercase leading-none">
+                                {d ? d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '') : '--'}
+                              </span>
+                              <span className="text-base font-black leading-none">{d ? d.getDate() : '--'}</span>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold text-gray-900">{visit.unitName}</p>
+                              <p className="text-xs text-gray-500">
+                                {visit.requested_time ? `${visit.requested_time} · ` : ''}
+                                {STATUS_LABELS[visit.status] || visit.status}
+                              </p>
+                            </div>
+                            <span
+                              className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                                STATUS_BADGES[visit.status] || 'bg-gray-100 text-gray-500'
+                              }`}
+                            >
+                              {STATUS_LABELS[visit.status] || visit.status}
+                            </span>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 )}
               </div>
             );
