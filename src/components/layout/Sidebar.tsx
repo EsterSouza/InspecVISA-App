@@ -48,9 +48,9 @@ export function Sidebar() {
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <img
-              src="/favicon.svg"
-              alt="InspecVISA"
-              className="h-10 w-10 shrink-0 rounded-xl bg-primary-900 shadow-sm"
+              src="/logo-claro-192.png"
+              alt="TreinaVISA"
+              className="h-10 w-10 shrink-0 rounded-xl shadow-sm"
             />
             <div className="min-w-0">
               <p className="truncate text-lg font-black tracking-tight text-gray-950">InspecVISA</p>

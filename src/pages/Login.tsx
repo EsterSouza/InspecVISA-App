@@ -38,7 +38,7 @@ export function Login() {
       <div className="w-full max-w-md relative animate-in fade-in zoom-in duration-700">
         <div className="mb-8 text-center">
           <div className="inline-flex items-center justify-center rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 mb-4 shadow-2xl overflow-hidden">
-            <img src="/favicon.svg" alt="TreinaVISA" className="h-20 w-20" />
+            <img src="/pwa-192x192.png" alt="TreinaVISA" className="h-20 w-20 rounded-xl" />
           </div>
           <h1 className="text-3xl font-bold text-white tracking-tight">InspecVISA</h1>
           <p className="text-primary-100/60 mt-1">Inspeção Sanitária Inteligente</p>

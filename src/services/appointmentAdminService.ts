@@ -138,10 +138,45 @@ export const AppointmentAdminService = {
     await this.updateRequest(id, { status: 'completed' });
   },
 
-  async rescheduleRequest(id: string, suggestedDate?: string): Promise<void> {
+  async rescheduleRequest(
+    request: AppointmentRequest,
+    suggestedDate?: string,
+    suggestedTime?: string
+  ): Promise<void> {
     const updates: Partial<AppointmentRequest> = { status: 'rescheduled' };
-    if (suggestedDate) updates.requested_date = suggestedDate;
-    await this.updateRequest(id, updates);
+    let startsAt: Date | null = null;
+    if (suggestedDate) {
+      const time = suggestedTime || request.requested_time || '09:00';
+      startsAt = new Date(`${suggestedDate}T${time}`);
+      updates.requested_date = suggestedDate;
+      updates.requested_time = time;
+      updates.requested_period = startsAt.getHours() < 12 ? 'manha' : 'tarde';
+      updates.requested_starts_at = startsAt.toISOString();
+      updates.requested_ends_at = new Date(startsAt.getTime() + 60 * 60 * 1000).toISOString();
+    }
+    await this.updateRequest(request.id, updates);
+
+    // Move o Schedule interno vinculado junto, para a agenda e o bloqueio
+    // do calendário público acompanharem a nova data.
+    if (startsAt && request.schedule_id) {
+      try {
+        const [{ ScheduleService }, { db }] = await Promise.all([
+          import('./scheduleService'),
+          import('../db/database'),
+        ]);
+        const local = await db.schedules.get(request.schedule_id);
+        if (local) {
+          await ScheduleService.saveSchedule({
+            ...local,
+            scheduledAt: startsAt,
+            updatedAt: new Date(),
+            syncStatus: 'pending',
+          });
+        }
+      } catch (err) {
+        console.warn('[AppointmentAdmin] Falha ao mover o agendamento interno vinculado:', err);
+      }
+    }
   },
 
   async cancelRequest(request: AppointmentRequest): Promise<void> {

@@ -101,6 +101,10 @@ export function AppointmentRequestsPanel() {
   const [photoTarget, setPhotoTarget] = useState<AppointmentRequest | null>(null);
   // Prazo manual
   const [dueDateTarget, setDueDateTarget] = useState<AppointmentRequest | null>(null);
+  // Remarcação
+  const [rescheduleTarget, setRescheduleTarget] = useState<AppointmentRequest | null>(null);
+  // Encerradas (relatório publicado / canceladas)
+  const [showClosed, setShowClosed] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -148,14 +152,7 @@ export function AppointmentRequestsPanel() {
   };
 
   const handleReschedule = (request: AppointmentRequest) => {
-    const suggestion = prompt(
-      'Nova data sugerida (AAAA-MM-DD) — deixe em branco para apenas marcar como remarcada:',
-      request.requested_date?.split('T')[0] || ''
-    );
-    if (suggestion === null) return;
-    void withBusy(request.id, () =>
-      AppointmentAdminService.rescheduleRequest(request.id, suggestion.trim() || undefined)
-    );
+    setRescheduleTarget(request);
   };
 
   const handleCancel = (request: AppointmentRequest) => {
@@ -187,8 +184,9 @@ export function AppointmentRequestsPanel() {
 
   const pending = requests.filter((r) => r.status === 'requested');
   const active = requests.filter((r) =>
-    ['confirmed', 'in_progress', 'rescheduled', 'completed', 'report_available'].includes(r.status)
+    ['confirmed', 'in_progress', 'rescheduled', 'completed'].includes(r.status)
   );
+  const closed = requests.filter((r) => ['report_available', 'cancelled'].includes(r.status));
 
   if (loading) {
     return (
@@ -336,11 +334,60 @@ export function AppointmentRequestsPanel() {
                 onCancel={() => handleCancel(request)}
                 onMarkInProgress={() => handleMarkInProgress(request)}
                 onMarkCompleted={() => handleMarkCompleted(request)}
+                onReschedule={() => handleReschedule(request)}
               />
             ))}
           </div>
         )}
       </section>
+
+      {/* ─── Encerradas ─────────────────────────────────────── */}
+      {closed.length > 0 && (
+        <section>
+          <button
+            type="button"
+            onClick={() => setShowClosed((v) => !v)}
+            className="mb-4 flex items-center text-lg font-semibold text-gray-500 hover:text-gray-800"
+          >
+            <CheckCircle className="mr-2 h-5 w-5 text-gray-400" />
+            Encerradas ({closed.length}) {showClosed ? '▾' : '▸'}
+          </button>
+
+          {showClosed && (
+            <div className="grid gap-3">
+              {closed.map((request) =>
+                request.status === 'report_available' ? (
+                  <ActiveRequestCard
+                    key={request.id}
+                    request={request}
+                    busy={busy === request.id}
+                    onPublishReport={(file) => handlePublishReport(request, file)}
+                    onAddAttachment={(file) => handleAddAttachment(request, file)}
+                    onAddPhotos={() => setPhotoTarget(request)}
+                    onSetDueDate={() => setDueDateTarget(request)}
+                    onCancel={() => handleCancel(request)}
+                    onMarkInProgress={() => handleMarkInProgress(request)}
+                    onMarkCompleted={() => handleMarkCompleted(request)}
+                  />
+                ) : (
+                  <div
+                    key={request.id}
+                    className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50/60 p-3 text-sm"
+                  >
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="truncate font-medium text-gray-500">{request.unit_name}</span>
+                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${STATUS_BADGES[request.status]}`}>
+                        {STATUS_LABELS[request.status]}
+                      </span>
+                    </div>
+                    <span className="shrink-0 text-xs text-gray-400">{formatDateBR(request.requested_date)}</span>
+                  </div>
+                )
+              )}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* ─── Acessos do Portal do Cliente ───────────────────── */}
       <PortalAccountsSection
@@ -386,6 +433,17 @@ export function AppointmentRequestsPanel() {
           }}
         />
       )}
+
+      {rescheduleTarget && (
+        <RescheduleModal
+          request={rescheduleTarget}
+          onClose={() => setRescheduleTarget(null)}
+          onSaved={() => {
+            setRescheduleTarget(null);
+            void loadData();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -402,6 +460,7 @@ interface ActiveRequestCardProps {
   onCancel: () => void;
   onMarkInProgress: () => void;
   onMarkCompleted: () => void;
+  onReschedule?: () => void;
 }
 
 function ActiveRequestCard({
@@ -414,6 +473,7 @@ function ActiveRequestCard({
   onCancel,
   onMarkInProgress,
   onMarkCompleted,
+  onReschedule,
 }: ActiveRequestCardProps) {
   const reportInputRef = useRef<HTMLInputElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
@@ -499,6 +559,11 @@ function ActiveRequestCard({
                 className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
               >
                 <CheckCircle className="mr-1.5 h-4 w-4" /> Concluir inspeção
+              </Button>
+            )}
+            {onReschedule && (request.status === 'confirmed' || request.status === 'rescheduled') && (
+              <Button variant="outline" size="sm" disabled={busy} onClick={onReschedule}>
+                <CalendarDays className="mr-1.5 h-4 w-4" /> Remarcar
               </Button>
             )}
             <Button
@@ -1012,6 +1077,95 @@ function DueDateModal({ request, onClose, onSaved }: DueDateModalProps) {
             <Button type="button" className="flex-1" disabled={saving || !dueDate} onClick={() => void handleSave()}>
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Salvar prazo
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ─── Modal: remarcar solicitação ──────────────────────────────
+
+interface RescheduleModalProps {
+  request: AppointmentRequest;
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+function RescheduleModal({ request, onClose, onSaved }: RescheduleModalProps) {
+  const [date, setDate] = useState(request.requested_date?.split('T')[0] || '');
+  const [time, setTime] = useState(request.requested_time || '09:00');
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async (onlyMark: boolean) => {
+    setSaving(true);
+    try {
+      if (onlyMark) {
+        await AppointmentAdminService.rescheduleRequest(request);
+      } else {
+        await AppointmentAdminService.rescheduleRequest(request, date, time);
+      }
+      onSaved();
+    } catch (err) {
+      alert(`Erro: ${errorMessage(err)}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <Card className="w-full max-w-sm shadow-2xl">
+        <CardContent className="p-6">
+          <h3 className="mb-1 text-lg font-bold text-gray-900">Remarcar inspeção</h3>
+          <p className="mb-4 text-sm text-gray-500">{request.unit_name}</p>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-gray-600">Nova data</label>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-full rounded-xl border border-gray-300 p-3 text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-gray-600">Horário</label>
+              <input
+                type="time"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                className="w-full rounded-xl border border-gray-300 p-3 text-sm"
+              />
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-gray-400">
+            A nova data atualiza o portal do cliente, a agenda interna e o bloqueio do calendário público.
+          </p>
+
+          <div className="mt-5 space-y-2">
+            <Button
+              type="button"
+              className="w-full"
+              disabled={saving || !date}
+              onClick={() => void handleSave(false)}
+            >
+              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Remarcar para esta data
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              disabled={saving}
+              onClick={() => void handleSave(true)}
+            >
+              Marcar como remarcada (data a definir)
+            </Button>
+            <Button type="button" variant="ghost" className="w-full" onClick={onClose}>
+              Cancelar
             </Button>
           </div>
         </CardContent>

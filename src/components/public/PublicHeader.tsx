@@ -4,9 +4,9 @@ export function PublicHeader() {
     <header className="border-b border-primary-100 bg-white">
       <div className="mx-auto flex max-w-[600px] items-center gap-3 px-4 py-4">
         <img
-          src="/favicon.svg"
-          alt="InspecVISA"
-          className="h-11 w-11 rounded-xl bg-primary-900 shadow-sm"
+          src="/logo-claro-192.png"
+          alt="TreinaVISA"
+          className="h-11 w-11 rounded-xl shadow-sm"
         />
         <div>
           <h1 className="text-lg font-bold leading-tight text-gray-900">InspecVISA</h1>

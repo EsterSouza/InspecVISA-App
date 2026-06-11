@@ -37,6 +37,30 @@ export function mapToPostgres(schedule: Schedule): any {
   };
 }
 
+/**
+ * Avança o status da solicitação do portal público vinculada a este Schedule,
+ * para a linha do tempo do cliente acompanhar a inspeção real automaticamente.
+ * Nunca regride status nem mexe em report_available/cancelled.
+ */
+async function syncLinkedAppointmentRequest(
+  scheduleId: string,
+  status: 'in_progress' | 'completed'
+): Promise<void> {
+  if (!navigator.onLine) return;
+  try {
+    const fromStatuses =
+      status === 'in_progress' ? ['confirmed', 'rescheduled'] : ['confirmed', 'rescheduled', 'in_progress'];
+    const { error } = await supabase
+      .from('appointment_requests')
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq('schedule_id', scheduleId)
+      .in('status', fromStatuses);
+    if (error) throw error;
+  } catch (err) {
+    console.warn('[ScheduleService] Falha ao sincronizar status do portal (não-fatal):', err);
+  }
+}
+
 export const ScheduleService = {
   mapToPostgres,
   mapFromPostgres,
@@ -106,34 +130,37 @@ export const ScheduleService = {
     if (belongsToActiveTenant(local)) {
       const updated = { ...local, status: 'completed' as const, updatedAt: new Date(), syncStatus: 'pending' as const };
       await this.saveSchedule(updated);
+      void syncLinkedAppointmentRequest(id, 'completed');
     }
   },
 
   async linkInspection(id: string, inspectionId: string): Promise<void> {
     const local = await db.schedules.get(id);
     if (belongsToActiveTenant(local)) {
-      const updated = { 
-        ...local, 
-        status: 'in_progress' as const, 
-        inspectionId, 
-        updatedAt: new Date(), 
-        syncStatus: 'pending' as const 
+      const updated = {
+        ...local,
+        status: 'in_progress' as const,
+        inspectionId,
+        updatedAt: new Date(),
+        syncStatus: 'pending' as const
       };
       await this.saveSchedule(updated);
+      void syncLinkedAppointmentRequest(id, 'in_progress');
     }
   },
 
   async completeWithInspection(id: string, inspectionId: string): Promise<void> {
     const local = await db.schedules.get(id);
     if (belongsToActiveTenant(local)) {
-      const updated = { 
-        ...local, 
-        status: 'completed' as const, 
-        inspectionId, 
-        updatedAt: new Date(), 
-        syncStatus: 'pending' as const 
+      const updated = {
+        ...local,
+        status: 'completed' as const,
+        inspectionId,
+        updatedAt: new Date(),
+        syncStatus: 'pending' as const
       };
       await this.saveSchedule(updated);
+      void syncLinkedAppointmentRequest(id, 'completed');
     }
   }
 };
