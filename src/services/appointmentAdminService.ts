@@ -307,6 +307,34 @@ export const AppointmentAdminService = {
       }
     }
 
+    const { data: attachments, error: listAttachmentsError } = await supabase
+      .from('appointment_attachments')
+      .select('storage_bucket, storage_path')
+      .eq('tenant_id', tenantId)
+      .eq('appointment_request_id', request.id);
+    if (listAttachmentsError) throw listAttachmentsError;
+
+    const pathsByBucket = (attachments || []).reduce<Record<string, string[]>>((acc, attachment) => {
+      if (!attachment.storage_bucket || !attachment.storage_path) return acc;
+      acc[attachment.storage_bucket] = acc[attachment.storage_bucket] || [];
+      acc[attachment.storage_bucket].push(attachment.storage_path);
+      return acc;
+    }, {});
+
+    for (const [bucket, paths] of Object.entries(pathsByBucket)) {
+      const { error: storageError } = await supabase.storage.from(bucket).remove(paths);
+      if (storageError) {
+        console.warn('[AppointmentAdmin] Falha ao remover arquivos da solicitacao antes da exclusao:', storageError);
+      }
+    }
+
+    const { error: deleteAttachmentsError } = await supabase
+      .from('appointment_attachments')
+      .delete()
+      .eq('tenant_id', tenantId)
+      .eq('appointment_request_id', request.id);
+    if (deleteAttachmentsError) throw deleteAttachmentsError;
+
     const { error } = await supabase
       .from('appointment_requests')
       .delete()

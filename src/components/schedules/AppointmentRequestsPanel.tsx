@@ -107,7 +107,7 @@ export function AppointmentRequestsPanel() {
   // Remarcação
   const [rescheduleTarget, setRescheduleTarget] = useState<AppointmentRequest | null>(null);
   // Encerradas (relatório publicado / canceladas)
-  const [showClosed, setShowClosed] = useState(false);
+  const [showClosed, setShowClosed] = useState(true);
   // Nova visita (agendamento direto pela equipe)
   const [showNewVisit, setShowNewVisit] = useState(false);
 
@@ -168,6 +168,19 @@ export function AppointmentRequestsPanel() {
   const handleDelete = (request: AppointmentRequest) => {
     if (!confirm(`Excluir definitivamente "${request.unit_name}" do registro de solicitações?`)) return;
     void withBusy(request.id, () => AppointmentAdminService.deleteRequest(request));
+  };
+
+  const handleShareReportWhatsapp = async (request: AppointmentRequest) => {
+    const portalUrl = `${window.location.origin}/portal/${request.public_token}`;
+    const message = `O relatorio da inspecao sanitaria de ${request.unit_name} ja esta disponivel no Portal do Cliente: ${portalUrl}`;
+    const digits = String(request.phone || '').replace(/\D/g, '');
+    if (digits) {
+      const phone = digits.length <= 11 ? `55${digits}` : digits;
+      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    await navigator.clipboard.writeText(message);
+    alert('Mensagem com link do portal copiada para compartilhar no WhatsApp.');
   };
 
   const handleMarkInProgress = (request: AppointmentRequest) => {
@@ -395,6 +408,7 @@ export function AppointmentRequestsPanel() {
                     onSetDueDate={() => setDueDateTarget(request)}
                     onCancel={() => handleCancel(request)}
                     onMarkInProgress={() => handleMarkInProgress(request)}
+                    onShareWhatsapp={() => void handleShareReportWhatsapp(request)}
                     onDelete={() => handleDelete(request)}
                   />
                 ) : (
@@ -417,7 +431,8 @@ export function AppointmentRequestsPanel() {
                         onClick={() => handleDelete(request)}
                         className="text-red-600 hover:bg-red-50"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="mr-1.5 h-4 w-4" />
+                        Excluir
                       </Button>
                     </div>
                   </div>
@@ -509,6 +524,7 @@ interface ActiveRequestCardProps {
   onSetDueDate: () => void;
   onCancel: () => void;
   onMarkInProgress: () => void;
+  onShareWhatsapp?: () => void;
   onReschedule?: () => void;
   onDelete: () => void;
 }
@@ -522,11 +538,13 @@ function ActiveRequestCard({
   onSetDueDate,
   onCancel,
   onMarkInProgress,
+  onShareWhatsapp,
   onReschedule,
   onDelete,
 }: ActiveRequestCardProps) {
   const reportInputRef = useRef<HTMLInputElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
+  const isClosed = request.status === 'report_available' || request.status === 'cancelled';
 
   return (
     <Card className="border-l-4 border-l-primary-500 shadow-sm">
@@ -628,23 +646,31 @@ function ActiveRequestCard({
             <Button variant="outline" size="sm" disabled={busy} onClick={onSetDueDate}>
               <Clock className="mr-1.5 h-4 w-4" /> Prazo manual
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={busy}
-              onClick={onCancel}
-              className="ml-auto text-red-500 hover:bg-red-50"
-            >
-              <XCircle className="h-4 w-4" />
-            </Button>
+            {request.status === 'report_available' && onShareWhatsapp && (
+              <Button variant="outline" size="sm" disabled={busy} onClick={onShareWhatsapp}>
+                <Phone className="mr-1.5 h-4 w-4" /> WhatsApp
+              </Button>
+            )}
+            {!isClosed && (
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={busy}
+                onClick={onCancel}
+                className="ml-auto text-red-500 hover:bg-red-50"
+              >
+                <XCircle className="h-4 w-4" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"
               disabled={busy}
               onClick={onDelete}
-              className="text-red-600 hover:bg-red-50"
+              className={`${isClosed ? 'ml-auto' : ''} text-red-600 hover:bg-red-50`}
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="mr-1.5 h-4 w-4" />
+              Excluir
             </Button>
           </div>
         </div>

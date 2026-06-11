@@ -69,38 +69,6 @@ async function sendMail(params: {
   }
 }
 
-async function sendWhatsapp(params: {
-  phone: string;
-  message: string;
-  portalUrl: string;
-  unitName: string;
-}) {
-  const webhookUrl = Deno.env.get('WHATSAPP_WEBHOOK_URL');
-  if (!webhookUrl) return { sent: false, reason: 'WHATSAPP_WEBHOOK_URL nao configurado' };
-
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  const secret = Deno.env.get('WHATSAPP_WEBHOOK_SECRET');
-  if (secret) headers.authorization = `Bearer ${secret}`;
-
-  const response = await fetch(webhookUrl, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      phone: onlyDigits(params.phone),
-      message: params.message,
-      portalUrl: params.portalUrl,
-      unitName: params.unitName,
-      event: 'report_available',
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Webhook WhatsApp falhou: ${response.status}`);
-  }
-
-  return { sent: true };
-}
-
 Deno.serve(async (req) => {
   try {
     if (req.method === 'OPTIONS') {
@@ -170,14 +138,8 @@ Deno.serve(async (req) => {
     let whatsappSent = false;
     let whatsappError: string | undefined;
     const whatsappLink = whatsappUrl(phone, message);
-    if (phone) {
-      try {
-        const result = await sendWhatsapp({ phone, message, portalUrl, unitName });
-        whatsappSent = result.sent;
-        if (!result.sent) whatsappError = result.reason;
-      } catch (err) {
-        whatsappError = String(err);
-      }
+    if (phone && whatsappLink) {
+      whatsappError = 'Link compartilhavel gerado; envio automatico por WhatsApp nao configurado.';
     }
 
     return jsonResponse({
