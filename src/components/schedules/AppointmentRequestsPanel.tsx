@@ -811,9 +811,8 @@ function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: Confirm
         localActorId: actor.id,
         syncStatus: 'pending',
       };
-      await ScheduleService.saveSchedule(schedule);
-
-      // 3. Atualizar a solicitação
+      // 3. Atualizar a solicitação primeiro; só então persistir o agendamento
+      // interno, evitando Schedule órfão caso a confirmação falhe.
       await AppointmentAdminService.confirmRequest(request.id, {
         confirmedDate,
         confirmedTime: confirmedTime || '09:00',
@@ -821,6 +820,7 @@ function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: Confirm
         scheduleId: schedule.id,
         manualDueDate: manualDueDate || undefined,
       });
+      await ScheduleService.saveSchedule(schedule);
 
       onConfirmed();
     } catch (err) {
@@ -1368,7 +1368,8 @@ function NewVisitModal({ clients, onClose, onCreated }: NewVisitModalProps) {
         localActorId: actor.id,
         syncStatus: 'pending',
       };
-      await ScheduleService.saveSchedule(schedule);
+      // Cria a solicitação PRIMEIRO (é onde estão as validações). Só salva o
+      // agendamento interno se ela der certo, para nunca deixar um Schedule órfão.
       await AppointmentAdminService.insertConfirmedRequest({
         clientId,
         unitName: selectedClient?.name ?? 'Unidade',
@@ -1382,6 +1383,7 @@ function NewVisitModal({ clients, onClose, onCreated }: NewVisitModalProps) {
         municipality: municipality.trim() || selectedClient?.city || undefined,
         district: district.trim() || undefined,
       });
+      await ScheduleService.saveSchedule(schedule);
       onCreated();
     } catch (err) {
       setError(errorMessage(err) || 'Falha ao criar a visita.');

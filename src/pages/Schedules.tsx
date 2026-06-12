@@ -11,12 +11,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { getLocalActor } from '../utils/localActor';
 import { AppointmentRequestsPanel } from '../components/schedules/AppointmentRequestsPanel';
 import { AppointmentAdminService } from '../services/appointmentAdminService';
-import {
-  formatAppointmentLeadTimeMessage,
-  getMinAppointmentDateTime,
-  isAppointmentAtLeast24hAhead,
-  toDateInputValue,
-} from '../utils/appointmentLeadTime';
+import { toDateInputValue } from '../utils/appointmentLeadTime';
 
 type SchedulesTab = 'agenda' | 'solicitacoes';
 
@@ -39,7 +34,8 @@ export function Schedules() {
   const [scheduledDate, setScheduledDate] = useState('');
   const [scheduledTime, setScheduledTime] = useState('');
   const [notes, setNotes] = useState('');
-  const minScheduleDate = toDateInputValue(getMinAppointmentDateTime());
+  // Admin pode agendar a partir de hoje (sem antecedência mínima).
+  const minScheduleDate = toDateInputValue(new Date());
   const filteredClients = clientSearch
     ? clients.filter((client) => client.name.toLowerCase().includes(clientSearch.toLowerCase()))
     : clients;
@@ -108,10 +104,7 @@ export function Schedules() {
 
     try {
       const scheduledAt = new Date(`${scheduledDate}T${scheduledTime}`);
-      if (!isAppointmentAtLeast24hAhead(scheduledAt)) {
-        alert(formatAppointmentLeadTimeMessage());
-        return;
-      }
+      // A equipe agenda a qualquer momento; a antecedência de 24h é só do cliente.
       if (!navigator.onLine) {
         alert('Sem conexão com a internet. O agendamento precisa sincronizar com o portal do cliente.');
         return;
