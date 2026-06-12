@@ -10,6 +10,7 @@ import { Loader2 } from 'lucide-react';
 // Layout
 import { Sidebar } from './components/layout/Sidebar';
 import { BottomNav } from './components/layout/BottomNav';
+import { InstallPWA } from './components/InstallPWA';
 
 // Lazy Loaded Pages
 const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })));
@@ -320,6 +321,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <InstallPWA />
       <Routes>
         {/* Public routes — no authentication required */}
         <Route
