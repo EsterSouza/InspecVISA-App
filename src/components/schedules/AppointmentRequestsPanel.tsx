@@ -25,6 +25,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import type {
+  AppointmentAttachment,
   AppointmentRequest,
   Client,
   Schedule,
@@ -89,6 +90,24 @@ function formatCreatedAt(value: string): string {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+function requestDateTimeValue(request: AppointmentRequest): number {
+  if (request.requested_starts_at) return new Date(request.requested_starts_at).getTime();
+  const date = request.requested_date || request.created_at;
+  const time = request.requested_time || '23:59';
+  return new Date(`${date.split('T')[0]}T${time}`).getTime();
+}
+
+function requestTimeValue(request: AppointmentRequest): string {
+  if (request.requested_time) return request.requested_time.slice(0, 5);
+  if (request.requested_starts_at) {
+    return new Date(request.requested_starts_at).toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+  return '09:00';
 }
 
 export function AppointmentRequestsPanel() {
@@ -219,11 +238,15 @@ export function AppointmentRequestsPanel() {
     void withBusy(request.id, () => AppointmentAdminService.addAttachment(request, file));
   };
 
-  const pending = requests.filter((r) => r.status === 'requested');
-  const active = requests.filter((r) =>
-    ['confirmed', 'in_progress', 'rescheduled', 'completed'].includes(r.status)
-  );
-  const closed = requests.filter((r) => ['report_available', 'cancelled'].includes(r.status));
+  const byAppointmentDate = (a: AppointmentRequest, b: AppointmentRequest) =>
+    requestDateTimeValue(a) - requestDateTimeValue(b);
+  const pending = requests.filter((r) => r.status === 'requested').sort(byAppointmentDate);
+  const active = requests
+    .filter((r) => ['confirmed', 'in_progress', 'rescheduled', 'completed'].includes(r.status))
+    .sort(byAppointmentDate);
+  const closed = requests
+    .filter((r) => ['report_available', 'cancelled'].includes(r.status))
+    .sort(byAppointmentDate);
 
   if (loading) {
     return (
@@ -584,6 +607,83 @@ interface ActiveRequestCardProps {
   onDelete: () => void;
 }
 
+function PublishedFilesPanel({ requestId, busy }: { requestId: string; busy: boolean }) {
+  const [files, setFiles] = useState<AppointmentAttachment[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
+  const loadFiles = () => {
+    setLoading(true);
+    AppointmentAdminService.listAttachments(requestId)
+      .then((rows) => setFiles(rows.filter((row) => row.kind !== 'photo')))
+      .catch((err) => console.warn('[PublishedFilesPanel] Falha ao carregar anexos:', err))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    if (!busy) loadFiles();
+  }, [requestId, busy]);
+
+  const handleRemove = async (file: AppointmentAttachment) => {
+    if (!confirm(`Remover "${file.file_name || 'arquivo'}" do portal do cliente?`)) return;
+    setRemovingId(file.id);
+    try {
+      await AppointmentAdminService.removePublishedAttachment(file.id);
+      loadFiles();
+    } catch (err) {
+      alert(`Erro: ${errorMessage(err)}`);
+    } finally {
+      setRemovingId(null);
+    }
+  };
+
+  if (loading && files.length === 0) {
+    return (
+      <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 text-xs text-gray-400">
+        Carregando arquivos publicados...
+      </div>
+    );
+  }
+
+  if (files.length === 0) return null;
+
+  return (
+    <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Relatórios e anexos no portal</p>
+        <button type="button" onClick={loadFiles} className="text-xs font-semibold text-primary-700 hover:text-primary-900">
+          Atualizar
+        </button>
+      </div>
+      <div className="space-y-2">
+        {files.map((file) => (
+          <div key={file.id} className="flex items-center gap-2 rounded-lg border border-gray-100 bg-white px-3 py-2">
+            <Paperclip className="h-4 w-4 shrink-0 text-gray-400" />
+            <span className="min-w-0 flex-1 break-words text-sm text-gray-700">
+              {file.file_name || (file.kind === 'report_pdf' ? 'Relatório PDF' : 'Anexo')}
+            </span>
+            {file.signed_url && (
+              <Button type="button" variant="ghost" size="sm" onClick={() => window.open(file.signed_url, '_blank', 'noopener,noreferrer')}>
+                Abrir
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={removingId === file.id}
+              onClick={() => void handleRemove(file)}
+              className="text-red-600 hover:bg-red-50"
+            >
+              {removingId === file.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            </Button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ActiveRequestCard({
   request,
   busy,
@@ -626,6 +726,7 @@ function ActiveRequestCard({
                 <span className="flex items-center">
                   <CalendarDays className="mr-1 h-3.5 w-3.5" />
                   {formatDateBR(request.requested_date)}
+                  {request.requested_time ? ` às ${request.requested_time.slice(0, 5)}` : ''}
                 </span>
                 {request.phone && (
                   <span className="flex items-center">
@@ -759,6 +860,8 @@ function ActiveRequestCard({
               Excluir
             </Button>
           </div>
+
+          <PublishedFilesPanel requestId={request.id} busy={busy} />
         </div>
       </CardContent>
     </Card>
@@ -776,7 +879,7 @@ interface ConfirmRequestModalProps {
 
 function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: ConfirmRequestModalProps) {
   const [confirmedDate, setConfirmedDate] = useState(request.requested_date?.split('T')[0] || '');
-  const [confirmedTime, setConfirmedTime] = useState('09:00');
+  const [confirmedTime, setConfirmedTime] = useState(requestTimeValue(request));
   const [clientMode, setClientMode] = useState<'existing' | 'new'>('existing');
   const [clientSearch, setClientSearch] = useState('');
   const [selectedClientId, setSelectedClientId] = useState('');

@@ -15,6 +15,27 @@ import { toDateInputValue } from '../utils/appointmentLeadTime';
 
 type SchedulesTab = 'agenda' | 'solicitacoes';
 
+const WEEKDAY_LABELS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'];
+
+function dateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function buildMonthDays(month: Date): Date[] {
+  const first = new Date(month.getFullYear(), month.getMonth(), 1);
+  const start = new Date(first);
+  const offset = (first.getDay() + 6) % 7;
+  start.setDate(first.getDate() - offset);
+  return Array.from({ length: 42 }, (_, index) => {
+    const day = new Date(start);
+    day.setDate(start.getDate() + index);
+    return day;
+  });
+}
+
 export function Schedules() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -27,6 +48,10 @@ export function Schedules() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
 
   // Form State
   const [selectedClientId, setSelectedClientId] = useState('');
@@ -248,6 +273,15 @@ export function Schedules() {
 
   const upcomingSchedules = schedules.filter(s => s.status === 'pending');
   const pastSchedules = schedules.filter(s => s.status !== 'pending').slice(0, 10);
+  const monthDays = buildMonthDays(calendarMonth);
+  const todayKey = dateKey(new Date());
+  const schedulesByDay = schedules.reduce<Record<string, Schedule[]>>((acc, schedule) => {
+    const key = dateKey(schedule.scheduledAt);
+    acc[key] = acc[key] || [];
+    acc[key].push(schedule);
+    acc[key].sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime());
+    return acc;
+  }, {});
 
   if (loading && schedules.length === 0) {
     return (
@@ -329,6 +363,95 @@ export function Schedules() {
         <AppointmentRequestsPanel />
       ) : (
       <div className="space-y-8">
+        <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="flex items-center text-lg font-semibold text-gray-900">
+                <Calendar className="mr-2 h-5 w-5 text-primary-600" />
+                Calendário do mês
+              </h2>
+              <p className="text-sm text-gray-500">
+                {calendarMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setCalendarMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
+              >
+                Anterior
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  const now = new Date();
+                  setCalendarMonth(new Date(now.getFullYear(), now.getMonth(), 1));
+                }}
+              >
+                Hoje
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setCalendarMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
+              >
+                Próximo
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold uppercase text-gray-400">
+            {WEEKDAY_LABELS.map((label) => (
+              <div key={label} className="py-1">{label}</div>
+            ))}
+          </div>
+          <div className="mt-1 grid grid-cols-7 gap-1">
+            {monthDays.map((day) => {
+              const key = dateKey(day);
+              const daySchedules = schedulesByDay[key] || [];
+              const inCurrentMonth = day.getMonth() === calendarMonth.getMonth();
+              const isToday = key === todayKey;
+              return (
+                <div
+                  key={key}
+                  className={`min-h-[92px] rounded-lg border p-2 text-left ${
+                    isToday
+                      ? 'border-primary-500 bg-primary-50'
+                      : inCurrentMonth
+                        ? 'border-gray-200 bg-white'
+                        : 'border-gray-100 bg-gray-50 text-gray-300'
+                  }`}
+                >
+                  <div className={`text-sm font-bold ${isToday ? 'text-primary-800' : 'text-gray-700'}`}>
+                    {day.getDate()}
+                  </div>
+                  <div className="mt-1 space-y-1">
+                    {daySchedules.slice(0, 2).map((schedule) => (
+                      <button
+                        key={schedule.id}
+                        type="button"
+                        onClick={() => handleEdit(schedule)}
+                        className="block w-full truncate rounded bg-primary-50 px-1.5 py-1 text-left text-[11px] font-medium text-primary-800 hover:bg-primary-100"
+                        title={`${schedule.clientName || 'Cliente'} - ${schedule.scheduledAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`}
+                      >
+                        {schedule.scheduledAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} {schedule.clientName || 'Cliente'}
+                      </button>
+                    ))}
+                    {daySchedules.length > 2 && (
+                      <div className="text-[11px] font-semibold text-gray-400">+{daySchedules.length - 2}</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
         <section>
           <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
             <Clock className="mr-2 h-5 w-5 text-primary-600" />

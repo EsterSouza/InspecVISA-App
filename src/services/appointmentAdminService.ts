@@ -462,7 +462,20 @@ export const AppointmentAdminService = {
       .eq('appointment_request_id', requestId)
       .order('created_at', { ascending: false });
     if (error) throw error;
-    return (data ?? []) as AppointmentAttachment[];
+    const rows = (data ?? []) as AppointmentAttachment[];
+    await Promise.all(
+      rows.map(async (attachment) => {
+        try {
+          const { data: urlData } = await supabase.storage
+            .from(attachment.storage_bucket)
+            .createSignedUrl(attachment.storage_path, 3600);
+          attachment.signed_url = urlData?.signedUrl;
+        } catch {
+          // Mantem o anexo listado mesmo se o link temporario falhar.
+        }
+      })
+    );
+    return rows;
   },
 
   // ─── Fotos de inspeções vinculadas ─────────────────────────

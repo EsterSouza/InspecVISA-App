@@ -283,7 +283,7 @@ export function PublicAppointmentStatus() {
               <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
               <div>
                 <dt className="text-xs text-gray-400">Unidade</dt>
-                <dd className="font-medium text-gray-900">{status.unit_name}</dd>
+                <dd className="break-words font-medium text-gray-900">{status.unit_name}</dd>
               </div>
             </div>
             <div className="flex items-start gap-3">

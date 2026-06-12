@@ -582,7 +582,7 @@ export function ClientPortal() {
               >
                 <header className="flex items-center gap-2 border-b border-gray-100 bg-gray-50/70 px-5 py-3.5">
                   <Building2 className="h-4 w-4 shrink-0 text-primary-700" />
-                  <h3 className="min-w-0 flex-1 truncate text-sm font-bold text-gray-900">
+                  <h3 className="min-w-0 flex-1 whitespace-normal break-words text-sm font-bold text-gray-900">
                     {unit.client_name}
                   </h3>
                   {unit.city && (
