@@ -111,6 +111,8 @@ export function AppointmentRequestsPanel() {
   const [showClosed, setShowClosed] = useState(true);
   // Nova visita (agendamento direto pela equipe)
   const [showNewVisit, setShowNewVisit] = useState(false);
+  // Aviso pós-publicação de relatório (e-mail + link de WhatsApp)
+  const [reportNotify, setReportNotify] = useState<{ unitName: string; emailSent: boolean; whatsappLink?: string } | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -194,7 +196,17 @@ export function AppointmentRequestsPanel() {
       alert('O relatório deve ser um arquivo PDF.');
       return;
     }
-    void withBusy(request.id, () => AppointmentAdminService.publishReport(request, file));
+    setBusy(request.id);
+    AppointmentAdminService.publishReport(request, file)
+      .then((res) => {
+        setReportNotify({ unitName: request.unit_name, emailSent: res.emailSent, whatsappLink: res.whatsappLink });
+        return loadData();
+      })
+      .catch((err) => {
+        console.error(err);
+        alert(`Erro: ${errorMessage(err)}`);
+      })
+      .finally(() => setBusy(null));
   };
 
   const handleAddAttachment = (request: AppointmentRequest, file: File | null) => {
@@ -509,6 +521,40 @@ export function AppointmentRequestsPanel() {
             void loadData();
           }}
         />
+      )}
+
+      {reportNotify && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <Card className="w-full max-w-sm shadow-2xl">
+            <CardContent className="p-6 text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
+                <CheckCircle className="h-6 w-6 text-green-600" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900">Relatório publicado</h3>
+              <p className="mt-1 text-sm text-gray-500">{reportNotify.unitName}</p>
+              <p className="mt-3 rounded-lg bg-gray-50 p-3 text-sm text-gray-700">
+                {reportNotify.emailSent
+                  ? 'E-mail enviado ao cliente automaticamente.'
+                  : 'Sem e-mail cadastrado do cliente — avise pelo WhatsApp abaixo.'}
+              </p>
+              {reportNotify.whatsappLink ? (
+                <a
+                  href={reportNotify.whatsappLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md border border-green-200 bg-green-50 px-4 py-2.5 text-sm font-semibold text-green-700 hover:bg-green-100"
+                >
+                  <Phone className="h-4 w-4" /> Avisar no WhatsApp
+                </a>
+              ) : (
+                <p className="mt-4 text-xs text-gray-400">Cliente sem WhatsApp cadastrado.</p>
+              )}
+              <Button variant="ghost" className="mt-2 w-full" onClick={() => setReportNotify(null)}>
+                Fechar
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   );

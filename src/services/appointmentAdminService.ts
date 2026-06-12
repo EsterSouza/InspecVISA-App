@@ -355,7 +355,10 @@ export const AppointmentAdminService = {
 
   // ─── Publicação de arquivos no portal ──────────────────────
 
-  async publishReport(request: AppointmentRequest, file: File): Promise<void> {
+  async publishReport(
+    request: AppointmentRequest,
+    file: File
+  ): Promise<{ emailSent: boolean; whatsappLink?: string }> {
     const tenantId = requireTenantId();
     const path = `${tenantId}/${request.id}/report-${Date.now()}-${sanitizeFileName(file.name)}`;
 
@@ -405,15 +408,17 @@ export const AppointmentAdminService = {
         unitName = client?.name || unitName;
       }
 
-      await this.notifyReportAvailable({
+      const result = await this.notifyReportAvailable({
         email,
         phone,
         unitName,
         portalUrl: `${window.location.origin}/cliente/visita/${request.public_token}`,
         reportName: file.name,
       });
+      return { emailSent: !!result?.emailSent, whatsappLink: result?.whatsappLink ?? undefined };
     } catch (err) {
       console.warn('[AppointmentAdmin] Relatorio publicado, mas a notificacao ao cliente falhou:', err);
+      return { emailSent: false };
     }
   },
 

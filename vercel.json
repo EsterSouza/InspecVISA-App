@@ -26,6 +26,12 @@
     }
   ],
   "routes": [
+    {
+      "src": "/(.*)",
+      "has": [{ "type": "host", "value": "inspec-visa-app-three.vercel.app" }],
+      "status": 308,
+      "headers": { "Location": "https://inspecvisa.consultorasanitaria.com.br/$1" }
+    },
     { "handle": "filesystem" },
     { "src": "/assets/(.*)", "status": 404 },
     { "src": "/(.*)", "dest": "/index.html" }
