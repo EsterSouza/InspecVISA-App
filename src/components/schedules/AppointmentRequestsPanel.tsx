@@ -1805,7 +1805,7 @@ function PortalAccountsSection({ accounts, clients, onChanged }: PortalAccountsS
                   size="sm"
                   disabled={busyId === account.id}
                   onClick={() => setEditTarget(account)}
-                  title="Editar unidades vinculadas"
+                  title="Editar acesso e unidades vinculadas"
                 >
                   <Pencil className="h-4 w-4" />
                 </Button>
@@ -1937,19 +1937,47 @@ function PaymentModal({ account, onClose, onSaved }: PaymentModalProps) {
   const [type, setType] = useState<'monthly' | 'one_time' | null>(account.payment_type);
   const [status, setStatus] = useState<'pending' | 'paid'>(account.payment_status);
   const [link, setLink] = useState(account.payment_link || '');
+  const [dueDate, setDueDate] = useState(account.payment_due_date || '');
   const [saving, setSaving] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSave = async () => {
     setSaving(true);
     setError(null);
     try {
-      await AppointmentAdminService.setPortalPayment(account.id, { type, status, link });
+      await AppointmentAdminService.setPortalPayment(account.id, { type, status, link, dueDate });
       onSaved();
     } catch (err) {
       setError(errorMessage(err));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSendPaymentEmail = async () => {
+    if (!link.trim()) {
+      setError('Informe o link de pagamento antes de enviar.');
+      return;
+    }
+    setSending(true);
+    setSent(false);
+    setError(null);
+    try {
+      await AppointmentAdminService.setPortalPayment(account.id, { type, status, link, dueDate });
+      await AppointmentAdminService.sendPaymentLinkEmail({
+        email: account.email,
+        accountName: account.name,
+        paymentLink: link.trim(),
+        paymentType: type,
+        dueDate: type === 'monthly' ? dueDate || null : null,
+      });
+      setSent(true);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSending(false);
     }
   };
 
@@ -1970,6 +1998,7 @@ function PaymentModal({ account, onClose, onSaved }: PaymentModalProps) {
                 placeholder="Cole o link (Mercado Pago, Pix, Stripe...)"
                 className="w-full rounded-xl border border-gray-300 p-3 text-sm"
               />
+              <p className="text-xs text-gray-400">O link deve oferecer Pix, boleto, NuPay e cartao de credito/debito no provedor de pagamento.</p>
               <p className="text-xs text-gray-400">O cliente vê um botão "Pagar agora" no portal enquanto estiver pendente.</p>
             </div>
 
@@ -1980,6 +2009,18 @@ function PaymentModal({ account, onClose, onSaved }: PaymentModalProps) {
                 <button type="button" onClick={() => setType('one_time')} className={`h-11 rounded-xl border text-sm font-bold ${type === 'one_time' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600'}`}>Único</button>
               </div>
             </div>
+
+            {type === 'monthly' && (
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-gray-700">Data limite do pagamento mensal</label>
+                <input
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  className="w-full rounded-xl border border-gray-300 p-3 text-sm"
+                />
+              </div>
+            )}
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">Situação</label>
@@ -1993,8 +2034,18 @@ function PaymentModal({ account, onClose, onSaved }: PaymentModalProps) {
               <div className="rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">{error}</div>
             )}
 
+            {sent && (
+              <div className="rounded-xl border border-green-100 bg-green-50 p-3 text-sm text-green-700">
+                Link de pagamento enviado para {account.email}.
+              </div>
+            )}
+
             <div className="flex gap-3 pt-1">
               <Button type="button" variant="ghost" className="flex-1" onClick={onClose}>Cancelar</Button>
+              <Button type="button" variant="outline" className="flex-1" disabled={sending || saving} onClick={() => void handleSendPaymentEmail()}>
+                {sending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+                Enviar link
+              </Button>
               <Button type="button" className="flex-1" disabled={saving} onClick={() => void handleSave()}>
                 {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 Salvar
@@ -2015,6 +2066,8 @@ interface EditPortalUnitsModalProps {
 }
 
 function EditPortalUnitsModal({ account, clients, onClose, onSaved }: EditPortalUnitsModalProps) {
+  const [email, setEmail] = useState(account.email);
+  const [username, setUsername] = useState(account.username || '');
   const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(account.client_ids));
   const [saving, setSaving] = useState(false);
@@ -2034,6 +2087,10 @@ function EditPortalUnitsModal({ account, clients, onClose, onSaved }: EditPortal
   };
 
   const handleSave = async () => {
+    if (!email.trim()) {
+      setError('Informe o e-mail de acesso.');
+      return;
+    }
     if (selectedIds.size === 0) {
       setError('Selecione ao menos uma unidade (ou remova o acesso).');
       return;
@@ -2041,6 +2098,10 @@ function EditPortalUnitsModal({ account, clients, onClose, onSaved }: EditPortal
     setSaving(true);
     setError(null);
     try {
+      await AppointmentAdminService.updatePortalAccount(account.id, {
+        email,
+        username,
+      });
       await AppointmentAdminService.setPortalAccountClients(account.id, [...selectedIds]);
       onSaved();
     } catch (err) {
@@ -2054,11 +2115,33 @@ function EditPortalUnitsModal({ account, clients, onClose, onSaved }: EditPortal
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
       <Card className="max-h-[90vh] w-full max-w-lg overflow-y-auto shadow-2xl">
         <CardContent className="p-6">
-          <h3 className="mb-1 text-xl font-bold text-gray-900">Editar unidades</h3>
+          <h3 className="mb-1 text-xl font-bold text-gray-900">Editar acesso</h3>
           <p className="mb-5 text-sm text-gray-500">
             {account.name} — {selectedIds.size} unidade{selectedIds.size === 1 ? '' : 's'} vinculada
             {selectedIds.size === 1 ? '' : 's'}
           </p>
+
+          <div className="mb-4 grid gap-3 sm:grid-cols-2">
+            <label className="space-y-1.5 text-sm font-medium text-gray-700">
+              E-mail de acesso
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full rounded-xl border border-gray-300 p-2.5 text-sm font-normal"
+              />
+            </label>
+            <label className="space-y-1.5 text-sm font-medium text-gray-700">
+              Nome de usuario
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="usuario sem espacos"
+                className="w-full rounded-xl border border-gray-300 p-2.5 text-sm font-normal"
+              />
+            </label>
+          </div>
 
           <input
             type="text"
@@ -2100,7 +2183,7 @@ function EditPortalUnitsModal({ account, clients, onClose, onSaved }: EditPortal
             </Button>
             <Button type="button" className="flex-1" disabled={saving} onClick={() => void handleSave()}>
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Salvar unidades
+              Salvar acesso
             </Button>
           </div>
         </CardContent>

@@ -55,6 +55,7 @@ export interface ClientPortalPayment {
   type: 'monthly' | 'one_time' | null;
   status: 'pending' | 'paid';
   link: string | null;
+  due_date?: string | null;
   updated_at: string | null;
 }
 

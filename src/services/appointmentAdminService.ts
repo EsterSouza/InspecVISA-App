@@ -32,6 +32,7 @@ export interface ClientPortalAccountRow {
   payment_type: 'monthly' | 'one_time' | null;
   payment_status: 'pending' | 'paid';
   payment_link: string | null;
+  payment_due_date: string | null;
 }
 
 export interface ClientPortalAccessEmailPayload {
@@ -40,6 +41,14 @@ export interface ClientPortalAccessEmailPayload {
   code: string;
   portalUrl: string;
   unitCount: number;
+}
+
+export interface PaymentLinkEmailPayload {
+  email: string;
+  accountName: string;
+  paymentLink: string;
+  paymentType: 'monthly' | 'one_time' | null;
+  dueDate?: string | null;
 }
 
 export interface ReportAvailableNotificationPayload {
@@ -588,7 +597,7 @@ export const AppointmentAdminService = {
     let { data, error }: { data: any[] | null; error: any } = await withTimeout(
       supabase
         .from('client_portal_accounts')
-        .select('id, name, email, username, portal_token, access_code_plain, is_active, created_at, payment_type, payment_status, payment_link, client_portal_account_clients(client_id)')
+        .select('id, name, email, username, portal_token, access_code_plain, is_active, created_at, payment_type, payment_status, payment_link, payment_due_date, client_portal_account_clients(client_id)')
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false }),
       'AcessosPortal'
@@ -626,18 +635,29 @@ export const AppointmentAdminService = {
       payment_type: row.payment_type ?? null,
       payment_status: row.payment_status ?? 'pending',
       payment_link: row.payment_link ?? null,
+      payment_due_date: row.payment_due_date ?? null,
     }));
   },
 
   async setPortalPayment(
     accountId: string,
-    params: { type: 'monthly' | 'one_time' | null; status: 'pending' | 'paid'; link: string }
+    params: { type: 'monthly' | 'one_time' | null; status: 'pending' | 'paid'; link: string; dueDate?: string | null }
   ): Promise<void> {
     const { error } = await supabase.rpc('admin_set_portal_payment', {
       p_account_id: accountId,
       p_type: params.type,
       p_status: params.status,
       p_link: params.link,
+      p_due_date: params.dueDate || null,
+    });
+    if (error) throw error;
+  },
+
+  async updatePortalAccount(accountId: string, params: { email: string; username?: string | null }): Promise<void> {
+    const { error } = await supabase.rpc('admin_update_client_portal_account', {
+      p_account_id: accountId,
+      p_email: params.email,
+      p_username: params.username?.trim() || null,
     });
     if (error) throw error;
   },
@@ -685,6 +705,17 @@ export const AppointmentAdminService = {
         body: payload,
       }),
       'EmailPortalCliente',
+      30000
+    );
+    if (error) throw error;
+  },
+
+  async sendPaymentLinkEmail(payload: PaymentLinkEmailPayload): Promise<void> {
+    const { error } = await withTimeout(
+      supabase.functions.invoke('notify-payment-link', {
+        body: payload,
+      }),
+      'EmailLinkPagamento',
       30000
     );
     if (error) throw error;

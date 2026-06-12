@@ -377,6 +377,16 @@ export function ClientPortal() {
                     ? 'Obrigado! Seu pagamento está em dia.'
                     : 'Use o botão para efetuar o pagamento e liberar o acompanhamento completo.'}
                 </p>
+                {overview.payment.type === 'monthly' && overview.payment.due_date && (
+                  <p className="text-xs font-medium text-gray-600">
+                    Vencimento: {formatDateBR(overview.payment.due_date)}
+                  </p>
+                )}
+                {overview.payment.status !== 'paid' && overview.payment.link && (
+                  <p className="text-xs text-gray-500">
+                    Opcoes no link: Pix, boleto, NuPay e cartao de credito/debito.
+                  </p>
+                )}
               </div>
             </div>
             {overview.payment.status !== 'paid' && overview.payment.link && (
