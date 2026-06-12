@@ -8,6 +8,7 @@ import {
   Clock,
   Copy,
   FileUp,
+  Gauge,
   ImagePlus,
   Inbox,
   KeyRound,
@@ -188,6 +189,10 @@ export function AppointmentRequestsPanel() {
 
   const handleMarkInProgress = (request: AppointmentRequest) => {
     void withBusy(request.id, () => AppointmentAdminService.markInProgress(request.id));
+  };
+
+  const handleSetCompliance = (request: AppointmentRequest, score: number | null) => {
+    void withBusy(request.id, () => AppointmentAdminService.setComplianceScore(request.id, score));
   };
 
   const handlePublishReport = (request: AppointmentRequest, file: File | null) => {
@@ -388,6 +393,7 @@ export function AppointmentRequestsPanel() {
                 onCancel={() => handleCancel(request)}
                 onMarkInProgress={() => handleMarkInProgress(request)}
                 onReschedule={() => handleReschedule(request)}
+                onSetCompliance={(score) => handleSetCompliance(request, score)}
                 onDelete={() => handleDelete(request)}
               />
             ))}
@@ -422,6 +428,7 @@ export function AppointmentRequestsPanel() {
                     onCancel={() => handleCancel(request)}
                     onMarkInProgress={() => handleMarkInProgress(request)}
                     onShareWhatsapp={() => void handleShareReportWhatsapp(request)}
+                    onSetCompliance={(score) => handleSetCompliance(request, score)}
                     onDelete={() => handleDelete(request)}
                   />
                 ) : (
@@ -573,6 +580,7 @@ interface ActiveRequestCardProps {
   onMarkInProgress: () => void;
   onShareWhatsapp?: () => void;
   onReschedule?: () => void;
+  onSetCompliance: (score: number | null) => void;
   onDelete: () => void;
 }
 
@@ -587,10 +595,14 @@ function ActiveRequestCard({
   onMarkInProgress,
   onShareWhatsapp,
   onReschedule,
+  onSetCompliance,
   onDelete,
 }: ActiveRequestCardProps) {
   const reportInputRef = useRef<HTMLInputElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
+  const [scoreInput, setScoreInput] = useState<string>(
+    request.compliance_score != null ? String(request.compliance_score) : ''
+  );
   const isClosed = request.status === 'report_available' || request.status === 'cancelled';
 
   return (
@@ -627,6 +639,33 @@ function ActiveRequestCard({
                     {request.report_due_source === 'manual' ? ' (manual)' : ''}
                   </span>
                 )}
+                <span className="flex items-center gap-1 text-xs text-gray-500">
+                  <Gauge className="h-3.5 w-3.5 text-emerald-600" />
+                  Conformidade:
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={scoreInput}
+                    onChange={(e) => setScoreInput(e.target.value)}
+                    placeholder="—"
+                    className="w-14 rounded border border-gray-200 px-1.5 py-0.5 text-xs"
+                  />
+                  %
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => {
+                      const v = scoreInput.trim();
+                      if (v === '') return onSetCompliance(null);
+                      const n = Math.max(0, Math.min(100, Math.round(Number(v))));
+                      if (Number.isFinite(n)) onSetCompliance(n);
+                    }}
+                    className="rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] font-bold text-emerald-700 hover:bg-emerald-100"
+                  >
+                    Salvar
+                  </button>
+                </span>
               </div>
             </div>
             {busy && <Loader2 className="h-5 w-5 shrink-0 animate-spin text-primary-600" />}

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, Suspense, lazy } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Building2,
@@ -9,6 +9,7 @@ import {
   ChevronRight,
   ClipboardCheck,
   CreditCard,
+  Download,
   FileText,
   FolderOpen,
   Image,
@@ -19,12 +20,24 @@ import {
   MapPin,
   Paperclip,
   RotateCcw,
+  TrendingUp,
 } from 'lucide-react';
 import { PublicHeader } from '../components/public/PublicHeader';
 import {
   clientPortalService,
   type ClientPortalOverview,
 } from '../services/clientPortalService';
+import { generateFranchisePdf } from '../utils/franchiseReport';
+
+const ComplianceTrendChart = lazy(() =>
+  import('../components/client/ComplianceTrendChart').then((m) => ({ default: m.ComplianceTrendChart }))
+);
+
+function scoreColor(score: number): string {
+  if (score >= 85) return 'text-green-700 bg-green-100';
+  if (score >= 60) return 'text-amber-700 bg-amber-100';
+  return 'text-red-700 bg-red-100';
+}
 
 const STATUS_LABELS: Record<string, string> = {
   requested: 'Solicitada',
@@ -239,13 +252,22 @@ export function ClientPortal() {
               {totalVisits} inspeç{totalVisits === 1 ? 'ão' : 'ões'}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-100"
-          >
-            <LogOut className="h-3.5 w-3.5" /> Sair
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => generateFranchisePdf(overview)}
+              className="inline-flex items-center gap-1.5 rounded-md border border-primary-200 bg-primary-50 px-3 py-2 text-xs font-semibold text-primary-700 hover:bg-primary-100"
+            >
+              <Download className="h-3.5 w-3.5" /> Resumo (PDF)
+            </button>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-100"
+            >
+              <LogOut className="h-3.5 w-3.5" /> Sair
+            </button>
+          </div>
         </div>
 
         <div className="mb-6 grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3">
@@ -266,6 +288,66 @@ export function ClientPortal() {
             <p className="mt-1 text-2xl font-black text-gray-950">{attachmentCount}</p>
           </div>
         </div>
+
+        {(() => {
+          const scored = allVisits
+            .filter((v) => typeof v.compliance_score === 'number')
+            .slice()
+            .sort((a, b) => `${a.requested_date || ''}`.localeCompare(`${b.requested_date || ''}`));
+          if (scored.length === 0) return null;
+          const avg = Math.round(scored.reduce((s, v) => s + (v.compliance_score || 0), 0) / scored.length);
+          const chartData = scored.map((v) => ({
+            date: formatDateBR(v.requested_date).slice(0, 5),
+            score: v.compliance_score as number,
+          }));
+          const perUnit = overview.units
+            .map((u) => {
+              const us = u.visits
+                .filter((v) => typeof v.compliance_score === 'number')
+                .sort((a, b) => `${b.requested_date || ''}`.localeCompare(`${a.requested_date || ''}`));
+              return us.length ? { name: u.client_name, score: us[0].compliance_score as number } : null;
+            })
+            .filter((x): x is { name: string; score: number } => x !== null)
+            .sort((a, b) => a.score - b.score);
+
+          return (
+            <section className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-gray-700">
+                  <TrendingUp className="h-4 w-4 text-primary-700" /> Conformidade da rede
+                </h3>
+                <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${scoreColor(avg)}`}>
+                  Média {avg}%
+                </span>
+              </div>
+
+              {chartData.length >= 2 && (
+                <div className="mb-4 h-48 w-full">
+                  <Suspense fallback={<div className="h-full animate-pulse rounded-lg bg-gray-50" />}>
+                    <ComplianceTrendChart data={chartData} />
+                  </Suspense>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                {perUnit.map((u) => (
+                  <div key={u.name} className="flex items-center gap-3">
+                    <span className="w-40 shrink-0 truncate text-xs font-medium text-gray-700">{u.name}</span>
+                    <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-gray-100">
+                      <div
+                        className={`h-full rounded-full ${u.score >= 85 ? 'bg-green-500' : u.score >= 60 ? 'bg-amber-500' : 'bg-red-500'}`}
+                        style={{ width: `${u.score}%` }}
+                      />
+                    </div>
+                    <span className={`w-12 shrink-0 rounded px-1.5 py-0.5 text-center text-xs font-bold ${scoreColor(u.score)}`}>
+                      {u.score}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          );
+        })()}
 
         {overview.payment && (overview.payment.type || overview.payment.link || overview.payment.status === 'paid') && (
           <div
