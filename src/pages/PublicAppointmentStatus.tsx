@@ -45,7 +45,7 @@ const TIMELINE_STEPS: TimelineStep[] = [
   { label: 'Solicitação recebida' },
   { label: 'Confirmada / Agendada' },
   { label: 'Inspeção em andamento' },
-  { label: 'Inspecao finalizada' },
+  { label: 'Inspeção finalizada' },
   { label: 'Relatorio concluido' },
   { label: 'Relatório disponível' },
 ];
@@ -364,7 +364,8 @@ export function PublicAppointmentStatus() {
           </section>
         )}
 
-        {/* Relatório e anexos */}
+        {/* Relatório e anexos — só exibe quando há algo publicado ou quando o status indica disponibilidade */}
+        {(status.status === 'report_available' || reportPdf || photos.length > 0 || attachments.length > 0) ? (
         <section className="mb-6 rounded-2xl border border-green-100 bg-white p-5 shadow-sm">
             <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-green-700">
               Relatório, fotos e anexos
@@ -381,13 +382,11 @@ export function PublicAppointmentStatus() {
                 <Download className="h-4 w-4" />
                 Baixar relatório (PDF)
               </a>
-            ) : (
+            ) : status.status === 'report_available' ? (
               <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
-                {status.status === 'report_available'
-                  ? 'O relatório está sendo disponibilizado. Atualize a página em alguns instantes.'
-                  : 'Quando o relatório, fotos ou anexos forem publicados pela equipe, os botões de download aparecem aqui.'}
+                O relatório está sendo disponibilizado. Atualize a página em alguns instantes.
               </div>
-            )}
+            ) : null}
 
             {photos.length > 0 && (
               <div className="mt-6">
@@ -450,6 +449,7 @@ export function PublicAppointmentStatus() {
               </div>
             )}
           </section>
+        ) : null}
 
         {/* Ações */}
         <div className="space-y-3">

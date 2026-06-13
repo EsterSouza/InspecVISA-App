@@ -56,7 +56,7 @@ const STATUS_LABELS: Record<AppointmentRequest['status'], string> = {
   confirmed: 'Confirmada',
   in_progress: 'Em andamento',
   rescheduled: 'Remarcada',
-  completed: 'Relatorio concluido',
+  completed: 'Relatório concluído',
   report_available: 'Relatório disponível',
   cancelled: 'Cancelada',
 };

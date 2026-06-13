@@ -352,11 +352,12 @@ export function PublicSchedule() {
           });
       setToken(result.public_token);
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch (err: any) {
+    } catch (err) {
       console.warn('[PublicSchedule] Falha ao enviar agendamento:', err);
-      setError(err?.message?.includes('horario indisponivel')
-        ? 'Este horario acabou de ser reservado. Escolha outro horario disponivel.'
-        : 'Nao foi possivel enviar seu agendamento agora. Tente novamente em alguns instantes.');
+      const msg = err instanceof Error ? err.message : '';
+      setError(msg.includes('horario indisponivel')
+        ? 'Este horário acabou de ser reservado. Escolha outro horário disponível.'
+        : 'Não foi possível enviar seu agendamento agora. Tente novamente em alguns instantes.');
     } finally {
       setSubmitting(false);
     }
@@ -510,15 +511,9 @@ export function PublicSchedule() {
                 </div>
               ) : (
                 <div>
-                    <div>
-                      <div className="mb-2 flex items-center justify-between gap-3">
-                        <p className="text-sm font-bold capitalize text-gray-900">
-                          {formatMonthTitle(visibleMonth)}
-                        </p>
-                        {portalMode && (
-                          <p className="text-xs text-gray-400">Ponto azul: vistoria já marcada</p>
-                        )}
-                      </div>
+                      {portalMode && (
+                        <p className="mb-2 text-xs text-gray-400">Ponto azul = vistoria já marcada neste mês</p>
+                      )}
                       <div className="grid grid-cols-7 gap-1.5 text-center text-[11px] font-bold uppercase text-gray-400 sm:gap-2">
                         {CALENDAR_WEEKDAYS.map((label) => (
                           <div key={label} className="py-1">{label}</div>
@@ -570,7 +565,6 @@ export function PublicSchedule() {
                             );
                           })}
                       </div>
-                    </div>
                 </div>
               )}
             </div>
@@ -794,6 +788,17 @@ export function PublicSchedule() {
               <p className="text-xs text-gray-400">
                 Campos com <span className="font-bold text-red-500">*</span> são obrigatórios.
               </p>
+
+              {selectedDay && selectedTime && (
+                <div className="rounded-lg border border-primary-200 bg-primary-50 p-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-primary-600">
+                    Horário selecionado
+                  </p>
+                  <p className="mt-0.5 text-sm font-semibold text-gray-900">
+                    {formatFullDay(selectedDay)} · {selectedTime.label}
+                  </p>
+                </div>
+              )}
 
               {error && (
                 <div className="rounded-md border border-red-100 bg-red-50 p-3 text-sm text-red-700">
