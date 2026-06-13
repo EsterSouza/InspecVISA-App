@@ -46,7 +46,7 @@ const TIMELINE_STEPS: TimelineStep[] = [
   { label: 'Confirmada / Agendada' },
   { label: 'Inspeção em andamento' },
   { label: 'Inspeção finalizada' },
-  { label: 'Relatorio concluido' },
+  { label: 'Relatório em andamento' },
   { label: 'Relatório disponível' },
 ];
 
