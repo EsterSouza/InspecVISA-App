@@ -2040,6 +2040,11 @@ function PaymentModal({ account, onClose, onSaved }: PaymentModalProps) {
   const [type, setType] = useState<'monthly' | 'one_time' | null>(account.payment_type);
   const [status, setStatus] = useState<'pending' | 'paid'>(account.payment_status);
   const [link, setLink] = useState(account.payment_link || '');
+  const [paymentLinks, setPaymentLinks] = useState(
+    account.payment_links?.length
+      ? account.payment_links
+      : [{ label: 'Principal', url: account.payment_link || '' }]
+  );
   const [dueDate, setDueDate] = useState(account.payment_due_date || '');
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
@@ -2050,7 +2055,8 @@ function PaymentModal({ account, onClose, onSaved }: PaymentModalProps) {
     setSaving(true);
     setError(null);
     try {
-      await AppointmentAdminService.setPortalPayment(account.id, { type, status, link, dueDate });
+      const cleanLinks = paymentLinks.filter((item) => item.url.trim());
+      await AppointmentAdminService.setPortalPayment(account.id, { type, status, link, dueDate, links: cleanLinks });
       onSaved();
     } catch (err) {
       setError(errorMessage(err));
@@ -2068,7 +2074,8 @@ function PaymentModal({ account, onClose, onSaved }: PaymentModalProps) {
     setSent(false);
     setError(null);
     try {
-      await AppointmentAdminService.setPortalPayment(account.id, { type, status, link, dueDate });
+      const cleanLinks = paymentLinks.filter((item) => item.url.trim());
+      await AppointmentAdminService.setPortalPayment(account.id, { type, status, link, dueDate, links: cleanLinks });
       await AppointmentAdminService.sendPaymentLinkEmail({
         email: account.email,
         accountName: account.name,
@@ -2097,12 +2104,66 @@ function PaymentModal({ account, onClose, onSaved }: PaymentModalProps) {
               <input
                 type="url"
                 value={link}
-                onChange={(e) => setLink(e.target.value)}
+                onChange={(e) => {
+                  setLink(e.target.value);
+                  setPaymentLinks((prev) => {
+                    const next = prev.length ? [...prev] : [{ label: 'Principal', url: '' }];
+                    next[0] = { ...next[0], label: next[0].label || 'Principal', url: e.target.value };
+                    return next;
+                  });
+                }}
                 placeholder="Cole o link (Mercado Pago, Pix, Stripe...)"
                 className="w-full rounded-xl border border-gray-300 p-3 text-sm"
               />
               <p className="text-xs text-gray-400">O link deve oferecer Pix, boleto, NuPay e cartao de credito/debito no provedor de pagamento.</p>
               <p className="text-xs text-gray-400">O cliente vê um botão "Pagar agora" no portal enquanto estiver pendente.</p>
+            </div>
+
+            <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <label className="text-sm font-medium text-gray-700">Links adicionais</label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPaymentLinks((prev) => [...prev, { label: '', url: '' }])}
+                >
+                  Adicionar mais
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {paymentLinks.map((paymentLink, index) => (
+                  <div key={index} className="grid gap-2 sm:grid-cols-[120px_1fr_auto]">
+                    <input
+                      type="text"
+                      value={paymentLink.label || ''}
+                      onChange={(e) => setPaymentLinks((prev) => prev.map((item, i) => i === index ? { ...item, label: e.target.value } : item))}
+                      placeholder={index === 0 ? 'Principal' : 'Ex: Mensalidade'}
+                      className="rounded-xl border border-gray-300 p-2.5 text-sm"
+                    />
+                    <input
+                      type="url"
+                      value={paymentLink.url}
+                      onChange={(e) => {
+                        setPaymentLinks((prev) => prev.map((item, i) => i === index ? { ...item, url: e.target.value } : item));
+                        if (index === 0) setLink(e.target.value);
+                      }}
+                      placeholder="https://..."
+                      className="rounded-xl border border-gray-300 p-2.5 text-sm"
+                    />
+                    {paymentLinks.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setPaymentLinks((prev) => prev.filter((_, i) => i !== index))}
+                        className="rounded-xl p-2 text-red-500 hover:bg-red-50"
+                        title="Remover link"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="space-y-2">

@@ -5,6 +5,7 @@ import { vi } from 'vitest';
 vi.mock('../lib/supabase', () => ({
   supabase: {
     auth: {
+      getUser: vi.fn(),
       getSession: vi.fn(),
       signInWithPassword: vi.fn(),
       signUp: vi.fn(),

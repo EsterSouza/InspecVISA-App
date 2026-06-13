@@ -41,6 +41,7 @@ export interface Client {
   responsibleName?: string;
   phone?: string;
   email?: string;
+  contacts?: ClientContact[];
   hasPersonalizedSanitaryFolder?: boolean;
   personalizedSanitaryFolderUrl?: string;
   createdAt: Date;
@@ -54,6 +55,12 @@ export interface Client {
   localActorId?: string;
   conflictRemote?: any;
   conflictLocal?: any;
+}
+
+export interface ClientContact {
+  name?: string;
+  phone?: string;
+  email?: string;
 }
 
 export type SyncStatus = 'pending' | 'syncing' | 'synced' | 'conflict' | 'failed';
@@ -354,6 +361,17 @@ export type AppointmentStatus =
   | 'cancelled';
 export type AttachmentKind = 'report_pdf' | 'photo' | 'attachment';
 export type ReportDueSource = 'business_days' | 'manual';
+export type ClientPortalAuditEventType =
+  | 'login'
+  | 'overview_viewed'
+  | 'appointment_viewed'
+  | 'report_download_clicked'
+  | 'attachment_download_clicked'
+  | 'photo_download_clicked'
+  | 'photo_gallery_opened'
+  | 'payment_link_clicked'
+  | 'payment_acknowledged'
+  | 'sanitary_folder_opened';
 
 export interface AppointmentSlot {
   id: string;
@@ -415,6 +433,19 @@ export interface AppointmentAttachment {
   mime_type: string | null;
   caption: string | null;
   signed_url?: string; // preenchido pelo serviço, nunca expor storage_path bruto ao cliente
+  created_at: string;
+}
+
+export interface ClientPortalAuditEvent {
+  id: string;
+  tenant_id: string;
+  account_id: string | null;
+  client_id: string | null;
+  appointment_request_id: string | null;
+  attachment_id: string | null;
+  event_type: ClientPortalAuditEventType | string;
+  payload: Record<string, unknown>;
+  user_agent: string | null;
   created_at: string;
 }
 

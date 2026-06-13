@@ -81,6 +81,12 @@ function formatDateBR(value: string | null): string {
   return `${d}/${m}/${y}`;
 }
 
+function paymentLinks(payment: { link: string | null; links?: { label?: string; url: string }[] }) {
+  const links = payment.links?.filter((item) => item.url?.trim()) || [];
+  if (links.length > 0) return links;
+  return payment.link ? [{ label: 'Pagar agora', url: payment.link }] : [];
+}
+
 export function ClientPortal() {
   const [token, setToken] = useState<string | null>(() => clientPortalService.getStoredToken());
   const [overview, setOverview] = useState<ClientPortalOverview | null>(null);
@@ -90,6 +96,8 @@ export function ClientPortal() {
   const [code, setCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [paymentAckBusy, setPaymentAckBusy] = useState(false);
+  const [paymentAckSent, setPaymentAckSent] = useState(false);
   // Calendário: começa sempre no mês corrente
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const now = new Date();
@@ -102,6 +110,9 @@ export function ClientPortal() {
       const data = await clientPortalService.overview(portalToken);
       setOverview(data);
       setError(null);
+      void clientPortalService.audit(portalToken, 'overview_viewed', {
+        units: data.units.length,
+      });
     } catch (err) {
       console.warn('[ClientPortal] Falha ao carregar painel:', err);
       clientPortalService.clearToken();
@@ -142,6 +153,20 @@ export function ClientPortal() {
     setOverview(null);
     setIdentifier('');
     setCode('');
+  };
+
+  const handlePaymentAcknowledgement = async () => {
+    if (!token) return;
+    setPaymentAckBusy(true);
+    try {
+      await clientPortalService.acknowledgePayment(token);
+      setPaymentAckSent(true);
+      void clientPortalService.audit(token, 'payment_acknowledged', { source: 'payment_panel' });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Nao foi possivel registrar o aviso de pagamento.');
+    } finally {
+      setPaymentAckBusy(false);
+    }
   };
 
   // ─── Carregando painel ───────────────────────────────────────
@@ -387,18 +412,43 @@ export function ClientPortal() {
                     Opcoes no link: Pix, boleto, NuPay e cartao de credito/debito.
                   </p>
                 )}
+                {paymentAckSent && (
+                  <p className="mt-1 text-xs font-medium text-green-700">
+                    Aviso recebido. A equipe vai conferir o pagamento.
+                  </p>
+                )}
               </div>
             </div>
-            {overview.payment.status !== 'paid' && overview.payment.link && (
-              <a
-                href={overview.payment.link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 rounded-md bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-amber-700"
-              >
-                <CreditCard className="h-4 w-4" />
-                Pagar agora
-              </a>
+            {overview.payment.status !== 'paid' && paymentLinks(overview.payment).length > 0 && (
+              <div className="flex flex-col gap-2 sm:min-w-44">
+                {paymentLinks(overview.payment).map((item, index) => (
+                  <a
+                    key={`${item.url}-${index}`}
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => {
+                      void clientPortalService.audit(token, 'payment_link_clicked', {
+                        label: item.label || 'Pagar agora',
+                        index,
+                      });
+                    }}
+                    className="inline-flex items-center justify-center gap-2 rounded-md bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-amber-700"
+                  >
+                    <CreditCard className="h-4 w-4" />
+                    {item.label || 'Pagar agora'}
+                  </a>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => void handlePaymentAcknowledgement()}
+                  disabled={paymentAckBusy || paymentAckSent}
+                  className="inline-flex items-center justify-center gap-2 rounded-md border border-amber-200 bg-white px-4 py-2.5 text-sm font-semibold text-amber-700 shadow-sm transition-colors hover:bg-amber-50 disabled:opacity-60"
+                >
+                  {paymentAckBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                  {paymentAckSent ? 'Aviso enviado' : 'Ja paguei'}
+                </button>
+              </div>
             )}
           </div>
         )}
@@ -597,6 +647,12 @@ export function ClientPortal() {
                       href={unit.personalized_sanitary_folder_url}
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={() => {
+                        void clientPortalService.audit(token, 'sanitary_folder_opened', {
+                          client_id: unit.client_id,
+                          client_name: unit.client_name,
+                        });
+                      }}
                       className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700"
                     >
                       <FolderOpen className="h-3.5 w-3.5" />

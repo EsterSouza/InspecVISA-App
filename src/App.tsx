@@ -171,13 +171,16 @@ function App() {
       await useAuthStore.getState().initialize();
       const currentUser = useAuthStore.getState().user;
       if (currentUser && navigator.onLine) {
-        void SettingsService.load()
-          .then((remoteSettings) => {
-            if (remoteSettings?.name) {
-              useSettingsStore.getState().replaceSettings(remoteSettings);
-            }
-          })
-          .catch((err) => console.warn('[App] Remote settings load failed:', err));
+        const currentProfile = useSettingsStore.getState().currentProfile;
+        if (currentProfile) {
+          void SettingsService.load(currentProfile)
+            .then((remoteSettings) => {
+              if (remoteSettings?.name && useSettingsStore.getState().currentProfile === currentProfile) {
+                useSettingsStore.getState().replaceSettings(remoteSettings);
+              }
+            })
+            .catch((err) => console.warn('[App] Remote settings load failed:', err));
+        }
       }
       void useAuthStore.getState().checkSession().then((isAuthorized) => {
         if (!isAuthorized && useAuthStore.getState().user) {

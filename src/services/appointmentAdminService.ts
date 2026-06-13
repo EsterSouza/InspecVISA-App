@@ -4,6 +4,7 @@ import type {
   AppointmentRequest,
   AppointmentSlot,
   AttachmentKind,
+  ClientPortalAuditEvent,
   SlotPeriod,
 } from '../types';
 import { getActiveTenantId } from '../utils/localScope';
@@ -32,7 +33,13 @@ export interface ClientPortalAccountRow {
   payment_type: 'monthly' | 'one_time' | null;
   payment_status: 'pending' | 'paid';
   payment_link: string | null;
+  payment_links: PaymentLinkOption[];
   payment_due_date: string | null;
+}
+
+export interface PaymentLinkOption {
+  label?: string;
+  url: string;
 }
 
 export interface ClientPortalAccessEmailPayload {
@@ -610,7 +617,7 @@ export const AppointmentAdminService = {
     let { data, error }: { data: any[] | null; error: any } = await withTimeout(
       supabase
         .from('client_portal_accounts')
-        .select('id, name, email, username, portal_token, access_code_plain, is_active, created_at, payment_type, payment_status, payment_link, payment_due_date, client_portal_account_clients(client_id)')
+        .select('id, name, email, username, portal_token, access_code_plain, is_active, created_at, payment_type, payment_status, payment_link, payment_links, payment_due_date, client_portal_account_clients(client_id)')
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false }),
       'AcessosPortal'
@@ -648,13 +655,37 @@ export const AppointmentAdminService = {
       payment_type: row.payment_type ?? null,
       payment_status: row.payment_status ?? 'pending',
       payment_link: row.payment_link ?? null,
+      payment_links: Array.isArray(row.payment_links) ? row.payment_links : [],
       payment_due_date: row.payment_due_date ?? null,
     }));
   },
 
+  async listPortalAuditEvents(filters: {
+    accountId?: string;
+    clientId?: string;
+    appointmentRequestId?: string;
+    limit?: number;
+  } = {}): Promise<ClientPortalAuditEvent[]> {
+    const tenantId = requireTenantId();
+    let query = supabase
+      .from('client_portal_audit_events')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false })
+      .limit(filters.limit || 50);
+
+    if (filters.accountId) query = query.eq('account_id', filters.accountId);
+    if (filters.clientId) query = query.eq('client_id', filters.clientId);
+    if (filters.appointmentRequestId) query = query.eq('appointment_request_id', filters.appointmentRequestId);
+
+    const { data, error } = await withTimeout(query, 'AuditoriaPortal');
+    if (error) throw error;
+    return (data ?? []) as ClientPortalAuditEvent[];
+  },
+
   async setPortalPayment(
     accountId: string,
-    params: { type: 'monthly' | 'one_time' | null; status: 'pending' | 'paid'; link: string; dueDate?: string | null }
+    params: { type: 'monthly' | 'one_time' | null; status: 'pending' | 'paid'; link: string; dueDate?: string | null; links?: PaymentLinkOption[] }
   ): Promise<void> {
     const { error } = await supabase.rpc('admin_set_portal_payment', {
       p_account_id: accountId,
@@ -662,6 +693,7 @@ export const AppointmentAdminService = {
       p_status: params.status,
       p_link: params.link,
       p_due_date: params.dueDate || null,
+      p_links: params.links || [],
     });
     if (error) throw error;
   },

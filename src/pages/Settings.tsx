@@ -14,7 +14,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { SettingsService } from '../services/settingsService';
 
 export function Settings() {
-  const { settings, updateSettings, replaceSettings, clearData } = useSettingsStore();
+  const { settings, currentProfile, updateSettings, replaceSettings, clearData } = useSettingsStore();
   const { signOut } = useAuthStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
@@ -24,7 +24,7 @@ export function Settings() {
     if (!navigator.onLine) return;
     let cancelled = false;
     setLoadStatus('loading');
-    SettingsService.load()
+    SettingsService.load(currentProfile)
       .then((remoteSettings) => {
         if (cancelled) return;
         if (remoteSettings?.name) {
@@ -41,7 +41,7 @@ export function Settings() {
     return () => {
       cancelled = true;
     };
-  }, [replaceSettings]);
+  }, [currentProfile, replaceSettings]);
 
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -65,7 +65,7 @@ export function Settings() {
     e.preventDefault();
     setSaveStatus('saving');
     try {
-      await SettingsService.save(settings);
+      await SettingsService.save(settings, currentProfile);
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 2000);
     } catch (err: any) {

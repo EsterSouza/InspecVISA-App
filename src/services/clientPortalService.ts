@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { formatAppointmentLeadTimeMessage, isAppointmentAtLeast24hAhead } from '../utils/appointmentLeadTime';
-import type { AppointmentAttachment, PublicAppointmentStatusResult } from '../types';
+import type { AppointmentAttachment, ClientPortalAuditEventType, PublicAppointmentStatusResult } from '../types';
 
 const TIMEOUT_MS = 30000;
 
@@ -55,6 +55,7 @@ export interface ClientPortalPayment {
   type: 'monthly' | 'one_time' | null;
   status: 'pending' | 'paid';
   link: string | null;
+  links?: { label?: string; url: string }[];
   due_date?: string | null;
   updated_at: string | null;
 }
@@ -100,7 +101,9 @@ export const clientPortalService = {
     );
     if (error) throw error;
     if (data?.error) throw new Error('E-mail/usuario ou senha invalidos.');
-    return data as { portal_token: string; account_name: string };
+    const result = data as { portal_token: string; account_name: string };
+    void this.audit(result.portal_token, 'login', { identifier });
+    return result;
   },
 
   async overview(token: string): Promise<ClientPortalOverview> {
@@ -141,5 +144,43 @@ export const clientPortalService = {
     if (error) throw error;
     if (data?.error) throw new Error(data.error);
     return data as ClientAppointmentDetails;
+  },
+
+  async audit(
+    token: string,
+    eventType: ClientPortalAuditEventType,
+    payload: Record<string, unknown> = {},
+    options: { appointmentToken?: string; attachmentId?: string } = {}
+  ): Promise<void> {
+    try {
+      const { data, error } = await withTimeout(
+        supabase.rpc('client_portal_audit_event', {
+          p_token: token,
+          p_event_type: eventType,
+          p_payload: payload,
+          p_appointment_token: options.appointmentToken || null,
+          p_attachment_id: options.attachmentId || null,
+          p_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+        }),
+        'AuditoriaPortalCliente'
+      );
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+    } catch (err) {
+      console.warn('[ClientPortal] Falha ao registrar auditoria:', err);
+    }
+  },
+
+  async acknowledgePayment(token: string, note?: string): Promise<void> {
+    const { data, error } = await withTimeout(
+      supabase.rpc('client_portal_payment_acknowledge', {
+        p_token: token,
+        p_note: note || null,
+        p_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+      }),
+      'ConfirmarPagamentoPortalCliente'
+    );
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
   },
 };

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Search, Plus, Phone, MapPin, Edit2, Trash2, Loader2, WifiOff, KeyRound } from 'lucide-react';
-import { type Client, type ClientCategory, type FoodEstablishmentType, FOOD_SEGMENT_LABELS } from '../types';
+import { type Client, type ClientCategory, type ClientContact, type FoodEstablishmentType, FOOD_SEGMENT_LABELS } from '../types';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -24,6 +24,7 @@ export function Clients() {
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
   const [portalAccounts, setPortalAccounts] = useState<ClientPortalAccountRow[]>([]);
+  const [clientContacts, setClientContacts] = useState<ClientContact[]>([{ name: '', phone: '', email: '' }]);
   
   const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<Client>();
 
@@ -43,7 +44,12 @@ export function Clients() {
       if (search) {
         list = list.filter(c => c.name.toLowerCase().includes(search.toLowerCase()) || 
                                 c.cnpj?.includes(search) || 
-                                c.responsibleName?.toLowerCase().includes(search.toLowerCase()));
+                                c.responsibleName?.toLowerCase().includes(search.toLowerCase()) ||
+                                c.contacts?.some((contact) =>
+                                  [contact.name, contact.phone, contact.email]
+                                    .filter(Boolean)
+                                    .some((value) => value!.toLowerCase().includes(search.toLowerCase()))
+                                ));
       }
       setClients(list);
     } catch (err) {
@@ -74,9 +80,21 @@ export function Clients() {
 
     setIsLoading(true);
     try {
+      const contacts = clientContacts
+        .map((contact) => ({
+          name: contact.name?.trim() || undefined,
+          phone: contact.phone?.trim() || undefined,
+          email: contact.email?.trim() || undefined,
+        }))
+        .filter((contact) => contact.name || contact.phone || contact.email);
+      const primaryContact = contacts[0];
       const clientToSave: Client = editingClient 
         ? { ...editingClient, ...data }
         : { ...data, id: generateId(), createdAt: new Date() };
+      clientToSave.contacts = contacts;
+      clientToSave.responsibleName = primaryContact?.name;
+      clientToSave.phone = primaryContact?.phone;
+      clientToSave.email = primaryContact?.email;
 
       // Limpeza de campos específicos de categoria
       if (clientToSave.category !== 'alimentos') {
@@ -104,6 +122,11 @@ export function Clients() {
     e.stopPropagation();
     setEditingClient(client);
     reset(client);
+    setClientContacts(
+      client.contacts?.length
+        ? client.contacts
+        : [{ name: client.responsibleName || '', phone: client.phone || '', email: client.email || '' }]
+    );
     setIsModalOpen(true);
   };
 
@@ -148,7 +171,7 @@ export function Clients() {
               <WifiOff className="mr-2 h-4 w-4" /> Offline
             </div>
           )}
-          <Button onClick={() => setIsModalOpen(true)} className="w-full sm:w-auto shadow-lg shadow-primary-100">
+          <Button onClick={() => { setClientContacts([{ name: '', phone: '', email: '' }]); setIsModalOpen(true); }} className="w-full sm:w-auto shadow-lg shadow-primary-100">
             <Plus className="mr-2 h-5 w-5" /> Novo Cliente
           </Button>
         </div>
@@ -220,7 +243,11 @@ export function Clients() {
                      )}
                   </div>
                   <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 text-sm text-gray-600">
-                    {client.phone && <div className="flex items-center"><Phone className="mr-2 h-4 w-4 text-gray-400" /> {client.phone}</div>}
+                    {(client.contacts?.length ? client.contacts : [{ phone: client.phone }]).filter((contact) => contact.phone).slice(0, 2).map((contact, index) => (
+                      <div key={index} className="flex items-center">
+                        <Phone className="mr-2 h-4 w-4 text-gray-400" /> {contact.phone}
+                      </div>
+                    ))}
                     {client.address && <div className="flex items-center col-span-1 sm:col-span-2"><MapPin className="mr-2 h-4 w-4 text-gray-400" /> {client.address}</div>}
                   </div>
                 </div>
@@ -236,7 +263,7 @@ export function Clients() {
         )}
       </div>
 
-      <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditingClient(null); reset(); }} title={editingClient ? "Editar Cliente" : "Novo Cliente"}>
+      <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditingClient(null); setClientContacts([{ name: '', phone: '', email: '' }]); reset(); }} title={editingClient ? "Editar Cliente" : "Novo Cliente"}>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700">Nome do Estabelecimento *</label>
@@ -272,6 +299,60 @@ export function Clients() {
               </div>
             </div>
           )}
+
+          <div className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <label className="text-sm font-semibold text-gray-800">Responsáveis e contatos</label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setClientContacts((prev) => [...prev, { name: '', phone: '', email: '' }])}
+              >
+                <Plus className="mr-1.5 h-4 w-4" />
+                Adicionar mais
+              </Button>
+            </div>
+            <div className="space-y-3">
+              {clientContacts.map((contact, index) => (
+                <div key={index} className="grid gap-3 rounded-xl border border-gray-100 bg-white p-3 sm:grid-cols-3">
+                  <input
+                    type="text"
+                    value={contact.name || ''}
+                    onChange={(e) => setClientContacts((prev) => prev.map((item, i) => i === index ? { ...item, name: e.target.value } : item))}
+                    placeholder="Responsável"
+                    className="h-10 rounded-xl border border-gray-200 px-3 text-sm outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                  <input
+                    type="tel"
+                    value={contact.phone || ''}
+                    onChange={(e) => setClientContacts((prev) => prev.map((item, i) => i === index ? { ...item, phone: e.target.value } : item))}
+                    placeholder="Telefone"
+                    className="h-10 rounded-xl border border-gray-200 px-3 text-sm outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="email"
+                      value={contact.email || ''}
+                      onChange={(e) => setClientContacts((prev) => prev.map((item, i) => i === index ? { ...item, email: e.target.value } : item))}
+                      placeholder="E-mail"
+                      className="h-10 min-w-0 flex-1 rounded-xl border border-gray-200 px-3 text-sm outline-none focus:ring-2 focus:ring-primary-500"
+                    />
+                    {clientContacts.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setClientContacts((prev) => prev.filter((_, i) => i !== index))}
+                        className="rounded-xl p-2 text-red-500 hover:bg-red-50"
+                        title="Remover contato"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
 
           <div className="grid grid-cols-2 gap-4 pt-2">
             <div className="col-span-2 sm:col-span-1">

@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { db } from '../db/database';
-import { type AppointmentAttachment, type AppointmentRequest, type Client, type Inspection, type InspectionScore, type Schedule, FOOD_SEGMENT_LABELS } from '../types';
+import { type AppointmentAttachment, type AppointmentRequest, type Client, type ClientContact, type ClientPortalAuditEvent, type Inspection, type InspectionScore, type Schedule, FOOD_SEGMENT_LABELS } from '../types';
 import { calculateScore } from '../utils/scoring';
 import { formatDateTime } from '../utils/imageUtils';
 import { ClientService } from '../services/clientService';
@@ -42,6 +42,7 @@ export function ClientDetails() {
   const [inspections, setInspections] = useState<(Inspection & { score: InspectionScore })[]>([]);
   const [actionPlan, setActionPlan] = useState<ClientActionPlanContext>({ latestOpenItems: [], recurringItems: [] });
   const [portalAccounts, setPortalAccounts] = useState<ClientPortalAccountRow[]>([]);
+  const [portalAuditEvents, setPortalAuditEvents] = useState<ClientPortalAuditEvent[]>([]);
   const [clientRequests, setClientRequests] = useState<AppointmentRequest[]>([]);
   const [publishedAssets, setPublishedAssets] = useState<Record<string, AppointmentAttachment[]>>({});
   const [loading, setLoading] = useState(true);
@@ -55,6 +56,7 @@ export function ClientDetails() {
   const [visitTime, setVisitTime] = useState('09:00');
   const [visitMode, setVisitMode] = useState<'presencial' | 'online'>('presencial');
   const [visitDistrict, setVisitDistrict] = useState('');
+  const [clientContacts, setClientContacts] = useState<ClientContact[]>([{ name: '', phone: '', email: '' }]);
   
   const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<Client>();
   const selectedCategory = watch('category');
@@ -69,6 +71,11 @@ export function ClientDetails() {
           return;
         }
         setClient(clientData);
+        setClientContacts(
+          clientData.contacts?.length
+            ? clientData.contacts
+            : [{ name: clientData.responsibleName || '', phone: clientData.phone || '', email: clientData.email || '' }]
+        );
 
         // Load all inspections for this client
         const rawInspections = filterByActiveTenant(await db.inspections.where('clientId').equals(id).toArray())
@@ -107,6 +114,10 @@ export function ClientDetails() {
           setPortalAccounts(accounts);
           const mine = requests.filter((request) => request.client_id === id);
           setClientRequests(mine);
+          const auditAccount = accounts.find((account) => account.client_ids.includes(id));
+          AppointmentAdminService.listPortalAuditEvents(auditAccount ? { accountId: auditAccount.id, limit: 20 } : { clientId: id, limit: 20 })
+            .then(setPortalAuditEvents)
+            .catch((err) => console.warn('[ClientDetails] Falha ao carregar auditoria do portal:', err));
           const assets: Record<string, AppointmentAttachment[]> = {};
           await Promise.allSettled(
             mine.map(async (request) => {
@@ -139,6 +150,18 @@ export function ClientDetails() {
         ...data,
         updatedAt: new Date()
       };
+      const contacts = clientContacts
+        .map((contact) => ({
+          name: contact.name?.trim() || undefined,
+          phone: contact.phone?.trim() || undefined,
+          email: contact.email?.trim() || undefined,
+        }))
+        .filter((contact) => contact.name || contact.phone || contact.email);
+      const primaryContact = contacts[0];
+      updatedClient.contacts = contacts;
+      updatedClient.responsibleName = primaryContact?.name;
+      updatedClient.phone = primaryContact?.phone;
+      updatedClient.email = primaryContact?.email;
 
       if (updatedClient.category !== 'alimentos') {
         delete updatedClient.foodTypes;
@@ -174,6 +197,25 @@ export function ClientDetails() {
 
   const portalUrl = `${window.location.origin}/cliente`;
   const portalDirectUrl = portalUrl;
+  const portalAuditLabels: Record<string, string> = {
+    login: 'Login no portal',
+    overview_viewed: 'Abriu painel',
+    appointment_viewed: 'Abriu visita',
+    report_download_clicked: 'Clicou para baixar relatorio',
+    attachment_download_clicked: 'Clicou em anexo',
+    photo_download_clicked: 'Clicou em foto',
+    photo_gallery_opened: 'Abriu galeria',
+    payment_link_clicked: 'Clicou no pagamento',
+    payment_acknowledged: 'Avisou que pagou',
+    sanitary_folder_opened: 'Abriu pasta sanitaria',
+  };
+  const formatAuditPayload = (event: ClientPortalAuditEvent) => {
+    const payload = event.payload || {};
+    const fileName = typeof payload.file_name === 'string' ? payload.file_name : '';
+    const label = typeof payload.label === 'string' ? payload.label : '';
+    const unitName = typeof payload.unit_name === 'string' ? payload.unit_name : '';
+    return fileName || label || unitName || '';
+  };
 
   const copyPortalAccess = async () => {
     if (!portalAccount) return;
@@ -560,6 +602,45 @@ export function ClientDetails() {
 
           <Card>
             <CardContent className="p-5">
+              <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-900">
+                Auditoria do portal
+              </h3>
+              {portalAuditEvents.length === 0 ? (
+                <p className="rounded-md bg-gray-50 p-3 text-sm text-gray-500">
+                  Nenhuma atividade registrada ainda.
+                </p>
+              ) : (
+                <ol className="space-y-2">
+                  {portalAuditEvents.map((event) => {
+                    const detail = formatAuditPayload(event);
+                    return (
+                      <li key={event.id} className="rounded-md border border-gray-100 p-3 text-xs">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="font-bold text-gray-800">
+                              {portalAuditLabels[event.event_type] || event.event_type}
+                            </p>
+                            {detail && <p className="mt-0.5 truncate text-gray-500">{detail}</p>}
+                          </div>
+                          <span className="shrink-0 text-right text-[10px] font-medium text-gray-400">
+                            {new Date(event.created_at).toLocaleString('pt-BR', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-5">
               <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center uppercase tracking-wider">
                 <AlertCircle className="mr-2 h-4 w-4 text-amber-500" />
                 Plano de Ação Aberto
@@ -736,6 +817,59 @@ export function ClientDetails() {
             <div>
               <label className="block text-sm font-medium text-gray-700">E-mail</label>
               <input {...register('email')} type="email" className="mt-1 h-10 w-full rounded-md border border-gray-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+            </div>
+          </div>
+
+          <div className="rounded-md border border-gray-100 bg-gray-50/70 p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <label className="text-sm font-semibold text-gray-800">Responsáveis e contatos</label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setClientContacts((prev) => [...prev, { name: '', phone: '', email: '' }])}
+              >
+                Adicionar mais
+              </Button>
+            </div>
+            <div className="space-y-3">
+              {clientContacts.map((contact, index) => (
+                <div key={index} className="grid gap-3 rounded-md border border-gray-100 bg-white p-3 sm:grid-cols-3">
+                  <input
+                    type="text"
+                    value={contact.name || ''}
+                    onChange={(e) => setClientContacts((prev) => prev.map((item, i) => i === index ? { ...item, name: e.target.value } : item))}
+                    placeholder="Responsável"
+                    className="h-10 rounded-md border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                  <input
+                    type="tel"
+                    value={contact.phone || ''}
+                    onChange={(e) => setClientContacts((prev) => prev.map((item, i) => i === index ? { ...item, phone: e.target.value } : item))}
+                    placeholder="Telefone"
+                    className="h-10 rounded-md border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="email"
+                      value={contact.email || ''}
+                      onChange={(e) => setClientContacts((prev) => prev.map((item, i) => i === index ? { ...item, email: e.target.value } : item))}
+                      placeholder="E-mail"
+                      className="h-10 min-w-0 flex-1 rounded-md border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    />
+                    {clientContacts.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setClientContacts((prev) => prev.filter((_, i) => i !== index))}
+                        className="rounded-md p-2 text-red-500 hover:bg-red-50"
+                        title="Remover contato"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 

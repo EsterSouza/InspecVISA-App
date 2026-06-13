@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import type { Settings } from '../store/useSettingsStore';
+import type { ConsultantProfile, Settings } from '../store/useSettingsStore';
 
 const SETTINGS_TIMEOUT_MS = 20000;
 
@@ -28,8 +28,25 @@ function cleanSettings(value: unknown): Settings | null {
   };
 }
 
+function getProfileSettings(value: unknown, profile: ConsultantProfile): Settings | null {
+  if (!value || typeof value !== 'object') return null;
+  const raw = value as { byProfile?: Partial<Record<ConsultantProfile, unknown>> };
+  const scoped = cleanSettings(raw.byProfile?.[profile]);
+  if (scoped?.name) return scoped;
+
+  const legacy = cleanSettings(value);
+  if (!legacy?.name) return null;
+  if (profile === 'ana' && (legacy.name === 'Ana Roberta Ribeiro' || legacy.consultantRole === 'nutricao')) {
+    return legacy;
+  }
+  if (profile === 'ester' && (legacy.name === 'Ester Caiafa' || legacy.consultantRole === 'saude')) {
+    return legacy;
+  }
+  return null;
+}
+
 export const SettingsService = {
-  async load(): Promise<Settings | null> {
+  async load(profile?: ConsultantProfile | null): Promise<Settings | null> {
     const { data: userData, error: userError } = await withTimeout(
       supabase.auth.getUser(),
       'UsuarioConfiguracoes'
@@ -45,16 +62,42 @@ export const SettingsService = {
       'CarregarConfiguracoes'
     );
     if (error) throw error;
-    return cleanSettings(data?.consultant_settings);
+    return profile
+      ? getProfileSettings(data?.consultant_settings, profile)
+      : cleanSettings(data?.consultant_settings);
   },
 
-  async save(settings: Settings): Promise<void> {
+  async save(settings: Settings, profile?: ConsultantProfile | null): Promise<void> {
     const { data: userData, error: userError } = await withTimeout(
       supabase.auth.getUser(),
       'UsuarioConfiguracoes'
     );
     if (userError) throw userError;
     if (!userData.user) throw new Error('Usuario nao autenticado.');
+
+    let consultantSettings: unknown = settings;
+    if (profile) {
+      const { data, error: loadError } = await withTimeout(
+        supabase
+          .from('profiles')
+          .select('consultant_settings')
+          .eq('id', userData.user.id)
+          .maybeSingle(),
+        'CarregarConfiguracoes'
+      );
+      if (loadError) throw loadError;
+      const current = data?.consultant_settings && typeof data.consultant_settings === 'object'
+        ? data.consultant_settings as { byProfile?: Partial<Record<ConsultantProfile, unknown>> }
+        : {};
+      consultantSettings = {
+        ...current,
+        byProfile: {
+          ...(current.byProfile || {}),
+          [profile]: settings,
+        },
+        currentProfile: profile,
+      };
+    }
 
     const now = new Date().toISOString();
     const { error } = await withTimeout(
@@ -63,7 +106,7 @@ export const SettingsService = {
         .upsert({
           id: userData.user.id,
           full_name: settings.name || userData.user.email || 'Consultor',
-          consultant_settings: settings,
+          consultant_settings: consultantSettings,
           updated_at: now,
         }, { onConflict: 'id' }),
       'SalvarConfiguracoes'

@@ -1,14 +1,23 @@
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { User, LogOut } from 'lucide-react';
+import { SettingsService } from '../services/settingsService';
 
 export function ProfileSelection() {
-  const { setConsultant } = useSettingsStore();
+  const { replaceProfileSettings, setConsultant } = useSettingsStore();
   const { signOut } = useAuthStore();
 
   const handleSelect = (consultant: 'ana' | 'ester') => {
     setConsultant(consultant);
-    // React re-renderiza App.tsx automaticamente porque settings.name muda
+    if (navigator.onLine) {
+      void SettingsService.load(consultant)
+        .then((remoteSettings) => {
+          if (remoteSettings?.name && useSettingsStore.getState().currentProfile === consultant) {
+            replaceProfileSettings(consultant, remoteSettings);
+          }
+        })
+        .catch((err) => console.warn('[ProfileSelection] Falha ao carregar perfil remoto:', err));
+    }
   };
 
   return (

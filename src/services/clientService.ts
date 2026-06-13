@@ -21,6 +21,7 @@ export function mapFromPostgres(row: any): Client {
     responsibleName: row.responsible_name || undefined,
     phone: row.phone || undefined,
     email: row.email || undefined,
+    contacts: Array.isArray(row.contacts) ? row.contacts : undefined,
     hasPersonalizedSanitaryFolder: Boolean(row.has_personalized_sanitary_folder),
     personalizedSanitaryFolderUrl: row.personalized_sanitary_folder_url || undefined,
     createdAt: new Date(row.created_at),
@@ -48,6 +49,9 @@ export function mapToPostgres(client: Client): any {
     responsible_name: client.responsibleName || null,
     phone: client.phone || null,
     email: client.email || null,
+    contacts: client.contacts?.filter((contact) =>
+      contact.name?.trim() || contact.phone?.trim() || contact.email?.trim()
+    ) || [],
     has_personalized_sanitary_folder: !!client.hasPersonalizedSanitaryFolder,
     personalized_sanitary_folder_url: client.personalizedSanitaryFolderUrl?.trim() || null,
     deleted_at: client.deletedAt ? client.deletedAt.toISOString() : null,

@@ -111,6 +111,10 @@ export function PublicAppointmentStatus() {
       setStatus(result.status);
       setAssets(result.assets || []);
       setInvalidToken(false);
+      void clientPortalService.audit(accountToken, 'appointment_viewed', {
+        unit_name: result.status.unit_name,
+        status: result.status.status,
+      }, { appointmentToken: token });
     } catch (err) {
       console.warn('[PublicAppointmentStatus] Token inválido ou erro de consulta:', err);
       setInvalidToken(true);
@@ -168,6 +172,18 @@ export function PublicAppointmentStatus() {
   const reportPdf = assets.find((a) => a.kind === 'report_pdf' && a.signed_url);
   const photos = assets.filter((a) => a.kind === 'photo' && a.signed_url);
   const attachments = assets.filter((a) => a.kind === 'attachment');
+  const accountToken = clientPortalService.getStoredToken();
+  const auditAsset = (
+    eventType: 'report_download_clicked' | 'attachment_download_clicked' | 'photo_download_clicked',
+    asset: AppointmentAttachment
+  ) => {
+    if (!accountToken || !token) return;
+    void clientPortalService.audit(accountToken, eventType, {
+      file_name: asset.file_name,
+      kind: asset.kind,
+      caption: asset.caption,
+    }, { appointmentToken: token, attachmentId: asset.id });
+  };
 
   return (
     <div className="min-h-screen bg-white">
@@ -359,6 +375,7 @@ export function PublicAppointmentStatus() {
                 href={reportPdf.signed_url}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => auditAsset('report_download_clicked', reportPdf)}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-green-700"
               >
                 <Download className="h-4 w-4" />
@@ -381,6 +398,11 @@ export function PublicAppointmentStatus() {
                 <button
                   type="button"
                   onClick={() => {
+                    if (accountToken && token) {
+                      void clientPortalService.audit(accountToken, 'photo_gallery_opened', {
+                        photo_count: photos.length,
+                      }, { appointmentToken: token });
+                    }
                     setShowGallery(true);
                     setLightboxIndex(0);
                   }}
@@ -405,6 +427,7 @@ export function PublicAppointmentStatus() {
                           href={asset.signed_url}
                           target="_blank"
                           rel="noopener noreferrer"
+                          onClick={() => auditAsset('attachment_download_clicked', asset)}
                           className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 p-3 transition-colors hover:bg-gray-100"
                         >
                           {attachmentIcon(asset)}
@@ -458,6 +481,7 @@ export function PublicAppointmentStatus() {
         <PhotoLightbox
           photos={photos}
           index={lightboxIndex}
+          onDownload={(asset) => auditAsset('photo_download_clicked', asset)}
           onClose={() => {
             setShowGallery(false);
             setLightboxIndex(null);
@@ -474,11 +498,12 @@ export function PublicAppointmentStatus() {
 interface PhotoLightboxProps {
   photos: AppointmentAttachment[];
   index: number;
+  onDownload: (asset: AppointmentAttachment) => void;
   onClose: () => void;
   onNavigate: (index: number) => void;
 }
 
-function PhotoLightbox({ photos, index, onClose, onNavigate }: PhotoLightboxProps) {
+function PhotoLightbox({ photos, index, onClose, onNavigate, onDownload }: PhotoLightboxProps) {
   const photo = photos[index];
   const go = useCallback(
     (delta: number) => {
@@ -517,7 +542,10 @@ function PhotoLightbox({ photos, index, onClose, onNavigate }: PhotoLightboxProp
               href={photo.signed_url}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDownload(photo);
+              }}
               className="rounded-full bg-white/10 p-2 hover:bg-white/20"
               title="Baixar foto"
             >
