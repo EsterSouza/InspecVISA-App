@@ -315,6 +315,17 @@ export const AppointmentAdminService = {
     }
   },
 
+  async markCompleted(id: string): Promise<void> {
+    await this.updateRequest(id, { status: 'completed' });
+  },
+
+  async markNotCompleted(id: string, reason: string): Promise<void> {
+    await this.updateRequest(id, {
+      status: 'rescheduled',
+      notes: reason.trim() || null,
+    });
+  },
+
   async deleteRequest(request: AppointmentRequest): Promise<void> {
     const tenantId = requireTenantId();
     if (request.schedule_id) {

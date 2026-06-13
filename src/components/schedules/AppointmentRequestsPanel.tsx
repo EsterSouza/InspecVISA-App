@@ -127,6 +127,8 @@ export function AppointmentRequestsPanel() {
   const [dueDateTarget, setDueDateTarget] = useState<AppointmentRequest | null>(null);
   // Remarcação
   const [rescheduleTarget, setRescheduleTarget] = useState<AppointmentRequest | null>(null);
+  // Não realizada
+  const [notCompletedTarget, setNotCompletedTarget] = useState<AppointmentRequest | null>(null);
   // Encerradas (relatório publicado / canceladas)
   const [showClosed, setShowClosed] = useState(true);
   // Nova visita (agendamento direto pela equipe)
@@ -208,6 +210,15 @@ export function AppointmentRequestsPanel() {
 
   const handleMarkInProgress = (request: AppointmentRequest) => {
     void withBusy(request.id, () => AppointmentAdminService.markInProgress(request.id));
+  };
+
+  const handleMarkCompleted = (request: AppointmentRequest) => {
+    if (!confirm(`Marcar a inspeção de "${request.unit_name}" como concluída?`)) return;
+    void withBusy(request.id, () => AppointmentAdminService.markCompleted(request.id));
+  };
+
+  const handleMarkNotCompleted = (request: AppointmentRequest) => {
+    setNotCompletedTarget(request);
   };
 
   const handleSetCompliance = (request: AppointmentRequest, score: number | null) => {
@@ -415,6 +426,8 @@ export function AppointmentRequestsPanel() {
                 onSetDueDate={() => setDueDateTarget(request)}
                 onCancel={() => handleCancel(request)}
                 onMarkInProgress={() => handleMarkInProgress(request)}
+                onMarkCompleted={() => handleMarkCompleted(request)}
+                onMarkNotCompleted={() => handleMarkNotCompleted(request)}
                 onReschedule={() => handleReschedule(request)}
                 onSetCompliance={(score) => handleSetCompliance(request, score)}
                 onDelete={() => handleDelete(request)}
@@ -542,6 +555,17 @@ export function AppointmentRequestsPanel() {
         />
       )}
 
+      {notCompletedTarget && (
+        <NotCompletedModal
+          request={notCompletedTarget}
+          onClose={() => setNotCompletedTarget(null)}
+          onSaved={() => {
+            setNotCompletedTarget(null);
+            void loadData();
+          }}
+        />
+      )}
+
       {showNewVisit && (
         <NewVisitModal
           clients={clients}
@@ -601,6 +625,8 @@ interface ActiveRequestCardProps {
   onSetDueDate: () => void;
   onCancel: () => void;
   onMarkInProgress: () => void;
+  onMarkCompleted?: () => void;
+  onMarkNotCompleted?: () => void;
   onShareWhatsapp?: () => void;
   onReschedule?: () => void;
   onSetCompliance: (score: number | null) => void;
@@ -693,6 +719,8 @@ function ActiveRequestCard({
   onSetDueDate,
   onCancel,
   onMarkInProgress,
+  onMarkCompleted,
+  onMarkNotCompleted,
   onShareWhatsapp,
   onReschedule,
   onSetCompliance,
@@ -808,6 +836,28 @@ function ActiveRequestCard({
             {onReschedule && (request.status === 'confirmed' || request.status === 'rescheduled') && (
               <Button variant="outline" size="sm" disabled={busy} onClick={onReschedule}>
                 <CalendarDays className="mr-1.5 h-4 w-4" /> Remarcar
+              </Button>
+            )}
+            {request.status === 'in_progress' && onMarkCompleted && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={busy}
+                onClick={onMarkCompleted}
+                className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+              >
+                <CheckCircle className="mr-1.5 h-4 w-4" /> Inspeção concluída
+              </Button>
+            )}
+            {request.status === 'in_progress' && onMarkNotCompleted && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={busy}
+                onClick={onMarkNotCompleted}
+                className="border-orange-200 text-orange-700 hover:bg-orange-50"
+              >
+                <XCircle className="mr-1.5 h-4 w-4" /> Não realizada
               </Button>
             )}
             <Button
@@ -1721,6 +1771,85 @@ function RescheduleModal({ request, onClose, onSaved }: RescheduleModalProps) {
             </Button>
             <Button type="button" variant="ghost" className="w-full" onClick={onClose}>
               Cancelar
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ─── Modal: inspeção não realizada ───────────────────────────
+
+interface NotCompletedModalProps {
+  request: AppointmentRequest;
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+function NotCompletedModal({ request, onClose, onSaved }: NotCompletedModalProps) {
+  const [reason, setReason] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSave = async () => {
+    if (!reason.trim()) {
+      setError('Descreva o motivo — ele ficará visível para o cliente no portal.');
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      await AppointmentAdminService.markNotCompleted(request.id, reason.trim());
+      onSaved();
+    } catch (err) {
+      setError(errorMessage(err) || 'Falha ao registrar motivo.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <Card className="w-full max-w-md shadow-2xl">
+        <CardContent className="p-6">
+          <h3 className="mb-1 text-lg font-bold text-gray-900">Inspeção não realizada</h3>
+          <p className="mb-4 text-sm text-gray-500">{request.unit_name}</p>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-gray-700">
+              Motivo <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              rows={4}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Ex.: Cliente não estava no local, documentação pendente, acesso negado..."
+              className="w-full rounded-xl border border-gray-300 p-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+            />
+            <p className="text-xs text-gray-400">
+              Este texto ficará visível para o cliente no Portal do Cliente.
+            </p>
+          </div>
+
+          {error && (
+            <div className="mt-3 rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
+          <div className="mt-5 flex gap-3">
+            <Button type="button" variant="ghost" className="flex-1" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              className="flex-1"
+              disabled={saving || !reason.trim()}
+              onClick={() => void handleSave()}
+            >
+              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Registrar e reagendar
             </Button>
           </div>
         </CardContent>

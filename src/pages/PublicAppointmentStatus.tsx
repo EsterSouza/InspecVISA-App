@@ -226,6 +226,12 @@ export function PublicAppointmentStatus() {
                 A data da sua inspeção está sendo reagendada. Nossa equipe entrará em contato para
                 confirmar a nova data.
               </p>
+              {status.notes && (
+                <div className="mt-2 rounded-lg border border-amber-200 bg-amber-100/60 p-2.5">
+                  <p className="text-xs font-semibold text-amber-800">Motivo informado pela equipe:</p>
+                  <p className="mt-0.5 text-xs text-amber-700">{status.notes}</p>
+                </div>
+              )}
             </div>
           </div>
         )}

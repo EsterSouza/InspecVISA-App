@@ -483,6 +483,7 @@ export interface PublicAppointmentStatusResult {
   requested_ends_at?: string | null;
   report_due_at: string | null;
   report_due_source: ReportDueSource | null;
+  notes?: string | null;
   has_personalized_sanitary_folder?: boolean;
   personalized_sanitary_folder_url?: string | null;
   created_at: string;

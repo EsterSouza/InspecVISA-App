@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
 
     const { data: requestRow, error: requestError } = await admin
       .from('appointment_requests')
-      .select('id, client_id, unit_name, district, municipality, attendance_mode, status, requested_date, requested_period, requested_time, requested_starts_at, requested_ends_at, report_due_at, report_due_source, created_at, updated_at')
+      .select('id, client_id, unit_name, district, municipality, attendance_mode, status, requested_date, requested_period, requested_time, requested_starts_at, requested_ends_at, report_due_at, report_due_source, notes, created_at, updated_at')
       .eq('public_token', appointmentToken)
       .maybeSingle();
     if (requestError) throw requestError;
@@ -116,6 +116,7 @@ Deno.serve(async (req) => {
         requested_ends_at: requestRow.requested_ends_at,
         report_due_at: requestRow.report_due_at,
         report_due_source: requestRow.report_due_source,
+        notes: requestRow.notes,
         has_personalized_sanitary_folder: clientRow?.has_personalized_sanitary_folder || false,
         personalized_sanitary_folder_url: clientRow?.personalized_sanitary_folder_url || null,
         created_at: requestRow.created_at,
