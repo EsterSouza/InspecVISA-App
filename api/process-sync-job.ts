@@ -178,7 +178,7 @@ async function processSyncJob(admin: any, jobId: string, userId: string) {
     }
 
     const preparedPhotos = await runLimited(photos, PHOTO_UPLOAD_CONCURRENCY, async (rawPhoto) => {
-      const photo = { ...rawPhoto };
+      const photo = { ...(rawPhoto as Record<string, unknown>) };
       const localDataUrl = photo.local_data_url || photo.localDataUrl || null;
       delete photo.local_data_url;
       delete photo.localDataUrl;
