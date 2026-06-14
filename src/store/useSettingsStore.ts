@@ -54,6 +54,18 @@ const CONSULTANT_DEFAULTS: Record<ConsultantProfile, Settings> = {
   },
 };
 
+// Mapeia a conta de login (email) para a consultora. Com contas separadas,
+// quem loga já assume a própria identidade — sem a tela "Quem está usando?".
+const PROFILE_BY_EMAIL: Record<string, ConsultantProfile> = {
+  'esterposte@hotmail.com': 'ester',
+  'nutrianarr@gmail.com': 'ana',
+};
+
+export function profileForEmail(email?: string | null): ConsultantProfile | null {
+  if (!email) return null;
+  return PROFILE_BY_EMAIL[email.trim().toLowerCase()] || null;
+}
+
 function detectProfile(settings?: Partial<Settings> | null): ConsultantProfile | null {
   if (!settings?.name) return null;
   if (settings.name === CONSULTANT_DEFAULTS.ana.name) return 'ana';

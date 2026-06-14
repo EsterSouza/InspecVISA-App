@@ -1,8 +1,8 @@
-import { Suspense, lazy, useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { initializeDatabase } from './db/database';
 import { getTemplates } from './data/templates';
-import { useSettingsStore } from './store/useSettingsStore';
+import { useSettingsStore, profileForEmail } from './store/useSettingsStore';
 import { useAuthStore } from './store/useAuthStore';
 import type { AuthState } from './store/useAuthStore';
 import { Loader2 } from 'lucide-react';
@@ -86,6 +86,24 @@ function InternalApp({ isInitializing }: InternalAppProps) {
   const user = auth.user;
   const initialized = auth.initialized;
   const name = useSettingsStore((s) => s.settings.name);
+  const setConsultant = useSettingsStore((s) => s.setConsultant);
+
+  // Contas separadas: ao logar, a identidade da consultora vem do email da conta,
+  // não de uma escolha manual. Roda uma vez por login (ref evita brigar com
+  // uma eventual troca manual de perfil em Ajustes).
+  const mappedUserRef = useRef<string | null>(null);
+  useEffect(() => {
+    const email = user?.email;
+    const uid = user?.id;
+    if (!email || !uid || mappedUserRef.current === uid) return;
+    const mapped = profileForEmail(email);
+    if (mapped) {
+      mappedUserRef.current = uid;
+      if (useSettingsStore.getState().currentProfile !== mapped) {
+        setConsultant(mapped);
+      }
+    }
+  }, [user, setConsultant]);
 
   if (!initialized || isInitializing) {
     return (
@@ -97,7 +115,18 @@ function InternalApp({ isInitializing }: InternalAppProps) {
   }
 
   if (!user) return <Navigate to="/login" replace />;
-  if (!name) return <ProfileSelection />;
+  if (!name) {
+    // Conta conhecida: a identidade está sendo aplicada — evita piscar o seletor.
+    if (profileForEmail(user.email)) {
+      return (
+        <div className="flex h-screen flex-col items-center justify-center bg-gray-50">
+          <Loader2 className="h-10 w-10 animate-spin text-primary-600 mb-4" />
+          <p className="text-gray-500 font-medium">Preparando seu perfil...</p>
+        </div>
+      );
+    }
+    return <ProfileSelection />;
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50 font-sans text-gray-900 antialiased">
