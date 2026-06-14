@@ -135,6 +135,9 @@ export interface Inspection {
   clientId: string;
   templateId: string;
   consultantName: string;
+  // Consultoras responsáveis (co-responsabilidade). Quando presente, é a
+  // fonte de atribuição; consultantName segue como líder/compatibilidade.
+  consultantNames?: string[];
   inspectionDate: Date;
   status: 'in_progress' | 'completed';
   observations?: string;

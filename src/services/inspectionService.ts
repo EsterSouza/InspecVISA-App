@@ -66,6 +66,9 @@ export function mapFromPostgres(row: any): Inspection {
     clientId: row.client_id,
     templateId: row.template_id,
     consultantName: row.consultant_name,
+    consultantNames: Array.isArray(row.consultant_names) && row.consultant_names.length > 0
+      ? row.consultant_names
+      : undefined,
     inspectionDate: new Date(row.inspection_date),
     status: row.status,
     observations: row.observations || undefined,
@@ -99,6 +102,9 @@ export function mapToPostgres(inspection: Inspection): any {
     client_id: inspection.clientId,
     template_id: inspection.templateId,
     consultant_name: inspection.consultantName,
+    consultant_names: inspection.consultantNames && inspection.consultantNames.length > 0
+      ? inspection.consultantNames
+      : null,
     inspection_date: inspection.inspectionDate.toISOString(),
     status: inspection.status,
     observations: inspection.observations || null,

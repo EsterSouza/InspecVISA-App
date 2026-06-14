@@ -83,8 +83,13 @@ function getInspectionTarget(inspection: Inspection) {
   return inspection.status === 'in_progress' ? '/execute' : '/summary';
 }
 
-function consultantOf(inspection: Inspection): string {
-  return (inspection.consultantName || '').trim();
+/** Consultoras responsáveis pela inspeção (conjunto). Usa consultantNames
+ * quando presente (co-responsabilidade); senão cai no consultantName único. */
+function consultantsOf(inspection: Inspection): string[] {
+  const names = (inspection.consultantNames && inspection.consultantNames.length > 0)
+    ? inspection.consultantNames
+    : [inspection.consultantName];
+  return names.map((name) => (name || '').trim()).filter(Boolean);
 }
 
 /**
@@ -173,7 +178,7 @@ export function Dashboard() {
 
         // Default: foca na consultora do perfil ativo, se houver trabalho dela.
         const activeFirst = (settings.name || '').trim().split(/\s+/)[0].toLowerCase();
-        const names = Array.from(new Set(completed.map(consultantOf).filter(Boolean)));
+        const names = Array.from(new Set(completed.flatMap(consultantsOf)));
         const ownName = names.find((name) => name.toLowerCase().split(/\s+/)[0] === activeFirst);
         setConsultantFilter(ownName || TEAM_FILTER);
       } catch (err) {
@@ -190,12 +195,12 @@ export function Dashboard() {
   // Consultoras disponíveis para o filtro (a partir de TODAS as inspeções).
   const consultants = useMemo(() => {
     if (!raw) return [] as string[];
-    return Array.from(new Set(raw.inspections.map(consultantOf).filter(Boolean))).sort();
+    return Array.from(new Set(raw.inspections.flatMap(consultantsOf))).sort();
   }, [raw]);
 
   const matchesFilter = useMemo(() => {
     return (inspection: Inspection) =>
-      consultantFilter === TEAM_FILTER || consultantOf(inspection) === consultantFilter;
+      consultantFilter === TEAM_FILTER || consultantsOf(inspection).includes(consultantFilter);
   }, [consultantFilter]);
 
   const stats: DashboardStats = useMemo(() => {
@@ -620,8 +625,8 @@ export function Dashboard() {
                         >
                           {inspection.status === 'completed' ? 'Finalizada' : 'Em andamento'}
                         </Badge>
-                        {consultantFilter === TEAM_FILTER && consultantOf(inspection) && (
-                          <span className="text-gray-400">· {consultantOf(inspection)}</span>
+                        {consultantFilter === TEAM_FILTER && consultantsOf(inspection).length > 0 && (
+                          <span className="text-gray-400">· {consultantsOf(inspection).join(', ')}</span>
                         )}
                       </div>
                     </div>
