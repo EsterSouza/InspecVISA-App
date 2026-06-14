@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSettingsStore } from '../store/useSettingsStore';
-import type { ChecklistItem, Inspection, Schedule } from '../types';
+import type { Inspection, InspectionResponse, Schedule } from '../types';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -18,10 +18,12 @@ import {
   PlusCircle,
   RefreshCw,
   TrendingUp,
+  Users,
 } from 'lucide-react';
 import { formatDateTime } from '../utils/imageUtils';
-import { calculateScore } from '../utils/scoring';
 import { getTemplates } from '../data/templates';
+
+const TEAM_FILTER = '__all__';
 
 type DashboardStats = {
   totalActive: number;
@@ -37,8 +39,17 @@ type AttentionStats = {
 };
 
 type RecurringIssue = {
-  item: ChecklistItem;
+  id: string;
+  description: string;
   count: number;
+};
+
+type RawData = {
+  inspections: Inspection[];
+  schedules: (Schedule & { clientName?: string })[];
+  clientsById: Map<string, string>;
+  responsesByInspection: Map<string, InspectionResponse[]>;
+  syncQueueCount: number;
 };
 
 function startOfDay(date: Date) {
@@ -72,14 +83,39 @@ function getInspectionTarget(inspection: Inspection) {
   return inspection.status === 'in_progress' ? '/execute' : '/summary';
 }
 
+function consultantOf(inspection: Inspection): string {
+  return (inspection.consultantName || '').trim();
+}
+
+/**
+ * Score template-agnóstico: pega a resposta mais recente por item e calcula
+ * complies / (complies + not_complies). Funciona para roteiros estáticos E
+ * customizados (UUID), ao contrário do recálculo via template estático.
+ * Retorna null quando a inspeção não tem item avaliável (não entra na média).
+ */
+function inspectionScore(responses: InspectionResponse[]): number | null {
+  const latestByItem = new Map<string, InspectionResponse>();
+  for (const response of responses) {
+    if (response.deletedAt) continue;
+    const prev = latestByItem.get(response.itemId);
+    if (!prev || new Date(response.updatedAt).getTime() > new Date(prev.updatedAt).getTime()) {
+      latestByItem.set(response.itemId, response);
+    }
+  }
+  let complies = 0;
+  let evaluated = 0;
+  for (const response of latestByItem.values()) {
+    if (response.result === 'complies') { complies += 1; evaluated += 1; }
+    else if (response.result === 'not_complies') { evaluated += 1; }
+  }
+  return evaluated > 0 ? (complies / evaluated) * 100 : null;
+}
+
 export function Dashboard() {
   const settings = useSettingsStore((s) => s.settings);
   const navigate = useNavigate();
-  const [recentInspections, setRecentInspections] = useState<Inspection[]>([]);
-  const [nextSchedules, setNextSchedules] = useState<Schedule[]>([]);
-  const [stats, setStats] = useState<DashboardStats>({ totalActive: 0, totalCompleted: 0, avgScore: 0 });
-  const [attention, setAttention] = useState<AttentionStats>({ dueToday: 0, upcoming: 0, inProgress: 0, syncQueue: 0 });
-  const [recurringIssues, setRecurringIssues] = useState<RecurringIssue[]>([]);
+  const [raw, setRaw] = useState<RawData | null>(null);
+  const [consultantFilter, setConsultantFilter] = useState<string>(TEAM_FILTER);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -97,6 +133,7 @@ export function Dashboard() {
         const { ScheduleService } = await import('../services/scheduleService');
         const { ClientService } = await import('../services/clientService');
         const { InspectionService } = await import('../services/inspectionService');
+        const { SyncQueueService } = await import('../services/syncQueueService');
 
         const [allSchedules, clients, allInspections] = await Promise.all([
           ScheduleService.getSchedules(),
@@ -105,98 +142,40 @@ export function Dashboard() {
         ]);
 
         const clientsById = new Map(clients.map((client) => [client.id, client.name]));
-        const now = new Date();
-        const todayStart = startOfDay(now);
-        const todayEnd = endOfDay(now);
-        const nextSevenDays = new Date(todayEnd);
-        nextSevenDays.setDate(nextSevenDays.getDate() + 7);
 
-        const pendingSchedules = allSchedules
-          .filter((schedule) => schedule.status === 'pending')
-          .map((schedule) => ({
-            ...schedule,
-            clientName: clientsById.get(schedule.clientId) || schedule.clientName || 'Cliente',
-          }));
-
-        const prioritySchedules = [...pendingSchedules]
-          .sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime())
-          .slice(0, 4);
-
-        setNextSchedules(prioritySchedules);
-
-        const recent = [...allInspections]
-          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-          .slice(0, 5)
-          .map((inspection) => ({
-            ...inspection,
-            clientName: clientsById.get(inspection.clientId) || inspection.clientName || 'Cliente',
-          }));
-
-        setRecentInspections(recent);
-
-        const active = allInspections.filter((inspection) => inspection.status === 'in_progress').length;
-        const completedList = allInspections.filter((inspection) => inspection.status === 'completed');
-        const completedForAnalytics = [...completedList]
-          .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-          .slice(0, 12);
-        const allTemplates = getTemplates();
-
-        let totalPct = 0;
-        const itemCounts: Record<string, number> = {};
-
-        // Garante que as respostas de inspeções antigas (possivelmente feitas em
-        // outro dispositivo) estejam no cache local antes de calcular os agregados.
+        // Garante que as respostas (inclusive de inspeções feitas em outro
+        // dispositivo) estejam no cache local antes de calcular os agregados.
         await InspectionService.hydrateTenantResponses();
 
-        for (const inspection of completedForAnalytics) {
-          const responses = await InspectionService.getResponsesByInspectionId(inspection.id);
-          const template = allTemplates.find((item) => item.id === inspection.templateId);
-
-          if (template) {
-            const score = calculateScore(responses, template.sections);
-            totalPct += score.scorePercentage;
-          }
-
-          responses
-            .filter((response) => response.result === 'not_complies')
-            .forEach((response) => {
-              itemCounts[response.itemId] = (itemCounts[response.itemId] || 0) + 1;
-            });
-        }
-
-        const allChecklistItems = allTemplates.flatMap((template) =>
-          template.sections.flatMap((section) => section.items)
+        const completed = allInspections.filter((inspection) => inspection.status === 'completed');
+        const responsesByInspection = new Map<string, InspectionResponse[]>();
+        await Promise.all(
+          completed.map(async (inspection) => {
+            const responses = await InspectionService.getResponsesByInspectionId(inspection.id);
+            responsesByInspection.set(inspection.id, responses);
+          })
         );
 
-        const issues = Object.entries(itemCounts)
-          .sort(([, a], [, b]) => b - a)
-          .slice(0, 3)
-          .flatMap(([id, count]) => {
-            const item = allChecklistItems.find((checklistItem) => checklistItem.id === id);
-            return item ? [{ item, count }] : [];
-          });
-
-        setStats({
-          totalActive: active,
-          totalCompleted: completedList.length,
-          avgScore: completedForAnalytics.length > 0 ? Math.round(totalPct / completedForAnalytics.length) : 0,
-        });
-
-        const { SyncQueueService } = await import('../services/syncQueueService');
         const queue = await SyncQueueService.getQueueSummary();
 
-        setAttention({
-          dueToday: pendingSchedules.filter(
-            (schedule) => schedule.scheduledAt >= todayStart && schedule.scheduledAt <= todayEnd
-          ).length,
-          upcoming: pendingSchedules.filter(
-            (schedule) => schedule.scheduledAt > todayEnd && schedule.scheduledAt <= nextSevenDays
-          ).length,
-          inProgress: active,
-          syncQueue: queue.pending + queue.syncing + queue.failed + queue.conflict,
+        const schedules = allSchedules.map((schedule) => ({
+          ...schedule,
+          clientName: clientsById.get(schedule.clientId) || schedule.clientName || 'Cliente',
+        }));
+
+        setRaw({
+          inspections: allInspections,
+          schedules,
+          clientsById,
+          responsesByInspection,
+          syncQueueCount: queue.pending + queue.syncing + queue.failed + queue.conflict,
         });
 
-        setRecurringIssues(issues);
+        // Default: foca na consultora do perfil ativo, se houver trabalho dela.
+        const activeFirst = (settings.name || '').trim().split(/\s+/)[0].toLowerCase();
+        const names = Array.from(new Set(completed.map(consultantOf).filter(Boolean)));
+        const ownName = names.find((name) => name.toLowerCase().split(/\s+/)[0] === activeFirst);
+        setConsultantFilter(ownName || TEAM_FILTER);
       } catch (err) {
         console.error('Error loading dashboard data:', err);
         setError('Não foi possível carregar o painel agora.');
@@ -206,7 +185,117 @@ export function Dashboard() {
     };
 
     loadData();
-  }, []);
+  }, [settings.name]);
+
+  // Consultoras disponíveis para o filtro (a partir de TODAS as inspeções).
+  const consultants = useMemo(() => {
+    if (!raw) return [] as string[];
+    return Array.from(new Set(raw.inspections.map(consultantOf).filter(Boolean))).sort();
+  }, [raw]);
+
+  const matchesFilter = useMemo(() => {
+    return (inspection: Inspection) =>
+      consultantFilter === TEAM_FILTER || consultantOf(inspection) === consultantFilter;
+  }, [consultantFilter]);
+
+  const stats: DashboardStats = useMemo(() => {
+    if (!raw) return { totalActive: 0, totalCompleted: 0, avgScore: 0 };
+    const inspections = raw.inspections.filter(matchesFilter);
+    const active = inspections.filter((i) => i.status === 'in_progress').length;
+    const completed = inspections.filter((i) => i.status === 'completed');
+
+    let total = 0;
+    let scored = 0;
+    for (const inspection of completed) {
+      const pct = inspectionScore(raw.responsesByInspection.get(inspection.id) || []);
+      if (pct !== null) { total += pct; scored += 1; }
+    }
+
+    return {
+      totalActive: active,
+      totalCompleted: completed.length,
+      avgScore: scored > 0 ? Math.round(total / scored) : 0,
+    };
+  }, [raw, matchesFilter]);
+
+  const recentInspections = useMemo(() => {
+    if (!raw) return [] as Inspection[];
+    return [...raw.inspections]
+      .filter(matchesFilter)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, 5)
+      .map((inspection) => ({
+        ...inspection,
+        clientName: raw.clientsById.get(inspection.clientId) || inspection.clientName || 'Cliente',
+      }));
+  }, [raw, matchesFilter]);
+
+  const recurringIssues: RecurringIssue[] = useMemo(() => {
+    if (!raw) return [];
+    const staticItems = new Map(
+      getTemplates()
+        .flatMap((template) => template.sections.flatMap((section) => section.items))
+        .map((item) => [item.id, item.description])
+    );
+    const counts = new Map<string, number>();
+    const descriptions = new Map<string, string>();
+
+    for (const inspection of raw.inspections.filter(matchesFilter)) {
+      if (inspection.status !== 'completed') continue;
+      const latestByItem = new Map<string, InspectionResponse>();
+      for (const response of raw.responsesByInspection.get(inspection.id) || []) {
+        if (response.deletedAt) continue;
+        const prev = latestByItem.get(response.itemId);
+        if (!prev || new Date(response.updatedAt).getTime() > new Date(prev.updatedAt).getTime()) {
+          latestByItem.set(response.itemId, response);
+        }
+      }
+      for (const response of latestByItem.values()) {
+        if (response.result !== 'not_complies') continue;
+        counts.set(response.itemId, (counts.get(response.itemId) || 0) + 1);
+        if (!descriptions.has(response.itemId)) {
+          descriptions.set(
+            response.itemId,
+            staticItems.get(response.itemId)
+              || response.customDescription
+              || response.situationDescription
+              || 'Item avaliado'
+          );
+        }
+      }
+    }
+
+    return Array.from(counts.entries())
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 3)
+      .map(([id, count]) => ({ id, description: descriptions.get(id) || 'Item avaliado', count }));
+  }, [raw, matchesFilter]);
+
+  const attention: AttentionStats = useMemo(() => {
+    if (!raw) return { dueToday: 0, upcoming: 0, inProgress: 0, syncQueue: 0 };
+    const now = new Date();
+    const todayStart = startOfDay(now);
+    const todayEnd = endOfDay(now);
+    const nextSevenDays = new Date(todayEnd);
+    nextSevenDays.setDate(nextSevenDays.getDate() + 7);
+
+    const pendingSchedules = raw.schedules.filter((schedule) => schedule.status === 'pending');
+
+    return {
+      dueToday: pendingSchedules.filter((s) => s.scheduledAt >= todayStart && s.scheduledAt <= todayEnd).length,
+      upcoming: pendingSchedules.filter((s) => s.scheduledAt > todayEnd && s.scheduledAt <= nextSevenDays).length,
+      inProgress: stats.totalActive,
+      syncQueue: raw.syncQueueCount,
+    };
+  }, [raw, stats.totalActive]);
+
+  const nextSchedules = useMemo(() => {
+    if (!raw) return [] as (Schedule & { clientName?: string })[];
+    return [...raw.schedules]
+      .filter((schedule) => schedule.status === 'pending')
+      .sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime())
+      .slice(0, 4);
+  }, [raw]);
 
   const attentionCards = [
     {
@@ -247,6 +336,8 @@ export function Dashboard() {
     },
   ];
 
+  const filterLabel = consultantFilter === TEAM_FILTER ? 'Toda a equipe' : consultantFilter;
+
   return (
     <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -269,6 +360,43 @@ export function Dashboard() {
           </Button>
         </div>
       </div>
+
+      {/* Filtro por consultora — separa o trabalho de cada uma */}
+      {consultants.length > 1 && (
+        <div className="mb-6 flex flex-wrap items-center gap-2">
+          <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <Users className="h-4 w-4" />
+            Consultora
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              onClick={() => setConsultantFilter(TEAM_FILTER)}
+              className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
+                consultantFilter === TEAM_FILTER
+                  ? 'bg-primary-600 text-white shadow-sm'
+                  : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              Toda a equipe
+            </button>
+            {consultants.map((name) => (
+              <button
+                key={name}
+                type="button"
+                onClick={() => setConsultantFilter(name)}
+                className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
+                  consultantFilter === name
+                    ? 'bg-primary-600 text-white shadow-sm'
+                    : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {error && (
         <Card className="mb-6 border-red-200 bg-red-50">
@@ -333,7 +461,9 @@ export function Dashboard() {
             </div>
             <div>
               <div className="text-2xl font-bold text-gray-950">{stats.avgScore}%</div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">Média recente</div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Média de conformidade
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -344,7 +474,7 @@ export function Dashboard() {
           <div className="flex items-center justify-between gap-3">
             <h2 className="flex items-center text-lg font-semibold text-gray-900">
               <Calendar className="mr-2 h-5 w-5 text-primary-600" />
-              Agenda Prioritária
+              Agenda da equipe
             </h2>
             <Button variant="ghost" size="sm" onClick={() => navigate('/schedules')}>
               Ver agenda
@@ -443,7 +573,12 @@ export function Dashboard() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section className="space-y-4">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-gray-900">Visitas Recentes</h2>
+            <h2 className="text-lg font-semibold text-gray-900">
+              Visitas Recentes
+              {consultantFilter !== TEAM_FILTER && (
+                <span className="ml-2 text-sm font-normal text-gray-500">· {filterLabel}</span>
+              )}
+            </h2>
             <Button variant="ghost" size="sm" onClick={() => navigate('/inspections')}>
               Ver todas
               <ArrowRight className="ml-1 h-4 w-4" />
@@ -485,6 +620,9 @@ export function Dashboard() {
                         >
                           {inspection.status === 'completed' ? 'Finalizada' : 'Em andamento'}
                         </Badge>
+                        {consultantFilter === TEAM_FILTER && consultantOf(inspection) && (
+                          <span className="text-gray-400">· {consultantOf(inspection)}</span>
+                        )}
                       </div>
                     </div>
                     <ArrowRight className="h-4 w-4 shrink-0 text-gray-400" />
@@ -517,12 +655,12 @@ export function Dashboard() {
             </Card>
           ) : (
             <div className="space-y-3">
-              {recurringIssues.map(({ item, count }) => (
-                <Card key={item.id} className="border-l-4 border-l-amber-500">
+              {recurringIssues.map((issue) => (
+                <Card key={issue.id} className="border-l-4 border-l-amber-500">
                   <CardContent className="flex items-start justify-between gap-4 p-4">
-                    <p className="line-clamp-2 text-sm font-medium text-gray-700">{item.description}</p>
+                    <p className="line-clamp-2 text-sm font-medium text-gray-700">{issue.description}</p>
                     <div className="shrink-0 rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800">
-                      {count}x
+                      {issue.count}x
                     </div>
                   </CardContent>
                 </Card>
