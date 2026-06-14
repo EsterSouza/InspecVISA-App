@@ -372,6 +372,9 @@ async function reconcileCorruptedIds() {
   try {
     const { InspectionService } = await import('./services/inspectionService');
     await InspectionService.importMissingRemoteInspections();
+    // Espelha as respostas de todas as inspeções do tenant no Dexie local, para
+    // que inspeções feitas em outro dispositivo não fiquem "sem respostas" aqui.
+    await InspectionService.hydrateTenantResponses();
   } catch (err) {
     console.warn('[App] ID reconciliation failed:', err);
   }

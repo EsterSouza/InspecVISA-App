@@ -3,12 +3,18 @@ import type { Inspection, InspectionResponse, InspectionPhoto } from '../types';
 import { db } from '../db/database';
 import { RepositoryService } from './repositoryService';
 import { withLocalActor } from '../utils/localActor';
-import { belongsToActiveTenant, filterByActiveTenant } from '../utils/localScope';
+import { belongsToActiveTenant, filterByActiveTenant, getActiveTenantId } from '../utils/localScope';
 import { withTimeout } from '../utils/network';
 
 const PHOTO_BUCKET = 'inspection-photos';
 const PHOTO_DOWNLOAD_TIMEOUT_MS = 20000;
 const PHOTO_DOWNLOAD_CONCURRENCY = 2;
+
+// Hidratação completa das respostas do tenant — garante que TODA inspeção
+// (inclusive as feitas em outro dispositivo) tenha suas respostas no Dexie local.
+// Sem isso, telas que leem só o local (ex.: Dashboard) subcontavam inspeções antigas.
+let hydratedResponsesTenantId: string | null = null;
+let responsesHydrationInFlight: Promise<number> | null = null;
 
 export interface PhotoHydrationProgress {
   total: number;
@@ -1016,6 +1022,56 @@ export const InspectionService = {
       (a, b) => b.inspectionDate.getTime() - a.inspectionDate.getTime() ||
         b.updatedAt.getTime() - a.updatedAt.getTime()
     );
+  },
+
+  /**
+   * Hidrata no Dexie TODAS as respostas do tenant ativo (não deletadas),
+   * mesclando com segurança (nunca sobrescreve edições locais pendentes).
+   * Roda uma vez por tenant/sessão — chamadas concorrentes compartilham a mesma promise.
+   * Resolve o sintoma de "respostas das inspeções antigas não aparecem" em telas
+   * que leem apenas o cache local (Dashboard, listas e agregados).
+   */
+  async hydrateTenantResponses(force = false): Promise<number> {
+    if (!navigator.onLine) return 0;
+    const tenantId = getActiveTenantId() || null;
+    if (!force && hydratedResponsesTenantId === tenantId) return 0;
+    if (responsesHydrationInFlight) return responsesHydrationInFlight;
+
+    responsesHydrationInFlight = (async () => {
+      try {
+        const { data, error } = await RepositoryService.withTimeout(
+          supabase.from('responses').select('*').is('deleted_at', null),
+          30000,
+          'TenantResponsesHydration'
+        ) as any;
+
+        if (error || !data) {
+          console.warn('[InspectionService] Hidratacao de respostas: sem dados', error?.message || '');
+          return 0;
+        }
+
+        let merged = 0;
+        for (const row of data) {
+          const result = await RepositoryService.mergeRemoteRecord(
+            db.responses,
+            mapResponseFromPostgres(row),
+            { label: 'hidratacao respostas' }
+          );
+          if (result.accepted) merged += 1;
+        }
+
+        hydratedResponsesTenantId = tenantId;
+        console.log(`[InspectionService] Hidratacao de respostas do tenant: ${merged} mescladas de ${data.length} remotas.`);
+        return merged;
+      } catch (err: any) {
+        console.warn('[InspectionService] Hidratacao de respostas falhou:', err?.message || err);
+        return 0;
+      } finally {
+        responsesHydrationInFlight = null;
+      }
+    })();
+
+    return responsesHydrationInFlight;
   },
 
   async importMissingRemoteInspections(): Promise<void> {

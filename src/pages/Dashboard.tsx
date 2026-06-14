@@ -144,6 +144,10 @@ export function Dashboard() {
         let totalPct = 0;
         const itemCounts: Record<string, number> = {};
 
+        // Garante que as respostas de inspeções antigas (possivelmente feitas em
+        // outro dispositivo) estejam no cache local antes de calcular os agregados.
+        await InspectionService.hydrateTenantResponses();
+
         for (const inspection of completedForAnalytics) {
           const responses = await InspectionService.getResponsesByInspectionId(inspection.id);
           const template = allTemplates.find((item) => item.id === inspection.templateId);
