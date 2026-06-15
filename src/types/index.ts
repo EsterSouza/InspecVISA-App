@@ -327,6 +327,8 @@ export interface Schedule {
   scheduledAt: Date;
   status: 'pending' | 'completed' | 'cancelled' | 'in_progress';
   notes?: string;
+  // Consultora(s) responsável(is) por esta visita. A inspeção herda na criação.
+  consultantNames?: string[];
   user_id?: string;
   inspectionId?: string;
   updatedAt: Date;

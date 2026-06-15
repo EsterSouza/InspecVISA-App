@@ -207,6 +207,10 @@ export function NewInspection() {
         clientId: selectedClient.id,
         templateId: selectedTemplate.id,
         consultantName: actor.name,
+        // Herda a(s) consultora(s) responsável(is) do agendamento; senão, quem está logada.
+        consultantNames: (matchingSchedule?.consultantNames && matchingSchedule.consultantNames.length > 0)
+          ? matchingSchedule.consultantNames
+          : [actor.name],
         inspectionDate: new Date(inspectionDate + 'T12:00:00'),
         status: 'in_progress',
         createdAt: new Date(),

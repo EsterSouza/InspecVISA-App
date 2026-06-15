@@ -12,6 +12,9 @@ export function mapFromPostgres(row: any): Schedule {
     scheduledAt: new Date(row.scheduled_at),
     status: row.status,
     notes: row.notes || undefined,
+    consultantNames: Array.isArray(row.consultant_names) && row.consultant_names.length > 0
+      ? row.consultant_names
+      : undefined,
     user_id: row.user_id,
     inspectionId: row.inspection_id,
     updatedAt: new Date(row.updated_at || row.scheduled_at),
@@ -29,6 +32,9 @@ export function mapToPostgres(schedule: Schedule): any {
     scheduled_at: schedule.scheduledAt.toISOString(),
     status: schedule.status,
     notes: schedule.notes || null,
+    consultant_names: schedule.consultantNames && schedule.consultantNames.length > 0
+      ? schedule.consultantNames
+      : null,
     user_id: schedule.user_id,
     inspection_id: schedule.inspectionId || null,
     updated_at: schedule.updatedAt.toISOString(),

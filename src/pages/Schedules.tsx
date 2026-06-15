@@ -17,6 +17,14 @@ type SchedulesTab = 'agenda' | 'solicitacoes';
 
 const WEEKDAY_LABELS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'];
 
+// Consultoras da equipe — quem fica responsável pela visita (a inspeção herda).
+const CONSULTANTS = ['Ester Caiafa', 'Ana Roberta Ribeiro'];
+
+function defaultConsultants(): string[] {
+  const me = getLocalActor().name;
+  return CONSULTANTS.includes(me) ? [me] : [];
+}
+
 function dateKey(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -59,6 +67,9 @@ export function Schedules() {
   const [scheduledDate, setScheduledDate] = useState('');
   const [scheduledTime, setScheduledTime] = useState('');
   const [notes, setNotes] = useState('');
+  const [selectedConsultants, setSelectedConsultants] = useState<string[]>(defaultConsultants);
+  const toggleConsultant = (name: string) =>
+    setSelectedConsultants((prev) => prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]);
   // Admin pode agendar a partir de hoje (sem antecedência mínima).
   const minScheduleDate = toDateInputValue(new Date());
   const filteredClients = clientSearch
@@ -149,6 +160,7 @@ export function Schedules() {
           clientId: selectedClientId,
           scheduledAt,
           notes: notes,
+          consultantNames: selectedConsultants,
           localActorId: actor.id,
         };
         await ScheduleService.saveSchedule(updated);
@@ -194,6 +206,7 @@ export function Schedules() {
           scheduledAt,
           status: 'pending',
           notes: notes,
+          consultantNames: selectedConsultants,
           updatedAt: new Date(),
           localActorId: actor.id,
           syncStatus: 'pending'
@@ -232,6 +245,11 @@ export function Schedules() {
     setScheduledDate(date);
     setScheduledTime(time);
     setNotes(schedule.notes || '');
+    setSelectedConsultants(
+      schedule.consultantNames && schedule.consultantNames.length > 0
+        ? schedule.consultantNames
+        : defaultConsultants()
+    );
     setIsEditing(true);
     setEditingId(schedule.id);
     setIsModalOpen(true);
@@ -243,6 +261,7 @@ export function Schedules() {
     setScheduledDate('');
     setScheduledTime('');
     setNotes('');
+    setSelectedConsultants(defaultConsultants());
     setIsEditing(false);
     setEditingId(null);
   };
@@ -603,6 +622,30 @@ export function Schedules() {
                       className="w-full rounded-xl border border-gray-300 p-3 text-sm"
                     />
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Consultora(s) responsável(is)</label>
+                  <div className="flex flex-wrap gap-2">
+                    {CONSULTANTS.map((name) => {
+                      const active = selectedConsultants.includes(name);
+                      return (
+                        <button
+                          key={name}
+                          type="button"
+                          onClick={() => toggleConsultant(name)}
+                          className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
+                            active
+                              ? 'bg-primary-600 text-white shadow-sm'
+                              : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                          }`}
+                        >
+                          {name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-gray-400">A inspeção criada a partir desta visita herda quem você marcar aqui.</p>
                 </div>
 
                 <div className="space-y-2">
