@@ -10,6 +10,10 @@ const PHOTO_BUCKET = 'inspection-photos';
 const PHOTO_DOWNLOAD_TIMEOUT_MS = 20000;
 const PHOTO_DOWNLOAD_CONCURRENCY = 2;
 
+// Caminhos de Storage que retornaram "Object not found" nesta sessão. Evita
+// re-baixar (e floodar o console com 400) a mesma foto fantasma a cada render.
+const missingStoragePaths = new Set<string>();
+
 // Hidratação completa das respostas do tenant — garante que TODA inspeção
 // (inclusive as feitas em outro dispositivo) tenha suas respostas no Dexie local.
 // Sem isso, telas que leem só o local (ex.: Dashboard) subcontavam inspeções antigas.
@@ -209,6 +213,7 @@ async function hydrateStoragePhoto(photo: InspectionPhoto, timeoutMs = PHOTO_DOW
 
   const storagePath = photo.storagePath || storagePathFromDataUrl(photo.dataUrl);
   if (!storagePath) return photo;
+  if (missingStoragePaths.has(storagePath)) return photo; // já constatamos que não existe
 
   const { data, error } = await withTimeout(
     supabase.storage.from(PHOTO_BUCKET).download(storagePath),
@@ -218,6 +223,7 @@ async function hydrateStoragePhoto(photo: InspectionPhoto, timeoutMs = PHOTO_DOW
 
   if (error || !data) {
     const message = error?.message || 'Falha ao baixar foto do Storage.';
+    if (/not.?found/i.test(message)) missingStoragePaths.add(storagePath);
     console.warn(`[PhotoHydrate] Failed to download ${storagePath}:`, message);
     await db.photos.update(photo.id, {
       syncError: `Foto sincronizada, mas ainda nao baixou neste dispositivo: ${message}`,
@@ -247,6 +253,7 @@ async function downloadStoragePhotoForView(photo: InspectionPhoto, timeoutMs = P
 
   const storagePath = photo.storagePath || storagePathFromDataUrl(photo.dataUrl);
   if (!storagePath) return photo;
+  if (missingStoragePaths.has(storagePath)) return photo; // já constatamos que não existe
 
   const { data, error } = await withTimeout(
     supabase.storage.from(PHOTO_BUCKET).download(storagePath),
@@ -254,7 +261,10 @@ async function downloadStoragePhotoForView(photo: InspectionPhoto, timeoutMs = P
     `PhotoPreview_${photo.id}`
   );
 
-  if (error || !data) return photo;
+  if (error || !data) {
+    if (/not.?found/i.test(error?.message || '')) missingStoragePaths.add(storagePath);
+    return photo;
+  }
 
   const dataUrl = await blobToDataUrl(data);
   if (!isInlineDataUrl(dataUrl)) return photo;

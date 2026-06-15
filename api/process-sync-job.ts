@@ -183,8 +183,14 @@ async function processSyncJob(admin: any, jobId: string, userId: string) {
       delete photo.local_data_url;
       delete photo.localDataUrl;
 
-      if (localDataUrl && !photo.data_url?.startsWith('storage://')) {
-        const storagePath = `${tenantId}/${photo.response_id}/${photo.id}.jpg`;
+      // Auto-cura: se o cliente enviou os bytes (base64), SEMPRE (re)sobe — mesmo que
+      // data_url já seja storage://. Isso repara "fotos fantasma" (linha aponta pro
+      // Storage mas o arquivo nunca subiu). Reaproveita o caminho existente quando houver.
+      if (localDataUrl) {
+        const claimsStorage = typeof photo.data_url === 'string' && photo.data_url.startsWith('storage://');
+        const storagePath = claimsStorage
+          ? (photo.data_url as string).slice('storage://'.length)
+          : `${tenantId}/${photo.response_id}/${photo.id}.jpg`;
         const upload = dataUrlToUpload(localDataUrl);
         const { error: uploadError } = await admin.storage
           .from(PHOTO_BUCKET)
