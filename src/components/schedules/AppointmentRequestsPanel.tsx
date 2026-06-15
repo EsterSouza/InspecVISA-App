@@ -51,6 +51,46 @@ const PERIOD_LABELS: Record<string, string> = {
   integral: 'Integral',
 };
 
+// Consultoras da equipe — quem fica responsável pela visita (a inspeção herda).
+const SCHEDULE_CONSULTANTS = ['Ester Caiafa', 'Ana Roberta Ribeiro'];
+function defaultScheduleConsultants(): string[] {
+  const me = getLocalActor().name;
+  return SCHEDULE_CONSULTANTS.includes(me) ? [me] : [];
+}
+
+interface ConsultantPickerProps {
+  selected: string[];
+  onToggle: (name: string) => void;
+}
+
+function ConsultantPicker({ selected, onToggle }: ConsultantPickerProps) {
+  return (
+    <div className="space-y-1.5">
+      <label className="text-sm font-medium text-gray-700">Consultora(s) responsável(is)</label>
+      <div className="flex flex-wrap gap-2">
+        {SCHEDULE_CONSULTANTS.map((name) => {
+          const active = selected.includes(name);
+          return (
+            <button
+              key={name}
+              type="button"
+              onClick={() => onToggle(name)}
+              className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
+                active
+                  ? 'bg-primary-600 text-white shadow-sm'
+                  : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              {name}
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-xs text-gray-400">A inspeção criada a partir desta visita herda quem você marcar.</p>
+    </div>
+  );
+}
+
 const STATUS_LABELS: Record<AppointmentRequest['status'], string> = {
   requested: 'Solicitada',
   confirmed: 'Confirmada',
@@ -936,6 +976,9 @@ function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: Confirm
   const [newClientName, setNewClientName] = useState(request.unit_name);
   const [newClientCategory, setNewClientCategory] = useState<Client['category']>('estetica');
   const [manualDueDate, setManualDueDate] = useState('');
+  const [selectedConsultants, setSelectedConsultants] = useState<string[]>(defaultScheduleConsultants);
+  const toggleConsultant = (name: string) =>
+    setSelectedConsultants((prev) => prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -998,6 +1041,7 @@ function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: Confirm
         scheduledAt: new Date(`${confirmedDate}T${confirmedTime || '09:00'}`),
         status: 'pending',
         notes: `Portal público — ${request.unit_name} (${request.district})`,
+        consultantNames: selectedConsultants,
         updatedAt: now,
         tenantId,
         localActorId: actor.id,
@@ -1156,6 +1200,8 @@ function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: Confirm
                 </div>
               )}
             </div>
+
+            <ConsultantPicker selected={selectedConsultants} onToggle={toggleConsultant} />
 
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-gray-700">
@@ -1520,6 +1566,9 @@ function NewVisitModal({ clients, onClose, onCreated }: NewVisitModalProps) {
   const [attendanceMode, setAttendanceMode] = useState<'presencial' | 'online'>('presencial');
   const [municipality, setMunicipality] = useState('');
   const [district, setDistrict] = useState('');
+  const [selectedConsultants, setSelectedConsultants] = useState<string[]>(defaultScheduleConsultants);
+  const toggleConsultant = (name: string) =>
+    setSelectedConsultants((prev) => prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -1555,6 +1604,7 @@ function NewVisitModal({ clients, onClose, onCreated }: NewVisitModalProps) {
         scheduledAt: new Date(`${date}T${time || '09:00'}`),
         status: 'pending',
         notes: `Visita agendada pela equipe — ${selectedClient?.name ?? ''}`,
+        consultantNames: selectedConsultants,
         updatedAt: now,
         tenantId,
         localActorId: actor.id,
@@ -1671,6 +1721,8 @@ function NewVisitModal({ clients, onClose, onCreated }: NewVisitModalProps) {
                 <input type="text" value={district} onChange={(e) => setDistrict(e.target.value)} placeholder="Bairro" className="w-full rounded-xl border border-gray-300 p-3 text-sm" />
               </div>
             )}
+
+            <ConsultantPicker selected={selectedConsultants} onToggle={toggleConsultant} />
 
             {error && (
               <div className="rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">{error}</div>
