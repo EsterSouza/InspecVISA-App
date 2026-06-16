@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState, Suspense, lazy } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Building2,
   CalendarDays,
   CalendarOff,
   CalendarPlus,
@@ -18,7 +17,6 @@ import {
   Loader2,
   LogOut,
   Mail,
-  MapPin,
   Paperclip,
   RotateCcw,
   TrendingUp,
@@ -270,6 +268,21 @@ export function ClientPortal() {
     unit.visits.map((visit) => ({ ...visit, unitName: unit.client_name, city: unit.city }))
   );
   const activeVisits = allVisits.filter((visit) => ACTIVE_VISIT_STATUSES.has(visit.status)).length;
+
+  // Lista única ordenada por data mais próxima: futuras em ordem crescente
+  // (a mais próxima primeiro), depois as passadas da mais recente para a mais antiga.
+  const todayKeyTop = toDateKey(new Date());
+  const sortedVisits = [...allVisits].sort((a, b) => {
+    const ka = `${a.requested_date || '9999-12-31'}${a.requested_time || ''}`;
+    const kb = `${b.requested_date || '9999-12-31'}${b.requested_time || ''}`;
+    const aUpcoming = (a.requested_date || '') >= todayKeyTop;
+    const bUpcoming = (b.requested_date || '') >= todayKeyTop;
+    if (aUpcoming !== bUpcoming) return aUpcoming ? -1 : 1;
+    return aUpcoming ? ka.localeCompare(kb) : kb.localeCompare(ka);
+  });
+  const folderUnits = overview.units.filter(
+    (u) => u.has_personalized_sanitary_folder && u.personalized_sanitary_folder_url
+  );
   const reportCount = allVisits.reduce((sum, visit) => sum + (visit.report_count || 0), 0);
   const photoCount = allVisits.reduce((sum, visit) => sum + (visit.photo_count || 0), 0);
   const attachmentCount = allVisits.reduce((sum, visit) => sum + (visit.attachment_count || 0), 0);
@@ -541,11 +554,6 @@ export function ClientPortal() {
               cells.push(new Date(cursor));
             }
             const todayKey = toDateKey(new Date());
-            const monthVisits = allVisits
-              .filter((v) => v.requested_date?.startsWith(month))
-              .sort((a, b) =>
-                `${a.requested_date}${a.requested_time || ''}`.localeCompare(`${b.requested_date}${b.requested_time || ''}`)
-              );
             return (
               <div>
                 <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold uppercase text-gray-400 sm:gap-2 sm:text-[11px]">
@@ -603,48 +611,6 @@ export function ClientPortal() {
                     );
                   })}
                 </div>
-
-                {/* Lista legível das visitas do mês (principal no celular) */}
-                {monthVisits.length === 0 ? (
-                  <p className="mt-4 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-center text-xs text-gray-400">
-                    Nenhuma inspeção neste mês. Use as setas para ver outros meses.
-                  </p>
-                ) : (
-                  <ul className="mt-4 space-y-2 border-t border-gray-100 pt-4">
-                    {monthVisits.map((visit) => {
-                      const d = visit.requested_date ? parseDateParts(visit.requested_date) : null;
-                      return (
-                        <li key={visit.public_token}>
-                          <Link
-                            to={`/cliente/visita/${visit.public_token}`}
-                            className="flex items-center gap-3 rounded-lg border border-gray-100 p-2.5 transition-colors hover:bg-primary-50/50"
-                          >
-                            <div className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-lg bg-primary-50 text-primary-800">
-                              <span className="text-[9px] font-bold uppercase leading-none">
-                                {d ? d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '') : '--'}
-                              </span>
-                              <span className="text-base font-black leading-none">{d ? d.getDate() : '--'}</span>
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-semibold text-gray-900">{visit.unitName}</p>
-                              <p className="text-xs text-gray-500">
-                                {visit.requested_time ? `${visit.requested_time} · ` : ''}
-                                {visitDisplayStatus(visit.status, schedulingSuspended).label}
-                              </p>
-                            </div>
-                            <span
-                              className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
-                                visitDisplayStatus(visit.status, schedulingSuspended).badge
-                              }`}
-                            >
-                              {visitDisplayStatus(visit.status, schedulingSuspended).label}
-                            </span>
-                          </Link>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
               </div>
             );
           })()}
@@ -656,26 +622,16 @@ export function ClientPortal() {
           </div>
         ) : (
           <div className="space-y-5">
-            {overview.units.map((unit) => (
-              <section
-                key={unit.client_name}
-                className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
-              >
-                <header className="flex items-center gap-2 border-b border-gray-100 bg-gray-50/70 px-5 py-3.5">
-                  <Building2 className="h-4 w-4 shrink-0 text-primary-700" />
-                  <h3 className="min-w-0 flex-1 whitespace-normal break-words text-sm font-bold text-gray-900">
-                    {unit.client_name}
-                  </h3>
-                  {unit.city && (
-                    <span className="flex items-center gap-1 text-xs text-gray-400">
-                      <MapPin className="h-3 w-3" /> {unit.city}
-                    </span>
-                  )}
-                </header>
-                {unit.has_personalized_sanitary_folder && unit.personalized_sanitary_folder_url && (
-                  <div className="border-b border-emerald-100 bg-emerald-50/70 px-5 py-3">
+            {folderUnits.length > 0 && (
+              <section className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-4 shadow-sm">
+                <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-emerald-800">
+                  <FolderOpen className="h-4 w-4" /> Pastas sanitárias personalizadas
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {folderUnits.map((unit) => (
                     <a
-                      href={unit.personalized_sanitary_folder_url}
+                      key={unit.client_id}
+                      href={unit.personalized_sanitary_folder_url!}
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={() => {
@@ -686,63 +642,86 @@ export function ClientPortal() {
                       }}
                       className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700"
                     >
-                      <FolderOpen className="h-3.5 w-3.5" />
-                      Abrir pasta sanitaria personalizada
+                      <FolderOpen className="h-3.5 w-3.5" /> {unit.client_name}
                     </a>
-                  </div>
-                )}
+                  ))}
+                </div>
+              </section>
+            )}
 
-                {unit.visits.length === 0 ? (
-                  <p className="px-5 py-4 text-sm text-gray-400">
-                    Nenhuma inspeção registrada para esta unidade.
-                  </p>
-                ) : (
-                  <ul className="divide-y divide-gray-50">
-                    {unit.visits.map((visit) => (
+            <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+              <header className="flex items-center gap-2 border-b border-gray-100 bg-gray-50/70 px-5 py-3.5">
+                <CalendarDays className="h-4 w-4 shrink-0 text-primary-700" />
+                <h3 className="text-sm font-bold text-gray-900">Agendamentos e arquivos</h3>
+                <span className="ml-auto text-xs text-gray-400">
+                  {sortedVisits.length} visita{sortedVisits.length === 1 ? '' : 's'}
+                </span>
+              </header>
+              {sortedVisits.length === 0 ? (
+                <p className="px-5 py-6 text-center text-sm text-gray-400">
+                  Nenhuma inspeção registrada ainda.
+                </p>
+              ) : (
+                <ul className="divide-y divide-gray-50">
+                  {sortedVisits.map((visit) => {
+                    const d = visit.requested_date ? parseDateParts(visit.requested_date) : null;
+                    const st = visitDisplayStatus(visit.status, schedulingSuspended);
+                    return (
                       <li key={visit.public_token}>
                         <Link
                           to={`/cliente/visita/${visit.public_token}`}
-                          className="flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-primary-50/40"
+                          className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-primary-50/40 sm:px-5"
                         >
-                          <CalendarDays className="h-4 w-4 shrink-0 text-gray-400" />
-                          <span className="min-w-0 flex-1 text-sm font-medium text-gray-800">
-                            {formatDateBR(visit.requested_date)}
-                            {visit.requested_time ? ` às ${visit.requested_time}` : ''}
-                          </span>
-                          <span className="hidden flex-wrap items-center gap-2 text-[11px] text-gray-500 sm:flex">
-                            {(visit.report_count || 0) > 0 && (
-                              <span className="inline-flex items-center gap-1">
-                                <FileText className="h-3 w-3" /> {visit.report_count}
-                              </span>
+                          <div className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-lg bg-primary-50 text-primary-800">
+                            <span className="text-[9px] font-bold uppercase leading-none">
+                              {d ? d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '') : '--'}
+                            </span>
+                            <span className="text-base font-black leading-none">{d ? d.getDate() : '--'}</span>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold text-gray-900">{visit.unitName}</p>
+                            <p className="truncate text-xs text-gray-500">
+                              {formatDateBR(visit.requested_date)}
+                              {visit.requested_time ? ` às ${visit.requested_time}` : ''}
+                              {visit.city ? ` · ${visit.city}` : ''}
+                            </p>
+                            {((visit.report_count || 0) > 0 ||
+                              (visit.photo_count || 0) > 0 ||
+                              (visit.attachment_count || 0) > 0) && (
+                              <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-gray-500">
+                                {(visit.report_count || 0) > 0 && (
+                                  <span className="inline-flex items-center gap-1">
+                                    <FileText className="h-3 w-3" /> {visit.report_count}
+                                  </span>
+                                )}
+                                {(visit.photo_count || 0) > 0 && (
+                                  <span className="inline-flex items-center gap-1">
+                                    <Image className="h-3 w-3" /> {visit.photo_count}
+                                  </span>
+                                )}
+                                {(visit.attachment_count || 0) > 0 && (
+                                  <span className="inline-flex items-center gap-1">
+                                    <Paperclip className="h-3 w-3" /> {visit.attachment_count}
+                                  </span>
+                                )}
+                              </div>
                             )}
-                            {(visit.photo_count || 0) > 0 && (
-                              <span className="inline-flex items-center gap-1">
-                                <Image className="h-3 w-3" /> {visit.photo_count}
-                              </span>
-                            )}
-                            {(visit.attachment_count || 0) > 0 && (
-                              <span className="inline-flex items-center gap-1">
-                                <Paperclip className="h-3 w-3" /> {visit.attachment_count}
-                              </span>
-                            )}
-                          </span>
-                          <span className="hidden shrink-0 text-xs font-semibold text-primary-700 md:inline">
-                            Abrir detalhes e arquivos
-                          </span>
-                          <span
-                            className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
-                              visitDisplayStatus(visit.status, schedulingSuspended).badge
-                            }`}
-                          >
-                            {visitDisplayStatus(visit.status, schedulingSuspended).label}
-                          </span>
+                          </div>
+                          <div className="flex shrink-0 flex-col items-end gap-1">
+                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${st.badge}`}>
+                              {st.label}
+                            </span>
+                            <span className="hidden text-xs font-semibold text-primary-700 sm:inline">
+                              Abrir detalhes
+                            </span>
+                          </div>
                         </Link>
                       </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
-            ))}
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
           </div>
         )}
 
