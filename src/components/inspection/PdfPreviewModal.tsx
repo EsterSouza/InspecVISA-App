@@ -2,23 +2,29 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { X, ChevronRight, ChevronLeft, Trash2, FileDown, Loader2, CheckSquare, Square } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { extractBaseLegislation } from '../../utils/legislationRefs';
-import type { ChecklistTemplate, InspectionResponse } from '../../types';
+import { isLegislationApplicable, type Legislation } from '../../services/legislationService';
+import type { ChecklistTemplate, InspectionResponse, Inspection } from '../../types';
+
+type LegTag = 'roteiro' | 'uf' | 'segmento';
 
 interface PdfPreviewModalProps {
   open: boolean;
   onClose: () => void;
   template: ChecklistTemplate;
   responses: InspectionResponse[];
+  inspection: Inspection;
+  legislationLibrary?: Legislation[];
   onGenerate: (opts: { selectedLegislations: string[]; signatureDataUrl: string | undefined }) => Promise<void>;
   isGenerating: boolean;
   progressLabel?: string;
 }
 
 export function PdfPreviewModal({
-  open, onClose, template, responses, onGenerate, isGenerating, progressLabel
+  open, onClose, template, responses, inspection, legislationLibrary, onGenerate, isGenerating, progressLabel
 }: PdfPreviewModalProps) {
   const [step, setStep] = useState<1 | 2>(1);
   const [legislations, setLegislations] = useState<string[]>([]);
+  const [legTags, setLegTags] = useState<Map<string, LegTag>>(new Map());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [hasSignature, setHasSignature] = useState(false);
   const [skipSignature, setSkipSignature] = useState(false);
@@ -34,19 +40,50 @@ export function PdfPreviewModal({
     setHasSignature(false);
     setSkipSignature(false);
 
+    // 1. Legislações CITADAS nos itens avaliados (comportamento original).
     const evaluatedIds = new Set(responses.map(r => r.itemId));
-    const mentionedSet = new Set<string>();
+    const citedBases = new Set<string>();
     template.sections.forEach(sec =>
       sec.items.forEach(item => {
         if (!evaluatedIds.has(item.id)) return;
         if (!item.legislation) return;
-        extractBaseLegislation(item.legislation).forEach(b => mentionedSet.add(b));
+        extractBaseLegislation(item.legislation).forEach(b => citedBases.add(b));
       })
     );
-    const sorted = Array.from(mentionedSet).sort();
+
+    // 2. Legislações APLICÁVEIS da biblioteca (estaduais/municipais da UF + federais
+    //    curadas para o segmento), mesmo que não citadas em nenhum item.
+    const library = legislationLibrary || [];
+    const matchLib = (s: string) =>
+      library.find(l =>
+        l.name.toUpperCase().includes(s.toUpperCase()) || s.toUpperCase().includes(l.name.toUpperCase())
+      );
+
+    const finalSet = new Set<string>();
+    const tags = new Map<string, LegTag>();
+
+    // Canonicaliza as citadas para o nome completo da biblioteca quando houver.
+    citedBases.forEach(base => {
+      const lib = matchLib(base);
+      const label = lib?.name || base;
+      if (!finalSet.has(label)) {
+        finalSet.add(label);
+        tags.set(label, lib?.uf ? 'uf' : 'roteiro');
+      }
+    });
+
+    library.forEach(leg => {
+      if (!isLegislationApplicable(leg, inspection.state, inspection.clientCategory)) return;
+      if (finalSet.has(leg.name)) return;
+      finalSet.add(leg.name);
+      tags.set(leg.name, leg.uf ? 'uf' : 'segmento');
+    });
+
+    const sorted = Array.from(finalSet).sort();
     setLegislations(sorted);
+    setLegTags(tags);
     setSelected(new Set(sorted)); // all selected by default
-  }, [open, template, responses]);
+  }, [open, template, responses, legislationLibrary, inspection]);
 
   // Canvas drawing helpers
   const getPos = (e: React.MouseEvent | React.TouchEvent, canvas: HTMLCanvasElement) => {
@@ -153,7 +190,7 @@ export function PdfPreviewModal({
           {step === 1 && (
             <div className="space-y-3">
               <p className="text-sm text-gray-500">
-                Selecione as legislações que devem aparecer na última página do PDF. Todas já estão marcadas — desmarque as que não quiser incluir.
+                Selecione as legislações que devem aparecer na última página do PDF. Já incluímos as citadas no roteiro e as estaduais/municipais e federais aplicáveis a este estabelecimento e UF. Todas estão marcadas — desmarque as que não quiser incluir.
               </p>
               {legislations.length === 0 ? (
                 <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-700">
@@ -175,7 +212,17 @@ export function PdfPreviewModal({
                         ? <CheckSquare className="h-4 w-4 shrink-0 text-primary-500 mt-0.5" />
                         : <Square className="h-4 w-4 shrink-0 text-gray-300 mt-0.5" />
                       }
-                      {leg}
+                      <span className="flex-1">{leg}</span>
+                      {legTags.get(leg) === 'uf' && (
+                        <span className="shrink-0 mt-0.5 text-[9px] font-bold uppercase tracking-wide bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">
+                          Estadual/Municipal
+                        </span>
+                      )}
+                      {legTags.get(leg) === 'segmento' && (
+                        <span className="shrink-0 mt-0.5 text-[9px] font-bold uppercase tracking-wide bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">
+                          Aplicável
+                        </span>
+                      )}
                     </button>
                   ))}
                 </div>

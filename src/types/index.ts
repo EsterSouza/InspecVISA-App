@@ -419,6 +419,7 @@ export interface AppointmentRequest {
   report_due_at: string | null;
   report_due_source: ReportDueSource | null;
   report_pdf_path: string | null;
+  report_hidden?: boolean;
   compliance_score?: number | null;
   notes: string | null;
   internal_notes: string | null;

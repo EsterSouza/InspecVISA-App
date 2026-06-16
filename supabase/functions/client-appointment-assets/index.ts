@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
 
     const { data: requestRow, error: requestError } = await admin
       .from('appointment_requests')
-      .select('id, client_id, unit_name, district, municipality, attendance_mode, status, requested_date, requested_period, requested_time, requested_starts_at, requested_ends_at, report_due_at, report_due_source, notes, created_at, updated_at')
+      .select('id, client_id, unit_name, district, municipality, attendance_mode, status, requested_date, requested_period, requested_time, requested_starts_at, requested_ends_at, report_due_at, report_due_source, report_hidden, notes, created_at, updated_at')
       .eq('public_token', appointmentToken)
       .maybeSingle();
     if (requestError) throw requestError;
@@ -85,7 +85,12 @@ Deno.serve(async (req) => {
       .order('created_at', { ascending: true });
     if (assetsError) throw assetsError;
 
-    const assets = await Promise.all((rows || []).map(async (asset) => {
+    // Relatório oculto pela equipe: não expõe os PDFs de relatório ao cliente.
+    const visibleRows = requestRow.report_hidden
+      ? (rows || []).filter((asset) => asset.kind !== 'report_pdf')
+      : (rows || []);
+
+    const assets = await Promise.all(visibleRows.map(async (asset) => {
       let signedUrl: string | undefined;
       if (asset.storage_bucket && asset.storage_path) {
         const { data } = await admin.storage

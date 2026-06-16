@@ -294,7 +294,8 @@ export async function generatePDF(
     doc.setFont('helvetica', 'normal');
     doc.text(settings.companyName || settings.name, margin, y);
     doc.text(`Página ${pageNum} de ${totalPages}`, pageW - margin, y, { align: 'right' });
-    doc.text(formatDate(new Date()), pageW / 2, y, { align: 'center' });
+    // Data da visita (que finalizou o relatório), não a data de geração do arquivo.
+    doc.text(formatDate(inspection.inspectionDate), pageW / 2, y, { align: 'center' });
   }
 
   // ── PAGE 1: CAPA ─────────────────────────────────────────
@@ -759,18 +760,73 @@ export async function generatePDF(
   drawActionCards('URGENTES - ITENS CRÍTICOS', urgentItems, [185, 28, 28], [254, 242, 242], '15 dias');
   drawActionCards('IMPORTANTES - NECESSÁRIOS', importantItems, [180, 83, 9], [255, 251, 235], '60 dias');
 
-  // Summary of Conformance
-  if (y > pageH - 40) { doc.addPage(); y = margin; }
+  // Summary of Conformance — visão por categoria/área (não deixa a página vazia)
+  if (y > pageH - 80) { doc.addPage(); y = margin; }
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
   doc.setTextColor(34, 197, 94);
   doc.text('GRUPO 3 — ITENS EM CONFORMIDADE', margin, y);
-  y += 5;
+  y += 6;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(60, 60, 60);
-  doc.text(`${score.compliesCount} itens foram verificados e encontram-se em conformidade na data desta inspeção.`, margin, y);
-  y += 15;
+  const overallEvaluated = score.compliesCount + score.notCompliesCount;
+  const overallPct = overallEvaluated > 0
+    ? Math.round((score.compliesCount / overallEvaluated) * 100)
+    : 0;
+  const conformanceIntro = `${score.compliesCount} de ${overallEvaluated} itens avaliados encontram-se em conformidade nesta inspeção (${overallPct}% de adequação). A distribuição por área inspecionada está detalhada abaixo, destacando os pontos já regularizados pelo estabelecimento.`;
+  const introLines = doc.splitTextToSize(conformanceIntro, contentW);
+  doc.text(introLines, margin, y);
+  y += introLines.length * 4.6 + 6;
+
+  // Tabela de conformidade por seção/categoria
+  const conformanceRows = score.scoreBySection
+    .map(s => {
+      const sectionDef = template.sections.find(sec => sec.id === s.sectionId);
+      const segment = sectionDef?.segmentKey
+        ? (FOOD_SEGMENT_LABELS[sectionDef.segmentKey as FoodEstablishmentType] || sectionDef.segmentKey)
+        : '';
+      const rawTitle = sectionDef?.isExtraSection ? `${s.sectionTitle} (${segment})` : s.sectionTitle;
+      const evaluated = s.compliesCount + s.notCompliesCount;
+      const pct = evaluated > 0 ? Math.round((s.compliesCount / evaluated) * 100) : 0;
+      return {
+        title: rawTitle.length > 52 ? rawTitle.substring(0, 50) + '…' : rawTitle,
+        complies: s.compliesCount,
+        evaluated,
+        pct,
+      };
+    })
+    .filter(r => r.evaluated > 0);
+
+  if (conformanceRows.length > 0) {
+    autoTable(doc, {
+      startY: y,
+      head: [['Área inspecionada', 'Conformes', 'Avaliados', '% Conformidade']],
+      body: conformanceRows.map(r => [r.title, r.complies, r.evaluated, `${r.pct}%`]),
+      foot: [['TOTAL', score.compliesCount, overallEvaluated, `${overallPct}%`]],
+      headStyles: { fillColor: [22, 163, 74], textColor: [255, 255, 255], fontSize: 8, fontStyle: 'bold', cellPadding: 2.3 },
+      footStyles: { fillColor: [220, 252, 231], fontStyle: 'bold', fontSize: 8.5, textColor },
+      bodyStyles: { fontSize: 8.5, textColor, cellPadding: 2.2 },
+      alternateRowStyles: { fillColor: surfaceColor },
+      columnStyles: {
+        0: { cellWidth: 96 },
+        1: { cellWidth: 24, halign: 'center' },
+        2: { cellWidth: 24, halign: 'center' },
+        3: { cellWidth: 26, halign: 'center', fontStyle: 'bold' },
+      },
+      didParseCell: (data) => {
+        if (data.section === 'body' && data.column.index === 3) {
+          const pctValue = parseInt(String(data.cell.raw)) || 0;
+          data.cell.styles.textColor = pctValue >= 85 ? [22, 101, 52] : pctValue >= 70 ? [180, 83, 9] : [185, 28, 28];
+        }
+      },
+      margin: { left: margin, right: margin },
+      theme: 'plain',
+    });
+    y = (doc as any).lastAutoTable.finalY + 12;
+  } else {
+    y += 4;
+  }
 
   if (inspection.observations) {
     if (y > pageH - 40) { doc.addPage(); y = margin; }
@@ -820,12 +876,19 @@ export async function generatePDF(
       if (!item) continue;
 
       const title = `[NC-${String(ncNum).padStart(3, '0')}] ${item.description}`;
+      const titleFontSize = 10.5;
+      const titleLineH = 5.4;          // espaçamento real entre linhas do título
+      const titleTopPad = 7;           // base da 1ª linha em relação ao topo da caixa
+      const titleBottomPad = 4;        // folga abaixo da última linha
+      const badgeGap = 2;
+      const badgeBoxH = 6.5;
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10.5);
-      const titleLines: string[] = doc.splitTextToSize(title, contentW - 12);
-      const titleHeight = titleLines.length * 5.2;
-      const badgeHeight = item.isCritical ? 8 : 0;
-      const headerHeight = 10 + titleHeight + badgeHeight;
+      doc.setFontSize(titleFontSize);
+      // Largura de quebra alinhada ao desenho: texto em margin+8, padding direito de 8mm.
+      const titleLines: string[] = doc.splitTextToSize(title, contentW - 16);
+      const badgeHeight = item.isCritical ? badgeGap + badgeBoxH : 0;
+      const headerHeight =
+        titleTopPad + titleLines.length * titleLineH + badgeHeight + titleBottomPad;
       ensureNonComplianceSpace(headerHeight + 12);
       doc.setFillColor(248, 250, 252);
       doc.setDrawColor(...borderColor);
@@ -834,11 +897,14 @@ export async function generatePDF(
       doc.setFillColor(...headerAccent);
       doc.roundedRect(margin, y, 3, headerHeight, 1.5, 1.5, 'F');
       doc.setTextColor(...textColor);
-      doc.text(titleLines, margin + 8, y + 8);
-      let headerY = y + 8 + titleHeight;
+      // Renderiza cada linha em posição explícita para a caixa caber exatamente o título.
+      titleLines.forEach((line, lineIdx) => {
+        doc.text(line, margin + 8, y + titleTopPad + lineIdx * titleLineH);
+      });
+      let headerY = y + titleTopPad + (titleLines.length - 1) * titleLineH + badgeGap + 2;
       if (item.isCritical) {
         doc.setFillColor(185, 28, 28);
-        doc.roundedRect(margin + 8, headerY, 33, 6.5, 2, 2, 'F');
+        doc.roundedRect(margin + 8, headerY, 33, badgeBoxH, 2, 2, 'F');
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(7.5);
         doc.setTextColor(255, 255, 255);

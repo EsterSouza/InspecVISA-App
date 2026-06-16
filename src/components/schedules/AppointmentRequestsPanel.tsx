@@ -7,6 +7,8 @@ import {
   CreditCard,
   Clock,
   Copy,
+  Eye,
+  EyeOff,
   FileUp,
   Gauge,
   ImagePlus,
@@ -289,6 +291,11 @@ export function AppointmentRequestsPanel() {
     void withBusy(request.id, () => AppointmentAdminService.addAttachment(request, file));
   };
 
+  const handleToggleReportHidden = (request: AppointmentRequest) => {
+    const next = !request.report_hidden;
+    void withBusy(request.id, () => AppointmentAdminService.setReportHidden(request.id, next));
+  };
+
   const byAppointmentDate = (a: AppointmentRequest, b: AppointmentRequest) =>
     requestDateTimeValue(a) - requestDateTimeValue(b);
   const pending = requests.filter((r) => r.status === 'requested').sort(byAppointmentDate);
@@ -470,6 +477,7 @@ export function AppointmentRequestsPanel() {
                 onMarkNotCompleted={() => handleMarkNotCompleted(request)}
                 onReschedule={() => handleReschedule(request)}
                 onSetCompliance={(score) => handleSetCompliance(request, score)}
+                onToggleReportHidden={() => handleToggleReportHidden(request)}
                 onDelete={() => handleDelete(request)}
               />
             ))}
@@ -505,6 +513,7 @@ export function AppointmentRequestsPanel() {
                     onMarkInProgress={() => handleMarkInProgress(request)}
                     onShareWhatsapp={() => void handleShareReportWhatsapp(request)}
                     onSetCompliance={(score) => handleSetCompliance(request, score)}
+                    onToggleReportHidden={() => handleToggleReportHidden(request)}
                     onDelete={() => handleDelete(request)}
                   />
                 ) : (
@@ -670,6 +679,7 @@ interface ActiveRequestCardProps {
   onShareWhatsapp?: () => void;
   onReschedule?: () => void;
   onSetCompliance: (score: number | null) => void;
+  onToggleReportHidden: () => void;
   onDelete: () => void;
 }
 
@@ -764,6 +774,7 @@ function ActiveRequestCard({
   onShareWhatsapp,
   onReschedule,
   onSetCompliance,
+  onToggleReportHidden,
   onDelete,
 }: ActiveRequestCardProps) {
   const reportInputRef = useRef<HTMLInputElement>(null);
@@ -786,6 +797,11 @@ function ActiveRequestCard({
                 >
                   {STATUS_LABELS[request.status]}
                 </span>
+                {request.report_hidden && (
+                  <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-700">
+                    <EyeOff className="h-3 w-3" /> Relatório oculto
+                  </span>
+                )}
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
                 <span className="flex items-center">
@@ -926,6 +942,21 @@ function ActiveRequestCard({
             {request.status === 'report_available' && onShareWhatsapp && (
               <Button variant="outline" size="sm" disabled={busy} onClick={onShareWhatsapp}>
                 <Phone className="mr-1.5 h-4 w-4" /> WhatsApp
+              </Button>
+            )}
+            {(request.status === 'report_available' || request.report_pdf_path) && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={busy}
+                onClick={onToggleReportHidden}
+                className={request.report_hidden
+                  ? 'border-amber-200 text-amber-700 hover:bg-amber-50'
+                  : 'border-gray-200 text-gray-600 hover:bg-gray-50'}
+              >
+                {request.report_hidden
+                  ? <><Eye className="mr-1.5 h-4 w-4" /> Mostrar ao cliente</>
+                  : <><EyeOff className="mr-1.5 h-4 w-4" /> Ocultar do cliente</>}
               </Button>
             )}
             {!isClosed && (
@@ -2044,6 +2075,11 @@ function PortalAccountsSection({ accounts, clients, onChanged }: PortalAccountsS
                     {account.payment_status === 'paid' ? 'Pago' : 'Pgto pendente'}
                     {account.payment_type ? ` · ${account.payment_type === 'monthly' ? 'mensal' : 'único'}` : ''}
                   </span>
+                  {account.scheduling_suspended && (
+                    <span className="flex items-center gap-1 shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold uppercase text-red-700">
+                      <CalendarOff className="h-3 w-3" /> Agendamento suspenso
+                    </span>
+                  )}
                 </div>
                 <p className="truncate text-xs text-gray-500">
                   {account.email} · {account.client_ids.length} unidade{account.client_ids.length === 1 ? '' : 's'}
@@ -2227,10 +2263,47 @@ function PaymentModal({ account, onClose, onSaved }: PaymentModalProps) {
       : [{ label: 'Principal', url: account.payment_link || '' }]
   );
   const [dueDate, setDueDate] = useState(account.payment_due_date || '');
+  const [suspended, setSuspended] = useState(account.scheduling_suspended);
+  const [togglingSuspend, setTogglingSuspend] = useState(false);
+  const [sendingOverdue, setSendingOverdue] = useState(false);
+  const [overdueSent, setOverdueSent] = useState(false);
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleToggleSuspended = async () => {
+    const next = !suspended;
+    setTogglingSuspend(true);
+    setError(null);
+    try {
+      await AppointmentAdminService.setSchedulingSuspended(account.id, next);
+      setSuspended(next);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setTogglingSuspend(false);
+    }
+  };
+
+  const handleSendOverdueEmail = async () => {
+    setSendingOverdue(true);
+    setOverdueSent(false);
+    setError(null);
+    try {
+      await AppointmentAdminService.sendPaymentOverdueEmail({
+        email: account.email,
+        accountName: account.name,
+        dueDate: dueDate || null,
+        paymentLink: link.trim() || null,
+      });
+      setOverdueSent(true);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSendingOverdue(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -2373,6 +2446,46 @@ function PaymentModal({ account, onClose, onSaved }: PaymentModalProps) {
                 <button type="button" onClick={() => setStatus('pending')} className={`h-11 rounded-xl border text-sm font-bold ${status === 'pending' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-gray-200 text-gray-600'}`}>Pendente</button>
                 <button type="button" onClick={() => setStatus('paid')} className={`h-11 rounded-xl border text-sm font-bold ${status === 'paid' ? 'border-green-600 bg-green-50 text-green-700' : 'border-gray-200 text-gray-600'}`}>Pago</button>
               </div>
+            </div>
+
+            <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Suspender agendamentos</p>
+                  <p className="text-xs text-gray-400">Bloqueia novos agendamentos do cliente por falta de pagamento. Pode ser revertido a qualquer momento.</p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={suspended}
+                  disabled={togglingSuspend}
+                  onClick={() => void handleToggleSuspended()}
+                  className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${suspended ? 'bg-red-500' : 'bg-gray-300'} ${togglingSuspend ? 'opacity-60' : ''}`}
+                >
+                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${suspended ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+              {suspended && (
+                <div className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700">
+                  Agendamentos suspensos. O cliente verá um aviso e não conseguirá agendar até a regularização.
+                </div>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full border-amber-200 text-amber-700 hover:bg-amber-50"
+                disabled={sendingOverdue}
+                onClick={() => void handleSendOverdueEmail()}
+              >
+                {sendingOverdue ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+                Enviar cobrança por atraso
+              </Button>
+              {overdueSent && (
+                <div className="rounded-lg border border-green-100 bg-green-50 px-3 py-2 text-xs text-green-700">
+                  Aviso de atraso enviado para {account.email}.
+                </div>
+              )}
             </div>
 
             {error && (

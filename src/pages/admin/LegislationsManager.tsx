@@ -1,18 +1,57 @@
 import React, { useState, useEffect } from 'react';
-import { LegislationService, type Legislation } from '../../services/legislationService';
+import { LegislationService, type Legislation, type LegislationSegment } from '../../services/legislationService';
 import { Plus, Trash2, ExternalLink, Search, BookOpen, AlertCircle, Loader2, Edit2, Check, X, Link } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
+
+const SEGMENT_OPTIONS: { value: LegislationSegment; label: string }[] = [
+  { value: 'ilpi', label: 'ILPI' },
+  { value: 'saude', label: 'Saúde' },
+  { value: 'estetica', label: 'Estética' },
+  { value: 'alimentos', label: 'Alimentos' },
+];
+
+interface LegForm {
+  name: string;
+  summary: string;
+  url: string;
+  uf: string;
+  segments: LegislationSegment[];
+}
+
+const EMPTY_FORM: LegForm = { name: '', summary: '', url: '', uf: '', segments: [] };
+
+function toPayload(form: LegForm): Omit<Legislation, 'id' | 'created_at'> {
+  return {
+    name: form.name,
+    summary: form.summary,
+    url: form.url,
+    uf: form.uf.trim() ? form.uf.trim().toUpperCase() : null,
+    segments: form.segments.length > 0 ? form.segments : null,
+  };
+}
 
 export function LegislationsManager() {
   const [legislations, setLegislations] = useState<Legislation[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isAdding, setIsAdding] = useState(false);
-  const [newLeg, setNewLeg] = useState({ name: '', summary: '', url: '' });
+  const [newLeg, setNewLeg] = useState<LegForm>(EMPTY_FORM);
   const [isSeeding, setIsSeeding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ name: '', summary: '', url: '' });
+  const [editForm, setEditForm] = useState<LegForm>(EMPTY_FORM);
   const [savingId, setSavingId] = useState<string | null>(null);
+
+  const toggleSegment = (
+    setter: React.Dispatch<React.SetStateAction<LegForm>>,
+    segment: LegislationSegment
+  ) => {
+    setter(prev => ({
+      ...prev,
+      segments: prev.segments.includes(segment)
+        ? prev.segments.filter(s => s !== segment)
+        : [...prev.segments, segment],
+    }));
+  };
 
   useEffect(() => {
     loadLegislations();
@@ -49,8 +88,8 @@ export function LegislationsManager() {
       return;
     }
     try {
-      await LegislationService.saveLegislation(newLeg);
-      setNewLeg({ name: '', summary: '', url: '' });
+      await LegislationService.saveLegislation(toPayload(newLeg));
+      setNewLeg(EMPTY_FORM);
       setIsAdding(false);
       loadLegislations();
     } catch (err) {
@@ -60,7 +99,13 @@ export function LegislationsManager() {
 
   function startEdit(leg: Legislation) {
     setEditingId(leg.id);
-    setEditForm({ name: leg.name, summary: leg.summary || '', url: leg.url || '' });
+    setEditForm({
+      name: leg.name,
+      summary: leg.summary || '',
+      url: leg.url || '',
+      uf: leg.uf || '',
+      segments: leg.segments || [],
+    });
   }
 
   async function handleSaveEdit(id: string) {
@@ -70,7 +115,7 @@ export function LegislationsManager() {
     }
     try {
       setSavingId(id);
-      await LegislationService.updateLegislation(id, editForm);
+      await LegislationService.updateLegislation(id, toPayload(editForm));
       setEditingId(null);
       loadLegislations();
     } catch (err) {
@@ -159,9 +204,40 @@ export function LegislationsManager() {
               value={newLeg.summary}
               onChange={(e) => setNewLeg({ ...newLeg, summary: e.target.value })}
             />
+            <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4 items-start">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">UF (estadual/municipal)</label>
+                <input
+                  placeholder="Ex: RJ — vazio = federal"
+                  maxLength={2}
+                  className="w-full p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-primary-400 outline-none uppercase"
+                  value={newLeg.uf}
+                  onChange={(e) => setNewLeg({ ...newLeg, uf: e.target.value })}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-semibold text-gray-500 mb-1">Segmentos aplicáveis (vazio = todos)</label>
+                <div className="flex flex-wrap gap-2">
+                  {SEGMENT_OPTIONS.map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => toggleSegment(setNewLeg, opt.value)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                        newLeg.segments.includes(opt.value)
+                          ? 'bg-primary-50 border-primary-300 text-primary-700'
+                          : 'bg-gray-50 border-gray-200 text-gray-400'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
           <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => { setIsAdding(false); setNewLeg({ name: '', summary: '', url: '' }); }}>
+            <Button variant="outline" onClick={() => { setIsAdding(false); setNewLeg(EMPTY_FORM); }}>
               Cancelar
             </Button>
             <Button onClick={handleAdd} disabled={!newLeg.name}>
@@ -205,6 +281,31 @@ export function LegislationsManager() {
                     onChange={(e) => setEditForm({ ...editForm, url: e.target.value })}
                     placeholder="URL do documento (opcional)"
                   />
+                  <div className="flex flex-wrap items-center gap-3">
+                    <input
+                      maxLength={2}
+                      className="w-24 p-2 rounded-lg border border-gray-200 text-sm uppercase focus:ring-2 focus:ring-primary-400 outline-none"
+                      value={editForm.uf}
+                      onChange={(e) => setEditForm({ ...editForm, uf: e.target.value })}
+                      placeholder="UF"
+                    />
+                    <div className="flex flex-wrap gap-1.5">
+                      {SEGMENT_OPTIONS.map(opt => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => toggleSegment(setEditForm, opt.value)}
+                          className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors ${
+                            editForm.segments.includes(opt.value)
+                              ? 'bg-primary-50 border-primary-300 text-primary-700'
+                              : 'bg-gray-50 border-gray-200 text-gray-400'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <div className="flex gap-2 justify-end pt-1">
                     <Button variant="ghost" size="sm" onClick={() => setEditingId(null)}>
                       <X className="h-4 w-4 mr-1" /> Cancelar
@@ -262,6 +363,20 @@ export function LegislationsManager() {
                   <p className="text-sm text-gray-500 line-clamp-3 mb-3">
                     {leg.summary || 'Sem resumo disponível.'}
                   </p>
+                  {(leg.uf || (leg.segments && leg.segments.length > 0)) && (
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      {leg.uf && (
+                        <span className="text-[10px] font-bold uppercase tracking-wide bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full">
+                          {leg.uf}
+                        </span>
+                      )}
+                      {(leg.segments || []).map(seg => (
+                        <span key={seg} className="text-[10px] font-bold uppercase tracking-wide bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">
+                          {SEGMENT_OPTIONS.find(o => o.value === seg)?.label || seg}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   <div className="flex items-center justify-between">
                     <div className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">
                       {!isDefaultEntry(leg.id) && `Adicionado em: ${new Date(leg.created_at).toLocaleDateString('pt-BR')}`}

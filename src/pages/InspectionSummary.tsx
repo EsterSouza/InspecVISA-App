@@ -819,6 +819,8 @@ export function InspectionSummary() {
           onClose={() => setShowPdfModal(false)}
           template={displayTemplate}
           responses={reportResponses}
+          inspection={currentInspection}
+          legislationLibrary={legislations}
           onGenerate={handleGeneratePDF}
           isGenerating={isGenerating}
           progressLabel={pdfPhotoProgress ? `Fotos ${pdfPhotoProgress.completed + pdfPhotoProgress.failed}/${pdfPhotoProgress.total}` : undefined}

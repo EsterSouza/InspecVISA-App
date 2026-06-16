@@ -35,6 +35,7 @@ export interface ClientPortalAccountRow {
   payment_link: string | null;
   payment_links: PaymentLinkOption[];
   payment_due_date: string | null;
+  scheduling_suspended: boolean;
 }
 
 export interface PaymentLinkOption {
@@ -56,6 +57,13 @@ export interface PaymentLinkEmailPayload {
   paymentLink: string;
   paymentType: 'monthly' | 'one_time' | null;
   dueDate?: string | null;
+}
+
+export interface PaymentOverdueEmailPayload {
+  email: string;
+  accountName: string;
+  dueDate?: string | null;
+  paymentLink?: string | null;
 }
 
 export interface ReportAvailableNotificationPayload {
@@ -628,7 +636,7 @@ export const AppointmentAdminService = {
     let { data, error }: { data: any[] | null; error: any } = await withTimeout(
       supabase
         .from('client_portal_accounts')
-        .select('id, name, email, username, portal_token, access_code_plain, is_active, created_at, payment_type, payment_status, payment_link, payment_links, payment_due_date, client_portal_account_clients(client_id)')
+        .select('id, name, email, username, portal_token, access_code_plain, is_active, created_at, payment_type, payment_status, payment_link, payment_links, payment_due_date, scheduling_suspended, client_portal_account_clients(client_id)')
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false }),
       'AcessosPortal'
@@ -668,6 +676,7 @@ export const AppointmentAdminService = {
       payment_link: row.payment_link ?? null,
       payment_links: Array.isArray(row.payment_links) ? row.payment_links : [],
       payment_due_date: row.payment_due_date ?? null,
+      scheduling_suspended: row.scheduling_suspended ?? false,
     }));
   },
 
@@ -706,6 +715,29 @@ export const AppointmentAdminService = {
       p_due_date: params.dueDate || null,
       p_links: params.links || [],
     });
+    if (error) throw error;
+  },
+
+  async setSchedulingSuspended(accountId: string, suspended: boolean): Promise<void> {
+    const { error } = await supabase.rpc('admin_set_portal_scheduling_suspended', {
+      p_account_id: accountId,
+      p_suspended: suspended,
+    });
+    if (error) throw error;
+  },
+
+  async setReportHidden(requestId: string, hidden: boolean): Promise<void> {
+    await this.updateRequest(requestId, { report_hidden: hidden } as Partial<AppointmentRequest>);
+  },
+
+  async sendPaymentOverdueEmail(payload: PaymentOverdueEmailPayload): Promise<void> {
+    const { error } = await withTimeout(
+      supabase.functions.invoke('notify-payment-overdue', {
+        body: payload,
+      }),
+      'EmailCobrancaAtraso',
+      30000
+    );
     if (error) throw error;
   },
 

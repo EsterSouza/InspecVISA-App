@@ -62,6 +62,7 @@ export interface ClientPortalPayment {
 
 export interface ClientPortalOverview {
   account_name: string;
+  scheduling_suspended?: boolean;
   payment?: ClientPortalPayment;
   units: ClientPortalUnit[];
 }

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   Building2,
   CalendarDays,
+  CalendarOff,
   CalendarPlus,
   CheckCircle2,
   ChevronLeft,
@@ -453,13 +454,28 @@ export function ClientPortal() {
           </div>
         )}
 
-        <Link
-          to="/agendar"
-          className="mb-8 flex w-full items-center justify-center gap-2 rounded-md bg-primary-700 px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-800"
-        >
-          <CalendarPlus className="h-4 w-4" />
-          Agendar nova inspeção
-        </Link>
+        {overview.scheduling_suspended ? (
+          <div className="mb-8 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            <div className="flex items-start gap-2">
+              <CalendarOff className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
+              <div>
+                <p className="font-bold">Agendamentos suspensos</p>
+                <p className="mt-1 text-red-700">
+                  Os novos agendamentos estão temporariamente suspensos por pendência de pagamento.
+                  Regularize o pagamento para liberar o agendamento de novas inspeções.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <Link
+            to="/agendar"
+            className="mb-8 flex w-full items-center justify-center gap-2 rounded-md bg-primary-700 px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-800"
+          >
+            <CalendarPlus className="h-4 w-4" />
+            Agendar nova inspeção
+          </Link>
+        )}
 
         <section className="mb-8 rounded-xl border border-gray-200 bg-white p-3 shadow-sm sm:p-4">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

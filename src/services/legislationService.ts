@@ -1,12 +1,49 @@
 import { supabase } from '../lib/supabase';
 import { withTimeout } from '../utils/network';
 
+export type LegislationSegment = 'estetica' | 'ilpi' | 'alimentos' | 'saude';
+
 export interface Legislation {
   id: string;
   name: string;
   summary?: string;
   url?: string;
+  /** UF de abrangência (ex.: 'RJ', 'MG', 'SP'). Vazio/null = federal/nacional. */
+  uf?: string | null;
+  /** Segmentos aplicáveis. Vazio/null = aplica a todos os segmentos. */
+  segments?: LegislationSegment[] | null;
   created_at: string;
+}
+
+/**
+ * Decide se uma legislação da biblioteca deve ser sugerida automaticamente
+ * para uma inspeção, com base na UF e na categoria do estabelecimento.
+ * - Estaduais/municipais (uf preenchida) só entram quando a UF bate.
+ * - Federais (uf vazia) só entram quando o segmento foi curado para a categoria.
+ */
+export function isLegislationApplicable(
+  leg: Pick<Legislation, 'uf' | 'segments'>,
+  state?: string | null,
+  category?: string | null
+): boolean {
+  const ufNorm = (leg.uf || '').trim().toUpperCase();
+  const stateNorm = (state || '').trim().toUpperCase();
+  const stateAliases = stateNorm === 'RIO DE JANEIRO' ? 'RJ'
+    : stateNorm === 'MINAS GERAIS' ? 'MG'
+    : stateNorm === 'SAO PAULO' || stateNorm === 'SÃO PAULO' ? 'SP'
+    : stateNorm;
+  const segments = leg.segments || [];
+  const segmentMatches = segments.length === 0
+    ? false // federais sem segmento curado não inflam a lista; entram via citação no item
+    : !!category && segments.includes(category as LegislationSegment);
+
+  if (ufNorm) {
+    // Estadual/municipal: precisa casar a UF; se tiver segmento curado, respeita-o.
+    if (ufNorm !== stateAliases) return false;
+    return segments.length === 0 ? true : (!!category && segments.includes(category as LegislationSegment));
+  }
+  // Federal: sugere apenas as curadas para o segmento da inspeção.
+  return segmentMatches;
 }
 
 const LEGISLATION_QUERY_TIMEOUT_MS = 2500;
@@ -15,17 +52,20 @@ const DEFAULT_LEGISLATIONS: Omit<Legislation, 'id' | 'created_at'>[] = [
   {
     name: "RDC ANVISA nº 502/2021",
     summary: "Dispõe sobre o funcionamento de Instituição de Longa Permanência para Idosos (ILPI) e dá outras providências.",
-    url: "https://www.in.gov.br/en/web/dou/-/resolucao-rdc-n-502-de-27-de-maio-de-2021-323004654"
+    url: "https://www.in.gov.br/en/web/dou/-/resolucao-rdc-n-502-de-27-de-maio-de-2021-323004654",
+    segments: ['ilpi'],
   },
   {
     name: "RDC ANVISA nº 216/2004",
     summary: "Dispõe sobre Regulamento Técnico de Boas Práticas para Serviços de Alimentação.",
-    url: "https://bvsms.saude.gov.br/bvs/saudelegis/anvisa/2004/res0216_15_09_2004.html"
+    url: "https://bvsms.saude.gov.br/bvs/saudelegis/anvisa/2004/res0216_15_09_2004.html",
+    segments: ['alimentos'],
   },
   {
     name: "RDC ANVISA nº 63/2011",
     summary: "Dispõe sobre os Requisitos de Boas Práticas de Funcionamento para os Serviços de Saúde.",
-    url: "https://bvsms.saude.gov.br/bvs/saudelegis/anvisa/2011/res0063_25_11_2011.html"
+    url: "https://bvsms.saude.gov.br/bvs/saudelegis/anvisa/2011/res0063_25_11_2011.html",
+    segments: ['saude', 'estetica'],
   },
   {
     name: "RDC ANVISA nº 15/2012",
@@ -35,7 +75,8 @@ const DEFAULT_LEGISLATIONS: Omit<Legislation, 'id' | 'created_at'>[] = [
   {
     name: "RDC ANVISA nº 222/2018",
     summary: "Regulamenta as Boas Práticas de Gerenciamento dos Resíduos de Serviços de Saúde e dá outras providências.",
-    url: "https://www.in.gov.br/materia/-/asset_publisher/Kujrw0TZC2Mb/content/id/25158812"
+    url: "https://www.in.gov.br/materia/-/asset_publisher/Kujrw0TZC2Mb/content/id/25158812",
+    segments: ['ilpi', 'saude', 'estetica'],
   },
   {
     name: "RDC ANVISA nº 36/2013",
@@ -55,12 +96,14 @@ const DEFAULT_LEGISLATIONS: Omit<Legislation, 'id' | 'created_at'>[] = [
   {
     name: "Lei Federal nº 10.741/2003",
     summary: "Dispõe sobre o Estatuto da Pessoa Idosa e dá outras providências.",
-    url: "https://www.planalto.gov.br/ccivil_03/leis/2003/l10.741compilado.htm"
+    url: "https://www.planalto.gov.br/ccivil_03/leis/2003/l10.741compilado.htm",
+    segments: ['ilpi'],
   },
   {
     name: "Lei Federal nº 14.423/2022",
     summary: "Atualiza a nomenclatura legal de idoso para pessoa idosa no Estatuto da Pessoa Idosa.",
-    url: "https://www.planalto.gov.br/ccivil_03/_Ato2019-2022/2022/Lei/L14423.htm"
+    url: "https://www.planalto.gov.br/ccivil_03/_Ato2019-2022/2022/Lei/L14423.htm",
+    segments: ['ilpi'],
   },
   {
     name: "Lei Federal nº 8.080/1990",
@@ -70,7 +113,8 @@ const DEFAULT_LEGISLATIONS: Omit<Legislation, 'id' | 'created_at'>[] = [
   {
     name: "Lei Federal nº 8.842/1994",
     summary: "Institui a Política Nacional do Idoso e orienta ações para autonomia e integração social.",
-    url: "https://www.planalto.gov.br/ccivil_03/leis/l8842.htm"
+    url: "https://www.planalto.gov.br/ccivil_03/leis/l8842.htm",
+    segments: ['ilpi'],
   },
   {
     name: "Lei Federal nº 8.078/1990",
@@ -90,62 +134,78 @@ const DEFAULT_LEGISLATIONS: Omit<Legislation, 'id' | 'created_at'>[] = [
   {
     name: "Portaria CVS 5/2013",
     summary: "Regulamento técnico sobre boas práticas para estabelecimentos comerciais de alimentos e para serviços de alimentação do Estado de São Paulo.",
-    url: "https://www.cvs.saude.sp.gov.br/zip/A_Portaria%20CVS%205_2013.pdf"
+    url: "https://www.cvs.saude.sp.gov.br/zip/A_Portaria%20CVS%205_2013.pdf",
+    uf: 'SP',
+    segments: ['alimentos'],
   },
   {
     name: "NR-32",
     summary: "Segurança e Saúde no Trabalho em Serviços de Saúde.",
-    url: "https://www.gov.br/trabalho-e-emprego/pt-br/composicao/secretaria-de-trabalho/sst/normas-regulamentadoras/nr-32.pdf"
+    url: "https://www.gov.br/trabalho-e-emprego/pt-br/composicao/secretaria-de-trabalho/sst/normas-regulamentadoras/nr-32.pdf",
+    segments: ['saude', 'estetica', 'ilpi'],
   },
   {
     name: "ABNT NBR 9050",
     summary: "Acessibilidade a edificações, mobiliário, espaços e equipamentos urbanos.",
-    url: "https://www.abntcatalogo.com.br/norma.aspx?ID=461488"
+    url: "https://www.abntcatalogo.com.br/norma.aspx?ID=461488",
+    segments: ['ilpi', 'saude', 'estetica'],
   },
   {
     name: "Lei Ordinária RJ nº 8.049/2018",
     summary: "Dispõe sobre as Instituições de Longa Permanência para Idosos (ILPI) no Estado do Rio de Janeiro.",
-    url: "https://leisestaduais.com.br/rj/lei-ordinaria-n-8049-2018-rio-de-janeiro-estabelece-normas-para-o-funcionamento-das-instituicoes-de-longa-permanencia-de-idosos-ilpis-no-ambito-do-estado-do-rio-de-janeiro"
+    url: "https://leisestaduais.com.br/rj/lei-ordinaria-n-8049-2018-rio-de-janeiro-estabelece-normas-para-o-funcionamento-das-instituicoes-de-longa-permanencia-de-idosos-ilpis-no-ambito-do-estado-do-rio-de-janeiro",
+    uf: 'RJ',
+    segments: ['ilpi'],
   },
   {
     name: "Portaria SMS nº 12/2015 - Belo Horizonte",
     summary: "Estabelece o padrão mínimo de funcionamento das ILPIs no município de Belo Horizonte.",
-    url: "https://www.legisweb.com.br/legislacao/?id=283029"
+    url: "https://www.legisweb.com.br/legislacao/?id=283029",
+    uf: 'MG',
+    segments: ['ilpi'],
   },
   {
     name: "Lei Municipal nº 7.031/1996 - Belo Horizonte",
     summary: "Institui o Código Sanitário Municipal de Belo Horizonte e dá base à fiscalização sanitária.",
-    url: "https://leismunicipais.com.br/a/mg/b/belo-horizonte/lei-ordinaria/1996/704/7031/lei-ordinaria-n-7031-1996-dispoe-sobre-a-normatizacao-complementar-dos-procedimentos-relativos-a-saude-pelo-codigo-sanitario-municipal-e-da-outras-providencias"
+    url: "https://leismunicipais.com.br/a/mg/b/belo-horizonte/lei-ordinaria/1996/704/7031/lei-ordinaria-n-7031-1996-dispoe-sobre-a-normatizacao-complementar-dos-procedimentos-relativos-a-saude-pelo-codigo-sanitario-municipal-e-da-outras-providencias",
+    uf: 'MG',
   },
   {
     name: "Decreto Municipal nº 17.944/2022 - Belo Horizonte",
     summary: "Regulamenta os procedimentos para concessão do Alvará de Autorização Sanitária em Belo Horizonte.",
-    url: "https://www.legisweb.com.br/legislacao/?legislacao=430959"
+    url: "https://www.legisweb.com.br/legislacao/?legislacao=430959",
+    uf: 'MG',
   },
   {
     name: "Portaria SMSA/SUS-BH nº 0221/2022",
     summary: "Define os procedimentos do licenciamento sanitário e classificação de risco em Belo Horizonte.",
-    url: "https://visabh.webnode.page/portarias-visa-bh-/"
+    url: "https://visabh.webnode.page/portarias-visa-bh-/",
+    uf: 'MG',
   },
   {
     name: "Resolução SES/MG nº 7.426/2021",
     summary: "Estabelece regras estaduais de licenciamento sanitário e prazos de liberação em Minas Gerais.",
-    url: "https://www.saude.mg.gov.br/wp-content/uploads/2020/11/2.-Resolucao-n-7426_2021%E2%80%AF-1de.pdf"
+    url: "https://www.saude.mg.gov.br/wp-content/uploads/2020/11/2.-Resolucao-n-7426_2021%E2%80%AF-1de.pdf",
+    uf: 'MG',
   },
   {
     name: "Lei Municipal nº 7.930/1999 - Belo Horizonte",
     summary: "Institui a Política Municipal do Idoso em Belo Horizonte.",
-    url: "https://leismunicipais.com.br/a/mg/b/belo-horizonte/lei-ordinaria/1999/793/7930/lei-ordinaria-n-7930-1999-institui-a-politica-municipal-do-idoso"
+    url: "https://leismunicipais.com.br/a/mg/b/belo-horizonte/lei-ordinaria/1999/793/7930/lei-ordinaria-n-7930-1999-institui-a-politica-municipal-do-idoso",
+    uf: 'MG',
+    segments: ['ilpi'],
   },
   {
     name: "Resolução CNDI nº 33/2017",
     summary: "Define diretrizes para contrato de prestação de serviços entre ILPI ou casa-lar e pessoa idosa.",
-    url: "https://www.gov.br/participamaisbrasil/resolucao-n-33-de-24-de-maio-de-2017"
+    url: "https://www.gov.br/participamaisbrasil/resolucao-n-33-de-24-de-maio-de-2017",
+    segments: ['ilpi'],
   },
   {
     name: "CBO 5162-10 - Cuidador de Idosos",
     summary: "Descreve a ocupação de cuidador de idosos e suas atividades gerais de cuidado e apoio.",
-    url: "https://www.ocupacoes.com.br/cbo-mte/516210-cuidador-de-idosos"
+    url: "https://www.ocupacoes.com.br/cbo-mte/516210-cuidador-de-idosos",
+    segments: ['ilpi'],
   },
   {
     name: "Resolução COFEN nº 619/2019",
