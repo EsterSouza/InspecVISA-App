@@ -61,6 +61,20 @@ const STATUS_BADGES: Record<string, string> = {
 };
 
 const ACTIVE_VISIT_STATUSES = new Set(['requested', 'confirmed', 'in_progress', 'rescheduled', 'completed']);
+
+// Visitas ainda não entregues: quando a conta está suspensa por pagamento,
+// exibem "Suspenso" no portal (apenas visual; o status real no banco é preservado).
+const SUSPENDABLE_VISIT_STATUSES = new Set(['requested', 'confirmed', 'in_progress', 'rescheduled']);
+
+function visitDisplayStatus(status: string, suspended: boolean): { label: string; badge: string } {
+  if (suspended && SUSPENDABLE_VISIT_STATUSES.has(status)) {
+    return { label: 'Suspenso', badge: 'bg-red-100 text-red-700' };
+  }
+  return {
+    label: STATUS_LABELS[status] || status,
+    badge: STATUS_BADGES[status] || 'bg-gray-100 text-gray-500',
+  };
+}
 const CALENDAR_WEEKDAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'];
 
 function toDateKey(date: Date): string {
@@ -250,6 +264,7 @@ export function ClientPortal() {
   }
 
   // ─── Painel do cliente ───────────────────────────────────────
+  const schedulingSuspended = !!overview.scheduling_suspended;
   const totalVisits = overview.units.reduce((sum, u) => sum + u.visits.length, 0);
   const allVisits = overview.units.flatMap((unit) =>
     unit.visits.map((visit) => ({ ...visit, unitName: unit.client_name, city: unit.city }))
@@ -575,7 +590,7 @@ export function ClientPortal() {
                               key={visit.public_token}
                               to={`/cliente/visita/${visit.public_token}`}
                               className="block truncate rounded bg-white/80 px-1.5 py-1 text-[10px] font-semibold text-primary-900 shadow-sm"
-                              title={`${visit.unitName} - ${STATUS_LABELS[visit.status] || visit.status}`}
+                              title={`${visit.unitName} - ${visitDisplayStatus(visit.status, schedulingSuspended).label}`}
                             >
                               {visit.requested_time ? `${visit.requested_time} ` : ''}{visit.unitName}
                             </Link>
@@ -614,15 +629,15 @@ export function ClientPortal() {
                               <p className="truncate text-sm font-semibold text-gray-900">{visit.unitName}</p>
                               <p className="text-xs text-gray-500">
                                 {visit.requested_time ? `${visit.requested_time} · ` : ''}
-                                {STATUS_LABELS[visit.status] || visit.status}
+                                {visitDisplayStatus(visit.status, schedulingSuspended).label}
                               </p>
                             </div>
                             <span
                               className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
-                                STATUS_BADGES[visit.status] || 'bg-gray-100 text-gray-500'
+                                visitDisplayStatus(visit.status, schedulingSuspended).badge
                               }`}
                             >
-                              {STATUS_LABELS[visit.status] || visit.status}
+                              {visitDisplayStatus(visit.status, schedulingSuspended).label}
                             </span>
                           </Link>
                         </li>
@@ -716,10 +731,10 @@ export function ClientPortal() {
                           </span>
                           <span
                             className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
-                              STATUS_BADGES[visit.status] || 'bg-gray-100 text-gray-500'
+                              visitDisplayStatus(visit.status, schedulingSuspended).badge
                             }`}
                           >
-                            {STATUS_LABELS[visit.status] || visit.status}
+                            {visitDisplayStatus(visit.status, schedulingSuspended).label}
                           </span>
                         </Link>
                       </li>
