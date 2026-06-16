@@ -47,12 +47,16 @@ Deno.serve(async (req) => {
 
     const { data: account, error: accountError } = await admin
       .from('client_portal_accounts')
-      .select('id, name')
+      .select('id, name, scheduling_suspended, payment_link, payment_due_date')
       .eq('portal_token', accountToken)
       .eq('is_active', true)
       .maybeSingle();
     if (accountError) throw accountError;
     if (!account) return jsonResponse({ error: 'acesso invalido' }, { status: 403 });
+
+    // Conta suspensa por pagamento: o cliente continua vendo que há relatorio/arquivos,
+    // mas eles ficam bloqueados (sem URL assinada para abrir/baixar).
+    const locked = account.scheduling_suspended === true;
 
     const { data: requestRow, error: requestError } = await admin
       .from('appointment_requests')
@@ -92,7 +96,8 @@ Deno.serve(async (req) => {
 
     const assets = await Promise.all(visibleRows.map(async (asset) => {
       let signedUrl: string | undefined;
-      if (asset.storage_bucket && asset.storage_path) {
+      // Suspenso: nao gera URL assinada (bloqueia abrir/baixar), mas mantem o item visivel.
+      if (!locked && asset.storage_bucket && asset.storage_path) {
         const { data } = await admin.storage
           .from(asset.storage_bucket)
           .createSignedUrl(asset.storage_path, 60 * 60);
@@ -122,6 +127,9 @@ Deno.serve(async (req) => {
         report_due_at: requestRow.report_due_at,
         report_due_source: requestRow.report_due_source,
         notes: requestRow.notes,
+        scheduling_suspended: locked,
+        payment_link: account.payment_link || null,
+        payment_due_date: account.payment_due_date || null,
         has_personalized_sanitary_folder: clientRow?.has_personalized_sanitary_folder || false,
         personalized_sanitary_folder_url: clientRow?.personalized_sanitary_folder_url || null,
         created_at: requestRow.created_at,

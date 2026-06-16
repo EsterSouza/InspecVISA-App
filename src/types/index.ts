@@ -492,6 +492,10 @@ export interface PublicAppointmentStatusResult {
   notes?: string | null;
   has_personalized_sanitary_folder?: boolean;
   personalized_sanitary_folder_url?: string | null;
+  /** Conta suspensa por pendência de pagamento: relatório/arquivos ficam bloqueados (visíveis, sem abrir/baixar). */
+  scheduling_suspended?: boolean;
+  payment_link?: string | null;
+  payment_due_date?: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -15,6 +15,7 @@ import {
   FolderOpen,
   Image as ImageIcon,
   Loader2,
+  Lock,
   MapPin,
   Monitor,
   Paperclip,
@@ -172,6 +173,11 @@ export function PublicAppointmentStatus() {
   const reportPdf = assets.find((a) => a.kind === 'report_pdf' && a.signed_url);
   const photos = assets.filter((a) => a.kind === 'photo' && a.signed_url);
   const attachments = assets.filter((a) => a.kind === 'attachment');
+  // Suspensão por pagamento: itens ficam visíveis (contam), porém bloqueados (sem signed_url).
+  const suspended = !!status.scheduling_suspended;
+  const hasReport = assets.some((a) => a.kind === 'report_pdf');
+  const photoCount = assets.filter((a) => a.kind === 'photo').length;
+  const hasDeliverables = hasReport || photoCount > 0 || attachments.length > 0;
   const accountToken = clientPortalService.getStoredToken();
   const auditAsset = (
     eventType: 'report_download_clicked' | 'attachment_download_clicked' | 'photo_download_clicked',
@@ -232,6 +238,42 @@ export function PublicAppointmentStatus() {
                   <p className="mt-0.5 text-xs text-amber-700">{status.notes}</p>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {suspended && (
+          <div className="mb-6 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
+            <Lock className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-red-700">Acesso suspenso por pendência de pagamento</p>
+              <p className="mt-0.5 text-xs text-red-600">
+                O relatório, as fotos e os anexos desta inspeção estão temporariamente bloqueados
+                por falta de pagamento. Regularize o pagamento para liberar o acesso aos arquivos.
+              </p>
+              {status.payment_due_date && (
+                <p className="mt-1 text-xs font-semibold text-red-700">
+                  Vencimento: {formatDateBR(status.payment_due_date)}
+                </p>
+              )}
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Link
+                  to="/cliente"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50"
+                >
+                  <Home className="h-3.5 w-3.5" /> Ver pagamento no portal
+                </Link>
+                {status.payment_link && (
+                  <a
+                    href={status.payment_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700"
+                  >
+                    Pagar agora
+                  </a>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -371,7 +413,7 @@ export function PublicAppointmentStatus() {
         )}
 
         {/* Relatório e anexos — só exibe quando há algo publicado ou quando o status indica disponibilidade */}
-        {(status.status === 'report_available' || reportPdf || photos.length > 0 || attachments.length > 0) ? (
+        {(status.status === 'report_available' || hasDeliverables) ? (
         <section className="mb-6 rounded-2xl border border-green-100 bg-white p-5 shadow-sm">
             <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-green-700">
               Relatório, fotos e anexos
@@ -388,13 +430,24 @@ export function PublicAppointmentStatus() {
                 <Download className="h-4 w-4" />
                 Baixar relatório (PDF)
               </a>
+            ) : suspended && hasReport ? (
+              <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
+                <Lock className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
+                <div>
+                  <p className="text-sm font-semibold text-red-700">Relatório disponível — bloqueado</p>
+                  <p className="mt-0.5 text-xs text-red-600">
+                    O relatório desta inspeção já está pronto, mas o acesso está bloqueado por
+                    pendência de pagamento. Regularize o pagamento para liberar o download.
+                  </p>
+                </div>
+              </div>
             ) : status.status === 'report_available' ? (
               <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
                 O relatório está sendo disponibilizado. Atualize a página em alguns instantes.
               </div>
             ) : null}
 
-            {photos.length > 0 && (
+            {photos.length > 0 ? (
               <div className="mt-6">
                 <h4 className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-gray-500">
                   <span>Fotos da inspeção</span>
@@ -417,7 +470,18 @@ export function PublicAppointmentStatus() {
                   Ver galeria de fotos ({photos.length})
                 </button>
               </div>
-            )}
+            ) : suspended && photoCount > 0 ? (
+              <div className="mt-6">
+                <h4 className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  <span>Fotos da inspeção</span>
+                  <span className="text-gray-400">{photoCount} foto{photoCount === 1 ? '' : 's'}</span>
+                </h4>
+                <div className="flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-3 text-sm font-semibold text-red-600">
+                  <Lock className="h-4 w-4" />
+                  Galeria bloqueada por pendência de pagamento
+                </div>
+              </div>
+            ) : null}
 
             {attachments.length > 0 && (
               <div className="mt-6">
@@ -442,10 +506,10 @@ export function PublicAppointmentStatus() {
                           <Download className="h-4 w-4 shrink-0 text-gray-400" />
                         </a>
                       ) : (
-                        <div className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 p-3 opacity-60">
-                          {attachmentIcon(asset)}
+                        <div className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 p-3 opacity-70">
+                          {suspended ? <Lock className="h-5 w-5 shrink-0 text-red-500" /> : attachmentIcon(asset)}
                           <span className="min-w-0 flex-1 truncate text-sm text-gray-500">
-                            {asset.file_name || 'Anexo'} (indisponível)
+                            {asset.file_name || 'Anexo'} {suspended ? '(bloqueado por pagamento)' : '(indisponível)'}
                           </span>
                         </div>
                       )}
