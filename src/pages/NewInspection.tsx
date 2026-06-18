@@ -148,6 +148,25 @@ export function NewInspection() {
     };
   }, [selectedClient, inspectionDate, step]);
 
+  // Pré-preenche dados ILPI (capacidade, residentes, graus) a partir do último relatório do cliente.
+  useEffect(() => {
+    if (!selectedClient || selectedClient.category !== 'ilpi') return;
+    let active = true;
+    void InspectionService.getLatestIlpiDefaults(selectedClient.id).then((d) => {
+      if (!active || !d) return;
+      setIlpiCapacity((prev) => prev || (d.ilpiCapacity ? String(d.ilpiCapacity) : ''));
+      setResidentsTotal((prev) => prev || (d.residentsTotal ? String(d.residentsTotal) : ''));
+      setDep1((prev) => prev || (d.dependencyLevel1 ? String(d.dependencyLevel1) : ''));
+      setDep2((prev) => prev || (d.dependencyLevel2 ? String(d.dependencyLevel2) : ''));
+      setDep3((prev) => prev || (d.dependencyLevel3 ? String(d.dependencyLevel3) : ''));
+    }).catch((err) => console.warn('[NewInspection] Pré-preenchimento ILPI falhou:', err));
+    return () => { active = false; };
+  }, [selectedClient]);
+
+  const grausSum = (parseInt(dep1) || 0) + (parseInt(dep2) || 0) + (parseInt(dep3) || 0);
+  const residentsNum = parseInt(residentsTotal) || 0;
+  const grausMismatch = residentsNum > 0 && grausSum > 0 && grausSum !== residentsNum;
+
   const continueExistingInspection = (inspection: Inspection) => {
     navigate('/execute', {
       state: {
@@ -448,10 +467,22 @@ export function NewInspection() {
               {selectedClient.category === 'ilpi' && (
                 <div className="space-y-4 pt-4 border-t border-gray-50">
                    <label className="text-xs font-bold uppercase text-gray-400 tracking-widest">Dados do ILPI</label>
+                   <p className="text-xs text-gray-400 -mt-2">Pré-preenchido a partir do último relatório, se houver. Confira e ajuste.</p>
                    <div className="grid grid-cols-2 gap-4">
                       <input type="number" placeholder="Capacidade" className="h-11 px-4 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-primary-500 outline-none" value={ilpiCapacity} onChange={(e) => setIlpiCapacity(e.target.value)} />
                       <input type="number" placeholder="Total Residentes" className="h-11 px-4 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-primary-500 outline-none" value={residentsTotal} onChange={(e) => setResidentsTotal(e.target.value)} />
                    </div>
+                   <label className="text-[11px] font-bold uppercase text-gray-400 tracking-widest">Residentes por grau de dependência</label>
+                   <div className="grid grid-cols-3 gap-4">
+                      <input type="number" placeholder="Grau I" className="h-11 px-4 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-primary-500 outline-none" value={dep1} onChange={(e) => setDep1(e.target.value)} />
+                      <input type="number" placeholder="Grau II" className="h-11 px-4 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-primary-500 outline-none" value={dep2} onChange={(e) => setDep2(e.target.value)} />
+                      <input type="number" placeholder="Grau III" className="h-11 px-4 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-primary-500 outline-none" value={dep3} onChange={(e) => setDep3(e.target.value)} />
+                   </div>
+                   {grausMismatch && (
+                     <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+                       A soma dos graus ({grausSum}) está diferente do total de residentes ({residentsNum}). Revise antes de iniciar.
+                     </p>
+                   )}
                 </div>
               )}
 

@@ -12,6 +12,10 @@ interface ILPIStaffCalculatorProps {
   usableAreaM2?: number;
   currentCleaningStaff?: number;
   isRJ?: boolean;
+  /** Total de residentes informado na inspeção, para checar consistência com os graus. */
+  residentsTotal?: number;
+  /** Quando informado, exibe botão que registra a não-conformidade de dimensionamento. */
+  onRegisterFinding?: (finding: { situation: string; action: string }) => void;
 }
 
 function StatusIcon({ ok }: { ok: boolean }) {
@@ -37,6 +41,8 @@ export function ILPIStaffCalculator({
   usableAreaM2 = 0,
   currentCleaningStaff = 0,
   isRJ = false,
+  residentsTotal = 0,
+  onRegisterFinding,
 }: ILPIStaffCalculatorProps) {
   const hasResidents = level1 + level2 + level3 > 0;
   const summary = calculateILPIStaffing({
@@ -49,6 +55,34 @@ export function ILPIStaffCalculator({
     observedCleaningStaff: currentCleaningStaff,
     isRJ,
   });
+
+  const grausSum = level1 + level2 + level3;
+  const residentsMismatch = residentsTotal > 0 && grausSum > 0 && grausSum !== residentsTotal;
+  const d3 = isRJ ? 8 : 6; // divisor do Grau III (RJ 1:8, federal 1:6)
+
+  // Texto pronto da não-conformidade de dimensionamento (situação + ação).
+  const buildFinding = () => {
+    const partsSit: string[] = [];
+    const partsAct: string[] = [];
+    if (!summary.caregiversOk) {
+      const falta = summary.caregivers.total - currentCaregivers;
+      partsSit.push(`cuidadores: observados ${currentCaregivers}, mínimo exigido ${summary.caregivers.total} por turno (déficit de ${falta})`);
+      partsAct.push(`incluir ao menos ${falta} cuidador(es) por turno`);
+    }
+    if (isRJ && !summary.nursingTechsOk && summary.nursingTechs.total > 0) {
+      const falta = summary.nursingTechs.total - currentNursingTechs;
+      partsSit.push(`técnicos de enfermagem: observados ${currentNursingTechs}, mínimo ${summary.nursingTechs.total} por turno (déficit de ${falta})`);
+      partsAct.push(`incluir ao menos ${falta} técnico(s) de enfermagem por turno`);
+    }
+    if (!summary.cleaningStaffOk && summary.cleaningStaff.total > 0) {
+      const falta = summary.cleaningStaff.total - currentCleaningStaff;
+      partsSit.push(`profissionais de limpeza: observados ${currentCleaningStaff}, mínimo ${summary.cleaningStaff.total} (déficit de ${falta})`);
+      partsAct.push(`incluir ao menos ${falta} profissional(is) de limpeza por turno`);
+    }
+    const situation = `Dimensionamento de pessoal insuficiente conforme ${summary.legalBase}: ${partsSit.join('; ')}.`;
+    const action = `Adequar o quadro de pessoal ao mínimo legal: ${partsAct.join('; ')}, mantendo registro de escala por turno.`;
+    return { situation, action };
+  };
 
   if (!hasResidents) {
     return (
@@ -68,6 +102,12 @@ export function ILPIStaffCalculator({
 
   return (
     <div className="space-y-3">
+      {residentsMismatch && (
+        <p className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-[11px] font-medium text-amber-700">
+          <Info className="mt-0.5 h-4 w-4 shrink-0" />
+          A soma dos graus ({grausSum}) é diferente do total de residentes informado ({residentsTotal}). Revise os números.
+        </p>
+      )}
       <Card className={summary.caregiversOk ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}>
         <CardContent className="space-y-3 p-4">
           <div className="flex items-center justify-between">
@@ -83,6 +123,12 @@ export function ILPIStaffCalculator({
             <div className="rounded bg-white/60 p-2">{caregiverRatios[1]}<br /><span className="text-base text-gray-800">{summary.caregivers.grau2}</span></div>
             <div className="rounded bg-white/60 p-2">{caregiverRatios[2]}<br /><span className="text-base text-gray-800">{summary.caregivers.grau3}</span></div>
           </div>
+
+          <p className="rounded bg-white/60 p-2 text-[10px] leading-relaxed text-gray-600">
+            <span className="font-bold uppercase tracking-wide text-gray-500">Memória de cálculo: </span>
+            Grau I {level1}÷20={summary.caregivers.grau1} · Grau II {level2}÷10={summary.caregivers.grau2} · Grau III {level3}÷{d3}={summary.caregivers.grau3}
+            {' '}→ mínimo <span className="font-bold text-gray-800">{summary.caregivers.total}</span> cuidador(es)/turno.
+          </p>
 
           <div className="flex items-end justify-between border-t border-gray-200 pt-3">
             <div>
@@ -155,6 +201,17 @@ export function ILPIStaffCalculator({
         <p className="rounded bg-red-100 p-2 text-[11px] font-medium text-red-700">
           Atencao: ha nao conformidade no dimensionamento de pessoal. Tecnico de enfermagem nao substitui cuidador no calculo de cuidadores.
         </p>
+      )}
+
+      {!summary.allOk && onRegisterFinding && (
+        <button
+          type="button"
+          onClick={() => onRegisterFinding(buildFinding())}
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-red-700"
+        >
+          <AlertTriangle className="h-4 w-4" />
+          Registrar não-conformidade do dimensionamento
+        </button>
       )}
     </div>
   );

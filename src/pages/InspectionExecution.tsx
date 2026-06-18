@@ -437,6 +437,60 @@ export function InspectionExecution() {
     }
   }, []);
 
+  // Registra (ou atualiza) a não-conformidade de dimensionamento na seção de RH,
+  // com situação/ação já preenchidas pela calculadora. Reaproveita o mesmo item
+  // se já tiver sido gerado, evitando duplicar a cada clique.
+  const handleAddStaffingNC = useCallback(async (sectionId: string, finding: { situation: string; action: string }) => {
+    const state = useInspectionStore.getState();
+    if (!state.currentInspection) return;
+    const actor = getLocalActor();
+    const existing = state.responses.find(r => r.itemId.startsWith(`extra|${sectionId}|staffing`));
+
+    if (existing) {
+      const updated: InspectionResponse = {
+        ...existing,
+        result: 'not_complies',
+        situationDescription: finding.situation,
+        correctiveAction: finding.action,
+        deadline: existing.deadline || 'Imediato',
+        updatedAt: new Date(),
+        localActorId: actor.id,
+        lastEditedBy: actor.name,
+      };
+      state.updateResponse(existing.id, {
+        result: 'not_complies',
+        situationDescription: finding.situation,
+        correctiveAction: finding.action,
+        deadline: existing.deadline || 'Imediato',
+        localActorId: actor.id,
+        lastEditedBy: actor.name,
+      });
+      try { await InspectionService.upsertResponse(updated); } catch (err) { console.error('Falha ao salvar NC de dimensionamento:', err); }
+    } else {
+      const newResponse: InspectionResponse = {
+        id: generateId(),
+        inspectionId: state.currentInspection.id,
+        itemId: `extra|${sectionId}|staffing-${generateId()}`,
+        result: 'not_complies',
+        customDescription: 'Dimensionamento de pessoal (RDC 502/2021) — quadro mínimo por turno',
+        situationDescription: finding.situation,
+        correctiveAction: finding.action,
+        deadline: 'Imediato',
+        responsible: 'RT / Gestor',
+        photos: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        localActorId: actor.id,
+        lastEditedBy: actor.name,
+        syncStatus: 'pending',
+      };
+      await state.addResponse(newResponse);
+      try { await InspectionService.upsertResponse(newResponse); } catch (err) { console.error('Falha ao criar NC de dimensionamento:', err); }
+    }
+    void stampInspectionEditor(actor.name);
+    alert('Não-conformidade de dimensionamento registrada na seção, com situação e ação preenchidas. Revise e ajuste se necessário.');
+  }, [stampInspectionEditor]);
+
 
   const updateStaffData = useCallback((field: string, value: number) => {
     const state = useInspectionStore.getState();
@@ -838,6 +892,8 @@ export function InspectionExecution() {
                         usableAreaM2={currentInspection.usableAreaM2 || 0}
                         currentCleaningStaff={currentInspection.observedCleaningStaff || 0}
                         isRJ={['RJ', 'RIO DE JANEIRO'].includes((currentInspection.state || '').toUpperCase())}
+                        residentsTotal={currentInspection.residentsTotal || 0}
+                        onRegisterFinding={(f) => handleAddStaffingNC(section.id, f)}
                       />
                     </div>
                   )}

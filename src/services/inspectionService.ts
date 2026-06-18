@@ -973,6 +973,36 @@ export const InspectionService = {
     }
   },
 
+  /** Dados ILPI (capacidade, residentes, graus) do último relatório do cliente, para pré-preencher uma nova visita. */
+  async getLatestIlpiDefaults(clientId: string): Promise<Partial<Inspection> | null> {
+    let latest: Inspection | undefined;
+    if (navigator.onLine) {
+      try {
+        const { data } = await supabase
+          .from('inspections')
+          .select('*')
+          .eq('client_id', clientId)
+          .is('deleted_at', null)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (data) latest = mapFromPostgres(data);
+      } catch { /* cai para o local */ }
+    }
+    if (!latest) {
+      const local = filterByActiveTenant(await db.inspections.where('clientId').equals(clientId).filter(i => !i.deletedAt).toArray());
+      latest = local.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+    }
+    if (!latest) return null;
+    return {
+      ilpiCapacity: latest.ilpiCapacity,
+      residentsTotal: latest.residentsTotal,
+      dependencyLevel1: latest.dependencyLevel1,
+      dependencyLevel2: latest.dependencyLevel2,
+      dependencyLevel3: latest.dependencyLevel3,
+    };
+  },
+
   async getRecentInspectionCandidates(clientId: string, referenceDate: Date, windowDays = 31): Promise<Inspection[]> {
     const rangeStart = new Date(referenceDate);
     rangeStart.setDate(rangeStart.getDate() - windowDays);
