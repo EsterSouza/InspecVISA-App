@@ -581,9 +581,19 @@ function isIlpiFederalTemplate(template: ChecklistTemplate): boolean {
   );
 }
 
+function normalizeSectionTitle(title: string): string {
+  return (title || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+}
+
 function applySupplement(effective: ChecklistTemplate, supplement: any): void {
   supplement.sectionAdditions.forEach((addition: any) => {
-    const targetSection = effective.sections.find((s: any) => s.id === addition.targetSectionId);
+    // Casa por id (roteiro estático) OU por título (roteiros do banco usam id UUID,
+    // então 'sec-fed-12' nunca bate; o título "Recursos Humanos" sim).
+    const targetSection =
+      effective.sections.find((s: any) => s.id === addition.targetSectionId)
+      || (addition.targetSectionTitle
+        ? effective.sections.find((s: any) => normalizeSectionTitle(s.title) === normalizeSectionTitle(addition.targetSectionTitle))
+        : undefined);
     if (targetSection) {
       const existingIds = new Set(targetSection.items.map((i: any) => i.id));
       addition.items.forEach((newItem: any) => {
