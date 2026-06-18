@@ -167,6 +167,27 @@ export function NewInspection() {
         new Date(inspectionDate + 'T12:00:00')
       );
       setExistingVisits(candidates);
+
+      // ── Mesma data: NUNCA cria duplicata — direciona para a inspeção já aberta.
+      // (Não há escape de "visita separada" no mesmo dia: é sempre o mesmo relatório.)
+      const sameDateInspection = candidates.find(
+        c => c.inspectionDate.toISOString().slice(0, 10) === inspectionDate
+      );
+      if (sameDateInspection) {
+        const opener = sameDateInspection.consultantName || 'outra consultora';
+        const openedAt = new Date(sameDateInspection.createdAt).toLocaleString('pt-BR');
+        alert(
+          `Já existe uma inspeção para ${selectedClient.name} nesta data, aberta por ${opener} em ${openedAt}. `
+          + 'Para não duplicar, você será direcionada para esse relatório. Continue na mesma inspeção.'
+        );
+        const linkedScheduleId = matchingSchedule?.id;
+        if (linkedScheduleId) {
+          try { await ScheduleService.linkInspection(linkedScheduleId, sameDateInspection.id); } catch (e) { console.warn('[NewInspection] link schedule falhou:', e); }
+        }
+        continueExistingInspection(sameDateInspection);
+        return;
+      }
+
       const existingInspection = candidates[0];
 
       if (existingInspection && !confirmedSeparateVisit) {
@@ -386,6 +407,10 @@ export function NewInspection() {
                             <div className="text-sm">
                               <p className="font-semibold text-gray-900">
                                 {new Date(inspection.inspectionDate).toLocaleDateString('pt-BR')} - {inspection.status === 'completed' ? 'Concluída' : 'Em andamento'}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                Aberta por <span className="font-semibold text-gray-700">{inspection.consultantName || '—'}</span>
+                                {inspection.createdAt ? ` em ${new Date(inspection.createdAt).toLocaleString('pt-BR')}` : ''}
                               </p>
                               <p className="text-gray-500">Este é o relatório obrigatório para complementar a avaliação.</p>
                             </div>

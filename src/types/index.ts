@@ -165,6 +165,11 @@ export interface Inspection {
   usableAreaM2?: number;
   observedCleaningStaff?: number;
   signatureDataUrl?: string;
+  // Rastreabilidade: nome de quem fez a última modificação (Ester/Ana).
+  lastEditedBy?: string;
+  // Co-finalização ILPI: quem já finalizou a sua parte. A inspeção só fecha
+  // de fato quando todas as consultoras esperadas (consultantNames) finalizarem.
+  finalizedBy?: { name: string; at: string }[];
   // Immutable template used when the inspection was completed.
   reportTemplateSnapshot?: ChecklistTemplate;
   updatedAt: Date;
@@ -192,6 +197,8 @@ export interface InspectionResponse {
   deadline?: string;
   customDescription?: string; // For ad-hoc items added by consultant
   photos?: InspectionPhoto[];
+  // Rastreabilidade: nome de quem fez a última modificação nesta resposta.
+  lastEditedBy?: string;
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date | null;

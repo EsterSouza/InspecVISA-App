@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Eye, EyeOff, Loader2, PlusCircle, WifiOff, X, RefreshCw } from 'lucide-react';
 import { db } from '../db/database';
@@ -248,6 +248,9 @@ export function InspectionExecution() {
   }, [template, responses, currentInspection?.templateId, currentInspection?.state, currentInspection?.city]);
 
   const visibleSections = effectiveTemplate?.sections || [];
+  // ILPI: a calculadora de dimensionamento mora na seção "Recursos Humanos".
+  const isIlpiInspection = (currentInspection?.clientCategory === 'ilpi')
+    || ((effectiveTemplate as any)?.category === 'ilpi');
   const collaborationTemplate = useMemo(() => {
     if (!currentInspection) return null;
     if (!template) return buildRecoveryTemplate(currentInspection, responses);
@@ -285,6 +288,15 @@ export function InspectionExecution() {
     return () => clearTimeout(timer);
   }, [currentInspection]);
 
+  // Carimba quem fez a última modificação na inspeção. Atualizar o
+  // currentInspection dispara o auto-save acima (que persiste last_edited_by).
+  const stampInspectionEditor = useCallback((name: string) => {
+    const state = useInspectionStore.getState();
+    const insp = state.currentInspection;
+    if (!insp || insp.lastEditedBy === name) return;
+    state.setCurrentInspection({ ...insp, lastEditedBy: name, updatedAt: new Date() });
+  }, []);
+
 
   const handleResponseChange = useCallback(async (itemId: string, result: InspectionResponse['result']) => {
     const state = useInspectionStore.getState();
@@ -293,8 +305,8 @@ export function InspectionExecution() {
     
     let updated: InspectionResponse;
     if (existing) {
-      updated = { ...existing, result, updatedAt: new Date(), localActorId: actor.id };
-      state.updateResponse(existing.id, { result, updatedAt: new Date(), localActorId: actor.id });
+      updated = { ...existing, result, updatedAt: new Date(), localActorId: actor.id, lastEditedBy: actor.name };
+      state.updateResponse(existing.id, { result, updatedAt: new Date(), localActorId: actor.id, lastEditedBy: actor.name });
     } else {
       updated = {
         id: generateId(),
@@ -305,10 +317,12 @@ export function InspectionExecution() {
         createdAt: new Date(),
         updatedAt: new Date(),
         localActorId: actor.id,
+        lastEditedBy: actor.name,
         syncStatus: 'pending',
       };
       state.addResponse(updated);
     }
+    void stampInspectionEditor(actor.name);
     
     try {
       await InspectionService.upsertResponse(updated);
@@ -323,9 +337,10 @@ export function InspectionExecution() {
     const existing = state.responses.find(r => r.itemId === itemId);
     if (existing) {
       const actor = getLocalActor();
-      const updated = { ...existing, ...details, updatedAt: new Date(), localActorId: actor.id };
-      state.updateResponse(existing.id, { ...details, localActorId: actor.id });
-      
+      const updated = { ...existing, ...details, updatedAt: new Date(), localActorId: actor.id, lastEditedBy: actor.name };
+      state.updateResponse(existing.id, { ...details, localActorId: actor.id, lastEditedBy: actor.name });
+      void stampInspectionEditor(actor.name);
+
       try {
         await InspectionService.upsertResponse(updated);
       } catch (err) {
@@ -349,7 +364,8 @@ export function InspectionExecution() {
       };
       
       state.updateResponse(existing.id, { photos: [...(existing.photos || []), newPhoto] });
-      
+      void stampInspectionEditor(actor.name);
+
       try {
         await InspectionService.upsertPhoto(newPhoto);
       } catch (err) {
@@ -377,9 +393,10 @@ export function InspectionExecution() {
     const existing = state.responses.find(r => r.itemId === itemId);
     if (existing) {
       const actor = getLocalActor();
-      const updated = { ...existing, customDescription, updatedAt: new Date(), localActorId: actor.id };
-      state.updateResponse(existing.id, { customDescription, localActorId: actor.id });
-      
+      const updated = { ...existing, customDescription, updatedAt: new Date(), localActorId: actor.id, lastEditedBy: actor.name };
+      state.updateResponse(existing.id, { customDescription, localActorId: actor.id, lastEditedBy: actor.name });
+      void stampInspectionEditor(actor.name);
+
       try {
         await InspectionService.upsertResponse(updated);
       } catch (err) {
@@ -400,17 +417,19 @@ export function InspectionExecution() {
       id: generateId(), 
       inspectionId: state.currentInspection.id,
       itemId: `extra|${sectionId}|${generateId()}`,
-      result: 'not_observed', 
+      result: 'not_observed',
       customDescription: desc,
-      photos: [], 
-      createdAt: new Date(), 
-      updatedAt: new Date(), 
+      photos: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
       localActorId: actor.id,
+      lastEditedBy: actor.name,
       syncStatus: 'pending',
     };
     
     await state.addResponse(newResponse);
-    
+    void stampInspectionEditor(actor.name);
+
     try {
       await InspectionService.upsertResponse(newResponse);
     } catch (err) {
@@ -422,7 +441,9 @@ export function InspectionExecution() {
   const updateStaffData = useCallback((field: string, value: number) => {
     const state = useInspectionStore.getState();
     if (!state.currentInspection) return;
-    state.setCurrentInspection({ ...state.currentInspection, [field]: value });
+    const actor = getLocalActor();
+    // Atualiza o currentInspection → dispara o auto-save (persiste no Dexie + Supabase).
+    state.setCurrentInspection({ ...state.currentInspection, [field]: value, lastEditedBy: actor.name, updatedAt: new Date() });
   }, []);
 
   const [showSignatureModal, setShowSignatureModal] = useState(false);
@@ -449,11 +470,56 @@ export function InspectionExecution() {
         }
       }
 
+      // ── Co-finalização ILPI ────────────────────────────────────────────
+      // Em inspeção ILPI com mais de uma consultora, a finalização de UMA não
+      // fecha o relatório: registra a finalização dela e mantém EM ANDAMENTO
+      // até todas finalizarem. Assim ninguém fecha a inspeção da outra "sem as
+      // minhas respostas". Fluxo normal (1 consultora ou não-ILPI) é inalterado.
+      const actor = getLocalActor();
+      const expectedConsultants = (currentInspection.consultantNames && currentInspection.consultantNames.length > 0)
+        ? currentInspection.consultantNames
+        : ([currentInspection.consultantName].filter(Boolean) as string[]);
+      const isCoInspection = isIlpiInspection && expectedConsultants.length > 1;
+      const finalizedBy = [
+        ...(currentInspection.finalizedBy || []).filter(f => f.name !== actor.name),
+        { name: actor.name, at: new Date().toISOString() },
+      ];
+      const allFinalized = expectedConsultants.every(name => finalizedBy.some(f => f.name === name));
+
+      if (isCoInspection && !allFinalized) {
+        const pending = expectedConsultants.filter(name => !finalizedBy.some(f => f.name === name));
+        await InspectionService.updateInspection(currentInspection.id, {
+          finalizedBy,
+          signatureDataUrl: signature,
+          lastEditedBy: actor.name,
+          status: 'in_progress',
+        });
+        setCurrentInspection({
+          ...currentInspection,
+          finalizedBy,
+          signatureDataUrl: signature,
+          lastEditedBy: actor.name,
+          status: 'in_progress',
+          updatedAt: new Date(),
+          syncStatus: 'synced',
+        });
+        alert(
+          `Sua finalização foi registrada (${actor.name}). A inspeção continua EM ANDAMENTO `
+          + `até ${pending.join(' e ')} finalizar também. O relatório só é fechado e publicado `
+          + `quando todas as consultoras finalizarem — assim a sua parte não é encerrada sem as suas respostas.`
+        );
+        setIsFinishing(false);
+        setShowSignatureModal(false);
+        return;
+      }
+
       // 1. Build final inspection record updates
       const updates: Partial<Inspection> = {
         status: 'completed' as const,
         completedAt: new Date(),
         signatureDataUrl: signature,
+        finalizedBy,
+        lastEditedBy: actor.name,
       };
       const finalizedInspection: Inspection = {
         ...currentInspection,
@@ -637,6 +703,36 @@ export function InspectionExecution() {
               </p>
             </div>
           )}
+
+          {/* Rastreabilidade: quem abriu, última modificação e co-finalização */}
+          <div className="rounded-xl border border-gray-200 bg-white p-3 text-xs text-gray-600">
+            <span className="font-semibold text-gray-800">Aberta por {currentInspection.consultantName || '—'}</span>
+            {currentInspection.createdAt && (
+              <span> · {new Date(currentInspection.createdAt).toLocaleString('pt-BR')}</span>
+            )}
+            {currentInspection.lastEditedBy && (
+              <span className="ml-2 text-gray-400">| Última modificação: <span className="font-medium text-gray-700">{currentInspection.lastEditedBy}</span>
+                {currentInspection.updatedAt ? ` (${new Date(currentInspection.updatedAt).toLocaleString('pt-BR')})` : ''}
+              </span>
+            )}
+            {currentInspection.finalizedBy && currentInspection.finalizedBy.length > 0 && (
+              <div className="mt-2 rounded-lg border border-blue-100 bg-blue-50 p-2 text-blue-800">
+                {currentInspection.finalizedBy.map((f) => (
+                  <div key={f.name}>✓ <strong>{f.name}</strong> finalizou sua parte em {new Date(f.at).toLocaleString('pt-BR')}.</div>
+                ))}
+                {(() => {
+                  const expected = (currentInspection.consultantNames && currentInspection.consultantNames.length > 0)
+                    ? currentInspection.consultantNames
+                    : [currentInspection.consultantName].filter(Boolean) as string[];
+                  const pending = expected.filter(n => !(currentInspection.finalizedBy || []).some(f => f.name === n));
+                  return pending.length > 0
+                    ? <div className="mt-1 font-semibold">Aguardando finalização de: {pending.join(' e ')}. A inspeção segue editável até lá.</div>
+                    : null;
+                })()}
+              </div>
+            )}
+          </div>
+
           {visibleSections.map((section: any, idx: number) => {
             const sectionResponses = section.items
               .map((i: any) => responses.find(r => r.itemId === i.id))
@@ -653,8 +749,10 @@ export function InspectionExecution() {
                 defaultExpanded={idx === 0 || expandedSectionIds.includes(section.id)}
               >
                 <div className="space-y-4">
-                  {/* ILPI Dimensioning Block */}
-                  {section.id === 'sec-fed-12' && (
+                  {/* ILPI Dimensioning Block — casa por id (roteiro estático) ou por
+                      título "Recursos Humanos" (roteiros salvos no banco usam id UUID). */}
+                  {(section.id === 'sec-fed-12'
+                    || (isIlpiInspection && /recursos\s+humanos/i.test(section.title || ''))) && (
                     <div className="space-y-4 mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-100">
                       <div className="flex items-center justify-between">
                         <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Dimensionamento ILPI</label>
