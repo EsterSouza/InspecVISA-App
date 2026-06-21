@@ -48,11 +48,20 @@ export function Inspections() {
         list = list.filter(i => i.status === filterStatus);
       }
       if (search) {
-        list = list.filter(i => 
-          i.clientName?.toLowerCase().includes(search.toLowerCase()) || 
+        list = list.filter(i =>
+          i.clientName?.toLowerCase().includes(search.toLowerCase()) ||
           i.consultantName.toLowerCase().includes(search.toLowerCase())
         );
       }
+
+      // Em aberto (em andamento) sempre primeiro; depois por data decrescente.
+      list = [...list].sort((a, b) => {
+        if (a.status !== b.status) {
+          if (a.status === 'in_progress') return -1;
+          if (b.status === 'in_progress') return 1;
+        }
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
 
       setInspections(list);
 
