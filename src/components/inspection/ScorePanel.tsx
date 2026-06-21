@@ -53,7 +53,6 @@ export function ScorePanel({ inspection, responses: propResponses, template: pro
             >
               {riskLabel}
             </span>
-            <span className="text-[9px] font-semibold text-gray-400">Risco potencial {score.rp.toFixed(1)}/15</span>
           </div>
         </div>
 

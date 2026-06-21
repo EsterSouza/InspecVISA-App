@@ -491,9 +491,9 @@ export async function generatePDF(
   doc.text(riskLabel, cx2, y + 15, { align: 'center' });
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
-  doc.text('CLASSIFICAÇÃO DE RISCO (MARP)', cx2, y + 22, { align: 'center' });
+  doc.text('CLASSIFICAÇÃO DE RISCO', cx2, y + 22, { align: 'center' });
   doc.setFontSize(8);
-  doc.text(`Risco potencial ${score.rp.toFixed(1)} / 15`, cx2, y + 29, { align: 'center' });
+  doc.text(`${score.criticalNotCompliesCount} não conformidade(s) crítica(s)`, cx2, y + 29, { align: 'center' });
 
   y += 42;
   // Progress Bar under score box

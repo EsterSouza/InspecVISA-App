@@ -168,11 +168,19 @@ export function calculateScore(responses: InspectionResponse[], sections: Sectio
   const urgentActionsCount = scoreBySection.reduce((acc, s) => acc + s.urgentActionsCount, 0);
   const importantActionsCount = scoreBySection.reduce((acc, s) => acc + s.importantActionsCount, 0);
 
-  // Classification based on RP (Risco Potencial)
-  const classification: ScoreClassification =
-    globalMarp.rp >= 13.5 ? 'excellent' :
-    globalMarp.rp >= 12.0 ? 'good' :
-    globalMarp.rp >= 9.0  ? 'regular' : 'critical';
+  // Classificação graduada (risco): combina nº de NÃO-conformidades CRÍTICAS
+  // com o % de conformidade, para as 4 faixas serem reais (não tudo-ou-nada).
+  // - 3+ NCs críticas        → INACEITÁVEL
+  // - 1-2 NCs críticas       → no máximo TOLERÁVEL (INACEITÁVEL se % < 70)
+  // - 0 NC crítica           → faixa pelo % de conformidade
+  const classification: ScoreClassification = (() => {
+    if (criticalNotCompliesCount >= 3) return 'critical';
+    if (criticalNotCompliesCount >= 1) return scorePercentage >= 70 ? 'regular' : 'critical';
+    if (scorePercentage >= 90) return 'excellent';
+    if (scorePercentage >= 75) return 'good';
+    if (scorePercentage >= 60) return 'regular';
+    return 'critical';
+  })();
 
   return {
     totalItems: totalItemsCount,
