@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { X, ChevronRight, ChevronLeft, Trash2, FileDown, Loader2, CheckSquare, Square } from 'lucide-react';
 import { Button } from '../ui/Button';
-import { extractBaseLegislation } from '../../utils/legislationRefs';
+import { extractBaseLegislation, canonicalLegislationKey } from '../../utils/legislationRefs';
 import { isLegislationApplicable, type Legislation } from '../../services/legislationService';
 import type { ChecklistTemplate, InspectionResponse, Inspection } from '../../types';
 
@@ -59,27 +59,36 @@ export function PdfPreviewModal({
         l.name.toUpperCase().includes(s.toUpperCase()) || s.toUpperCase().includes(l.name.toUpperCase())
       );
 
-    const finalSet = new Set<string>();
-    const tags = new Map<string, LegTag>();
+    // Dedup por chave canônica: "RDC 502/2021" e "RDC ANVISA nº 502/2021" viram um só.
+    // Preferimos o nome oficial da biblioteca como rótulo quando disponível.
+    const byKey = new Map<string, { label: string; tag: LegTag; fromLib: boolean }>();
+    const addEntry = (label: string, tag: LegTag, fromLib: boolean) => {
+      const key = canonicalLegislationKey(label);
+      const existing = byKey.get(key);
+      if (!existing) {
+        byKey.set(key, { label, tag, fromLib });
+      } else if (fromLib && !existing.fromLib) {
+        // Substitui o rótulo curto da citação pelo nome oficial da biblioteca.
+        byKey.set(key, { label, tag, fromLib });
+      }
+    };
 
-    // Canonicaliza as citadas para o nome completo da biblioteca quando houver.
+    // Citadas nos itens (sempre relevantes), canonicalizadas para o nome da biblioteca.
     citedBases.forEach(base => {
       const lib = matchLib(base);
-      const label = lib?.name || base;
-      if (!finalSet.has(label)) {
-        finalSet.add(label);
-        tags.set(label, lib?.uf ? 'uf' : 'roteiro');
-      }
+      addEntry(lib?.name || base, lib?.uf ? 'uf' : 'roteiro', !!lib);
     });
 
+    // Aplicáveis da biblioteca (UF + segmento), sem duplicar as já citadas.
     library.forEach(leg => {
       if (!isLegislationApplicable(leg, inspection.state, inspection.clientCategory)) return;
-      if (finalSet.has(leg.name)) return;
-      finalSet.add(leg.name);
-      tags.set(leg.name, leg.uf ? 'uf' : 'segmento');
+      addEntry(leg.name, leg.uf ? 'uf' : 'segmento', true);
     });
 
-    const sorted = Array.from(finalSet).sort();
+    const entries = Array.from(byKey.values()).sort((a, b) => a.label.localeCompare(b.label));
+    const tags = new Map<string, LegTag>();
+    entries.forEach(e => tags.set(e.label, e.tag));
+    const sorted = entries.map(e => e.label);
     setLegislations(sorted);
     setLegTags(tags);
     setSelected(new Set(sorted)); // all selected by default

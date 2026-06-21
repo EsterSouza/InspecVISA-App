@@ -45,3 +45,27 @@ export function extractBaseLegislation(raw: string): string[] {
 
   return Array.from(bases);
 }
+
+/**
+ * Chave canônica de uma legislação, para deduplicar variações do mesmo ato
+ * (ex.: "RDC 502/2021", "RDC ANVISA nº 502/2021", "RDC nº 502/2021" → mesma chave).
+ * Reduz a tipo + número + ano, ignorando "ANVISA", "nº", artigos e acentos.
+ */
+export function canonicalLegislationKey(raw: string): string {
+  const up = (raw || '')
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '');
+
+  const typeMatch = up.match(/\bRDC\b|\bPORTARIA\b|\bDECRETO\b|\bLEI\b|\bNR\b|\bNBR\b|\bINSTRU[cC][aA]O NORMATIVA\b|\bIN\b|\bRESOLU[cC][aA]O\b|\bNOTA T[eE]CNICA\b|\bPARECER\b|\bCBO\b/);
+  const type = typeMatch ? typeMatch[0].replace(/\s+/g, ' ') : 'OUTRO';
+
+  const yearMatch = up.match(/\b(19|20)\d{2}\b/);
+  const year = yearMatch ? yearMatch[0] : '';
+
+  // Número principal: primeira sequência de dígitos diferente do ano.
+  const nums = (up.match(/\d[\d.]*/g) || []).map(n => n.replace(/\./g, ''));
+  const number = nums.find(n => n !== year) || nums[0] || '';
+
+  return `${type}|${number}|${year}`;
+}
