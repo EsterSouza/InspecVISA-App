@@ -52,16 +52,6 @@ export const templateIlpiRioDeJaneiroSupplement: ChecklistSupplement = {
           isRJOnly: true,
         },
         {
-          id: 'rj-s12-004',
-          sectionId: 'sec-fed-12',
-          order: 104,
-          description: 'A instituicao conta com cuidadores em quantidade compativel com o grau de dependencia dos residentes.',
-          legislation: 'Lei Estadual RJ 8.049/2018',
-          weight: 10,
-          isCritical: true,
-          isRJOnly: true,
-        },
-        {
           id: 'rj-s12-005',
           sectionId: 'sec-fed-12',
           order: 105,
