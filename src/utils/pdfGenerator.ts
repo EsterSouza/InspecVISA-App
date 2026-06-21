@@ -459,20 +459,41 @@ export async function generatePDF(
     return [239, 68, 68]; // Red
   };
   const rgb = getScoreColor(scorePercent);
+  // Caixa dupla: Conformidade (%) e Classificação de Risco (MARP)
+  const riskRgbMap: Record<string, [number, number, number]> = {
+    excellent: [34, 197, 94], good: [132, 204, 22], regular: [245, 158, 11], critical: [239, 68, 68],
+  };
+  const riskRgb = riskRgbMap[score.classification] || [100, 116, 139];
+  const riskLabel = classificationLabel(score.classification);
+  const halfW = (contentW - 4) / 2;
+  const cx1 = margin + halfW / 2;
+  const cx2 = margin + halfW + 4 + halfW / 2;
 
-  // Score Box
+  // Esquerda — % de conformidade (cor pelo %)
   doc.setFillColor(...(rgb as [number, number, number]));
-  doc.roundedRect(margin, y, contentW, 35, 3, 3, 'F');
-
+  doc.roundedRect(margin, y, halfW, 35, 3, 3, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(32);
-  doc.text(`${scorePercent}%`, margin + contentW / 2, y + 16, { align: 'center' });
-  doc.setFontSize(10);
-  doc.text('ADEQUAÇÃO SANITÁRIA GERAL', margin + contentW / 2, y + 24, { align: 'center' });
-  doc.setFontSize(9);
+  doc.setFontSize(30);
+  doc.text(`${scorePercent}%`, cx1, y + 15, { align: 'center' });
+  doc.setFontSize(8.5);
+  doc.text('CONFORMIDADE', cx1, y + 22, { align: 'center' });
   doc.setFont('helvetica', 'normal');
-  doc.text(`${score.evaluatedItems} de ${score.totalItems} itens avaliados nesta visita`, margin + contentW / 2, y + 30, { align: 'center' });
+  doc.setFontSize(8);
+  doc.text(`${score.evaluatedItems} de ${score.totalItems} itens avaliados`, cx1, y + 29, { align: 'center' });
+
+  // Direita — classificação de risco (cor pelo risco)
+  doc.setFillColor(...riskRgb);
+  doc.roundedRect(margin + halfW + 4, y, halfW, 35, 3, 3, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.text(riskLabel, cx2, y + 15, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.text('CLASSIFICAÇÃO DE RISCO (MARP)', cx2, y + 22, { align: 'center' });
+  doc.setFontSize(8);
+  doc.text(`Risco potencial ${score.rp.toFixed(1)} / 15`, cx2, y + 29, { align: 'center' });
 
   y += 42;
   // Progress Bar under score box

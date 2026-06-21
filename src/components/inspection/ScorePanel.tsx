@@ -1,5 +1,5 @@
 import React from 'react';
-import { calculateScore } from '../../utils/scoring';
+import { calculateScore, classificationLabel, classificationColor } from '../../utils/scoring';
 import { useInspectionStore } from '../../store/useInspectionStore';
 import { getTemplateById } from '../../data/templates';
 import type { Inspection, InspectionResponse, ChecklistTemplate } from '../../types';
@@ -31,18 +31,32 @@ export function ScorePanel({ inspection, responses: propResponses, template: pro
   };
 
   const scoreColor = getScoreColor(score.scorePercentage);
+  const riskColor = classificationColor(score.classification);
+  const riskLabel = classificationLabel(score.classification);
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
       {/* Block 1: Score Metric */}
       <div className="p-6 sm:p-8 space-y-4">
-        <div className="flex items-baseline gap-2">
-          <span className="text-5xl font-black transition-colors duration-500" style={{ color: scoreColor }}>
-            {Math.round(score.scorePercentage)}%
-          </span>
-          <span className="text-gray-400 font-bold text-xs uppercase tracking-wider">Adequação</span>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-baseline gap-2">
+            <span className="text-5xl font-black transition-colors duration-500" style={{ color: scoreColor }}>
+              {Math.round(score.scorePercentage)}%
+            </span>
+            <span className="text-gray-400 font-bold text-xs uppercase tracking-wider">Conformidade</span>
+          </div>
+          <div className="flex flex-col items-end gap-1">
+            <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400">Classificação de risco (MARP)</span>
+            <span
+              className="rounded-full px-3 py-1 text-sm font-black uppercase text-white shadow-sm"
+              style={{ backgroundColor: riskColor }}
+            >
+              {riskLabel}
+            </span>
+            <span className="text-[9px] font-semibold text-gray-400">Risco potencial {score.rp.toFixed(1)}/15</span>
+          </div>
         </div>
-        
+
         <div className="space-y-2">
           <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
             <div 
