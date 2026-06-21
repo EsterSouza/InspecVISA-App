@@ -199,6 +199,18 @@ export function calculateScore(responses: InspectionResponse[], sections: Sectio
   };
 }
 
+/**
+ * Classificação derivada apenas do % de conformidade (sem dados de NC crítica).
+ * Usada no Portal do Cliente, onde só temos o compliance_score. Mesmas faixas
+ * de % da classificação completa (o "teto por crítica" não se aplica aqui).
+ */
+export function classificationFromPercent(pct: number): ScoreClassification {
+  if (pct >= 90) return 'excellent';
+  if (pct >= 75) return 'good';
+  if (pct >= 60) return 'regular';
+  return 'critical';
+}
+
 export function classificationLabel(c: ScoreClassification): string {
   return { 
     critical: 'INACEITÁVEL', 

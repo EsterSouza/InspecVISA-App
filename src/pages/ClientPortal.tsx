@@ -27,6 +27,7 @@ import {
   type ClientPortalOverview,
 } from '../services/clientPortalService';
 import { generateFranchisePdf } from '../utils/franchiseReport';
+import { classificationFromPercent, classificationLabel } from '../utils/scoring';
 
 const ComplianceTrendChart = lazy(() =>
   import('../components/client/ComplianceTrendChart').then((m) => ({ default: m.ComplianceTrendChart }))
@@ -371,7 +372,7 @@ export function ClientPortal() {
                   <TrendingUp className="h-4 w-4 text-primary-700" /> Conformidade da rede
                 </h3>
                 <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${scoreColor(avg)}`}>
-                  Média {avg}%
+                  Média {avg}% · {classificationLabel(classificationFromPercent(avg))}
                 </span>
               </div>
 
@@ -393,6 +394,9 @@ export function ClientPortal() {
                         style={{ width: `${u.score}%` }}
                       />
                     </div>
+                    <span className="hidden w-24 shrink-0 text-right text-[10px] font-bold uppercase tracking-tight text-gray-500 sm:inline">
+                      {classificationLabel(classificationFromPercent(u.score))}
+                    </span>
                     <span className={`w-12 shrink-0 rounded px-1.5 py-0.5 text-center text-xs font-bold ${scoreColor(u.score)}`}>
                       {u.score}%
                     </span>
