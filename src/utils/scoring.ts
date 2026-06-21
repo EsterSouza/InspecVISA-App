@@ -168,18 +168,17 @@ export function calculateScore(responses: InspectionResponse[], sections: Sectio
   const urgentActionsCount = scoreBySection.reduce((acc, s) => acc + s.urgentActionsCount, 0);
   const importantActionsCount = scoreBySection.reduce((acc, s) => acc + s.importantActionsCount, 0);
 
-  // Classificação graduada (risco): combina nº de NÃO-conformidades CRÍTICAS
-  // com o % de conformidade, para as 4 faixas serem reais (não tudo-ou-nada).
-  // - 3+ NCs críticas        → INACEITÁVEL
-  // - 1-2 NCs críticas       → no máximo TOLERÁVEL (INACEITÁVEL se % < 70)
-  // - 0 NC crítica           → faixa pelo % de conformidade
+  // Classificação pelo % de conformidade. NCs críticas NÃO derrubam a unidade:
+  // apenas impedem o selo de topo (uma casa com 92% nunca é "inaceitável";
+  // as críticas aparecem separadamente como ações urgentes / plano de ação).
   const classification: ScoreClassification = (() => {
-    if (criticalNotCompliesCount >= 3) return 'critical';
-    if (criticalNotCompliesCount >= 1) return scorePercentage >= 70 ? 'regular' : 'critical';
-    if (scorePercentage >= 90) return 'excellent';
-    if (scorePercentage >= 75) return 'good';
-    if (scorePercentage >= 60) return 'regular';
-    return 'critical';
+    const tier: ScoreClassification =
+      scorePercentage >= 90 ? 'excellent' :
+      scorePercentage >= 75 ? 'good' :
+      scorePercentage >= 60 ? 'regular' : 'critical';
+    // Havendo qualquer NC crítica, o máximo é "ACEITÁVEL" (não "ALTO PADRÃO").
+    if (criticalNotCompliesCount > 0 && tier === 'excellent') return 'good';
+    return tier;
   })();
 
   return {
