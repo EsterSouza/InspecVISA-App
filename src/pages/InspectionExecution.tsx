@@ -633,7 +633,11 @@ export function InspectionExecution() {
       const finalizedInspection: Inspection = {
         ...currentInspection,
         ...updates,
-        reportTemplateSnapshot: effectiveTemplate || undefined,
+        // Snapshot do relatório DEVE ser o roteiro COMPLETO (todas as áreas:
+        // sanitária + nutrição), não o filtrado pelo papel da consultora que
+        // está finalizando. Senão, ao Ester (role 'saude') finalizar, a parte de
+        // nutrição da Ana some do relatório. Ver ilpi-score-por-area-ester-ana.
+        reportTemplateSnapshot: collaborationTemplate || effectiveTemplate || undefined,
         updatedAt: new Date(),
         syncStatus: 'pending',
         syncError: undefined,

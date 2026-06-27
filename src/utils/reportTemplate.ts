@@ -72,13 +72,31 @@ export function buildLegacyCompletedReportTemplate(
   return template;
 }
 
+/**
+ * Verifica se o snapshot do relatório cobre TODAS as respostas avaliadas. Um
+ * snapshot congelado a partir de um roteiro filtrado por papel (ex.: Ester, só
+ * sanitária) deixa de fora as seções de nutrição da Ana — mas as respostas dela
+ * existem. Nesse caso o snapshot está incompleto e não deve ser usado cru.
+ */
+function snapshotCoversResponses(snapshot: ChecklistTemplate, responses: InspectionResponse[]): boolean {
+  const snapshotItemIds = new Set(snapshot.sections.flatMap(section => section.items.map(item => item.id)));
+  return responses
+    .filter(response => response.itemId && !response.deletedAt && response.result && response.result !== 'not_evaluated')
+    .every(response => snapshotItemIds.has(response.itemId));
+}
+
 export function resolveReportTemplate(
   baseTemplate: ChecklistTemplate,
   inspection: Inspection,
   responses: InspectionResponse[]
 ): ChecklistTemplate {
   if (inspection.status === 'completed') {
-    return inspection.reportTemplateSnapshot || buildLegacyCompletedReportTemplate(baseTemplate, inspection, responses);
+    const snapshot = inspection.reportTemplateSnapshot;
+    // Usa o snapshot apenas quando ele cobre todas as respostas avaliadas. Se
+    // estiver incompleto (ex.: congelado sem a nutrição), reconstrói a partir do
+    // roteiro completo — assim relatórios já afetados se auto-corrigem ao abrir.
+    if (snapshot && snapshotCoversResponses(snapshot, responses)) return snapshot;
+    return buildLegacyCompletedReportTemplate(baseTemplate, inspection, responses);
   }
 
   return getEffectiveTemplate(baseTemplate, inspection as any, undefined, true);
