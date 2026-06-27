@@ -507,53 +507,6 @@ export async function generatePDF(
   doc.roundedRect(margin, y, (contentW * scorePercent) / 100, 3, 1.5, 1.5, 'F');
   y += 10;
 
-  // ── Conformidade por área (sanitária x nutrição) ─────────
-  // Só em ILPI com as duas áreas avaliadas (sanitária + nutrição).
-  if (areaScores.isSplit && isIlpiReport) {
-    const areaCards: { label: string; consultant?: string; pct: number; classif: string; nc: number }[] = [
-      {
-        label: areaScores.sanitary.areaLabel,
-        consultant: areaScores.sanitary.consultant,
-        pct: Math.round(areaScores.sanitary.score.scorePercentage),
-        classif: areaScores.sanitary.score.classification,
-        nc: areaScores.sanitary.score.notCompliesCount,
-      },
-      {
-        label: areaScores.nutrition.areaLabel,
-        consultant: areaScores.nutrition.consultant,
-        pct: Math.round(areaScores.nutrition.score.scorePercentage),
-        classif: areaScores.nutrition.score.classification,
-        nc: areaScores.nutrition.score.notCompliesCount,
-      },
-    ];
-    const areaGap = 4;
-    const areaW = (contentW - areaGap) / 2;
-    areaCards.forEach((card, idx) => {
-      const ax = margin + idx * (areaW + areaGap);
-      const cardRgb = riskRgbMap[card.classif] || [100, 116, 139];
-      doc.setDrawColor(...borderColor);
-      doc.setFillColor(...surfaceColor);
-      doc.roundedRect(ax, y, areaW, 20, 2.5, 2.5, 'FD');
-      // Faixa lateral colorida pela classificação da área
-      doc.setFillColor(...(cardRgb as [number, number, number]));
-      doc.roundedRect(ax, y, 2.5, 20, 1, 1, 'F');
-      const tx = ax + 7;
-      doc.setTextColor(...mutedColor);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7.5);
-      const who = (card.consultant || '').trim().split(/\s+/)[0];
-      doc.text(`${card.label.toUpperCase()}${who ? ` - ${who.toUpperCase()}` : ''}`, tx, y + 6);
-      doc.setTextColor(...textColor);
-      doc.setFontSize(20);
-      doc.text(`${card.pct}%`, tx, y + 15);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7.5);
-      doc.setTextColor(...mutedColor);
-      doc.text(`${card.nc} NC · ${classificationLabel(card.classif as any)}`, tx + 22, y + 15);
-    });
-    y += 26;
-  }
-
   const coverGap = 4;
   const coverCardW = (contentW - coverGap * 3) / 4;
   drawMetricCard(margin, coverCardW, 'Cumpre', `${score.compliesCount}`, [22, 163, 74]);
@@ -578,6 +531,52 @@ export async function generatePDF(
   drawMetricCard(margin + (summaryCardW + summaryGap) * 2, summaryCardW, 'Urgentes', `${score.urgentActionsCount}`, [234, 88, 12]);
   drawMetricCard(margin + (summaryCardW + summaryGap) * 3, summaryCardW, 'Não observados', `${score.notObservedCount}`, [71, 85, 105]);
   y += 27;
+
+  // ── Conformidade por área (sanitária x nutrição) ─────────
+  // Só em ILPI com as duas áreas avaliadas. O número grande da capa é o GLOBAL.
+  if (areaScores.isSplit && isIlpiReport) {
+    const areaCards: { label: string; consultant?: string; pct: number; classif: string; nc: number }[] = [
+      {
+        label: areaScores.sanitary.areaLabel,
+        consultant: areaScores.sanitary.consultant,
+        pct: Math.round(areaScores.sanitary.score.scorePercentage),
+        classif: areaScores.sanitary.score.classification,
+        nc: areaScores.sanitary.score.notCompliesCount,
+      },
+      {
+        label: areaScores.nutrition.areaLabel,
+        consultant: areaScores.nutrition.consultant,
+        pct: Math.round(areaScores.nutrition.score.scorePercentage),
+        classif: areaScores.nutrition.score.classification,
+        nc: areaScores.nutrition.score.notCompliesCount,
+      },
+    ];
+    const areaGap = 4;
+    const areaW = (contentW - areaGap) / 2;
+    areaCards.forEach((card, idx) => {
+      const ax = margin + idx * (areaW + areaGap);
+      const cardRgb = riskRgbMap[card.classif] || [100, 116, 139];
+      doc.setDrawColor(...borderColor);
+      doc.setFillColor(...surfaceColor);
+      doc.roundedRect(ax, y, areaW, 18, 2.5, 2.5, 'FD');
+      doc.setFillColor(...(cardRgb as [number, number, number]));
+      doc.roundedRect(ax, y, 2.5, 18, 1, 1, 'F');
+      const tx = ax + 7;
+      doc.setTextColor(...mutedColor);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      const who = (card.consultant || '').trim().split(/\s+/)[0];
+      doc.text(`${card.label.toUpperCase()}${who ? ` - ${who.toUpperCase()}` : ''}`, tx, y + 6);
+      doc.setTextColor(...textColor);
+      doc.setFontSize(18);
+      doc.text(`${card.pct}%`, tx, y + 14.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(...mutedColor);
+      doc.text(`${card.nc} NC · ${classificationLabel(card.classif as any)}`, tx + 21, y + 14.5);
+    });
+    y += 24;
+  }
 
   // Summary table
   autoTable(doc, {
