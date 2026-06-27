@@ -7,7 +7,7 @@ import { InspectionBundleSyncService } from '../services/inspectionBundleSyncSer
 import { AppointmentAdminService } from '../services/appointmentAdminService';
 import { LegislationService, type Legislation } from '../services/legislationService';
 import { getTemplateById } from '../data/templates';
-import { calculateScore, classificationColor, getLatestResponsesByItem } from '../utils/scoring';
+import { calculateScore, calculateAreaScores, classificationColor, getLatestResponsesByItem } from '../utils/scoring';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { db } from '../db/database';
 import type { Inspection, InspectionResponse, ChecklistTemplate } from '../types';
@@ -359,6 +359,22 @@ export function InspectionSummary() {
          if (linkedRequest) {
            const file = new File([generatedPdf.blob], generatedPdf.filename, { type: 'application/pdf' });
            await AppointmentAdminService.publishReport(linkedRequest, file);
+           // Preenche os scores do portal automaticamente (global + por área),
+           // evitando digitação manual. Em não-ILPI grava só o global. Não bloqueia
+           // a publicação se falhar. Ver ilpi-score-por-area-ester-ana.
+           try {
+             const areaScores = calculateAreaScores(responses, displayTemplate.sections);
+             const clamp = (p: number) => Math.max(0, Math.min(100, Math.round(p)));
+             const split = displayTemplate.category === 'ilpi' && areaScores.isSplit;
+             await AppointmentAdminService.setComplianceScore(linkedRequest.id, clamp(areaScores.global.scorePercentage));
+             await AppointmentAdminService.setAreaScores(
+               linkedRequest.id,
+               split ? clamp(areaScores.sanitary.score.scorePercentage) : null,
+               split ? clamp(areaScores.nutrition.score.scorePercentage) : null,
+             );
+           } catch (scoreErr) {
+             console.warn('[Summary] Falha ao gravar scores do portal automaticamente:', scoreErr);
+           }
          } else {
            console.warn('[Summary] PDF final gerado, mas nao ha solicitacao/agendamento vinculado para publicar no portal.');
          }
