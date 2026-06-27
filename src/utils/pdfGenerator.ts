@@ -154,8 +154,9 @@ export async function generatePDF(
   score: InspectionScore,
   settings: ConsultantSettings,
   legislations: any[] = [],
-  options: { selectedLegislations?: string[]; signatureDataUrl?: string } = {}
+  options: { selectedLegislations?: string[]; signatureDataUrl?: string; recurringItemIds?: Set<string> } = {}
 ): Promise<GeneratedPdfFile> {
+  const recurringItemIds = options.recurringItemIds ?? new Set<string>();
   const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -674,6 +675,7 @@ export async function generatePDF(
       const requirementFontSize = 9;
       const requirementLineHeight = 4.7;
       const item = allItemsList.find(candidate => candidate.id === response.itemId);
+      const isRecurring = recurringItemIds.has(response.itemId);
       const cardNumber = sortedNonCompliant.indexOf(response) + 1;
       const situation = response.situationDescription || 'Achado registrado durante a visita técnica.';
       const correction = response.correctiveAction || 'Definir medida corretiva e registrar evidência de conclusão.';
@@ -717,6 +719,20 @@ export async function generatePDF(
           cardInnerX,
           y + 9
         );
+
+        // Selo de reincidência: NC já registrada em visita anterior deste cliente.
+        if (!continuation && isRecurring) {
+          const titleW = doc.getTextWidth(`AÇÃO ${String(cardNumber).padStart(2, '0')}`);
+          const tagText = 'REINCIDENTE';
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(7);
+          const tagW = doc.getTextWidth(tagText) + 6;
+          const tagX = cardInnerX + titleW + 4;
+          doc.setFillColor(127, 29, 29); // red-900
+          doc.roundedRect(tagX, y + 4.5, tagW, 6, 2, 2, 'F');
+          doc.setTextColor(255, 255, 255);
+          doc.text(tagText, tagX + 3, y + 8.9);
+        }
 
         if (!continuation) {
           doc.setFontSize(8);

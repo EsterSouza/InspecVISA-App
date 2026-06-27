@@ -337,6 +337,9 @@ export function InspectionSummary() {
        const shouldSyncFinalSnapshot = currentInspection.status === 'completed' && currentReadiness.isReady && navigator.onLine;
        await new Promise(resolve => setTimeout(resolve, 100));
        const { generatePDF } = await import('../utils/pdfGenerator');
+       const { getRecurringItemIdsForClient } = await import('../utils/actionPlanContext');
+       const recurringItemIds = await getRecurringItemIdsForClient(currentInspection.clientId, currentInspection.id)
+         .catch(() => new Set<string>());
        const generatedPdf = await generatePDF(
          currentInspection,
          pdfResponses,
@@ -344,7 +347,7 @@ export function InspectionSummary() {
          scoreArea,
          settings as any,
          legislations,
-         { selectedLegislations: opts.selectedLegislations, signatureDataUrl: opts.signatureDataUrl }
+         { selectedLegislations: opts.selectedLegislations, signatureDataUrl: opts.signatureDataUrl, recurringItemIds }
        );
        if (shouldSyncFinalSnapshot) {
          const snapshotInspection = { ...currentInspection, reportTemplateSnapshot: displayTemplate };

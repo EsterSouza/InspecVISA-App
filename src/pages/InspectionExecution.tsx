@@ -29,6 +29,50 @@ import { ScorePanel } from '../components/inspection/ScorePanel';
 import { TeamResponsesViewer } from '../components/inspection/TeamResponsesViewer';
 import { SignaturePad } from '../components/ui/SignaturePad';
 
+// Pré-preenche uma nova inspeção (modo plano de ação) com as NCs da visita
+// anterior já marcadas como não conforme, copiando situação/ação/prazo/responsável.
+// A consultora então só edita o texto ou troca o resultado para "conforme" quando a
+// pendência foi sanada. As fotos antigas seguem visíveis apenas como referência
+// (caixa "Plano de ação anterior"); não são copiadas como evidência nova.
+async function seedActionPlanResponses(
+  inspectionId: string,
+  previousNCs: Map<string, PreviousNCContext>,
+  tenantId?: string,
+): Promise<InspectionResponse[]> {
+  const actor = getLocalActor();
+  const now = new Date();
+  const seeded: InspectionResponse[] = [];
+
+  for (const nc of previousNCs.values()) {
+    const response: InspectionResponse = {
+      id: generateId(),
+      inspectionId,
+      itemId: nc.itemId,
+      result: 'not_complies',
+      situationDescription: nc.situationDescription,
+      correctiveAction: nc.correctiveAction,
+      responsible: nc.responsible,
+      deadline: nc.deadline,
+      customDescription: nc.itemId.startsWith('extra|') ? nc.description : undefined,
+      photos: [],
+      createdAt: now,
+      updatedAt: now,
+      tenantId,
+      localActorId: actor.id,
+      lastEditedBy: actor.name,
+      syncStatus: 'pending',
+    };
+    try {
+      await InspectionService.upsertResponse(response);
+      seeded.push(response);
+    } catch (err) {
+      console.error('[ActionPlan] Falha ao semear NC anterior:', err);
+    }
+  }
+
+  return seeded;
+}
+
 export function InspectionExecution() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -118,7 +162,7 @@ export function InspectionExecution() {
     setLoading(true);
     setLoadError(null);
     try {
-      const { inspectionId, previousInspectionId } = location.state || {};
+      const { inspectionId, previousInspectionId, actionPlanMode } = location.state || {};
       const id = inspectionId || currentInspection?.id;
 
       if (!id) {
@@ -214,7 +258,18 @@ export function InspectionExecution() {
 
           // Load previous inspection NCs if applicable
           if (previousInspectionId) {
-            setPreviousNCs(await getPreviousNCContextByInspection(previousInspectionId));
+            const prevNCs = await getPreviousNCContextByInspection(previousInspectionId);
+            setPreviousNCs(prevNCs);
+
+            // Modo plano de ação: se a nova inspeção ainda está vazia, semeia as NCs
+            // anteriores já preenchidas para a consultora só revisar/marcar como cumprida.
+            if (actionPlanMode && prevNCs.size > 0 && resps.length === 0) {
+              const seeded = await seedActionPlanResponses(id, prevNCs, enrichedInsp.tenantId);
+              if (seeded.length > 0) {
+                const seededPhotos = await InspectionService.getPhotosByResponseIds(seeded.map(r => r.id), false, { remote: false });
+                setResponses(attachPhotosToResponses(seeded, seededPhotos));
+              }
+            }
           } else {
             setPreviousNCs(new Map());
           }
@@ -231,7 +286,7 @@ export function InspectionExecution() {
       setLoadError('Erro ao carregar dados da inspeção.');
       setLoading(false);
     }
-  }, [location.state?.inspectionId, location.state?.previousInspectionId, attachPhotosToResponses, hydratePhotosInBackground]);
+  }, [location.state?.inspectionId, location.state?.previousInspectionId, location.state?.actionPlanMode, attachPhotosToResponses, hydratePhotosInBackground]);
 
 
   // Re-run loadData whenever the inspectionId in navigation state changes

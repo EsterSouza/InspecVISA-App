@@ -77,6 +77,11 @@ export function ClientDetails() {
             : [{ name: clientData.responsibleName || '', phone: clientData.phone || '', email: clientData.email || '' }]
         );
 
+        // Garante que as respostas de inspeções feitas em outro dispositivo estejam
+        // no Dexie local antes de calcular scores e plano de ação (senão o desktop
+        // mostra histórico/recorrentes incompletos). Ver sync-no-full-response-hydration.
+        await InspectionService.hydrateTenantResponses().catch(() => {});
+
         // Load all inspections for this client
         const rawInspections = filterByActiveTenant(await db.inspections.where('clientId').equals(id).toArray())
           .filter(i => !i.deletedAt);

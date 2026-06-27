@@ -149,7 +149,7 @@ export function ILPIStaffCalculator({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Users2 className={summary.nursingTechsOk ? 'text-green-600' : 'text-red-600'} />
-                <h4 className="text-sm font-bold text-gray-900">Tecnicos de enfermagem - Lei 8.049/2018 (RJ)</h4>
+                <h4 className="text-sm font-bold text-gray-900">Técnicos/Auxiliares de enfermagem — Lei RJ nº 8.049/2018</h4>
               </div>
               <StatusIcon ok={summary.nursingTechsOk} />
             </div>
@@ -158,7 +158,7 @@ export function ILPIStaffCalculator({
             </p>
             <div className="flex items-end justify-between border-t border-gray-200 pt-3">
               <div>
-                <p className="text-xs text-gray-500">Total necessario por turno</p>
+                <p className="text-xs text-gray-500">Total mínimo exigido pela Lei RJ nº 8.049/2018</p>
                 <p className="text-2xl font-black text-gray-900">{summary.nursingTechs.total}</p>
               </div>
               <div className="text-right">
@@ -181,7 +181,7 @@ export function ILPIStaffCalculator({
               <StatusIcon ok={summary.cleaningStaffOk} />
             </div>
             <p className="text-xs text-gray-500">
-              Minimo: 1 profissional para cada 100 m2 ou fracao de area util informada ({summary.cleaningStaff.areaM2} m2).
+              Minimo: 1 profissional para cada 100 m2 ou fracao de área interna informada ({summary.cleaningStaff.areaM2} m2).
             </p>
             <div className="flex items-end justify-between border-t border-gray-200 pt-3">
               <div>

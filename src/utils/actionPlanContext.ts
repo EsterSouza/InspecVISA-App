@@ -117,6 +117,12 @@ async function buildContextItem(
 }
 
 export async function getPreviousNCContextByInspection(inspectionId: string): Promise<Map<string, PreviousNCContext>> {
+  // Garante que as respostas da inspeção anterior estejam no Dexie local mesmo
+  // quando ela foi feita em outro dispositivo (ou após limpar o cache). Sem isso,
+  // o desktop não mostra as NCs anteriores que aparecem no celular. Ver
+  // memória sync-no-full-response-hydration.
+  await InspectionService.hydrateTenantResponses().catch(() => {});
+
   const inspection = await db.inspections.get(inspectionId);
   if (!inspection || inspection.deletedAt) return new Map();
 
@@ -141,7 +147,41 @@ export async function getPreviousNCContextByInspection(inspectionId: string): Pr
   return result;
 }
 
+/**
+ * Conjunto de itemIds que já foram registrados como não conformes em inspeções
+ * concluídas ANTERIORES deste cliente (excluindo a inspeção informada). Usado
+ * para marcar reincidência no PDF. Aguarda a hidratação do tenant para funcionar
+ * no desktop. Ver memória sync-no-full-response-hydration.
+ */
+export async function getRecurringItemIdsForClient(
+  clientId: string,
+  excludeInspectionId?: string
+): Promise<Set<string>> {
+  await InspectionService.hydrateTenantResponses().catch(() => {});
+
+  const inspections = filterByActiveTenant(await db.inspections
+    .where('clientId')
+    .equals(clientId)
+    .filter(inspection => inspection.status === 'completed' && !inspection.deletedAt && inspection.id !== excludeInspectionId)
+    .toArray());
+
+  if (inspections.length === 0) return new Set();
+
+  const responses = filterByActiveTenant(await db.responses
+    .where('inspectionId')
+    .anyOf(inspections.map(inspection => inspection.id))
+    .filter(response => response.result === 'not_complies' && !response.deletedAt)
+    .toArray());
+
+  return new Set(responses.map(response => response.itemId));
+}
+
 export async function getClientActionPlanContext(clientId: string): Promise<ClientActionPlanContext> {
+  // NC recorrentes / plano aberto dependem de TODO o histórico de respostas estar
+  // no Dexie local. Aguarda a hidratação do tenant para não calcular vazio no
+  // desktop. Ver memória sync-no-full-response-hydration.
+  await InspectionService.hydrateTenantResponses().catch(() => {});
+
   const inspections = sortInspectionsNewestFirst(filterByActiveTenant(await db.inspections
     .where('clientId')
     .equals(clientId)
