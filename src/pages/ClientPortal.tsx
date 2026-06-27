@@ -360,9 +360,16 @@ export function ClientPortal() {
               const us = u.visits
                 .filter((v) => typeof v.compliance_score === 'number')
                 .sort((a, b) => `${b.requested_date || ''}`.localeCompare(`${a.requested_date || ''}`));
-              return us.length ? { name: u.client_name, score: us[0].compliance_score as number } : null;
+              if (!us.length) return null;
+              const latest = us[0];
+              return {
+                name: u.client_name,
+                score: latest.compliance_score as number,
+                sanitary: typeof latest.sanitary_score === 'number' ? latest.sanitary_score : null,
+                nutrition: typeof latest.nutrition_score === 'number' ? latest.nutrition_score : null,
+              };
             })
-            .filter((x): x is { name: string; score: number } => x !== null)
+            .filter((x): x is { name: string; score: number; sanitary: number | null; nutrition: number | null } => x !== null)
             .sort((a, b) => a.score - b.score);
 
           return (
@@ -386,20 +393,32 @@ export function ClientPortal() {
 
               <div className="space-y-1.5">
                 {perUnit.map((u) => (
-                  <div key={u.name} className="flex items-center gap-3">
-                    <span className="w-40 shrink-0 truncate text-xs font-medium text-gray-700">{u.name}</span>
-                    <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-gray-100">
-                      <div
-                        className={`h-full rounded-full ${u.score >= 85 ? 'bg-green-500' : u.score >= 60 ? 'bg-amber-500' : 'bg-red-500'}`}
-                        style={{ width: `${u.score}%` }}
-                      />
+                  <div key={u.name}>
+                    <div className="flex items-center gap-3">
+                      <span className="w-40 shrink-0 truncate text-xs font-medium text-gray-700">{u.name}</span>
+                      <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-gray-100">
+                        <div
+                          className={`h-full rounded-full ${u.score >= 85 ? 'bg-green-500' : u.score >= 60 ? 'bg-amber-500' : 'bg-red-500'}`}
+                          style={{ width: `${u.score}%` }}
+                        />
+                      </div>
+                      <span className="hidden w-24 shrink-0 text-right text-[10px] font-bold uppercase tracking-tight text-gray-500 sm:inline">
+                        {classificationLabel(classificationFromPercent(u.score))}
+                      </span>
+                      <span className={`w-12 shrink-0 rounded px-1.5 py-0.5 text-center text-xs font-bold ${scoreColor(u.score)}`}>
+                        {u.score}%
+                      </span>
                     </div>
-                    <span className="hidden w-24 shrink-0 text-right text-[10px] font-bold uppercase tracking-tight text-gray-500 sm:inline">
-                      {classificationLabel(classificationFromPercent(u.score))}
-                    </span>
-                    <span className={`w-12 shrink-0 rounded px-1.5 py-0.5 text-center text-xs font-bold ${scoreColor(u.score)}`}>
-                      {u.score}%
-                    </span>
+                    {(u.sanitary !== null || u.nutrition !== null) && (
+                      <div className="mt-0.5 flex flex-wrap gap-x-4 gap-y-0.5 text-[10px] font-semibold text-gray-500 sm:ml-[10.75rem]">
+                        {u.sanitary !== null && (
+                          <span>Sanitária <span className="text-gray-800">{u.sanitary}%</span></span>
+                        )}
+                        {u.nutrition !== null && (
+                          <span>Nutrição <span className="text-gray-800">{u.nutrition}%</span></span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

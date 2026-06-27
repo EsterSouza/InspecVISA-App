@@ -267,6 +267,10 @@ export function AppointmentRequestsPanel() {
     void withBusy(request.id, () => AppointmentAdminService.setComplianceScore(request.id, score));
   };
 
+  const handleSetAreaScores = (request: AppointmentRequest, sanitary: number | null, nutrition: number | null) => {
+    void withBusy(request.id, () => AppointmentAdminService.setAreaScores(request.id, sanitary, nutrition));
+  };
+
   const handlePublishReport = (request: AppointmentRequest, file: File | null) => {
     if (!file) return;
     if (!file.type.includes('pdf') && !file.name.toLowerCase().endsWith('.pdf')) {
@@ -477,6 +481,7 @@ export function AppointmentRequestsPanel() {
                 onMarkNotCompleted={() => handleMarkNotCompleted(request)}
                 onReschedule={() => handleReschedule(request)}
                 onSetCompliance={(score) => handleSetCompliance(request, score)}
+                onSetAreaScores={(sanitary, nutrition) => handleSetAreaScores(request, sanitary, nutrition)}
                 onToggleReportHidden={() => handleToggleReportHidden(request)}
                 onDelete={() => handleDelete(request)}
               />
@@ -513,6 +518,7 @@ export function AppointmentRequestsPanel() {
                     onMarkInProgress={() => handleMarkInProgress(request)}
                     onShareWhatsapp={() => void handleShareReportWhatsapp(request)}
                     onSetCompliance={(score) => handleSetCompliance(request, score)}
+                    onSetAreaScores={(sanitary, nutrition) => handleSetAreaScores(request, sanitary, nutrition)}
                     onToggleReportHidden={() => handleToggleReportHidden(request)}
                     onDelete={() => handleDelete(request)}
                   />
@@ -679,6 +685,7 @@ interface ActiveRequestCardProps {
   onShareWhatsapp?: () => void;
   onReschedule?: () => void;
   onSetCompliance: (score: number | null) => void;
+  onSetAreaScores?: (sanitary: number | null, nutrition: number | null) => void;
   onToggleReportHidden: () => void;
   onDelete: () => void;
 }
@@ -774,6 +781,7 @@ function ActiveRequestCard({
   onShareWhatsapp,
   onReschedule,
   onSetCompliance,
+  onSetAreaScores,
   onToggleReportHidden,
   onDelete,
 }: ActiveRequestCardProps) {
@@ -781,6 +789,12 @@ function ActiveRequestCard({
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const [scoreInput, setScoreInput] = useState<string>(
     request.compliance_score != null ? String(request.compliance_score) : ''
+  );
+  const [sanitaryInput, setSanitaryInput] = useState<string>(
+    request.sanitary_score != null ? String(request.sanitary_score) : ''
+  );
+  const [nutritionInput, setNutritionInput] = useState<string>(
+    request.nutrition_score != null ? String(request.nutrition_score) : ''
   );
   const isClosed = request.status === 'report_available' || request.status === 'cancelled';
 
@@ -851,6 +865,49 @@ function ActiveRequestCard({
                     Salvar
                   </button>
                 </span>
+                {onSetAreaScores && (
+                  <span className="flex items-center gap-1 text-xs text-gray-500">
+                    <Gauge className="h-3.5 w-3.5 text-indigo-600" />
+                    Por área (ILPI):
+                    <span className="text-[11px] font-semibold text-gray-400">San</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={sanitaryInput}
+                      onChange={(e) => setSanitaryInput(e.target.value)}
+                      placeholder="—"
+                      className="w-12 rounded border border-gray-200 px-1.5 py-0.5 text-xs"
+                    />
+                    <span className="text-[11px] font-semibold text-gray-400">Nut</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={nutritionInput}
+                      onChange={(e) => setNutritionInput(e.target.value)}
+                      placeholder="—"
+                      className="w-12 rounded border border-gray-200 px-1.5 py-0.5 text-xs"
+                    />
+                    %
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => {
+                        const parse = (v: string): number | null => {
+                          const t = v.trim();
+                          if (t === '') return null;
+                          const n = Math.max(0, Math.min(100, Math.round(Number(t))));
+                          return Number.isFinite(n) ? n : null;
+                        };
+                        onSetAreaScores(parse(sanitaryInput), parse(nutritionInput));
+                      }}
+                      className="rounded bg-indigo-50 px-1.5 py-0.5 text-[11px] font-bold text-indigo-700 hover:bg-indigo-100"
+                    >
+                      Salvar
+                    </button>
+                  </span>
+                )}
               </div>
             </div>
             {busy && <Loader2 className="h-5 w-5 shrink-0 animate-spin text-primary-600" />}

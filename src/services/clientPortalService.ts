@@ -22,6 +22,8 @@ export interface ClientPortalVisit {
   requested_time: string | null;
   report_due_at: string | null;
   compliance_score?: number | null;
+  sanitary_score?: number | null;
+  nutrition_score?: number | null;
   report_count?: number;
   photo_count?: number;
   attachment_count?: number;

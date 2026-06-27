@@ -229,6 +229,11 @@ export const AppointmentAdminService = {
     await this.updateRequest(id, { compliance_score: score });
   },
 
+  // Score por área da ILPI exibido no portal (sanitária x nutrição). null limpa o campo.
+  async setAreaScores(id: string, sanitary: number | null, nutrition: number | null): Promise<void> {
+    await this.updateRequest(id, { sanitary_score: sanitary, nutrition_score: nutrition });
+  },
+
   // Cria uma visita direto pela equipe, já confirmada e vinculada ao cliente,
   // para aparecer no portal do cliente com rastreio completo (timeline/relatório/fotos).
   async insertConfirmedRequest(params: {

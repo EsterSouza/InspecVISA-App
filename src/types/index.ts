@@ -428,6 +428,9 @@ export interface AppointmentRequest {
   report_pdf_path: string | null;
   report_hidden?: boolean;
   compliance_score?: number | null;
+  // Score por área da ILPI (opcional): sanitária x nutrição. O global é compliance_score.
+  sanitary_score?: number | null;
+  nutrition_score?: number | null;
   notes: string | null;
   internal_notes: string | null;
   created_at: string;
