@@ -200,6 +200,131 @@ export function calculateScore(responses: InspectionResponse[], sections: Sectio
 }
 
 /**
+ * Separação por ÁREA de responsabilidade dentro de uma mesma inspeção ILPI:
+ * a parte sanitária (avaliada pela consultora sanitária, ex.: Ester) e a parte
+ * de nutrição/cozinha (avaliada pela nutricionista, ex.: Ana). O score GLOBAL
+ * continua somando tudo junto (críticos e não-críticos das duas áreas); cada
+ * área ganha seu próprio % e classificação MARP para acompanhamento.
+ */
+export type ConsultantArea = 'sanitary' | 'nutrition';
+
+function normalizeSectionTitle(title: string): string {
+  return (title || '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+/**
+ * Uma seção é "de nutrição" (responsabilidade da nutricionista) quando trata de
+ * serviço de nutrição, cozinha, refeitório ou dietética. No roteiro ILPI atual
+ * isso casa "Serviço de Nutrição" e "Refeitório". Casa por TÍTULO normalizado
+ * (ids são UUID e variam entre roteiros). Ver ilpi-roteiro-section-matching.
+ */
+export function isNutritionSection(title: string): boolean {
+  const t = normalizeSectionTitle(title);
+  return /nutri|cozinha|refeit|dietetic/.test(t);
+}
+
+export interface AreaScore {
+  area: ConsultantArea;
+  /** Rótulo da área ("Sanitária" / "Nutrição"). */
+  areaLabel: string;
+  /** Consultora que mais preencheu itens desta área (derivado de lastEditedBy). */
+  consultant?: string;
+  score: InspectionScore;
+  /** true quando a área tem ao menos 1 item avaliado nesta inspeção. */
+  hasResponses: boolean;
+}
+
+export interface InspectionAreaScores {
+  global: InspectionScore;
+  sanitary: AreaScore;
+  nutrition: AreaScore;
+  /** true quando ambas as áreas têm itens avaliados — vale exibir a separação. */
+  isSplit: boolean;
+}
+
+const AREA_LABELS: Record<ConsultantArea, string> = {
+  sanitary: 'Sanitária',
+  nutrition: 'Nutrição',
+};
+
+/** Remove o sufixo de transferência ("(transf.)") usado em dados antigos. */
+function cleanAuthorName(name?: string): string {
+  return (name || '').replace(/\s*\(transf\.\)\s*/i, '').trim();
+}
+
+/** Consultora dominante (mais respostas autoradas) entre os itens informados. */
+function dominantAuthor(responses: InspectionResponse[], itemIds: Set<string>): string | undefined {
+  const counts = new Map<string, number>();
+  for (const response of getLatestResponsesByItem(responses, itemIds)) {
+    const name = cleanAuthorName(response.lastEditedBy);
+    if (!name) continue;
+    counts.set(name, (counts.get(name) || 0) + 1);
+  }
+  let best: string | undefined;
+  let bestN = 0;
+  for (const [name, n] of counts) {
+    if (n > bestN) { best = name; bestN = n; }
+  }
+  return best;
+}
+
+/**
+ * Conjunto de itemIds que pertencem a seções de nutrição em uma lista de seções.
+ * Útil para atribuição por área fora do cálculo de score (ex.: dashboard).
+ */
+export function nutritionItemIds(sections: Section[]): Set<string> {
+  const ids = new Set<string>();
+  for (const section of sections) {
+    if (!isNutritionSection(section.title)) continue;
+    for (const item of section.items || []) ids.add(item.id);
+  }
+  return ids;
+}
+
+/**
+ * Calcula o score global da inspeção e, separadamente, o score da parte
+ * sanitária e da parte de nutrição. Reusa calculateScore sobre o subconjunto
+ * de seções de cada área (mesma lógica MARP/%/classificação por área).
+ */
+export function calculateAreaScores(responses: InspectionResponse[], sections: Section[]): InspectionAreaScores {
+  const nutritionSections = sections.filter((s) => isNutritionSection(s.title));
+  const sanitarySections = sections.filter((s) => !isNutritionSection(s.title));
+
+  const global = calculateScore(responses, sections);
+  const sanitaryScore = calculateScore(responses, sanitarySections);
+  const nutritionScore = calculateScore(responses, nutritionSections);
+
+  const sanitaryItemIds = new Set(sanitarySections.flatMap((s) => s.items.map((i) => i.id)));
+  const nutritionIds = new Set(nutritionSections.flatMap((s) => s.items.map((i) => i.id)));
+
+  const sanitary: AreaScore = {
+    area: 'sanitary',
+    areaLabel: AREA_LABELS.sanitary,
+    consultant: dominantAuthor(responses, sanitaryItemIds),
+    score: sanitaryScore,
+    hasResponses: sanitaryScore.evaluatedItems > 0,
+  };
+  const nutrition: AreaScore = {
+    area: 'nutrition',
+    areaLabel: AREA_LABELS.nutrition,
+    consultant: dominantAuthor(responses, nutritionIds),
+    score: nutritionScore,
+    hasResponses: nutritionScore.evaluatedItems > 0,
+  };
+
+  return {
+    global,
+    sanitary,
+    nutrition,
+    isSplit: sanitary.hasResponses && nutrition.hasResponses,
+  };
+}
+
+/**
  * Classificação derivada apenas do % de conformidade (sem dados de NC crítica).
  * Usada no Portal do Cliente, onde só temos o compliance_score. Mesmas faixas
  * de % da classificação completa (o "teto por crítica" não se aplica aqui).

@@ -18,7 +18,7 @@ import {
 import { useForm } from 'react-hook-form';
 import { db } from '../db/database';
 import { type AppointmentAttachment, type AppointmentRequest, type Client, type ClientContact, type ClientPortalAuditEvent, type Inspection, type InspectionScore, type Schedule, FOOD_SEGMENT_LABELS } from '../types';
-import { calculateScore } from '../utils/scoring';
+import { calculateScore, calculateAreaScores, type InspectionAreaScores } from '../utils/scoring';
 import { formatDateTime } from '../utils/imageUtils';
 import { ClientService } from '../services/clientService';
 import { InspectionService } from '../services/inspectionService';
@@ -39,7 +39,7 @@ export function ClientDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [client, setClient] = useState<Client | null>(null);
-  const [inspections, setInspections] = useState<(Inspection & { score: InspectionScore })[]>([]);
+  const [inspections, setInspections] = useState<(Inspection & { score: InspectionScore; areaScores: InspectionAreaScores })[]>([]);
   const [actionPlan, setActionPlan] = useState<ClientActionPlanContext>({ latestOpenItems: [], recurringItems: [] });
   const [portalAccounts, setPortalAccounts] = useState<ClientPortalAccountRow[]>([]);
   const [portalAuditEvents, setPortalAuditEvents] = useState<ClientPortalAuditEvent[]>([]);
@@ -96,8 +96,10 @@ export function ClientDetails() {
           rawInspections.map(async (insp: any) => {
             const responses = allResponses.filter((r: any) => r.inspectionId === insp.id);
             const template = await db.templates.get(insp.templateId); // Keep templates in Dexie
-            const score = calculateScore(responses, template?.sections || []);
-            return { ...insp, score };
+            const sections = template?.sections || [];
+            const score = calculateScore(responses, sections);
+            const areaScores = calculateAreaScores(responses, sections);
+            return { ...insp, score, areaScores };
           })
         )).sort((a, b) => new Date(b.inspectionDate || b.createdAt).getTime() - new Date(a.inspectionDate || a.createdAt).getTime());
 
@@ -486,6 +488,20 @@ export function ClientDetails() {
                             <span className="text-xs text-gray-400">•</span>
                             <span className="text-xs text-gray-500">{insp.score.compliesCount} conformidades</span>
                           </div>
+                          {insp.status === 'completed' && client.category === 'ilpi' && insp.areaScores.isSplit && (
+                            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] font-semibold">
+                              <span className="text-gray-600">
+                                {insp.areaScores.sanitary.areaLabel}
+                                {insp.areaScores.sanitary.consultant ? ` (${insp.areaScores.sanitary.consultant.split(/\s+/)[0]})` : ''}
+                                <span className="ml-1 text-gray-900">{Math.round(insp.areaScores.sanitary.score.scorePercentage)}%</span>
+                              </span>
+                              <span className="text-gray-600">
+                                {insp.areaScores.nutrition.areaLabel}
+                                {insp.areaScores.nutrition.consultant ? ` (${insp.areaScores.nutrition.consultant.split(/\s+/)[0]})` : ''}
+                                <span className="ml-1 text-gray-900">{Math.round(insp.areaScores.nutrition.score.scorePercentage)}%</span>
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
                       <ChevronRight className="h-5 w-5 text-gray-300" />

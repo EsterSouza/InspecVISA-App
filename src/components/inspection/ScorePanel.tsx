@@ -1,8 +1,47 @@
 import React from 'react';
-import { calculateScore, classificationLabel, classificationColor } from '../../utils/scoring';
+import { calculateScore, calculateAreaScores, classificationLabel, classificationColor } from '../../utils/scoring';
+import type { AreaScore } from '../../utils/scoring';
 import { useInspectionStore } from '../../store/useInspectionStore';
 import { getTemplateById } from '../../data/templates';
 import type { Inspection, InspectionResponse, ChecklistTemplate } from '../../types';
+
+function firstName(name?: string) {
+  return (name || '').trim().split(/\s+/)[0] || '';
+}
+
+/** Cartão compacto de uma área (Sanitária / Nutrição) com %, classificação e autora. */
+function AreaScoreCard({ area }: { area: AreaScore }) {
+  const pct = Math.round(area.score.scorePercentage);
+  const riskColor = classificationColor(area.score.classification);
+  const who = firstName(area.consultant);
+  return (
+    <div className="flex-1 rounded-xl border border-gray-100 bg-white p-4">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{area.areaLabel}</p>
+          {who && <p className="truncate text-xs font-semibold text-gray-600">{who}</p>}
+        </div>
+        <span
+          className="shrink-0 rounded-full px-2 py-0.5 text-[9px] font-black uppercase text-white"
+          style={{ backgroundColor: riskColor }}
+        >
+          {classificationLabel(area.score.classification)}
+        </span>
+      </div>
+      <div className="mt-2 flex items-baseline gap-1.5">
+        <span className="text-3xl font-black text-gray-900">{pct}%</span>
+        {area.score.criticalNotCompliesCount > 0 && (
+          <span className="text-[10px] font-bold text-red-600">
+            {area.score.criticalNotCompliesCount} NC crítica(s)
+          </span>
+        )}
+      </div>
+      <p className="mt-0.5 text-[10px] font-bold uppercase tracking-tight text-gray-400">
+        {area.score.evaluatedItems} itens · {area.score.notCompliesCount} NC
+      </p>
+    </div>
+  );
+}
 
 interface ScorePanelProps {
   inspection?: Inspection;
@@ -22,7 +61,8 @@ export function ScorePanel({ inspection, responses: propResponses, template: pro
   if (!template) return null;
 
   const score = calculateScore(responses, template.sections);
-  
+  const areaScores = calculateAreaScores(responses, template.sections);
+
   // Dynamic color based on score percentage
   const getScoreColor = (percent: number) => {
     if (percent >= 85) return '#22C55E'; // Success
@@ -70,6 +110,21 @@ export function ScorePanel({ inspection, responses: propResponses, template: pro
             {score.evaluatedItems} de {score.totalItems} itens avaliados
           </p>
         </div>
+
+        {/* Separação por área: sanitária (ex.: Ester) e nutrição (ex.: Ana).
+            O número grande acima é o GLOBAL da casa (soma das duas áreas).
+            Só faz sentido em ILPI (única categoria com nutrição interna). */}
+        {areaScores.isSplit && template.category === 'ilpi' && (
+          <div className="space-y-2 pt-2">
+            <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400">
+              Conformidade por área de avaliação
+            </p>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <AreaScoreCard area={areaScores.sanitary} />
+              <AreaScoreCard area={areaScores.nutrition} />
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="h-[1px] bg-gray-100 mx-6 sm:mx-8" />

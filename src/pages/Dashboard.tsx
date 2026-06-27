@@ -22,6 +22,8 @@ import {
 } from 'lucide-react';
 import { formatDateTime } from '../utils/imageUtils';
 import { getTemplates } from '../data/templates';
+import { db } from '../db/database';
+import { nutritionItemIds, type ConsultantArea } from '../utils/scoring';
 
 const TEAM_FILTER = '__all__';
 
@@ -50,6 +52,8 @@ type RawData = {
   clientsById: Map<string, string>;
   responsesByInspection: Map<string, InspectionResponse[]>;
   syncQueueCount: number;
+  /** itemIds das seções de nutrição (atribuídas à nutricionista). */
+  nutritionItemIds: Set<string>;
 };
 
 function startOfDay(date: Date) {
@@ -98,22 +102,57 @@ function consultantsOf(inspection: Inspection): string[] {
  * customizados (UUID), ao contrário do recálculo via template estático.
  * Retorna null quando a inspeção não tem item avaliável (não entra na média).
  */
-function inspectionScore(responses: InspectionResponse[]): number | null {
-  const latestByItem = new Map<string, InspectionResponse>();
+function latestByItem(responses: InspectionResponse[]): InspectionResponse[] {
+  const map = new Map<string, InspectionResponse>();
   for (const response of responses) {
     if (response.deletedAt) continue;
-    const prev = latestByItem.get(response.itemId);
+    const prev = map.get(response.itemId);
     if (!prev || new Date(response.updatedAt).getTime() > new Date(prev.updatedAt).getTime()) {
-      latestByItem.set(response.itemId, response);
+      map.set(response.itemId, response);
     }
   }
+  return Array.from(map.values());
+}
+
+function pctOf(items: InspectionResponse[]): number | null {
   let complies = 0;
   let evaluated = 0;
-  for (const response of latestByItem.values()) {
+  for (const response of items) {
     if (response.result === 'complies') { complies += 1; evaluated += 1; }
     else if (response.result === 'not_complies') { evaluated += 1; }
   }
   return evaluated > 0 ? (complies / evaluated) * 100 : null;
+}
+
+function inspectionScore(responses: InspectionResponse[]): number | null {
+  return pctOf(latestByItem(responses));
+}
+
+/**
+ * Score da ÁREA de uma consultora numa inspeção. Quando a inspeção tem as DUAS
+ * áreas avaliadas (ILPI: sanitária + nutrição), restringe aos itens da área da
+ * consultora — assim o % da Ana reflete só a nutrição e o da Ester só o
+ * sanitário. Em inspeções de área única (Estética/Alimentos), usa a inspeção
+ * inteira, pois a consultora é responsável por tudo.
+ */
+function consultantAreaScore(
+  responses: InspectionResponse[],
+  nutritionIds: Set<string>,
+  area: ConsultantArea,
+): number | null {
+  const latest = latestByItem(responses);
+  const hasNutrition = latest.some((r) => nutritionIds.has(r.itemId));
+  const hasSanitary = latest.some((r) => !nutritionIds.has(r.itemId));
+  if (!(hasNutrition && hasSanitary)) return pctOf(latest);
+  const filtered = latest.filter((r) =>
+    area === 'nutrition' ? nutritionIds.has(r.itemId) : !nutritionIds.has(r.itemId)
+  );
+  return pctOf(filtered);
+}
+
+/** Remove o sufixo "(transf.)" de dados antigos. */
+function cleanAuthor(name?: string): string {
+  return (name || '').replace(/\s*\(transf\.\)\s*/i, '').trim();
 }
 
 export function Dashboard() {
@@ -163,6 +202,15 @@ export function Dashboard() {
 
         const queue = await SyncQueueService.getQueueSummary();
 
+        // Conjunto de itens de nutrição a partir de TODOS os roteiros locais
+        // (o roteiro ILPI ativo usa ids UUID, então vem do Dexie, não do estático).
+        const localTemplates = await db.templates.toArray().catch(() => []);
+        const nutritionIds = nutritionItemIds(
+          localTemplates
+            .filter((template) => template.category === 'ilpi')
+            .flatMap((template) => template.sections || [])
+        );
+
         const schedules = allSchedules.map((schedule) => ({
           ...schedule,
           clientName: clientsById.get(schedule.clientId) || schedule.clientName || 'Cliente',
@@ -174,6 +222,7 @@ export function Dashboard() {
           clientsById,
           responsesByInspection,
           syncQueueCount: queue.pending + queue.syncing + queue.failed + queue.conflict,
+          nutritionItemIds: nutritionIds,
         });
 
         // Default: foca na consultora do perfil ativo, se houver trabalho dela.
@@ -203,16 +252,48 @@ export function Dashboard() {
       consultantFilter === TEAM_FILTER || consultantsOf(inspection).includes(consultantFilter);
   }, [consultantFilter]);
 
+  // Área de responsabilidade de cada consultora (sanitária x nutrição), derivada
+  // de quem mais preencheu cada tipo de item (lastEditedBy). Ana → nutrição,
+  // Ester → sanitária, sem hardcode de nomes.
+  const consultantArea = useMemo(() => {
+    const tally = new Map<string, { nut: number; san: number }>();
+    if (raw) {
+      for (const responses of raw.responsesByInspection.values()) {
+        for (const response of responses) {
+          if (response.deletedAt) continue;
+          const name = cleanAuthor(response.lastEditedBy);
+          if (!name) continue;
+          const bucket = tally.get(name) || { nut: 0, san: 0 };
+          if (raw.nutritionItemIds.has(response.itemId)) bucket.nut += 1;
+          else bucket.san += 1;
+          tally.set(name, bucket);
+        }
+      }
+    }
+    const out = new Map<string, ConsultantArea>();
+    for (const [name, b] of tally) {
+      out.set(name, b.nut > b.san ? 'nutrition' : 'sanitary');
+    }
+    return out;
+  }, [raw]);
+
   const stats: DashboardStats = useMemo(() => {
     if (!raw) return { totalActive: 0, totalCompleted: 0, avgScore: 0 };
     const inspections = raw.inspections.filter(matchesFilter);
     const active = inspections.filter((i) => i.status === 'in_progress').length;
     const completed = inspections.filter((i) => i.status === 'completed');
 
+    // Filtrando por consultora conhecida, o % considera só a área dela; na visão
+    // de equipe (ou consultora sem área identificada), considera a inspeção toda.
+    const area = consultantFilter === TEAM_FILTER ? undefined : consultantArea.get(consultantFilter);
+
     let total = 0;
     let scored = 0;
     for (const inspection of completed) {
-      const pct = inspectionScore(raw.responsesByInspection.get(inspection.id) || []);
+      const responses = raw.responsesByInspection.get(inspection.id) || [];
+      const pct = area
+        ? consultantAreaScore(responses, raw.nutritionItemIds, area)
+        : inspectionScore(responses);
       if (pct !== null) { total += pct; scored += 1; }
     }
 
@@ -221,7 +302,7 @@ export function Dashboard() {
       totalCompleted: completed.length,
       avgScore: scored > 0 ? Math.round(total / scored) : 0,
     };
-  }, [raw, matchesFilter]);
+  }, [raw, matchesFilter, consultantFilter, consultantArea]);
 
   const recentInspections = useMemo(() => {
     if (!raw) return [] as Inspection[];

@@ -2,7 +2,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { Inspection, InspectionResponse, ChecklistTemplate, InspectionScore, ConsultantSettings, FoodEstablishmentType } from '../types';
 import { FOOD_SEGMENT_LABELS } from '../types';
-import { classificationLabel, classificationColor, getLatestResponsesByItem } from './scoring';
+import { classificationLabel, classificationColor, getLatestResponsesByItem, calculateAreaScores } from './scoring';
 import { formatDate } from './imageUtils';
 import { enrichTemplate } from '../data/templates';
 import { calculateILPIStaffing } from './ilpiStaffing';
@@ -171,6 +171,8 @@ export async function generatePDF(
   const templateItemIds = new Set(template.sections.flatMap(section => section.items.map(item => item.id)));
   const reportResponses = getLatestResponsesByItem(responses, templateItemIds);
   const isIlpiReport = template.category === 'ilpi' || inspection.clientCategory === 'ilpi';
+  // Separação por área (sanitária x nutrição) para o bloco "por área" da capa.
+  const areaScores = calculateAreaScores(responses, template.sections);
   const isRJInspection = ['RJ', 'RIO DE JANEIRO'].includes(String(inspection.state || '').toUpperCase());
   const reportConsultants = isIlpiReport
     ? [
@@ -504,6 +506,53 @@ export async function generatePDF(
   doc.setFillColor(...(rgb as [number, number, number]));
   doc.roundedRect(margin, y, (contentW * scorePercent) / 100, 3, 1.5, 1.5, 'F');
   y += 10;
+
+  // ── Conformidade por área (sanitária x nutrição) ─────────
+  // Só em ILPI com as duas áreas avaliadas (sanitária + nutrição).
+  if (areaScores.isSplit && isIlpiReport) {
+    const areaCards: { label: string; consultant?: string; pct: number; classif: string; nc: number }[] = [
+      {
+        label: areaScores.sanitary.areaLabel,
+        consultant: areaScores.sanitary.consultant,
+        pct: Math.round(areaScores.sanitary.score.scorePercentage),
+        classif: areaScores.sanitary.score.classification,
+        nc: areaScores.sanitary.score.notCompliesCount,
+      },
+      {
+        label: areaScores.nutrition.areaLabel,
+        consultant: areaScores.nutrition.consultant,
+        pct: Math.round(areaScores.nutrition.score.scorePercentage),
+        classif: areaScores.nutrition.score.classification,
+        nc: areaScores.nutrition.score.notCompliesCount,
+      },
+    ];
+    const areaGap = 4;
+    const areaW = (contentW - areaGap) / 2;
+    areaCards.forEach((card, idx) => {
+      const ax = margin + idx * (areaW + areaGap);
+      const cardRgb = riskRgbMap[card.classif] || [100, 116, 139];
+      doc.setDrawColor(...borderColor);
+      doc.setFillColor(...surfaceColor);
+      doc.roundedRect(ax, y, areaW, 20, 2.5, 2.5, 'FD');
+      // Faixa lateral colorida pela classificação da área
+      doc.setFillColor(...(cardRgb as [number, number, number]));
+      doc.roundedRect(ax, y, 2.5, 20, 1, 1, 'F');
+      const tx = ax + 7;
+      doc.setTextColor(...mutedColor);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      const who = (card.consultant || '').trim().split(/\s+/)[0];
+      doc.text(`${card.label.toUpperCase()}${who ? ` - ${who.toUpperCase()}` : ''}`, tx, y + 6);
+      doc.setTextColor(...textColor);
+      doc.setFontSize(20);
+      doc.text(`${card.pct}%`, tx, y + 15);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(...mutedColor);
+      doc.text(`${card.nc} NC · ${classificationLabel(card.classif as any)}`, tx + 22, y + 15);
+    });
+    y += 26;
+  }
 
   const coverGap = 4;
   const coverCardW = (contentW - coverGap * 3) / 4;
