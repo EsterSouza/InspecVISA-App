@@ -15,9 +15,11 @@ interface PhotoCaptureProps {
 export function PhotoCapture({ inputId, photos, onAddPhoto, onRemovePhoto }: PhotoCaptureProps) {
   const [fullscreenPhoto, setFullscreenPhoto] = React.useState<string | null>(null);
   const [isCompressing, setIsCompressing] = React.useState(false);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [compressProgress, setCompressProgress] = React.useState<{ current: number; total: number } | null>(null);
+  const cameraInputRef = React.useRef<HTMLInputElement>(null);
+  const galleryInputRef = React.useRef<HTMLInputElement>(null);
 
-  const handleCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCameraCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -32,7 +34,7 @@ export function PhotoCapture({ inputId, photos, onAddPhoto, onRemovePhoto }: Pho
         syncStatus: 'pending'
       });
       // Reset input
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (cameraInputRef.current) cameraInputRef.current.value = '';
     } catch (err) {
       console.error('Error compressing image:', err);
       alert('Erro ao processar imagem. Tente novamente.');
@@ -41,26 +43,66 @@ export function PhotoCapture({ inputId, photos, onAddPhoto, onRemovePhoto }: Pho
     }
   };
 
+  // Galeria aceita várias fotos de uma vez — processa uma de cada vez (não em
+  // paralelo) pra não estourar memória comprimindo várias imagens grandes ao
+  // mesmo tempo no celular. Uma foto ruim no meio do lote não derruba as outras.
+  const handleGalleryCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
+
+    setIsCompressing(true);
+    let failures = 0;
+    try {
+      for (let i = 0; i < files.length; i++) {
+        setCompressProgress({ current: i + 1, total: files.length });
+        try {
+          const dataUrl = await compressImage(files[i]);
+          await onAddPhoto({
+            responseId: '',
+            dataUrl,
+            takenAt: new Date(),
+            updatedAt: new Date(),
+            syncStatus: 'pending'
+          });
+        } catch (err) {
+          failures += 1;
+          console.error('Error compressing image:', files[i]?.name, err);
+        }
+      }
+      if (failures === files.length) {
+        alert('Erro ao processar as fotos. Tente novamente.');
+      } else if (failures > 0) {
+        alert(`${failures} de ${files.length} foto(s) não puderam ser processadas. As demais foram adicionadas.`);
+      }
+      if (galleryInputRef.current) galleryInputRef.current.value = '';
+    } finally {
+      setIsCompressing(false);
+      setCompressProgress(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Action Buttons */}
       <div className="flex flex-col sm:flex-row gap-2">
         <input
-          ref={fileInputRef}
+          ref={cameraInputRef}
           type="file"
           accept="image/*"
           capture="environment"
           className="hidden"
           id={`${inputId}-camera`}
-          onChange={handleCapture}
+          onChange={handleCameraCapture}
           disabled={isCompressing}
         />
         <input
+          ref={galleryInputRef}
           type="file"
           accept="image/*"
+          multiple
           className="hidden"
           id={`${inputId}-gallery`}
-          onChange={handleCapture}
+          onChange={handleGalleryCapture}
           disabled={isCompressing}
         />
         
@@ -87,7 +129,9 @@ export function PhotoCapture({ inputId, photos, onAddPhoto, onRemovePhoto }: Pho
         </Button>
       </div>
       <p className="mt-2 text-[10px] text-gray-500 text-center italic">
-        {isCompressing ? 'Processando imagem...' : `${photos.length} foto(s) registrada(s)`}
+        {isCompressing
+          ? (compressProgress ? `Processando foto ${compressProgress.current} de ${compressProgress.total}...` : 'Processando imagem...')
+          : `${photos.length} foto(s) registrada(s)`}
       </p>
 
       {/* Thumbnails */}

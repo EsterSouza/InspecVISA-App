@@ -6,6 +6,8 @@ import { PhotoCapture } from './PhotoCapture';
 import type { ChecklistItem as ItemType, InspectionResponse, InspectionPhoto } from '../../types';
 import { generateId } from '../../utils/imageUtils';
 import type { PreviousNCContext } from '../../utils/actionPlanContext';
+import { getFieldSuggestions, type FieldSuggestions } from '../../utils/textSuggestions';
+import { VoiceDictationButton } from './VoiceDictationButton';
 
 function isInlineImage(value?: string | null) {
   return /^data:image\/(jpeg|jpg|png|webp);base64,/i.test(value || '');
@@ -41,6 +43,17 @@ export const ChecklistItem = memo(function ChecklistItem({
   const [localDeadline, setLocalDeadline] = useState(response?.deadline || '');
   
   const [isFocused, setIsFocused] = useState<string | null>(null);
+
+  // Sugestões do próprio histórico deste item: busca preguiçosa, só quando a
+  // consultora abre a seção de observações — evita consultar o Dexie pra cada
+  // um dos 100+ itens da tela toda de uma vez.
+  const [suggestions, setSuggestions] = useState<FieldSuggestions | null>(null);
+  useEffect(() => {
+    if (!showObs || suggestions) return;
+    let cancelled = false;
+    getFieldSuggestions(item.id).then((result) => { if (!cancelled) setSuggestions(result); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [showObs, item.id]);
 
   // Sync from store when another device updates this item (only when field is not focused)
   useEffect(() => { if (isFocused !== 'situation') setLocalSituation(response?.situationDescription || ''); }, [response?.situationDescription]);
@@ -85,6 +98,39 @@ export const ChecklistItem = memo(function ChecklistItem({
   const isSelected = !!response?.result;
   const isNotCompliant = response?.result === 'not_complies';
   const hasError = isNotCompliant && (!response?.situationDescription || !response?.correctiveAction);
+
+  // Preenche só os campos ainda vazios com o texto da visita anterior — nunca
+  // sobrescreve o que a consultora já digitou. Só oferece o botão quando marcar
+  // um resultado (não escolhe NÃO CUMPRE por ela) e quando sobrar algo a preencher.
+  const canReuseTextoAnterior = isSelected && !!previousNC && (
+    (!localSituation.trim() && !!previousNC.situationDescription) ||
+    (!localAction.trim() && !!previousNC.correctiveAction) ||
+    (!localResponsible.trim() && !!previousNC.responsible) ||
+    (!localDeadline.trim() && !!previousNC.deadline)
+  );
+
+  const handleUseTextoAnterior = () => {
+    if (!previousNC) return;
+    const details: Partial<InspectionResponse> = {};
+    if (!localSituation.trim() && previousNC.situationDescription) {
+      setLocalSituation(previousNC.situationDescription);
+      details.situationDescription = previousNC.situationDescription;
+    }
+    if (!localAction.trim() && previousNC.correctiveAction) {
+      setLocalAction(previousNC.correctiveAction);
+      details.correctiveAction = previousNC.correctiveAction;
+    }
+    if (!localResponsible.trim() && previousNC.responsible) {
+      setLocalResponsible(previousNC.responsible);
+      details.responsible = previousNC.responsible;
+    }
+    if (!localDeadline.trim() && previousNC.deadline) {
+      setLocalDeadline(previousNC.deadline);
+      details.deadline = previousNC.deadline;
+    }
+    if (Object.keys(details).length > 0) onUpdateDetails(item.id, details);
+    setShowObs(true);
+  };
 
   const getBorderColor = () => {
     if (!isSelected) return 'border-l-4 border-l-yellow-400 border-gray-200';
@@ -171,6 +217,15 @@ export const ChecklistItem = memo(function ChecklistItem({
             <span className="text-[11px] font-semibold text-amber-700">
               {new Date(previousNC.inspectionDate).toLocaleDateString('pt-BR')}
             </span>
+            {canReuseTextoAnterior && (
+              <button
+                type="button"
+                onClick={handleUseTextoAnterior}
+                className="ml-auto rounded-full border border-amber-300 bg-white px-2.5 py-0.5 text-[11px] font-bold text-amber-800 shadow-sm transition-colors hover:bg-amber-100"
+              >
+                Usar texto anterior
+              </button>
+            )}
           </div>
           <div className="space-y-2 text-xs leading-relaxed">
             {previousNC.situationDescription && (
@@ -267,10 +322,13 @@ export const ChecklistItem = memo(function ChecklistItem({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-700">
-              {isNotCompliant ? 'Situação encontrada' : 'O que foi observado (Pontos de Excelência)'}
-              {isNotCompliant && <span className="text-red-500"> *</span>}
-            </label>
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-sm font-medium text-gray-700">
+                {isNotCompliant ? 'Situação encontrada' : 'O que foi observado (Pontos de Excelência)'}
+                {isNotCompliant && <span className="text-red-500"> *</span>}
+              </label>
+              <VoiceDictationButton onTranscript={(text) => setLocalSituation((prev) => (prev ? `${prev} ${text}` : text))} />
+            </div>
             <div className="relative">
               <textarea
                 className={cn(
@@ -287,13 +345,35 @@ export const ChecklistItem = memo(function ChecklistItem({
               />
 
             </div>
+            {!!suggestions?.situationDescription.length && (
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                <span className="text-[10px] font-semibold uppercase tracking-tight text-gray-400">Já usado antes:</span>
+                {suggestions.situationDescription.map((text) => (
+                  <button
+                    key={text}
+                    type="button"
+                    onClick={() => {
+                      setLocalSituation(text);
+                      onUpdateDetails(item.id, { situationDescription: text });
+                    }}
+                    title={text}
+                    className="max-w-[220px] truncate text-[11px] font-medium bg-white hover:bg-primary-50 text-gray-600 hover:text-primary-700 border border-gray-200 hover:border-primary-200 rounded-full px-2 py-0.5 transition-colors shadow-sm"
+                  >
+                    {text}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-700">
-              {isNotCompliant ? 'Ação corretiva necessária' : 'Sugestões de melhoria profissional'}
-              {isNotCompliant && <span className="text-red-500"> *</span>}
-            </label>
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-sm font-medium text-gray-700">
+                {isNotCompliant ? 'Ação corretiva necessária' : 'Sugestões de melhoria profissional'}
+                {isNotCompliant && <span className="text-red-500"> *</span>}
+              </label>
+              <VoiceDictationButton onTranscript={(text) => setLocalAction((prev) => (prev ? `${prev} ${text}` : text))} />
+            </div>
             {isNotCompliant && (
               <div className="flex flex-wrap gap-1.5 pb-1">
                 {['Providenciar', 'Substituir', 'Implementar', 'Abolir', 'Adequar'].map((verb) => (
@@ -326,6 +406,25 @@ export const ChecklistItem = memo(function ChecklistItem({
               onFocus={() => setIsFocused('action')}
               onBlur={(e) => handleBlur('correctiveAction', e.target.value)}
             />
+            {!!suggestions?.correctiveAction.length && (
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                <span className="text-[10px] font-semibold uppercase tracking-tight text-gray-400">Já usado antes:</span>
+                {suggestions.correctiveAction.map((text) => (
+                  <button
+                    key={text}
+                    type="button"
+                    onClick={() => {
+                      setLocalAction(text);
+                      onUpdateDetails(item.id, { correctiveAction: text });
+                    }}
+                    title={text}
+                    className="max-w-[220px] truncate text-[11px] font-medium bg-white hover:bg-primary-50 text-gray-600 hover:text-primary-700 border border-gray-200 hover:border-primary-200 rounded-full px-2 py-0.5 transition-colors shadow-sm"
+                  >
+                    {text}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <datalist id="responsables-list">

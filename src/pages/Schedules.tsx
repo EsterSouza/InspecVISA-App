@@ -32,6 +32,25 @@ function dateKey(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+/**
+ * Soma meses a uma data, "clampando" o dia ao último dia do mês de destino
+ * (ex.: 31/01 + 1 mês -> 28/02, não 03/03) — evita o rollover automático do
+ * `Date` nativo quando o dia original não existe no mês seguinte.
+ */
+function addMonthsClamped(date: Date, months: number): Date {
+  const targetMonthFirst = new Date(date.getFullYear(), date.getMonth() + months, 1);
+  const daysInTargetMonth = new Date(targetMonthFirst.getFullYear(), targetMonthFirst.getMonth() + 1, 0).getDate();
+  const clampedDay = Math.min(date.getDate(), daysInTargetMonth);
+  return new Date(
+    targetMonthFirst.getFullYear(),
+    targetMonthFirst.getMonth(),
+    clampedDay,
+    date.getHours(),
+    date.getMinutes(),
+    date.getSeconds()
+  );
+}
+
 function buildMonthDays(month: Date): Date[] {
   const first = new Date(month.getFullYear(), month.getMonth(), 1);
   const start = new Date(first);
@@ -68,6 +87,8 @@ export function Schedules() {
   const [scheduledTime, setScheduledTime] = useState('');
   const [notes, setNotes] = useState('');
   const [selectedConsultants, setSelectedConsultants] = useState<string[]>(defaultConsultants);
+  const [repeatMonthly, setRepeatMonthly] = useState(false);
+  const [repeatCount, setRepeatCount] = useState(2);
   const toggleConsultant = (name: string) =>
     setSelectedConsultants((prev) => prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]);
   // Admin pode agendar a partir de hoje (sem antecedência mínima).
@@ -200,32 +221,51 @@ export function Schedules() {
           });
         }
       } else {
-        const newSchedule: Schedule = {
-          id: generateId(),
-          clientId: selectedClientId,
-          scheduledAt,
-          status: 'pending',
-          notes: notes,
-          consultantNames: selectedConsultants,
-          updatedAt: new Date(),
-          localActorId: actor.id,
-          syncStatus: 'pending'
+        // Cria uma ocorrência (Schedule + solicitação confirmada no portal) — exatamente
+        // o que o fluxo manual já fazia. Repetição mensal só chama isto várias vezes,
+        // uma data por vez, cada ocorrência independente (editável/cancelável à parte).
+        const createScheduleOccurrence = async (occurrenceAt: Date) => {
+          const occurrenceDate = toDateInputValue(occurrenceAt);
+          const newSchedule: Schedule = {
+            id: generateId(),
+            clientId: selectedClientId,
+            scheduledAt: occurrenceAt,
+            status: 'pending',
+            notes: notes,
+            consultantNames: selectedConsultants,
+            updatedAt: new Date(),
+            localActorId: actor.id,
+            syncStatus: 'pending'
+          };
+          await ScheduleService.saveSchedule(newSchedule);
+          const place = portalPlaceForClient(selectedClient);
+          await AppointmentAdminService.insertConfirmedRequest({
+            clientId: selectedClient.id,
+            unitName: selectedClient.name,
+            responsibleName: selectedClient.responsibleName,
+            phone: selectedClient.phone,
+            email: selectedClient.email,
+            scheduleId: newSchedule.id,
+            date: occurrenceDate,
+            time: scheduledTime,
+            attendanceMode: 'presencial',
+            municipality: place.municipality,
+            district: place.district,
+          });
         };
-        await ScheduleService.saveSchedule(newSchedule);
-        const place = portalPlaceForClient(selectedClient);
-        await AppointmentAdminService.insertConfirmedRequest({
-          clientId: selectedClient.id,
-          unitName: selectedClient.name,
-          responsibleName: selectedClient.responsibleName,
-          phone: selectedClient.phone,
-          email: selectedClient.email,
-          scheduleId: newSchedule.id,
-          date: scheduledDate,
-          time: scheduledTime,
-          attendanceMode: 'presencial',
-          municipality: place.municipality,
-          district: place.district,
-        });
+
+        const occurrences = repeatMonthly ? Math.max(1, repeatCount) : 1;
+        for (let i = 0; i < occurrences; i++) {
+          try {
+            await createScheduleOccurrence(i === 0 ? scheduledAt : addMonthsClamped(scheduledAt, i));
+          } catch (occurrenceErr: any) {
+            throw new Error(
+              occurrences > 1
+                ? `Falhou na visita ${i + 1} de ${occurrences} (as anteriores já foram criadas): ${occurrenceErr.message}`
+                : occurrenceErr.message
+            );
+          }
+        }
       }
 
       setIsModalOpen(false);
@@ -262,6 +302,8 @@ export function Schedules() {
     setScheduledTime('');
     setNotes('');
     setSelectedConsultants(defaultConsultants());
+    setRepeatMonthly(false);
+    setRepeatCount(2);
     setIsEditing(false);
     setEditingId(null);
   };
@@ -623,6 +665,34 @@ export function Schedules() {
                     />
                   </div>
                 </div>
+
+                {!isEditing && (
+                  <div className="space-y-2 rounded-xl border border-gray-200 bg-gray-50 p-3">
+                    <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={repeatMonthly}
+                        onChange={(e) => setRepeatMonthly(e.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      />
+                      Repetir mensalmente (mesmo dia/horário)
+                    </label>
+                    {repeatMonthly && (
+                      <div className="flex items-center gap-2 pl-6">
+                        <span className="text-sm text-gray-600">Quantas visitas:</span>
+                        <input
+                          type="number"
+                          min={2}
+                          max={12}
+                          value={repeatCount}
+                          onChange={(e) => setRepeatCount(Math.min(12, Math.max(2, Number(e.target.value) || 2)))}
+                          className="w-20 rounded-lg border border-gray-300 p-2 text-sm"
+                        />
+                        <span className="text-xs text-gray-400">(cria {repeatCount} agendamentos independentes, um por mês)</span>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">Consultora(s) responsável(is)</label>
