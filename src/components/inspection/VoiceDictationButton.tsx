@@ -19,8 +19,17 @@ const ERROR_MESSAGES: Record<string, string> = {
   'not-allowed': 'Permissão de microfone negada. Habilite o microfone para este site nas configurações do navegador (ícone de cadeado na barra de endereço) e tente de novo.',
   'service-not-allowed': 'Permissão de microfone negada. Habilite o microfone para este site nas configurações do navegador e tente de novo.',
   'audio-capture': 'Nenhum microfone foi encontrado neste dispositivo.',
-  'network': 'Erro de rede no reconhecimento de voz. Verifique sua conexão e tente de novo.',
+  'network': 'Erro de rede no reconhecimento de voz (o navegador precisa de internet pra transcrever). Verifique sua conexão e tente de novo.',
   'no-speech': 'Nenhuma fala foi detectada. Tente falar mais perto do microfone.',
+  'aborted': 'Ditado interrompido.',
+};
+
+type Status = 'idle' | 'listening' | 'speech-detected';
+
+const STATUS_LABEL: Record<Status, string> = {
+  idle: '',
+  listening: 'Ouvindo...',
+  'speech-detected': 'Reconhecendo...',
 };
 
 /**
@@ -28,70 +37,86 @@ const ERROR_MESSAGES: Record<string, string> = {
  * Speech API do próprio navegador — sem suporte (ex. Safari/iOS mais restrito)
  * o componente simplesmente não renderiza nada. Só emite o transcript final;
  * quem concatena no campo é o componente pai.
+ *
+ * Usa continuous=false + reinício automático em vez de continuous=true: o modo
+ * contínuo tem bugs conhecidos no Chrome desktop onde a captura fica "ouvindo"
+ * sem nunca disparar onresult. Reiniciar a cada frase é o padrão mais estável
+ * entre navegadores/plataformas.
  */
 export function VoiceDictationButton({ onTranscript, className }: VoiceDictationButtonProps) {
-  const [isListening, setIsListening] = useState(false);
+  const [status, setStatus] = useState<Status>('idle');
   const [interimText, setInterimText] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
+  const shouldListenRef = useRef(false);
   const SpeechRecognitionCtor = getSpeechRecognitionCtor();
 
   if (!SpeechRecognitionCtor) return null;
 
   const stop = () => {
+    shouldListenRef.current = false;
     recognitionRef.current?.stop();
     recognitionRef.current = null;
-    setIsListening(false);
+    setStatus('idle');
     setInterimText('');
   };
 
-  const start = () => {
-    setErrorMessage(null);
-    setInterimText('');
-
-    // Instância nova a cada start: reaproveitar a mesma entre start/stop gera
-    // InvalidStateError em alguns navegadores.
+  const startRecognitionInstance = () => {
     const recognition = new SpeechRecognitionCtor();
     recognition.lang = 'pt-BR';
-    recognition.continuous = true;
+    recognition.continuous = false;
     recognition.interimResults = true;
 
+    recognition.onspeechstart = () => setStatus('speech-detected');
     recognition.onresult = (event: any) => {
       let finalText = '';
       let interim = '';
-      for (let i = event.resultIndex; i < event.results.length; i++) {
+      for (let i = 0; i < event.results.length; i++) {
         if (event.results[i].isFinal) finalText += event.results[i][0].transcript;
         else interim += event.results[i][0].transcript;
       }
-      // Prova visual de que o microfone está captando fala, mesmo antes da
-      // frase "fechar" — sem isso parecia que nada estava acontecendo.
       setInterimText(interim);
-      if (finalText.trim()) {
-        onTranscript(finalText.trim());
-        setInterimText('');
-      }
+      if (finalText.trim()) onTranscript(finalText.trim());
     };
     recognition.onerror = (event: any) => {
+      // 'no-speech' é esperado ao reiniciar em silêncio — não interrompe o ciclo.
+      if (event.error === 'no-speech' && shouldListenRef.current) return;
       console.error('[VoiceDictation] erro no reconhecimento de voz:', event.error);
+      shouldListenRef.current = false;
       setErrorMessage(ERROR_MESSAGES[event.error] || `Não foi possível usar o microfone (${event.error}).`);
-      setIsListening(false);
+      setStatus('idle');
       setInterimText('');
     };
     recognition.onend = () => {
-      setIsListening(false);
       setInterimText('');
+      if (shouldListenRef.current) {
+        // Reinicia pra próxima frase (padrão mais estável que continuous=true).
+        startRecognitionInstance();
+      } else {
+        setStatus('idle');
+      }
     };
 
     recognitionRef.current = recognition;
     try {
       recognition.start();
-      setIsListening(true);
+      setStatus('listening');
     } catch (err) {
       console.error('[VoiceDictation] falha ao iniciar reconhecimento de voz:', err);
+      shouldListenRef.current = false;
       setErrorMessage('Não foi possível iniciar o ditado. Tente novamente.');
-      setIsListening(false);
+      setStatus('idle');
     }
   };
+
+  const start = () => {
+    setErrorMessage(null);
+    setInterimText('');
+    shouldListenRef.current = true;
+    startRecognitionInstance();
+  };
+
+  const isListening = status !== 'idle';
 
   return (
     <div className="relative inline-flex items-center">
@@ -111,7 +136,7 @@ export function VoiceDictationButton({ onTranscript, className }: VoiceDictation
       </button>
       {isListening && (
         <span className="ml-2 max-w-[180px] truncate text-[11px] italic text-gray-400">
-          {interimText ? `"${interimText}"` : 'Ouvindo...'}
+          {interimText ? `"${interimText}"` : STATUS_LABEL[status]}
         </span>
       )}
       {errorMessage && (

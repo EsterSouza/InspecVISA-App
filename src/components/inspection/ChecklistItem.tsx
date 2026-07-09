@@ -48,12 +48,14 @@ export const ChecklistItem = memo(function ChecklistItem({
   // consultora abre a seção de observações — evita consultar o Dexie pra cada
   // um dos 100+ itens da tela toda de uma vez.
   const [suggestions, setSuggestions] = useState<FieldSuggestions | null>(null);
+  const [showAllSituationSuggestions, setShowAllSituationSuggestions] = useState(false);
+  const [showAllActionSuggestions, setShowAllActionSuggestions] = useState(false);
   useEffect(() => {
     if (!showObs || suggestions) return;
     let cancelled = false;
-    getFieldSuggestions(item.id).then((result) => { if (!cancelled) setSuggestions(result); }).catch(() => {});
+    getFieldSuggestions(item.id, item.description).then((result) => { if (!cancelled) setSuggestions(result); }).catch(() => {});
     return () => { cancelled = true; };
-  }, [showObs, item.id]);
+  }, [showObs, item.id, item.description]);
 
   // Sync from store when another device updates this item (only when field is not focused)
   useEffect(() => { if (isFocused !== 'situation') setLocalSituation(response?.situationDescription || ''); }, [response?.situationDescription]);
@@ -348,7 +350,7 @@ export const ChecklistItem = memo(function ChecklistItem({
             {!!suggestions?.situationDescription.length && (
               <div className="flex flex-wrap items-center gap-1.5 pt-1">
                 <span className="text-[10px] font-semibold uppercase tracking-tight text-gray-400">Já usado antes:</span>
-                {suggestions.situationDescription.map((text) => (
+                {(showAllSituationSuggestions ? suggestions.situationDescription : suggestions.situationDescription.slice(0, 4)).map((text) => (
                   <button
                     key={text}
                     type="button"
@@ -362,6 +364,15 @@ export const ChecklistItem = memo(function ChecklistItem({
                     {text}
                   </button>
                 ))}
+                {!showAllSituationSuggestions && suggestions.situationDescription.length > 4 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllSituationSuggestions(true)}
+                    className="text-[11px] font-bold text-primary-600 hover:text-primary-800"
+                  >
+                    +{suggestions.situationDescription.length - 4} mais
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -409,7 +420,7 @@ export const ChecklistItem = memo(function ChecklistItem({
             {!!suggestions?.correctiveAction.length && (
               <div className="flex flex-wrap items-center gap-1.5 pt-1">
                 <span className="text-[10px] font-semibold uppercase tracking-tight text-gray-400">Já usado antes:</span>
-                {suggestions.correctiveAction.map((text) => (
+                {(showAllActionSuggestions ? suggestions.correctiveAction : suggestions.correctiveAction.slice(0, 4)).map((text) => (
                   <button
                     key={text}
                     type="button"
@@ -423,6 +434,15 @@ export const ChecklistItem = memo(function ChecklistItem({
                     {text}
                   </button>
                 ))}
+                {!showAllActionSuggestions && suggestions.correctiveAction.length > 4 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllActionSuggestions(true)}
+                    className="text-[11px] font-bold text-primary-600 hover:text-primary-800"
+                  >
+                    +{suggestions.correctiveAction.length - 4} mais
+                  </button>
+                )}
               </div>
             )}
           </div>
