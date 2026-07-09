@@ -24,6 +24,12 @@ export interface ClientPortalVisit {
   compliance_score?: number | null;
   sanitary_score?: number | null;
   nutrition_score?: number | null;
+  critical_nc_count?: number | null;
+  important_nc_count?: number | null;
+  total_nc_count?: number | null;
+  recurring_nc_count?: number | null;
+  immediate_nc_count?: number | null;
+  nc_items?: { id: string; d: string; c: boolean }[];
   report_count?: number;
   photo_count?: number;
   attachment_count?: number;

@@ -431,6 +431,13 @@ export interface AppointmentRequest {
   // Score por área da ILPI (opcional): sanitária x nutrição. O global é compliance_score.
   sanitary_score?: number | null;
   nutrition_score?: number | null;
+  // Estatísticas de NC gravadas ao publicar o relatório, para o resumo executivo do portal.
+  critical_nc_count?: number | null;
+  important_nc_count?: number | null;
+  total_nc_count?: number | null;
+  recurring_nc_count?: number | null;
+  immediate_nc_count?: number | null;
+  nc_items?: { id: string; d: string; c: boolean }[];
   notes: string | null;
   internal_notes: string | null;
   created_at: string;

@@ -372,6 +372,31 @@ export function InspectionSummary() {
                split ? clamp(areaScores.sanitary.score.scorePercentage) : null,
                split ? clamp(areaScores.nutrition.score.scorePercentage) : null,
              );
+
+             // Estatísticas de NC para o resumo executivo de rede no portal do cliente
+             // (críticos, importantes, imediatos, reincidentes + itens para detectar
+             // padrões recorrentes entre unidades). Ver franchiseReport.ts.
+             const allItemsList = displayTemplate.sections.flatMap(section => section.items);
+             const itemById = new Map(allItemsList.map(item => [item.id, item]));
+             const ncItems = nonCompliantResponses.map(response => {
+               const item = itemById.get(response.itemId);
+               return {
+                 id: response.itemId,
+                 d: (item?.description || response.customDescription || 'Item avaliado').slice(0, 160),
+                 c: !!item?.isCritical,
+               };
+             });
+             await AppointmentAdminService.setInspectionStats(linkedRequest.id, {
+               criticalNcCount: nonCompliantResponses.filter(r => itemById.get(r.itemId)?.isCritical).length,
+               importantNcCount: nonCompliantResponses.filter(r => {
+                 const item = itemById.get(r.itemId);
+                 return !item?.isCritical && (item?.weight || 0) >= 5;
+               }).length,
+               totalNcCount: nonCompliantResponses.length,
+               recurringNcCount: nonCompliantResponses.filter(r => recurringItemIds.has(r.itemId)).length,
+               immediateNcCount: nonCompliantResponses.filter(r => (r.deadline || '').trim() === 'Imediato').length,
+               ncItems,
+             });
            } catch (scoreErr) {
              console.warn('[Summary] Falha ao gravar scores do portal automaticamente:', scoreErr);
            }

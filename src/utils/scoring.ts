@@ -336,6 +336,17 @@ export function classificationFromPercent(pct: number): ScoreClassification {
   return 'critical';
 }
 
+/**
+ * Mesma classificação por %, mas aplicando o teto do `calculateScore`: havendo
+ * NC crítica, o máximo é "ACEITÁVEL" (nunca "ALTO PADRÃO"). Usada no portal do
+ * cliente/resumo de rede, onde agora temos o count de críticas junto com o score.
+ */
+export function classificationFromPercentAndCritical(pct: number, criticalCount: number): ScoreClassification {
+  const tier = classificationFromPercent(pct);
+  if (criticalCount > 0 && tier === 'excellent') return 'good';
+  return tier;
+}
+
 export function classificationLabel(c: ScoreClassification): string {
   return { 
     critical: 'INACEITÁVEL', 

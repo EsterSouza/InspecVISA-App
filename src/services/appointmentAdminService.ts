@@ -234,6 +234,27 @@ export const AppointmentAdminService = {
     await this.updateRequest(id, { sanitary_score: sanitary, nutrition_score: nutrition });
   },
 
+  // Estatísticas de NC (críticas/importantes/imediatas/reincidentes + lista compacta dos
+  // itens) para o resumo executivo do portal do cliente. Gravado junto com a publicação
+  // do relatório final. Ver franchiseReport.ts.
+  async setInspectionStats(id: string, stats: {
+    criticalNcCount: number;
+    importantNcCount: number;
+    totalNcCount: number;
+    recurringNcCount: number;
+    immediateNcCount: number;
+    ncItems: { id: string; d: string; c: boolean }[];
+  }): Promise<void> {
+    await this.updateRequest(id, {
+      critical_nc_count: stats.criticalNcCount,
+      important_nc_count: stats.importantNcCount,
+      total_nc_count: stats.totalNcCount,
+      recurring_nc_count: stats.recurringNcCount,
+      immediate_nc_count: stats.immediateNcCount,
+      nc_items: stats.ncItems,
+    });
+  },
+
   // Cria uma visita direto pela equipe, já confirmada e vinculada ao cliente,
   // para aparecer no portal do cliente com rastreio completo (timeline/relatório/fotos).
   async insertConfirmedRequest(params: {
