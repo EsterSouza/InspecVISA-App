@@ -940,11 +940,11 @@ export const InspectionService = {
     return local.reverse(); // createdAt descending
   },
 
-  async getLastCompletedInspectionId(clientId: string): Promise<string | undefined> {
+  async getLastCompletedInspectionId(clientId: string, excludeInspectionId?: string): Promise<string | undefined> {
     const local = filterByActiveTenant(await db.inspections
       .where('clientId')
       .equals(clientId)
-      .filter(i => i.status === 'completed' && !i.deletedAt)
+      .filter(i => i.status === 'completed' && !i.deletedAt && i.id !== excludeInspectionId)
       .toArray());
 
     const latestLocal = local
@@ -953,12 +953,14 @@ export const InspectionService = {
     if (!navigator.onLine) return latestLocal?.id;
 
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('inspections')
         .select('*')
         .eq('client_id', clientId)
         .eq('status', 'completed')
-        .is('deleted_at', null)
+        .is('deleted_at', null);
+      if (excludeInspectionId) query = query.neq('id', excludeInspectionId);
+      const { data, error } = await query
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();

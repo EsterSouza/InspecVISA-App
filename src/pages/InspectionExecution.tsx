@@ -256,9 +256,16 @@ export function InspectionExecution() {
           setResponses(respsWithPhotos);
           hydratePhotosInBackground(resps.map(r => r.id));
 
-          // Load previous inspection NCs if applicable
-          if (previousInspectionId) {
-            const prevNCs = await getPreviousNCContextByInspection(previousInspectionId);
+          // Load previous inspection NCs if applicable. `previousInspectionId` só chega
+          // via location.state na criação da inspeção; qualquer reabertura depois (lista,
+          // dashboard, ficha do cliente, "voltar a editar") navega só com { inspectionId }
+          // e perde esse dado. Sem isso a REINCIDÊNCIA some assim que a consultora sai e
+          // volta pra continuar a visita — recalcula pelo cliente quando não veio no state.
+          const effectivePreviousInspectionId = previousInspectionId
+            || await InspectionService.getLastCompletedInspectionId(enrichedInsp.clientId, enrichedInsp.id).catch(() => undefined);
+
+          if (effectivePreviousInspectionId) {
+            const prevNCs = await getPreviousNCContextByInspection(effectivePreviousInspectionId);
             setPreviousNCs(prevNCs);
 
             // Modo plano de ação: se a nova inspeção ainda está vazia, semeia as NCs
