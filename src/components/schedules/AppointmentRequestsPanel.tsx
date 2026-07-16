@@ -4,8 +4,6 @@ import {
   CalendarOff,
   CalendarPlus,
   CheckCircle,
-  ChevronDown,
-  ChevronUp,
   Clock,
   Eye,
   EyeOff,
@@ -165,6 +163,8 @@ export function AppointmentRequestsPanel() {
   const [rescheduleTarget, setRescheduleTarget] = useState<AppointmentRequest | null>(null);
   // Não realizada
   const [notCompletedTarget, setNotCompletedTarget] = useState<AppointmentRequest | null>(null);
+  // Solicitações ativas (fica recolhida por padrão para não ocupar a tela)
+  const [showActive, setShowActive] = useState(false);
   // Encerradas (relatório publicado / canceladas)
   const [showClosed, setShowClosed] = useState(true);
   // Nova visita (agendamento direto pela equipe)
@@ -447,38 +447,50 @@ export function AppointmentRequestsPanel() {
 
       {/* ─── Solicitações ativas ────────────────────────────── */}
       <section>
-        <h2 className="mb-4 flex items-center text-lg font-semibold text-gray-900">
+        <button
+          type="button"
+          onClick={() => setShowActive((v) => !v)}
+          className="mb-4 flex items-center text-lg font-semibold text-gray-900 hover:text-primary-700"
+        >
           <CheckCircle className="mr-2 h-5 w-5 text-primary-600" />
           Solicitações ativas
-        </h2>
+          {active.length > 0 && (
+            <span className="ml-2 rounded-full bg-primary-100 px-2 py-0.5 text-xs font-bold text-primary-700">
+              {active.length}
+            </span>
+          )}
+          <span className="ml-2 text-sm text-gray-400">{showActive ? '▾' : '▸'}</span>
+        </button>
 
-        {active.length === 0 ? (
-          <Card className="border-dashed bg-gray-50 py-10 text-center">
-            <p className="text-sm text-gray-500">Nenhuma solicitação ativa no momento.</p>
-          </Card>
-        ) : (
-          <div className="grid gap-4">
-            {active.map((request) => (
-              <ActiveRequestCard
-                key={request.id}
-                request={request}
-                busy={busy === request.id}
-                onPublishReport={(file) => handlePublishReport(request, file)}
-                onAddAttachment={(file) => handleAddAttachment(request, file)}
-                onAddPhotos={() => setPhotoTarget(request)}
-                onSetDueDate={() => setDueDateTarget(request)}
-                onCancel={() => handleCancel(request)}
-                onMarkInProgress={() => handleMarkInProgress(request)}
-                onMarkCompleted={() => handleMarkCompleted(request)}
-                onMarkNotCompleted={() => handleMarkNotCompleted(request)}
-                onReschedule={() => handleReschedule(request)}
-                onSetCompliance={(score) => handleSetCompliance(request, score)}
-                onSetAreaScores={(sanitary, nutrition) => handleSetAreaScores(request, sanitary, nutrition)}
-                onToggleReportHidden={() => handleToggleReportHidden(request)}
-                onDelete={() => handleDelete(request)}
-              />
-            ))}
-          </div>
+        {showActive && (
+          active.length === 0 ? (
+            <Card className="border-dashed bg-gray-50 py-10 text-center">
+              <p className="text-sm text-gray-500">Nenhuma solicitação ativa no momento.</p>
+            </Card>
+          ) : (
+            <div className="grid gap-4">
+              {active.map((request) => (
+                <ActiveRequestCard
+                  key={request.id}
+                  request={request}
+                  busy={busy === request.id}
+                  onPublishReport={(file) => handlePublishReport(request, file)}
+                  onAddAttachment={(file) => handleAddAttachment(request, file)}
+                  onAddPhotos={() => setPhotoTarget(request)}
+                  onSetDueDate={() => setDueDateTarget(request)}
+                  onCancel={() => handleCancel(request)}
+                  onMarkInProgress={() => handleMarkInProgress(request)}
+                  onMarkCompleted={() => handleMarkCompleted(request)}
+                  onMarkNotCompleted={() => handleMarkNotCompleted(request)}
+                  onReschedule={() => handleReschedule(request)}
+                  onSetCompliance={(score) => handleSetCompliance(request, score)}
+                  onSetAreaScores={(sanitary, nutrition) => handleSetAreaScores(request, sanitary, nutrition)}
+                  onToggleReportHidden={() => handleToggleReportHidden(request)}
+                  onDelete={() => handleDelete(request)}
+                />
+              ))}
+            </div>
+          )
         )}
       </section>
 
@@ -772,7 +784,6 @@ function ActiveRequestCard({
 }: ActiveRequestCardProps) {
   const reportInputRef = useRef<HTMLInputElement>(null);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
-  const [expanded, setExpanded] = useState(false);
   const [scoreInput, setScoreInput] = useState<string>(
     request.compliance_score != null ? String(request.compliance_score) : ''
   );
@@ -788,18 +799,7 @@ function ActiveRequestCard({
     <Card className="border-l-4 border-l-primary-500 shadow-sm">
       <CardContent className="p-5">
         <div className="flex flex-col gap-3">
-          <div
-            role="button"
-            tabIndex={0}
-            onClick={() => setExpanded((v) => !v)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                setExpanded((v) => !v);
-              }
-            }}
-            className="flex cursor-pointer items-start justify-between gap-3"
-          >
+          <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="font-bold text-gray-900">{request.unit_name}</h3>
@@ -835,27 +835,7 @@ function ActiveRequestCard({
                     {request.report_due_source === 'manual' ? ' (manual)' : ''}
                   </span>
                 )}
-                {!expanded && request.compliance_score != null && (
-                  <span className="flex items-center gap-1 text-xs text-emerald-700">
-                    <Gauge className="h-3.5 w-3.5" /> {request.compliance_score}%
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              {busy && <Loader2 className="h-5 w-5 animate-spin text-primary-600" />}
-              {expanded ? (
-                <ChevronUp className="h-5 w-5 text-gray-400" />
-              ) : (
-                <ChevronDown className="h-5 w-5 text-gray-400" />
-              )}
-            </div>
-          </div>
-
-          {expanded && (
-            <>
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-gray-100 pt-3 text-xs text-gray-500">
-                <span className="flex items-center gap-1">
+                <span className="flex items-center gap-1 text-xs text-gray-500">
                   <Gauge className="h-3.5 w-3.5 text-emerald-600" />
                   Conformidade:
                   <input
@@ -883,7 +863,7 @@ function ActiveRequestCard({
                   </button>
                 </span>
                 {onSetAreaScores && (
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1 text-xs text-gray-500">
                     <Gauge className="h-3.5 w-3.5 text-indigo-600" />
                     Por área (ILPI):
                     <span className="text-[11px] font-semibold text-gray-400">San</span>
@@ -926,136 +906,137 @@ function ActiveRequestCard({
                   </span>
                 )}
               </div>
+            </div>
+            {busy && <Loader2 className="h-5 w-5 shrink-0 animate-spin text-primary-600" />}
+          </div>
 
-              <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-3">
-                <input
-                  ref={reportInputRef}
-                  type="file"
-                  accept="application/pdf,.pdf"
-                  className="hidden"
-                  onChange={(e) => {
-                    onPublishReport(e.target.files?.[0] ?? null);
-                    e.target.value = '';
-                  }}
-                />
-                <input
-                  ref={attachmentInputRef}
-                  type="file"
-                  accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                  className="hidden"
-                  onChange={(e) => {
-                    onAddAttachment(e.target.files?.[0] ?? null);
-                    e.target.value = '';
-                  }}
-                />
+          <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-3">
+            <input
+              ref={reportInputRef}
+              type="file"
+              accept="application/pdf,.pdf"
+              className="hidden"
+              onChange={(e) => {
+                onPublishReport(e.target.files?.[0] ?? null);
+                e.target.value = '';
+              }}
+            />
+            <input
+              ref={attachmentInputRef}
+              type="file"
+              accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              className="hidden"
+              onChange={(e) => {
+                onAddAttachment(e.target.files?.[0] ?? null);
+                e.target.value = '';
+              }}
+            />
 
-                {(request.status === 'confirmed' || request.status === 'rescheduled') && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={busy}
-                    onClick={onMarkInProgress}
-                    className="border-indigo-200 text-indigo-700 hover:bg-indigo-50"
-                  >
-                    <Play className="mr-1.5 h-4 w-4" /> Iniciar inspeção
-                  </Button>
-                )}
-                {onReschedule && (request.status === 'confirmed' || request.status === 'rescheduled') && (
-                  <Button variant="outline" size="sm" disabled={busy} onClick={onReschedule}>
-                    <CalendarDays className="mr-1.5 h-4 w-4" /> Remarcar
-                  </Button>
-                )}
-                {request.status === 'in_progress' && onMarkCompleted && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={busy}
-                    onClick={onMarkCompleted}
-                    className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-                  >
-                    <CheckCircle className="mr-1.5 h-4 w-4" /> Inspeção concluída
-                  </Button>
-                )}
-                {request.status === 'in_progress' && onMarkNotCompleted && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={busy}
-                    onClick={onMarkNotCompleted}
-                    className="border-orange-200 text-orange-700 hover:bg-orange-50"
-                  >
-                    <XCircle className="mr-1.5 h-4 w-4" /> Não realizada
-                  </Button>
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={busy}
-                  onClick={() => reportInputRef.current?.click()}
-                  className="text-green-700 border-green-200 hover:bg-green-50"
-                >
-                  <FileUp className="mr-1.5 h-4 w-4" /> Publicar relatório
-                </Button>
-                <Button variant="outline" size="sm" disabled={busy} onClick={onAddPhotos}>
-                  <ImagePlus className="mr-1.5 h-4 w-4" /> Adicionar fotos
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={busy}
-                  onClick={() => attachmentInputRef.current?.click()}
-                >
-                  <Paperclip className="mr-1.5 h-4 w-4" /> Adicionar anexo
-                </Button>
-                <Button variant="outline" size="sm" disabled={busy} onClick={onSetDueDate}>
-                  <Clock className="mr-1.5 h-4 w-4" /> Prazo manual
-                </Button>
-                {request.status === 'report_available' && onShareWhatsapp && (
-                  <Button variant="outline" size="sm" disabled={busy} onClick={onShareWhatsapp}>
-                    <Phone className="mr-1.5 h-4 w-4" /> WhatsApp
-                  </Button>
-                )}
-                {(request.status === 'report_available' || request.report_pdf_path) && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={busy}
-                    onClick={onToggleReportHidden}
-                    className={request.report_hidden
-                      ? 'border-amber-200 text-amber-700 hover:bg-amber-50'
-                      : 'border-gray-200 text-gray-600 hover:bg-gray-50'}
-                  >
-                    {request.report_hidden
-                      ? <><Eye className="mr-1.5 h-4 w-4" /> Mostrar ao cliente</>
-                      : <><EyeOff className="mr-1.5 h-4 w-4" /> Ocultar do cliente</>}
-                  </Button>
-                )}
-                {!isClosed && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={busy}
-                    onClick={onCancel}
-                    className="ml-auto text-red-500 hover:bg-red-50"
-                  >
-                    <XCircle className="h-4 w-4" />
-                  </Button>
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={busy}
-                  onClick={onDelete}
-                  className={`${isClosed ? 'ml-auto' : ''} text-red-600 hover:bg-red-50`}
-                >
-                  <Trash2 className="mr-1.5 h-4 w-4" />
-                  Excluir
-                </Button>
-              </div>
+            {(request.status === 'confirmed' || request.status === 'rescheduled') && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={busy}
+                onClick={onMarkInProgress}
+                className="border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+              >
+                <Play className="mr-1.5 h-4 w-4" /> Iniciar inspeção
+              </Button>
+            )}
+            {onReschedule && (request.status === 'confirmed' || request.status === 'rescheduled') && (
+              <Button variant="outline" size="sm" disabled={busy} onClick={onReschedule}>
+                <CalendarDays className="mr-1.5 h-4 w-4" /> Remarcar
+              </Button>
+            )}
+            {request.status === 'in_progress' && onMarkCompleted && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={busy}
+                onClick={onMarkCompleted}
+                className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+              >
+                <CheckCircle className="mr-1.5 h-4 w-4" /> Inspeção concluída
+              </Button>
+            )}
+            {request.status === 'in_progress' && onMarkNotCompleted && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={busy}
+                onClick={onMarkNotCompleted}
+                className="border-orange-200 text-orange-700 hover:bg-orange-50"
+              >
+                <XCircle className="mr-1.5 h-4 w-4" /> Não realizada
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={busy}
+              onClick={() => reportInputRef.current?.click()}
+              className="text-green-700 border-green-200 hover:bg-green-50"
+            >
+              <FileUp className="mr-1.5 h-4 w-4" /> Publicar relatório
+            </Button>
+            <Button variant="outline" size="sm" disabled={busy} onClick={onAddPhotos}>
+              <ImagePlus className="mr-1.5 h-4 w-4" /> Adicionar fotos
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={busy}
+              onClick={() => attachmentInputRef.current?.click()}
+            >
+              <Paperclip className="mr-1.5 h-4 w-4" /> Adicionar anexo
+            </Button>
+            <Button variant="outline" size="sm" disabled={busy} onClick={onSetDueDate}>
+              <Clock className="mr-1.5 h-4 w-4" /> Prazo manual
+            </Button>
+            {request.status === 'report_available' && onShareWhatsapp && (
+              <Button variant="outline" size="sm" disabled={busy} onClick={onShareWhatsapp}>
+                <Phone className="mr-1.5 h-4 w-4" /> WhatsApp
+              </Button>
+            )}
+            {(request.status === 'report_available' || request.report_pdf_path) && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={busy}
+                onClick={onToggleReportHidden}
+                className={request.report_hidden
+                  ? 'border-amber-200 text-amber-700 hover:bg-amber-50'
+                  : 'border-gray-200 text-gray-600 hover:bg-gray-50'}
+              >
+                {request.report_hidden
+                  ? <><Eye className="mr-1.5 h-4 w-4" /> Mostrar ao cliente</>
+                  : <><EyeOff className="mr-1.5 h-4 w-4" /> Ocultar do cliente</>}
+              </Button>
+            )}
+            {!isClosed && (
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={busy}
+                onClick={onCancel}
+                className="ml-auto text-red-500 hover:bg-red-50"
+              >
+                <XCircle className="h-4 w-4" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              onClick={onDelete}
+              className={`${isClosed ? 'ml-auto' : ''} text-red-600 hover:bg-red-50`}
+            >
+              <Trash2 className="mr-1.5 h-4 w-4" />
+              Excluir
+            </Button>
+          </div>
 
-              <PublishedFilesPanel requestId={request.id} busy={busy} />
-            </>
-          )}
+          <PublishedFilesPanel requestId={request.id} busy={busy} />
         </div>
       </CardContent>
     </Card>
