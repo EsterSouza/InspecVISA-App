@@ -11,10 +11,14 @@ import { useNavigate } from 'react-router-dom';
 import { ClientService } from '../services/clientService';
 import { useAuthStore } from '../store/useAuthStore';
 import { AppointmentAdminService, type ClientPortalAccountRow } from '../services/appointmentAdminService';
+import { ClientPortalManagement } from '../components/clients/ClientPortalManagement';
+
+type ClientsTab = 'clientes' | 'portal';
 
 export function Clients() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const [activeTab, setActiveTab] = useState<ClientsTab>('clientes');
   const [clients, setClients] = useState<Client[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -24,6 +28,7 @@ export function Clients() {
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
   const [portalAccounts, setPortalAccounts] = useState<ClientPortalAccountRow[]>([]);
+  const [allClients, setAllClients] = useState<Client[]>([]);
   const [clientContacts, setClientContacts] = useState<ClientContact[]>([{ name: '', phone: '', email: '' }]);
   
   const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<Client>();
@@ -37,6 +42,7 @@ export function Clients() {
       ]);
       if (accountList.status === 'fulfilled') setPortalAccounts(accountList.value);
       let list = clientList.status === 'fulfilled' ? clientList.value : [];
+      setAllClients(list);
 
       if (filterCat !== 'all') {
         list = list.filter(c => c.category === filterCat);
@@ -171,12 +177,47 @@ export function Clients() {
               <WifiOff className="mr-2 h-4 w-4" /> Offline
             </div>
           )}
-          <Button onClick={() => { setClientContacts([{ name: '', phone: '', email: '' }]); setIsModalOpen(true); }} className="w-full sm:w-auto shadow-lg shadow-primary-100">
-            <Plus className="mr-2 h-5 w-5" /> Novo Cliente
-          </Button>
+          {activeTab === 'clientes' && (
+            <Button onClick={() => { setClientContacts([{ name: '', phone: '', email: '' }]); setIsModalOpen(true); }} className="w-full sm:w-auto shadow-lg shadow-primary-100">
+              <Plus className="mr-2 h-5 w-5" /> Novo Cliente
+            </Button>
+          )}
         </div>
       </div>
 
+      <div className="mb-6 flex gap-1 rounded-xl bg-gray-100 p-1">
+        <button
+          type="button"
+          onClick={() => setActiveTab('clientes')}
+          className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
+            activeTab === 'clientes'
+              ? 'bg-white text-primary-700 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Clientes
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('portal')}
+          className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
+            activeTab === 'portal'
+              ? 'bg-white text-primary-700 shadow-sm'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Portal do Cliente
+        </button>
+      </div>
+
+      {activeTab === 'portal' ? (
+        <ClientPortalManagement
+          accounts={portalAccounts}
+          clients={allClients}
+          onChanged={() => void loadClients()}
+        />
+      ) : (
+      <>
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="relative col-span-1 sm:col-span-2">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -262,6 +303,8 @@ export function Clients() {
           ))
         )}
       </div>
+      </>
+      )}
 
       <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditingClient(null); setClientContacts([{ name: '', phone: '', email: '' }]); reset(); }} title={editingClient ? "Editar Cliente" : "Novo Cliente"}>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
