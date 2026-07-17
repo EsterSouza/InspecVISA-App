@@ -80,6 +80,15 @@ export interface ClientAppointmentDetails {
   assets: AppointmentAttachment[];
 }
 
+export interface ClientPortalInvoice {
+  id: string;
+  competence_month: string;
+  file_name: string;
+  mime_type: string | null;
+  created_at: string;
+  signed_url?: string;
+}
+
 const TOKEN_KEY = 'inspecvisa-client-portal-token';
 
 export const clientPortalService = {
@@ -178,6 +187,18 @@ export const clientPortalService = {
     } catch (err) {
       console.warn('[ClientPortal] Falha ao registrar auditoria:', err);
     }
+  },
+
+  async invoices(accountToken: string): Promise<ClientPortalInvoice[]> {
+    const { data, error } = await withTimeout(
+      supabase.functions.invoke('client-portal-invoices', {
+        body: { accountToken },
+      }),
+      'NotasFiscaisPortalCliente'
+    );
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    return (data?.invoices ?? []) as ClientPortalInvoice[];
   },
 
   async acknowledgePayment(token: string, note?: string): Promise<void> {

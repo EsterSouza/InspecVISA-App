@@ -1,17 +1,24 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   CalendarOff,
   Copy,
   CreditCard,
+  Download,
+  FileText,
   KeyRound,
   Loader2,
   Mail,
   Pencil,
   Trash2,
+  Upload,
   UserPlus,
 } from 'lucide-react';
 import type { Client } from '../../types';
-import { AppointmentAdminService, type ClientPortalAccountRow } from '../../services/appointmentAdminService';
+import {
+  AppointmentAdminService,
+  type ClientPortalAccountRow,
+  type ClientPortalInvoiceRow,
+} from '../../services/appointmentAdminService';
 import { Button } from '../ui/Button';
 import { Card, CardContent } from '../ui/Card';
 
@@ -45,6 +52,7 @@ export function ClientPortalManagement({ accounts, clients, onChanged }: ClientP
   } | null>(null);
   const [editTarget, setEditTarget] = useState<ClientPortalAccountRow | null>(null);
   const [paymentTarget, setPaymentTarget] = useState<ClientPortalAccountRow | null>(null);
+  const [invoicesTarget, setInvoicesTarget] = useState<ClientPortalAccountRow | null>(null);
 
   const portalUrl = `${window.location.origin}/cliente`;
   const clientNameMap = new Map(clients.map((client) => [client.id, client.name]));
@@ -173,6 +181,15 @@ export function ClientPortalManagement({ accounts, clients, onChanged }: ClientP
                   title="Pagamento (link, tipo e status)"
                 >
                   <CreditCard className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={busyId === account.id}
+                  onClick={() => setInvoicesTarget(account)}
+                  title="Notas fiscais por mês de competência"
+                >
+                  <FileText className="h-4 w-4" />
                 </Button>
                 <Button
                   variant="ghost"
@@ -317,7 +334,176 @@ export function ClientPortalManagement({ accounts, clients, onChanged }: ClientP
           }}
         />
       )}
+
+      {invoicesTarget && (
+        <InvoicesModal account={invoicesTarget} onClose={() => setInvoicesTarget(null)} />
+      )}
     </section>
+  );
+}
+
+// ─── Modal: notas fiscais por mês de competência ──────────────
+
+interface InvoicesModalProps {
+  account: ClientPortalAccountRow;
+  onClose: () => void;
+}
+
+function monthInputValue(competenceMonth: string): string {
+  return competenceMonth.slice(0, 7);
+}
+
+function InvoicesModal({ account, onClose }: InvoicesModalProps) {
+  const [invoices, setInvoices] = useState<ClientPortalInvoiceRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const rows = await AppointmentAdminService.listInvoices(account.id);
+      setInvoices(rows);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [account.id]);
+
+  const handleUpload = async () => {
+    if (!file) {
+      setError('Selecione o arquivo da nota fiscal (PDF).');
+      return;
+    }
+    if (!month) {
+      setError('Selecione o mês de competência.');
+      return;
+    }
+    setUploading(true);
+    setError(null);
+    try {
+      await AppointmentAdminService.uploadInvoice(account.id, month, file);
+      setFile(null);
+      await load();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDelete = async (invoice: ClientPortalInvoiceRow) => {
+    if (!confirm('Remover esta nota fiscal? O cliente deixará de vê-la no portal.')) return;
+    setDeletingId(invoice.id);
+    setError(null);
+    try {
+      await AppointmentAdminService.deleteInvoice(invoice);
+      await load();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <Card className="max-h-[90vh] w-full max-w-lg overflow-y-auto shadow-2xl">
+        <CardContent className="p-6">
+          <h3 className="mb-1 text-xl font-bold text-gray-900">Notas fiscais</h3>
+          <p className="mb-5 text-sm text-gray-500">{account.name}</p>
+
+          <div className="mb-5 space-y-3 rounded-xl border border-gray-100 bg-gray-50 p-3">
+            <div className="grid gap-2 sm:grid-cols-[160px_1fr]">
+              <label className="space-y-1 text-xs font-medium text-gray-700">
+                Mês de competência
+                <input
+                  type="month"
+                  value={month}
+                  onChange={(e) => setMonth(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 p-2 text-sm"
+                />
+              </label>
+              <label className="space-y-1 text-xs font-medium text-gray-700">
+                Arquivo (PDF)
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  onChange={(e) => setFile(e.target.files?.[0] || null)}
+                  className="w-full rounded-lg border border-gray-300 bg-white p-1.5 text-sm"
+                />
+              </label>
+            </div>
+            <Button type="button" size="sm" className="w-full" disabled={uploading} onClick={() => void handleUpload()}>
+              {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+              Enviar nota fiscal
+            </Button>
+          </div>
+
+          {error && (
+            <div className="mb-4 rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+          )}
+
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+            </div>
+          ) : invoices.length === 0 ? (
+            <p className="py-6 text-center text-sm text-gray-400">Nenhuma nota fiscal enviada ainda.</p>
+          ) : (
+            <ul className="divide-y divide-gray-100">
+              {invoices.map((invoice) => (
+                <li key={invoice.id} className="flex items-center gap-3 py-2.5">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-gray-900">
+                      {monthInputValue(invoice.competence_month)}
+                    </p>
+                    <p className="truncate text-xs text-gray-500">{invoice.file_name}</p>
+                  </div>
+                  {invoice.signed_url && (
+                    <a
+                      href={invoice.signed_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 rounded-lg p-2 text-primary-600 hover:bg-primary-50"
+                      title="Baixar"
+                    >
+                      <Download className="h-4 w-4" />
+                    </a>
+                  )}
+                  <button
+                    type="button"
+                    disabled={deletingId === invoice.id}
+                    onClick={() => void handleDelete(invoice)}
+                    className="shrink-0 rounded-lg p-2 text-red-500 hover:bg-red-50"
+                    title="Remover"
+                  >
+                    {deletingId === invoice.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <Button type="button" variant="ghost" className="mt-5 w-full" onClick={onClose}>
+            Fechar
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 

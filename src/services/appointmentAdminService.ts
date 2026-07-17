@@ -43,6 +43,17 @@ export interface PaymentLinkOption {
   url: string;
 }
 
+export interface ClientPortalInvoiceRow {
+  id: string;
+  competence_month: string;
+  file_name: string;
+  mime_type: string | null;
+  storage_bucket: string;
+  storage_path: string;
+  created_at: string;
+  signed_url?: string;
+}
+
 export interface ClientPortalAccessEmailPayload {
   email: string;
   accountName: string;
@@ -741,6 +752,63 @@ export const AppointmentAdminService = {
       p_due_date: params.dueDate || null,
       p_links: params.links || [],
     });
+    if (error) throw error;
+  },
+
+  // ─── Notas fiscais do Portal do Cliente ────────────────────
+
+  async listInvoices(accountId: string): Promise<ClientPortalInvoiceRow[]> {
+    const tenantId = requireTenantId();
+    const { data, error } = await supabase
+      .from('client_portal_invoices')
+      .select('id, competence_month, file_name, mime_type, storage_bucket, storage_path, created_at')
+      .eq('tenant_id', tenantId)
+      .eq('account_id', accountId)
+      .order('competence_month', { ascending: false });
+    if (error) throw error;
+    const rows = (data ?? []) as ClientPortalInvoiceRow[];
+    await Promise.all(
+      rows.map(async (row) => {
+        try {
+          const { data: urlData } = await supabase.storage
+            .from(row.storage_bucket)
+            .createSignedUrl(row.storage_path, 3600);
+          row.signed_url = urlData?.signedUrl;
+        } catch {
+          // Mantem a nota listada mesmo se o link temporario falhar.
+        }
+      })
+    );
+    return rows;
+  },
+
+  async uploadInvoice(accountId: string, competenceMonth: string, file: File): Promise<void> {
+    const tenantId = requireTenantId();
+    const path = `${tenantId}/portal-invoices/${accountId}/${competenceMonth}-${Date.now()}-${sanitizeFileName(file.name)}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from(PORTAL_BUCKET)
+      .upload(path, file, { contentType: file.type || 'application/pdf', upsert: true });
+    if (uploadError) throw uploadError;
+
+    const { error: insertError } = await supabase.from('client_portal_invoices').insert({
+      tenant_id: tenantId,
+      account_id: accountId,
+      competence_month: `${competenceMonth}-01`,
+      storage_bucket: PORTAL_BUCKET,
+      storage_path: path,
+      file_name: file.name,
+      mime_type: file.type || 'application/pdf',
+    });
+    if (insertError) throw insertError;
+  },
+
+  async deleteInvoice(invoice: Pick<ClientPortalInvoiceRow, 'id' | 'storage_bucket' | 'storage_path'>): Promise<void> {
+    const { error: storageError } = await supabase.storage.from(invoice.storage_bucket).remove([invoice.storage_path]);
+    if (storageError) {
+      console.warn('[AppointmentAdmin] Falha ao remover nota fiscal do storage:', storageError);
+    }
+    const { error } = await supabase.from('client_portal_invoices').delete().eq('id', invoice.id);
     if (error) throw error;
   },
 

@@ -18,12 +18,14 @@ import {
   LogOut,
   Mail,
   Paperclip,
+  Receipt,
   RotateCcw,
   TrendingUp,
 } from 'lucide-react';
 import { PublicHeader } from '../components/public/PublicHeader';
 import {
   clientPortalService,
+  type ClientPortalInvoice,
   type ClientPortalOverview,
 } from '../services/clientPortalService';
 import { generateFranchisePdf } from '../utils/franchiseReport';
@@ -101,9 +103,20 @@ function paymentLinks(payment: { link: string | null; links?: { label?: string; 
   return payment.link ? [{ label: 'Pagar agora', url: payment.link }] : [];
 }
 
+function formatCompetenceMonth(value: string): string {
+  const [y, m] = value.split('T')[0].split('-');
+  if (!y || !m) return value;
+  const label = new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('pt-BR', {
+    month: 'long',
+    year: 'numeric',
+  });
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 export function ClientPortal() {
   const [token, setToken] = useState<string | null>(() => clientPortalService.getStoredToken());
   const [overview, setOverview] = useState<ClientPortalOverview | null>(null);
+  const [invoices, setInvoices] = useState<ClientPortalInvoice[]>([]);
   const [loading, setLoading] = useState(!!clientPortalService.getStoredToken());
 
   const [identifier, setIdentifier] = useState('');
@@ -135,6 +148,13 @@ export function ClientPortal() {
     } finally {
       setLoading(false);
     }
+
+    try {
+      const invoiceRows = await clientPortalService.invoices(portalToken);
+      setInvoices(invoiceRows);
+    } catch (err) {
+      console.warn('[ClientPortal] Falha ao carregar notas fiscais:', err);
+    }
   }, []);
 
   useEffect(() => {
@@ -165,6 +185,7 @@ export function ClientPortal() {
     clientPortalService.clearToken();
     setToken(null);
     setOverview(null);
+    setInvoices([]);
     setIdentifier('');
     setCode('');
   };
@@ -503,6 +524,51 @@ export function ClientPortal() {
               </div>
             )}
           </div>
+        )}
+
+        {invoices.length > 0 && (
+          <section className="mb-6 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+            <header className="flex items-center gap-2 border-b border-gray-100 bg-gray-50/70 px-5 py-3.5">
+              <Receipt className="h-4 w-4 shrink-0 text-primary-700" />
+              <h3 className="text-sm font-bold text-gray-900">Notas Fiscais</h3>
+              <span className="ml-auto text-xs text-gray-400">
+                {invoices.length} nota{invoices.length === 1 ? '' : 's'}
+              </span>
+            </header>
+            <ul className="divide-y divide-gray-50">
+              {invoices.map((invoice) => (
+                <li key={invoice.id} className="flex items-center gap-3 px-4 py-3 sm:px-5">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-700">
+                    <FileText className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-gray-900">
+                      {formatCompetenceMonth(invoice.competence_month)}
+                    </p>
+                    <p className="truncate text-xs text-gray-500">{invoice.file_name}</p>
+                  </div>
+                  {invoice.signed_url ? (
+                    <a
+                      href={invoice.signed_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => {
+                        void clientPortalService.audit(token, 'invoice_download_clicked', {
+                          invoice_id: invoice.id,
+                          competence_month: invoice.competence_month,
+                        });
+                      }}
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-primary-200 bg-primary-50 px-3 py-2 text-xs font-semibold text-primary-700 hover:bg-primary-100"
+                    >
+                      <Download className="h-3.5 w-3.5" /> Baixar
+                    </a>
+                  ) : (
+                    <span className="shrink-0 text-xs text-gray-400">Indisponível</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
 
         {overview.scheduling_suspended ? (
