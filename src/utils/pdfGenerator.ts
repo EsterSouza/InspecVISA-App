@@ -6,6 +6,7 @@ import { classificationLabel, classificationColor, getLatestResponsesByItem, cal
 import { formatDate } from './imageUtils';
 import { enrichTemplate } from '../data/templates';
 import { calculateILPIStaffing } from './ilpiStaffing';
+import { isRioState } from './state';
 
 /**
  * Extrai apenas a legislação BASE de um texto bruto de legislação,
@@ -173,7 +174,7 @@ export async function generatePDF(
   const isIlpiReport = template.category === 'ilpi' || inspection.clientCategory === 'ilpi';
   // Separação por área (sanitária x nutrição) para o bloco "por área" da capa.
   const areaScores = calculateAreaScores(responses, template.sections);
-  const isRJInspection = ['RJ', 'RIO DE JANEIRO'].includes(String(inspection.state || '').toUpperCase());
+  const isRJInspection = isRioState(inspection.state);
   const reportConsultants = isIlpiReport
     ? [
         { name: 'Ana Roberta Ribeiro', registration: 'CRN-RJ 10324' },

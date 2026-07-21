@@ -5,6 +5,7 @@ import { db } from '../db/database';
 import { getTemplateById, getEffectiveTemplate } from '../data/templates';
 import { type ChecklistTemplate, type Inspection, type InspectionResponse, type InspectionPhoto } from '../types';
 import { ILPIStaffCalculator } from '../components/inspection/ILPIStaffCalculator';
+import { isRioState } from '../utils/state';
 import { useInspectionStore } from '../store/useInspectionStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { generateId } from '../utils/imageUtils';
@@ -876,7 +877,7 @@ export function InspectionExecution() {
                     <div className="space-y-4 mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-100">
                       <div className="flex items-center justify-between">
                         <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Dimensionamento ILPI</label>
-                        {['RJ', 'RIO DE JANEIRO'].includes((currentInspection.state || '').toUpperCase()) && (
+                        {isRioState(currentInspection.state) && (
                           <Badge variant="outline" className="text-[10px] border-blue-200 text-blue-600 bg-blue-50 font-bold">
                             Rio de Janeiro (Lei 8.049/18)
                           </Badge>
@@ -957,7 +958,7 @@ export function InspectionExecution() {
                         currentNursingTechs={currentInspection.observedNursingTechs || 0}
                         usableAreaM2={currentInspection.usableAreaM2 || 0}
                         currentCleaningStaff={currentInspection.observedCleaningStaff || 0}
-                        isRJ={['RJ', 'RIO DE JANEIRO'].includes((currentInspection.state || '').toUpperCase())}
+                        isRJ={isRioState(currentInspection.state)}
                         residentsTotal={currentInspection.residentsTotal || 0}
                         onRegisterFinding={(f) => handleAddStaffingNC(section.id, f)}
                       />

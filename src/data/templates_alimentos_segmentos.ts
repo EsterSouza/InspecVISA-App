@@ -52,6 +52,7 @@
 // ============================================================
 
 import type { Section, ChecklistItem } from '../types';
+import { isRioState } from '../utils/state';
 
 
 // ── HELPER ──────────────────────────────────────────────────
@@ -847,7 +848,7 @@ export function getExtraSections(
   state?: string
 ): Section[] {
 
-  const isRJ = state === 'RJ';
+  const isRJ = isRioState(state);
   const sectionIds = new Set<string>();
 
   for (const type of serviceTypes) {

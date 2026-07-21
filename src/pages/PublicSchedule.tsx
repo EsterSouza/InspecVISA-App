@@ -23,6 +23,7 @@ import { clientPortalService, type ClientPortalUnit } from '../services/clientPo
 import { PublicHeader } from '../components/public/PublicHeader';
 import { formatProtocol } from '../utils/protocol';
 import { isAppointmentAtLeast24hAhead } from '../utils/appointmentLeadTime';
+import { isRioState } from '../utils/state';
 
 const RIO_MUNICIPALITIES = [
   'Rio de Janeiro',
@@ -73,15 +74,6 @@ function monthStartKey(date: Date): string {
 function formatMonthTitle(value: string): string {
   const date = parseLocalDate(`${value}-01`);
   return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-}
-
-function isRioState(value: string | null | undefined): boolean {
-  const normalized = (value || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim()
-    .toUpperCase();
-  return normalized === 'RJ' || normalized === 'RIO DE JANEIRO';
 }
 
 function isActiveVisit(visit: { status: string; requested_date: string | null }): boolean {

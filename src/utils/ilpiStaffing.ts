@@ -43,8 +43,8 @@ function cleanNumber(value: number | undefined) {
 
 export function calcFederalCaregivers(level1: number, level2: number, level3: number): ILPIStaffingRequirement {
   const grau1 = Math.max(0, Math.ceil(cleanNumber(level1) / 20));
-  const grau2 = cleanNumber(level2) > 0 ? Math.max(2, Math.ceil(cleanNumber(level2) / 10)) : 0;
-  const grau3 = cleanNumber(level3) > 0 ? Math.max(2, Math.ceil(cleanNumber(level3) / 6)) : 0;
+  const grau2 = cleanNumber(level2) > 0 ? Math.ceil(cleanNumber(level2) / 10) : 0;
+  const grau3 = cleanNumber(level3) > 0 ? Math.ceil(cleanNumber(level3) / 6) : 0;
   return { grau1, grau2, grau3, total: grau1 + grau2 + grau3 };
 }
 

@@ -8,6 +8,7 @@ import { AppointmentAdminService } from '../services/appointmentAdminService';
 import { LegislationService, type Legislation } from '../services/legislationService';
 import { getTemplateById } from '../data/templates';
 import { calculateScore, calculateAreaScores, classificationColor, getLatestResponsesByItem } from '../utils/scoring';
+import { isRioState } from '../utils/state';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { db } from '../db/database';
 import type { Inspection, InspectionResponse, ChecklistTemplate } from '../types';
@@ -682,7 +683,7 @@ export function InspectionSummary() {
                         className="w-full border-gray-300 rounded-lg text-sm shadow-sm"
                       />
                     </div>
-                    {['RJ', 'RIO DE JANEIRO'].includes((currentInspection.state || '').toUpperCase()) && (
+                    {isRioState(currentInspection.state) && (
                       <div className="space-y-1">
                         <label className="text-[10px] text-gray-500 font-semibold uppercase">Tecnicos de Enfermagem</label>
                         <input
