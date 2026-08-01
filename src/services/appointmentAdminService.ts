@@ -5,6 +5,7 @@ import type {
   AppointmentSlot,
   AttachmentKind,
   ClientPortalAuditEvent,
+  ClientPortalSettings,
   SlotPeriod,
 } from '../types';
 import { getActiveTenantId } from '../utils/localScope';
@@ -12,6 +13,17 @@ import { getActiveTenantId } from '../utils/localScope';
 const PORTAL_BUCKET = 'client-portal-files';
 const INSPECTION_PHOTO_BUCKET = 'inspection-photos';
 const ADMIN_TIMEOUT_MS = 45000;
+
+export function normalizeOptionalHttpsUrl(value: string | null | undefined, label: string): string | null {
+  const normalized = value?.trim() || null;
+  if (!normalized) return null;
+  try {
+    if (new URL(normalized).protocol !== 'https:') throw new Error();
+  } catch {
+    throw new Error(`${label} deve usar uma URL HTTPS válida.`);
+  }
+  return normalized;
+}
 
 export interface InspectionPhotoOption {
   photoId: string;
@@ -36,6 +48,7 @@ export interface ClientPortalAccountRow {
   payment_links: PaymentLinkOption[];
   payment_due_date: string | null;
   scheduling_suspended: boolean;
+  main_drive_folder_url: string | null;
 }
 
 export interface PaymentLinkOption {
@@ -673,7 +686,7 @@ export const AppointmentAdminService = {
     let { data, error }: { data: any[] | null; error: any } = await withTimeout(
       supabase
         .from('client_portal_accounts')
-        .select('id, name, email, username, portal_token, access_code_plain, is_active, created_at, payment_type, payment_status, payment_link, payment_links, payment_due_date, scheduling_suspended, client_portal_account_clients(client_id)')
+        .select('id, name, email, username, portal_token, access_code_plain, is_active, created_at, payment_type, payment_status, payment_link, payment_links, payment_due_date, scheduling_suspended, main_drive_folder_url, client_portal_account_clients(client_id)')
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false }),
       'AcessosPortal'
@@ -684,6 +697,7 @@ export const AppointmentAdminService = {
         error.message?.includes('username') ||
         error.message?.includes('access_code_plain') ||
         error.message?.includes('payment_') ||
+        error.message?.includes('main_drive_folder_url') ||
         error.message?.includes('portal_token');
       if (!missingColumn) throw error;
       const fallback: { data: any[] | null; error: any } = await withTimeout(
@@ -714,7 +728,41 @@ export const AppointmentAdminService = {
       payment_links: Array.isArray(row.payment_links) ? row.payment_links : [],
       payment_due_date: row.payment_due_date ?? null,
       scheduling_suspended: row.scheduling_suspended ?? false,
+      main_drive_folder_url: row.main_drive_folder_url ?? null,
     }));
+  },
+
+  async getPortalSettings(): Promise<ClientPortalSettings> {
+    const tenantId = requireTenantId();
+    const { data, error } = await supabase
+      .from('client_portal_settings')
+      .select('tenant_id, tutorial_pdf_url, support_whatsapp, quick_access_enabled, multi_purpose_schedule, action_plan_enabled, service_requests_enabled')
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+    if (error) throw error;
+    return data as ClientPortalSettings || {
+      tenant_id: tenantId,
+      tutorial_pdf_url: null,
+      support_whatsapp: null,
+      quick_access_enabled: true,
+      multi_purpose_schedule: false,
+      action_plan_enabled: false,
+      service_requests_enabled: false,
+    };
+  },
+
+  async savePortalSettings(settings: Omit<ClientPortalSettings, 'tenant_id'>): Promise<void> {
+    const tenantId = requireTenantId();
+    const { error } = await supabase.rpc('admin_save_client_portal_settings', {
+      p_tenant_id: tenantId,
+      p_tutorial_pdf_url: normalizeOptionalHttpsUrl(settings.tutorial_pdf_url, 'O tutorial'),
+      p_support_whatsapp: settings.support_whatsapp?.trim() || null,
+      p_quick_access_enabled: settings.quick_access_enabled,
+      p_multi_purpose_schedule: settings.multi_purpose_schedule,
+      p_action_plan_enabled: settings.action_plan_enabled,
+      p_service_requests_enabled: settings.service_requests_enabled,
+    });
+    if (error) throw error;
   },
 
   async listPortalAuditEvents(filters: {
@@ -835,11 +883,15 @@ export const AppointmentAdminService = {
     if (error) throw error;
   },
 
-  async updatePortalAccount(accountId: string, params: { email: string; username?: string | null }): Promise<void> {
-    const { error } = await supabase.rpc('admin_update_client_portal_account', {
+  async updatePortalAccount(
+    accountId: string,
+    params: { email: string; username?: string | null; mainDriveFolderUrl?: string | null }
+  ): Promise<void> {
+    const { error } = await supabase.rpc('admin_update_client_portal_account_configuration', {
       p_account_id: accountId,
       p_email: params.email,
       p_username: params.username?.trim() || null,
+      p_main_drive_folder_url: normalizeOptionalHttpsUrl(params.mainDriveFolderUrl, 'A Pasta Principal Completa'),
     });
     if (error) throw error;
   },

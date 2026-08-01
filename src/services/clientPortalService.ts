@@ -1,6 +1,11 @@
 import { supabase } from '../lib/supabase';
 import { formatAppointmentLeadTimeMessage, isAppointmentAtLeast24hAhead } from '../utils/appointmentLeadTime';
-import type { AppointmentAttachment, ClientPortalAuditEventType, PublicAppointmentStatusResult } from '../types';
+import type {
+  AppointmentAttachment,
+  ClientPortalAuditEventType,
+  ClientPortalSettings,
+  PublicAppointmentStatusResult,
+} from '../types';
 
 const TIMEOUT_MS = 30000;
 
@@ -68,8 +73,9 @@ export interface ClientPortalPayment {
   updated_at: string | null;
 }
 
-export interface ClientPortalOverview {
+export interface ClientPortalOverview extends Omit<ClientPortalSettings, 'tenant_id'> {
   account_name: string;
+  main_drive_folder_url: string | null;
   scheduling_suspended?: boolean;
   payment?: ClientPortalPayment;
   units: ClientPortalUnit[];

@@ -473,6 +473,16 @@ export interface ClientPortalAuditEvent {
   created_at: string;
 }
 
+export interface ClientPortalSettings {
+  tenant_id: string;
+  tutorial_pdf_url: string | null;
+  support_whatsapp: string | null;
+  quick_access_enabled: boolean;
+  multi_purpose_schedule: boolean;
+  action_plan_enabled: boolean;
+  service_requests_enabled: boolean;
+}
+
 export interface PublicAppointmentPayload {
   tenant_id: string;
   slot_id?: string;

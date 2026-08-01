@@ -9,11 +9,12 @@ import {
   Loader2,
   Mail,
   Pencil,
+  Settings2,
   Trash2,
   Upload,
   UserPlus,
 } from 'lucide-react';
-import type { Client } from '../../types';
+import type { Client, ClientPortalSettings } from '../../types';
 import {
   AppointmentAdminService,
   type ClientPortalAccountRow,
@@ -53,6 +54,7 @@ export function ClientPortalManagement({ accounts, clients, onChanged }: ClientP
   const [editTarget, setEditTarget] = useState<ClientPortalAccountRow | null>(null);
   const [paymentTarget, setPaymentTarget] = useState<ClientPortalAccountRow | null>(null);
   const [invoicesTarget, setInvoicesTarget] = useState<ClientPortalAccountRow | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
 
   const portalUrl = `${window.location.origin}/cliente`;
   const clientNameMap = new Map(clients.map((client) => [client.id, client.name]));
@@ -121,14 +123,19 @@ export function ClientPortalManagement({ accounts, clients, onChanged }: ClientP
 
   return (
     <section>
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h2 className="flex items-center text-lg font-semibold text-gray-900">
           <KeyRound className="mr-2 h-5 w-5 text-primary-600" />
           Portal do Cliente — acessos
         </h2>
-        <Button size="sm" onClick={() => setShowCreate(true)}>
-          <UserPlus className="mr-1.5 h-4 w-4" /> Criar acesso
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => setShowSettings(true)}>
+            <Settings2 className="mr-1.5 h-4 w-4" /> Configurações institucionais
+          </Button>
+          <Button size="sm" onClick={() => setShowCreate(true)}>
+            <UserPlus className="mr-1.5 h-4 w-4" /> Criar acesso
+          </Button>
+        </div>
       </div>
 
       <p className="mb-4 text-sm text-gray-500">
@@ -264,6 +271,13 @@ export function ClientPortalManagement({ accounts, clients, onChanged }: ClientP
             setNewCode({ email, code, accountName, unitCount, emailSent, emailError });
             onChanged();
           }}
+        />
+      )}
+
+      {showSettings && (
+        <PortalSettingsModal
+          onClose={() => setShowSettings(false)}
+          onSaved={() => setShowSettings(false)}
         />
       )}
 
@@ -778,6 +792,146 @@ function PaymentModal({ account, onClose, onSaved }: PaymentModalProps) {
   );
 }
 
+interface PortalSettingsModalProps {
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+function PortalSettingsModal({ onClose, onSaved }: PortalSettingsModalProps) {
+  const [settings, setSettings] = useState<ClientPortalSettings | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void AppointmentAdminService.getPortalSettings()
+      .then((value) => {
+        if (active) setSettings(value);
+      })
+      .catch((err) => {
+        if (active) setError(errorMessage(err));
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleSave = async () => {
+    if (!settings) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await AppointmentAdminService.savePortalSettings({
+        tutorial_pdf_url: settings.tutorial_pdf_url,
+        support_whatsapp: settings.support_whatsapp,
+        quick_access_enabled: settings.quick_access_enabled,
+        multi_purpose_schedule: settings.multi_purpose_schedule,
+        action_plan_enabled: settings.action_plan_enabled,
+        service_requests_enabled: settings.service_requests_enabled,
+      });
+      onSaved();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const setFlag = (
+    key: 'quick_access_enabled' | 'multi_purpose_schedule' | 'action_plan_enabled' | 'service_requests_enabled',
+    checked: boolean
+  ) => setSettings((current) => current ? { ...current, [key]: checked } : current);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <Card className="max-h-[90vh] w-full max-w-lg overflow-y-auto shadow-2xl">
+        <CardContent className="p-6">
+          <h3 className="mb-1 text-xl font-bold text-gray-900">Configurações institucionais do portal</h3>
+          <p className="mb-5 text-sm text-gray-500">
+            Estes dados valem para todas as contas deste tenant e podem ser alterados sem novo deploy.
+          </p>
+
+          {loading ? (
+            <div className="flex min-h-40 items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-primary-600" />
+            </div>
+          ) : settings ? (
+            <div className="space-y-4">
+              <label className="block space-y-1.5 text-sm font-medium text-gray-700">
+                Tutorial do portal (PDF)
+                <input
+                  type="url"
+                  value={settings.tutorial_pdf_url || ''}
+                  onChange={(e) => setSettings({ ...settings, tutorial_pdf_url: e.target.value || null })}
+                  placeholder="https://.../tutorial.pdf"
+                  className="w-full rounded-xl border border-gray-300 p-2.5 text-sm font-normal"
+                />
+                <span className="block text-xs font-normal text-gray-500">Informe uma URL HTTPS pública para o PDF.</span>
+              </label>
+
+              <label className="block space-y-1.5 text-sm font-medium text-gray-700">
+                WhatsApp de suporte
+                <input
+                  type="tel"
+                  value={settings.support_whatsapp || ''}
+                  onChange={(e) => setSettings({ ...settings, support_whatsapp: e.target.value || null })}
+                  placeholder="Ex.: +55 21 99999-9999"
+                  maxLength={40}
+                  className="w-full rounded-xl border border-gray-300 p-2.5 text-sm font-normal"
+                />
+                <span className="block text-xs font-normal text-gray-500">Canal institucional exibido ao cliente quando habilitado.</span>
+              </label>
+
+              <div className="space-y-2 rounded-xl border border-gray-100 bg-gray-50 p-3">
+                <p className="text-sm font-medium text-gray-700">Recursos habilitados por tenant</p>
+                {[
+                  ['quick_access_enabled', 'Acessos rápidos'],
+                  ['multi_purpose_schedule', 'Agenda multiuso'],
+                  ['action_plan_enabled', 'Plano de ação'],
+                  ['service_requests_enabled', 'Solicitações de consultoria'],
+                ].map(([key, label]) => (
+                  <label key={key} className="flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={settings[key as keyof ClientPortalSettings] === true}
+                      onChange={(e) => setFlag(key as Parameters<typeof setFlag>[0], e.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 text-primary-600"
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+
+              {error && (
+                <div className="rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+              )}
+
+              <div className="flex gap-3 pt-1">
+                <Button type="button" variant="ghost" className="flex-1" onClick={onClose}>Cancelar</Button>
+                <Button type="button" className="flex-1" disabled={saving} onClick={() => void handleSave()}>
+                  {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Salvar configurações
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">
+                {error || 'Não foi possível carregar as configurações.'}
+              </div>
+              <Button type="button" variant="ghost" className="w-full" onClick={onClose}>Fechar</Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 interface EditPortalUnitsModalProps {
   account: ClientPortalAccountRow;
   clients: Client[];
@@ -788,6 +942,7 @@ interface EditPortalUnitsModalProps {
 function EditPortalUnitsModal({ account, clients, onClose, onSaved }: EditPortalUnitsModalProps) {
   const [email, setEmail] = useState(account.email);
   const [username, setUsername] = useState(account.username || '');
+  const [mainDriveFolderUrl, setMainDriveFolderUrl] = useState(account.main_drive_folder_url || '');
   const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(account.client_ids));
   const [saving, setSaving] = useState(false);
@@ -821,6 +976,7 @@ function EditPortalUnitsModal({ account, clients, onClose, onSaved }: EditPortal
       await AppointmentAdminService.updatePortalAccount(account.id, {
         email,
         username,
+        mainDriveFolderUrl,
       });
       await AppointmentAdminService.setPortalAccountClients(account.id, [...selectedIds]);
       onSaved();
@@ -862,6 +1018,20 @@ function EditPortalUnitsModal({ account, clients, onClose, onSaved }: EditPortal
               />
             </label>
           </div>
+
+          <label className="mb-4 block space-y-1.5 text-sm font-medium text-gray-700">
+            Pasta Principal Completa da conta
+            <input
+              type="url"
+              value={mainDriveFolderUrl}
+              onChange={(e) => setMainDriveFolderUrl(e.target.value)}
+              placeholder="https://drive.google.com/..."
+              className="w-full rounded-xl border border-gray-300 p-2.5 text-sm font-normal"
+            />
+            <span className="block text-xs font-normal text-gray-500">
+              Pasta raiz única desta conta. Não altera as Pastas Sanitárias Personalizadas de cada unidade.
+            </span>
+          </label>
 
           <input
             type="text"
