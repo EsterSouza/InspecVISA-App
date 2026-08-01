@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Eye, EyeOff, Loader2, PlusCircle, WifiOff, X, RefreshCw } from 'lucide-react';
 import { db } from '../db/database';
@@ -84,7 +84,6 @@ export function InspectionExecution() {
     responses,
     setCurrentInspection,
     setResponses,
-    mergeResponses,
   } = useInspectionStore();
 
   const [loading, setLoading] = useState(true);
@@ -177,7 +176,7 @@ export function InspectionExecution() {
 
       if (localInsp) {
         // Resolve template from cache right away
-        let tpl: any = getTemplateById(localInsp.templateId) || await db.templates.get(localInsp.templateId);
+        const tpl: any = getTemplateById(localInsp.templateId) || await db.templates.get(localInsp.templateId);
         
         if (tpl) setTemplate(tpl);
 
@@ -294,7 +293,15 @@ export function InspectionExecution() {
       setLoadError('Erro ao carregar dados da inspeção.');
       setLoading(false);
     }
-  }, [location.state?.inspectionId, location.state?.previousInspectionId, location.state?.actionPlanMode, attachPhotosToResponses, hydratePhotosInBackground]);
+  }, [
+    attachPhotosToResponses,
+    currentInspection?.id,
+    hydratePhotosInBackground,
+    location.state,
+    navigate,
+    setCurrentInspection,
+    setResponses,
+  ]);
 
 
   // Re-run loadData whenever the inspectionId in navigation state changes
@@ -308,7 +315,7 @@ export function InspectionExecution() {
     const ctx = { ...currentInspection, category: (currentInspection as any).clientCategory || (currentInspection as any).category };
     try { return getEffectiveTemplate(template, ctx as any, role, false); }
     catch (err) { console.error('getEffectiveTemplate error:', err); return template; }
-  }, [template, responses, currentInspection?.templateId, currentInspection?.state, currentInspection?.city]);
+  }, [currentInspection, responses, template]);
 
   const visibleSections = effectiveTemplate?.sections || [];
   // ILPI: a calculadora de dimensionamento mora na seção "Recursos Humanos".
@@ -320,7 +327,7 @@ export function InspectionExecution() {
     const ctx = { ...currentInspection, category: (currentInspection as any).clientCategory || (currentInspection as any).category };
     try { return getEffectiveTemplate(template, ctx as any, 'ambos', true); }
     catch (err) { console.error('getEffectiveTemplate collaboration error:', err); return template; }
-  }, [template, responses, currentInspection?.templateId, currentInspection?.state, currentInspection?.city]);
+  }, [currentInspection, responses, template]);
 
   // ─── REALTIME SYNC: Listen for updates from Supabase ─────────────────────
   useEffect(() => {
@@ -349,7 +356,7 @@ export function InspectionExecution() {
       }
     }, 3000);
     return () => clearTimeout(timer);
-  }, [currentInspection]);
+  }, [currentInspection, loading]);
 
   // Carimba quem fez a última modificação na inspeção. Atualizar o
   // currentInspection dispara o auto-save acima (que persiste last_edited_by).
@@ -392,7 +399,7 @@ export function InspectionExecution() {
     } catch (err) {
       console.error('Failed to sync response:', err);
     }
-  }, []);
+  }, [stampInspectionEditor]);
 
 
   const handleUpdateDetails = useCallback(async (itemId: string, details: Partial<InspectionResponse>) => {
@@ -410,7 +417,7 @@ export function InspectionExecution() {
         console.error('Failed to sync response details:', err);
       }
     }
-  }, []);
+  }, [stampInspectionEditor]);
 
 
   const handleAddPhoto = useCallback(async (itemId: string, photoData: any) => {
@@ -435,7 +442,7 @@ export function InspectionExecution() {
         console.error('[Execution] Failed to persist photo:', err);
       }
     }
-  }, []);
+  }, [stampInspectionEditor]);
 
   const handleRemovePhoto = useCallback(async (itemId: string, photoId: string) => {
     const state = useInspectionStore.getState();
@@ -466,7 +473,7 @@ export function InspectionExecution() {
         console.error('Failed to sync custom description:', err);
       }
     }
-  }, []);
+  }, [stampInspectionEditor]);
 
 
   const handleAddExtraItem = useCallback(async (sectionId: string) => {
@@ -498,7 +505,7 @@ export function InspectionExecution() {
     } catch (err) {
       console.error('Failed to sync extra item:', err);
     }
-  }, []);
+  }, [stampInspectionEditor]);
 
   // Registra (ou atualiza) a não-conformidade de dimensionamento na seção de RH,
   // com situação/ação já preenchidas pela calculadora. Reaproveita o mesmo item

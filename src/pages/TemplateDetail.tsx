@@ -100,7 +100,7 @@ export function TemplateDetail() {
     };
 
     load();
-  }, [id]);
+  }, [id, isStatic, navigate]);
 
   const toggleSection = (sectionId: string) => {
     setExpandedSections(prev => {

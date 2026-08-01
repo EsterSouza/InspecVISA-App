@@ -4,7 +4,6 @@ import { cn } from '../../lib/utils';
 import { Badge } from '../ui/Badge';
 import { PhotoCapture } from './PhotoCapture';
 import type { ChecklistItem as ItemType, InspectionResponse, InspectionPhoto } from '../../types';
-import { generateId } from '../../utils/imageUtils';
 import type { PreviousNCContext } from '../../utils/actionPlanContext';
 import { getFieldSuggestions, type FieldSuggestions } from '../../utils/textSuggestions';
 import { VoiceDictationButton } from './VoiceDictationButton';
@@ -55,39 +54,44 @@ export const ChecklistItem = memo(function ChecklistItem({
     let cancelled = false;
     getFieldSuggestions(item.id, item.description).then((result) => { if (!cancelled) setSuggestions(result); }).catch(() => {});
     return () => { cancelled = true; };
-  }, [showObs, item.id, item.description]);
+  }, [showObs, suggestions, item.id, item.description]);
 
-  // Sync from store when another device updates this item (only when field is not focused)
-  useEffect(() => { if (isFocused !== 'situation') setLocalSituation(response?.situationDescription || ''); }, [response?.situationDescription]);
-  useEffect(() => { if (isFocused !== 'action') setLocalAction(response?.correctiveAction || ''); }, [response?.correctiveAction]);
-  useEffect(() => { if (isFocused !== 'responsible') setLocalResponsible(response?.responsible || ''); }, [response?.responsible]);
-  useEffect(() => { if (isFocused !== 'deadline') setLocalDeadline(response?.deadline || ''); }, [response?.deadline]);
+  // Outside an active edit, render the latest store value directly. This keeps
+  // remote updates visible without synchronously copying props into state.
+  const situationValue = isFocused === 'situation' ? localSituation : (response?.situationDescription || '');
+  const actionValue = isFocused === 'action' ? localAction : (response?.correctiveAction || '');
+  const responsibleValue = isFocused === 'responsible' ? localResponsible : (response?.responsible || '');
+  const deadlineValue = isFocused === 'deadline' ? localDeadline : (response?.deadline || '');
 
   // ─── AUTO-SAVE WHILE TYPING (1.5s debounce) ───────────────────────────────
   // This guarantees data is saved even if the user never leaves the field.
   useEffect(() => {
+    if (isFocused !== 'situation') return;
     if (localSituation === (response?.situationDescription || '')) return;
     const t = setTimeout(() => onUpdateDetails(item.id, { situationDescription: localSituation }), 1500);
     return () => clearTimeout(t);
-  }, [localSituation]);
+  }, [isFocused, localSituation, response?.situationDescription, onUpdateDetails, item.id]);
 
   useEffect(() => {
+    if (isFocused !== 'action') return;
     if (localAction === (response?.correctiveAction || '')) return;
     const t = setTimeout(() => onUpdateDetails(item.id, { correctiveAction: localAction }), 1500);
     return () => clearTimeout(t);
-  }, [localAction]);
+  }, [isFocused, localAction, response?.correctiveAction, onUpdateDetails, item.id]);
 
   useEffect(() => {
+    if (isFocused !== 'responsible') return;
     if (localResponsible === (response?.responsible || '')) return;
     const t = setTimeout(() => onUpdateDetails(item.id, { responsible: localResponsible }), 1500);
     return () => clearTimeout(t);
-  }, [localResponsible]);
+  }, [isFocused, localResponsible, response?.responsible, onUpdateDetails, item.id]);
 
   useEffect(() => {
+    if (isFocused !== 'deadline') return;
     if (localDeadline === (response?.deadline || '')) return;
     const t = setTimeout(() => onUpdateDetails(item.id, { deadline: localDeadline }), 1500);
     return () => clearTimeout(t);
-  }, [localDeadline]);
+  }, [isFocused, localDeadline, response?.deadline, onUpdateDetails, item.id]);
 
   // onBlur: save immediately (catches fast navigation)
   const handleBlur = (field: keyof InspectionResponse, value: string) => {
@@ -105,28 +109,28 @@ export const ChecklistItem = memo(function ChecklistItem({
   // sobrescreve o que a consultora já digitou. Só oferece o botão quando marcar
   // um resultado (não escolhe NÃO CUMPRE por ela) e quando sobrar algo a preencher.
   const canReuseTextoAnterior = isSelected && !!previousNC && (
-    (!localSituation.trim() && !!previousNC.situationDescription) ||
-    (!localAction.trim() && !!previousNC.correctiveAction) ||
-    (!localResponsible.trim() && !!previousNC.responsible) ||
-    (!localDeadline.trim() && !!previousNC.deadline)
+    (!situationValue.trim() && !!previousNC.situationDescription) ||
+    (!actionValue.trim() && !!previousNC.correctiveAction) ||
+    (!responsibleValue.trim() && !!previousNC.responsible) ||
+    (!deadlineValue.trim() && !!previousNC.deadline)
   );
 
   const handleUseTextoAnterior = () => {
     if (!previousNC) return;
     const details: Partial<InspectionResponse> = {};
-    if (!localSituation.trim() && previousNC.situationDescription) {
+    if (!situationValue.trim() && previousNC.situationDescription) {
       setLocalSituation(previousNC.situationDescription);
       details.situationDescription = previousNC.situationDescription;
     }
-    if (!localAction.trim() && previousNC.correctiveAction) {
+    if (!actionValue.trim() && previousNC.correctiveAction) {
       setLocalAction(previousNC.correctiveAction);
       details.correctiveAction = previousNC.correctiveAction;
     }
-    if (!localResponsible.trim() && previousNC.responsible) {
+    if (!responsibleValue.trim() && previousNC.responsible) {
       setLocalResponsible(previousNC.responsible);
       details.responsible = previousNC.responsible;
     }
-    if (!localDeadline.trim() && previousNC.deadline) {
+    if (!deadlineValue.trim() && previousNC.deadline) {
       setLocalDeadline(previousNC.deadline);
       details.deadline = previousNC.deadline;
     }
@@ -340,9 +344,12 @@ export const ChecklistItem = memo(function ChecklistItem({
                     : "border-gray-300 focus:border-primary-500 focus:ring-primary-500"
                 )}
                 placeholder={isNotCompliant ? "Descreva a falha observada..." : "Descreva pontos positivos ou o que pode ser elevado para alto padrão..."}
-                value={localSituation}
+                value={situationValue}
                 onChange={(e) => setLocalSituation(e.target.value)}
-                onFocus={() => setIsFocused('situation')}
+                onFocus={() => {
+                  setLocalSituation(response?.situationDescription || '');
+                  setIsFocused('situation');
+                }}
                 onBlur={(e) => handleBlur('situationDescription', e.target.value)}
               />
 
@@ -391,7 +398,7 @@ export const ChecklistItem = memo(function ChecklistItem({
                   <button
                     key={verb}
                     onClick={() => {
-                      const current = (localAction || '').trim();
+                      const current = actionValue.trim();
                       const prefix = current ? `${current} \n- ` : '- ';
                       const newVal = `${prefix}${verb} `;
                       setLocalAction(newVal);
@@ -412,9 +419,12 @@ export const ChecklistItem = memo(function ChecklistItem({
                   : "border-gray-300 focus:border-primary-500 focus:ring-primary-500"
               )}
               placeholder={isNotCompliant ? "O que precisa ser feito para adequação..." : "Dê sugestões para que o local atinja a nota máxima ou mantenha o brilho..."}
-              value={localAction}
+              value={actionValue}
               onChange={(e) => setLocalAction(e.target.value)}
-              onFocus={() => setIsFocused('action')}
+              onFocus={() => {
+                setLocalAction(response?.correctiveAction || '');
+                setIsFocused('action');
+              }}
               onBlur={(e) => handleBlur('correctiveAction', e.target.value)}
             />
             {!!suggestions?.correctiveAction.length && (
@@ -476,9 +486,12 @@ export const ChecklistItem = memo(function ChecklistItem({
                 list="responsables-list"
                 className="w-full rounded-md border border-gray-300 p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 shadow-sm"
                 placeholder="Ex: Gerente, RT..."
-                value={localResponsible}
+                value={responsibleValue}
                 onChange={(e) => setLocalResponsible(e.target.value)}
-                onFocus={() => setIsFocused('responsible')}
+                onFocus={() => {
+                  setLocalResponsible(response?.responsible || '');
+                  setIsFocused('responsible');
+                }}
                 onBlur={(e) => handleBlur('responsible', e.target.value)}
               />
             </div>
@@ -489,9 +502,12 @@ export const ChecklistItem = memo(function ChecklistItem({
                 list="deadlines-list"
                 className="w-full rounded-md border border-gray-300 p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 shadow-sm"
                 placeholder="Ex: Imediato, 15 dias..."
-                value={localDeadline}
+                value={deadlineValue}
                 onChange={(e) => setLocalDeadline(e.target.value)}
-                onFocus={() => setIsFocused('deadline')}
+                onFocus={() => {
+                  setLocalDeadline(response?.deadline || '');
+                  setIsFocused('deadline');
+                }}
                 onBlur={(e) => handleBlur('deadline', e.target.value)}
               />
             </div>

@@ -2,9 +2,8 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { Inspection, InspectionResponse, ChecklistTemplate, InspectionScore, ConsultantSettings, FoodEstablishmentType } from '../types';
 import { FOOD_SEGMENT_LABELS } from '../types';
-import { classificationLabel, classificationColor, getLatestResponsesByItem, calculateAreaScores } from './scoring';
+import { classificationLabel, getLatestResponsesByItem, calculateAreaScores } from './scoring';
 import { formatDate } from './imageUtils';
-import { enrichTemplate } from '../data/templates';
 import { calculateILPIStaffing } from './ilpiStaffing';
 import { isRioState } from './state';
 
@@ -27,23 +26,23 @@ export function extractBaseLegislation(raw: string): string[] {
     // Patterns that identify a legislation base — capture up to date/number only
     const patterns = [
       // RDC / IN / RE / RN + number + optional year
-      /\b(?:RDC|IN|RE|RN|RT)\s*(?:ANVISA\s*)?(?:n[oº.]?\s*)?(\d+)(?:[/\-]\d{4})?/i,
+      /\b(?:RDC|IN|RE|RN|RT)\s*(?:ANVISA\s*)?(?:n[oº.]?\s*)?(\d+)(?:[-/]\d{4})?/i,
       // Portaria + number + optional year
-      /\bPortaria\s+(?:(?:GM|SVS|MS|CVS|SES|SMS)[/\s]*)?(?:n[oº.]?\s*)?(\d[\d.]*(?:[/\-]\d{4})?)/i,
+      /\bPortaria\s+(?:(?:GM|SVS|MS|CVS|SES|SMS)[/\s]*)?(?:n[oº.]?\s*)?(\d[\d.]*(?:[-/]\d{4})?)/i,
       // Lei Federal/Estadual
-      /\bLei\s+(?:Federal\s+|Estadual\s+|Complementar\s+)?(?:n[oº.]?\s*)?([\d.]+(?:[/\-]\d{4})?)/i,
+      /\bLei\s+(?:Federal\s+|Estadual\s+|Complementar\s+)?(?:n[oº.]?\s*)?([\d.]+(?:[-/]\d{4})?)/i,
       // Decreto
-      /\bDecreto(?:-Lei)?\s+(?:n[oº.]?\s*)?([\d.]+(?:[/\-]\d{4})?)/i,
+      /\bDecreto(?:-Lei)?\s+(?:n[oº.]?\s*)?([\d.]+(?:[-/]\d{4})?)/i,
       // NR (Norma Regulamentadora)
       /\bNR[.\s-]?(\d+)/i,
       // ABNT NBR
       /\bABNT\s+NBR\s+(\d+)/i,
       // Instrução Normativa
-      /\bInstru[cç][aã]o\s+Normativa\s+(?:n[oº.]?\s*)?(\d+(?:[/\-]\d{4})?)/i,
+      /\bInstru[cç][aã]o\s+Normativa\s+(?:n[oº.]?\s*)?(\d+(?:[-/]\d{4})?)/i,
       // Nota Técnica
       /\bNota\s+T[eé]cnica\b[^;,]*/i,
       // Resolução genérica
-      /\bResolu[cç][aã]o\s+(?:n[oº.]?\s*)?([\d.]+(?:[/\-]\d{4})?)/i,
+      /\bResolu[cç][aã]o\s+(?:n[oº.]?\s*)?([\d.]+(?:[-/]\d{4})?)/i,
     ];
 
     let matched = false;
@@ -311,7 +310,7 @@ export async function generatePDF(
   if (settings.logoDataUrl) {
     try {
       doc.addImage(settings.logoDataUrl, 'JPEG', pageW - margin - 30, 5, 28, 28);
-    } catch (_) { /* skip invalid logo */ }
+    } catch { /* skip invalid logo */ }
   }
 
   doc.setFont('helvetica', 'bold');
@@ -987,7 +986,7 @@ export async function generatePDF(
       titleLines.forEach((line, lineIdx) => {
         doc.text(line, margin + 8, y + titleTopPad + lineIdx * titleLineH);
       });
-      let headerY = y + titleTopPad + (titleLines.length - 1) * titleLineH + badgeGap + 2;
+      const headerY = y + titleTopPad + (titleLines.length - 1) * titleLineH + badgeGap + 2;
       if (item.isCritical) {
         doc.setFillColor(185, 28, 28);
         doc.roundedRect(margin + 8, headerY, 33, badgeBoxH, 2, 2, 'F');
@@ -1150,7 +1149,7 @@ export async function generatePDF(
   if (inspection.signatureDataUrl) {
     try {
       doc.addImage(inspection.signatureDataUrl, 'PNG', margin, y - 15, 60, 15);
-    } catch (_) { /* skip */ }
+    } catch { /* skip */ }
   }
 
   doc.setTextColor(30, 30, 30);
@@ -1186,7 +1185,6 @@ export async function generatePDF(
   if (options.signatureDataUrl) {
     doc.addPage();
     const sigPageW = doc.internal.pageSize.getWidth();
-    const sigPageH = doc.internal.pageSize.getHeight();
     const sigMargin = 20;
 
     doc.setFillColor(243, 244, 246);
@@ -1227,7 +1225,9 @@ export async function generatePDF(
     doc.rect(sigMargin, sigY, sigBoxW, sigBoxH);
     try {
       doc.addImage(options.signatureDataUrl, 'PNG', sigMargin + 2, sigY + 2, sigBoxW - 4, sigBoxH - 4);
-    } catch (_) {}
+    } catch {
+      // Ignore malformed optional signature images and keep generating the PDF.
+    }
     sigY += sigBoxH + 4;
     doc.setFontSize(8);
     doc.setTextColor(120, 120, 120);
@@ -1435,8 +1435,8 @@ function formatABNT(mention: string, libraryEntry?: any): string {
   }
 
   // Lei Federal
-  if (/Lei\s+Federal/i.test(m) || /Lei\s+n[oº\.]/i.test(m)) {
-    const match = m.match(/Lei\s+(?:Federal\s+)?n?[oº\.]?\s*([\d.]+)[\s,/]*(\d{4})?/i);
+  if (/Lei\s+Federal/i.test(m) || /Lei\s+n[oº.]/i.test(m)) {
+    const match = m.match(/Lei\s+(?:Federal\s+)?n?[oº.]?\s*([\d.]+)[\s,/]*(\d{4})?/i);
     const num = match?.[1] || '';
     const year = match?.[2] || '';
     const yearStr = year ? `, de ${year}` : '';

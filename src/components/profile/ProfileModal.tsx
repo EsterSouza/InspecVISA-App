@@ -1,7 +1,6 @@
 import React from 'react';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { User, ShieldCheck, Check } from 'lucide-react';
-import { Button } from '../ui/Button';
 
 interface ProfileModalProps {
   onClose?: () => void;

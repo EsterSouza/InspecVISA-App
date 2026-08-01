@@ -10,15 +10,15 @@ export function extractBaseLegislation(raw: string): string[] {
     if (!s) continue;
 
     const patterns = [
-      /\b(?:RDC|IN|RE|RN|RT)\s*(?:ANVISA\s*)?(?:n[oº.]?\s*)?(\d+)(?:[/\-]\d{4})?/i,
-      /\bPortaria\s+(?:(?:GM|SVS|MS|CVS|SES|SMS)[/\s]*)?(?:n[oº.]?\s*)?(\d[\d.]*(?:[/\-]\d{4})?)/i,
-      /\bLei\s+(?:Federal\s+|Estadual\s+|Complementar\s+)?(?:n[oº.]?\s*)?([\d.]+(?:[/\-]\d{4})?)/i,
-      /\bDecreto(?:-Lei)?\s+(?:n[oº.]?\s*)?([\d.]+(?:[/\-]\d{4})?)/i,
+      /\b(?:RDC|IN|RE|RN|RT)\s*(?:ANVISA\s*)?(?:n[oº.]?\s*)?(\d+)(?:[-/]\d{4})?/i,
+      /\bPortaria\s+(?:(?:GM|SVS|MS|CVS|SES|SMS)[/\s]*)?(?:n[oº.]?\s*)?(\d[\d.]*(?:[-/]\d{4})?)/i,
+      /\bLei\s+(?:Federal\s+|Estadual\s+|Complementar\s+)?(?:n[oº.]?\s*)?([\d.]+(?:[-/]\d{4})?)/i,
+      /\bDecreto(?:-Lei)?\s+(?:n[oº.]?\s*)?([\d.]+(?:[-/]\d{4})?)/i,
       /\bNR[.\s-]?(\d+)/i,
       /\bABNT\s+NBR\s+(\d+)/i,
-      /\bInstru[cç][aã]o\s+Normativa\s+(?:n[oº.]?\s*)?(\d+(?:[/\-]\d{4})?)/i,
+      /\bInstru[cç][aã]o\s+Normativa\s+(?:n[oº.]?\s*)?(\d+(?:[-/]\d{4})?)/i,
       /\bNota\s+T[eé]cnica\b[^;,]*/i,
-      /\bResolu[cç][aã]o\s+(?:n[oº.]?\s*)?([\d.]+(?:[/\-]\d{4})?)/i,
+      /\bResolu[cç][aã]o\s+(?:n[oº.]?\s*)?([\d.]+(?:[-/]\d{4})?)/i,
     ];
 
     let matched = false;

@@ -158,7 +158,6 @@ export function ClientPortal() {
   }, []);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
     if (token) void loadOverview(token);
   }, [token, loadOverview]);
 

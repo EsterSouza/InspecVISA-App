@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach, vi } from 'vitest';
+import { describe, test, expect } from 'vitest';
 import { TENANTS, USERS, CHECKLIST_ACCESS, INSPECTIONS } from './fixtures';
 
 // ============================================================
@@ -89,6 +89,7 @@ describe('🔐 Segurança — Isolamento de Dados por Tenant', () => {
       // Supabase usa queries parametrizadas — o valor é tratado como string literal
       // Este teste verifica que nosso código nunca interpola tenant_id em SQL raw
       const safeTenantId = 'tenant-001';
+      expect(safeTenantId).not.toBe(maliciousInput);
       expect(safeTenantId).not.toContain('DROP');
       expect(safeTenantId).not.toContain(';');
     });

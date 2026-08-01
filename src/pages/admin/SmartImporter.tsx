@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, FileText, Check, AlertCircle, Save, Trash2, FileUp, Loader2 } from 'lucide-react';
+import { Save, Trash2, FileUp, Loader2 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { TemplateService } from '../../services/templateService';

@@ -2,7 +2,7 @@
 // Fixtures compartilhadas entre todos os testes
 // ============================================================
 
-import type { ClientCategory, FoodEstablishmentType } from '../types';
+import type { ClientCategory } from '../types';
 
 export const TENANTS = {
   admin: {

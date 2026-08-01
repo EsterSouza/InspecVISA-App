@@ -478,7 +478,7 @@ export function SyncCenter() {
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
-                    {Object.entries(byStatus).map(([st, n]) => (
+                    {Object.entries(byStatus).map(([st]) => (
                       <span key={st} className="hidden sm:inline">
                         <StatusBadge status={st as SyncStatus} />
                       </span>

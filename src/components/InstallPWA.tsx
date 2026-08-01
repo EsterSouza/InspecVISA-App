@@ -30,7 +30,13 @@ function isIOS(): boolean {
  */
 export function InstallPWA() {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useState(() => {
+    if (isStandalone()) return false;
+    try {
+      if (localStorage.getItem(DISMISS_KEY)) return false;
+    } catch { /* ignore */ }
+    return isIOS();
+  });
   const [iosHelp, setIosHelp] = useState(false);
 
   useEffect(() => {
@@ -47,8 +53,6 @@ export function InstallPWA() {
     window.addEventListener('beforeinstallprompt', onPrompt);
 
     // iOS não dispara beforeinstallprompt — mostramos as instruções.
-    if (isIOS()) setVisible(true);
-
     return () => window.removeEventListener('beforeinstallprompt', onPrompt);
   }, []);
 

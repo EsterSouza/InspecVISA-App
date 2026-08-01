@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Save, Plus, Trash2, ArrowUp, ArrowDown,
-  AlertTriangle, GripVertical, Copy, Loader2
+  AlertTriangle, Copy, Loader2
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
@@ -46,7 +46,7 @@ export function TemplateEditor() {
       // Default empty section
       setSections([{ id: generateId(), title: 'Nova Seção', order: 1, items: [] }]);
     }
-  }, [id]);
+  }, [id, isEditing]);
 
   const generateId = () => Math.random().toString(36).substring(2, 9);
 

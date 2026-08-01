@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { useAuthStore } from '../store/useAuthStore';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import { LogIn, Mail, Lock, ArrowRight } from 'lucide-react';

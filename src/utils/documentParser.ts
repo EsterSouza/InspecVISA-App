@@ -126,7 +126,7 @@ export class DocumentParser {
       // Tenta identificar se a linha é um título de seção
       // Padrão: Curta (<80 chars), Tudo em Caps, ou começa com número romano/ordinal
       const isHeader = (line.length < 80 && (line === line.toUpperCase()) && !line.includes(':')) || 
-                       /^(I|II|III|IV|V|X|[0-9])[\.\-\)]/.test(line);
+                       /^(I|II|III|IV|V|X|[0-9])[.)-]/.test(line);
 
       if (isHeader) {
         currentSection = line;
@@ -134,7 +134,7 @@ export class DocumentParser {
       }
 
       // Procura possíveis referências legislativas (RDC, Lei, Portaria, CVS, Decreto, Resolução)
-      const legMatch = line.match(/(RDC|LEI|PORTARIA|DECRETO|CVS|RESOLUÇÃO|IN)\s(Nº\s?)?\d+[\/\d]*/i);
+      const legMatch = line.match(/(RDC|LEI|PORTARIA|DECRETO|CVS|RESOLUÇÃO|IN)\s(Nº\s?)?\d+[/\d]*/i);
       
       items.push({
         section: currentSection,

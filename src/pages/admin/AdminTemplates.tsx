@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, FileText, ChevronRight, Search, Trash2, Edit, Lock } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
-import { Card, CardContent } from '../../components/ui/Card';
+import { Card } from '../../components/ui/Card';
 import { TemplateService } from '../../services/templateService';
 import { Badge } from '../../components/ui/Badge';
 import { getTemplates } from '../../data/templates';
@@ -60,7 +60,7 @@ export function AdminTemplates() {
       
       // Update Dexie in background
       if (remoteData.length > 0) {
-        const fullRemote = await TemplateService.syncAllTemplatesToDexie();
+        await TemplateService.syncAllTemplatesToDexie();
         // initializeDatabase will handle the merge with statics inside
       }
     } catch (err: any) {

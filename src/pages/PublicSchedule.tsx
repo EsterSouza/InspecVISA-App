@@ -80,10 +80,6 @@ function isActiveVisit(visit: { status: string; requested_date: string | null })
   return !!visit.requested_date && ACTIVE_VISIT_STATUSES.has(visit.status);
 }
 
-function formatDay(value: string): string {
-  return String(parseLocalDate(value).getDate()).padStart(2, '0');
-}
-
 function formatFullDay(value: string): string {
   return parseLocalDate(value).toLocaleDateString('pt-BR', {
     weekday: 'long',
@@ -245,8 +241,10 @@ export function PublicSchedule() {
         if (cancelled) return;
         setError(null);
         setDays(data);
-        const currentSelectionInMonth = selectedDay && monthKey(selectedDay) === monthKey(startDate);
-        setSelectedDay(currentSelectionInMonth ? selectedDay : (data[0]?.day || ''));
+        setSelectedDay((currentDay) => {
+          const currentSelectionInMonth = currentDay && monthKey(currentDay) === monthKey(startDate);
+          return currentSelectionInMonth ? currentDay : (data[0]?.day || '');
+        });
       })
       .catch((err) => {
         console.warn('[PublicSchedule] Falha ao carregar calendario:', err);

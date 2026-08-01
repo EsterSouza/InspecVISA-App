@@ -135,7 +135,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    let whatsappSent = false;
+    const whatsappSent = false;
     let whatsappError: string | undefined;
     const whatsappLink = whatsappUrl(phone, message);
     if (phone && whatsappLink) {

@@ -16,22 +16,22 @@ async function setupDexie() {
     if (typeof indexedDB === 'undefined') throw new Error('IndexedDB undefined');
     // Security check: attempt to open a dummy database
     const req = indexedDB.open('InspecVISACheck');
-    req.onerror = () => useMemoryFallback();
-    req.onsuccess = (e) => {
-      const dbInstance = (e.target as any).result;
+    req.onerror = () => enableMemoryFallback();
+    req.onsuccess = () => {
+      const dbInstance = req.result;
       dbInstance.close();
       indexedDB.deleteDatabase('InspecVISACheck');
     };
   } catch (e) {
     console.warn('[DB] IndexedDB error/blocked, falling back to memory', e);
-    await useMemoryFallback();
+    await enableMemoryFallback();
   }
 }
 
-async function useMemoryFallback() {
+async function enableMemoryFallback() {
   try {
     const { default: FDB } = await import('fake-indexeddb');
-    // @ts-ignore
+    // @ts-expect-error fake-indexeddb does not publish this subpath's declaration.
     const { default: FKR } = await import('fake-indexeddb/lib/FDBKeyRange').catch(() => ({ default: null }));
     Dexie.dependencies.indexedDB = FDB;
     if (FKR) Dexie.dependencies.IDBKeyRange = FKR;

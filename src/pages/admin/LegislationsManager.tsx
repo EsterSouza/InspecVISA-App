@@ -75,7 +75,7 @@ export function LegislationsManager() {
       setIsSeeding(true);
       await LegislationService.seedStandardLegislations();
       await loadLegislations();
-    } catch (err) {
+    } catch {
       alert('Erro ao importar legislações sugeridas');
     } finally {
       setIsSeeding(false);
@@ -92,7 +92,7 @@ export function LegislationsManager() {
       setNewLeg(EMPTY_FORM);
       setIsAdding(false);
       loadLegislations();
-    } catch (err) {
+    } catch {
       alert('Erro ao salvar legislação');
     }
   }
@@ -118,7 +118,7 @@ export function LegislationsManager() {
       await LegislationService.updateLegislation(id, toPayload(editForm));
       setEditingId(null);
       loadLegislations();
-    } catch (err) {
+    } catch {
       alert('Erro ao salvar alterações');
     } finally {
       setSavingId(null);
@@ -130,7 +130,7 @@ export function LegislationsManager() {
     try {
       await LegislationService.deleteLegislation(id);
       loadLegislations();
-    } catch (err) {
+    } catch {
       alert('Erro ao excluir');
     }
   }

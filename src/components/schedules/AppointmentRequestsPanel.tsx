@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   CalendarDays,
   CalendarOff,
@@ -692,17 +692,17 @@ function PublishedFilesPanel({ requestId, busy }: { requestId: string; busy: boo
   const [loading, setLoading] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
 
-  const loadFiles = () => {
+  const loadFiles = useCallback(() => {
     setLoading(true);
     AppointmentAdminService.listAttachments(requestId)
       .then((rows) => setFiles(rows.filter((row) => row.kind !== 'photo')))
       .catch((err) => console.warn('[PublishedFilesPanel] Falha ao carregar anexos:', err))
       .finally(() => setLoading(false));
-  };
+  }, [requestId]);
 
   useEffect(() => {
     if (!busy) loadFiles();
-  }, [requestId, busy]);
+  }, [busy, loadFiles]);
 
   const handleRemove = async (file: AppointmentAttachment) => {
     if (!confirm(`Remover "${file.file_name || 'arquivo'}" do portal do cliente?`)) return;

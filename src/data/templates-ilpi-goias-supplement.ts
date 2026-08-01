@@ -49,7 +49,6 @@
 //        Recomendável=2 | Sugerido=1
 // ============================================================
 
-import type { ChecklistItem, Section, ChecklistSupplement } from '../types';
 
 // ─── TIPO NOVO — adicionar em types.ts ──────────────────────
 //

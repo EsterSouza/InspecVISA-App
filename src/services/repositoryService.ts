@@ -1,5 +1,4 @@
 import { supabase } from '../lib/supabase';
-import { db } from '../db/database';
 import type { SyncStatus } from '../types';
 import { withTimeout } from '../utils/network';
 import { useAuthStore } from '../store/useAuthStore';

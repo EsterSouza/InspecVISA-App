@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, FileDown, ArrowLeft, Loader2, Save, Info, AlertTriangle } from 'lucide-react';
 import { ClientService } from '../services/clientService';
@@ -7,7 +7,7 @@ import { InspectionBundleSyncService } from '../services/inspectionBundleSyncSer
 import { AppointmentAdminService } from '../services/appointmentAdminService';
 import { LegislationService, type Legislation } from '../services/legislationService';
 import { getTemplateById } from '../data/templates';
-import { calculateScore, calculateAreaScores, classificationColor, getLatestResponsesByItem } from '../utils/scoring';
+import { calculateScore, calculateAreaScores, getLatestResponsesByItem } from '../utils/scoring';
 import { isRioState } from '../utils/state';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { db } from '../db/database';
@@ -63,7 +63,7 @@ export function InspectionSummary() {
     }));
   };
 
-  const mergePhotosIntoResponses = (photos: any[]) => {
+  const mergePhotosIntoResponses = useCallback((photos: any[]) => {
     if (photos.length === 0) return;
 
     setResponses(current => current.map(response => {
@@ -74,9 +74,9 @@ export function InspectionSummary() {
       for (const photo of incoming) byId.set(photo.id, photo);
       return { ...response, photos: Array.from(byId.values()) };
     }));
-  };
+  }, []);
 
-  const hydratePhotosInBackground = (responseIds: string[]) => {
+  const hydratePhotosInBackground = useCallback((responseIds: string[]) => {
     if (responseIds.length === 0 || !navigator.onLine) return;
 
     void InspectionService.hydratePhotosByResponseIds(responseIds, {
@@ -96,7 +96,7 @@ export function InspectionSummary() {
       console.warn('[Summary] Photo hydration failed:', err);
       setPhotoHydration(null);
     });
-  };
+  }, [mergePhotosIntoResponses]);
 
   useEffect(() => {
     const inspectionId = location.state?.inspectionId;
@@ -208,7 +208,7 @@ export function InspectionSummary() {
     };
 
     loadData();
-  }, [location.state?.inspectionId]);
+  }, [hydratePhotosInBackground, location.state?.inspectionId, navigate]);
 
   const displayTemplate = useMemo(() => {
     if (!currentInspection) return null;

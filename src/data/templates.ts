@@ -629,7 +629,7 @@ export function getEffectiveTemplate(
   full: boolean = false
 ): ChecklistTemplate {
   // 1. Initial Deep Copy
-  let effective = JSON.parse(JSON.stringify(baseTemplate));
+  const effective = JSON.parse(JSON.stringify(baseTemplate));
 
   // 1.5. Apply Alimentos Segments
   if (baseTemplate.category === 'alimentos') {

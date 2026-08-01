@@ -51,7 +51,7 @@
 //   irregulares. Prazo: encerrado em 01/04/2026.
 // ============================================================
 
-import type { Section, ChecklistItem } from '../types';
+import type { Section } from '../types';
 import { isRioState } from '../utils/state';
 
 

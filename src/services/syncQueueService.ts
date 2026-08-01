@@ -3,7 +3,6 @@ import { RepositoryService } from './repositoryService';
 import { ClientService } from './clientService';
 import { ScheduleService } from './scheduleService';
 import { InspectionBundleSyncService } from './inspectionBundleSyncService';
-import { useAuthStore } from '../store/useAuthStore';
 
 /**
  * SyncQueueService

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Search, Plus, Phone, MapPin, Edit2, Trash2, Loader2, WifiOff, KeyRound } from 'lucide-react';
 import { type Client, type ClientCategory, type ClientContact, type FoodEstablishmentType, FOOD_SEGMENT_LABELS } from '../types';
@@ -9,7 +9,6 @@ import { Modal } from '../components/ui/Modal';
 import { generateId } from '../utils/imageUtils';
 import { useNavigate } from 'react-router-dom';
 import { ClientService } from '../services/clientService';
-import { useAuthStore } from '../store/useAuthStore';
 import { AppointmentAdminService, type ClientPortalAccountRow } from '../services/appointmentAdminService';
 import { ClientPortalManagement } from '../components/clients/ClientPortalManagement';
 
@@ -17,7 +16,6 @@ type ClientsTab = 'clientes' | 'portal';
 
 export function Clients() {
   const navigate = useNavigate();
-  const { user } = useAuthStore();
   const [activeTab, setActiveTab] = useState<ClientsTab>('clientes');
   const [clients, setClients] = useState<Client[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -33,7 +31,7 @@ export function Clients() {
   
   const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<Client>();
 
-  const loadClients = async () => {
+  const loadClients = useCallback(async () => {
     setIsFetching(true);
     try {
       const [clientList, accountList] = await Promise.allSettled([
@@ -64,9 +62,9 @@ export function Clients() {
     } finally {
       setIsFetching(false);
     }
-  };
+  }, [filterCat, search]);
 
-  useEffect(() => { loadClients(); }, [search, filterCat]);
+  useEffect(() => { void loadClients(); }, [loadClients]);
 
   useEffect(() => {
     const updateOnlineStatus = () => setIsOnline(navigator.onLine);

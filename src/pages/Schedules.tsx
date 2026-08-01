@@ -4,10 +4,9 @@ import type { Client, Schedule } from '../types';
 import { formatDateTime, generateId } from '../utils/imageUtils';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
-import { Calendar, Clock, Plus, Trash2, CheckCircle, AlertCircle, User, Play, Edit2, Loader2, WifiOff, Link2, Copy, ExternalLink } from 'lucide-react';
+import { Calendar, Clock, Plus, Trash2, CheckCircle, AlertCircle, User, Play, Edit2, Link2, Copy, ExternalLink } from 'lucide-react';
 import { ScheduleService } from '../services/scheduleService';
 import { ClientService } from '../services/clientService';
-import { useAuthStore } from '../store/useAuthStore';
 import { getLocalActor } from '../utils/localActor';
 import { AppointmentRequestsPanel } from '../components/schedules/AppointmentRequestsPanel';
 import { AppointmentAdminService } from '../services/appointmentAdminService';
@@ -65,7 +64,6 @@ function buildMonthDays(month: Date): Date[] {
 
 export function Schedules() {
   const navigate = useNavigate();
-  const { user } = useAuthStore();
   const [activeTab, setActiveTab] = useState<SchedulesTab>('agenda');
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -73,7 +71,6 @@ export function Schedules() {
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [linkCopied, setLinkCopied] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const now = new Date();
@@ -143,16 +140,6 @@ export function Schedules() {
 
   useEffect(() => {
     return ScheduleService.subscribeToChanges(loadData);
-  }, []);
-
-  useEffect(() => {
-    const updateOnlineStatus = () => setIsOnline(navigator.onLine);
-    window.addEventListener('online', updateOnlineStatus);
-    window.addEventListener('offline', updateOnlineStatus);
-    return () => {
-      window.removeEventListener('online', updateOnlineStatus);
-      window.removeEventListener('offline', updateOnlineStatus);
-    };
   }, []);
 
   const handleSchedule = async (e: React.FormEvent) => {

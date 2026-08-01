@@ -1,6 +1,6 @@
 import React from 'react';
-import { AlertTriangle, Camera, CheckCircle, Clock, Trash2, Maximize, X, PlusCircle, XCircle } from 'lucide-react';
-import { compressImage, generateId } from '../../utils/imageUtils';
+import { AlertTriangle, Camera, CheckCircle, Clock, Trash2, Maximize, PlusCircle, XCircle } from 'lucide-react';
+import { compressImage } from '../../utils/imageUtils';
 import type { InspectionPhoto } from '../../types';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';

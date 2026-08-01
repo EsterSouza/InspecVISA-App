@@ -36,6 +36,8 @@ export function PdfPreviewModal({
   // Extract unique base legislations on open
   useEffect(() => {
     if (!open) return;
+    // Opening is the modal lifecycle boundary; reset its transient workflow state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setStep(1);
     setHasSignature(false);
     setSkipSignature(false);
@@ -148,7 +150,8 @@ export function PdfPreviewModal({
   const toggleLeg = (leg: string) => {
     setSelected(prev => {
       const next = new Set(prev);
-      next.has(leg) ? next.delete(leg) : next.add(leg);
+      if (next.has(leg)) next.delete(leg);
+      else next.add(leg);
       return next;
     });
   };

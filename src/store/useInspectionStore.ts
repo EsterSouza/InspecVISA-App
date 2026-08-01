@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import type { Inspection, InspectionResponse } from '../types';
-import { db } from '../db/database';
 
 interface InspectionState {
   currentInspection: Inspection | null;

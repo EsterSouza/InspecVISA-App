@@ -5,7 +5,6 @@ import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { compressImage } from '../utils/imageUtils';
 import { db } from '../db/database';
-import { exportDatabase, importDatabase } from '../utils/backup';
 import { forcePushFinalData } from '../utils/forceSync';
 import { 
   Save, Upload, Trash2, LogOut, RefreshCw, FileText
@@ -73,30 +72,6 @@ export function Settings() {
       setSaveStatus('idle');
       alert(err?.message || 'Nao foi possivel salvar o perfil na nuvem.');
     }
-  };
-
-  const handleExport = async () => {
-    try {
-      await exportDatabase();
-    } catch (err) {
-      alert('Erro ao exportar: ' + err);
-    }
-  };
-
-  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    if (window.confirm('Deseja importar os dados deste arquivo? Registros novos serão adicionados e os existentes serão atualizados.')) {
-      try {
-        const msg = await importDatabase(file);
-        alert(msg);
-        window.location.reload();
-      } catch (err) {
-        alert('Erro na importação: ' + err);
-      }
-    }
-    e.target.value = '';
   };
 
   const handleClearData = async () => {

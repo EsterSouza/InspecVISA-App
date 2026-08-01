@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronDown, ChevronUp, CheckCircle, AlertTriangle, HelpCircle } from 'lucide-react';
+import { ChevronDown, ChevronUp, CheckCircle, AlertTriangle } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 interface SectionAccordionProps {
