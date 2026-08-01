@@ -384,7 +384,11 @@ export type ClientPortalAuditEventType =
   | 'payment_link_clicked'
   | 'payment_acknowledged'
   | 'sanitary_folder_opened'
-  | 'invoice_download_clicked';
+  | 'invoice_download_clicked'
+  | 'main_drive_folder_opened'
+  | 'portal_tutorial_opened'
+  | 'schedule_cta_clicked'
+  | 'support_whatsapp_clicked';
 
 export interface AppointmentSlot {
   id: string;

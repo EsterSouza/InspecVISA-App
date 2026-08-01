@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import {
   CalendarDays,
   CalendarOff,
-  CalendarPlus,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -11,7 +10,6 @@ import {
   CreditCard,
   Download,
   FileText,
-  FolderOpen,
   Image,
   KeyRound,
   Loader2,
@@ -23,6 +21,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { PublicHeader } from '../components/public/PublicHeader';
+import { PortalQuickActions } from '../components/client/PortalQuickActions';
 import {
   clientPortalService,
   type ClientPortalInvoice,
@@ -301,9 +300,6 @@ export function ClientPortal() {
     if (aUpcoming !== bUpcoming) return aUpcoming ? -1 : 1;
     return aUpcoming ? ka.localeCompare(kb) : kb.localeCompare(ka);
   });
-  const folderUnits = overview.units.filter(
-    (u) => u.has_personalized_sanitary_folder && u.personalized_sanitary_folder_url
-  );
   const reportCount = allVisits.reduce((sum, visit) => sum + (visit.report_count || 0), 0);
   const photoCount = allVisits.reduce((sum, visit) => sum + (visit.photo_count || 0), 0);
   const attachmentCount = allVisits.reduce((sum, visit) => sum + (visit.attachment_count || 0), 0);
@@ -344,6 +340,18 @@ export function ClientPortal() {
             </button>
           </div>
         </div>
+
+        <PortalQuickActions
+          enabled={overview.quick_access_enabled}
+          mainDriveFolderUrl={overview.main_drive_folder_url}
+          tutorialPdfUrl={overview.tutorial_pdf_url}
+          supportWhatsapp={overview.support_whatsapp}
+          schedulingSuspended={schedulingSuspended}
+          units={overview.units}
+          onAudit={(eventType, payload) => {
+            void clientPortalService.audit(token, eventType, payload);
+          }}
+        />
 
         <div className="mb-6 grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3">
           <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm sm:p-4">
@@ -583,15 +591,7 @@ export function ClientPortal() {
               </div>
             </div>
           </div>
-        ) : (
-          <Link
-            to="/agendar"
-            className="mb-8 flex w-full items-center justify-center gap-2 rounded-md bg-primary-700 px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-800"
-          >
-            <CalendarPlus className="h-4 w-4" />
-            Agendar nova inspeção
-          </Link>
-        )}
+        ) : null}
 
         <section className="mb-8 rounded-xl border border-gray-200 bg-white p-3 shadow-sm sm:p-4">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -710,33 +710,6 @@ export function ClientPortal() {
           </div>
         ) : (
           <div className="space-y-5">
-            {folderUnits.length > 0 && (
-              <section className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-4 shadow-sm">
-                <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-emerald-800">
-                  <FolderOpen className="h-4 w-4" /> Pastas sanitárias personalizadas
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {folderUnits.map((unit) => (
-                    <a
-                      key={unit.client_id}
-                      href={unit.personalized_sanitary_folder_url!}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => {
-                        void clientPortalService.audit(token, 'sanitary_folder_opened', {
-                          client_id: unit.client_id,
-                          client_name: unit.client_name,
-                        });
-                      }}
-                      className="inline-flex items-center gap-2 rounded-md bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700"
-                    >
-                      <FolderOpen className="h-3.5 w-3.5" /> {unit.client_name}
-                    </a>
-                  ))}
-                </div>
-              </section>
-            )}
-
             <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
               <header className="flex items-center gap-2 border-b border-gray-100 bg-gray-50/70 px-5 py-3.5">
                 <CalendarDays className="h-4 w-4 shrink-0 text-primary-700" />

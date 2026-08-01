@@ -215,6 +215,10 @@ export function ClientDetails() {
     payment_link_clicked: 'Clicou no pagamento',
     payment_acknowledged: 'Avisou que pagou',
     sanitary_folder_opened: 'Abriu pasta sanitaria',
+    main_drive_folder_opened: 'Abriu pasta principal completa',
+    portal_tutorial_opened: 'Abriu tutorial do portal',
+    schedule_cta_clicked: 'Clicou para agendar horario',
+    support_whatsapp_clicked: 'Clicou no WhatsApp da consultoria',
   };
   const formatAuditPayload = (event: ClientPortalAuditEvent) => {
     const payload = event.payload || {};
