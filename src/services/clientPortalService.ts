@@ -1,11 +1,13 @@
 import { supabase } from '../lib/supabase';
 import { formatAppointmentLeadTimeMessage, isAppointmentAtLeast24hAhead } from '../utils/appointmentLeadTime';
 import type {
+  AppointmentType,
   AppointmentAttachment,
   ClientPortalAuditEventType,
   ClientPortalSettings,
   PublicAppointmentStatusResult,
 } from '../types';
+import { isInspectionAppointment, normalizeAppointmentType } from '../utils/appointmentType';
 
 const TIMEOUT_MS = 30000;
 
@@ -23,6 +25,13 @@ export interface ClientPortalVisit {
   public_token: string;
   unit_name: string;
   status: string;
+  appointment_type: AppointmentType;
+  subject?: string | null;
+  duration_minutes?: number | null;
+  consultant_names?: string[] | null;
+  meeting_url?: string | null;
+  participant_names?: string[] | null;
+  cancellation_reason?: string | null;
   requested_date: string | null;
   requested_time: string | null;
   report_due_at: string | null;
@@ -137,7 +146,17 @@ export const clientPortalService = {
     );
     if (error) throw error;
     if (data?.error) throw new Error('acesso invalido');
-    return data as ClientPortalOverview;
+    const overview = data as ClientPortalOverview;
+    return {
+      ...overview,
+      units: overview.units.map((unit) => ({
+        ...unit,
+        visits: unit.visits.map((visit) => ({
+          ...visit,
+          appointment_type: normalizeAppointmentType(visit.appointment_type),
+        })),
+      })),
+    };
   },
 
   async createAppointment(
@@ -167,7 +186,15 @@ export const clientPortalService = {
     );
     if (error) throw error;
     if (data?.error) throw new Error(data.error);
-    return data as ClientAppointmentDetails;
+    const details = data as ClientAppointmentDetails;
+    const appointmentType = normalizeAppointmentType(details.status.appointment_type);
+    return {
+      ...details,
+      status: { ...details.status, appointment_type: appointmentType },
+      assets: isInspectionAppointment(appointmentType)
+        ? details.assets
+        : details.assets.filter((asset) => asset.kind === 'attachment'),
+    };
   },
 
   async audit(

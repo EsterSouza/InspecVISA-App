@@ -202,6 +202,8 @@ Sobrescrever uma definição recente de `client_portal_overview` e perder campos
 ### Implementação
 
 - Substituir a regra genérica de `±4 hours` por sobreposição real de intervalos.
+- Permitir bloqueio parcial de disponibilidade pela equipe sem cliente vinculado, com data, horário inicial, duração e motivo opcional.
+- Permitir repetição configurável do bloqueio, mantendo cada ocorrência identificável e cancelável sem apagar as demais.
 - Preservar comportamento de inspeções até suas durações padrão serem confirmadas em configuração.
 - Definir durações permitidas por tipo: reuniões/orientações 30/60/90; treinamento configurável; inspeção conforme slot atual.
 - Impedir `ends_at <= starts_at`, duração negativa ou fora do limite.
@@ -241,6 +243,7 @@ Sobrescrever uma definição recente de `client_portal_overview` e perder campos
 ### Implementação
 
 - Primeira etapa: `O que você deseja agendar?` com tipos habilitados.
+- No calendário do portal, tornar o dia disponível acionável e abrir este fluxo com a data pré-selecionada; o cliente ainda escolhe tipo, horário e demais campos permitidos.
 - Segunda etapa: unidade, modalidade, duração, data e horário.
 - Terceira etapa: assunto, objetivo, participantes e observações.
 - Inspeção mantém unidade obrigatória, regras geográficas e bloqueio mensal.
@@ -283,6 +286,8 @@ Sobrescrever uma definição recente de `client_portal_overview` e perder campos
 ### Implementação
 
 - Separar filtros e contadores por tipo/status no painel de solicitações.
+- No calendário administrativo, tornar o dia acionável e oferecer `Criar compromisso/tarefa` ou `Bloquear horário`.
+- O bloqueio administrativo não exige cliente e aceita motivo opcional, horário, duração e repetição; o motivo e outros dados internos nunca aparecem na agenda pública.
 - Mostrar assunto, duração, modalidade e preferência de consultora.
 - Na confirmação, exigir consultora(s) responsável(is) e permitir ajustar duração/link.
 - Para inspeção, manter criação/vínculo com `schedules` e herança para a inspeção.

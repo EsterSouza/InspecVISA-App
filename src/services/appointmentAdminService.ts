@@ -9,6 +9,7 @@ import type {
   SlotPeriod,
 } from '../types';
 import { getActiveTenantId } from '../utils/localScope';
+import { assertInspectionAppointment, normalizeAppointmentType } from '../utils/appointmentType';
 
 const PORTAL_BUCKET = 'client-portal-files';
 const INSPECTION_PHOTO_BUCKET = 'inspection-photos';
@@ -145,6 +146,17 @@ function withTimeout<T>(promise: PromiseLike<T>, label: string, timeoutMs = ADMI
   });
 }
 
+export function mapAppointmentRequest(row: Record<string, unknown>): AppointmentRequest {
+  return {
+    ...row,
+    appointment_type: normalizeAppointmentType(row.appointment_type),
+  } as unknown as AppointmentRequest;
+}
+
+function assertInspectionRequest(request: Pick<AppointmentRequest, 'appointment_type'>, action: string): void {
+  assertInspectionAppointment(request.appointment_type, action);
+}
+
 /**
  * Operações internas (autenticadas) do portal público de agendamento.
  * Usa o client supabase com a sessão do consultor — as RPCs públicas
@@ -165,7 +177,7 @@ export const AppointmentAdminService = {
       'Solicitacoes'
     );
     if (error) throw error;
-    return (data ?? []) as AppointmentRequest[];
+    return (data ?? []).map((row) => mapAppointmentRequest(row));
   },
 
   async updateRequest(id: string, updates: Partial<AppointmentRequest>): Promise<void> {
@@ -192,7 +204,7 @@ export const AppointmentAdminService = {
       'SolicitacaoPorInspecao'
     );
     if (error) throw error;
-    return (data ?? null) as AppointmentRequest | null;
+    return data ? mapAppointmentRequest(data) : null;
   },
 
   async getRequestByScheduleId(scheduleId: string): Promise<AppointmentRequest | null> {
@@ -209,11 +221,11 @@ export const AppointmentAdminService = {
       'SolicitacaoPorAgenda'
     );
     if (error) throw error;
-    return (data ?? null) as AppointmentRequest | null;
+    return data ? mapAppointmentRequest(data) : null;
   },
 
   async confirmRequest(
-    id: string,
+    request: AppointmentRequest,
     params: {
       confirmedDate: string;
       confirmedTime: string;
@@ -227,7 +239,8 @@ export const AppointmentAdminService = {
     // A equipe (consultoras) pode agendar a qualquer momento — a antecedência
     // mínima de 24h vale apenas para o cliente (portal público e portal do cliente).
     const startsAt = new Date(`${params.confirmedDate}T${params.confirmedTime || '09:00'}`);
-    const endsAt = new Date(startsAt.getTime() + 60 * 60 * 1000);
+    const durationMinutes = request.duration_minutes ?? 60;
+    const endsAt = new Date(startsAt.getTime() + durationMinutes * 60 * 1000);
     const updates: Partial<AppointmentRequest> = {
       status: 'confirmed',
       client_id: params.clientId,
@@ -237,31 +250,36 @@ export const AppointmentAdminService = {
       requested_period: startsAt.getHours() < 12 ? 'manha' : 'tarde',
       requested_starts_at: startsAt.toISOString(),
       requested_ends_at: endsAt.toISOString(),
+      duration_minutes: durationMinutes,
     };
     if (params.manualDueDate) {
+      assertInspectionRequest(request, 'definir prazo de relatório');
       updates.report_due_at = params.manualDueDate;
       updates.report_due_source = 'manual';
     }
-    await this.updateRequest(id, updates);
+    await this.updateRequest(request.id, updates);
   },
 
-  async markInProgress(id: string): Promise<void> {
-    await this.updateRequest(id, { status: 'in_progress' });
+  async markInProgress(request: AppointmentRequest): Promise<void> {
+    assertInspectionRequest(request, 'iniciar uma inspeção');
+    await this.updateRequest(request.id, { status: 'in_progress' });
   },
 
-  async setComplianceScore(id: string, score: number | null): Promise<void> {
-    await this.updateRequest(id, { compliance_score: score });
+  async setComplianceScore(request: AppointmentRequest, score: number | null): Promise<void> {
+    assertInspectionRequest(request, 'registrar conformidade sanitária');
+    await this.updateRequest(request.id, { compliance_score: score });
   },
 
   // Score por área da ILPI exibido no portal (sanitária x nutrição). null limpa o campo.
-  async setAreaScores(id: string, sanitary: number | null, nutrition: number | null): Promise<void> {
-    await this.updateRequest(id, { sanitary_score: sanitary, nutrition_score: nutrition });
+  async setAreaScores(request: AppointmentRequest, sanitary: number | null, nutrition: number | null): Promise<void> {
+    assertInspectionRequest(request, 'registrar conformidade sanitária por área');
+    await this.updateRequest(request.id, { sanitary_score: sanitary, nutrition_score: nutrition });
   },
 
   // Estatísticas de NC (críticas/importantes/imediatas/reincidentes + lista compacta dos
   // itens) para o resumo executivo do portal do cliente. Gravado junto com a publicação
   // do relatório final. Ver franchiseReport.ts.
-  async setInspectionStats(id: string, stats: {
+  async setInspectionStats(request: AppointmentRequest, stats: {
     criticalNcCount: number;
     importantNcCount: number;
     totalNcCount: number;
@@ -269,7 +287,8 @@ export const AppointmentAdminService = {
     immediateNcCount: number;
     ncItems: { id: string; d: string; c: boolean }[];
   }): Promise<void> {
-    await this.updateRequest(id, {
+    assertInspectionRequest(request, 'registrar estatísticas sanitárias');
+    await this.updateRequest(request.id, {
       critical_nc_count: stats.criticalNcCount,
       important_nc_count: stats.importantNcCount,
       total_nc_count: stats.totalNcCount,
@@ -314,6 +333,8 @@ export const AppointmentAdminService = {
       requested_period: startsAt.getHours() < 12 ? 'manha' : 'tarde',
       requested_starts_at: startsAt.toISOString(),
       requested_ends_at: endsAt.toISOString(),
+      appointment_type: 'inspection',
+      duration_minutes: 60,
       status: 'confirmed',
     });
     if (error) throw error;
@@ -333,7 +354,7 @@ export const AppointmentAdminService = {
       updates.requested_time = time;
       updates.requested_period = startsAt.getHours() < 12 ? 'manha' : 'tarde';
       updates.requested_starts_at = startsAt.toISOString();
-      updates.requested_ends_at = new Date(startsAt.getTime() + 60 * 60 * 1000).toISOString();
+      updates.requested_ends_at = new Date(startsAt.getTime() + (request.duration_minutes ?? 60) * 60 * 1000).toISOString();
     }
     await this.updateRequest(request.id, updates);
 
@@ -431,8 +452,9 @@ export const AppointmentAdminService = {
     if (error) throw error;
   },
 
-  async setManualDueDate(id: string, dueDate: string): Promise<void> {
-    await this.updateRequest(id, {
+  async setManualDueDate(request: AppointmentRequest, dueDate: string): Promise<void> {
+    assertInspectionRequest(request, 'definir prazo de relatório');
+    await this.updateRequest(request.id, {
       report_due_at: dueDate,
       report_due_source: 'manual',
     });
@@ -444,6 +466,7 @@ export const AppointmentAdminService = {
     request: AppointmentRequest,
     file: File
   ): Promise<{ emailSent: boolean; whatsappLink?: string }> {
+    assertInspectionRequest(request, 'publicar relatório');
     const tenantId = requireTenantId();
     const path = `${tenantId}/${request.id}/report-${Date.now()}-${sanitizeFileName(file.name)}`;
 
@@ -622,6 +645,7 @@ export const AppointmentAdminService = {
     inspectionId: string,
     photos: InspectionPhotoOption[]
   ): Promise<void> {
+    assertInspectionRequest(request, 'publicar fotos de inspeção');
     if (photos.length === 0) return;
     const tenantId = requireTenantId();
 
@@ -868,8 +892,9 @@ export const AppointmentAdminService = {
     if (error) throw error;
   },
 
-  async setReportHidden(requestId: string, hidden: boolean): Promise<void> {
-    await this.updateRequest(requestId, { report_hidden: hidden } as Partial<AppointmentRequest>);
+  async setReportHidden(request: AppointmentRequest, hidden: boolean): Promise<void> {
+    assertInspectionRequest(request, 'alterar a publicação do relatório');
+    await this.updateRequest(request.id, { report_hidden: hidden } as Partial<AppointmentRequest>);
   },
 
   async sendPaymentOverdueEmail(payload: PaymentOverdueEmailPayload): Promise<void> {

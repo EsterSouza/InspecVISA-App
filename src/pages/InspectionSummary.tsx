@@ -367,9 +367,9 @@ export function InspectionSummary() {
              const areaScores = calculateAreaScores(responses, displayTemplate.sections);
              const clamp = (p: number) => Math.max(0, Math.min(100, Math.round(p)));
              const split = displayTemplate.category === 'ilpi' && areaScores.isSplit;
-             await AppointmentAdminService.setComplianceScore(linkedRequest.id, clamp(areaScores.global.scorePercentage));
+             await AppointmentAdminService.setComplianceScore(linkedRequest, clamp(areaScores.global.scorePercentage));
              await AppointmentAdminService.setAreaScores(
-               linkedRequest.id,
+               linkedRequest,
                split ? clamp(areaScores.sanitary.score.scorePercentage) : null,
                split ? clamp(areaScores.nutrition.score.scorePercentage) : null,
              );
@@ -387,7 +387,7 @@ export function InspectionSummary() {
                  c: !!item?.isCritical,
                };
              });
-             await AppointmentAdminService.setInspectionStats(linkedRequest.id, {
+             await AppointmentAdminService.setInspectionStats(linkedRequest, {
                criticalNcCount: nonCompliantResponses.filter(r => itemById.get(r.itemId)?.isCritical).length,
                importantNcCount: nonCompliantResponses.filter(r => {
                  const item = itemById.get(r.itemId);

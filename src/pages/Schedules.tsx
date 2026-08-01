@@ -218,6 +218,8 @@ export function Schedules() {
             clientId: selectedClientId,
             scheduledAt: occurrenceAt,
             status: 'pending',
+            appointmentType: 'inspection',
+            durationMinutes: 60,
             notes: notes,
             consultantNames: selectedConsultants,
             updatedAt: new Date(),

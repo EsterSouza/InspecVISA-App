@@ -45,7 +45,7 @@ const STATUS_LABELS: Record<string, string> = {
   confirmed: 'Confirmada',
   in_progress: 'Em andamento',
   rescheduled: 'Remarcada',
-  completed: 'Relatorio concluido',
+  completed: 'Relatório em andamento',
   report_available: 'Relatório disponível',
   cancelled: 'Cancelada',
 };

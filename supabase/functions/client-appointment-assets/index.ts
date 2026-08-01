@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
 
     const { data: requestRow, error: requestError } = await admin
       .from('appointment_requests')
-      .select('id, client_id, unit_name, district, municipality, attendance_mode, status, requested_date, requested_period, requested_time, requested_starts_at, requested_ends_at, report_due_at, report_due_source, report_hidden, notes, created_at, updated_at')
+      .select('id, client_id, unit_name, district, municipality, attendance_mode, appointment_type, subject, duration_minutes, consultant_names, preferred_consultant_name, meeting_url, participant_names, cancellation_reason, status, requested_date, requested_period, requested_time, requested_starts_at, requested_ends_at, report_due_at, report_due_source, report_hidden, notes, created_at, updated_at')
       .eq('public_token', appointmentToken)
       .maybeSingle();
     if (requestError) throw requestError;
@@ -90,9 +90,12 @@ Deno.serve(async (req) => {
     if (assetsError) throw assetsError;
 
     // Relatório oculto pela equipe: não expõe os PDFs de relatório ao cliente.
-    const visibleRows = requestRow.report_hidden
-      ? (rows || []).filter((asset) => asset.kind !== 'report_pdf')
-      : (rows || []);
+    const appointmentType = requestRow.appointment_type || 'inspection';
+    const visibleRows = appointmentType !== 'inspection'
+      ? (rows || []).filter((asset) => asset.kind === 'attachment')
+      : requestRow.report_hidden
+        ? (rows || []).filter((asset) => asset.kind !== 'report_pdf')
+        : (rows || []);
 
     const assets = await Promise.all(visibleRows.map(async (asset) => {
       let signedUrl: string | undefined;
@@ -118,14 +121,24 @@ Deno.serve(async (req) => {
         district: requestRow.district,
         municipality: requestRow.municipality,
         attendance_mode: requestRow.attendance_mode,
+        appointment_type: appointmentType,
+        subject: requestRow.subject,
+        duration_minutes: requestRow.duration_minutes,
+        consultant_names: requestRow.consultant_names,
+        preferred_consultant_name: requestRow.preferred_consultant_name,
+        meeting_url: ['confirmed', 'in_progress', 'completed', 'report_available'].includes(requestRow.status)
+          ? requestRow.meeting_url
+          : null,
+        participant_names: requestRow.participant_names,
+        cancellation_reason: requestRow.cancellation_reason,
         status: requestRow.status,
         requested_date: requestRow.requested_date,
         requested_period: requestRow.requested_period,
         requested_time: requestRow.requested_time,
         requested_starts_at: requestRow.requested_starts_at,
         requested_ends_at: requestRow.requested_ends_at,
-        report_due_at: requestRow.report_due_at,
-        report_due_source: requestRow.report_due_source,
+        report_due_at: appointmentType === 'inspection' ? requestRow.report_due_at : null,
+        report_due_source: appointmentType === 'inspection' ? requestRow.report_due_source : null,
         notes: requestRow.notes,
         scheduling_suspended: locked,
         payment_link: account.payment_link || null,

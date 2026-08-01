@@ -16,6 +16,7 @@ import { generateId } from '../utils/imageUtils';
 import { ProfileModal } from '../components/profile/ProfileModal';
 import { ScheduleService } from '../services/scheduleService';
 import type { Schedule } from '../types';
+import { isInspectionAppointment } from '../utils/appointmentType';
 
 export function NewInspection() {
   const navigate = useNavigate();
@@ -107,11 +108,11 @@ export function NewInspection() {
           const targetDateStr = inspectionDate; // "YYYY-MM-DD"
           
           const forcedMatch = preSelectedScheduleId
-            ? schedules.find(s => s.id === preSelectedScheduleId && s.clientId === selectedClient.id && s.status === 'pending')
+            ? schedules.find(s => s.id === preSelectedScheduleId && s.clientId === selectedClient.id && s.status === 'pending' && isInspectionAppointment(s.appointmentType))
             : undefined;
           const match = forcedMatch || schedules.find(s => {
             const sDateStr = s.scheduledAt.toISOString().split('T')[0];
-            return s.clientId === selectedClient.id && sDateStr === targetDateStr && s.status === 'pending';
+            return s.clientId === selectedClient.id && sDateStr === targetDateStr && s.status === 'pending' && isInspectionAppointment(s.appointmentType);
           });
           
           setMatchingSchedule(match || null);
@@ -181,6 +182,9 @@ export function NewInspection() {
     setIsStarting(true);
 
     try {
+      if (preSelectedScheduleId) {
+        await ScheduleService.assertInspectionSchedule(preSelectedScheduleId);
+      }
       const candidates = await InspectionService.getRecentInspectionCandidates(
         selectedClient.id,
         new Date(inspectionDate + 'T12:00:00')

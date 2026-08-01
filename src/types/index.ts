@@ -3,6 +3,9 @@
 // InspecVISA — C&C Consultoria Sanitária
 // ============================================================
 
+import type { AppointmentType } from '../utils/appointmentType';
+export type { AppointmentType } from '../utils/appointmentType';
+
 export type ClientCategory = 'estetica' | 'ilpi' | 'alimentos';
 
 // Food establishment sub-types for modular inspection
@@ -334,6 +337,13 @@ export interface Schedule {
   scheduledAt: Date;
   status: 'pending' | 'completed' | 'cancelled' | 'in_progress';
   notes?: string;
+  /** Ausente apenas em registros locais legados, que são tratados como inspeção. */
+  appointmentType?: AppointmentType;
+  subject?: string;
+  durationMinutes?: number;
+  meetingUrl?: string;
+  participantNames?: string[];
+  cancellationReason?: string;
   // Consultora(s) responsável(is) por esta visita. A inspeção herda na criação.
   consultantNames?: string[];
   user_id?: string;
@@ -413,6 +423,14 @@ export interface AppointmentRequest {
   client_id: string | null;
   schedule_id: string | null;
   inspection_id: string | null;
+  appointment_type: AppointmentType;
+  subject: string | null;
+  duration_minutes: number | null;
+  consultant_names: string[] | null;
+  preferred_consultant_name: string | null;
+  meeting_url: string | null;
+  participant_names: string[] | null;
+  cancellation_reason: string | null;
   public_token: string;
   unit_name: string;
   district: string;
@@ -513,6 +531,14 @@ export interface PublicAppointmentStatusResult {
   district: string;
   municipality?: string | null;
   attendance_mode?: AttendanceMode | null;
+  appointment_type: AppointmentType;
+  subject?: string | null;
+  duration_minutes?: number | null;
+  consultant_names?: string[] | null;
+  preferred_consultant_name?: string | null;
+  meeting_url?: string | null;
+  participant_names?: string[] | null;
+  cancellation_reason?: string | null;
   status: AppointmentStatus;
   requested_date: string | null;
   requested_period: string | null;

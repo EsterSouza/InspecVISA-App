@@ -37,6 +37,7 @@ import { ScheduleService } from '../../services/scheduleService';
 import { getActiveTenantId } from '../../utils/localScope';
 import { getLocalActor } from '../../utils/localActor';
 import { generateId } from '../../utils/imageUtils';
+import { shouldShowIlpiAreaScores } from '../../utils/clientCategory';
 import { Button } from '../ui/Button';
 import { Card, CardContent } from '../ui/Card';
 
@@ -91,7 +92,7 @@ const STATUS_LABELS: Record<AppointmentRequest['status'], string> = {
   confirmed: 'Confirmada',
   in_progress: 'Em andamento',
   rescheduled: 'Remarcada',
-  completed: 'Relatório concluído',
+  completed: 'Relatório em andamento',
   report_available: 'Relatório disponível',
   cancelled: 'Cancelada',
 };
@@ -243,7 +244,7 @@ export function AppointmentRequestsPanel() {
   };
 
   const handleMarkInProgress = (request: AppointmentRequest) => {
-    void withBusy(request.id, () => AppointmentAdminService.markInProgress(request.id));
+    void withBusy(request.id, () => AppointmentAdminService.markInProgress(request));
   };
 
   const handleMarkCompleted = (request: AppointmentRequest) => {
@@ -256,11 +257,11 @@ export function AppointmentRequestsPanel() {
   };
 
   const handleSetCompliance = (request: AppointmentRequest, score: number | null) => {
-    void withBusy(request.id, () => AppointmentAdminService.setComplianceScore(request.id, score));
+    void withBusy(request.id, () => AppointmentAdminService.setComplianceScore(request, score));
   };
 
   const handleSetAreaScores = (request: AppointmentRequest, sanitary: number | null, nutrition: number | null) => {
-    void withBusy(request.id, () => AppointmentAdminService.setAreaScores(request.id, sanitary, nutrition));
+    void withBusy(request.id, () => AppointmentAdminService.setAreaScores(request, sanitary, nutrition));
   };
 
   const handlePublishReport = (request: AppointmentRequest, file: File | null) => {
@@ -289,7 +290,7 @@ export function AppointmentRequestsPanel() {
 
   const handleToggleReportHidden = (request: AppointmentRequest) => {
     const next = !request.report_hidden;
-    void withBusy(request.id, () => AppointmentAdminService.setReportHidden(request.id, next));
+    void withBusy(request.id, () => AppointmentAdminService.setReportHidden(request, next));
   };
 
   const byAppointmentDate = (a: AppointmentRequest, b: AppointmentRequest) =>
@@ -473,6 +474,7 @@ export function AppointmentRequestsPanel() {
                 <ActiveRequestCard
                   key={request.id}
                   request={request}
+                  showIlpiAreaScores={shouldShowIlpiAreaScores(request, clients)}
                   busy={busy === request.id}
                   onPublishReport={(file) => handlePublishReport(request, file)}
                   onAddAttachment={(file) => handleAddAttachment(request, file)}
@@ -513,6 +515,7 @@ export function AppointmentRequestsPanel() {
                   <ActiveRequestCard
                     key={request.id}
                     request={request}
+                    showIlpiAreaScores={shouldShowIlpiAreaScores(request, clients)}
                     busy={busy === request.id}
                     onPublishReport={(file) => handlePublishReport(request, file)}
                     onAddAttachment={(file) => handleAddAttachment(request, file)}
@@ -670,6 +673,7 @@ export function AppointmentRequestsPanel() {
 
 interface ActiveRequestCardProps {
   request: AppointmentRequest;
+  showIlpiAreaScores: boolean;
   busy: boolean;
   onPublishReport: (file: File | null) => void;
   onAddAttachment: (file: File | null) => void;
@@ -766,6 +770,7 @@ function PublishedFilesPanel({ requestId, busy }: { requestId: string; busy: boo
 
 function ActiveRequestCard({
   request,
+  showIlpiAreaScores,
   busy,
   onPublishReport,
   onAddAttachment,
@@ -862,7 +867,7 @@ function ActiveRequestCard({
                     Salvar
                   </button>
                 </span>
-                {onSetAreaScores && (
+                {showIlpiAreaScores && onSetAreaScores && (
                   <span className="flex items-center gap-1 text-xs text-gray-500">
                     <Gauge className="h-3.5 w-3.5 text-indigo-600" />
                     Por área (ILPI):
@@ -1125,6 +1130,12 @@ function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: Confirm
         clientId,
         scheduledAt: new Date(`${confirmedDate}T${confirmedTime || '09:00'}`),
         status: 'pending',
+        appointmentType: request.appointment_type,
+        subject: request.subject || undefined,
+        durationMinutes: request.duration_minutes || undefined,
+        meetingUrl: request.meeting_url || undefined,
+        participantNames: request.participant_names || undefined,
+        cancellationReason: request.cancellation_reason || undefined,
         notes: `Portal público — ${request.unit_name} (${request.district})`,
         consultantNames: selectedConsultants,
         updatedAt: now,
@@ -1134,7 +1145,7 @@ function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: Confirm
       };
       // 3. Atualizar a solicitação primeiro; só então persistir o agendamento
       // interno, evitando Schedule órfão caso a confirmação falhe.
-      await AppointmentAdminService.confirmRequest(request.id, {
+      await AppointmentAdminService.confirmRequest(request, {
         confirmedDate,
         confirmedTime: confirmedTime || '09:00',
         clientId,
@@ -1598,7 +1609,7 @@ function DueDateModal({ request, onClose, onSaved }: DueDateModalProps) {
     if (!dueDate) return;
     setSaving(true);
     try {
-      await AppointmentAdminService.setManualDueDate(request.id, dueDate);
+      await AppointmentAdminService.setManualDueDate(request, dueDate);
       onSaved();
     } catch (err) {
       console.error(err);

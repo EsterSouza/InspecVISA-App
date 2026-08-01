@@ -4,6 +4,7 @@ import { db } from '../db/database';
 import { RepositoryService } from './repositoryService';
 import { withLocalActor } from '../utils/localActor';
 import { belongsToActiveTenant, filterByActiveTenant } from '../utils/localScope';
+import { assertInspectionAppointment, normalizeAppointmentType } from '../utils/appointmentType';
 
 export function mapFromPostgres(row: any): Schedule {
   return {
@@ -12,6 +13,14 @@ export function mapFromPostgres(row: any): Schedule {
     scheduledAt: new Date(row.scheduled_at),
     status: row.status,
     notes: row.notes || undefined,
+    appointmentType: normalizeAppointmentType(row.appointment_type),
+    subject: row.subject || undefined,
+    durationMinutes: row.duration_minutes ?? undefined,
+    meetingUrl: row.meeting_url || undefined,
+    participantNames: Array.isArray(row.participant_names) && row.participant_names.length > 0
+      ? row.participant_names
+      : undefined,
+    cancellationReason: row.cancellation_reason || undefined,
     consultantNames: Array.isArray(row.consultant_names) && row.consultant_names.length > 0
       ? row.consultant_names
       : undefined,
@@ -32,6 +41,14 @@ export function mapToPostgres(schedule: Schedule): any {
     scheduled_at: schedule.scheduledAt.toISOString(),
     status: schedule.status,
     notes: schedule.notes || null,
+    appointment_type: normalizeAppointmentType(schedule.appointmentType),
+    subject: schedule.subject || null,
+    duration_minutes: schedule.durationMinutes ?? null,
+    meeting_url: schedule.meetingUrl || null,
+    participant_names: schedule.participantNames && schedule.participantNames.length > 0
+      ? schedule.participantNames
+      : null,
+    cancellation_reason: schedule.cancellationReason || null,
     consultant_names: schedule.consultantNames && schedule.consultantNames.length > 0
       ? schedule.consultantNames
       : null,
@@ -137,6 +154,7 @@ export const ScheduleService = {
   async linkInspection(id: string, inspectionId: string): Promise<void> {
     const local = await db.schedules.get(id);
     if (belongsToActiveTenant(local)) {
+      assertInspectionAppointment(local.appointmentType, 'iniciar ou vincular uma inspeção');
       const updated = {
         ...local,
         status: 'in_progress' as const,
@@ -152,6 +170,7 @@ export const ScheduleService = {
   async completeWithInspection(id: string, inspectionId: string): Promise<void> {
     const local = await db.schedules.get(id);
     if (belongsToActiveTenant(local)) {
+      assertInspectionAppointment(local.appointmentType, 'concluir uma inspeção');
       const updated = {
         ...local,
         status: 'completed' as const,
@@ -162,5 +181,11 @@ export const ScheduleService = {
       await this.saveSchedule(updated);
       void syncLinkedAppointmentRequest(id, 'completed', inspectionId);
     }
+  },
+
+  async assertInspectionSchedule(id: string): Promise<void> {
+    const schedule = (await this.getSchedules()).find((item) => item.id === id);
+    if (!schedule) throw new Error('Agendamento não encontrado.');
+    assertInspectionAppointment(schedule.appointmentType, 'iniciar uma inspeção');
   }
 };
