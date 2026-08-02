@@ -209,6 +209,8 @@ Sobrescrever uma definição recente de `client_portal_overview` e perder campos
 - Impedir `ends_at <= starts_at`, duração negativa ou fora do limite.
 - Fazer validação transacional no servidor para evitar reserva simultânea.
 - Manter datas bloqueadas, antecedência mínima e timezone `America/Sao_Paulo`.
+- Permitir que a equipe agende sem antecedência mínima e em qualquer horário, preservando conflito real da mesma capacidade/consultora e bloqueios internos.
+- Para solicitações do cliente, manter antecedência mínima de 24 horas e uma margem de quatro horas em relação a demandas existentes; essa margem não aumenta a duração do compromisso na agenda interna.
 - Não expor nomes ou assuntos de outros compromissos na agenda pública.
 
 ### Testes
@@ -221,7 +223,7 @@ Sobrescrever uma definição recente de `client_portal_overview` e perder campos
 
 ### Critérios de aceite
 
-- Reunião de 30 minutos não bloqueia quatro horas.
+- Reunião de 30 minutos ocupa 30 minutos na agenda interna; a margem operacional de quatro horas existe somente para novas solicitações do cliente.
 - Compromissos sobrepostos não são confirmados para a mesma capacidade/consultora.
 - Datas e horários exibidos correspondem ao horário de Brasília.
 - A agenda pública não revela dados privados de eventos ocupados.
@@ -334,6 +336,7 @@ Sobrescrever uma definição recente de `client_portal_overview` e perder campos
 - Criar links compatíveis com Google Calendar e Outlook sem incluir dados sanitários sensíveis.
 - Atualizar e-mail/WhatsApp de confirmação, remarcação, lembrete e cancelamento.
 - Deduplicar notificações com chave idempotente por evento.
+- No portal do cliente, exibir um cronograma único com as datas previstas e realizadas de inspeção, entrega de relatório, Pasta Sanitária Personalizada, auditoria e acompanhamento online, mostrando somente marcos aplicáveis àquele contrato/unidade.
 
 ### Testes
 
@@ -348,6 +351,7 @@ Sobrescrever uma definição recente de `client_portal_overview` e perder campos
 - Texto e timeline correspondem ao tipo do compromisso.
 - Cliente adiciona evento ao calendário com horário correto.
 - Remarcação atualiza o mesmo evento lógico.
+- O cliente consegue acompanhar no mesmo cronograma as próximas entregas e atividades aplicáveis, sem datas fictícias para serviços não contratados.
 - Nenhuma notificação contém token interno, service role ou dados técnicos desnecessários.
 
 ---

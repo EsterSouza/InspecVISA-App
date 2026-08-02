@@ -373,6 +373,7 @@ export interface SyncLog {
 export type SlotPeriod = 'manha' | 'tarde' | 'noite' | 'integral';
 export type SlotStatus = 'available' | 'blocked' | 'full' | 'cancelled';
 export type AttendanceMode = 'presencial' | 'online';
+export type AppointmentBlockRecurrence = 'none' | 'daily' | 'weekly' | 'monthly';
 export type AppointmentStatus =
   | 'requested'
   | 'confirmed'
@@ -495,6 +496,21 @@ export interface ClientPortalAuditEvent {
   created_at: string;
 }
 
+export interface AppointmentBlock {
+  id: string;
+  tenant_id: string;
+  starts_at: string;
+  ends_at: string;
+  reason: string | null;
+  recurrence_group_id: string | null;
+  recurrence: AppointmentBlockRecurrence;
+  occurrence_index: number;
+  occurrence_count: number;
+  cancelled_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ClientPortalSettings {
   tenant_id: string;
   tutorial_pdf_url: string | null;
@@ -517,6 +533,8 @@ export interface PublicAppointmentPayload {
   requested_period?: string;
   requested_starts_at?: string;
   requested_ends_at?: string;
+  appointment_type?: AppointmentType;
+  duration_minutes?: number;
   attendance_mode?: AttendanceMode;
   municipality?: string;
   existing_client_id?: string;

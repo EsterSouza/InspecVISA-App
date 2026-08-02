@@ -70,6 +70,8 @@ export interface ClientPortalAppointmentPayload {
   email?: string;
   requested_starts_at: string;
   requested_ends_at: string;
+  appointment_type?: AppointmentType;
+  duration_minutes?: number;
   notes?: string;
 }
 

@@ -208,6 +208,8 @@ Regras por tipo:
 - Treinamentos: duração configurável.
 - A disponibilidade pública mostra capacidade da equipe, sem expor detalhes privados da agenda.
 - A escolha de consultora pelo cliente, se exibida, é preferência e não garantia até confirmação.
+- A equipe pode agendar sem antecedência mínima e fora das janelas públicas, mas continua impedida de sobrepor compromissos da mesma capacidade/consultora ou bloqueios internos.
+- O cliente mantém antecedência mínima de 24 horas e uma margem operacional de quatro horas em relação a demandas já agendadas; essa margem pública não altera a duração real do compromisso interno.
 
 ### 4.6 Plano de ação publicado
 

@@ -1,6 +1,8 @@
 import { supabase } from '../lib/supabase';
 import type {
   AppointmentAttachment,
+  AppointmentBlock,
+  AppointmentBlockRecurrence,
   AppointmentRequest,
   AppointmentSlot,
   AttachmentKind,
@@ -231,6 +233,7 @@ export const AppointmentAdminService = {
       confirmedTime: string;
       clientId: string;
       scheduleId: string;
+      consultantNames?: string[];
       manualDueDate?: string;
     }
   ): Promise<void> {
@@ -251,6 +254,7 @@ export const AppointmentAdminService = {
       requested_starts_at: startsAt.toISOString(),
       requested_ends_at: endsAt.toISOString(),
       duration_minutes: durationMinutes,
+      consultant_names: params.consultantNames?.length ? params.consultantNames : null,
     };
     if (params.manualDueDate) {
       assertInspectionRequest(request, 'definir prazo de relatório');
@@ -312,6 +316,7 @@ export const AppointmentAdminService = {
     responsibleName?: string;
     phone?: string;
     email?: string;
+    consultantNames?: string[];
   }): Promise<void> {
     const tenantId = requireTenantId();
     // Admin agenda a qualquer momento (sem a trava de 24h, que é só do cliente).
@@ -335,6 +340,7 @@ export const AppointmentAdminService = {
       requested_ends_at: endsAt.toISOString(),
       appointment_type: 'inspection',
       duration_minutes: 60,
+      consultant_names: params.consultantNames?.length ? params.consultantNames : null,
       status: 'confirmed',
     });
     if (error) throw error;
@@ -1044,6 +1050,57 @@ export const AppointmentAdminService = {
 
   async removeBlockedDate(id: string): Promise<void> {
     const { error } = await supabase.from('appointment_blocked_dates').delete().eq('id', id);
+    if (error) throw error;
+  },
+
+  // ─── Bloqueios parciais/recorrentes da equipe ──────────────
+
+  async listAvailabilityBlocks(): Promise<AppointmentBlock[]> {
+    const tenantId = requireTenantId();
+    const { data, error } = await withTimeout(
+      supabase
+        .from('appointment_blocks')
+        .select('id, tenant_id, starts_at, ends_at, reason, recurrence_group_id, recurrence, occurrence_index, occurrence_count, cancelled_at, created_at, updated_at')
+        .eq('tenant_id', tenantId)
+        .is('cancelled_at', null)
+        .gte('ends_at', new Date().toISOString())
+        .order('starts_at', { ascending: true }),
+      'BloqueiosParciais'
+    );
+    if (error) throw error;
+    return (data ?? []) as AppointmentBlock[];
+  },
+
+  async createAvailabilityBlocks(params: {
+    startsAt: string;
+    durationMinutes: number;
+    reason?: string;
+    recurrence?: AppointmentBlockRecurrence;
+    occurrences?: number;
+  }): Promise<AppointmentBlock[]> {
+    const tenantId = requireTenantId();
+    const { data, error } = await withTimeout(
+      supabase.rpc('admin_create_appointment_blocks', {
+        p_tenant_id: tenantId,
+        p_starts_at: params.startsAt,
+        p_duration_minutes: params.durationMinutes,
+        p_reason: params.reason?.trim() || null,
+        p_recurrence: params.recurrence ?? 'none',
+        p_occurrences: params.occurrences ?? 1,
+      }),
+      'CriarBloqueiosParciais'
+    );
+    if (error) throw error;
+    return (data ?? []) as AppointmentBlock[];
+  },
+
+  async cancelAvailabilityBlock(id: string): Promise<void> {
+    const tenantId = requireTenantId();
+    const { error } = await supabase
+      .from('appointment_blocks')
+      .update({ cancelled_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('tenant_id', tenantId);
     if (error) throw error;
   },
 

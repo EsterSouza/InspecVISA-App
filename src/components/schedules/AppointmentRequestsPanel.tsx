@@ -1150,6 +1150,7 @@ function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: Confirm
         confirmedTime: confirmedTime || '09:00',
         clientId,
         scheduleId: schedule.id,
+        consultantNames: selectedConsultants,
         manualDueDate: manualDueDate || undefined,
       });
       await ScheduleService.saveSchedule(schedule);
@@ -1720,6 +1721,7 @@ function NewVisitModal({ clients, onClose, onCreated }: NewVisitModalProps) {
         attendanceMode,
         municipality: municipality.trim() || selectedClient?.city || undefined,
         district: district.trim() || undefined,
+        consultantNames: selectedConsultants,
       });
       await ScheduleService.saveSchedule(schedule);
       onCreated();

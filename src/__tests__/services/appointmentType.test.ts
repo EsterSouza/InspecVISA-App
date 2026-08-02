@@ -3,7 +3,9 @@ import type { AppointmentRequest } from '../../types';
 import {
   APPOINTMENT_TYPES,
   APPOINTMENT_TYPE_RULES,
+  assertAppointmentDuration,
   assertInspectionAppointment,
+  isAllowedAppointmentDuration,
   normalizeAppointmentType,
 } from '../../utils/appointmentType';
 
@@ -97,5 +99,16 @@ describe('P360-004 - dominio de compromissos', () => {
       .rejects.toThrow('Somente compromissos de inspeção');
     await expect(ScheduleService.completeWithInspection('schedule-a', 'inspection-a'))
       .rejects.toThrow('Somente compromissos de inspeção');
+  });
+
+  test('valida duracoes pelo tipo sem transformar reuniao curta em janela de quatro horas', () => {
+    expect([30, 60, 90].every((minutes) =>
+      isAllowedAppointmentDuration('follow_up_meeting', minutes))).toBe(true);
+    expect(isAllowedAppointmentDuration('document_guidance', 45)).toBe(false);
+    expect(isAllowedAppointmentDuration('training', 240)).toBe(true);
+    expect(isAllowedAppointmentDuration('training', 245)).toBe(false);
+    expect(isAllowedAppointmentDuration('inspection', 90)).toBe(true);
+    expect(() => assertAppointmentDuration('results_meeting', 120))
+      .toThrow('Duração inválida');
   });
 });

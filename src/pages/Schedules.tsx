@@ -191,6 +191,8 @@ export function Schedules() {
             requested_period: startsAt.getHours() < 12 ? 'manha' : 'tarde',
             requested_starts_at: startsAt.toISOString(),
             requested_ends_at: endsAt.toISOString(),
+            duration_minutes: 60,
+            consultant_names: selectedConsultants.length ? selectedConsultants : null,
           });
         } else {
           await AppointmentAdminService.insertConfirmedRequest({
@@ -205,6 +207,7 @@ export function Schedules() {
             attendanceMode: 'presencial',
             municipality: place.municipality,
             district: place.district,
+            consultantNames: selectedConsultants,
           });
         }
       } else {

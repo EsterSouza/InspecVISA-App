@@ -80,3 +80,17 @@ export function assertInspectionAppointment(value: unknown, action: string): voi
     throw new Error(`Somente compromissos de inspeção podem ${action}.`);
   }
 }
+
+export function isAllowedAppointmentDuration(type: AppointmentType, minutes: number): boolean {
+  if (!Number.isInteger(minutes)) return false;
+  if (type === 'inspection') return minutes >= 15 && minutes <= 720;
+  if (type === 'training') return minutes >= 30 && minutes <= 480 && minutes % 30 === 0;
+  if (type === 'other') return minutes >= 15 && minutes <= 480 && minutes % 15 === 0;
+  return minutes === 30 || minutes === 60 || minutes === 90;
+}
+
+export function assertAppointmentDuration(type: AppointmentType, minutes: number): void {
+  if (!isAllowedAppointmentDuration(type, minutes)) {
+    throw new Error('Duração inválida para o tipo de compromisso.');
+  }
+}
