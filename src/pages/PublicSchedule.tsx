@@ -1,7 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Building2,
   CalendarDays,
   CheckCircle2,
   ChevronLeft,
@@ -9,6 +8,7 @@ import {
   ClipboardCheck,
   Clock,
   Copy,
+  FileText,
   Loader2,
   MapPin,
   Monitor,
@@ -16,32 +16,66 @@ import {
   RefreshCw,
   Send,
   ShieldCheck,
+  Users,
 } from 'lucide-react';
-import type { AttendanceMode, PublicAvailableTime, PublicCalendarDay } from '../types';
+import type { AppointmentType, AttendanceMode, PublicAvailableTime, PublicCalendarDay } from '../types';
 import { publicAppointmentService } from '../services/publicAppointmentService';
 import { clientPortalService, type ClientPortalUnit } from '../services/clientPortalService';
 import { PublicHeader } from '../components/public/PublicHeader';
 import { formatProtocol } from '../utils/protocol';
 import { isAppointmentAtLeast24hAhead } from '../utils/appointmentLeadTime';
+import { isInspectionAppointment, APPOINTMENT_TYPE_RULES } from '../utils/appointmentType';
+import {
+  buildAppointmentNotes,
+  defaultPublicAppointmentDuration,
+  formatDuration,
+  PUBLIC_APPOINTMENT_DRAFT_KEY,
+  PUBLIC_APPOINTMENT_TYPE_OPTIONS,
+  publicAppointmentDurations,
+} from '../utils/publicAppointmentForm';
 import { isRioState } from '../utils/state';
 
 const RIO_MUNICIPALITIES = [
-  'Rio de Janeiro',
-  'Niteroi',
-  'Sao Goncalo',
-  'Duque de Caxias',
-  'Nova Iguacu',
-  'Belford Roxo',
-  'Sao Joao de Meriti',
-  'Nilopolis',
-  'Mesquita',
-  'Queimados',
-  'Itaborai',
-  'Marica',
+  'Rio de Janeiro', 'Niteroi', 'Sao Goncalo', 'Duque de Caxias', 'Nova Iguacu',
+  'Belford Roxo', 'Sao Joao de Meriti', 'Nilopolis', 'Mesquita', 'Queimados', 'Itaborai', 'Marica',
 ];
-
 const CALENDAR_WEEKDAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'];
 const ACTIVE_VISIT_STATUSES = new Set(['requested', 'confirmed', 'in_progress', 'rescheduled', 'completed']);
+
+type Draft = {
+  step?: number;
+  appointmentType?: AppointmentType;
+  durationMinutes?: number;
+  selectedDay?: string;
+  unitName?: string;
+  selectedClientId?: string;
+  attendanceMode?: AttendanceMode;
+  municipality?: string;
+  district?: string;
+  responsibleName?: string;
+  phone?: string;
+  email?: string;
+  subject?: string;
+  objective?: string;
+  participants?: string;
+  notes?: string;
+};
+
+function readDraft(): Draft {
+  try {
+    return JSON.parse(sessionStorage.getItem(PUBLIC_APPOINTMENT_DRAFT_KEY) || '{}') as Draft;
+  } catch {
+    return {};
+  }
+}
+
+function clearDraft(): void {
+  try {
+    sessionStorage.removeItem(PUBLIC_APPOINTMENT_DRAFT_KEY);
+  } catch {
+    // armazenamento indisponível
+  }
+}
 
 function parseLocalDate(value: string): Date {
   const [year, month, day] = value.split('-').map(Number);
@@ -49,118 +83,102 @@ function parseLocalDate(value: string): Date {
 }
 
 function toDateKey(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
 }
 
 function monthKey(value: string): string {
   return value.slice(0, 7);
 }
 
-function daysToLoadForMonth(date: Date): number {
-  const now = new Date();
-  const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-  const startsThisMonth = date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
-  const first = startsThisMonth ? new Date(now.getFullYear(), now.getMonth(), now.getDate()) : new Date(date.getFullYear(), date.getMonth(), 1);
-  return Math.max(1, Math.floor((monthEnd.getTime() - first.getTime()) / 86400000) + 1);
-}
-
 function monthStartKey(date: Date): string {
   return toDateKey(new Date(date.getFullYear(), date.getMonth(), 1));
 }
 
+function daysToLoadForMonth(date: Date): number {
+  const now = new Date();
+  const end = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+  const first = date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth()
+    ? new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    : new Date(date.getFullYear(), date.getMonth(), 1);
+  return Math.max(1, Math.floor((end.getTime() - first.getTime()) / 86400000) + 1);
+}
+
 function formatMonthTitle(value: string): string {
-  const date = parseLocalDate(`${value}-01`);
-  return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  return parseLocalDate(value + '-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+}
+
+function formatFullDay(value: string): string {
+  return parseLocalDate(value).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
 }
 
 function isActiveVisit(visit: { status: string; requested_date: string | null }): boolean {
   return !!visit.requested_date && ACTIVE_VISIT_STATUSES.has(visit.status);
 }
 
-function formatFullDay(value: string): string {
-  return parseLocalDate(value).toLocaleDateString('pt-BR', {
-    weekday: 'long',
-    day: '2-digit',
-    month: 'long',
-  });
-}
-
 export function PublicSchedule() {
+  const initialDraft = readDraft();
+  const [step, setStep] = useState(initialDraft.step && initialDraft.step > 0 ? initialDraft.step : 1);
+  const [appointmentType, setAppointmentType] = useState<AppointmentType>(initialDraft.appointmentType || 'inspection');
+  const [durationMinutes, setDurationMinutes] = useState(
+    initialDraft.durationMinutes || defaultPublicAppointmentDuration(initialDraft.appointmentType || 'inspection')
+  );
   const [days, setDays] = useState<PublicCalendarDay[]>([]);
   const [times, setTimes] = useState<PublicAvailableTime[]>([]);
-  const [selectedDay, setSelectedDay] = useState('');
+  const [selectedDay, setSelectedDay] = useState(initialDraft.selectedDay || '');
   const [selectedTime, setSelectedTime] = useState<PublicAvailableTime | null>(null);
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const source = initialDraft.selectedDay ? parseLocalDate(initialDraft.selectedDay) : new Date();
+    return new Date(source.getFullYear(), source.getMonth(), 1);
+  });
   const [calendarLoading, setCalendarLoading] = useState(true);
   const [timesLoading, setTimesLoading] = useState(false);
+  const [calendarError, setCalendarError] = useState<string | null>(null);
+  const [timesError, setTimesError] = useState<string | null>(null);
   const [calendarReloadKey, setCalendarReloadKey] = useState(0);
-  const [calendarMonth, setCalendarMonth] = useState(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1);
-  });
+  const [timesReloadKey, setTimesReloadKey] = useState(0);
 
-  const [unitName, setUnitName] = useState('');
-  // Modo portal: cliente logado agenda só para as próprias unidades vinculadas
   const [portalToken, setPortalToken] = useState<string | null>(null);
-  const [portalAccount, setPortalAccount] = useState<string>('');
+  const [portalAccount, setPortalAccount] = useState('');
   const [portalUnits, setPortalUnits] = useState<ClientPortalUnit[]>([]);
-  const [selectedClientId, setSelectedClientId] = useState('');
-  const [attendanceMode, setAttendanceMode] = useState<AttendanceMode>('presencial');
-  const [municipality, setMunicipality] = useState('Rio de Janeiro');
-  const [district, setDistrict] = useState('');
-  const [responsibleName, setResponsibleName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [notes, setNotes] = useState('');
+  const [selectedClientId, setSelectedClientId] = useState(initialDraft.selectedClientId || '');
+  const [unitName, setUnitName] = useState(initialDraft.unitName || '');
+  const [attendanceMode, setAttendanceMode] = useState<AttendanceMode>(initialDraft.attendanceMode || 'presencial');
+  const [municipality, setMunicipality] = useState(initialDraft.municipality || 'Rio de Janeiro');
+  const [district, setDistrict] = useState(initialDraft.district || '');
+  const [responsibleName, setResponsibleName] = useState(initialDraft.responsibleName || '');
+  const [phone, setPhone] = useState(initialDraft.phone || '');
+  const [email, setEmail] = useState(initialDraft.email || '');
+  const [subject, setSubject] = useState(initialDraft.subject || '');
+  const [objective, setObjective] = useState(initialDraft.objective || '');
+  const [participants, setParticipants] = useState(initialDraft.participants || '');
+  const [notes, setNotes] = useState(initialDraft.notes || '');
 
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-
-  const selectedDayLabel = useMemo(
-    () => (selectedDay ? formatFullDay(selectedDay) : 'Escolha uma data'),
-    [selectedDay]
-  );
+  const stepTitleRef = useRef<HTMLHeadingElement>(null);
 
   const portalMode = !!portalToken && portalUnits.length > 0;
+  const inspection = isInspectionAppointment(appointmentType);
   const selectedUnit = useMemo(
     () => portalUnits.find((unit) => unit.client_id === selectedClientId) || null,
     [portalUnits, selectedClientId]
   );
-  const visibleMonth = monthKey(monthStartKey(calendarMonth));
-  const selectedMonth = selectedDay ? monthKey(selectedDay) : visibleMonth;
+  const selectedMonth = selectedDay ? monthKey(selectedDay) : monthKey(monthStartKey(calendarMonth));
   const selectedUnitAllowsInPerson = !portalMode || isRioState(selectedUnit?.state);
   const unitBlockedInSelectedMonth = useMemo(() => {
-    if (!portalMode || !selectedMonth) return new Set<string>();
+    if (!portalMode || !inspection) return new Set<string>();
     return new Set(
       portalUnits
-        .filter((unit) =>
-          unit.visits.some((visit) => isActiveVisit(visit) && monthKey(visit.requested_date!) === selectedMonth)
-        )
+        .filter((unit) => unit.visits.some((visit) => isActiveVisit(visit) && monthKey(visit.requested_date!) === selectedMonth))
         .map((unit) => unit.client_id)
     );
-  }, [portalMode, portalUnits, selectedMonth]);
+  }, [portalMode, portalUnits, inspection, selectedMonth]);
   const selectedUnitBlockedInMonth = !!selectedClientId && unitBlockedInSelectedMonth.has(selectedClientId);
   const dayAvailability = useMemo(() => new Map(days.map((day) => [day.day, day])), [days]);
-  const visibleTimes = useMemo(
-    () => times.filter((time) => isAppointmentAtLeast24hAhead(time.starts_at)),
-    [times]
-  );
-  const portalVisitsByDay = useMemo(() => {
-    const map = new Map<string, ClientPortalUnit[]>();
-    for (const unit of portalUnits) {
-      for (const visit of unit.visits) {
-        if (!isActiveVisit(visit)) continue;
-        const list = map.get(visit.requested_date!) || [];
-        list.push(unit);
-        map.set(visit.requested_date!, list);
-      }
-    }
-    return map;
-  }, [portalUnits]);
+  const visibleTimes = useMemo(() => times.filter((time) => isAppointmentAtLeast24hAhead(time.starts_at)), [times]);
+
   const calendarCells = useMemo(() => {
     const first = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1);
     const last = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 0);
@@ -168,95 +186,77 @@ export function PublicSchedule() {
     const end = new Date(last);
     start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
     end.setDate(end.getDate() + (6 - ((end.getDay() + 6) % 7)));
-
-    const cells: Array<{
-      key: string;
-      date: Date;
-      inRange: boolean;
-      month: string;
-      available?: PublicCalendarDay;
-      bookings: ClientPortalUnit[];
-    }> = [];
+    const cells: Array<{ key: string; date: Date; inRange: boolean; available?: PublicCalendarDay }> = [];
     for (const cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
       const key = toDateKey(cursor);
       cells.push({
         key,
         date: new Date(cursor),
         inRange: cursor.getMonth() === calendarMonth.getMonth(),
-        month: monthKey(key),
         available: monthKey(key) === monthKey(monthStartKey(calendarMonth)) ? dayAvailability.get(key) : undefined,
-        bookings: portalVisitsByDay.get(key) || [],
       });
     }
     return cells;
-  }, [calendarMonth, dayAvailability, portalVisitsByDay]);
+  }, [calendarMonth, dayAvailability]);
 
-  // Detecta sessão do portal do cliente e carrega só as unidades vinculadas.
   useEffect(() => {
     const stored = clientPortalService.getStoredToken();
     if (!stored) return;
     let cancelled = false;
-    clientPortalService
-      .overview(stored)
+    clientPortalService.overview(stored)
       .then((data) => {
         if (cancelled) return;
         setPortalToken(stored);
         setPortalAccount(data.account_name);
         setPortalUnits(data.units);
-        if (data.units.length > 0) {
-          setSelectedClientId(data.units[0].client_id);
-          if (data.units[0].city) setMunicipality(data.units[0].city);
-        }
+        setSelectedClientId((current) => current || data.units[0]?.client_id || '');
+        if (data.units[0]?.city) setMunicipality((current) => current || data.units[0].city || '');
       })
-      .catch(() => {
-        // token inválido/expirado — segue como público
-        clientPortalService.clearToken();
-      });
-    return () => {
-      cancelled = true;
-    };
+      .catch(() => clientPortalService.clearToken());
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
-    if (!portalMode || !selectedMonth) return;
-    if (selectedClientId && !unitBlockedInSelectedMonth.has(selectedClientId)) return;
-    const nextUnit = portalUnits.find((unit) => !unitBlockedInSelectedMonth.has(unit.client_id));
-    setSelectedClientId(nextUnit?.client_id || '');
-    if (nextUnit?.city) setMunicipality(nextUnit.city);
-  }, [portalMode, portalUnits, selectedClientId, selectedMonth, unitBlockedInSelectedMonth]);
+    if (portalMode && !selectedUnitAllowsInPerson && attendanceMode === 'presencial') setAttendanceMode('online');
+  }, [attendanceMode, portalMode, selectedUnitAllowsInPerson]);
 
   useEffect(() => {
-    if (portalMode && !selectedUnitAllowsInPerson && attendanceMode === 'presencial') {
-      setAttendanceMode('online');
+    if (token) return;
+    try {
+      sessionStorage.setItem(PUBLIC_APPOINTMENT_DRAFT_KEY, JSON.stringify({
+        step, appointmentType, durationMinutes, selectedDay, unitName, selectedClientId, attendanceMode,
+        municipality, district, responsibleName, phone, email, subject, objective, participants, notes,
+      } satisfies Draft));
+    } catch {
+      // armazenamento indisponível
     }
-  }, [attendanceMode, portalMode, selectedUnitAllowsInPerson]);
+  }, [
+    token, step, appointmentType, durationMinutes, selectedDay, unitName, selectedClientId, attendanceMode,
+    municipality, district, responsibleName, phone, email, subject, objective, participants, notes,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
     setCalendarLoading(true);
+    setCalendarError(null);
     const startDate = monthStartKey(calendarMonth);
-    publicAppointmentService
-      .listCalendarDays(startDate, daysToLoadForMonth(calendarMonth))
+    publicAppointmentService.listCalendarDays(startDate, daysToLoadForMonth(calendarMonth), appointmentType, durationMinutes)
       .then((data) => {
-        if (cancelled) return;
-        setError(null);
-        setDays(data);
-        setSelectedDay((currentDay) => {
-          const currentSelectionInMonth = currentDay && monthKey(currentDay) === monthKey(startDate);
-          return currentSelectionInMonth ? currentDay : (data[0]?.day || '');
-        });
+        if (!cancelled) {
+          setDays(data);
+          setSelectedDay((current) => current && data.some((day) => day.day === current) ? current : '');
+        }
       })
-      .catch((err) => {
-        console.warn('[PublicSchedule] Falha ao carregar calendario:', err);
-        if (!cancelled) setError('Nao foi possivel carregar o calendario agora. Tente novamente em alguns instantes.');
+      .catch((error) => {
+        console.warn('[PublicSchedule] Falha ao carregar calendario:', error);
+        if (!cancelled) {
+          setDays([]);
+          setCalendarError('Não foi possível carregar a agenda agora.');
+        }
       })
-      .finally(() => {
-        if (!cancelled) setCalendarLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [calendarMonth, calendarReloadKey]);
+      .finally(() => { if (!cancelled) setCalendarLoading(false); });
+    return () => { cancelled = true; };
+  }, [calendarMonth, appointmentType, durationMinutes, calendarReloadKey]);
 
   useEffect(() => {
     if (!selectedDay) {
@@ -264,103 +264,131 @@ export function PublicSchedule() {
       setSelectedTime(null);
       return;
     }
-
     let cancelled = false;
     setTimesLoading(true);
+    setTimesError(null);
     setSelectedTime(null);
-    publicAppointmentService
-      .listAvailableTimes(selectedDay)
-      .then((data) => {
-        if (cancelled) return;
-        setTimes(data);
+    publicAppointmentService.listAvailableTimes(selectedDay, appointmentType, durationMinutes)
+      .then((data) => { if (!cancelled) setTimes(data); })
+      .catch((error) => {
+        console.warn('[PublicSchedule] Falha ao carregar horarios:', error);
+        if (!cancelled) {
+          setTimes([]);
+          setTimesError('Não foi possível carregar os horários deste dia.');
+        }
       })
-      .catch((err) => {
-        console.warn('[PublicSchedule] Falha ao carregar horarios:', err);
-        if (!cancelled) setTimes([]);
-      })
-      .finally(() => {
-        if (!cancelled) setTimesLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedDay]);
+      .finally(() => { if (!cancelled) setTimesLoading(false); });
+    return () => { cancelled = true; };
+  }, [selectedDay, appointmentType, durationMinutes, timesReloadKey]);
 
-  const validate = () => {
-    if (!selectedTime) return 'Escolha um horario disponivel.';
+  useEffect(() => {
+    stepTitleRef.current?.focus();
+  }, [step]);
+
+  const chooseType = (nextType: AppointmentType) => {
+    setAppointmentType(nextType);
+    setDurationMinutes(defaultPublicAppointmentDuration(nextType));
+    setSelectedTime(null);
+    setSubject('');
+    setObjective('');
+    setParticipants('');
+    setNotes('');
+    setSubmitError(null);
+  };
+
+  const selectDay = (day: string) => {
+    setSelectedDay(day);
+    setSelectedTime(null);
+    setSubmitError(null);
+    if (step < 2) setStep(2);
+  };
+
+  const validateScheduling = (): string | null => {
+    if (!selectedTime) return 'Escolha um horário disponível.';
     if (portalMode) {
       if (!selectedClientId) return 'Selecione a unidade.';
-      if (selectedUnitBlockedInMonth) return 'Esta unidade ja possui uma vistoria marcada neste mes.';
+      if (inspection && selectedUnitBlockedInMonth) {
+        return 'Esta unidade já possui uma inspeção solicitada neste mês.';
+      }
       if (attendanceMode === 'presencial' && !selectedUnitAllowsInPerson) {
-        return 'Vistoria presencial esta disponivel apenas para unidades cadastradas no RJ.';
+        return 'Atendimentos presenciais são permitidos apenas para unidades cadastradas no RJ.';
       }
     } else if (!unitName.trim()) {
       return 'Informe o nome da unidade.';
     }
     if (attendanceMode === 'presencial') {
-      if (!municipality.trim()) return 'Informe o municipio do atendimento presencial.';
+      if (!municipality.trim()) return 'Informe o município do atendimento presencial.';
       if (!district.trim()) return 'Informe o bairro do atendimento presencial.';
     }
     return null;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const validation = validate();
-    if (validation) {
-      setError(validation);
+  const nextFromSchedule = () => {
+    const error = validateScheduling();
+    if (error) {
+      setSubmitError(error);
       return;
     }
+    setSubmitError(null);
+    setStep(3);
+  };
+
+  const handleSubmit = async () => {
+    const validation = validateScheduling();
+    if (validation || !selectedTime) {
+      setSubmitError(validation || 'Escolha um horário disponível.');
+      setStep(2);
+      return;
+    }
+    const participantNames = participants.split(/[,\n]/).map((name) => name.trim()).filter(Boolean);
+    const payload = {
+      attendance_mode: attendanceMode,
+      municipality: attendanceMode === 'presencial' ? municipality.trim() : undefined,
+      district: attendanceMode === 'presencial' ? district.trim() : 'Online',
+      responsible_name: responsibleName.trim() || undefined,
+      phone: phone.trim() || undefined,
+      email: email.trim() || undefined,
+      requested_starts_at: selectedTime.starts_at,
+      requested_ends_at: selectedTime.ends_at,
+      appointment_type: appointmentType,
+      duration_minutes: durationMinutes,
+      subject: subject.trim() || undefined,
+      participant_names: participantNames.length ? participantNames : undefined,
+      notes: buildAppointmentNotes(objective, notes),
+    };
 
     setSubmitting(true);
-    setError(null);
+    setSubmitError(null);
     try {
       const result = portalMode
-        ? await clientPortalService.createAppointment(portalToken!, {
-            client_id: selectedClientId,
-            attendance_mode: attendanceMode,
-            municipality: attendanceMode === 'presencial' ? municipality.trim() : undefined,
-            district: attendanceMode === 'presencial' ? district.trim() : 'Online',
-            responsible_name: responsibleName.trim() || undefined,
-            phone: phone.trim() || undefined,
-            email: email.trim() || undefined,
-            requested_starts_at: selectedTime!.starts_at,
-            requested_ends_at: selectedTime!.ends_at,
-            notes: notes.trim() || undefined,
-          })
-        : await publicAppointmentService.createAppointmentRequest({
-            unit_name: unitName.trim(),
-            attendance_mode: attendanceMode,
-            municipality: attendanceMode === 'presencial' ? municipality.trim() : undefined,
-            district: attendanceMode === 'presencial' ? district.trim() : 'Online',
-            responsible_name: responsibleName.trim() || undefined,
-            phone: phone.trim(),
-            email: email.trim() || undefined,
-            requested_starts_at: selectedTime!.starts_at,
-            requested_ends_at: selectedTime!.ends_at,
-            notes: notes.trim() || undefined,
-          });
+        ? await clientPortalService.createAppointment(portalToken!, { ...payload, client_id: selectedClientId })
+        : await publicAppointmentService.createAppointmentRequest({ ...payload, unit_name: unitName.trim(), phone: phone.trim() });
+      clearDraft();
       setToken(result.public_token);
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch (err) {
-      console.warn('[PublicSchedule] Falha ao enviar agendamento:', err);
-      const msg = err instanceof Error ? err.message : '';
-      setError(msg.includes('horario indisponivel')
-        ? 'Este horário acabou de ser reservado. Escolha outro horário disponível.'
-        : 'Não foi possível enviar seu agendamento agora. Tente novamente em alguns instantes.');
+    } catch (error) {
+      console.warn('[PublicSchedule] Falha ao enviar solicitacao:', error);
+      const message = error instanceof Error ? error.message.toLowerCase() : '';
+      if (message.includes('horario indisponivel')) {
+        setSelectedTime(null);
+        setTimesReloadKey((value) => value + 1);
+        setSubmitError('Este horário acabou de ser reservado. Escolha outro horário; os demais dados foram preservados.');
+        setStep(2);
+      } else {
+        setSubmitError('Não foi possível enviar sua solicitação agora. Tente novamente.');
+      }
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleCopy = async () => {
-    if (!token) return;
+  const copyPortalLink = async () => {
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}/cliente`);
+      await navigator.clipboard.writeText(window.location.origin + '/cliente');
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2500);
     } catch {
-      // clipboard indisponivel
+      // clipboard indisponível
     }
   };
 
@@ -370,452 +398,134 @@ export function PublicSchedule() {
         <PublicHeader />
         <main className="mx-auto max-w-[640px] px-4 py-10">
           <div className="rounded-xl border border-green-100 bg-green-50/70 p-6 text-center shadow-sm">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100">
-              <CheckCircle2 className="h-8 w-8 text-green-600" />
-            </div>
-            <h2 className="text-xl font-bold text-gray-900">Agendamento solicitado</h2>
-            <p className="mt-2 text-sm text-gray-600">
-              Guarde este link. Ele fica disponivel para acompanhar a inspeção, relatórios, fotos e anexos.
-            </p>
+            <CheckCircle2 className="mx-auto mb-4 h-12 w-12 text-green-600" aria-hidden="true" />
+            <h1 className="text-xl font-bold text-gray-900">Solicitação enviada</h1>
+            <p className="mt-2 text-sm text-gray-600">Nossa equipe analisará o pedido e retornará com a confirmação.</p>
             <div className="mt-6 rounded-lg border border-gray-200 bg-white p-4">
               <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Protocolo</p>
-              <p className="mt-1 font-mono text-2xl font-bold tracking-widest text-gray-900">
-                {formatProtocol(token)}
-              </p>
+              <p className="mt-1 font-mono text-2xl font-bold tracking-widest text-gray-900">{formatProtocol(token)}</p>
             </div>
-            <Link
-              to="/cliente"
-              className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary-700 px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-800"
-            >
-              <ClipboardCheck className="h-4 w-4" />
-              Abrir meu portal
+            <Link to="/cliente" className="mt-6 inline-flex w-full min-h-11 items-center justify-center gap-2 rounded-md bg-primary-700 px-5 py-3 text-sm font-semibold text-white hover:bg-primary-800">
+              <ClipboardCheck className="h-4 w-4" /> Abrir meu portal
             </Link>
-            <button
-              type="button"
-              onClick={handleCopy}
-              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md border border-gray-200 bg-white px-5 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-            >
-              <Copy className="h-4 w-4" />
-              {copied ? 'Link copiado' : 'Copiar link'}
+            <button type="button" onClick={copyPortalLink} className="mt-3 inline-flex w-full min-h-11 items-center justify-center gap-2 rounded-md border border-gray-200 bg-white px-5 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50">
+              <Copy className="h-4 w-4" /> {copied ? 'Link copiado' : 'Copiar link'}
             </button>
-            <a
-              href={`https://wa.me/?text=${encodeURIComponent(
-                `Acompanhe sua inspeção sanitária pelo Portal do Cliente: ${window.location.origin}/cliente`
-              )}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md border border-green-200 bg-green-50 px-5 py-3 text-sm font-semibold text-green-700 transition-colors hover:bg-green-100"
-            >
-              <Phone className="h-4 w-4" />
-              Guardar link no WhatsApp
-            </a>
           </div>
         </main>
       </div>
     );
   }
 
+  const stepLabel = step === 1 ? 'O que você deseja agendar?' : step === 2 ? 'Defina data, horário e modalidade' : step === 3 ? 'Conte-nos sobre a solicitação' : 'Revise antes de enviar';
+
   return (
     <div className="min-h-screen bg-white">
       <PublicHeader />
-      <main className="mx-auto max-w-7xl px-4 py-8 pb-16 sm:px-6">
-        <div className="mb-7">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <h2 className="text-2xl font-bold text-gray-950">Agendar inspeção</h2>
-            {portalMode && (
-              <Link
-                to="/cliente"
-                className="inline-flex items-center justify-center rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-              >
-                Voltar ao painel do cliente
-              </Link>
-            )}
+      <main className="mx-auto max-w-6xl px-4 py-8 pb-16 sm:px-6">
+        <div className="mb-7 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-primary-700">Agendar horário com as consultoras</p>
+            <h1 ref={stepTitleRef} tabIndex={-1} className="mt-1 text-2xl font-bold text-gray-950 outline-none">{stepLabel}</h1>
           </div>
-          <p className="mt-1 text-sm text-gray-500">
-            Escolha uma data útil e um horário entre 09h30 e 16h. A agenda é limitada e os
-            horários ocupados já são removidos automaticamente.
-          </p>
+          {portalMode && <Link to="/cliente" className="inline-flex min-h-11 items-center rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Voltar ao portal</Link>}
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(420px,0.8fr)]">
-          <section className="space-y-4">
-            <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm sm:p-4">
-              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-gray-700">
-                  <CalendarDays className="h-4 w-4 shrink-0 text-primary-700" />
-                  Datas disponíveis
-                </h3>
-                <div className="flex items-center justify-between gap-1 sm:justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setCalendarMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
-                    className="rounded-md border border-gray-200 p-1.5 text-gray-600 hover:bg-gray-50"
-                    title="Mes anterior"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <span className="flex-1 text-center text-xs font-bold capitalize text-gray-700 sm:min-w-[132px] sm:flex-none">
-                    {formatMonthTitle(visibleMonth)}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setCalendarMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
-                    className="rounded-md border border-gray-200 p-1.5 text-gray-600 hover:bg-gray-50"
-                    title="Proximo mes"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const n = new Date();
-                      setCalendarMonth(new Date(n.getFullYear(), n.getMonth(), 1));
-                    }}
-                    className="ml-1 rounded-md border border-gray-200 px-2 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50"
-                  >
-                    Hoje
-                  </button>
-                </div>
-              </div>
+        <ol className="mb-8 grid grid-cols-4 gap-2" aria-label="Etapas da solicitação">
+          {['Finalidade', 'Agenda', 'Detalhes', 'Resumo'].map((label, index) => (
+            <li key={label} aria-current={step === index + 1 ? 'step' : undefined} className={'rounded-md px-2 py-2 text-center text-xs font-semibold ' + (step === index + 1 ? 'bg-primary-700 text-white' : step > index + 1 ? 'bg-primary-50 text-primary-800' : 'bg-gray-100 text-gray-500')}>
+              <span className="hidden sm:inline">{index + 1}. </span>{label}
+            </li>
+          ))}
+        </ol>
 
-              {calendarLoading ? (
-                <div className="flex h-48 items-center justify-center">
-                  <Loader2 className="h-7 w-7 animate-spin text-primary-700" />
-                </div>
-              ) : days.length === 0 && error ? (
-                <div className="rounded-md border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
-                  <p>Nao ha horarios disponiveis nos proximos dias uteis.</p>
-                  {error && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setError(null);
-                        setCalendarReloadKey((key) => key + 1);
-                      }}
-                      className="mt-3 inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-primary-700 hover:bg-primary-50"
-                    >
-                      <RefreshCw className="h-3.5 w-3.5" />
-                      Tentar novamente
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div>
-                      {portalMode && (
-                        <p className="mb-2 text-xs text-gray-400">Ponto azul = vistoria já marcada neste mês</p>
-                      )}
-                      <div className="grid grid-cols-7 gap-1.5 text-center text-[11px] font-bold uppercase text-gray-400 sm:gap-2">
-                        {CALENDAR_WEEKDAYS.map((label) => (
-                          <div key={label} className="py-1">{label}</div>
-                        ))}
-                      </div>
-                      <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
-                        {calendarCells
-                          .map((cell) => {
-                            const selected = selectedDay === cell.key;
-                            const available = !!cell.available;
-                            const hasBooking = cell.bookings.length > 0;
-                            return (
-                              <button
-                                key={cell.key}
-                                type="button"
-                                disabled={!available}
-                                onClick={() => available && setSelectedDay(cell.key)}
-                                className={`min-h-[72px] rounded-md border p-1.5 text-left transition-all sm:min-h-[86px] sm:p-2 ${
-                                  selected
-                                    ? 'border-primary-700 bg-primary-50 text-primary-950 ring-2 ring-primary-100'
-                                    : available
-                                      ? 'border-gray-200 bg-white text-gray-800 hover:border-primary-300'
-                                      : cell.inRange
-                                        ? 'border-gray-100 bg-gray-50 text-gray-300'
-                                        : 'border-transparent bg-transparent text-gray-200'
-                                }`}
-                              >
-                                <div className="flex items-start justify-between gap-1">
-                                  <span className="text-base font-black leading-none sm:text-lg">
-                                    {cell.date.getDate()}
-                                  </span>
-                                  {hasBooking && (
-                                    <span className="mt-0.5 h-2 w-2 rounded-full bg-primary-700" />
-                                  )}
-                                </div>
-                                {available ? (
-                                  <p className="mt-2 text-[10px] font-semibold leading-tight text-primary-700 sm:text-xs">
-                                    {cell.available!.available_count} horário{cell.available!.available_count === 1 ? '' : 's'}
-                                  </p>
-                                ) : cell.inRange ? (
-                                  <p className="mt-2 text-[10px] leading-tight text-gray-300">sem vaga</p>
-                                ) : null}
-                                {portalMode && hasBooking && (
-                                  <p className="mt-1 truncate text-[10px] font-semibold leading-tight text-gray-500">
-                                    {cell.bookings.length} marcada{cell.bookings.length === 1 ? '' : 's'}
-                                  </p>
-                                )}
-                              </button>
-                            );
-                          })}
-                      </div>
-                </div>
-              )}
+        {step === 1 && (
+          <section aria-describedby="purpose-help">
+            <p id="purpose-help" className="mb-4 max-w-2xl text-sm text-gray-600">Escolha a finalidade para ver somente horários, duração e campos compatíveis.</p>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {PUBLIC_APPOINTMENT_TYPE_OPTIONS.map((option) => {
+                const selected = appointmentType === option.value;
+                return (
+                  <button key={option.value} type="button" onClick={() => chooseType(option.value)} className={'min-h-28 rounded-xl border p-4 text-left focus:outline-none focus:ring-2 focus:ring-primary-400 ' + (selected ? 'border-primary-700 bg-primary-50 ring-1 ring-primary-200' : 'border-gray-200 bg-white hover:border-primary-300')}>
+                    <span className="block text-sm font-bold text-gray-900">{APPOINTMENT_TYPE_RULES[option.value].label}</span>
+                    <span className="mt-1 block text-sm text-gray-600">{option.description}</span>
+                    <span className="mt-3 block text-xs font-semibold text-primary-700">{publicAppointmentDurations(option.value).map(formatDuration).join(' · ')}</span>
+                  </button>
+                );
+              })}
             </div>
-
-            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-              <h3 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-gray-700">
-                <Clock className="h-4 w-4 text-primary-700" />
-                {selectedDayLabel}
-              </h3>
-              {timesLoading ? (
-                <div className="flex h-24 items-center justify-center">
-                  <Loader2 className="h-6 w-6 animate-spin text-primary-700" />
-                </div>
-              ) : visibleTimes.length === 0 ? (
-                <p className="rounded-md border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
-                  Selecione outra data. Este dia nao tem horários livres.
-                </p>
-              ) : (
-                <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-                  {visibleTimes.map((time) => {
-                    const selected = selectedTime?.starts_at === time.starts_at;
-                    return (
-                      <button
-                        key={time.starts_at}
-                        type="button"
-                        onClick={() => setSelectedTime(time)}
-                        className={`h-11 rounded-md border text-sm font-bold transition-all ${
-                          selected
-                            ? 'border-primary-700 bg-primary-700 text-white shadow-sm'
-                            : 'border-gray-200 bg-white text-gray-700 hover:border-primary-300 hover:bg-primary-50'
-                        }`}
-                      >
-                        {time.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            <button type="button" onClick={() => setStep(2)} className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-md bg-primary-700 px-5 py-3 text-sm font-semibold text-white hover:bg-primary-800">
+              Continuar <ChevronRight className="h-4 w-4" />
+            </button>
           </section>
+        )}
 
-          <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
-            <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-gray-700">
-              Dados da unidade
-            </h3>
-
-            {portalMode && (
-              <div className="mb-4 flex items-start gap-2 rounded-md border border-primary-100 bg-primary-50/60 p-3">
-                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary-700" />
-                <p className="text-xs text-primary-900">
-                  Agendando como <span className="font-bold">{portalAccount}</span>. Você só vê e
-                  agenda as unidades do seu cadastro.
-                </p>
+        {step === 2 && (
+          <section className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.8fr)]">
+            <div className="space-y-4">
+              <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                <label htmlFor="duration" className="block text-sm font-bold text-gray-900">Duração</label>
+                <select id="duration" value={durationMinutes} onChange={(event) => { setDurationMinutes(Number(event.target.value)); setSelectedTime(null); }} className="mt-2 min-h-11 w-full rounded-md border border-gray-300 bg-white px-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100">
+                  {publicAppointmentDurations(appointmentType).map((duration) => <option key={duration} value={duration}>{formatDuration(duration)}</option>)}
+                </select>
               </div>
-            )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {portalMode ? (
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-700">Unidade <span className="text-red-500">*</span></label>
-                  <div className="relative">
-                    <Building2 className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
-                    <select
-                      required
-                      value={selectedClientId}
-                      onChange={(e) => {
-                        setSelectedClientId(e.target.value);
-                        const u = portalUnits.find((x) => x.client_id === e.target.value);
-                        if (u?.city) setMunicipality(u.city);
-                      }}
-                      className="w-full appearance-none rounded-md border border-gray-300 bg-white py-3 pl-9 pr-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
-                    >
-                      <option value="">Selecione uma unidade...</option>
-                      {portalUnits.map((u) => (
-                        <option
-                          key={u.client_id}
-                          value={u.client_id}
-                          disabled={unitBlockedInSelectedMonth.has(u.client_id)}
-                        >
-                          {u.client_name}
-                          {u.city ? ` — ${u.city}` : ''}
-                          {unitBlockedInSelectedMonth.has(u.client_id) ? ' — já marcada neste mês' : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  {selectedUnitBlockedInMonth && (
-                    <p className="text-xs text-amber-700">
-                      Esta unidade já possui vistoria marcada em {selectedMonth ? formatMonthTitle(selectedMonth) : 'este mês'}.
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-700">Nome fantasia da unidade <span className="text-red-500">*</span></label>
-                  <div className="relative">
-                    <Building2 className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
-                    <input
-                      type="text"
-                      required
-                      value={unitName}
-                      onChange={(e) => setUnitName(e.target.value)}
-                      placeholder="Ex.: Clínica Bela Vida — Unidade Tijuca"
-                      className="w-full rounded-md border border-gray-300 py-3 pl-9 pr-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
-                    />
+              <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm sm:p-4">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <h2 className="flex items-center gap-2 text-sm font-bold text-gray-900"><CalendarDays className="h-4 w-4 text-primary-700" /> Datas disponíveis</h2>
+                  <div className="flex items-center gap-1">
+                    <button type="button" aria-label="Mês anterior" onClick={() => setCalendarMonth((month) => new Date(month.getFullYear(), month.getMonth() - 1, 1))} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50"><ChevronLeft className="h-4 w-4" /></button>
+                    <span aria-live="polite" className="min-w-32 text-center text-xs font-bold capitalize text-gray-700">{formatMonthTitle(monthKey(monthStartKey(calendarMonth)))}</span>
+                    <button type="button" aria-label="Próximo mês" onClick={() => setCalendarMonth((month) => new Date(month.getFullYear(), month.getMonth() + 1, 1))} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50"><ChevronRight className="h-4 w-4" /></button>
                   </div>
                 </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => selectedUnitAllowsInPerson && setAttendanceMode('presencial')}
-                  disabled={!selectedUnitAllowsInPerson}
-                  className={`flex h-11 items-center justify-center gap-2 rounded-md border text-sm font-bold ${
-                    attendanceMode === 'presencial'
-                      ? 'border-primary-700 bg-primary-50 text-primary-800'
-                      : selectedUnitAllowsInPerson
-                        ? 'border-gray-200 text-gray-600 hover:bg-gray-50'
-                        : 'cursor-not-allowed border-gray-200 bg-gray-50 text-gray-300'
-                  }`}
-                >
-                  <MapPin className="h-4 w-4" />
-                  Presencial
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAttendanceMode('online')}
-                  className={`flex h-11 items-center justify-center gap-2 rounded-md border text-sm font-bold ${
-                    attendanceMode === 'online'
-                      ? 'border-primary-700 bg-primary-50 text-primary-800'
-                      : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-                  }`}
-                >
-                  <Monitor className="h-4 w-4" />
-                  Online
-                </button>
-              </div>
-              {portalMode && !selectedUnitAllowsInPerson && (
-                <p className="rounded-md border border-amber-100 bg-amber-50 p-3 text-xs text-amber-800">
-                  Vistoria presencial só fica disponível para unidade com estado RJ no cadastro.
-                </p>
-              )}
-
-              {attendanceMode === 'presencial' && (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-gray-700">Município <span className="text-red-500">*</span></label>
-                    <input
-                      list="rio-municipios"
-                      value={municipality}
-                      onChange={(e) => setMunicipality(e.target.value)}
-                      className="w-full rounded-md border border-gray-300 p-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
-                    />
-                    <datalist id="rio-municipios">
-                      {RIO_MUNICIPALITIES.map((city) => (
-                        <option key={city} value={city} />
-                      ))}
-                    </datalist>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-gray-700">Bairro <span className="text-red-500">*</span></label>
-                    <input
-                      type="text"
-                      value={district}
-                      onChange={(e) => setDistrict(e.target.value)}
-                      placeholder="Ex.: Tijuca"
-                      className="w-full rounded-md border border-gray-300 p-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
-                    />
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700">Responsável <span className="text-gray-400">(opcional)</span></label>
-                <input
-                  type="text"
-                  value={responsibleName}
-                  onChange={(e) => setResponsibleName(e.target.value)}
-                  placeholder="Quem acompanhará a inspeção"
-                  className="w-full rounded-md border border-gray-300 p-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
-                />
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
-                    <Phone className="h-4 w-4 text-gray-400" />
-                    WhatsApp <span className="text-gray-400">(opcional)</span>
-                  </label>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="(21) 00000-0000"
-                    className="w-full rounded-md border border-gray-300 p-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-gray-700">Email <span className="text-gray-400">(opcional)</span></label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="contato@empresa.com.br"
-                    className="w-full rounded-md border border-gray-300 p-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-gray-700">Observações <span className="text-gray-400">(opcional)</span></label>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={3}
-                  placeholder="Detalhes sobre a unidade, acesso, preferência ou documentos..."
-                  className="w-full rounded-md border border-gray-300 p-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
-                />
-              </div>
-              <p className="text-xs text-gray-400">
-                Campos com <span className="font-bold text-red-500">*</span> são obrigatórios.
-              </p>
-
-              {selectedDay && selectedTime && (
-                <div className="rounded-lg border border-primary-200 bg-primary-50 p-3">
-                  <p className="text-xs font-bold uppercase tracking-wide text-primary-600">
-                    Horário selecionado
-                  </p>
-                  <p className="mt-0.5 text-sm font-semibold text-gray-900">
-                    {formatFullDay(selectedDay)} · {selectedTime.label}
-                  </p>
-                </div>
-              )}
-
-              {error && (
-                <div className="rounded-md border border-red-100 bg-red-50 p-3 text-sm text-red-700">
-                  {error}
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={submitting}
-                className="flex w-full items-center justify-center gap-2 rounded-md bg-primary-700 px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {submitting ? (
+                {calendarLoading ? <div role="status" className="flex h-52 items-center justify-center gap-2 text-sm text-gray-600"><Loader2 className="h-5 w-5 animate-spin text-primary-700" /> Carregando agenda...</div> : calendarError ? (
+                  <div role="alert" className="rounded-md border border-red-100 bg-red-50 p-4 text-sm text-red-700">{
+                    calendarError
+                  }<button type="button" onClick={() => setCalendarReloadKey((value) => value + 1)} className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-md border border-red-200 bg-white px-3 text-sm font-semibold text-red-700 hover:bg-red-50"><RefreshCw className="h-4 w-4" /> Tentar novamente</button></div>
+                ) : days.length === 0 ? <p className="rounded-md border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">Não há disponibilidade para esta finalidade e duração neste mês.</p> : (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Enviando...
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4" />
-                    Solicitar agendamento
+                    <div className="grid grid-cols-7 gap-1.5 text-center text-[11px] font-bold uppercase text-gray-400 sm:gap-2">{CALENDAR_WEEKDAYS.map((label) => <div key={label} className="py-1">{label}</div>)}</div>
+                    <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+                      {calendarCells.map((cell) => {
+                        const available = !!cell.available;
+                        return <button key={cell.key} type="button" disabled={!available} onClick={() => available && selectDay(cell.key)} aria-label={available ? 'Selecionar ' + formatFullDay(cell.key) + ', ' + cell.available!.available_count + ' horários disponíveis' : formatFullDay(cell.key) + ', indisponível'} className={'min-h-16 rounded-md border p-1.5 text-left sm:min-h-20 ' + (selectedDay === cell.key ? 'border-primary-700 bg-primary-50 ring-2 ring-primary-100' : available ? 'border-gray-200 bg-white hover:border-primary-300' : cell.inRange ? 'border-gray-100 bg-gray-50 text-gray-300' : 'border-transparent bg-transparent text-gray-200')}>
+                          <span className="text-base font-black">{cell.date.getDate()}</span>
+                          {available && <span className="mt-1 block text-[10px] font-semibold text-primary-700 sm:text-xs">{cell.available!.available_count} vaga{cell.available!.available_count === 1 ? '' : 's'}</span>}
+                        </button>;
+                      })}
+                    </div>
                   </>
                 )}
-              </button>
-            </form>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                <h2 className="flex items-center gap-2 text-sm font-bold text-gray-900"><Clock className="h-4 w-4 text-primary-700" /> {selectedDay ? formatFullDay(selectedDay) : 'Escolha uma data'}</h2>
+                <div className="mt-4">
+                  {timesLoading ? <div role="status" className="flex h-24 items-center justify-center gap-2 text-sm text-gray-600"><Loader2 className="h-5 w-5 animate-spin text-primary-700" /> Carregando horários...</div> : timesError ? <div role="alert" className="rounded-md border border-red-100 bg-red-50 p-3 text-sm text-red-700">{timesError}<button type="button" onClick={() => setTimesReloadKey((value) => value + 1)} className="mt-3 block min-h-11 rounded-md border border-red-200 bg-white px-3 text-sm font-semibold">Tentar novamente</button></div> : !selectedDay ? <p className="text-sm text-gray-500">Clique em um dia disponível para continuar.</p> : visibleTimes.length === 0 ? <p className="rounded-md border border-dashed border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">Este dia não tem horários livres para essa duração.</p> : <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">{visibleTimes.map((time) => <button key={time.starts_at} type="button" onClick={() => { setSelectedTime(time); setSubmitError(null); }} aria-pressed={selectedTime?.starts_at === time.starts_at} className={'min-h-11 rounded-md border text-sm font-bold ' + (selectedTime?.starts_at === time.starts_at ? 'border-primary-700 bg-primary-700 text-white' : 'border-gray-200 bg-white text-gray-700 hover:bg-primary-50')}>{time.label}</button>)}</div>}
+                </div>
+              </div>
+            </div>
+
+            <aside className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+              {portalMode && <div className="mb-4 flex gap-2 rounded-md border border-primary-100 bg-primary-50 p-3 text-xs text-primary-900"><ShieldCheck className="h-4 w-4 shrink-0 text-primary-700" />Agendando como <strong>{portalAccount}</strong>.</div>}
+              <h2 className="text-sm font-bold text-gray-900">Local e modalidade</h2>
+              <div className="mt-4 space-y-4">
+                {portalMode ? <div><label htmlFor="unit" className="text-sm font-medium text-gray-700">Unidade <span className="text-red-600">*</span></label><select id="unit" value={selectedClientId} onChange={(event) => { const id = event.target.value; setSelectedClientId(id); const unit = portalUnits.find((item) => item.client_id === id); if (unit?.city) setMunicipality(unit.city); }} className="mt-1.5 min-h-11 w-full rounded-md border border-gray-300 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-100"><option value="">Selecione uma unidade...</option>{portalUnits.map((unit) => <option key={unit.client_id} value={unit.client_id} disabled={inspection && unitBlockedInSelectedMonth.has(unit.client_id)}>{unit.client_name}{inspection && unitBlockedInSelectedMonth.has(unit.client_id) ? ' — inspeção já solicitada neste mês' : ''}</option>)}</select>{inspection && selectedUnitBlockedInMonth && <p className="mt-1 text-xs text-amber-700">A cota mensal se aplica somente a inspeções.</p>}</div> : <div><label htmlFor="unit-name" className="text-sm font-medium text-gray-700">Nome da unidade <span className="text-red-600">*</span></label><input id="unit-name" value={unitName} onChange={(event) => setUnitName(event.target.value)} className="mt-1.5 min-h-11 w-full rounded-md border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-100" /></div>}
+                <fieldset><legend className="text-sm font-medium text-gray-700">Modalidade</legend><div className="mt-1.5 grid grid-cols-2 gap-2"><button type="button" disabled={!selectedUnitAllowsInPerson} onClick={() => setAttendanceMode('presencial')} aria-pressed={attendanceMode === 'presencial'} className={'inline-flex min-h-11 items-center justify-center gap-2 rounded-md border text-sm font-semibold ' + (attendanceMode === 'presencial' ? 'border-primary-700 bg-primary-50 text-primary-800' : 'border-gray-200 text-gray-700') + (!selectedUnitAllowsInPerson ? ' cursor-not-allowed opacity-50' : '')}><MapPin className="h-4 w-4" />Presencial</button><button type="button" onClick={() => setAttendanceMode('online')} aria-pressed={attendanceMode === 'online'} className={'inline-flex min-h-11 items-center justify-center gap-2 rounded-md border text-sm font-semibold ' + (attendanceMode === 'online' ? 'border-primary-700 bg-primary-50 text-primary-800' : 'border-gray-200 text-gray-700')}><Monitor className="h-4 w-4" />Online</button></div></fieldset>
+                {portalMode && !selectedUnitAllowsInPerson && <p className="rounded-md border border-amber-100 bg-amber-50 p-3 text-xs text-amber-800">Atendimentos presenciais são permitidos apenas para unidades cadastradas no RJ.</p>}
+                {attendanceMode === 'presencial' && <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1"><div><label htmlFor="municipality" className="text-sm font-medium text-gray-700">Município <span className="text-red-600">*</span></label><input id="municipality" list="rio-municipios" value={municipality} onChange={(event) => setMunicipality(event.target.value)} className="mt-1.5 min-h-11 w-full rounded-md border border-gray-300 px-3 text-sm" /><datalist id="rio-municipios">{RIO_MUNICIPALITIES.map((city) => <option key={city} value={city} />)}</datalist></div><div><label htmlFor="district" className="text-sm font-medium text-gray-700">Bairro <span className="text-red-600">*</span></label><input id="district" value={district} onChange={(event) => setDistrict(event.target.value)} className="mt-1.5 min-h-11 w-full rounded-md border border-gray-300 px-3 text-sm" /></div></div>}
+                <button type="button" onClick={nextFromSchedule} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-primary-700 px-4 py-3 text-sm font-semibold text-white hover:bg-primary-800">Continuar <ChevronRight className="h-4 w-4" /></button>
+              </div>
+            </aside>
           </section>
-        </div>
+        )}
+
+        {step === 3 && <section className="mx-auto max-w-2xl rounded-xl border border-gray-200 bg-white p-5 shadow-sm"><div className="space-y-4"><div><label htmlFor="subject" className="text-sm font-medium text-gray-700">Assunto</label><input id="subject" value={subject} onChange={(event) => setSubject(event.target.value)} placeholder="Ex.: Revisão de pendências" className="mt-1.5 min-h-11 w-full rounded-md border border-gray-300 px-3 text-sm" /></div><div><label htmlFor="objective" className="text-sm font-medium text-gray-700">Objetivo</label><textarea id="objective" value={objective} onChange={(event) => setObjective(event.target.value)} rows={3} className="mt-1.5 w-full rounded-md border border-gray-300 p-3 text-sm" /></div><div><label htmlFor="participants" className="flex items-center gap-1.5 text-sm font-medium text-gray-700"><Users className="h-4 w-4 text-gray-400" />Participantes</label><input id="participants" value={participants} onChange={(event) => setParticipants(event.target.value)} placeholder="Separe os nomes por vírgula" className="mt-1.5 min-h-11 w-full rounded-md border border-gray-300 px-3 text-sm" /></div><div><label htmlFor="responsible" className="text-sm font-medium text-gray-700">Responsável</label><input id="responsible" value={responsibleName} onChange={(event) => setResponsibleName(event.target.value)} className="mt-1.5 min-h-11 w-full rounded-md border border-gray-300 px-3 text-sm" /></div><div className="grid gap-3 sm:grid-cols-2"><div><label htmlFor="phone" className="flex items-center gap-1.5 text-sm font-medium text-gray-700"><Phone className="h-4 w-4 text-gray-400" />WhatsApp</label><input id="phone" type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} className="mt-1.5 min-h-11 w-full rounded-md border border-gray-300 px-3 text-sm" /></div><div><label htmlFor="email" className="text-sm font-medium text-gray-700">E-mail</label><input id="email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="mt-1.5 min-h-11 w-full rounded-md border border-gray-300 px-3 text-sm" /></div></div><div><label htmlFor="notes" className="flex items-center gap-1.5 text-sm font-medium text-gray-700"><FileText className="h-4 w-4 text-gray-400" />Observações</label><textarea id="notes" value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} className="mt-1.5 w-full rounded-md border border-gray-300 p-3 text-sm" /></div></div><div className="mt-6 flex flex-wrap gap-3"><button type="button" onClick={() => setStep(2)} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-gray-200 px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50"><ChevronLeft className="h-4 w-4" />Voltar</button><button type="button" onClick={() => setStep(4)} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-primary-700 px-4 text-sm font-semibold text-white hover:bg-primary-800">Revisar solicitação <ChevronRight className="h-4 w-4" /></button></div></section>}
+
+        {step === 4 && <section className="mx-auto max-w-2xl rounded-xl border border-gray-200 bg-white p-5 shadow-sm"><h2 className="text-lg font-bold text-gray-900">Resumo da solicitação</h2><dl className="mt-5 divide-y divide-gray-100"><div className="flex justify-between gap-4 py-3"><dt className="text-sm text-gray-500">Tipo</dt><dd className="text-right text-sm font-semibold text-gray-900">{APPOINTMENT_TYPE_RULES[appointmentType].label}</dd></div><div className="flex justify-between gap-4 py-3"><dt className="text-sm text-gray-500">Unidade</dt><dd className="text-right text-sm font-semibold text-gray-900">{portalMode ? selectedUnit?.client_name || '—' : unitName || '—'}</dd></div><div className="flex justify-between gap-4 py-3"><dt className="text-sm text-gray-500">Modalidade</dt><dd className="text-right text-sm font-semibold text-gray-900">{attendanceMode === 'online' ? 'Online' : 'Presencial'}</dd></div><div className="flex justify-between gap-4 py-3"><dt className="text-sm text-gray-500">Duração</dt><dd className="text-right text-sm font-semibold text-gray-900">{formatDuration(durationMinutes)}</dd></div><div className="flex justify-between gap-4 py-3"><dt className="text-sm text-gray-500">Data e horário</dt><dd className="text-right text-sm font-semibold text-gray-900">{selectedDay ? formatFullDay(selectedDay) : '—'}{selectedTime ? ' · ' + selectedTime.label : ''}</dd></div></dl>{submitError && <p role="alert" className="mt-4 rounded-md border border-red-100 bg-red-50 p-3 text-sm text-red-700">{submitError}</p>}<div className="mt-6 flex flex-wrap gap-3"><button type="button" onClick={() => setStep(3)} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-gray-200 px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50"><ChevronLeft className="h-4 w-4" />Voltar</button><button type="button" disabled={submitting} onClick={() => void handleSubmit()} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-primary-700 px-4 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60">{submitting ? <><Loader2 className="h-4 w-4 animate-spin" />Enviando...</> : <><Send className="h-4 w-4" />Enviar solicitação</>}</button></div></section>}
+
+        {submitError && step < 4 && <p role="alert" className="mx-auto mt-5 max-w-2xl rounded-md border border-red-100 bg-red-50 p-3 text-sm text-red-700">{submitError}</p>}
       </main>
     </div>
   );

@@ -535,6 +535,8 @@ export interface PublicAppointmentPayload {
   requested_ends_at?: string;
   appointment_type?: AppointmentType;
   duration_minutes?: number;
+  subject?: string;
+  participant_names?: string[];
   attendance_mode?: AttendanceMode;
   municipality?: string;
   existing_client_id?: string;

@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import type {
+  AppointmentType,
   PublicAppointmentPayload,
   PublicAvailableTime,
   PublicCalendarDay,
@@ -38,7 +39,7 @@ export const publicAppointmentService = {
   async listCalendarDays(
     startDate?: string,
     days = 45,
-    appointmentType = 'inspection',
+    appointmentType: AppointmentType = 'inspection',
     durationMinutes?: number
   ): Promise<PublicCalendarDay[]> {
     const { data, error } = await withTimeout(
@@ -57,7 +58,7 @@ export const publicAppointmentService = {
 
   async listAvailableTimes(
     day: string,
-    appointmentType = 'inspection',
+    appointmentType: AppointmentType = 'inspection',
     durationMinutes?: number
   ): Promise<PublicAvailableTime[]> {
     const { data, error } = await withTimeout(

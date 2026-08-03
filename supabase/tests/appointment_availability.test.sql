@@ -92,8 +92,10 @@ create table public.appointment_requests (
   requested_ends_at timestamptz,
   status text not null default 'requested',
   appointment_type text not null default 'inspection',
+  subject text,
   duration_minutes integer,
   consultant_names text[],
+  participant_names text[],
   notes text,
   created_at timestamptz not null default now()
 );
@@ -388,4 +390,70 @@ begin
 end;
 $$;
 
-select 'P360-005 availability tests passed' as result;
+\ir ../migrations/20260802115342_portal_public_request_purpose.sql
+
+do $$
+declare
+  v_result jsonb;
+begin
+  select public.public_create_calendar_appointment_request(jsonb_build_object(
+    'tenant_id', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    'unit_name', 'Unidade teste',
+    'district', 'Centro',
+    'municipality', 'Rio de Janeiro',
+    'attendance_mode', 'presencial',
+    'appointment_type', 'document_guidance',
+    'duration_minutes', 60,
+    'subject', 'Orientação de POP',
+    'participant_names', jsonb_build_array('Ana', 'Beatriz'),
+    'requested_starts_at', '2027-04-05T12:30:00Z',
+    'requested_ends_at', '2027-04-05T13:30:00Z'
+  )) into v_result;
+
+  if not exists (
+    select 1
+    from public.appointment_requests
+    where public_token = (v_result->>'public_token')::uuid
+      and appointment_type = 'document_guidance'
+      and subject = 'Orientação de POP'
+      and participant_names = array['Ana', 'Beatriz']
+  ) then
+    raise exception 'P360-006 nao persistiu finalidade, assunto e participantes';
+  end if;
+end;
+$$;
+
+do $$
+begin
+  perform public.client_portal_create_appointment(jsonb_build_object(
+    'portal_token', '20000000-0000-4000-8000-000000000003',
+    'client_id', '20000000-0000-4000-8000-000000000001',
+    'district', 'Centro',
+    'municipality', 'Rio de Janeiro',
+    'attendance_mode', 'presencial',
+    'appointment_type', 'inspection',
+    'duration_minutes', 60,
+    'requested_starts_at', '2027-04-12T12:30:00Z',
+    'requested_ends_at', '2027-04-12T13:30:00Z'
+  ));
+
+  begin
+    perform public.client_portal_create_appointment(jsonb_build_object(
+      'portal_token', '20000000-0000-4000-8000-000000000003',
+      'client_id', '20000000-0000-4000-8000-000000000001',
+      'district', 'Centro',
+      'municipality', 'Rio de Janeiro',
+      'attendance_mode', 'presencial',
+      'appointment_type', 'inspection',
+      'duration_minutes', 60,
+      'requested_starts_at', '2027-04-19T12:30:00Z',
+      'requested_ends_at', '2027-04-19T13:30:00Z'
+    ));
+    raise exception 'P360-006 aceitou segunda inspecao da mesma unidade no mes';
+  exception when others then
+    if sqlerrm not like '%ja possui uma inspecao%' then raise; end if;
+  end;
+end;
+$$;
+
+select 'P360-005 and P360-006 availability tests passed' as result;

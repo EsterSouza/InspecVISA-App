@@ -224,7 +224,7 @@ export function ClientPortal() {
           <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
             <h2 className="text-xl font-bold text-gray-900">Portal do Cliente</h2>
             <p className="mt-1 text-sm text-gray-500">
-              Acompanhe as inspeções, relatórios, fotos e anexos de todas as suas unidades.
+              Acompanhe seus compromissos, relatórios, fotos e anexos de todas as suas unidades.
             </p>
 
             <form onSubmit={handleLogin} className="mt-6 space-y-4">
@@ -320,7 +320,7 @@ export function ClientPortal() {
             <h2 className="text-2xl font-bold text-gray-950">{overview.account_name}</h2>
             <p className="mt-1 text-sm text-gray-500">
               {overview.units.length} unidade{overview.units.length === 1 ? '' : 's'} ·{' '}
-              {totalVisits} inspeç{totalVisits === 1 ? 'ão' : 'ões'}
+              {totalVisits} compromisso{totalVisits === 1 ? '' : 's'}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -586,7 +586,7 @@ export function ClientPortal() {
                 <p className="font-bold">Agendamentos suspensos</p>
                 <p className="mt-1 text-red-700">
                   Os novos agendamentos estão temporariamente suspensos por pendência de pagamento.
-                  Regularize o pagamento para liberar o agendamento de novas inspeções.
+                  Regularize o pagamento para liberar novas solicitações de horário.
                 </p>
               </div>
             </div>
@@ -597,7 +597,7 @@ export function ClientPortal() {
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-gray-700">
               <CalendarDays className="h-4 w-4 shrink-0 text-primary-700" />
-              Calendário de inspeções
+              Calendário de compromissos
             </h3>
             <div className="flex items-center justify-between gap-1 sm:justify-end">
               <button
@@ -720,7 +720,7 @@ export function ClientPortal() {
               </header>
               {sortedVisits.length === 0 ? (
                 <p className="px-5 py-6 text-center text-sm text-gray-400">
-                  Nenhuma inspeção registrada ainda.
+                  Nenhum compromisso registrado ainda.
                 </p>
               ) : (
                 <ul className="divide-y divide-gray-50">
@@ -787,7 +787,7 @@ export function ClientPortal() {
         )}
 
         <p className="mt-8 text-center text-xs text-gray-400">
-          Toque em uma inspeção para ver a linha do tempo, baixar o relatório, fotos e anexos.
+          Toque em um compromisso para ver seus detalhes e os materiais aplicáveis.
         </p>
       </main>
     </div>

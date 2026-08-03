@@ -8,6 +8,7 @@ import type {
   PublicAppointmentStatusResult,
 } from '../types';
 import { isInspectionAppointment, normalizeAppointmentType } from '../utils/appointmentType';
+import { PUBLIC_APPOINTMENT_DRAFT_KEY } from '../utils/publicAppointmentForm';
 
 const TIMEOUT_MS = 30000;
 
@@ -72,6 +73,8 @@ export interface ClientPortalAppointmentPayload {
   requested_ends_at: string;
   appointment_type?: AppointmentType;
   duration_minutes?: number;
+  subject?: string;
+  participant_names?: string[];
   notes?: string;
 }
 
@@ -126,6 +129,7 @@ export const clientPortalService = {
   clearToken() {
     try {
       localStorage.removeItem(TOKEN_KEY);
+      sessionStorage.removeItem(PUBLIC_APPOINTMENT_DRAFT_KEY);
     } catch { /* armazenamento indisponível */ }
   },
 
