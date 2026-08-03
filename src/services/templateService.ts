@@ -1,8 +1,6 @@
 import { supabase } from '../lib/supabase';
 import type { ChecklistTemplate, ClientCategory } from '../types';
 import { templates as legacyTemplates } from '../data/templates';
-import { templateIlpiGoias } from '../data/templates_ilpi_go';
-import { alimentosTemplates } from '../data/templates_alimentos';
 import { withTimeout } from '../utils/network';
 import { db } from '../db/database';
 
@@ -389,11 +387,9 @@ export const TemplateService = {
   async seedLegacyTemplates() {
     console.log('Seeding legacy templates...');
     
-    // Combine all legacy templates to seed
+    // The static catalog is the source of truth, including the two estética templates.
     const allLegacy = [
       ...legacyTemplates,
-      templateIlpiGoias,
-      ...alimentosTemplates
     ];
 
     // 1. Batch check existing names to avoid repeated queries

@@ -11,6 +11,7 @@ import type { Client, ChecklistSupplement, ChecklistTemplate } from '../types';
 import { templateIlpiGoiasSuplement } from './templates-ilpi-goias-supplement';
 import { templateIlpiBeloHorizonteSupplement } from './Roteiro_ILPI_BH';
 import { templateIlpiRioDeJaneiroSupplement } from './Roteiro_ILPI_RJ';
+import { suplementoEsteticaRj } from './estetica/suplemento-rj';
 import { isRioState } from '../utils/state';
 
 function normalizeLocation(value?: string | null): string {
@@ -40,6 +41,11 @@ export function isIlpiFederalTemplate(template: ChecklistTemplate): boolean {
   );
 }
 
+function isEsteticaClinicaTemplate(template: ChecklistTemplate): boolean {
+  return template.id === 'tpl-estetica-clinica-v1'
+    || template.name === 'Roteiro de Inspeção — Clínica de Estética e Saúde';
+}
+
 export interface SupplementRegistryEntry {
   supplement: ChecklistSupplement;
   appliesTo: (baseTemplate: ChecklistTemplate, client: Client) => boolean;
@@ -47,6 +53,11 @@ export interface SupplementRegistryEntry {
 }
 
 export const supplementRegistry: SupplementRegistryEntry[] = [
+  {
+    supplement: suplementoEsteticaRj,
+    appliesTo: (template, client) => isEsteticaClinicaTemplate(template) && isRioState(client.state),
+    nameSuffix: ' (+ Suplemento RJ)',
+  },
   {
     supplement: templateIlpiGoiasSuplement as unknown as ChecklistSupplement,
     appliesTo: (template, client) => isIlpiFederalTemplate(template) && normalizeLocation(client.state) === 'go',

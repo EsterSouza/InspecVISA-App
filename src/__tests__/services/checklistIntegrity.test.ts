@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { templates, getTotalItems, getEffectiveTemplate } from '../../data/templates';
+import { templates, getTemplateById, getTotalItems, getEffectiveTemplate } from '../../data/templates';
 import { templateEsteticaClinica } from '../../data/estetica/roteiro-clinica';
 import { templateEsteticaEmbelezamento } from '../../data/estetica/roteiro-embelezamento';
 import type { ChecklistItem, ChecklistTemplate, Client } from '../../types';
@@ -54,7 +54,6 @@ function assertNoNearDuplicates(template: ChecklistTemplate, threshold = 0.75) {
 }
 
 const EXPECTED_ITEM_COUNTS: Record<string, number> = {
-  'tpl-estetica-v1': 114,
   'tpl-estetica-clinica-v1': 113,
   'tpl-estetica-embelezamento-v1': 28,
   'tpl-ilpi-federal-v1': 97,
@@ -178,6 +177,41 @@ describe('checklist integrity — todos os roteiros de src/data', () => {
     test('roteiro efetivo para cliente de outro estado não tem itens quase-duplicados', () => {
       const effective = getEffectiveTemplate(ilpiFederal, otherStateClient, undefined, true);
       assertNoNearDuplicates(effective);
+    });
+  });
+
+  describe('integração dos roteiros de estética', () => {
+    const clinica = templates.find(t => t.id === 'tpl-estetica-clinica-v1') as ChecklistTemplate;
+    const rjClient = { id: 'test-est-rj', name: 'Clínica RJ', category: 'estetica', state: 'Rio de Janeiro' } as Client;
+    const otherStateClient = { id: 'test-est-sp', name: 'Clínica SP', category: 'estetica', state: 'SP' } as Client;
+
+    test('mantém somente os dois roteiros novos e preserva os aliases legados', () => {
+      expect(templates.filter(t => t.category === 'estetica').map(t => t.id)).toEqual([
+        'tpl-estetica-clinica-v1',
+        'tpl-estetica-embelezamento-v1',
+      ]);
+      expect(getTemplateById('tpl-estetica-v1')?.id).toBe('tpl-estetica-clinica-v1');
+      expect(getTemplateById('tpl-estetica')?.id).toBe('tpl-estetica-clinica-v1');
+      expect(getTemplateById('tpl-estetica-federal')?.id).toBe('tpl-estetica-clinica-v1');
+    });
+
+    test('substitui a licença federal uma única vez para cliente do RJ', () => {
+      const effectiveRj = getEffectiveTemplate(clinica, rjClient, undefined, true);
+      const effectiveOtherState = getEffectiveTemplate(clinica, otherStateClient, undefined, true);
+      const rjItems = allItems(effectiveRj);
+
+      expect(rjItems.filter(item => item.id === 'rj-est-001')).toHaveLength(1);
+      expect(rjItems.find(item => item.id === 'est-001')).toBeUndefined();
+      expect(allItems(effectiveOtherState).find(item => item.id === 'est-001')).toBeTruthy();
+      expect(allItems(effectiveOtherState).find(item => item.id === 'rj-est-001')).toBeUndefined();
+    });
+
+    test('aplica o suplemento ao roteiro de clínica seedado com UUID do Supabase', () => {
+      const remoteClinica = { ...clinica, id: '00000000-0000-4000-8000-000000000001' };
+      const effective = getEffectiveTemplate(remoteClinica, rjClient, undefined, true);
+
+      expect(allItems(effective).find(item => item.id === 'rj-est-001')).toBeTruthy();
+      expect(allItems(effective).find(item => item.id === 'est-001')).toBeUndefined();
     });
   });
 });
