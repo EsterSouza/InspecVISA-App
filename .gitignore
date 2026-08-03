@@ -38,3 +38,7 @@ inspec-visa-backup-*.json
 # Local planning/context notes
 CONTEXTO_INSPECVISA.md
 Inspecao_REDE_SÊNIOR_UNIDADE_COPACABANA_15-05-2026.pdf
+
+# Estoque Regulatorio da Anvisa (fonte de consulta dos Cards 1-4, binario grande)
+planilha regulat*anvisa*.xlsx
+planilha regulat*ANVISA*.xlsx
