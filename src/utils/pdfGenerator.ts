@@ -1000,7 +1000,9 @@ export async function generatePDF(
         doc.setFont('helvetica', 'italic');
         doc.setFontSize(8.7);
         doc.setTextColor(...mutedColor);
-        const legText = `Base legal: ${item.legislation}`;
+        const legText = item.requirementType === 'good_practice'
+          ? `Boa prática — não é exigência legal: ${item.legislation}`
+          : `Base legal: ${item.legislation}`;
         const legLines: string[] = doc.splitTextToSize(legText, contentW - 8);
         ensureNonComplianceSpace(legLines.length * 4.5 + 4);
         doc.text(legLines, margin + 8, y);
@@ -1297,7 +1299,9 @@ function drawReferencesABNT(
     allItems.forEach(item => {
       if (!evaluatedItemIds.has(item.id)) return;
       if (!item.legislation) return;
-      
+      // Boas práticas não têm base legal vigente — não entram na seção de referências.
+      if (item.requirementType === 'good_practice') return;
+
       // SANITIZATION: Check if the legislation is present in library and has summary
       const bases = extractBaseLegislation(item.legislation);
       bases.forEach(b => {

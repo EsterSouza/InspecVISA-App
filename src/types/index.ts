@@ -127,7 +127,10 @@ export interface ChecklistItem {
   weight: number;
   isCritical: boolean;
   isRJOnly?: boolean;
-  
+  // Ausente = 'legal' (exigência normativa). 'good_practice' = recomendação sem base legal
+  // vigente, entra no score com peso reduzido e nunca é crítica.
+  requirementType?: 'legal' | 'good_practice';
+
   // Controle de Mescla (Suplementos / Dinâmicos)
   replacesItemId?: string;
   insertAfterItemId?: string;

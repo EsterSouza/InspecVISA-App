@@ -10,8 +10,10 @@ interface RawImportItem {
   section?: string;
   description: string;
   legislation?: string;
+  legislationUrl?: string;
   weight?: number;
   isCritical?: boolean;
+  requirementType?: 'legal' | 'good_practice';
 }
 
 const TEMPLATE_SYNC_TIMEOUT_MS = 45000;
@@ -129,8 +131,10 @@ export const TemplateService = {
                id: i.id,
                description: i.description,
                legislation: i.legislation_name,
+               legislationUrl: i.legislation_url,
                weight: i.weight,
                isCritical: i.is_critical,
+               requirementType: i.requirement_type,
                order: i.order
             }))
           };
@@ -207,8 +211,10 @@ export const TemplateService = {
             id: i.id,
             description: i.description,
             legislation: i.legislation_name,
+            legislationUrl: i.legislation_url,
             weight: i.weight,
             isCritical: i.is_critical,
+            requirementType: i.requirement_type,
             order: i.order
           }))
         }))
@@ -262,8 +268,10 @@ export const TemplateService = {
           section_id: section.id,
           description: item.description,
           legislation_name: item.legislation,
+          legislation_url: item.legislationUrl || null,
           weight: item.weight || 1,
           is_critical: item.isCritical || false,
+          requirement_type: item.requirementType || 'legal',
           order: itemsToInsert.filter(it => it.section_id === section.id).length + 1
         });
       }
@@ -328,8 +336,10 @@ export const TemplateService = {
             section_id: createdSec.id,
             description: item.description,
             legislation_name: item.legislation || item.legislation_name || null,
+            legislation_url: item.legislationUrl || item.legislation_url || null,
             weight: item.weight || 1,
             is_critical: item.isCritical || item.is_critical || false,
+            requirement_type: item.requirementType || item.requirement_type || 'legal',
             order: item.order ?? (iIdx + 1)
           });
         });
@@ -410,8 +420,10 @@ export const TemplateService = {
           section: sec.title,
           description: it.description,
           legislation: it.legislation,
+          legislationUrl: it.legislationUrl,
           weight: it.weight,
-          isCritical: it.isCritical
+          isCritical: it.isCritical,
+          requirementType: it.requirementType
         }))
       );
 

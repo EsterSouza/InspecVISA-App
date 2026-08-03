@@ -6,12 +6,10 @@
 // ============================================================
 
 import type { ChecklistTemplate, Client } from '../types';
-import { templateIlpiGoiasSuplement } from './templates-ilpi-goias-supplement';
-import { templateIlpiBeloHorizonteSupplement } from './Roteiro_ILPI_BH';
-import { templateIlpiRioDeJaneiroSupplement } from './Roteiro_ILPI_RJ';
 import { templateIlpiGoias } from './templates_ilpi_go';
 import { alimentosTemplates } from './templates_alimentos';
 import { getExtraSections } from './templates_alimentos_segmentos';
+import { supplementRegistry } from './supplementRegistry';
 
 
 // ── MAPEAMENTO DE PESOS ──────────────────────────────────────
@@ -549,38 +547,6 @@ function filterSectionsByRole(sections: any[], role: string, full: boolean) {
   });
 }
 
-function normalizeLocation(value?: string | null): string {
-  return (value || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim()
-    .toLowerCase();
-}
-
-function isBeloHorizonteClient(client: Client): boolean {
-  const state = normalizeLocation(client.state);
-  const city = normalizeLocation(client.city);
-  return (state === 'mg' || state === 'minas gerais') && city.includes('belo horizonte');
-}
-
-function isRioDeJaneiroStateClient(client: Client): boolean {
-  const state = normalizeLocation(client.state);
-  return state === 'rj' || state === 'rio de janeiro';
-}
-
-function isIlpiFederalTemplate(template: ChecklistTemplate): boolean {
-  // 1. Match by static ID (bundled template)
-  if (template.id === 'tpl-ilpi-federal-v1') return true;
-  // 2. Match by name — Supabase-seeded templates have UUID IDs but keep the same name
-  if (/ILPI.*Base Federal/i.test(template.name || '')) return true;
-  // 3. Match by static section IDs (fallback for older bundled templates)
-  return (
-    template.category === 'ilpi' &&
-    template.sections.some((section: any) => section.id === 'sec-fed-01') &&
-    template.sections.some((section: any) => section.id === 'sec-fed-13')
-  );
-}
-
 function normalizeSectionTitle(title: string): string {
   return (title || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
 }
@@ -595,6 +561,16 @@ function applySupplement(effective: ChecklistTemplate, supplement: any): void {
         ? effective.sections.find((s: any) => normalizeSectionTitle(s.title) === normalizeSectionTitle(addition.targetSectionTitle))
         : undefined);
     if (targetSection) {
+      // Suplemento local mais restritivo: o item local substitui o item federal
+      // apontado (removido de onde estiver), em vez de somar os dois.
+      addition.items.forEach((newItem: any) => {
+        if (newItem.replacesItemId) {
+          effective.sections.forEach((section: any) => {
+            section.items = section.items.filter((i: any) => i.id !== newItem.replacesItemId);
+          });
+        }
+      });
+
       const existingIds = new Set(targetSection.items.map((i: any) => i.id));
       addition.items.forEach((newItem: any) => {
         if (!existingIds.has(newItem.id)) {
@@ -639,22 +615,13 @@ export function getEffectiveTemplate(
     }
   }
 
-  // 2. Apply Regional Supplements
-  if (isIlpiFederalTemplate(baseTemplate) && normalizeLocation(client.state) === 'go') {
-    const supplement = templateIlpiGoiasSuplement;
-    applySupplement(effective, supplement);
-    effective.name = `${baseTemplate.name} (+ Suplemento GO)`;
-  }
-
-  if (isIlpiFederalTemplate(baseTemplate) && isBeloHorizonteClient(client)) {
-    applySupplement(effective, templateIlpiBeloHorizonteSupplement);
-    effective.name = `${baseTemplate.name} (+ Suplemento BH)`;
-  }
-
-  if (isIlpiFederalTemplate(baseTemplate) && isRioDeJaneiroStateClient(client)) {
-    applySupplement(effective, templateIlpiRioDeJaneiroSupplement);
-    effective.name = `${baseTemplate.name} (+ Suplemento RJ)`;
-  }
+  // 2. Apply Regional Supplements — registry-driven (ver src/data/supplementRegistry.ts)
+  supplementRegistry.forEach(entry => {
+    if (entry.appliesTo(baseTemplate, client)) {
+      applySupplement(effective, entry.supplement);
+      effective.name = `${baseTemplate.name}${entry.nameSuffix}`;
+    }
+  });
 
   // 3. Apply Food Segment Filtering (Alimentos)
   if (baseTemplate.category === 'alimentos') {
