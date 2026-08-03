@@ -56,6 +56,7 @@ describe('P360-004 - dominio de compromissos', () => {
       'document_guidance',
       'training',
       'other',
+      'briefing',
     ]);
     for (const type of APPOINTMENT_TYPES) {
       expect(normalizeAppointmentType(type)).toBe(type);
@@ -110,5 +111,16 @@ describe('P360-004 - dominio de compromissos', () => {
     expect(isAllowedAppointmentDuration('inspection', 90)).toBe(true);
     expect(() => assertAppointmentDuration('results_meeting', 120))
       .toThrow('Duração inválida');
+  });
+
+  test('briefing e um compromisso nao sanitario limitado a 45 minutos', () => {
+    expect(APPOINTMENT_TYPE_RULES.briefing.isInspection).toBe(false);
+    expect(APPOINTMENT_TYPE_RULES.briefing.usesSanitaryTimeline).toBe(false);
+    expect([15, 30, 45].every((minutes) =>
+      isAllowedAppointmentDuration('briefing', minutes))).toBe(true);
+    expect(isAllowedAppointmentDuration('briefing', 60)).toBe(false);
+    expect(isAllowedAppointmentDuration('briefing', 20)).toBe(false);
+    expect(() => assertInspectionAppointment('briefing', 'iniciar uma inspeção'))
+      .toThrow('Somente compromissos de inspeção');
   });
 });

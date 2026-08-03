@@ -5,6 +5,7 @@ export const APPOINTMENT_TYPES = [
   'document_guidance',
   'training',
   'other',
+  'briefing',
 ] as const;
 
 export type AppointmentType = typeof APPOINTMENT_TYPES[number];
@@ -58,6 +59,14 @@ export const APPOINTMENT_TYPE_RULES: Record<AppointmentType, {
     showsReportDueDate: false,
     usesSanitaryTimeline: false,
   },
+  /** Primeiro contato de quem ainda não é cliente. Sempre online. */
+  briefing: {
+    label: 'Briefing com a consultora',
+    isInspection: false,
+    requiresServiceAddress: false,
+    showsReportDueDate: false,
+    usesSanitaryTimeline: false,
+  },
 };
 
 export function isAppointmentType(value: unknown): value is AppointmentType {
@@ -86,6 +95,7 @@ export function isAllowedAppointmentDuration(type: AppointmentType, minutes: num
   if (type === 'inspection') return minutes >= 15 && minutes <= 720;
   if (type === 'training') return minutes >= 30 && minutes <= 480 && minutes % 30 === 0;
   if (type === 'other') return minutes >= 15 && minutes <= 480 && minutes % 15 === 0;
+  if (type === 'briefing') return minutes === 15 || minutes === 30 || minutes === 45;
   return minutes === 30 || minutes === 60 || minutes === 90;
 }
 

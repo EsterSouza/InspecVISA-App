@@ -5,6 +5,7 @@ import type {
   PublicCalendarDay,
 } from '../types';
 import { formatAppointmentLeadTimeMessage, isAppointmentAtLeast24hAhead } from '../utils/appointmentLeadTime';
+import { isAllowedAppointmentDuration } from '../utils/appointmentType';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -78,6 +79,13 @@ export const publicAppointmentService = {
   ): Promise<{ public_token: string }> {
     if (!payload.requested_starts_at || !isAppointmentAtLeast24hAhead(payload.requested_starts_at)) {
       throw new Error(formatAppointmentLeadTimeMessage());
+    }
+    // Espelha a RPC: sem portal, o visitante só agenda o primeiro contato.
+    if (payload.appointment_type !== 'briefing') {
+      throw new Error('Entre no Portal do Cliente para agendar inspeções, reuniões e treinamentos.');
+    }
+    if (!isAllowedAppointmentDuration('briefing', payload.duration_minutes ?? 0)) {
+      throw new Error('O briefing aceita 15, 30 ou 45 minutos.');
     }
     const { data, error } = await withTimeout(
       supabase.rpc('public_create_calendar_appointment_request', {
