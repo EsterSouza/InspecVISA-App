@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import { templates, getTotalItems, getEffectiveTemplate } from '../../data/templates';
+import { templateEsteticaClinica } from '../../data/estetica/roteiro-clinica';
 import type { ChecklistItem, ChecklistTemplate, Client } from '../../types';
+import { canonicalLegislationKey, extractBaseLegislation } from '../../utils/legislationRefs';
 
 const STOPWORDS = new Set([
   'a', 'o', 'as', 'os', 'de', 'da', 'do', 'das', 'dos', 'e', 'em', 'um', 'uma', 'uns', 'umas',
@@ -52,14 +54,17 @@ function assertNoNearDuplicates(template: ChecklistTemplate, threshold = 0.75) {
 
 const EXPECTED_ITEM_COUNTS: Record<string, number> = {
   'tpl-estetica-v1': 114,
+  'tpl-estetica-clinica-v1': 113,
   'tpl-ilpi-federal-v1': 97,
   'tpl-ilpi-go-v1': 79,
   'tpl-alimentos-federal-v1': 97,
   'tpl-alimentos-rj-v1': 114,
 };
 
+const templatesUnderTest = [...templates, templateEsteticaClinica];
+
 describe('checklist integrity — todos os roteiros de src/data', () => {
-  templates.forEach(template => {
+  templatesUnderTest.forEach(template => {
     describe(`${template.id} — ${template.name}`, () => {
       test('ids de item e de seção são únicos dentro do roteiro', () => {
         const sectionIds = template.sections.map(s => s.id);
@@ -99,6 +104,34 @@ describe('checklist integrity — todos os roteiros de src/data', () => {
           expect(getTotalItems(template)).toBe(expectedCount);
         });
       }
+    });
+  });
+
+  describe('roteiro de clínica de estética', () => {
+    test('cada descrição é uma pergunta verificável em campo', () => {
+      allItems(templateEsteticaClinica).forEach(item => {
+        expect(item.description.endsWith('?'), `item ${item.id} não está em forma de pergunta`).toBe(true);
+      });
+    });
+
+    test('não contém itens quase-duplicados', () => {
+      assertNoNearDuplicates(templateEsteticaClinica);
+    });
+
+    test('itens legais têm URL e usam uma única grafia para cada norma', () => {
+      const labelsByKey = new Map<string, string>();
+
+      allItems(templateEsteticaClinica).forEach(item => {
+        if (item.requirementType === 'good_practice') return;
+
+        expect(item.legislationUrl, `item ${item.id} sem legislationUrl`).toBeTruthy();
+        extractBaseLegislation(item.legislation || '').forEach(label => {
+          const key = canonicalLegislationKey(label);
+          const previous = labelsByKey.get(key);
+          if (previous) expect(label, `grafia divergente para ${key}`).toBe(previous);
+          else labelsByKey.set(key, label);
+        });
+      });
     });
   });
 

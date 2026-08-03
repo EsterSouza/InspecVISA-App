@@ -149,6 +149,15 @@ Depois de escrever o arquivo:
 Não registrar ainda em `templates.ts` nem remover `tpl-estetica-v1` — isso é o Card 7 (só
 depois que o roteiro de embelezamento também existir).
 
+### Itens removidos no Card 5
+
+- `est-077` — removido porque a RDC Anvisa nº 67/2007 não cria obrigação autônoma para a
+  clínica sobre rotulagem de medicamento manipulado; ela permanece apenas como qualificadora
+  da preparação alcoólica no item `est-050`, conforme a conclusão do Card 2.
+- A RDC Anvisa nº 864/2024 foi retirada da base do item `est-058`, sem remoção do item: o ato
+  caducou e tratava de dispensação emergencial de medicamento controlado, não de
+  tecnovigilância.
+
 ## Card 6 — Roteiro Embelezamento e Beleza (Sonnet 5, 1 sessão)
 
 Pré-requisito: Cards 1-3 concluídos.
