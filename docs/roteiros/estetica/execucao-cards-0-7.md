@@ -1,7 +1,21 @@
 # Handoff — Revisão dos roteiros de Estética (Cards 1-7)
 
-Card 0 (infraestrutura) foi executado. Este documento contém os cards 1-7, cada um
-autossuficiente — abra uma sessão nova sem ler o histórico da sessão que fez o Card 0.
+Este documento contém os cards 1-7 e o estado verificado de cada entrega. Os cards pendentes
+continuam autossuficientes — uma nova sessão pode executar somente o próximo card sem depender
+do histórico das sessões anteriores.
+
+## Estado atual em 03/08/2026
+
+| Card | Estado | Evidência / próximo passo |
+|---|---|---|
+| 0 — Infraestrutura | **Concluído no código** | Commit `44a7ce1`. Migration criada e validada localmente, mas ainda não aplicada em produção. |
+| 1 — Normas estruturantes | **Concluído** | Commit `cabdc03`; resultado consolidado em `legislacao-verificada.md`. |
+| 2 — Produtos e equipamentos | **Concluído** | Commit `d13d946`; resultado consolidado em `legislacao-verificada.md`. |
+| 3 — Resíduos, trabalho e estrutura | **Concluído** | Commit `d13d946`; resultado consolidado em `legislacao-verificada.md`. |
+| 4 — RJ estadual e municipal | **Concluído** | Commit `d13d946`; confirmou LC Rio nº 197/2018, Decreto Rio nº 57.501/2026 e necessidade de suplemento RJ. |
+| 5 — Clínica de Estética e Saúde | **Concluído e publicado no código** | Commit `b1b3b41`, `origin/main` confirmado e deployment Vercel de produção concluído. O roteiro ainda não está integrado ao catálogo da aplicação, por decisão do próprio card. |
+| 6 — Embelezamento e Beleza | **Concluído e publicado no código** | Commit `550fa38`, `origin/main` confirmado. O roteiro ainda não está integrado ao catálogo da aplicação, por decisão do próprio card. |
+| 7 — Integração, migration, seed e validação ponta a ponta | **Pendente** | Pode ser executado somente mediante autorização explícita. |
 
 Contexto mínimo comum a todos:
 
@@ -149,6 +163,28 @@ Depois de escrever o arquivo:
 Não registrar ainda em `templates.ts` nem remover `tpl-estetica-v1` — isso é o Card 7 (só
 depois que o roteiro de embelezamento também existir).
 
+### Resultado do Card 5 — concluído em 03/08/2026
+
+- Criado `src/data/estetica/roteiro-clinica.ts`, exportando
+  `templateEsteticaClinica` com id `tpl-estetica-clinica-v1`.
+- Contagem final: **113 itens**, sendo **17 boas práticas** sem peso crítico.
+- Todos os itens legais possuem `legislationUrl`; grafias normativas são verificadas com
+  `canonicalLegislationKey` e `extractBaseLegislation`.
+- O teste de integridade importa o roteiro diretamente antes da integração ao catálogo e trava:
+  contagem de 113 itens, perguntas verificáveis, ausência de quase-duplicatas, regras de
+  `good_practice`, URLs e grafia canônica.
+- Validação executada: **16 arquivos de teste e 119 testes aprovados**; ESLint isolado dos dois
+  arquivos TypeScript tocados aprovado.
+- Commit e publicação: `b1b3b41` (`Adiciona roteiro clínico de estética revisado`) enviado para
+  `origin/main`; SHA remoto confirmado como
+  `b1b3b41f47010f884f980b940fcad55b1fbba4c0`.
+- Deployment Vercel registrado como `Production / success`; o domínio
+  `https://inspecvisa.consultorasanitaria.com.br` respondeu HTTP 200.
+- **Deliberadamente não executado neste card:** importação em `templates.ts`, remoção do
+  `tpl-estetica-v1`, suplemento RJ, migration em produção, seed no Supabase, arquivamento do
+  roteiro remoto intermediário e smoke funcional do novo roteiro. Essas ações permanecem no
+  Card 7 e dependem do Card 6.
+
 ### Itens removidos no Card 5
 
 - `est-077` — removido porque a RDC Anvisa nº 67/2007 não cria obrigação autônoma para a
@@ -180,6 +216,26 @@ depilação, sobrancelha — sem profissional de saúde e sem procedimento invas
 
 Mesmo fechamento do Card 5: registrar `EXPECTED_ITEM_COUNTS['tpl-estetica-embelezamento-v1']`,
 `npm test` verde, commit + push.
+
+### Resultado do Card 6 — concluído em 03/08/2026
+
+- Criado `src/data/estetica/roteiro-embelezamento.ts`, exportando
+  `templateEsteticaEmbelezamento` com id `tpl-estetica-embelezamento-v1`.
+- Contagem final: **28 itens** em seis blocos, com requisitos legais dotados de URL oficial e
+  boas práticas sem peso crítico.
+- O caso híbrido foi registrado como encaminhamento crítico para o roteiro de Clínica de
+  Estética e Saúde, sem duplicar as exigências clínicas.
+- O teste de integridade importa o roteiro diretamente antes da integração ao catálogo e trava:
+  contagem de 28 itens, perguntas verificáveis, ausência de quase-duplicatas, regras de
+  `good_practice`, URLs e grafia canônica.
+- Validação executada: **16 arquivos de teste e 127 testes aprovados**; ESLint isolado de
+  `roteiro-embelezamento.ts` e `checklistIntegrity.test.ts` aprovado.
+- Commit e publicação: `550fa38` (`Adiciona roteiro de embelezamento e beleza`) enviado para
+  `origin/main`; SHA remoto confirmado como
+  `550fa38a0eecd645f2c0b06ed6814423d1ac979e`.
+- **Deliberadamente não executado neste card:** importação em `templates.ts`, remoção do
+  `tpl-estetica-v1`, suplemento RJ, migration em produção, seed no Supabase, arquivamento do
+  roteiro remoto intermediário e smoke funcional. Essas ações continuam no Card 7.
 
 ## Card 7 — Integração, suplemento RJ, seed e deploy (Sonnet 5, 1 sessão)
 
