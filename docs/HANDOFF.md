@@ -732,6 +732,34 @@ A migration existe e nunca foi aplicada: `supabase/migrations/20260613125641_cli
 
 ---
 
+## PROD-03 — Agendar pelo app dava "permission denied" ✅ concluído em 04/08/2026
+
+**Modelo:** Opus 5 · **Aplicado em produção:** migration `20260804120000_appointment_triggers_security_definer`
+
+Qualquer agendamento pelo app logado morria com
+`permission denied for function resolve_appointment_duration_minutes` (42501). Não era o mesmo
+problema da seção 3 (RPC pública sem grant para `authenticated`): aqui a escrita é `insert` direto
+em `public.schedules`, e quem chamava a função auxiliar era o **gatilho**.
+
+`20260802105852` criou `private.enforce_schedule_availability`,
+`private.enforce_appointment_request_availability` e
+`private.enforce_appointment_block_availability` como `security invoker`, e no mesmo arquivo
+revogou `private.resolve_appointment_duration_minutes` e `private.appointment_has_conflict` de
+`anon` e `authenticated`. Gatilho invoker roda com os privilégios de quem grava, então o corpo
+batia na revogação. Isso derrubava três caminhos: agendar/editar em `schedules`, gravar em
+`appointment_requests` e criar bloqueio em `appointment_blocks`.
+
+Correção: os três gatilhos passaram a ser `security definer`. As auxiliares continuam sem grant
+para `authenticated` e a checagem de conflito passou a enxergar todas as linhas do tenant, sem
+depender do RLS de quem está gravando. Verificado em produção com `insert` como `authenticated`
+dentro de bloco revertido: o gatilho roda até o fim e o único erro restante é o RLS esperado por
+falta de JWT no teste.
+
+**Regra que fica:** gatilho em `private` que chama outra função de `private` precisa ser
+`security definer`, ou a revogação para `authenticated` quebra a escrita.
+
+---
+
 # Bloco 4 — Portal 360
 
 Cards herdados do plano aprovado em 01/08/2026, com o conteúdo preservado. P360-001 a P360-007
@@ -1115,4 +1143,5 @@ Ao concluir um card, marcar aqui e atualizar a tabela da seção 4.
 |---|---|---|---|---|
 | 03/08/2026 | Recuperação do incidente OneDrive | Opus 5 | — | 35 arquivos restaurados, 49 cópias e 2 refs falsas removidas; 135 testes e build OK. |
 | 03/08/2026 | **INFRA-01** — repositório movido para `C:\Saas\App` | Ester | — | Integridade verificada no destino: 135 testes, build, `git fsck`, `.env` e arquivos de trabalho preservados. |
+| 04/08/2026 | **PROD-03** — concluído | Opus 5 | — | Gatilhos de disponibilidade viraram `security definer`; agendamento pelo app voltou a funcionar. Migration `20260804120000` aplicada em produção. |
 | 03/08/2026 | **EST-01** — concluído | Opus 5 | — | Roteiro de clínica ajustado (CNAE crítico; manipulados reintroduzido) de 113 para 114 itens. Migração executada: 124/124 respostas, 0 órfãs, 8 fotos preservadas. Agendamento vinculado, entrega automática destravada. |
