@@ -54,7 +54,7 @@ function assertNoNearDuplicates(template: ChecklistTemplate, threshold = 0.75) {
 }
 
 const EXPECTED_ITEM_COUNTS: Record<string, number> = {
-  'tpl-estetica-clinica-v1': 113,
+  'tpl-estetica-clinica-v1': 114,
   'tpl-estetica-embelezamento-v1': 28,
   'tpl-ilpi-federal-v1': 97,
   'tpl-ilpi-go-v1': 79,

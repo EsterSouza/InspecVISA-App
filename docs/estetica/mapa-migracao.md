@@ -1,10 +1,95 @@
-# EST-01 — Mapa de migração das respostas · MEIRE BEAUTY CLINIC
+# EST-01 — Migração das respostas · MEIRE BEAUTY CLINIC
 
-**Status: aguardando revisão da Ester. Nada foi executado.**
+**Status: ✅ executada em 03/08/2026, com autorização da Ester.**
 
-Este documento é a **proposta** de correspondência entre o roteiro arquivado e o roteiro novo.
-Nenhuma linha foi escrita no banco. O script de migração só será construído depois que você
-aprovar este mapa — em especial os 6 itens marcados como **REVISAR** na seção 5.
+Este documento era a proposta de correspondência; virou o registro do que foi feito. As decisões
+da Ester sobre os 6 itens em aberto estão na seção 0, e o resultado da execução na seção 0.2.
+
+---
+
+## 0. Decisões da Ester — 03/08/2026
+
+| Item | Decisão |
+|---|---|
+| 5.1 vestiário · 5.2 sanitários · 5.3 controlados · 5.5 bebedouro · 5.6 sinalização | **Aprovados como propostos.** |
+| 5.4 manipulados | **"Manipulados precisa ficar."** Não foi fundido no 7.8 — voltou como item próprio. |
+| CNAE (item 1.2) | **"Não aceito que CNAE não seja crítico, até pq se não tiver o negócio está irregular."** |
+
+Essas duas últimas não eram decisões de migração: eram mudanças no **roteiro**, e foram feitas
+antes da migração.
+
+### 0.1 Mudanças aplicadas ao roteiro de Clínica de Estética e Saúde
+
+O roteiro passou de **113 para 114 itens**.
+
+**`est-002` — CNAE, agora crítico.** Era `good_practice`, peso 2. Passou a `legal`, peso 10,
+crítico. O Card 5 o havia rebaixado por não ter norma própria — a legenda era "Critério técnico de
+coerência cadastral". Foi reancorado na **RDC Anvisa nº 63/2011**, a mesma do `est-001`
+(licença compatível com as atividades declaradas), da qual este item é o desdobramento cadastral.
+O teste de integridade exige URL em todo item legal, e essa âncora resolve.
+
+**`est-077` — medicamentos manipulados, reintroduzido.** Foi removido no Card 5 com este
+fundamento, registrado em `legislacao-verificada.md`:
+
+> "RDC 67/2007 não gera item próprio — só entra como qualificador da preparação alcoólica
+> manipulada, dentro do item da RDC 42/2010." A norma "aplica-se a farmácia, não a clínica de
+> estética".
+
+A Ester foi informada disso e manteve a decisão, apontando que a exigência consta também do
+roteiro da ANVISA. A conciliação adotada, escolhida por ela: **o item volta, mas reescrito do
+ponto de vista de quem é inspecionado.** A obrigação da clínica não é manipular conforme a RDC 67
+— é saber a procedência e a validade do manipulado que ela aplica no paciente.
+
+- Texto: *"Os medicamentos manipulados em uso estão identificados com a procedência, o paciente ou
+  serviço destinatário e a validade?"*
+- Base: `RDC Anvisa nº 63/2011; RDC Anvisa nº 67/2007` — a primeira como obrigação da clínica, a
+  segunda como a norma que rege a manipulação na origem.
+- Peso 10, crítico, `legal`.
+
+Com o item de volta na posição 15 da seção 7, a correspondência daquela seção virou 1:1, e a
+fusão descrita na seção 5.4 deixou de ser necessária.
+
+### 0.2 Resultado da execução
+
+Conferido no banco após a migração:
+
+| Verificação | Resultado |
+|---|---|
+| Respostas preservadas | **124 de 124** |
+| Apontando para o roteiro novo | 115 |
+| Itens extras remapeados | 9 |
+| **Respostas órfãs** | **0** |
+| Descrições de situação | 18 — todas preservadas |
+| Ações corretivas | 13 — todas preservadas |
+| Não conformidades | 21 |
+| Fotos ainda vinculadas | **8 de 8** |
+| Itens do roteiro sem resposta | 2 — os previstos na seção 4 |
+| `inspections.template_id` | `0c55f120…` |
+
+**Mudança de desenho durante a execução.** O plano original era criar respostas novas e marcar as
+antigas com `deleted_at`. Ao inspecionar o schema, vi que **as fotos se vinculam a `response_id`, e
+não a `item_id`** — criar linhas novas deixaria as 8 fotos órfãs. A migração foi feita
+**atualizando as respostas no lugar**, remapeando `item_id`. As fotos seguiram vinculadas sem
+precisar ser tocadas, e a identidade das respostas (`id`, `created_at`) foi preservada.
+
+Consequência para as 3 duplicatas: como nada foi recriado, **os dois registros de cada item foram
+mantidos**, em vez de o rascunho ser descartado como a seção 3.1 propunha. O app resolve por
+`getLatestResponsesByItem`, então o comportamento visível é o mesmo — e nada se perdeu. Isso é
+menos destrutivo que o aprovado, não mais.
+
+**Backup:** `C:\Saas\backups\respostas-meire-beauty-548466d6-pre-migracao-2026-08-03.json`, fora do
+repositório. 124 registros validados. Reversão: restaurar `item_id` a partir dele.
+
+### 0.3 Vínculo com o agendamento
+
+`appointment_requests.34d2fe4d…` estava com `inspection_id` nulo. Foi preenchido com
+`548466d6…`. Detalhes e o que isso destrava na seção 9.
+
+---
+
+## Proposta original
+
+O que segue abaixo é o mapa como foi submetido para revisão, mantido como registro.
 
 | | |
 |---|---|
@@ -387,6 +472,38 @@ Correspondência posicional exata. **Os cinco estão como "não se aplica".**
 
 ## 8. Como me responder
 
-Basta dizer, para cada um dos 6 itens da seção 5, "aceita" ou o que mudar. Se aceitar todos como
-propostos, diga apenas **"aceito o mapa"** — com atenção especial ao **5.4**, que é o único em que
-uma não conformidade crítica sua pode desaparecer do relatório.
+*(Respondido em 03/08/2026 — ver seção 0.)*
+
+---
+
+## 9. Entrega automática do relatório ao portal
+
+A entrega automática **já existia** e já estava programada. Em `src/pages/InspectionSummary.tsx`,
+ao finalizar a inspeção e gerar o PDF, o app chama `getRequestByInspectionId` e, achando o
+agendamento vinculado, executa sozinho:
+
+1. `publishReport` — sobe o PDF para o bucket do portal, registra o anexo e muda o status do
+   agendamento para `report_available`;
+2. `setComplianceScore` — grava o score global;
+3. `setAreaScores` — grava os scores por área;
+4. `setInspectionStats` — grava críticos, importantes, imediatos e reincidentes para o resumo
+   executivo do portal;
+5. dispara a notificação por e-mail e o link de WhatsApp.
+
+Nada disso rodava para a Meire, porque `appointment_requests.inspection_id` estava **nulo** —
+`getRequestByInspectionId` não encontrava nada e a cadeia inteira era pulada em silêncio.
+
+O campo foi preenchido. O restante já estava correto e foi conferido:
+
+| Pré-requisito | Estado |
+|---|---|
+| `appointment_type = 'inspection'` | ✅ passa no `assertInspectionRequest` |
+| `client_id` vinculado | ✅ |
+| Conta de portal da cliente | ✅ 1 conta ativa |
+| E-mail e telefone | ✅ `beautymeire@gmail.com` · `21965615241` |
+| `schedule_id` ↔ inspeção | ✅ já estava correto |
+| Prazo de relatório | 07/08/2026 |
+
+**Uma condição permanece:** a publicação automática só dispara quando
+`inspection.status === 'completed'` **e** o app está online. Ou seja, ela acontece quando a Ester
+finaliza a inspeção e gera o PDF pela tela de resumo — não ao salvar respostas.

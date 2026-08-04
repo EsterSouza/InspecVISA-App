@@ -204,7 +204,7 @@ que omitiu nada. Ver REF-01, REF-02 e REF-03.
 |---|---|---|---|---|---|
 | **INFRA-01** | Tirar o repositório do OneDrive | — | baixo | — | ✅ **concluído 03/08** |
 | **INFRA-02** | Reconciliar o ledger de migrations | Opus 5 | médio | — | ⬜ pendente |
-| **EST-01** | Migrar respostas da inspeção em andamento | Opus 5 | alto | — | 🟡 **mapa pronto, aguarda revisão** |
+| **EST-01** | Migrar respostas da inspeção em andamento | Opus 5 | alto | — | ✅ **concluído 03/08** |
 | **EST-02** | Verificar suplemento RJ de estética | Sonnet 5 | baixo | — | ⬜ pendente |
 | **REF-01** | Catalogar os ~170 atos citados | Haiku 4.5 | médio | — | ⬜ pendente |
 | **REF-02** | Sanear a biblioteca e ligá-la aos roteiros | Opus 5 | alto | REF-01 | ⬜ pendente |
@@ -479,8 +479,37 @@ relatório. Proposta: fundir em 7.8, que também está como NC.
 Além disso, a reclassificação de 17 itens como `good_practice` altera o score da inspeção **sem
 que nenhuma resposta mude**. O impacto está tabulado na seção 2 do mapa.
 
-**Próximo passo:** a Ester responde os 6 itens da seção 5. Só então o script é escrito — e a
-aprovação do mapa **não** vale como autorização para executar em produção.
+### Resultado final — 03/08/2026 · concluído
+
+A Ester revisou, decidiu os 6 itens e autorizou a execução. **Migração feita em produção.**
+
+Duas das decisões dela não eram de migração, e sim mudanças no **roteiro**, aplicadas antes:
+
+- **`est-002` (CNAE) passou a crítico e legal**, peso 10 — *"se não tiver, o negócio está
+  irregular"*. Reancorado na RDC Anvisa nº 63/2011, a mesma do `est-001`.
+- **`est-077` (medicamentos manipulados) foi reintroduzido**, contrariando a remoção do Card 5.
+  A Ester foi informada do fundamento registrado em `legislacao-verificada.md` — a RDC 67/2007
+  obriga a farmácia, não a clínica — e manteve a decisão. O item voltou reescrito do ponto de
+  vista de quem é inspecionado (procedência e validade do manipulado em uso), citando
+  RDC 63/2011 como obrigação da clínica e RDC 67/2007 como norma de origem.
+
+O roteiro foi de 113 para **114 itens**, em código e no banco. `EXPECTED_ITEM_COUNTS` atualizado;
+135 testes passando.
+
+**Resultado da migração:** 124 de 124 respostas preservadas, **zero órfãs**, 18 descrições, 13
+ações, 21 NCs e as 8 fotos intactas. Os 9 extras foram remapeados para as seções equivalentes.
+
+**Achado que mudou o desenho durante a execução:** as fotos se vinculam a `response_id`, não a
+`item_id`. Criar respostas novas — como o plano previa — deixaria as 8 fotos órfãs. A migração foi
+feita **atualizando `item_id` no lugar**, o que preservou as fotos e a identidade das respostas.
+Vale lembrar disso em qualquer migração futura de respostas.
+
+Backup em `C:\Saas\backups\respostas-meire-beauty-548466d6-pre-migracao-2026-08-03.json`.
+
+**Entrega automática ao portal:** já existia e já estava programada em `InspectionSummary.tsx`,
+mas nunca disparava porque `appointment_requests.inspection_id` estava nulo. O campo foi
+preenchido. Ao finalizar a inspeção online, o app agora publica o PDF, os scores e as estatísticas
+de NC no portal da cliente sozinho. Detalhes na seção 9 do mapa.
 
 ---
 
@@ -1086,4 +1115,4 @@ Ao concluir um card, marcar aqui e atualizar a tabela da seção 4.
 |---|---|---|---|---|
 | 03/08/2026 | Recuperação do incidente OneDrive | Opus 5 | — | 35 arquivos restaurados, 49 cópias e 2 refs falsas removidas; 135 testes e build OK. |
 | 03/08/2026 | **INFRA-01** — repositório movido para `C:\Saas\App` | Ester | — | Integridade verificada no destino: 135 testes, build, `git fsck`, `.env` e arquivos de trabalho preservados. |
-| 03/08/2026 | **EST-01** — etapas 1 e 2 | Opus 5 | — | Mapa de migração proposto em `docs/estetica/mapa-migracao.md`: 106 equivalências diretas, 6 para decisão, 2 itens novos. Nada escrito no banco. Aguarda revisão da Ester. |
+| 03/08/2026 | **EST-01** — concluído | Opus 5 | — | Roteiro de clínica ajustado (CNAE crítico; manipulados reintroduzido) de 113 para 114 itens. Migração executada: 124/124 respostas, 0 órfãs, 8 fotos preservadas. Agendamento vinculado, entrega automática destravada. |

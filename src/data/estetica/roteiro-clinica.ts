@@ -35,7 +35,10 @@ export const templateEsteticaClinica: ChecklistTemplate = {
       order: 1,
       items: [
         { id: 'est-001', sectionId: 'sec-est-01', order: 1, description: 'Possui Licença Sanitária vigente e compatível com as atividades declaradas?', legislation: 'RDC Anvisa nº 63/2011', legislationUrl: URLS.rdc63, weight: 10, isCritical: true },
-        { id: 'est-002', sectionId: 'sec-est-01', order: 2, description: 'O CNPJ, o CNAE e o escopo declarado no licenciamento são coerentes com os serviços prestados?', legislation: 'Critério técnico de coerência cadastral e de escopo operacional', weight: 2, isCritical: false, requirementType: 'good_practice' },
+        // Crítico por decisão da Ester (03/08/2026): escopo declarado incompatível com o serviço
+        // prestado significa atividade exercida fora da licença, não mera divergência cadastral.
+        // Ancorado na mesma norma do est-001, de que este item é o desdobramento cadastral.
+        { id: 'est-002', sectionId: 'sec-est-01', order: 2, description: 'O CNPJ, o CNAE e o escopo declarado no licenciamento são coerentes com os serviços prestados?', legislation: 'RDC Anvisa nº 63/2011', legislationUrl: URLS.rdc63, weight: 10, isCritical: true },
         { id: 'est-003', sectionId: 'sec-est-01', order: 3, description: 'Possui responsável técnico de nível superior legalmente habilitado, com vínculo e inscrição profissional comprovados?', legislation: 'Nota Técnica Anvisa nº 2/2024', legislationUrl: URLS.nt2, weight: 10, isCritical: true },
         { id: 'est-004', sectionId: 'sec-est-01', order: 4, description: 'Apresenta Plano de Gerenciamento de Resíduos de Serviços de Saúde implementado e compatível com os resíduos gerados?', legislation: 'RDC Anvisa nº 222/2018', legislationUrl: URLS.rdc222, weight: 10, isCritical: true },
         { id: 'est-005', sectionId: 'sec-est-01', order: 5, description: 'Nos casos abrangidos pela norma, apresenta Plano de Segurança do Paciente implantado e compatível com os riscos do serviço?', legislation: 'RDC Anvisa nº 36/2013', legislationUrl: URLS.rdc36, weight: 10, isCritical: true },
@@ -152,6 +155,13 @@ export const templateEsteticaClinica: ChecklistTemplate = {
         { id: 'est-074', sectionId: 'sec-est-07', order: 12, description: 'Os medicamentos sujeitos a controle especial são armazenados em local trancado e de acesso restrito?', legislation: 'Portaria SVS/MS nº 344/1998 e suas atualizações', legislationUrl: URLS.port344, weight: 1, isCritical: false },
         { id: 'est-075', sectionId: 'sec-est-07', order: 13, description: 'Quando exigível, mantém os balanços de substâncias sujeitas a controle especial atualizados?', legislation: 'Portaria SVS/MS nº 344/1998 e suas atualizações', legislationUrl: URLS.port344, weight: 1, isCritical: false },
         { id: 'est-076', sectionId: 'sec-est-07', order: 14, description: 'As amostras grátis são armazenadas nas condições definidas pelo fabricante e permanecem sob controle do profissional responsável?', legislation: 'Manual do fabricante e critério técnico de controle de amostras', weight: 2, isCritical: false, requirementType: 'good_practice' },
+        // Reintroduzido por decisão da Ester (03/08/2026). Foi removido no Card 5 sob o
+        // fundamento de que a RDC 67/2007 obriga a farmácia que manipula, e não a clínica.
+        // A exigência foi mantida, mas reescrita do ponto de vista de quem é inspecionado: a
+        // obrigação da clínica é sobre o produto que ela recebe e aplica no paciente. Por isso a
+        // base é a RDC 63/2011 (boas práticas de funcionamento), com a RDC 67/2007 citada como a
+        // norma que rege a manipulação na origem.
+        { id: 'est-077', sectionId: 'sec-est-07', order: 15, description: 'Os medicamentos manipulados em uso estão identificados com a procedência, o paciente ou serviço destinatário e a validade?', legislation: 'RDC Anvisa nº 63/2011; RDC Anvisa nº 67/2007', legislationUrl: URLS.rdc63, weight: 10, isCritical: true },
       ],
     },
     {
