@@ -204,7 +204,7 @@ que omitiu nada. Ver REF-01, REF-02 e REF-03.
 |---|---|---|---|---|---|
 | **INFRA-01** | Tirar o repositório do OneDrive | — | baixo | — | ✅ **concluído 03/08** |
 | **INFRA-02** | Reconciliar o ledger de migrations | Opus 5 | médio | — | ⬜ pendente |
-| **EST-01** | Migrar respostas da inspeção em andamento | Opus 5 | alto | — | ⬜ pendente |
+| **EST-01** | Migrar respostas da inspeção em andamento | Opus 5 | alto | — | 🟡 **mapa pronto, aguarda revisão** |
 | **EST-02** | Verificar suplemento RJ de estética | Sonnet 5 | baixo | — | ⬜ pendente |
 | **REF-01** | Catalogar os ~170 atos citados | Haiku 4.5 | médio | — | ⬜ pendente |
 | **REF-02** | Sanear a biblioteca e ligá-la aos roteiros | Opus 5 | alto | REF-01 | ⬜ pendente |
@@ -449,6 +449,38 @@ o laudo de uma cliente real.
 
 Migrar inspeções finalizadas (as 18 de ILPI e as demais). Se a Ester quiser depois, vira card
 próprio — laudo já entregue ao cliente não se reescreve sem decisão dela.
+
+### Resultado parcial — 03/08/2026
+
+**Etapas 1 e 2 concluídas. Parada no ponto de revisão obrigatório (etapa 3).**
+
+O mapa está em [`docs/estetica/mapa-migracao.md`](../estetica/mapa-migracao.md). Nada foi escrito
+no banco.
+
+Levantamento: as 12 seções dos dois roteiros correspondem uma a uma, na mesma ordem — três apenas
+mudaram de nome. Isso tornou o mapeamento muito mais limpo do que a medição de similaridade
+textual sugeria.
+
+- **106 itens** com equivalência direta e confiança alta.
+- **6 itens** exigem decisão da Ester, detalhados na seção 5 do mapa.
+- **2 itens novos** ficam em branco (memorial descritivo; aterramento elétrico).
+- Os **9 "órfãos"** não eram órfãos: são itens extras criados durante a inspeção, identificados por
+  `extra|<id-da-seção>|<id>`. Como o identificador embute a seção, precisam ter o prefixo reescrito
+  para a seção equivalente do roteiro novo, senão somem.
+- As **3 duplicatas** (itens 1.1, 1.2 e 1.3) são pares rascunho/versão final. O app já resolve com
+  `getLatestResponsesByItem`; a proposta é migrar a mais recente e preservar a antiga com
+  `deleted_at`.
+
+**O achado que mais importa:** o item 7.15 do roteiro antigo — rótulo de medicamentos manipulados,
+crítico, peso 10, marcado como **não conforme** — **não tem equivalente no roteiro novo**. A seção
+7 caiu de 15 para 14 itens e foi este que saiu. Sem decisão explícita, essa NC desaparece do
+relatório. Proposta: fundir em 7.8, que também está como NC.
+
+Além disso, a reclassificação de 17 itens como `good_practice` altera o score da inspeção **sem
+que nenhuma resposta mude**. O impacto está tabulado na seção 2 do mapa.
+
+**Próximo passo:** a Ester responde os 6 itens da seção 5. Só então o script é escrito — e a
+aprovação do mapa **não** vale como autorização para executar em produção.
 
 ---
 
@@ -1054,3 +1086,4 @@ Ao concluir um card, marcar aqui e atualizar a tabela da seção 4.
 |---|---|---|---|---|
 | 03/08/2026 | Recuperação do incidente OneDrive | Opus 5 | — | 35 arquivos restaurados, 49 cópias e 2 refs falsas removidas; 135 testes e build OK. |
 | 03/08/2026 | **INFRA-01** — repositório movido para `C:\Saas\App` | Ester | — | Integridade verificada no destino: 135 testes, build, `git fsck`, `.env` e arquivos de trabalho preservados. |
+| 03/08/2026 | **EST-01** — etapas 1 e 2 | Opus 5 | — | Mapa de migração proposto em `docs/estetica/mapa-migracao.md`: 106 equivalências diretas, 6 para decisão, 2 itens novos. Nada escrito no banco. Aguarda revisão da Ester. |
