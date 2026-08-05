@@ -623,57 +623,79 @@ Tarefa de levantamento, sem decisão normativa. Números de partida na seção 2
 
 ### Resultado — 05/08/2026
 
-Entregue em [`docs/referencias/inventario.csv`](referencias/inventario.csv) (62 linhas, uma por ato).
-Só leitura no Supabase de produção (as duas consultas usadas estão documentadas no cabeçalho de
+Entregue em [`docs/referencias/inventario.csv`](referencias/inventario.csv). Só leitura no Supabase
+de produção (as duas consultas usadas estão documentadas no cabeçalho de
 [`scripts/ref01-build-inventory.ts`](../scripts/ref01-build-inventory.ts), que reusa
-`extractBaseLegislation` e `canonicalLegislationKey` de `src/utils/legislationRefs.ts` sem
-reescrever nada). Nenhuma escrita em `legislations` ou `checklist_items`.
+`extractBaseLegislation` e `canonicalLegislationKey` de `src/utils/legislationRefs.ts`). Nenhuma
+escrita em `legislations` ou `checklist_items`.
 
 **Os 918 itens de checklist têm `legislation_name` preenchido — 100% de cobertura**, sem nenhum
 item vazio. `extractBaseLegislation` reconheceu ao menos uma referência em todos os 918 (nenhum caiu
-em "sem extração"). Total de 1.235 citações (item × ato citado), agrupadas em 62 chaves canônicas.
+em "sem extração"). Total de 1.235 citações (item × ato citado), agrupadas em **57 chaves
+canônicas**.
 
-**O achado que muda a leitura do número "~170" da seção 2.6.** Aquele "~170 atos normativos
-distintos (aprox.)" era uma estimativa manual anterior a este inventário. O número medido — 62
-chaves canônicas — é mais baixo que o esperado, e a causa raiz **não é que existam poucos atos**: é
-um bug real em `canonicalLegislationKey` (usada também ao vivo por `PdfPreviewModal.tsx` para
-deduplicar a lista de legislações do relatório).
+**O achado que mudou a leitura do número "~170" da seção 2.6 — e que foi corrigido na mesma sessão.**
+Aquele "~170 atos normativos distintos (aprox.)" era uma estimativa manual anterior a este
+inventário. A primeira versão deste inventário media só 62 chaves, bem abaixo do esperado — e a causa
+raiz não era que existissem poucos atos: era um bug real em `canonicalLegislationKey` (usada também
+ao vivo por `PdfPreviewModal.tsx` para deduplicar a lista de legislações do relatório). A função
+extraía o "número" do ato pegando a primeira sequência de dígitos do texto, sem âncora no tipo do
+ato; quando o texto bruto começava com "Art. N" antes da citação real — comum nos roteiros de ILPI,
+que citam artigo e lei juntos —, o número do artigo era capturado no lugar do número da lei. Caso
+concreto: a **Lei Municipal nº 1.812/2014** (RJ, citada em 19 itens) aparecia fragmentada em 5
+chaves diferentes (`LEI|276|2014`, `LEI|277|2014`, `LEI|278|2014`, `LEI|279|2014`, `LEI|289|2014`) —
+uma por artigo citado, em vez de uma chave só. A causa começava em `extractBaseLegislation`: o padrão
+de `Lei` só reconhecia os qualificadores "Federal", "Estadual" e "Complementar"; "Municipal" não
+estava na lista, o regex não casava, e o texto inteiro caía no caminho de reserva sem normalização.
 
-`canonicalLegislationKey` extrai o "número" do ato pegando a **primeira sequência de dígitos** do
-texto, sem âncora no tipo do ato. Quando o texto bruto começa com "Art. N" antes da citação real —
-comum nos roteiros de ILPI, que citam artigo e lei juntos —, esse número do artigo é capturado no
-lugar do número da lei. Caso concreto, confirmado no CSV: a **Lei Municipal nº 1.812/2014** (RJ,
-citada em 19 itens) aparece **fragmentada em 5 chaves diferentes** — `LEI|276|2014` (13 itens),
-`LEI|277|2014` (2), `LEI|278|2014` (2), `LEI|279|2014` (1) e `LEI|289|2014` (1) — uma por artigo
-citado, em vez de uma chave só. A causa começa em `extractBaseLegislation`: o padrão de `Lei` só
-reconhece os qualificadores "Federal", "Estadual" e "Complementar"; "Municipal" não está na lista, o
-regex não casa, e o texto inteiro ("Art. 276, Lei Municipal 1.812/2014") cai no caminho de reserva
-sem normalização — é aí que `canonicalLegislationKey` pega o "276" em vez do "1812".
+O relatório inicial deste card **não corrigiu** o bug — a instrução era reusar as funções como
+estavam. A Ester acionou a tarefa de correção sinalizada em segundo plano na mesma conversa, então o
+fix entrou ainda em 05/08, com `docs/referencias/inventario.csv` **regerado** para refletir o número
+certo:
 
-Não corrigido neste card — a instrução explícita era reusar as funções como estão, sem reescrever.
-Fica sinalizado para quem pegar o REF-02 e para o card de correção do utilitário (aberto como tarefa
-em segundo plano nesta sessão): **a contagem real de atos distintos é maior que 62**, e o REF-02 não
-deve tomar essa lista como pronta — precisa revisar principalmente as linhas com `grafias_encontradas`
-heterogêneas antes de cadastrar na biblioteca.
+- `extractBaseLegislation`: qualificador de `Lei` passou a reconhecer também "Municipal" e
+  "Ordinária", e ganhou um grupo opcional para sigla de UF entre o qualificador e o número (cobre
+  "Lei Municipal RJ nº 8.618/2024").
+- `canonicalLegislationKey`: a busca do número passou a começar **depois** da posição do tipo
+  reconhecido (`RDC`/`LEI`/`PORTARIA`/etc.), não do início da string — defesa em profundidade para
+  qualquer outro texto que caia no caminho de reserva no futuro sem que um "Art. N" antes do tipo
+  vire o número errado.
+- `src/__tests__/utils/legislationRefs.test.ts` (novo, 6 casos): reproduz o caso da Lei Municipal
+  1.812/2014 com artigos diferentes, cobre "Lei Municipal RJ nº ...", "Lei Ordinária ...", confirma
+  que os qualificadores que já funcionavam (Federal, Estadual, sem qualificador, "Art. N da Lei...")
+  continuam corretos, e testa `canonicalLegislationKey` isolada com texto bruto não limpo.
+
+**Resultado da correção:** as 19 respostas da Lei Municipal 1.812/2014 se uniram em uma única chave
+(`LEI|1812|2014`). O inventário caiu de 62 para **57 chaves canônicas** — 5 a menos, exatamente as
+que eram fragmentos indevidos da mesma lei. `npm test`: 20 arquivos, **152 testes**, todos passando
+(146 de antes + 6 novos). Nenhuma outra citação mudou de agrupamento — conferido comparando o CSV
+antes/depois do fix, e os testes existentes de `checklistIntegrity.test.ts` (que também usam essas
+duas funções) continuam passando sem alteração.
+
+**Ainda vale para o REF-02, mesmo com o fix:** 57 provavelmente ainda não é o número final — a
+correção resolveu especificamente o padrão "Art. N antes do tipo reconhecido"; outras variações de
+grafia não previstas pelos 9 padrões de `extractBaseLegislation` continuam caindo no caminho de
+reserva sem normalização plena. O REF-02 não deve tomar 57 como definitivo — vale revisar as linhas
+com `grafias_encontradas` heterogêneas antes de cadastrar na biblioteca.
 
 **Outros pontos do CSV, para quem for usá-lo no REF-02:**
 
 - A linha `OUTRO||` (110 itens) não é um ato — é o balde de textos sem forma normativa reconhecível
   ("Boas Práticas", "Critério técnico de..."), majoritariamente de itens `good_practice`, que por
   definição não têm base legal vigente. Não entra na contagem de atos a cadastrar.
-- 17 das 62 chaves já têm correspondência em `legislations` (`existe_em_legislations = sim`), batendo
-  com os "10 de ~170" citado antes só porque a base de comparação mudou — a cobertura real sobre os
-  atos *de fato reconhecidos* já é maior do que a seção 2.6 registrava.
+- 17 das 57 chaves já têm correspondência em `legislations` (`existe_em_legislations = sim`) — a
+  cobertura real sobre os atos *de fato reconhecidos* já é maior do que os "10 de ~170" que a seção
+  2.6 registrava, porque a base de comparação mudou.
 - Nenhuma colisão de chave canônica **dentro da própria** tabela `legislations` (duas entradas da
   biblioteca virando a mesma chave) — checado e não ocorre hoje.
 - Os roteiros arquivados (prefixo `[ARQUIVADO]`) continuam na coluna "roteiros" de propósito: um ato
   citado só em roteiro arquivado ainda merece entrar na biblioteca, porque inspeções antigas usam
   esse roteiro no relatório.
 
-**Evidência:** `npm test` — 19 arquivos, 146 testes, todos passando (nada de produto foi tocado, só
-leitura no Supabase e um script novo em `scripts/`). Os dumps brutos usados como entrada
-(`ref01-raw.json`, `ref01-legislations.json`) não foram versionados — são snapshot de produção, não
-fonte de verdade do repositório; o cabeçalho do script documenta como regerá-los.
+**Evidência:** `npm test` — 20 arquivos, 152 testes, todos passando. `npm run build` — passa. Os
+dumps brutos usados como entrada (`ref01-raw.json`, `ref01-legislations.json`) não foram versionados
+— são snapshot de produção, não fonte de verdade do repositório; o cabeçalho do script documenta
+como regerá-los.
 
 ---
 
@@ -1479,4 +1501,5 @@ Ao concluir um card, marcar aqui e atualizar a tabela da seção 4.
 | 05/08/2026 | **EST-02** — concluído | Sonnet 5 | — | Suplemento RJ já funciona hoje por código (`supplementRegistry` casa por `id` estático ou por `name`); já havia teste cobrindo o cenário de UUID do Supabase. Nada foi alterado, só verificado. |
 | 05/08/2026 | **REF-03** — concluído | Sonnet 5 | — | Partes (a) e (b) adiantadas antes de REF-02 e fechadas com teste nesta sessão: `PdfPreviewModal.test.tsx` (5 casos) e `pdfGenerator.test.ts` (3 casos). Achado: `jsPDF.text` é propriedade de instância, não do prototype — `vi.mock('jspdf', ...)` foi o caminho, não `spyOn(prototype)`. 146 testes JS, build OK. |
 | 05/08/2026 | **DEBT-03** — concluído | Sonnet 5 | — | `sala-estetica.html` removido (autorizado pela Ester na conversa: "não faz parte desse projeto"). Ícones PWA quantizados sem perda visível (−90%, `public/` de 1,3 MB para 256 KB). `globPatterns` do service worker restrito a `js/css/html/woff2` — ícones seguem precacheados via `includeAssets`; achado: `logo sem fundo treinavisa.png`, não usado em lugar nenhum, estava sendo precacheado à toa pelo glob antigo. Precache: 72→66 entradas. Arquivos de negócio na raiz preservados, como já decidido. |
-| 05/08/2026 | **REF-01** — concluído | Sonnet 5 | — | `docs/referencias/inventario.csv`: 62 chaves canônicas a partir de 918 itens (100% de cobertura), via `scripts/ref01-build-inventory.ts` reusando `extractBaseLegislation`/`canonicalLegislationKey` sem reescrever nada. Achado: bug real em `canonicalLegislationKey` (também usada ao vivo por `PdfPreviewModal.tsx`) fragmenta um mesmo ato em várias chaves quando o texto começa com "Art. N" antes da citação — caso confirmado: Lei Municipal 1.812/2014 (19 itens) virou 5 chaves diferentes. Não corrigido (fora do escopo do card); sinalizado para REF-02 e como tarefa em segundo plano. |
+| 05/08/2026 | **REF-01** — concluído | Sonnet 5 | — | `docs/referencias/inventario.csv`: 918 itens (100% de cobertura), via `scripts/ref01-build-inventory.ts` reusando `extractBaseLegislation`/`canonicalLegislationKey`. Achado: bug real em `canonicalLegislationKey` (também usada ao vivo por `PdfPreviewModal.tsx`) fragmentava um mesmo ato em várias chaves quando o texto começava com "Art. N" antes da citação — caso confirmado: Lei Municipal 1.812/2014 (19 itens) virava 5 chaves diferentes. |
+| 05/08/2026 | Correção do bug de `canonicalLegislationKey` (tarefa em segundo plano acionada pela Ester) | Sonnet 5 | — | `extractBaseLegislation` passou a reconhecer "Municipal"/"Ordinária" como qualificador de `Lei` (com sigla de UF opcional); `canonicalLegislationKey` passou a ancorar a busca do número na posição do tipo reconhecido, não no início da string. `src/__tests__/utils/legislationRefs.test.ts` novo, 6 casos. Inventário do REF-01 regerado: 62 → 57 chaves canônicas (as 19 respostas da Lei Municipal 1.812/2014 se uniram em uma só). 152 testes JS, build OK. |

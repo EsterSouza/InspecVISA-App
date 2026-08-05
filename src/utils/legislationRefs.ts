@@ -12,7 +12,7 @@ export function extractBaseLegislation(raw: string): string[] {
     const patterns = [
       /\b(?:RDC|IN|RE|RN|RT)\s*(?:ANVISA\s*)?(?:n[oº.]?\s*)?(\d+)(?:[-/]\d{4})?/i,
       /\bPortaria\s+(?:(?:GM|SVS|MS|CVS|SES|SMS)[/\s]*)?(?:n[oº.]?\s*)?(\d[\d.]*(?:[-/]\d{4})?)/i,
-      /\bLei\s+(?:Federal\s+|Estadual\s+|Complementar\s+)?(?:n[oº.]?\s*)?([\d.]+(?:[-/]\d{4})?)/i,
+      /\bLei\s+(?:Federal\s+|Estadual\s+|Municipal\s+|Complementar\s+|Ordin[aá]ria\s+)?(?:[A-Z]{2}\s+)?(?:n[oº.]?\s*)?([\d.]+(?:[-/]\d{4})?)/i,
       /\bDecreto(?:-Lei)?\s+(?:n[oº.]?\s*)?([\d.]+(?:[-/]\d{4})?)/i,
       /\bNR[.\s-]?(\d+)/i,
       /\bABNT\s+NBR\s+(\d+)/i,
@@ -63,8 +63,12 @@ export function canonicalLegislationKey(raw: string): string {
   const yearMatch = up.match(/\b(19|20)\d{2}\b/);
   const year = yearMatch ? yearMatch[0] : '';
 
-  // Número principal: primeira sequência de dígitos diferente do ano.
-  const nums = (up.match(/\d[\d.]*/g) || []).map(n => n.replace(/\./g, ''));
+  // Número principal: primeira sequência de dígitos diferente do ano, buscada a
+  // partir da posição do tipo reconhecido — não do início da string. Um texto
+  // como "Art. 276, Lei Municipal 1.812/2014" não pode ter o "276" do artigo
+  // confundido com o número da lei.
+  const searchFrom = typeMatch ? typeMatch.index! + typeMatch[0].length : 0;
+  const nums = (up.slice(searchFrom).match(/\d[\d.]*/g) || []).map(n => n.replace(/\./g, ''));
   const number = nums.find(n => n !== year) || nums[0] || '';
 
   return `${type}|${number}|${year}`;
