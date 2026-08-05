@@ -3,7 +3,7 @@ import { templates, getTemplateById, getTotalItems, getEffectiveTemplate } from 
 import { templateEsteticaClinica } from '../../data/estetica/roteiro-clinica';
 import { templateEsteticaEmbelezamento } from '../../data/estetica/roteiro-embelezamento';
 import type { ChecklistItem, ChecklistTemplate, Client } from '../../types';
-import { canonicalLegislationKey, extractBaseLegislation } from '../../utils/legislationRefs';
+import { canonicalLegislationKey, extractBaseLegislation, legislationUrlForItem } from '../../utils/legislationRefs';
 
 const STOPWORDS = new Set([
   'a', 'o', 'as', 'os', 'de', 'da', 'do', 'das', 'dos', 'e', 'em', 'um', 'uma', 'uns', 'umas',
@@ -125,7 +125,9 @@ describe('checklist integrity — todos os roteiros de src/data', () => {
       allItems(templateEsteticaClinica).forEach(item => {
         if (item.requirementType === 'good_practice') return;
 
-        expect(item.legislationUrl, `item ${item.id} sem legislationUrl`).toBeTruthy();
+        // REF-02: a URL deixou de ser copiada item a item; ela vem da biblioteca
+        // pela chave canônica. O que importa continua sendo o item ter link.
+        expect(legislationUrlForItem(item), `item ${item.id} sem URL de legislação`).toBeTruthy();
         extractBaseLegislation(item.legislation || '').forEach(label => {
           const key = canonicalLegislationKey(label);
           const previous = labelsByKey.get(key);
@@ -153,7 +155,9 @@ describe('checklist integrity — todos os roteiros de src/data', () => {
       allItems(templateEsteticaEmbelezamento).forEach(item => {
         if (item.requirementType === 'good_practice') return;
 
-        expect(item.legislationUrl, `item ${item.id} sem legislationUrl`).toBeTruthy();
+        // REF-02: a URL deixou de ser copiada item a item; ela vem da biblioteca
+        // pela chave canônica. O que importa continua sendo o item ter link.
+        expect(legislationUrlForItem(item), `item ${item.id} sem URL de legislação`).toBeTruthy();
         extractBaseLegislation(item.legislation || '').forEach(label => {
           const key = canonicalLegislationKey(label);
           const previous = labelsByKey.get(key);

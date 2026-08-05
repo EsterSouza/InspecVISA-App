@@ -16,8 +16,8 @@
 //
 // Legislação federal referenciada (itens ausentes na base federal):
 //   RDC ANVISA nº 502/2021 — artigos cobrados especificamente por BH
-//   Resoluções COFEN (358/2009, 450/2013, 557/2017, 619/2019, 620/2019,
-//     746/2024, 787/2025)
+//   Resoluções COFEN (450/2013, 557/2017, 619/2019, 620/2019, 736/2024,
+//     746/2024, 787/2025) — a 358/2009 saiu daqui: revogada pela 736/2024
 //   Decreto Federal nº 94.406/1987 (Lei do Exercício de Enfermagem)
 //
 // Criticidade (alinhada ao RVF_DVSA_90_VS):
@@ -49,7 +49,7 @@ export const templateIlpiBeloHorizonteSupplement: ChecklistSupplement = {
           sectionId: 'sec-fed-01',
           order: 15,
           description: 'Possui placa de identificação externa visível, atendendo à legislação vigente.',
-          legislation: 'LM 7031/96 Art. 97, IV; PM 012/15 Art. 5, §único',
+          legislation: 'Lei Municipal nº 7.031/1996, art. 97, IV; Portaria SMS nº 12/2015, art. 5, §único',
           weight: 5,
           isCritical: false,
         },
@@ -59,7 +59,7 @@ export const templateIlpiBeloHorizonteSupplement: ChecklistSupplement = {
           order: 16,
           // Classificação CRÍTICO no RVF_DVSA_90_VS item 477
           description: 'Os acessos ao estabelecimento possuem cobertura apropriada para proteção do idoso contra a chuva.',
-          legislation: 'LM 7031/96 Art. 97, IV; PM 012/15 Art. 8, XV',
+          legislation: 'Lei Municipal nº 7.031/1996, art. 97, IV; Portaria SMS nº 12/2015, art. 8, XV',
           weight: 10,
           isCritical: true,
         },
@@ -68,7 +68,7 @@ export const templateIlpiBeloHorizonteSupplement: ChecklistSupplement = {
           sectionId: 'sec-fed-01',
           order: 17,
           description: 'Há pátio externo para exposição dos idosos à luz solar e área verde.',
-          legislation: 'LM 7031/96 Art. 97, IV; PM 012/15 Art. 8, V',
+          legislation: 'Lei Municipal nº 7.031/1996, art. 97, IV; Portaria SMS nº 12/2015, art. 8, V',
           weight: 5,
           isCritical: false,
         },
@@ -77,7 +77,7 @@ export const templateIlpiBeloHorizonteSupplement: ChecklistSupplement = {
           sectionId: 'sec-fed-01',
           order: 18,
           description: 'A iluminação e ventilação são suficientes para garantir o conforto térmico e visual para as atividades desenvolvidas em todos os ambientes.',
-          legislation: 'LM 7031/96 Art. 97, IV; PM 012/15 Art. 8, II; RDC 502/21 Art. 24, II',
+          legislation: 'Lei Municipal nº 7.031/1996, art. 97, IV; Portaria SMS nº 12/2015, art. 8, II; RDC 502/21 Art. 24, II',
           weight: 5,
           isCritical: false,
         },
@@ -87,7 +87,7 @@ export const templateIlpiBeloHorizonteSupplement: ChecklistSupplement = {
           order: 19,
           // PM 012/15 detalha mobiliário e equipamentos que a RDC 502 não especifica
           description: 'Há cômodo de convivência interior coberto, mobiliado confortavelmente com televisão, poltronas, mesas e demais instrumentos que favoreçam a socialização dos idosos, todos em bom estado de conservação.',
-          legislation: 'LM 7031/96 Art. 97, IV; PM 012/15 Art. 8, IV',
+          legislation: 'Lei Municipal nº 7.031/1996, art. 97, IV; Portaria SMS nº 12/2015, art. 8, IV',
           weight: 5,
           isCritical: false,
         },
@@ -97,7 +97,7 @@ export const templateIlpiBeloHorizonteSupplement: ChecklistSupplement = {
           order: 20,
           // Classificação CRÍTICO no RVF_DVSA_90_VS item 10268
           description: 'A instituição oferece condições de higiene, salubridade, segurança e cuidado para com os idosos em todos os setores, procedimentos, equipamentos e utensílios.',
-          legislation: 'LM 7031/96 Art. 97, IV; PM 012/15 Art. 22; RDC 502/21 Art. 29, IX',
+          legislation: 'Lei Municipal nº 7.031/1996, art. 97, IV; Portaria SMS nº 12/2015, art. 22; RDC 502/21 Art. 29, IX',
           weight: 10,
           isCritical: true,
         },
@@ -115,7 +115,7 @@ export const templateIlpiBeloHorizonteSupplement: ChecklistSupplement = {
           order: 7,
           // Classificação CRÍTICO no RVF_DVSA_90_VS item 10269
           description: 'As camas hospitalares destinadas a idosos com grau de dependência III e acamados possuem acoplamento para grade de proteção, em bom estado de conservação.',
-          legislation: 'LM 7031/96 Art. 97, IV; PM 012/15 Art. 10, II',
+          legislation: 'Lei Municipal nº 7.031/1996, art. 97, IV; Portaria SMS nº 12/2015, art. 10, II',
           weight: 10,
           isCritical: true,
         },
@@ -124,7 +124,7 @@ export const templateIlpiBeloHorizonteSupplement: ChecklistSupplement = {
           sectionId: 'sec-fed-02',
           order: 8,
           description: 'Os móveis de quarto estão em bom estado de conservação, com armários de compartimentos individuais em cada dormitório, com dimensões compatíveis para guarda de pertences pessoais do idoso.',
-          legislation: 'LM 7031/96 Art. 97, IV; PM 012/15 Art. 10, V',
+          legislation: 'Lei Municipal nº 7.031/1996, art. 97, IV; Portaria SMS nº 12/2015, art. 10, V',
           weight: 5,
           isCritical: false,
         },
@@ -133,7 +133,7 @@ export const templateIlpiBeloHorizonteSupplement: ChecklistSupplement = {
           sectionId: 'sec-fed-02',
           order: 9,
           description: 'Cada leito está identificado com o nome do idoso.',
-          legislation: 'LM 7031/96 Art. 97, IV; PM 012/15 Art. 10, VII',
+          legislation: 'Lei Municipal nº 7.031/1996, art. 97, IV; Portaria SMS nº 12/2015, art. 10, VII',
           weight: 2,
           isCritical: false,
         },
@@ -142,7 +142,7 @@ export const templateIlpiBeloHorizonteSupplement: ChecklistSupplement = {
           sectionId: 'sec-fed-02',
           order: 10,
           description: 'Existem dispositivos para facilitar a orientação do idoso, de fácil visualização e devidamente atualizados: relógio, calendário, cartaz com a data atual, lista de aniversariantes e cronograma de atividades semanais.',
-          legislation: 'LM 7031/96 Art. 97, IV; PM 012/15 Art. 10, VIII',
+          legislation: 'Lei Municipal nº 7.031/1996, art. 97, IV; Portaria SMS nº 12/2015, art. 10, VIII',
           weight: 2,
           isCritical: false,
         },
@@ -161,7 +161,7 @@ export const templateIlpiBeloHorizonteSupplement: ChecklistSupplement = {
           order: 5,
           // Classificação MAIOR no RVF_DVSA_90_VS item 10519
           description: 'As instalações sanitárias possuem paredes revestidas de cerâmica de cor clara, com altura mínima de 2 metros, e teto liso de cor clara.',
-          legislation: 'LM 7031/96 Art. 97, IV; PM 012/15 Art. 8, XVIII; RDC 502/21 Art. 29, I',
+          legislation: 'Lei Municipal nº 7.031/1996, art. 97, IV; Portaria SMS nº 12/2015, art. 8, XVIII; RDC 502/21 Art. 29, I',
           weight: 5,
           isCritical: false,
         },
@@ -172,7 +172,7 @@ export const templateIlpiBeloHorizonteSupplement: ChecklistSupplement = {
           // Classificação MAIOR no RVF_DVSA_90_VS item 487
           // PM 012/15 especifica proporção 1:10 e lista de insumos que a RDC 502 não detalha
           description: 'Há 1 (uma) instalação sanitária para cada grupo de 10 idosos, contendo: 1 vaso sanitário com tampa, papel higiênico, ducha higiênica, lavabo com papel toalha e sabonete líquido.',
-          legislation: 'LM 7031/96 Art. 97, IV; PM 012/15 Art. 9, I',
+          legislation: 'Lei Municipal nº 7.031/1996, art. 97, IV; Portaria SMS nº 12/2015, art. 9, I',
           weight: 5,
           isCritical: false,
         },
@@ -183,7 +183,7 @@ export const templateIlpiBeloHorizonteSupplement: ChecklistSupplement = {
           // Classificação CRÍTICO no RVF_DVSA_90_VS item 488
           // BH adiciona exigência do mesmo pavimento, ausente na federal
           description: 'Os sanitários são separados por sexo e estão instalados no mesmo pavimento onde permanecem os idosos atendidos.',
-          legislation: 'LM 7031/96 Art. 97, IV; PM 012/15 Art. 9, II; RDC 502/21 Art. 29, XIII, a',
+          legislation: 'Lei Municipal nº 7.031/1996, art. 97, IV; Portaria SMS nº 12/2015, art. 9, II; RDC 502/21 Art. 29, XIII, a',
           weight: 10,
           isCritical: true,
         },
@@ -193,7 +193,7 @@ export const templateIlpiBeloHorizonteSupplement: ChecklistSupplement = {
           order: 8,
           // Classificação MAIOR no RVF_DVSA_90_VS item 489
           description: 'As portas dos sanitários não possuem dispositivo de tranca.',
-          legislation: 'LM 7031/96 Art. 97, IV; PM 012/15 Art. 9, III; RDC 502/21 Art. 29, IV',
+          legislation: 'Lei Municipal nº 7.031/1996, art. 97, IV; Portaria SMS nº 12/2015, art. 9, III; RDC 502/21 Art. 29, IV',
           weight: 5,
           isCritical: false,
         },
@@ -203,7 +203,7 @@ export const templateIlpiBeloHorizonteSupplement: ChecklistSupplement = {
           order: 9,
           // Classificação MAIOR no RVF_DVSA_90_VS item 491
           description: 'Os vasos sanitários possuem assentos elevadores ("elevadores de vaso"), em material adequado e impermeável, na proporção de 1 (um) para cada grupo de 10 idosos.',
-          legislation: 'LM 7031/96 Art. 97, IV; PM 012/15 Art. 9, V',
+          legislation: 'Lei Municipal nº 7.031/1996, art. 97, IV; Portaria SMS nº 12/2015, art. 9, V',
           weight: 5,
           isCritical: false,
         },
@@ -213,7 +213,7 @@ export const templateIlpiBeloHorizonteSupplement: ChecklistSupplement = {
           order: 10,
           // Classificação MAIOR no RVF_DVSA_90_VS item 493
           description: 'Há 1 (um) chuveiro para cada 12 idosos, obrigatoriamente dotado de água quente e fria.',
-          legislation: 'LM 7031/96 Art. 97, IV; PM 012/15 Art. 9, VI',
+          legislation: 'Lei Municipal nº 7.031/1996, art. 97, IV; Portaria SMS nº 12/2015, art. 9, VI',
           weight: 5,
           isCritical: false,
         },
@@ -224,7 +224,7 @@ export const templateIlpiBeloHorizonteSupplement: ChecklistSupplement = {
           // Classificação CRÍTICO no RVF_DVSA_90_VS item 496
           // Ausente na RDC 502/2021
           description: 'O banho dos idosos dependentes é obrigatoriamente acompanhado por um funcionário, de forma a prevenir acidentes.',
-          legislation: 'LM 7031/96 Art. 97, IV; PM 012/15 Art. 9, VII',
+          legislation: 'Lei Municipal nº 7.031/1996, art. 97, IV; Portaria SMS nº 12/2015, art. 9, VII',
           weight: 10,
           isCritical: true,
         },
@@ -235,7 +235,7 @@ export const templateIlpiBeloHorizonteSupplement: ChecklistSupplement = {
           // Classificação CRÍTICO no RVF_DVSA_90_VS item 10266
           // A federal (fed-021) cobre barras em geral; BH inspeciona chuveiros especificamente
           description: 'Os chuveiros são dotados de barras de apoio instaladas conforme a NBR 9050.',
-          legislation: 'LM 7031/96 Art. 97, IV; PM 012/15 Art. 9, IV; NBR 9050',
+          legislation: 'Lei Municipal nº 7.031/1996, art. 97, IV; Portaria SMS nº 12/2015, art. 9, IV; NBR 9050',
           weight: 10,
           isCritical: true,
         },
@@ -252,7 +252,7 @@ export const templateIlpiBeloHorizonteSupplement: ChecklistSupplement = {
           sectionId: 'sec-fed-08',
           order: 11,
           description: 'A ILPI cumpre todos os requisitos de prevenção a doenças infectocontagiosas, incluindo protocolos ativos para controle de surtos (COVID-19 e outras), conforme determinação vigente da vigilância sanitária e epidemiológica.',
-          legislation: 'LM 7031/96 Art. 97, IV; RDC 502/21 Art. 37, III',
+          legislation: 'Lei Municipal nº 7.031/1996, art. 97, IV; RDC 502/21 Art. 37, III',
           weight: 10,
           isCritical: true,
         },
@@ -261,7 +261,7 @@ export const templateIlpiBeloHorizonteSupplement: ChecklistSupplement = {
           sectionId: 'sec-fed-08',
           order: 12,
           description: 'Respeita a proibição de admissão de residentes com menos de 60 (sessenta) anos de idade.',
-          legislation: 'LM 7031/96 Art. 97, IV; PM 012/15 Art. 6, I; Lei 10.741/2003 Art. 1º',
+          legislation: 'Lei Municipal nº 7.031/1996, art. 97, IV; Portaria SMS nº 12/2015, art. 6, I; Lei 10.741/2003 Art. 1º',
           weight: 2,
           isCritical: false,
         },
@@ -279,7 +279,7 @@ export const templateIlpiBeloHorizonteSupplement: ChecklistSupplement = {
           order: 5,
           // BH inspeciona a separação por sexo explicitamente; federal cobre vestiário de forma genérica
           description: 'Possui vestiário e banheiro para funcionários, separados por sexo.',
-          legislation: 'LM 7031/96 Art. 97, IV; RDC 502/21 Art. 29, XI',
+          legislation: 'Lei Municipal nº 7.031/1996, art. 97, IV; RDC 502/21 Art. 29, XI',
           weight: 2,
           isCritical: false,
         },
@@ -297,7 +297,7 @@ export const templateIlpiBeloHorizonteSupplement: ChecklistSupplement = {
           order: 9,
           // Federal cita CMDI ou CEDI (municipal ou estadual); BH exige especificamente o CMI de BH
           description: 'Possui comprovação de inscrição e registro de seus programas junto ao Conselho Municipal do Idoso (CMI) de Belo Horizonte.',
-          legislation: 'LM 7031/96 Art. 97, IV; RDC 502/21 Art. 8; Lei 10.741/2003 Art. 48',
+          legislation: 'Lei Municipal nº 7.031/1996, art. 97, IV; RDC 502/21 Art. 8; Lei 10.741/2003 Art. 48',
           weight: 2,
           isCritical: false,
         },
@@ -335,7 +335,7 @@ export const templateIlpiBeloHorizonteSupplement: ChecklistSupplement = {
           order: 2,
           // Res. COFEN 450/2013, 557/2017, 619/2019, 787/2025
           description: 'Procedimentos invasivos ou de maior complexidade técnica (sondagem vesical, passagem de sonda nasoentérica, aspiração de vias aéreas, curativos complexos) não são delegados a cuidadores sem habilitação de enfermagem.',
-          legislation: 'Resoluções COFEN nº 450/2013, 557/2017, 619/2019 e 787/2025',
+          legislation: 'Resolução COFEN nº 450/2013; Resolução COFEN nº 557/2017; Resolução COFEN nº 619/2019; Resolução COFEN nº 787/2025',
           weight: 10,
           isCritical: true,
         },
@@ -343,9 +343,12 @@ export const templateIlpiBeloHorizonteSupplement: ChecklistSupplement = {
           id: 'bh-enf-003',
           sectionId: 'sec-bh-enf',
           order: 3,
-          // Res. COFEN 358/2009 + 620/2019
-          description: 'O enfermeiro responsável realiza e documenta a Sistematização da Assistência de Enfermagem (SAE) e a evolução clínica individualizada para os residentes com graus de dependência II e III.',
-          legislation: 'Resolução COFEN nº 358/2009; Resolução COFEN nº 620/2019',
+          // REF-02 (05/08/2026): a Resolução COFEN 358/2009 foi REVOGADA pela
+          // Resolução COFEN 736/2024, que também substituiu o termo "SAE" por
+          // "Processo de Enfermagem". Citação e descrição atualizadas; o que se
+          // verifica em campo é o mesmo registro.
+          description: 'O enfermeiro responsável realiza e documenta o Processo de Enfermagem (antiga SAE) e a evolução clínica individualizada para os residentes com graus de dependência II e III.',
+          legislation: 'Resolução COFEN nº 736/2024; Resolução COFEN nº 620/2019',
           weight: 10,
           isCritical: true,
         },

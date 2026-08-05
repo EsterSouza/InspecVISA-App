@@ -1,6 +1,6 @@
 # Handoff único — InspecVISA
 
-**Última atualização:** 05/08/2026 (BRT), ao concluir EST-02 e adiantar a parte (b) de REF-03 ·
+**Última atualização:** 05/08/2026 (BRT), ao concluir REF-02 ·
 **Branch:** `main`, sincronizada com `origin/main` · O estado da seção 2 foi verificado em 03/08/2026,
 com as correções de 04/08 e 05/08 anotadas nas tabelas.
 
@@ -148,33 +148,34 @@ Dos 121 `item_id` distintos, **112 correspondem a itens do roteiro arquivado** e
 (provavelmente de suplemento ou de versão anterior). É essa inspeção que a Ester quer migrar para
 o roteiro novo. Ver **EST-01**.
 
-### 2.6 Referências legislativas — o problema real
+### 2.6 Referências legislativas — resolvido em 05/08/2026 (REF-01, REF-02, REF-03)
 
-| Medida | Valor |
-|---|---|
-| Registros na tabela `legislations` | **42** |
-| Referências distintas citadas nos itens dos roteiros | **457** |
-| Atos normativos distintos por trás dessas referências (aprox.) | **~170** |
-| Referências dos roteiros que existem em `legislations` | **10** |
-| Itens de checklist no banco | 917 |
-| Itens **sem** `legislation_url` | **801** (87%) |
-| Registros em `legislations` sem UF | 32 |
-| Registros em `legislations` sem segmento | 16 |
+Esta seção registrava o problema; hoje registra o estado. Os números abaixo são de 05/08/2026,
+depois do REF-02.
 
-Há uma consequência direta e silenciosa disso no produto. Em
-`src/utils/pdfGenerator.ts`, a função `drawReferencesABNT` monta a página "REFERÊNCIAS
-LEGISLATIVAS" e, no caminho automático, só inclui uma norma **se ela existir na biblioteca com
-`name` e `summary` preenchidos**:
+| Medida | Antes (03/08) | Depois (05/08) |
+|---|---|---|
+| Registros na biblioteca de legislações | 42 | **78** |
+| Atos citados pelos roteiros **vivos** | estimados em ~170 | **41** medidos |
+| Desses, presentes na biblioteca | 13 (32%) | **41 (100%)** |
+| Itens legais em código sem URL de legislação | 387 | **0**, travado por teste |
+| Registros sem UF quando a norma é regional | 3 | **0**, travado por teste |
+| Norma revogada citada como vigente | 1 (COFEN 358/2009) | **0** |
 
-```ts
-if (libEntry && libEntry.name && libEntry.summary) {
-  mentionedSet.add(b);
-}
-```
+O "~170" era estimativa manual anterior ao inventário; o número real, medido pelo REF-01 e
+corrigido pelo REF-02, é 41 atos nos roteiros vivos e 5 adicionais só em roteiros arquivados.
 
-Como só 10 dos ~170 atos citados estão na biblioteca, **a página de referências do relatório
-descarta em silêncio a grande maioria das normas efetivamente aplicadas**. O relatório não avisa
-que omitiu nada. Ver REF-01, REF-02 e REF-03.
+**A fonte de verdade passou a ser o código:** [`src/data/legislationLibrary.ts`](../src/data/legislationLibrary.ts).
+O item do roteiro não carrega mais a URL — ela é resolvida pela chave canônica contra a biblioteca
+(`legislationUrlForItem`, em `src/utils/legislationRefs.ts`). `checklist_items.legislation_url`
+continua existindo como override manual. A evidência de vigência de cada ato está em
+[`docs/referencias/biblioteca.md`](referencias/biblioteca.md).
+
+**A omissão silenciosa do relatório foi corrigida no REF-03** (05/08): `drawReferencesABNT` não
+descarta mais a norma que não tem verbete na biblioteca. O REF-02 removeu, além disso, uma cópia
+defasada de `extractBaseLegislation` que vivia dentro de `pdfGenerator.ts` e nunca recebeu as
+correções do REF-01 — era ela que fazia a página de referências listar a mesma lei municipal cinco
+vezes, uma por artigo citado.
 
 ---
 
@@ -212,7 +213,7 @@ que omitiu nada. Ver REF-01, REF-02 e REF-03.
 | **EST-01** | Migrar respostas da inspeção em andamento | Opus 5 | alto | — | ✅ **concluído 03/08** |
 | **EST-02** | Verificar suplemento RJ de estética | Sonnet 5 | baixo | — | ✅ **concluído 05/08** |
 | **REF-01** | Catalogar os atos citados | Haiku 4.5 | médio | — | ✅ **concluído 05/08** |
-| **REF-02** | Sanear a biblioteca e ligá-la aos roteiros | Opus 5 | alto | REF-01 (concluído) | ⬜ pendente |
+| **REF-02** | Sanear a biblioteca e ligá-la aos roteiros | Opus 5 | alto | REF-01 (concluído) | ✅ **código concluído 05/08** · carga em produção aguarda autorização |
 | **REF-03** | Fontes consultadas e links no relatório | Sonnet 5 | médio | REF-02 (só para enriquecer, não bloqueia) | ✅ **concluído 05/08** |
 | **PROD-01** | Aviso de pagamento quebrado no portal | Opus 5 | médio | — | ✅ **concluído 04/08** |
 | **PROD-02** | Auditoria do portal não grava nada | Opus 5 | baixo | — | ✅ **concluído 04/08** |
@@ -228,18 +229,18 @@ que omitiu nada. Ver REF-01, REF-02 e REF-03.
 | **DEBT-02** | Dívida de lint | Sonnet 5 | médio | — | ⬜ pendente |
 | **DEBT-03** | Pontas soltas do repositório | Haiku 4.5 | baixo | — | ✅ **concluído 05/08** |
 
-Ordem sugerida: **REF-02** agora que o inventário do REF-01 existe, e a partir daí a onda do Portal 360.
-(INFRA-01, INFRA-02, EST-01, EST-02, PROD-01, PROD-02, PROD-03, REF-01, REF-03 e DEBT-03 já saíram da
-fila.)
+Ordem sugerida: aplicar a carga do **REF-02** em produção (migration + backfill, ambos aguardando
+autorização) e a partir daí a onda do Portal 360. (INFRA-01, INFRA-02, EST-01, EST-02, PROD-01,
+PROD-02, PROD-03, REF-01, REF-02, REF-03 e DEBT-03 já saíram da fila.)
 
 Cards P360-001 a P360-007 foram concluídos e não aparecem aqui.
 
 ## 4.1 Divisão por modelo
 
-São **9 cards pendentes** (EST-02, REF-03, DEBT-03 e REF-01 concluídos em 05/08). A divisão abaixo é
+São **8 cards pendentes** (EST-02, REF-01, REF-02, REF-03 e DEBT-03 concluídos em 05/08). A divisão abaixo é
 o critério de despacho: abra a sessão com o modelo indicado e cole o card correspondente.
 
-### Opus 5 — 5 cards
+### Opus 5 — 4 cards
 
 Tudo que toca **banco, segurança ou decisão normativa**. O erro aqui é caro e silencioso: uma RPC
 sem grant correto quebra só para quem está logado, uma norma revogada citada como vigente vira
@@ -247,7 +248,6 @@ laudo errado, e um mapeamento de item malfeito reescreve a inspeção de uma cli
 
 | Card | Por que Opus 5 |
 |---|---|
-| **REF-02** | Verificação de vigência de ~170 atos e carga na biblioteca. Norma revogada cadastrada como vigente é erro que sai no relatório. |
 | **P360-010** | RLS, projeção de dados sanitários, isolamento entre tenants. |
 | **P360-011** | Storage privado, URL assinada, upload autenticado por token. |
 | **P360-012** | Tabelas novas tenant-scoped, rate limit, permissão por papel. |
@@ -279,9 +279,10 @@ dois que existiam, foram concluídos em 05/08.
 Três pontos de decisão que nenhum modelo resolve sozinho, e que os cards marcam como parada
 obrigatória:
 
-1. **REF-02** — acordar a meta de cobertura da biblioteca.
+Hoje não há nenhum. A parada do REF-02 — acordar a meta de cobertura da biblioteca — foi cumprida em
+05/08/2026: a Ester escolheu "100% dos roteiros vivos" e a biblioteca como fonte única de URL.
 
-EST-01 e PROD-01 já passaram por essa parada: o mapa de migração foi aprovado item a item em
+EST-01 e PROD-01 já haviam passado por essa parada: o mapa de migração foi aprovado item a item em
 03/08/2026 e, em 04/08/2026, a Ester decidiu manter o aviso de pagamento e criar a função.
 
 E a regra que vale para todos: **nada é aplicado em produção sem autorização explícita dela.**
@@ -743,6 +744,76 @@ faz o relatório omitir referências (seção 2.6).
 ### Fora de escopo
 
 Reescrever o texto dos itens dos roteiros. Aqui se mexe em referência, não em pergunta.
+
+### Resultado — 05/08/2026 · concluído no código; **a carga em produção aguarda autorização**
+
+**Meta acordada com a Ester nesta sessão:** cobrir 100% dos atos citados pelos roteiros vivos
+(opção recomendada entre três, decidida com o inventário em mãos). Os atos citados apenas por
+roteiro arquivado ficaram registrados e fora da carga.
+
+**O número real é menor do que a seção 2.6 estimava.** Não são ~170 atos: são **41** nos 6 roteiros
+vivos e nos 4 suplementos regionais, mais 5 que só aparecem em roteiro arquivado. A biblioteca
+cobria 13 desses 41; hoje cobre 41 de 41.
+
+**A entrega:**
+
+1. **`src/data/legislationLibrary.ts` (novo)** — 78 entradas, cada uma com ementa, URL oficial, UF,
+   segmentos, situação de vigência e data da verificação. `legislationService.ts` passou a derivar
+   dela o fallback local, em vez de manter a lista embutida.
+2. **Ligação por chave canônica.** `resolveLegislationUrl` / `legislationUrlForItem` em
+   `legislationRefs.ts`. O item cita a norma em texto livre e herda a URL da biblioteca. Com isso,
+   os mapas `URLS` duplicados dentro dos roteiros de estética (99 + 19 + 1 referências) foram
+   removidos — a divergência entre o `datalegis` dos roteiros e o `bvsms` da biblioteca acabou.
+3. **Migration `20260805195530_ref02_legislation_library.sql`** — 41 updates e 37 inserts, gerada
+   por `scripts/ref02-build-migration.ts` a partir da biblioteca. Casa por chave canônica, não por
+   nome: `"Decreto Nº 57501 DE 30/01/2026"` e `"Decreto Rio nº 57.501/2026"` são o mesmo ato, e um
+   upsert por nome criaria duplicata. Não apaga nada — a `LegislationsManager` continua editável e
+   a linha "Constituição da República Federativa do Brasil", que ninguém cita, fica intacta.
+4. **Backfill `scripts/ref02-backfill-item-urls.mjs`** — simulação por padrão, `--apply` para
+   gravar. Reusa a mesma `resolveLegislationUrl` do app em vez de reimplementar a normalização em
+   PL/pgSQL; precisa de `SUPABASE_SERVICE_ROLE_KEY` no ambiente.
+5. **Testes** — `src/__tests__/data/legislationLibrary.test.ts` (7 casos) trava: sem colisão de
+   chave, toda entrada com ementa/URL/data, norma regional com UF, **todo item legal resolve URL**,
+   todo ato citado está na biblioteca, e override do item igual ao da biblioteca. Mais 5 casos
+   novos em `legislationRefs.test.ts` e 1 de regressão em `pdfGenerator.test.ts`.
+
+**Três achados que valem mais que a carga em si:**
+
+- **A Resolução COFEN nº 358/2009 está revogada** pela 736/2024 e era citada como vigente no item
+  `bh-enf-003` do suplemento de Belo Horizonte — um roteiro em uso. Citação e descrição corrigidas
+  (a 736/2024 também substituiu "SAE" por "Processo de Enfermagem").
+- **`pdfGenerator.ts` tinha a própria cópia de `extractBaseLegislation`**, sem as correções do
+  REF-01 nem as do REF-02. A página "REFERÊNCIAS LEGISLATIVAS" de uma inspeção de ILPI em Senador
+  Canedo listava a Lei Municipal 1.812/2014 cinco vezes, uma por artigo. A cópia foi removida e há
+  teste de regressão. O casamento com a biblioteca, que era por substring de nome (`"RDC 15/2012"`
+  casava com `"RDC 156/2006"`), passou a ser por chave canônica.
+- **Mais quatro bugs de fragmentação da chave canônica**, o resto do que o REF-01 sinalizou:
+  número com ponto de milhar (`"RE Anvisa nº 2.605/2006"` virava o ato número 2), tipo `RE` não
+  reconhecido, ano de dois dígitos (`"344/98"` ≠ `"344/1998"`), zero à esquerda (`"02/2024"` ≠
+  `"2/2024"`) e `"Art. 21"` solto virando um ato fantasma. O inventário do REF-01 cai de 57 para 52
+  chaves quando regerado.
+
+**Duas mudanças de referência que pedem o aval da Ester** (ambas seguem a decisão dela no `est-002`,
+de 03/08 — escopo declarado incompatível é irregularidade sanitária, não cadastral):
+
+- `go-003` (CNPJ/CNAE compatível com ILPI) citava *"Legislação Tributária Federal"*, que não é ato
+  normativo. Era o único item legal do app sem base sanitária. Reancorado nas mesmas normas do
+  `go-001`: Art. 8º da RDC 502/2021 e Art. 276 da Lei Municipal 1.812/2014.
+- No suplemento de BH, as abreviações `"LM 7031/96"` e `"PM 012/15"` foram escritas por extenso
+  (`Lei Municipal nº 7.031/1996`, `Portaria SMS nº 12/2015`) e a citação em bloco
+  `"Resoluções COFEN nº 450/2013, 557/2017, 619/2019 e 787/2025"` foi separada por `;`. Sem isso a
+  citação não casa com a biblioteca. Nenhuma pergunta de item mudou.
+
+**Evidência:** `npm test` — 21 arquivos, **166 testes**, todos passando (eram 152 no fim do REF-01).
+`npm run build` — passa.
+
+**O que falta, e é só produção:** aplicar a migration e rodar o backfill. Nenhuma escrita foi feita
+no Supabase durante este card — todas as consultas foram `select`.
+
+**Deliberadamente fora:** regerar `docs/referencias/inventario.csv`, que exige dump de produção — a
+`SUPABASE_SERVICE_ROLE_KEY` de `.env.vercel.production.local` vem vazia do Vercel. O delta exato
+está calculado em `docs/referencias/biblioteca.md`. Também fora: reconciliar os 6 itens que o
+roteiro ILPI Base Federal tem no banco (103) e não no código (97) — é card próprio.
 
 ---
 

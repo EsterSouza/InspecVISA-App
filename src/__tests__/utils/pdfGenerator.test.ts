@@ -130,3 +130,55 @@ describe('REF-03 - drawConsultedSources (via generatePDF)', () => {
     expect(capturedTexts.some(t => t.includes('RDC n. 63'))).toBe(true);
   });
 });
+
+describe('REF-02 - referências legislativas do relatório', () => {
+  beforeEach(() => {
+    capturedTexts.length = 0;
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  // Até o REF-02, pdfGenerator.ts tinha uma cópia própria e defasada de
+  // extractBaseLegislation: sem o qualificador "Municipal" corrigido no REF-01,
+  // cada artigo citado virava uma referência diferente. Uma inspeção de ILPI em
+  // Senador Canedo listava a mesma lei cinco vezes na página de referências.
+  const sectionsMunicipais: Section[] = [
+    {
+      id: 's1',
+      title: 'Habilitação',
+      order: 1,
+      items: [
+        { id: 'm-1', sectionId: 's1', order: 1, description: 'Possui alvará?', legislation: 'Art. 276, Lei Municipal 1.812/2014', weight: 10, isCritical: true },
+        { id: 'm-2', sectionId: 's1', order: 2, description: 'Possui RT?', legislation: 'Art. 277, Lei Municipal 1.812/2014', weight: 10, isCritical: true },
+        { id: 'm-3', sectionId: 's1', order: 3, description: 'Possui registro?', legislation: 'Art. 289, Lei Municipal 1.812/2014', weight: 10, isCritical: true },
+      ],
+    },
+  ];
+
+  test('artigos diferentes da mesma lei municipal viram uma única referência', async () => {
+    const respostasMunicipais: InspectionResponse[] = sectionsMunicipais[0].items.map((item, i) => ({
+      ...responses[0],
+      id: `resp-m-${i}`,
+      itemId: item.id,
+    }));
+    const score = calculateScore(respostasMunicipais, sectionsMunicipais);
+
+    await generatePDF(
+      inspection,
+      respostasMunicipais,
+      { ...template, sections: sectionsMunicipais },
+      score,
+      settings,
+      []
+    );
+
+    const referencias = capturedTexts.filter(t => t.includes('1.812') || t.includes('1812'));
+    expect(referencias).toHaveLength(1);
+    expect(capturedTexts).not.toContain('Art. 276');
+  });
+});

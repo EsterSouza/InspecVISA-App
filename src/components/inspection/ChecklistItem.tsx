@@ -7,6 +7,7 @@ import { LinkCapture } from './LinkCapture';
 import type { ChecklistItem as ItemType, InspectionResponse, InspectionPhoto } from '../../types';
 import type { PreviousNCContext } from '../../utils/actionPlanContext';
 import { getFieldSuggestions, type FieldSuggestions } from '../../utils/textSuggestions';
+import { legislationUrlForItem } from '../../utils/legislationRefs';
 import { VoiceDictationButton } from './VoiceDictationButton';
 
 function isInlineImage(value?: string | null) {
@@ -168,8 +169,8 @@ export const ChecklistItem = memo(function ChecklistItem({
             {item.legislation && (
               <span className="inline-flex items-center text-xs font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
                 {item.legislation}
-                {item.legislationUrl && (
-                  <a href={item.legislationUrl} target="_blank" rel="noreferrer" className="ml-1 text-primary-600 hover:text-primary-800">
+                {legislationUrlForItem(item) && (
+                  <a href={legislationUrlForItem(item)} target="_blank" rel="noreferrer" className="ml-1 text-primary-600 hover:text-primary-800">
                     <ExternalLink className="h-3 w-3" />
                   </a>
                 )}

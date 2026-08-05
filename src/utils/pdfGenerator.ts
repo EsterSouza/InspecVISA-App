@@ -6,72 +6,11 @@ import { classificationLabel, getLatestResponsesByItem, calculateAreaScores } fr
 import { formatDate } from './imageUtils';
 import { calculateILPIStaffing } from './ilpiStaffing';
 import { isRioState } from './state';
+// REF-02: pdfGenerator mantinha uma cópia própria (e defasada) de
+// extractBaseLegislation — sem os qualificadores do REF-01 nem as correções de
+// número/ano do REF-02. Passa a usar a mesma implementação do resto do app.
+import { extractBaseLegislation, canonicalLegislationKey } from './legislationRefs';
 
-/**
- * Extrai apenas a legislação BASE de um texto bruto de legislação,
- * descartando sub-referências como alíneas, incisos, artigos e parágrafos.
- * Ex: "RDC 216/2004, alínea a, b" → "RDC 216/2004"
- *     "Portaria 2619/2011; art. 5º, inciso I" → "Portaria 2619/2011"
- */
-export function extractBaseLegislation(raw: string): string[] {
-  const bases = new Set<string>();
-
-  // Split by semicolons first (hard separators between laws)
-  const bySemicolon = raw.split(';');
-
-  for (const segment of bySemicolon) {
-    const s = segment.trim();
-    if (!s) continue;
-
-    // Patterns that identify a legislation base — capture up to date/number only
-    const patterns = [
-      // RDC / IN / RE / RN + number + optional year
-      /\b(?:RDC|IN|RE|RN|RT)\s*(?:ANVISA\s*)?(?:n[oº.]?\s*)?(\d+)(?:[-/]\d{4})?/i,
-      // Portaria + number + optional year
-      /\bPortaria\s+(?:(?:GM|SVS|MS|CVS|SES|SMS)[/\s]*)?(?:n[oº.]?\s*)?(\d[\d.]*(?:[-/]\d{4})?)/i,
-      // Lei Federal/Estadual
-      /\bLei\s+(?:Federal\s+|Estadual\s+|Complementar\s+)?(?:n[oº.]?\s*)?([\d.]+(?:[-/]\d{4})?)/i,
-      // Decreto
-      /\bDecreto(?:-Lei)?\s+(?:n[oº.]?\s*)?([\d.]+(?:[-/]\d{4})?)/i,
-      // NR (Norma Regulamentadora)
-      /\bNR[.\s-]?(\d+)/i,
-      // ABNT NBR
-      /\bABNT\s+NBR\s+(\d+)/i,
-      // Instrução Normativa
-      /\bInstru[cç][aã]o\s+Normativa\s+(?:n[oº.]?\s*)?(\d+(?:[-/]\d{4})?)/i,
-      // Nota Técnica
-      /\bNota\s+T[eé]cnica\b[^;,]*/i,
-      // Resolução genérica
-      /\bResolu[cç][aã]o\s+(?:n[oº.]?\s*)?([\d.]+(?:[-/]\d{4})?)/i,
-    ];
-
-    let matched = false;
-    for (const pattern of patterns) {
-      const m = s.match(pattern);
-      if (m) {
-        // Reconstruct a clean base from the full match (before any comma/alínea)
-        const fullMatch = m[0].trim();
-        // Remove trailing sub-clause indicators
-        const clean = fullMatch
-          .replace(/[,\s]+(al[íi]nea|inciso|artigo|art\.|§|parágrafo|item|subitem|cap[íi]tulo).*/i, '')
-          .trim();
-        if (clean) bases.add(clean);
-        matched = true;
-        break;
-      }
-    }
-
-    // If no pattern matched, keep the original segment (but strip alíneas from it)
-    if (!matched && s.length > 3) {
-      const clean = s
-        .replace(/[,\s]+(al[íi]nea|inciso|artigo|art\.|§|parágrafo|item|subitem).*/i, '')
-        .trim();
-      if (clean) bases.add(clean);
-    }
-  }
-
-  return Array.from(bases);
-}
 
 function getPdfImageFormat(dataUrl: string) {
   if (/^data:image\/png/i.test(dataUrl)) return 'PNG';
@@ -1381,12 +1320,12 @@ function drawReferencesABNT(
       y = margin;
     }
 
-    // Try to find in the library for enriched info
-    const libraryMatch = allLegislations.find(leg => {
-      const legUpper = leg.name.toUpperCase();
-      const mentionUpper = mention.toUpperCase();
-      return legUpper.includes(mentionUpper) || mentionUpper.includes(legUpper);
-    });
+    // REF-02: o casamento com a biblioteca era por substring do nome, o que
+    // errava nos dois sentidos — "RDC 15/2012" casava com "RDC 156/2006" e
+    // "RDC 502/2021" não casava com "RDC ANVISA nº 502/2021". Agora é pela mesma
+    // chave canônica que a biblioteca usa.
+    const mentionKey = canonicalLegislationKey(mention);
+    const libraryMatch = allLegislations.find(leg => canonicalLegislationKey(leg.name) === mentionKey);
 
     const abntRef = formatABNT(mention, libraryMatch);
 

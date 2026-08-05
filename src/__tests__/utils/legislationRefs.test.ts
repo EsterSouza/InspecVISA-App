@@ -43,6 +43,47 @@ describe('legislationRefs — regressão do bug achado no REF-01', () => {
     expect(canonicalLegislationKey(extractBaseLegislation('Lei nº 6.360/1976')[0])).toBe('LEI|6360|1976');
   });
 
+  test('número com ponto de milhar não é cortado — "RE Anvisa nº 2.605/2006"', () => {
+    // Antes do REF-02 o padrão de RDC/RE só aceitava \d+, então "2.605" virava "2"
+    // e a mesma resolução aparecia como dois atos diferentes no inventário.
+    const comPonto = extractBaseLegislation('RE Anvisa nº 2.605/2006');
+    expect(comPonto).toEqual(['RE Anvisa nº 2.605/2006']);
+    expect(canonicalLegislationKey(comPonto[0])).toBe('RE|2605|2006');
+    expect(canonicalLegislationKey(extractBaseLegislation('RE 2605/2006')[0])).toBe('RE|2605|2006');
+  });
+
+  test('ano de dois dígitos colado ao número resolve para o ano cheio', () => {
+    expect(canonicalLegislationKey(extractBaseLegislation('Portaria SVS/MS nº 344/98')[0])).toBe('PORTARIA|344|1998');
+    expect(canonicalLegislationKey(extractBaseLegislation('Portaria SVS/MS 344/1998')[0])).toBe('PORTARIA|344|1998');
+    expect(canonicalLegislationKey(extractBaseLegislation('Decreto-Rio 45585/18')[0])).toBe('DECRETO|45585|2018');
+    expect(canonicalLegislationKey(extractBaseLegislation('Portaria 2616/98')[0])).toBe('PORTARIA|2616|1998');
+  });
+
+  test('não confunde sufixo de norma sem ano com ano de dois dígitos', () => {
+    expect(canonicalLegislationKey(extractBaseLegislation('NR-32')[0])).toBe('NR|32|');
+    expect(canonicalLegislationKey(extractBaseLegislation('NR 24')[0])).toBe('NR|24|');
+    expect(canonicalLegislationKey('CBO 5162-10 - Cuidador de Idosos')).toBe('CBO|5162|');
+  });
+
+  test('zeros à esquerda não criam ato novo', () => {
+    expect(canonicalLegislationKey('Nota Técnica 02/2024/ANVISA'))
+      .toBe(canonicalLegislationKey('Nota Técnica nº 2/2024/SEI/GGTES/DIRE3/ANVISA'));
+    expect(canonicalLegislationKey('Portaria IVISA-RIO 002/2020')).toBe('PORTARIA|2|2020');
+  });
+
+  test('artigo solto não vira ato normativo', () => {
+    // "Art. 21; Art. 24, II da RDC 502/2021" chegava a produzir a base "Art. 21",
+    // que o inventário do REF-01 contava como um ato (chave OUTRO|21|).
+    expect(extractBaseLegislation('Art. 21; Art. 24, II da RDC 502/2021')).toEqual(['RDC 502/2021']);
+    expect(extractBaseLegislation('Art. 21; Art. 51; Art. 46, IV da RDC 502/2021')).toEqual(['RDC 502/2021']);
+    expect(extractBaseLegislation('Art. 21')).toEqual([]);
+  });
+
+  test('não engole texto sem forma normativa que não seja artigo solto', () => {
+    expect(extractBaseLegislation('Boas Práticas; manual do fabricante'))
+      .toEqual(['Boas Práticas', 'manual do fabricante']);
+  });
+
   test('canonicalLegislationKey ancora a busca do número no tipo reconhecido mesmo sem passar por extractBaseLegislation', () => {
     // Defesa em profundidade: mesmo um texto bruto, não limpo por extractBaseLegislation,
     // não pode ter um número de artigo anterior ao tipo confundido com o número do ato.

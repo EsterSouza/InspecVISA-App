@@ -42,3 +42,8 @@ Inspecao_REDE_SÊNIOR_UNIDADE_COPACABANA_15-05-2026.pdf
 # Estoque Regulatorio da Anvisa (fonte de consulta dos Cards 1-4, binario grande)
 planilha regulat*anvisa*.xlsx
 planilha regulat*ANVISA*.xlsx
+
+# Dumps de produção usados por scripts/ref01-build-inventory.ts (REF-01/REF-02).
+# São snapshot, não fonte de verdade — ver o cabeçalho de scripts/ref02-dump.mjs.
+scripts/ref01-raw.json
+scripts/ref01-legislations.json

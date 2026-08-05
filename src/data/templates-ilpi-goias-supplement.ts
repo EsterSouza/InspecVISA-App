@@ -446,7 +446,7 @@ export const templateIlpiGoiasSuplement = {
           sectionId: 'sec-fed-12',
           order: 403,
           description: 'Cada profissional de saúde registra sua própria evolução no prontuário multiprofissional do residente, com assinatura, número do conselho e data, comprovando a atuação interdisciplinar efetiva.',
-          legislation: 'Art. 33 da RDC 502/2021; COFEN nº 736/2024 (Processo de Enfermagem); Roteiro UTPSS/MPGO — Prontuário',
+          legislation: 'Art. 33 da RDC 502/2021; Resolução COFEN nº 736/2024; Roteiro UTPSS/MPGO — Prontuário',
           weight: 10,
           isCritical: true,
         },

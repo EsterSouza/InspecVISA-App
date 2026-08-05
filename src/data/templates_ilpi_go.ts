@@ -34,7 +34,12 @@ export const templateIlpiGoias: ChecklistTemplate = {
           sectionId: 'sec-go-01',
           order: 3,
           description: 'Apresenta CNPJ ativo e o CNAE declarado é compatível com a atividade de ILPI.',
-          legislation: 'Legislação Tributária Federal',
+          // REF-02 (05/08/2026): citava "Legislação Tributária Federal", que não é ato
+          // normativo e deixava o único item legal do app sem base sanitária. Reancorado
+          // nas mesmas normas do go-001, seguindo a decisão da Ester no est-002 (03/08):
+          // escopo declarado incompatível com o serviço prestado é irregularidade
+          // sanitária, não divergência cadastral.
+          legislation: 'Art. 8º, RDC 502/2021; Art. 276, Lei Municipal 1.812/2014',
           weight: 10,
           isCritical: true,
         },
