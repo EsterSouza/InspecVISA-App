@@ -1,6 +1,13 @@
--- SUPERSEDIDA e nunca aplicada em produção. Foi escrita em junho/2026, ficou fora do banco por
--- meses (PROD-01 e PROD-02) e foi substituída por `20260805010139_client_portal_audit_and_payment_ack.sql`,
--- que é o que está em produção desde 04/08/2026. Mantida aqui só como histórico — não aplicar.
+-- PROD-01 / PROD-02 — auditoria do portal do cliente e aviso de pagamento.
+--
+-- Substitui `20260613125641_client_portal_audit.sql`, que foi escrita em junho/2026 e nunca chegou
+-- a ser aplicada em produção. O conteúdo é o mesmo, com o endurecimento que virou padrão depois:
+-- `set search_path = ''` com todos os identificadores qualificados, grants explícitos de tabela e
+-- trilha somente-leitura para quem está logado. Idempotente: pode rodar sobre o banco que já tenha
+-- recebido a versão de junho.
+--
+-- Em produção foi aplicada em duas etapas: `20260805010139` (este arquivo) e `20260805010218`, que
+-- corrigiu os grants de tabela. Este arquivo já traz o resultado final das duas.
 
 create table if not exists public.client_portal_audit_events (
   id uuid primary key default gen_random_uuid(),
@@ -14,6 +21,10 @@ create table if not exists public.client_portal_audit_events (
   user_agent text,
   created_at timestamptz not null default now()
 );
+
+comment on table public.client_portal_audit_events is
+  'Trilha de auditoria do portal do cliente. Escrita apenas pelas funções security definer '
+  '`client_portal_audit_event` e `client_portal_payment_acknowledge`; para o staff é somente leitura.';
 
 create index if not exists idx_client_portal_audit_events_tenant_created
   on public.client_portal_audit_events (tenant_id, created_at desc);
@@ -29,6 +40,7 @@ create index if not exists idx_client_portal_audit_events_request_created
 
 alter table public.client_portal_audit_events enable row level security;
 
+-- A trilha é append-only: só as funções abaixo escrevem, e elas rodam como definer.
 drop policy if exists "staff read portal audit events" on public.client_portal_audit_events;
 create policy "staff read portal audit events"
   on public.client_portal_audit_events for select to authenticated
@@ -38,24 +50,15 @@ create policy "staff read portal audit events"
   );
 
 drop policy if exists "staff update portal audit events" on public.client_portal_audit_events;
-create policy "staff update portal audit events"
-  on public.client_portal_audit_events for update to authenticated
-  using (
-    tenant_id in (select private.my_tenant_ids())
-    and private.is_tenant_staff(tenant_id)
-  )
-  with check (
-    tenant_id in (select private.my_tenant_ids())
-    and private.is_tenant_staff(tenant_id)
-  );
-
 drop policy if exists "staff delete portal audit events" on public.client_portal_audit_events;
-create policy "staff delete portal audit events"
-  on public.client_portal_audit_events for delete to authenticated
-  using (
-    tenant_id in (select private.my_tenant_ids())
-    and private.is_tenant_staff(tenant_id)
-  );
+
+-- O Supabase concede `all` por padrão em tabela nova do schema public para `anon` e
+-- `authenticated`. A RLS já barraria a escrita, mas o privilégio precisa ser revogado explicitamente
+-- para a trilha ser append-only também no nível de tabela.
+revoke all on table public.client_portal_audit_events from public;
+revoke all on table public.client_portal_audit_events from anon;
+revoke all on table public.client_portal_audit_events from authenticated;
+grant select on table public.client_portal_audit_events to authenticated;
 
 create or replace function public.client_portal_audit_event(
   p_token uuid,
@@ -68,7 +71,7 @@ create or replace function public.client_portal_audit_event(
 returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 declare
   v_account public.client_portal_accounts%rowtype;
@@ -177,6 +180,8 @@ begin
 end;
 $$;
 
+-- O app usa um cliente Supabase só: com sessão de staff no navegador a mesma RPC pública chega
+-- como `authenticated`. Sem os dois grants, o portal quebra justamente para quem está logado.
 revoke execute on function public.client_portal_audit_event(uuid, text, jsonb, uuid, uuid, text) from public;
 grant execute on function public.client_portal_audit_event(uuid, text, jsonb, uuid, uuid, text) to anon;
 grant execute on function public.client_portal_audit_event(uuid, text, jsonb, uuid, uuid, text) to authenticated;
@@ -189,7 +194,7 @@ create or replace function public.client_portal_payment_acknowledge(
 returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 declare
   v_account public.client_portal_accounts%rowtype;

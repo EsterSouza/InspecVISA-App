@@ -1,6 +1,8 @@
 # Handoff único — InspecVISA
 
-**Data:** 03/08/2026 (BRT) · **Branch:** `main` em `e6518b7` · **`origin/main` sincronizado**
+**Última atualização:** 04/08/2026 (BRT), ao concluir PROD-01 · **Branch:** `main`, sincronizada com
+`origin/main` · O estado da seção 2 foi verificado em 03/08/2026, com as correções de 04/08 anotadas
+nas tabelas.
 
 Este documento substitui e torna obsoletos:
 
@@ -97,9 +99,9 @@ Confirmado presente no banco:
 | `client_portal_settings` | ✅ existe |
 | `appointment_blocks` | ✅ existe |
 | `client_portal_invoices` | ✅ existe |
-| `client_portal_payment_acknowledge` (função) | ❌ **não existe** — ver PROD-01 |
-| `client_portal_audit_event` (função) | ❌ **não existe** — ver PROD-02 |
-| `client_portal_audit_events` (tabela) | ❌ **não existe** — ver PROD-02 |
+| `client_portal_payment_acknowledge` (função) | ✅ existe desde 04/08/2026 — PROD-01 |
+| `client_portal_audit_event` (função) | ✅ existe desde 04/08/2026 — PROD-01 |
+| `client_portal_audit_events` (tabela) | ✅ existe desde 04/08/2026 — PROD-01 |
 
 A migration `checklist_items_requirement_type` consta **duas vezes** no ledger remoto, sob as
 versões `20260803205941` e `20260803221936`. O schema está correto; o ledger é que está sujo.
@@ -209,8 +211,8 @@ que omitiu nada. Ver REF-01, REF-02 e REF-03.
 | **REF-01** | Catalogar os ~170 atos citados | Haiku 4.5 | médio | — | ⬜ pendente |
 | **REF-02** | Sanear a biblioteca e ligá-la aos roteiros | Opus 5 | alto | REF-01 | ⬜ pendente |
 | **REF-03** | Fontes consultadas e links no relatório | Sonnet 5 | médio | REF-02 | ⬜ pendente |
-| **PROD-01** | Aviso de pagamento quebrado no portal | Opus 5 | médio | — | ⬜ pendente |
-| **PROD-02** | Auditoria do portal não grava nada | Opus 5 | médio | INFRA-02 | ⬜ pendente |
+| **PROD-01** | Aviso de pagamento quebrado no portal | Opus 5 | médio | — | ✅ **concluído 04/08** |
+| **PROD-02** | Auditoria do portal não grava nada | Opus 5 | baixo | — | 🟨 **parcial** — falta observabilidade |
 | **P360-008** | Detalhe, notificações e calendário | Sonnet 5 | alto | — | ⬜ pendente |
 | **P360-009** | Início do portal por próximas ações | Sonnet 5 | alto | P360-008 | ⬜ pendente |
 | **P360-010** | Projeção segura do plano de ação | Opus 5 | alto | — | ⬜ pendente |
@@ -219,21 +221,21 @@ que omitiu nada. Ver REF-01, REF-02 e REF-03.
 | **P360-013** | Painel operacional das consultoras | Sonnet 5 | alto | 010, 011, 012 | ⬜ pendente |
 | **P360-014** | Acessibilidade e responsividade | Sonnet 5 | médio | superfícies estáveis | ⬜ pendente |
 | **P360-015** | E2E, rollout e prova de produção | Opus 5 | alto | onda a publicar | ⬜ pendente |
-| **DEBT-01** | Margem pública de 4 h por tipo | Sonnet 5 | médio | — | ⬜ pendente |
+| **DEBT-01** | Margem pública de 4 h por tipo | Sonnet 5 | médio | — | ✅ **concluído 04/08** |
 | **DEBT-02** | Dívida de lint | Sonnet 5 | médio | — | ⬜ pendente |
 | **DEBT-03** | Pontas soltas do repositório | Haiku 4.5 | baixo | — | ⬜ pendente |
 
-Ordem sugerida: **EST-01 → PROD-01 → REF-01 → REF-02 → REF-03 → PROD-02 → INFRA-02**, e a partir
-daí a onda do Portal 360. (INFRA-01 já saiu da fila.)
+Ordem sugerida: **REF-01 → REF-02 → REF-03 → PROD-02 → INFRA-02**, e a partir daí a onda do
+Portal 360. (INFRA-01, EST-01 e PROD-01 já saíram da fila.)
 
 Cards P360-001 a P360-007 foram concluídos e não aparecem aqui.
 
 ## 4.1 Divisão por modelo
 
-São **19 cards pendentes**. A divisão abaixo é o critério de despacho: abra a sessão com o modelo
+São **16 cards pendentes**. A divisão abaixo é o critério de despacho: abra a sessão com o modelo
 indicado e cole o card correspondente.
 
-### Opus 5 — 9 cards
+### Opus 5 — 7 cards
 
 Tudo que toca **banco, segurança ou decisão normativa**. O erro aqui é caro e silencioso: uma RPC
 sem grant correto quebra só para quem está logado, uma norma revogada citada como vigente vira
@@ -241,17 +243,15 @@ laudo errado, e um mapeamento de item malfeito reescreve a inspeção de uma cli
 
 | Card | Por que Opus 5 |
 |---|---|
-| **EST-01** | Mapeamento semântico de 112→113 itens sem apoio textual, com julgamento sanitário e escrita em dados reais de cliente. |
 | **REF-02** | Verificação de vigência de ~170 atos e carga na biblioteca. Norma revogada cadastrada como vigente é erro que sai no relatório. |
-| **PROD-01** | Migration nova, `security definer`, grants para `anon` **e** `authenticated`. |
-| **PROD-02** | Migration de junho aplicada num schema que mudou desde então; risco de conflito com tabelas do portal. |
+| **PROD-02** | O que sobrou é tornar a falha de auditoria observável no frontend; a migration já foi aplicada em PROD-01. |
 | **INFRA-02** | Auditoria de ledger contra schema real, decidindo caso a caso o que reaplicar. Reaplicar em massa reverteria comportamento em produção. |
 | **P360-010** | RLS, projeção de dados sanitários, isolamento entre tenants. |
 | **P360-011** | Storage privado, URL assinada, upload autenticado por token. |
 | **P360-012** | Tabelas novas tenant-scoped, rate limit, permissão por papel. |
 | **P360-015** | Revisão final de segurança e prova de produção. |
 
-### Sonnet 5 — 8 cards
+### Sonnet 5 — 7 cards
 
 **Feature de UI e refatoração com critério de aceite objetivo.** Escopo fechado, o resultado se vê
 na tela e o teste diz se está certo.
@@ -264,7 +264,6 @@ na tela e o teste diz se está certo.
 | **P360-009** | Decomposição de página e regra de prioridade determinística. |
 | **P360-013** | Painel agregado sobre estruturas que os cards anteriores já terão criado. |
 | **P360-014** | Acessibilidade e responsividade — critério objetivo e verificável por ferramenta. |
-| **DEBT-01** | Mudança contida numa função SQL que já tem suíte de testes cobrindo margem. |
 | **DEBT-02** | Fatiar `any` por diretório, um PR por fatia, sem mudar comportamento. |
 
 > **P360-015 é a exceção da regra.** Os testes E2E podem ser escritos por Sonnet 5, mas a revisão
@@ -284,9 +283,10 @@ na tela e o teste diz se está certo.
 Três pontos de decisão que nenhum modelo resolve sozinho, e que os cards marcam como parada
 obrigatória:
 
-1. **EST-01** — aprovar o mapa de migração item a item antes da execução.
-2. **PROD-01** — decidir se o botão "avisar pagamento" ganha função ou é removido.
-3. **REF-02** — acordar a meta de cobertura da biblioteca.
+1. **REF-02** — acordar a meta de cobertura da biblioteca.
+
+EST-01 e PROD-01 já passaram por essa parada: o mapa de migração foi aprovado item a item em
+03/08/2026 e, em 04/08/2026, a Ester decidiu manter o aviso de pagamento e criar a função.
 
 E a regra que vale para todos: **nada é aplicado em produção sem autorização explícita dela.**
 
@@ -341,8 +341,10 @@ de PROD-01 e PROD-02 terem passado despercebidos por meses.
   `20260611132931_persist_consultant_settings`,
   `20260611202749_lock_down_public_portal_token_access`,
   `20260612101234_portal_account_contact_and_payment_due_date`,
-  `20260612113611_client_contacts_and_payment_links`,
-  `20260613125641_client_portal_audit`.
+  `20260612113611_client_contacts_and_payment_links`.
+- **Supersedida em 04/08/2026:** `20260613125641_client_portal_audit` não deve ser aplicada. O
+  conteúdo dela foi reescrito e aplicado como `20260805010139` + `20260805010218` (ver PROD-01); o
+  arquivo de junho ficou no repositório só como histórico, com aviso no topo.
 - **Aplicadas sob outra versão:** `20260709060000` → `20260709082424`;
   `20260717090000` → `20260717135804`; `20260802115342_portal_public_request_purpose` registrada
   como versão `20260803162735` com o nome do arquivo inteiro.
@@ -665,13 +667,14 @@ chamou de "fontes consultadas".
 
 # Bloco 3 — Correções em produção
 
-## PROD-01 — O aviso de pagamento do portal está quebrado
+## PROD-01 — O aviso de pagamento do portal está quebrado ✅ concluído em 04/08/2026
 
-**Modelo:** Opus 5 · **Esforço:** médio · **Prioridade: alta — erro visível para cliente pagante**
+**Modelo:** Opus 5 · **Aplicado em produção:** migrations `20260805010139_client_portal_audit_and_payment_ack`
+e `20260805010218_client_portal_audit_events_append_only_grants`
 
 `src/services/clientPortalService.ts:243` chama a RPC
-`client_portal_payment_acknowledge`, que **não existe em nenhuma migration do repositório nem no
-banco de produção** (reconfirmado em 03/08/2026). `acknowledgePayment` propaga o erro e
+`client_portal_payment_acknowledge`, que **não existia no banco de produção** (reconfirmado em
+03/08/2026). `acknowledgePayment` propaga o erro e
 `ClientPortal.tsx` (`handlePaymentAcknowledgement`) mostra a mensagem de falha. O cliente clica em
 "avisar pagamento" e recebe erro.
 
@@ -695,39 +698,80 @@ banco de produção** (reconfirmado em 03/08/2026). `acknowledgePayment` propaga
 - A função tem grant para `anon` **e** `authenticated`.
 - Teste SQL cobre token válido, inválido e conta inativa.
 
+### Resultado — 04/08/2026
+
+**Decisão da Ester:** manter o recurso e criar a função.
+
+**A premissa do card estava errada em um ponto.** A função não precisava ser escrita: ela já existia
+pronta em `supabase/migrations/20260613125641_client_portal_audit.sql`, uma migration de junho que
+nunca foi aplicada. O card dizia que ela não estava "em nenhuma migration do repositório"; estava.
+Isso também significa que **PROD-01 e PROD-02 eram a mesma migration** — a função de pagamento grava
+em `client_portal_audit_events`, então não havia como fazer um sem criar a tabela do outro.
+
+O conteúdo de junho foi conferido contra o schema atual antes de qualquer coisa: `payment_updated_at`,
+`client_portal_account_clients`, `appointment_attachments`, `private.my_tenant_ids` e
+`private.is_tenant_staff` seguem existindo, e a tabela nunca teve `check` de `event_type` — o risco
+de a auditoria voltar a falhar em silêncio por causa dos tipos novos não existe.
+
+Foi reescrito como `20260805010139_client_portal_audit_and_payment_ack.sql`, com o endurecimento que
+virou padrão depois de junho:
+
+- `set search_path = ''` nas duas funções, com todos os identificadores qualificados;
+- `revoke all from public` e `grant execute` para `anon` **e** `authenticated`;
+- trilha **append-only**: só a policy de `select` para o staff, sem `update` nem `delete`, e
+  privilégio de tabela reduzido a `select` para `authenticated` e nenhum para `anon`.
+
+**Uma coisa quase passou.** O Supabase concede `all` por padrão em tabela nova do schema `public`
+para `anon` e `authenticated`; o `grant select` não reduz isso. A verificação em produção mostrou
+`authenticated` com insert, update e delete na trilha — a RLS barrava, mas o privilégio estava
+largo. Corrigido com `20260805010218`. O Postgres descartável não pega esse caso porque lá não
+existem os default privileges do Supabase; a verificação pós-aplicação pegou.
+
+**Evidência**
+
+| Verificação | Resultado |
+|---|---|
+| `supabase/tests/portal_audit_and_payment_ack.test.sql` (novo) | ✅ passa |
+| Outras 5 suítes SQL | ✅ passam |
+| `npm test` | ✅ 16 arquivos, 135 testes |
+| Grants em produção | `anon` e `authenticated` executam as duas funções; `anon` não lê a trilha; `authenticated` só lê |
+| `search_path` das funções em produção | `""` nas duas |
+| Smoke em produção com token inválido | `{"error": "acesso invalido"}`, sem gravar linha |
+| `get_advisors` (security) | nenhum ERROR; os WARN das duas funções são o mesmo padrão de toda RPC pública do portal |
+
+**Deliberadamente fora**
+
+- Não foi feito smoke com token real: gravaria "Avisou que pagou" na conta de uma cliente e mexeria
+  em `payment_updated_at`. O primeiro clique real de cliente é a validação.
+- A observabilidade da falha de auditoria (`console.warn` silencioso em `clientPortalService.ts:227`)
+  ficou para PROD-02, que é o que sobrou dele.
+
 ---
 
-## PROD-02 — A auditoria do portal não grava nada
+## PROD-02 — A auditoria do portal não grava nada 🟨 parcial
 
-**Modelo:** Opus 5 · **Esforço:** médio · **Depende de:** INFRA-02
+**Modelo:** Opus 5 · **Esforço:** baixo — o que restou é frontend
 
-`src/services/clientPortalService.ts:206` (`audit`) chama `client_portal_audit_event`. A função e a
-tabela `client_portal_audit_events` **não existem em produção** (reconfirmado em 03/08/2026). Como
-o `catch` só faz `console.warn`, tudo parece funcionar: login, visualização de painel, download de
-relatório e aviso de pagamento **não deixam rastro nenhum**. É lacuna de LGPD.
+**A parte de banco já foi feita em PROD-01, em 04/08/2026.** A função `client_portal_audit_event` e
+a tabela `client_portal_audit_events` existem em produção desde então, com RLS, trilha append-only e
+grants para `anon` e `authenticated`. A tabela nunca teve `check` de `event_type`, então a
+preocupação com os tipos novos (`main_drive_folder_opened`, `portal_tutorial_opened`,
+`schedule_cta_clicked`, `support_whatsapp_clicked`) não se aplica: qualquer tipo é aceito, apenas
+normalizado para minúsculo sem espaços. Este card também deixou de depender de INFRA-02.
 
-A migration existe e nunca foi aplicada: `supabase/migrations/20260613125641_client_portal_audit.sql`.
+O que sobrou é a lacuna que deixou o problema passar meses: `src/services/clientPortalService.ts:227`
+engole a falha de auditoria com `console.warn`.
 
 ### Implementação
 
-1. Ler a migration inteira e conferir se ainda casa com o schema atual — é de junho/2026 e várias
-   migrations posteriores redefiniram tabelas do portal. Atenção especial a `appointment_requests`
-   e `client_portal_accounts`.
-2. Rodar no Postgres descartável (seção 3) **antes** de qualquer coisa em produção.
-3. Conferir grants: `anon` **e** `authenticated`.
-4. Confirmar que os valores de `ClientPortalAuditEventType` usados no frontend batem com o `check`
-   da tabela. Fonte: `src/types/index.ts`. A lista atual inclui `main_drive_folder_opened`,
-   `portal_tutorial_opened`, `schedule_cta_clicked` e `support_whatsapp_clicked`, adicionados
-   depois que a migration foi escrita — se o `check` não os contemplar, a auditoria volta a falhar
-   em silêncio.
-5. Trocar o `console.warn` silencioso por algo observável, para que a próxima falha não passe meses
-   despercebida.
-6. **Autorização explícita antes de aplicar em produção.**
+1. Trocar o `console.warn` silencioso por algo observável — no mínimo, contar as falhas e mostrar
+   sinal no painel da consultora; o que não pode é seguir invisível.
+2. Confirmar em produção, depois do primeiro uso real do portal, que login, visualização, download e
+   aviso de pagamento estão gerando linha em `client_portal_audit_events`.
 
 ### Critérios de aceite
 
 - Login, visualização, download e pagamento geram linha de auditoria em produção.
-- Todos os `ClientPortalAuditEventType` do frontend são aceitos pelo `check`.
 - Falha de auditoria passa a ser observável.
 
 ---
@@ -1187,6 +1231,7 @@ Ao concluir um card, marcar aqui e atualizar a tabela da seção 4.
 |---|---|---|---|---|
 | 03/08/2026 | Recuperação do incidente OneDrive | Opus 5 | — | 35 arquivos restaurados, 49 cópias e 2 refs falsas removidas; 135 testes e build OK. |
 | 03/08/2026 | **INFRA-01** — repositório movido para `C:\Saas\App` | Ester | — | Integridade verificada no destino: 135 testes, build, `git fsck`, `.env` e arquivos de trabalho preservados. |
+| 04/08/2026 | **PROD-01** — concluído (e a parte de banco do **PROD-02**) | Opus 5 | — | O aviso de pagamento voltou a funcionar. A função já existia pronta na migration de junho que nunca foi aplicada; foi reescrita endurecida e aplicada como `20260805010139` + `20260805010218`. Trilha de auditoria criada, append-only, com grants para `anon` e `authenticated`. Suíte SQL nova, 135 testes JS passando. |
 | 04/08/2026 | **PROD-04 + DEBT-01** — concluídos | Opus 5 | — | Solicitação órfã não bloqueia mais o horário e `deleteSchedule` cancela a vinculada; margem pública passou a ser por registro (inspeção 4 h, demais 30 min). Migration `20260804140000` aplicada em produção; 135 testes JS e as duas suítes SQL passando. Falta autorização para limpar 7 linhas `confirmed` órfãs. |
 | 04/08/2026 | **PROD-03** — concluído | Opus 5 | — | Gatilhos de disponibilidade viraram `security definer`; agendamento pelo app voltou a funcionar. Migration `20260804120000` aplicada em produção. |
 | 03/08/2026 | **EST-01** — concluído | Opus 5 | — | Roteiro de clínica ajustado (CNAE crítico; manipulados reintroduzido) de 113 para 114 itens. Migração executada: 124/124 respostas, 0 órfãs, 8 fotos preservadas. Agendamento vinculado, entrega automática destravada. |
