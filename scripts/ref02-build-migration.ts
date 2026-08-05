@@ -93,27 +93,13 @@ const renomeados: string[] = [];
 for (const entry of LEGISLATION_LIBRARY) {
   const key = canonicalLegislationKey(entry.name);
   const existente = dbByKey.get(key);
-  const campos = [
-    `name = ${lit(entry.name)}`,
-    `summary = ${lit(entry.summary)}`,
-    `url = ${lit(entry.url)}`,
-    `uf = ${lit(entry.uf ?? null)}`,
-    `segments = ${arrayLit(entry.segments)}`,
-  ];
+  const valores = [lit(entry.name), lit(entry.summary), lit(entry.url), lit(entry.uf ?? null), arrayLit(entry.segments)];
 
   if (existente) {
     if (existente.name !== entry.name) renomeados.push(`${existente.name}  →  ${entry.name}`);
-    atualizar.push(
-      `-- ${key}${existente.name !== entry.name ? `  (renomeia: ${existente.name})` : ''}\n` +
-      `update public.legislations set\n  ${campos.join(',\n  ')}\nwhere id = ${lit(existente.id)};`
-    );
+    atualizar.push(`  (${lit(existente.id)}::uuid, ${valores.join(', ')})`);
   } else {
-    inserir.push(
-      `-- ${key}\n` +
-      `insert into public.legislations (name, summary, url, uf, segments)\n` +
-      `select ${lit(entry.name)}, ${lit(entry.summary)}, ${lit(entry.url)}, ${lit(entry.uf ?? null)}, ${arrayLit(entry.segments)}\n` +
-      `where not exists (select 1 from public.legislations where name = ${lit(entry.name)});`
-    );
+    inserir.push(`  (${valores.join(', ')})`);
   }
 }
 
@@ -129,7 +115,7 @@ const header = `-- REF-02 — carga da biblioteca de legislações saneada.
 -- regenere, senão o código e o banco divergem de novo.
 --
 -- O que faz:
---   * atualiza as ${atualizar.length} linhas que já existem (ementa, URL oficial, uf, segmentos),
+--   * atualiza as ${atualizar.length} linhas que já existem (nome canônico, ementa, URL, uf, segmentos),
 --     casadas por chave canônica — não por nome, porque grafias como
 --     "Decreto Nº 57501 DE 30/01/2026" e "Decreto Rio nº 57.501/2026" são o
 --     mesmo ato e um upsert por nome criaria duplicata;
@@ -143,20 +129,35 @@ ${(naoTocadas.length ? naoTocadas : ['(nenhuma)']).map(n => `--       ${n}`).joi
 --   * não mexe em checklist_items. O backfill de legislation_url é o
 --     scripts/ref02-backfill-item-urls.mjs, que reusa a mesma resolução do app.
 --
--- Reexecutável: os updates são por id e os inserts são condicionais.
-
-begin;
+--   * não sobrescreve ementa mais rica. Várias foram ampliadas à mão pela Ester
+--     na LegislationsManager (a da Lei 8.842/1994 explica a vedação de permanência
+--     de quem precisa de assistência permanente). A biblioteca só substitui a
+--     ementa quando o banco tem menos texto do que ela.
+--
+-- Reexecutável: o update é por id e o insert é condicionado a "not exists".
 `;
 
 const sql = [
   header,
-  '-- ── Linhas existentes: ementa, URL oficial, UF e segmentos ──────────────────',
-  atualizar.join('\n\n'),
+  '-- ── Linhas existentes: nome canônico, URL oficial, UF e segmentos ───────────',
+  'update public.legislations l set',
+  '  name     = b.name,',
+  '  summary  = case when length(coalesce(l.summary, \'\')) > length(b.summary) then l.summary else b.summary end,',
+  '  url      = b.url,',
+  '  uf       = b.uf,',
+  '  segments = b.segments',
+  'from (values',
+  atualizar.join(',\n'),
+  ') as b(id, name, summary, url, uf, segments)',
+  'where l.id = b.id;',
   '',
   '-- ── Atos citados pelos roteiros que ainda não estavam na biblioteca ─────────',
-  inserir.join('\n\n'),
-  '',
-  'commit;',
+  'insert into public.legislations (name, summary, url, uf, segments)',
+  'select b.name, b.summary, b.url, b.uf, b.segments',
+  'from (values',
+  inserir.join(',\n'),
+  ') as b(name, summary, url, uf, segments)',
+  'where not exists (select 1 from public.legislations l where l.name = b.name);',
   '',
 ].join('\n');
 

@@ -764,11 +764,15 @@ cobria 13 desses 41; hoje cobre 41 de 41.
    `legislationRefs.ts`. O item cita a norma em texto livre e herda a URL da biblioteca. Com isso,
    os mapas `URLS` duplicados dentro dos roteiros de estética (99 + 19 + 1 referências) foram
    removidos — a divergência entre o `datalegis` dos roteiros e o `bvsms` da biblioteca acabou.
-3. **Migration `20260805195530_ref02_legislation_library.sql`** — 41 updates e 37 inserts, gerada
+3. **Migration `20260805200700_ref02_legislation_library.sql`** — 41 updates e 37 inserts, gerada
    por `scripts/ref02-build-migration.ts` a partir da biblioteca. Casa por chave canônica, não por
    nome: `"Decreto Nº 57501 DE 30/01/2026"` e `"Decreto Rio nº 57.501/2026"` são o mesmo ato, e um
    upsert por nome criaria duplicata. Não apaga nada — a `LegislationsManager` continua editável e
    a linha "Constituição da República Federativa do Brasil", que ninguém cita, fica intacta.
+   **Também não sobrescreve ementa mais rica:** a checagem antes de aplicar mostrou que várias
+   ementas do banco foram ampliadas à mão (a da Lei 8.842/1994 tem 479 caracteres e explica a
+   vedação de permanência de quem precisa de assistência permanente); a biblioteca só substitui
+   quando o banco tem menos texto. **Aplicada em produção em 05/08/2026 com autorização da Ester.**
 4. **Backfill `scripts/ref02-backfill-item-urls.mjs`** — simulação por padrão, `--apply` para
    gravar. Reusa a mesma `resolveLegislationUrl` do app em vez de reimplementar a normalização em
    PL/pgSQL; precisa de `SUPABASE_SERVICE_ROLE_KEY` no ambiente.
@@ -807,8 +811,33 @@ de 03/08 — escopo declarado incompatível é irregularidade sanitária, não c
 **Evidência:** `npm test` — 21 arquivos, **166 testes**, todos passando (eram 152 no fim do REF-01).
 `npm run build` — passa.
 
-**O que falta, e é só produção:** aplicar a migration e rodar o backfill. Nenhuma escrita foi feita
-no Supabase durante este card — todas as consultas foram `select`.
+### Aplicação em produção — 05/08/2026
+
+Autorizada pela Ester na conversa. Aplicada pelo MCP (`apply_migration`), que registrou no ledger
+sob a versão **20260805200700**; o arquivo local foi renomeado para essa versão, como manda o
+INFRA-02. Backup do estado anterior das 42 linhas capturado antes da escrita.
+
+| Verificação após aplicar | Resultado |
+|---|---|
+| Linhas em `legislations` | 42 → **79** (42 + 37 inseridas) |
+| Com UF preenchida | 10 → **19** |
+| Sem URL | **1** — só a "Constituição da República Federativa do Brasil", que ninguém cita e a migration não toca |
+| Sem ementa | **0** |
+| URLs ainda apontando para `datalegis` | **0** |
+| Ementa curada da Lei 8.842/1994 | **preservada**, 479 caracteres |
+| Grafias `RDC ANVISA` antigas | **0** — os 10 renomes aplicados |
+| Nomes duplicados | **0** |
+
+**Ainda pendente:** o backfill de `checklist_items.legislation_url`. Ele precisa de
+`SUPABASE_SERVICE_ROLE_KEY` no ambiente, que não está disponível nesta máquina — a de
+`.env.vercel.production.local` vem vazia do Vercel. **Não é bloqueio de comportamento:** o app já
+resolve a URL pela biblioteca em tempo de renderização (`legislationUrlForItem`), então tela e PDF
+já mostram o link certo. O backfill só acerta o dado em repouso. Rodar com:
+
+```
+node scripts/ref02-backfill-item-urls.mjs           # simulação
+node scripts/ref02-backfill-item-urls.mjs --apply   # grava
+```
 
 **Deliberadamente fora:** regerar `docs/referencias/inventario.csv`, que exige dump de produção — a
 `SUPABASE_SERVICE_ROLE_KEY` de `.env.vercel.production.local` vem vazia do Vercel. O delta exato
