@@ -760,6 +760,39 @@ falta de JWT no teste.
 
 ---
 
+## PROD-04 — Horários fantasmas: excluir agendamento não liberava a agenda ✅ código concluído em 04/08/2026
+
+**Modelo:** Opus 5 · **Aplicado em produção:** migration `20260804140000_appointment_buffer_por_registro`
+· **Pendente:** limpeza de 7 linhas em produção, aguardando autorização da Ester
+
+Depois de PROD-03 a Ester conseguiu agendar, mas 19/08 às 13h30 respondia "horário indisponível"
+com a agenda visivelmente vazia. Causa: `ScheduleService.deleteSchedule` (`src/services/scheduleService.ts`)
+só marcava `schedules.deleted_at`. A `appointment_requests` vinculada continuava `confirmed`,
+seguia ocupando o horário na checagem de conflito e **não aparecia na tela de Agendamentos** —
+horário bloqueado por um registro invisível. O caminho inverso já era tratado:
+`AppointmentAdminService.cancelRequest` cancela a solicitação **e** apaga o Schedule.
+
+No caso concreto, a solicitação órfã era "Lar de Idosos MFS" 19/08 13:49–14:49, com
+`consultant_names` nulo — e registro sem consultora bloqueia para todo mundo.
+
+Duas correções:
+
+1. **App:** `deleteSchedule` passou a cancelar a solicitação vinculada (`requested`, `confirmed`,
+   `rescheduled`), no mesmo molde não-fatal de `syncLinkedAppointmentRequest`.
+2. **Banco:** `private.appointment_has_conflict` ignora solicitação cuja agenda vinculada foi
+   excluída. É a rede de segurança para o que já aconteceu, para exclusão feita offline e para
+   falha de sincronização — o passo 1 é best-effort por definição.
+
+### Pendente
+
+Sete solicitações do tenant de produção ficaram `confirmed` com o Schedule excluído em 04/08/2026
+às 14h29 (`Lar de Idosos MFS` 04/08, 06/08, 12/08, 13/08, 19/08 e 24/08; `Lar Recanto do Sossego`
+07/08). Elas **não bloqueiam mais** o calendário, mas continuam aparecendo como confirmadas para o
+cliente no portal. Cancelar essas linhas é mudança de dado de produção e depende de autorização
+explícita da Ester.
+
+---
+
 # Bloco 4 — Portal 360
 
 Cards herdados do plano aprovado em 01/08/2026, com o conteúdo preservado. P360-001 a P360-007
@@ -1048,7 +1081,18 @@ e prova de produção deve ser feita com Opus 5.
 
 # Bloco 5 — Dívida técnica
 
-## DEBT-01 — Margem pública de 4 h vale igual para inspeção de 12 h e briefing de 15 min
+## DEBT-01 — Margem pública de 4 h vale igual para inspeção de 12 h e briefing de 15 min ✅ concluído em 04/08/2026
+
+**Resolvido pela migration `20260804140000_appointment_buffer_por_registro`**, aplicada em produção.
+A margem passou a vir do **registro que já está na agenda**, limitada pelo teto que o chamador
+passa: inspeção 4 h, demais 30 min, caminho interno segue em 0. Na prática o canal público hoje só
+cria briefing, então quem decide a margem é sempre o compromisso existente — que é o item 3 da
+implementação abaixo (briefing logo após inspeção presencial continua barrado por 4 h, porque a
+margem grande é da inspeção). Coberto em `supabase/tests/appointment_availability.test.sql`: o
+caso antigo de 4 h passou a usar `inspection` e há caso novo provando que reunião de 30 min só
+bloqueia 30 min de margem.
+
+O texto original do card fica abaixo como registro da decisão.
 
 **Modelo:** Sonnet 5 · **Esforço:** médio · **Prioridade:** baixa — decisão de produto
 
@@ -1143,5 +1187,6 @@ Ao concluir um card, marcar aqui e atualizar a tabela da seção 4.
 |---|---|---|---|---|
 | 03/08/2026 | Recuperação do incidente OneDrive | Opus 5 | — | 35 arquivos restaurados, 49 cópias e 2 refs falsas removidas; 135 testes e build OK. |
 | 03/08/2026 | **INFRA-01** — repositório movido para `C:\Saas\App` | Ester | — | Integridade verificada no destino: 135 testes, build, `git fsck`, `.env` e arquivos de trabalho preservados. |
+| 04/08/2026 | **PROD-04 + DEBT-01** — concluídos | Opus 5 | — | Solicitação órfã não bloqueia mais o horário e `deleteSchedule` cancela a vinculada; margem pública passou a ser por registro (inspeção 4 h, demais 30 min). Migration `20260804140000` aplicada em produção; 135 testes JS e as duas suítes SQL passando. Falta autorização para limpar 7 linhas `confirmed` órfãs. |
 | 04/08/2026 | **PROD-03** — concluído | Opus 5 | — | Gatilhos de disponibilidade viraram `security definer`; agendamento pelo app voltou a funcionar. Migration `20260804120000` aplicada em produção. |
 | 03/08/2026 | **EST-01** — concluído | Opus 5 | — | Roteiro de clínica ajustado (CNAE crítico; manipulados reintroduzido) de 113 para 114 itens. Migração executada: 124/124 respostas, 0 órfãs, 8 fotos preservadas. Agendamento vinculado, entrega automática destravada. |

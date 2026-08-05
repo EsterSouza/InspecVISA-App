@@ -87,6 +87,25 @@ async function syncLinkedAppointmentRequest(
   }
 }
 
+/**
+ * Libera a solicitação vinculada quando o agendamento interno é excluído.
+ * Sem isso a linha continua `confirmed` e segue ocupando o horário no calendário,
+ * invisível na tela de Agendamentos.
+ */
+async function releaseLinkedAppointmentRequest(scheduleId: string): Promise<void> {
+  if (!navigator.onLine) return;
+  try {
+    const { error } = await supabase
+      .from('appointment_requests')
+      .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+      .eq('schedule_id', scheduleId)
+      .in('status', ['requested', 'confirmed', 'rescheduled']);
+    if (error) throw error;
+  } catch (err) {
+    console.warn('[ScheduleService] Falha ao liberar a solicitação vinculada (não-fatal):', err);
+  }
+}
+
 export const ScheduleService = {
   mapToPostgres,
   mapFromPostgres,
@@ -149,6 +168,8 @@ export const ScheduleService = {
         RepositoryService.pushToRemote('schedules', item, db.schedules, mapToPostgres);
       }
     }
+
+    await releaseLinkedAppointmentRequest(id);
   },
 
   async linkInspection(id: string, inspectionId: string): Promise<void> {

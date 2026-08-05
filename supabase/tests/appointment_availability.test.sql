@@ -347,7 +347,7 @@ begin
     '20000000-0000-4000-8000-000000000001',
     (v_day + time '10:00') at time zone 'America/Sao_Paulo',
     'pending',
-    'follow_up_meeting',
+    'inspection',
     30,
     array['Consultora A']
   );
@@ -453,6 +453,91 @@ begin
   exception when others then
     if sqlerrm not like '%ja possui uma inspecao%' then raise; end if;
   end;
+end;
+$$;
+
+\ir ../migrations/20260804140000_appointment_buffer_por_registro.sql
+
+-- DEBT-01: a margem de quatro horas e da inspecao. Compromisso curto bloqueia so 30 minutos.
+do $$
+declare
+  v_day date := '2027-03-08';
+begin
+  insert into public.schedules (
+    tenant_id, client_id, scheduled_at, status, appointment_type,
+    duration_minutes, consultant_names
+  ) values (
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    '20000000-0000-4000-8000-000000000001',
+    (v_day + time '10:00') at time zone 'America/Sao_Paulo',
+    'pending',
+    'follow_up_meeting',
+    30,
+    array['Consultora A']
+  );
+
+  if exists (
+    select 1 from public.public_list_available_times(
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', v_day
+    ) where label = '10:00'
+  ) then
+    raise exception 'portal liberou horario sobreposto a reuniao curta';
+  end if;
+  if not exists (
+    select 1 from public.public_list_available_times(
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', v_day
+    ) where label = '11:00'
+  ) then
+    raise exception 'reuniao de 30 minutos bloqueou mais de 30 minutos de margem';
+  end if;
+end;
+$$;
+
+-- Excluir o agendamento libera o horario mesmo com a solicitacao vinculada ainda ativa.
+do $$
+declare
+  v_starts timestamptz := ('2027-03-15'::date + time '13:00') at time zone 'America/Sao_Paulo';
+begin
+  insert into public.schedules (
+    id, tenant_id, client_id, scheduled_at, status, appointment_type,
+    duration_minutes, consultant_names
+  ) values (
+    '50000000-0000-4000-8000-000000000001',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    '20000000-0000-4000-8000-000000000001',
+    v_starts,
+    'pending',
+    'inspection',
+    60,
+    array['Consultora A']
+  );
+
+  insert into public.appointment_requests (
+    tenant_id, schedule_id, unit_name, district, requested_starts_at, requested_ends_at,
+    status, appointment_type, duration_minutes
+  ) values (
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    '50000000-0000-4000-8000-000000000001',
+    'Unidade teste',
+    'Centro',
+    v_starts,
+    v_starts + interval '60 minutes',
+    'confirmed',
+    'inspection',
+    60
+  );
+
+  update public.schedules set deleted_at = now()
+  where id = '50000000-0000-4000-8000-000000000001';
+
+  if private.appointment_has_conflict(
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    v_starts,
+    v_starts + interval '60 minutes',
+    array['Consultora A']
+  ) then
+    raise exception 'solicitacao orfa continuou bloqueando o horario apos a exclusao do agendamento';
+  end if;
 end;
 $$;
 
