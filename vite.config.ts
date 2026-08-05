@@ -32,7 +32,10 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // Ícones e logo vêm do `includeAssets` acima, por nome explícito — não por
+        // glob. Um PNG/SVG novo em `public/` (screenshot, imagem de trabalho) não
+        // deve inflar o precache do service worker em silêncio.
+        globPatterns: ['**/*.{js,css,html,woff2}'],
         maximumFileSizeToCacheInBytes: 4000000,
         runtimeCaching: [
           {

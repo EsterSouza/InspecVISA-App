@@ -226,7 +226,7 @@ que omitiu nada. Ver REF-01, REF-02 e REF-03.
 | **P360-015** | E2E, rollout e prova de produção | Opus 5 | alto | onda a publicar | ⬜ pendente |
 | **DEBT-01** | Margem pública de 4 h por tipo | Sonnet 5 | médio | — | ✅ **concluído 04/08** |
 | **DEBT-02** | Dívida de lint | Sonnet 5 | médio | — | ⬜ pendente |
-| **DEBT-03** | Pontas soltas do repositório | Haiku 4.5 | baixo | — | ⬜ pendente |
+| **DEBT-03** | Pontas soltas do repositório | Haiku 4.5 | baixo | — | ✅ **concluído 05/08** |
 
 Ordem sugerida: **REF-01 → REF-02**, e a partir daí a onda do Portal 360.
 (INFRA-01, INFRA-02, EST-01, EST-02, PROD-01, PROD-02, PROD-03 e REF-03 já saíram da fila.)
@@ -235,9 +235,8 @@ Cards P360-001 a P360-007 foram concluídos e não aparecem aqui.
 
 ## 4.1 Divisão por modelo
 
-São **12 cards pendentes** (EST-02 concluído em 05/08; REF-03 segue pendente para fechar teste
-automatizado e a parte que depende de REF-02). A divisão abaixo é o critério de despacho: abra a
-sessão com o modelo indicado e cole o card correspondente.
+São **10 cards pendentes** (EST-02, REF-03 e DEBT-03 concluídos em 05/08). A divisão abaixo é o
+critério de despacho: abra a sessão com o modelo indicado e cole o card correspondente.
 
 ### Opus 5 — 5 cards
 
@@ -253,14 +252,13 @@ laudo errado, e um mapeamento de item malfeito reescreve a inspeção de uma cli
 | **P360-012** | Tabelas novas tenant-scoped, rate limit, permissão por papel. |
 | **P360-015** | Revisão final de segurança e prova de produção. |
 
-### Sonnet 5 — 6 cards
+### Sonnet 5 — 5 cards
 
 **Feature de UI e refatoração com critério de aceite objetivo.** Escopo fechado, o resultado se vê
 na tela e o teste diz se está certo.
 
 | Card | Por que Sonnet 5 |
 |---|---|
-| **REF-03** | UI e seção nova no PDF já implementadas em 05/08; falta teste automatizado e revisitar após REF-02. |
 | **P360-008** | Geração de `.ics`, templates de e-mail, timeline condicional. Muita mecânica, pouca decisão. |
 | **P360-009** | Decomposição de página e regra de prioridade determinística. |
 | **P360-013** | Painel agregado sobre estruturas que os cards anteriores já terão criado. |
@@ -270,14 +268,13 @@ na tela e o teste diz se está certo.
 > **P360-015 é a exceção da regra.** Os testes E2E podem ser escritos por Sonnet 5, mas a revisão
 > de segurança, migrations e prova de produção tem de ser feita com Opus 5.
 
-### Haiku 4.5 — 2 cards
+### Haiku 4.5 — 1 card
 
 **Varredura mecânica, sem decisão.** Entrada e saída bem definidas, nenhum julgamento técnico.
 
 | Card | Por que Haiku 4.5 |
 |---|---|
 | **REF-01** | Extrair, normalizar com funções que já existem e tabular. Nenhuma decisão de vigência — isso é REF-02. |
-| **DEBT-03** | Quatro pontas soltas independentes e já descritas, sem ambiguidade. |
 
 ### O que não delegar por modelo, e sim à Ester
 
@@ -1330,7 +1327,7 @@ bloqueado —, e não por chamada; a assinatura atual só conhece a margem de qu
 
 ---
 
-## DEBT-03 — Pontas soltas do repositório
+## DEBT-03 — Pontas soltas do repositório ✅ concluído em 05/08/2026
 
 **Modelo:** Haiku 4.5 · **Esforço:** baixo · **Depende de:** — (INFRA-01 já concluído)
 
@@ -1347,6 +1344,41 @@ bloqueado —, e não por chamada; a assinatura atual só conhece a margem de qu
   `NBR9050_20.pdf`, `nbr_13534_*.pdf`, `inspec-visa-backup-2026-05-16.json`). A Ester optou por
   mantê-los. Se um dia quiser limpar, o destino natural é `docs/` ou fora do repositório.
   **Não remover sem autorização.**
+
+### Resultado — 05/08/2026
+
+Três das quatro pontas resolvidas; a quarta segue como estava, por decisão já tomada da Ester.
+
+- **`sala-estetica.html` removido.** Reproduzido o erro primeiro: `vite dev` devolvia 500 ao abrir a
+  página (`Failed to resolve import "three"` — o import map da própria página, que resolve `three`
+  via CDN `unpkg`, não é entendido pelo `vite:import-analysis`, que tenta resolver o especificador
+  como pacote do `node_modules`). A build de produção não era afetada (o arquivo não é `entry` do
+  Rollup), só o `dev`. Cheguei a mover o arquivo para `public/` — que bypassa o pipeline de módulos
+  do Vite e resolveria o erro sem apagar nada — mas a Ester confirmou no meio da sessão: **"sala de
+  estetica pode excluir, n faz parte desse projeto."** Arquivo apagado (`git rm`), não só movido.
+- **Ícones comprimidos sem perda visível.** Sem `pngquant`/ImageMagick/`sharp` disponíveis no
+  ambiente, usei Pillow (já instalado, `python -c "import PIL"` confirmou). Reencode lossless
+  (`optimize=True`) só ganhava ~20%; quantização para paleta de 256 cores com dithering
+  Floyd-Steinberg (`Image.Quantize.FASTOCTREE`) ganhou muito mais — os dois ícones são um brasão
+  plano (fundo azul-marinho, escudo branco/azul), não fotografia, então 256 cores é sobra. Comparei
+  visualmente antes/depois (`Read` renderiza PNG) e não há diferença perceptível. `pwa-512x512.png`:
+  381.903 → 37.221 bytes (−90,3%). `pwa-maskable-512.png`: 188.944 → 20.605 bytes (−89,1%).
+  `public/` caiu de ~1,3 MB para 256 KB.
+- **`globPatterns` restringido em `vite.config.ts`.** Trocado de
+  `['**/*.{js,css,html,ico,png,svg,woff2}']` para `['**/*.{js,css,html,woff2}']`. Os ícones e o logo
+  continuam precacheados — isso já era feito pelo `includeAssets` explícito (lista de 5 nomes de
+  arquivo), que é independente do glob. Achado ao verificar: **`logo sem fundo treinavisa.png`**
+  (36 KB) está em `public/` mas não é referenciado em nenhum lugar do `src/` nem está no
+  `includeAssets` — estava sendo precacheado por acaso, só porque o glob antigo pegava qualquer PNG.
+  Não removido (fora do escopo deste item, que era sobre o *glob*, não sobre arquivo específico); só
+  parou de entrar no precache do service worker. Confirmado no `dist/sw.js` pós-build: exatamente os
+  5 nomes do `includeAssets` no manifesto, nenhum PNG a mais. Precache total: 72 entradas / 4.424 KiB
+  → **66 entradas / 3.687 KiB**.
+- **Arquivos de negócio na raiz:** nada feito, como já estava decidido. Continuam preservados.
+
+**Evidência:** `npm test` — 19 arquivos, 146 testes, todos passando (mesma contagem do REF-03, este
+card não mexeu em código de teste). `npm run build` — passa. App testado no browser antes e depois
+(dev server): login carrega normal, sem erro novo no console.
 
 ---
 
@@ -1394,3 +1426,4 @@ Ao concluir um card, marcar aqui e atualizar a tabela da seção 4.
 | 03/08/2026 | **EST-01** — concluído | Opus 5 | — | Roteiro de clínica ajustado (CNAE crítico; manipulados reintroduzido) de 113 para 114 itens. Migração executada: 124/124 respostas, 0 órfãs, 8 fotos preservadas. Agendamento vinculado, entrega automática destravada. |
 | 05/08/2026 | **EST-02** — concluído | Sonnet 5 | — | Suplemento RJ já funciona hoje por código (`supplementRegistry` casa por `id` estático ou por `name`); já havia teste cobrindo o cenário de UUID do Supabase. Nada foi alterado, só verificado. |
 | 05/08/2026 | **REF-03** — concluído | Sonnet 5 | — | Partes (a) e (b) adiantadas antes de REF-02 e fechadas com teste nesta sessão: `PdfPreviewModal.test.tsx` (5 casos) e `pdfGenerator.test.ts` (3 casos). Achado: `jsPDF.text` é propriedade de instância, não do prototype — `vi.mock('jspdf', ...)` foi o caminho, não `spyOn(prototype)`. 146 testes JS, build OK. |
+| 05/08/2026 | **DEBT-03** — concluído | Sonnet 5 | — | `sala-estetica.html` removido (autorizado pela Ester na conversa: "não faz parte desse projeto"). Ícones PWA quantizados sem perda visível (−90%, `public/` de 1,3 MB para 256 KB). `globPatterns` do service worker restrito a `js/css/html/woff2` — ícones seguem precacheados via `includeAssets`; achado: `logo sem fundo treinavisa.png`, não usado em lugar nenhum, estava sendo precacheado à toa pelo glob antigo. Precache: 72→66 entradas. Arquivos de negócio na raiz preservados, como já decidido. |
