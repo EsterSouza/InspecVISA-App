@@ -213,7 +213,7 @@ que omitiu nada. Ver REF-01, REF-02 e REF-03.
 | **EST-02** | Verificar suplemento RJ de estética | Sonnet 5 | baixo | — | ✅ **concluído 05/08** |
 | **REF-01** | Catalogar os ~170 atos citados | Haiku 4.5 | médio | — | ⬜ pendente |
 | **REF-02** | Sanear a biblioteca e ligá-la aos roteiros | Opus 5 | alto | REF-01 | ⬜ pendente |
-| **REF-03** | Fontes consultadas e links no relatório | Sonnet 5 | médio | REF-02 | 🟡 **parte (b) adiantada 05/08** |
+| **REF-03** | Fontes consultadas e links no relatório | Sonnet 5 | médio | REF-02 (só para enriquecer, não bloqueia) | ✅ **concluído 05/08** |
 | **PROD-01** | Aviso de pagamento quebrado no portal | Opus 5 | médio | — | ✅ **concluído 04/08** |
 | **PROD-02** | Auditoria do portal não grava nada | Opus 5 | baixo | — | ✅ **concluído 04/08** |
 | **P360-008** | Detalhe, notificações e calendário | Sonnet 5 | alto | — | ⬜ pendente |
@@ -228,9 +228,8 @@ que omitiu nada. Ver REF-01, REF-02 e REF-03.
 | **DEBT-02** | Dívida de lint | Sonnet 5 | médio | — | ⬜ pendente |
 | **DEBT-03** | Pontas soltas do repositório | Haiku 4.5 | baixo | — | ⬜ pendente |
 
-Ordem sugerida: **REF-01 → REF-02 → REF-03 (fechar o que falta)**, e a partir daí a onda do Portal 360.
-(INFRA-01, INFRA-02, EST-01, EST-02, PROD-01, PROD-02 e PROD-03 já saíram da fila. REF-03 tem a parte
-(b) adiantada — ver seção do card.)
+Ordem sugerida: **REF-01 → REF-02**, e a partir daí a onda do Portal 360.
+(INFRA-01, INFRA-02, EST-01, EST-02, PROD-01, PROD-02, PROD-03 e REF-03 já saíram da fila.)
 
 Cards P360-001 a P360-007 foram concluídos e não aparecem aqui.
 
@@ -756,6 +755,39 @@ mais, mesmo sem REF-02.
 138 testes e `npm run build` passando antes e depois). Se abrir sessão nova para fechar REF-03, vale
 cobrir isso com teste antes de considerar o card fechado de verdade — e então sim aguardar REF-02
 para o critério "nenhuma norma some", que hoje já não some, mas ainda cita normas sem verbete rico.
+
+### Resultado final — 05/08/2026 · concluído
+
+Cobertura de teste fechada, como a rodada anterior deixou pendente.
+
+- **`src/__tests__/components/PdfPreviewModal.test.tsx` (novo, 5 casos):** adicionar fonte com
+  título/nota, usar a URL como rótulo quando não há título, rejeitar link vazio e link sem
+  `http/https` sem adicionar, pré-carregar fontes já salvas na inspeção ao reabrir o modal, e
+  repassar `referenceSources` para `onGenerate` ao concluir o wizard.
+- **`src/__tests__/utils/pdfGenerator.test.ts` (novo, 3 casos):** `drawConsultedSources` e
+  `drawReferencesABNT` não são exportadas, então o teste passa pela função pública `generatePDF` e
+  intercepta o que é desenhado no PDF. **Achado de implementação:** `jsPDF` anexa `text` como
+  propriedade própria da instância (mixin de API aplicado no construtor), não no `prototype` —
+  `vi.spyOn(jsPDF.prototype, 'text')` não intercepta nada e falha com "property not defined". A
+  solução foi `vi.mock('jspdf', ...)` substituindo o módulo por uma subclasse que chama `super()` e
+  depois embrulha `this.text` para capturar cada string desenhada, preservando o comportamento real.
+  Os três casos: nenhuma seção "FONTES CONSULTADAS" quando `referenceSources` está vazio/ausente; a
+  seção aparece com título, URL por extenso e nota quando há fonte; e uma norma citada sem verbete na
+  biblioteca (`RDC 63/2011`, biblioteca vazia no teste) ainda aparece em "REFERÊNCIAS LEGISLATIVAS" —
+  a correção da parte (a), que já valia desde 05/08, ganhou teste de regressão.
+
+**Critério "nenhuma norma some" fechado sem esperar REF-02.** A leitura de 05/08 tinha deixado essa
+dependência em aberto por cautela, mas o teste novo confirma que o critério já vale hoje — REF-02
+melhora a *qualidade* da citação (verbete rico, URL oficial), não a *presença* dela, que já está
+garantida. Por isso a dependência de REF-02 na tabela da seção 4 passou a ser só "melhora a
+biblioteca", não bloqueio de aceite.
+
+**Evidência:** `npm test` — 19 arquivos, **146 testes**, todos passando (era 138; +8 dos dois arquivos
+novos). `npm run build` — passa, mesmo tamanho de bundle na faixa de sempre.
+
+**Deliberadamente fora:** o achado de `jsPDF.text` como propriedade de instância vale para qualquer
+teste futuro que precise espiar chamadas de desenho do `pdfGenerator.ts` — vale lembrar disso e reusar
+o padrão de `vi.mock('jspdf', ...)` em vez de tentar `spyOn` no prototype de novo.
 
 ---
 
@@ -1360,3 +1392,5 @@ Ao concluir um card, marcar aqui e atualizar a tabela da seção 4.
 | 04/08/2026 | **PROD-04 + DEBT-01** — concluídos | Opus 5 | — | Solicitação órfã não bloqueia mais o horário e `deleteSchedule` cancela a vinculada; margem pública passou a ser por registro (inspeção 4 h, demais 30 min). Migration `20260804140000` aplicada em produção; 135 testes JS e as duas suítes SQL passando. Falta autorização para limpar 7 linhas `confirmed` órfãs. |
 | 04/08/2026 | **PROD-03** — concluído | Opus 5 | — | Gatilhos de disponibilidade viraram `security definer`; agendamento pelo app voltou a funcionar. Migration `20260804120000` aplicada em produção. |
 | 03/08/2026 | **EST-01** — concluído | Opus 5 | — | Roteiro de clínica ajustado (CNAE crítico; manipulados reintroduzido) de 113 para 114 itens. Migração executada: 124/124 respostas, 0 órfãs, 8 fotos preservadas. Agendamento vinculado, entrega automática destravada. |
+| 05/08/2026 | **EST-02** — concluído | Sonnet 5 | — | Suplemento RJ já funciona hoje por código (`supplementRegistry` casa por `id` estático ou por `name`); já havia teste cobrindo o cenário de UUID do Supabase. Nada foi alterado, só verificado. |
+| 05/08/2026 | **REF-03** — concluído | Sonnet 5 | — | Partes (a) e (b) adiantadas antes de REF-02 e fechadas com teste nesta sessão: `PdfPreviewModal.test.tsx` (5 casos) e `pdfGenerator.test.ts` (3 casos). Achado: `jsPDF.text` é propriedade de instância, não do prototype — `vi.mock('jspdf', ...)` foi o caminho, não `spyOn(prototype)`. 146 testes JS, build OK. |
