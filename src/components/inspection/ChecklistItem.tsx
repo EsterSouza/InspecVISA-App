@@ -3,6 +3,7 @@ import { AlertTriangle, ExternalLink, LogIn, FileCheck2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Badge } from '../ui/Badge';
 import { PhotoCapture } from './PhotoCapture';
+import { LinkCapture } from './LinkCapture';
 import type { ChecklistItem as ItemType, InspectionResponse, InspectionPhoto } from '../../types';
 import type { PreviousNCContext } from '../../utils/actionPlanContext';
 import { getFieldSuggestions, type FieldSuggestions } from '../../utils/textSuggestions';
@@ -33,7 +34,7 @@ export const ChecklistItem = memo(function ChecklistItem({
   onRemovePhoto,
   onEditDescription,
 }: ChecklistItemProps) {
-  const [showObs, setShowObs] = useState(!!response?.situationDescription || !!response?.correctiveAction || (response?.photos?.length ?? 0) > 0);
+  const [showObs, setShowObs] = useState(!!response?.situationDescription || !!response?.correctiveAction || (response?.photos?.length ?? 0) > 0 || (response?.links?.length ?? 0) > 0);
 
   // Local buffers — prevent global re-render on every keystroke
   const [localSituation, setLocalSituation] = useState(response?.situationDescription || '');
@@ -205,7 +206,7 @@ export const ChecklistItem = memo(function ChecklistItem({
           >
             <div className="relative">
               <LogIn className={cn("h-5 w-5 rotate-90", showObs ? "text-white" : "text-gray-400")} />
-              {((response?.photos?.length ?? 0) > 0 || response?.situationDescription) && !showObs && (
+              {((response?.photos?.length ?? 0) > 0 || (response?.links?.length ?? 0) > 0 || response?.situationDescription) && !showObs && (
                 <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 rounded-full bg-primary-500 ring-2 ring-white"></span>
               )}
             </div>
@@ -519,6 +520,14 @@ export const ChecklistItem = memo(function ChecklistItem({
               photos={response?.photos || []}
               onAddPhoto={(p) => onAddPhoto(item.id, p)}
               onRemovePhoto={(pid) => onRemovePhoto(item.id, pid)}
+            />
+          </div>
+
+          <div className="pt-2">
+            <LinkCapture
+              inputId={`link-input-${item.id}`}
+              links={response?.links || []}
+              onChange={(links) => onUpdateDetails(item.id, { links })}
             />
           </div>
         </div>

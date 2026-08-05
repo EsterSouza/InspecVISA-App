@@ -286,6 +286,35 @@ export async function generatePDF(
     return photoY;
   }
 
+  // Links anexados pelo consultor a este item durante a inspeção (não confundir
+  // com as fontes gerais da inspeção, em drawConsultedSources).
+  function drawItemLinks(links: string[] | undefined, startY: number) {
+    if (!links || links.length === 0) return startY;
+    let linkY = startY;
+    if (linkY > pageH - 20) {
+      doc.addPage();
+      linkY = margin;
+    }
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(...mutedColor);
+    doc.text('Fontes consultadas neste item:', margin + 8, linkY);
+    linkY += 4.5;
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(8);
+    doc.setTextColor(30, 107, 94);
+    for (const link of links) {
+      if (linkY > pageH - 15) {
+        doc.addPage();
+        linkY = margin;
+      }
+      const lines: string[] = doc.splitTextToSize(`<${link}>`, contentW - 16);
+      doc.text(lines, margin + 8, linkY);
+      linkY += lines.length * 4 + 1;
+    }
+    return linkY + 3;
+  }
+
   // Helper: footer on every page
   function addFooter(pageNum: number, totalPages: number) {
     const y = pageH - 10;
@@ -1045,6 +1074,7 @@ export async function generatePDF(
 
       // Photos
       y = await drawPhotoGrid(response.photos, y);
+      y = drawItemLinks(response.links, y);
 
       y += 6;
       doc.setDrawColor(200, 200, 200);
@@ -1060,7 +1090,7 @@ export async function generatePDF(
 
   // ── PAGES: EXCELÊNCIA E MELHORIAS ──────────────────────
   const excellenceItems = reportResponses.filter(r =>
-    r.result === 'complies' && (r.situationDescription || r.correctiveAction || (r.photos && r.photos.length > 0))
+    r.result === 'complies' && (r.situationDescription || r.correctiveAction || (r.photos && r.photos.length > 0) || (r.links && r.links.length > 0))
   );
 
   if (excellenceItems.length > 0) {
@@ -1128,6 +1158,7 @@ export async function generatePDF(
 
       // Photos
       y = await drawPhotoGrid(response.photos, y);
+      y = drawItemLinks(response.links, y);
 
       y += 6;
       doc.setDrawColor(220, 230, 240);

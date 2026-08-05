@@ -212,6 +212,8 @@ export interface InspectionResponse {
   deadline?: string;
   customDescription?: string; // For ad-hoc items added by consultant
   photos?: InspectionPhoto[];
+  // Links/fontes anexados pela consultora enquanto responde este item específico.
+  links?: string[];
   // Rastreabilidade: nome de quem fez a última modificação nesta resposta.
   lastEditedBy?: string;
   createdAt: Date;
