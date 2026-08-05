@@ -1,8 +1,8 @@
 # Handoff único — InspecVISA
 
-**Última atualização:** 04/08/2026 (BRT), ao concluir PROD-01 · **Branch:** `main`, sincronizada com
-`origin/main` · O estado da seção 2 foi verificado em 03/08/2026, com as correções de 04/08 anotadas
-nas tabelas.
+**Última atualização:** 05/08/2026 (BRT), ao concluir EST-02 e adiantar a parte (b) de REF-03 ·
+**Branch:** `main`, sincronizada com `origin/main` · O estado da seção 2 foi verificado em 03/08/2026,
+com as correções de 04/08 e 05/08 anotadas nas tabelas.
 
 Este documento substitui e torna obsoletos:
 
@@ -210,10 +210,10 @@ que omitiu nada. Ver REF-01, REF-02 e REF-03.
 | **INFRA-01** | Tirar o repositório do OneDrive | — | baixo | — | ✅ **concluído 03/08** |
 | **INFRA-02** | Reconciliar o ledger de migrations | Opus 5 | médio | — | ✅ **concluído 04/08** |
 | **EST-01** | Migrar respostas da inspeção em andamento | Opus 5 | alto | — | ✅ **concluído 03/08** |
-| **EST-02** | Verificar suplemento RJ de estética | Sonnet 5 | baixo | — | ⬜ pendente |
+| **EST-02** | Verificar suplemento RJ de estética | Sonnet 5 | baixo | — | ✅ **concluído 05/08** |
 | **REF-01** | Catalogar os ~170 atos citados | Haiku 4.5 | médio | — | ⬜ pendente |
 | **REF-02** | Sanear a biblioteca e ligá-la aos roteiros | Opus 5 | alto | REF-01 | ⬜ pendente |
-| **REF-03** | Fontes consultadas e links no relatório | Sonnet 5 | médio | REF-02 | ⬜ pendente |
+| **REF-03** | Fontes consultadas e links no relatório | Sonnet 5 | médio | REF-02 | 🟡 **parte (b) adiantada 05/08** |
 | **PROD-01** | Aviso de pagamento quebrado no portal | Opus 5 | médio | — | ✅ **concluído 04/08** |
 | **PROD-02** | Auditoria do portal não grava nada | Opus 5 | baixo | — | ✅ **concluído 04/08** |
 | **P360-008** | Detalhe, notificações e calendário | Sonnet 5 | alto | — | ⬜ pendente |
@@ -228,15 +228,17 @@ que omitiu nada. Ver REF-01, REF-02 e REF-03.
 | **DEBT-02** | Dívida de lint | Sonnet 5 | médio | — | ⬜ pendente |
 | **DEBT-03** | Pontas soltas do repositório | Haiku 4.5 | baixo | — | ⬜ pendente |
 
-Ordem sugerida: **REF-01 → REF-02 → REF-03**, e a partir daí a onda do Portal 360.
-(INFRA-01, INFRA-02, EST-01, PROD-01 e PROD-02 já saíram da fila.)
+Ordem sugerida: **REF-01 → REF-02 → REF-03 (fechar o que falta)**, e a partir daí a onda do Portal 360.
+(INFRA-01, INFRA-02, EST-01, EST-02, PROD-01, PROD-02 e PROD-03 já saíram da fila. REF-03 tem a parte
+(b) adiantada — ver seção do card.)
 
 Cards P360-001 a P360-007 foram concluídos e não aparecem aqui.
 
 ## 4.1 Divisão por modelo
 
-São **14 cards pendentes**. A divisão abaixo é o critério de despacho: abra a sessão com o modelo
-indicado e cole o card correspondente.
+São **12 cards pendentes** (EST-02 concluído em 05/08; REF-03 segue pendente para fechar teste
+automatizado e a parte que depende de REF-02). A divisão abaixo é o critério de despacho: abra a
+sessão com o modelo indicado e cole o card correspondente.
 
 ### Opus 5 — 5 cards
 
@@ -252,15 +254,14 @@ laudo errado, e um mapeamento de item malfeito reescreve a inspeção de uma cli
 | **P360-012** | Tabelas novas tenant-scoped, rate limit, permissão por papel. |
 | **P360-015** | Revisão final de segurança e prova de produção. |
 
-### Sonnet 5 — 7 cards
+### Sonnet 5 — 6 cards
 
 **Feature de UI e refatoração com critério de aceite objetivo.** Escopo fechado, o resultado se vê
 na tela e o teste diz se está certo.
 
 | Card | Por que Sonnet 5 |
 |---|---|
-| **EST-02** | Verificação pontual de código com resposta objetiva: o suplemento RJ funciona ou não. |
-| **REF-03** | Feature de UI + seção nova no PDF, seguindo o padrão que `PdfPreviewModal` já usa. |
+| **REF-03** | UI e seção nova no PDF já implementadas em 05/08; falta teste automatizado e revisitar após REF-02. |
 | **P360-008** | Geração de `.ics`, templates de e-mail, timeline condicional. Muita mecânica, pouca decisão. |
 | **P360-009** | Decomposição de página e regra de prioridade determinística. |
 | **P360-013** | Painel agregado sobre estruturas que os cards anteriores já terão criado. |
@@ -554,7 +555,7 @@ de NC no portal da cliente sozinho. Detalhes na seção 9 do mapa.
 
 ---
 
-## EST-02 — Verificar o suplemento RJ de estética
+## EST-02 — Verificar o suplemento RJ de estética ✅ concluído em 05/08/2026
 
 **Modelo:** Sonnet 5 · **Esforço:** baixo
 
@@ -579,6 +580,25 @@ roteiros semeados no banco.
 - Está documentado se o suplemento RJ funciona hoje, com evidência.
 - Se não funciona, o que falta está descrito sem ter sido aplicado.
 - Existe teste cobrindo a aplicação do suplemento para cliente do RJ.
+
+### Resultado — 05/08/2026
+
+**O suplemento RJ funciona hoje, por código, sem precisar de nada no banco.** A resolução é toda em
+`supplementRegistry` (`src/data/supplementRegistry.ts`): `isEsteticaClinicaTemplate` casa o roteiro
+tanto pelo `id` estático (`tpl-estetica-clinica-v1`) quanto pelo `name` — o que cobre o roteiro
+semeado no Supabase, que tem `id` UUID mas mantém o mesmo `name`. Confirmado por consulta direta à
+produção: `select name from checklist_templates where id = '0c55f120-…'` devolve exatamente
+`"Roteiro de Inspeção — Clínica de Estética e Saúde"`, igual ao `name` hardcoded em
+`src/data/estetica/roteiro-clinica.ts`. `isRioState(client.state)` já é o que a entrada usa — não
+há comparação direta com `'RJ'`.
+
+Achado a mais: **já existia teste cobrindo exatamente esse caso**, incluindo o cenário de UUID do
+Supabase — `src/__tests__/services/checklistIntegrity.test.ts`, describe `'integração dos roteiros
+de estética'`, teste `'aplica o suplemento ao roteiro de clínica seedado com UUID do Supabase'`
+(linha ~209). Não foi preciso escrever teste novo; ele já passa nos 138 testes da suíte.
+
+Nada foi alterado neste card — foi só verificação, como pedia o escopo. Nenhuma leitura em produção
+foi além de um `select` de uma coluna de um template.
 
 ---
 
@@ -701,6 +721,41 @@ chamou de "fontes consultadas".
 - A consultora consegue anexar, editar e remover fontes antes de gerar o PDF.
 - As fontes aparecem no PDF com URL legível em papel.
 - O PDF continua abrindo em iOS e Android (há `savePdfWithFallback` justamente por isso).
+
+### Resultado parcial — 05/08/2026
+
+**Adiantado a pedido da Ester, antes de REF-02.** A dependência formal do card é sobre a *cobertura*
+da biblioteca de legislações (REF-02); a UI e o PDF de fontes consultadas não dependem tecnicamente
+disso, então as duas partes foram implementadas agora.
+
+**(a) feito.** Em `drawReferencesABNT` (`src/utils/pdfGenerator.ts`), o filtro que só incluía a norma
+se ela tivesse `name` **e** `summary` na biblioteca foi removido — toda norma citada num item
+avaliado (fora `good_practice`) entra na lista, e `formatABNT` já tinha um texto de fallback pronto
+para quando não há verbete na biblioteca. Antes o relatório omitia isso em silêncio; hoje não omite
+mais, mesmo sem REF-02.
+
+**(b) feito.** Fluxo completo, seguindo o padrão de `selectedLegislations` como pedia o card:
+
+- Tipo novo `ReferenceSource` (`id`, `url`, `title?`, `note?`) e campo `Inspection.referenceSources?`
+  em `src/types/index.ts`.
+- Coluna aditiva `inspections.reference_sources jsonb` — migration
+  `supabase/migrations/20260805121435_inspection_reference_sources.sql`, **aplicada em produção com
+  autorização da Ester na conversa**. Mapeada em `src/services/inspectionService.ts`
+  (`mapToPostgres`/`mapFromPostgres`).
+- `PdfPreviewModal` ganhou um passo 2 novo — "Fontes Consultadas" — entre a seleção de legislações e
+  a assinatura (virou passo 1/2/3 de 3). Adiciona/remove fonte com validação de URL
+  (`new URL()`, só aceita `http:`/`https:`), pré-carrega a lista já salva na inspeção ao reabrir.
+- `InspectionSummary.tsx` (`handleGeneratePDF`) persiste `referenceSources` na inspeção antes de
+  gerar o PDF (não bloqueia a geração se a gravação falhar) e repassa para `generatePDF`.
+- `generatePDF` ganha uma página nova "FONTES CONSULTADAS", só quando a lista não está vazia — não
+  gera seção em branco. URL sempre impressa por extenso (`Disponível em: <url>`), no mesmo estilo
+  visual da página de referências legislativas.
+
+**Deliberadamente fora desta rodada:** não foi escrito teste automatizado novo para o modal nem para
+`drawConsultedSources` — verificado manualmente (fluxo do wizard testado no browser; `npm test` com
+138 testes e `npm run build` passando antes e depois). Se abrir sessão nova para fechar REF-03, vale
+cobrir isso com teste antes de considerar o card fechado de verdade — e então sim aguardar REF-02
+para o critério "nenhuma norma some", que hoje já não some, mas ainda cita normas sem verbete rico.
 
 ---
 

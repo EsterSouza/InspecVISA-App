@@ -136,6 +136,13 @@ export interface ChecklistItem {
   insertAfterItemId?: string;
 }
 
+export interface ReferenceSource {
+  id: string;
+  url: string;
+  title?: string;
+  note?: string;
+}
+
 export interface Inspection {
   id: string;
   clientId: string;
@@ -147,6 +154,8 @@ export interface Inspection {
   inspectionDate: Date;
   status: 'in_progress' | 'completed';
   observations?: string;
+  // Fontes consultadas pela consultora além das legislações do roteiro (REF-03).
+  referenceSources?: ReferenceSource[];
   createdAt: Date;
   completedAt?: Date;
   // Cached for display

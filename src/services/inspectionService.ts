@@ -76,6 +76,9 @@ export function mapFromPostgres(row: any): Inspection {
     inspectionDate: new Date(row.inspection_date),
     status: row.status,
     observations: row.observations || undefined,
+    referenceSources: Array.isArray(row.reference_sources) && row.reference_sources.length > 0
+      ? row.reference_sources
+      : undefined,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at || row.created_at),
     completedAt: row.completed_at ? new Date(row.completed_at) : undefined,
@@ -114,6 +117,9 @@ export function mapToPostgres(inspection: Inspection): any {
     inspection_date: inspection.inspectionDate.toISOString(),
     status: inspection.status,
     observations: inspection.observations || null,
+    reference_sources: inspection.referenceSources && inspection.referenceSources.length > 0
+      ? inspection.referenceSources
+      : null,
     ilpi_capacity: inspection.ilpiCapacity || null,
     residents_total: inspection.residentsTotal || null,
     residents_male: inspection.residentsMale || null,

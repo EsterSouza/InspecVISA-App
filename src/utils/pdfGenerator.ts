@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import type { Inspection, InspectionResponse, ChecklistTemplate, InspectionScore, ConsultantSettings, FoodEstablishmentType } from '../types';
+import type { Inspection, InspectionResponse, ChecklistTemplate, InspectionScore, ConsultantSettings, FoodEstablishmentType, ReferenceSource } from '../types';
 import { FOOD_SEGMENT_LABELS } from '../types';
 import { classificationLabel, getLatestResponsesByItem, calculateAreaScores } from './scoring';
 import { formatDate } from './imageUtils';
@@ -154,7 +154,7 @@ export async function generatePDF(
   score: InspectionScore,
   settings: ConsultantSettings,
   legislations: any[] = [],
-  options: { selectedLegislations?: string[]; signatureDataUrl?: string; recurringItemIds?: Set<string> } = {}
+  options: { selectedLegislations?: string[]; referenceSources?: ReferenceSource[]; signatureDataUrl?: string; recurringItemIds?: Set<string> } = {}
 ): Promise<GeneratedPdfFile> {
   const recurringItemIds = options.recurringItemIds ?? new Set<string>();
   const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
@@ -1259,6 +1259,9 @@ export async function generatePDF(
   // ── LAST PAGE: REFERÊNCIAS ABNT ─────────────────────────
   drawReferencesABNT(doc, template, responses, legislations, inspection, options.selectedLegislations);
 
+  // ── FONTES CONSULTADAS PELA CONSULTORA ───────────────────
+  drawConsultedSources(doc, options.referenceSources);
+
   // Add footers to ALL pages including new signature/reference pages
   const totalPagesAfter = (doc.internal as any).getNumberOfPages();
   for (let i = 1; i <= totalPagesAfter; i++) {
@@ -1302,18 +1305,11 @@ function drawReferencesABNT(
       // Boas práticas não têm base legal vigente — não entram na seção de referências.
       if (item.requirementType === 'good_practice') return;
 
-      // SANITIZATION: Check if the legislation is present in library and has summary
+      // A norma citada no item entra sempre, mesmo sem verbete na biblioteca —
+      // formatABNT já cobre esse caso com um texto de referência mínimo.
+      // Omitir em silêncio faz o relatório citar uma exigência sem listar sua base legal.
       const bases = extractBaseLegislation(item.legislation);
-      bases.forEach(b => {
-        const libEntry = allLegislations.find(l => 
-          l.name.toUpperCase().includes(b.toUpperCase()) || 
-          b.toUpperCase().includes(l.name.toUpperCase())
-        );
-        // Only include if it has a valid title (name) and summary (description) in library
-        if (libEntry && libEntry.name && libEntry.summary) {
-          mentionedSet.add(b);
-        }
-      });
+      bases.forEach(b => mentionedSet.add(b));
     });
 
     uniqueRefs = Array.from(mentionedSet).sort();
@@ -1407,6 +1403,84 @@ function drawReferencesABNT(
   doc.setFont('helvetica', 'italic');
   doc.setTextColor(156, 163, 175);
   doc.text('Legislações vigentes na data da inspeção.', margin, y);
+}
+
+/**
+ * Desenha a página "FONTES CONSULTADAS", com links extras anexados pela
+ * consultora além das legislações do roteiro. Não gera página se a lista
+ * estiver vazia — relatório sem fontes adicionais não ganha seção em branco.
+ */
+function drawConsultedSources(doc: jsPDF, sources?: ReferenceSource[]) {
+  if (!sources || sources.length === 0) return;
+
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margin = 20;
+  const contentW = pageW - margin * 2;
+  const primaryColor: [number, number, number] = [20, 40, 80];
+
+  doc.addPage();
+
+  doc.setFillColor(243, 244, 246);
+  doc.rect(0, 0, pageW, 42, 'F');
+  doc.setFillColor(...primaryColor);
+  doc.rect(0, 0, 4, 42, 'F');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.setTextColor(17, 24, 39);
+  doc.text('FONTES CONSULTADAS', margin + 4, 22);
+
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(107, 114, 128);
+  doc.text('Fontes adicionais consultadas pela consultora durante a inspeção.', margin + 4, 34);
+
+  let y = 58;
+
+  sources.forEach((source, idx) => {
+    if (y > pageH - 25) {
+      doc.addPage();
+      y = margin;
+    }
+
+    doc.setFillColor(30, 107, 94);
+    doc.circle(margin + 3, y - 1, 2.5, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(255, 255, 255);
+    doc.text(`${idx + 1}`, margin + 3, y + 0.5, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(31, 41, 55);
+    const titleLines = doc.splitTextToSize(source.title || source.url, contentW - 14);
+    doc.text(titleLines, margin + 10, y);
+    y += titleLines.length * 5.5 + 4;
+
+    // O PDF costuma ser impresso — o link precisa ficar legível no papel,
+    // não só clicável.
+    doc.setFontSize(7.5);
+    doc.setTextColor(30, 107, 94);
+    doc.setFont('helvetica', 'italic');
+    const urlLines = doc.splitTextToSize(`Disponível em: <${source.url}>`, contentW - 14);
+    doc.text(urlLines, margin + 10, y);
+    y += urlLines.length * 4.5 + 3;
+
+    if (source.note) {
+      doc.setFontSize(8);
+      doc.setTextColor(107, 114, 128);
+      doc.setFont('helvetica', 'normal');
+      const noteLines = doc.splitTextToSize(source.note, contentW - 14);
+      doc.text(noteLines, margin + 10, y);
+      y += noteLines.length * 4.5 + 3;
+    }
+
+    doc.setDrawColor(229, 231, 235);
+    doc.setLineWidth(0.3);
+    doc.line(margin + 10, y, margin + contentW, y);
+    y += 5;
+  });
 }
 
 /**

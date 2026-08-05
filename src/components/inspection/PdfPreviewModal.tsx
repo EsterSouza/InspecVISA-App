@@ -1,11 +1,20 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { X, ChevronRight, ChevronLeft, Trash2, FileDown, Loader2, CheckSquare, Square } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, Trash2, FileDown, Loader2, CheckSquare, Square, Plus, Link2 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { extractBaseLegislation, canonicalLegislationKey } from '../../utils/legislationRefs';
 import { isLegislationApplicable, type Legislation } from '../../services/legislationService';
-import type { ChecklistTemplate, InspectionResponse, Inspection } from '../../types';
+import type { ChecklistTemplate, InspectionResponse, Inspection, ReferenceSource } from '../../types';
 
 type LegTag = 'roteiro' | 'uf' | 'segmento';
+
+function isValidHttpUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value.trim());
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
 
 interface PdfPreviewModalProps {
   open: boolean;
@@ -14,7 +23,7 @@ interface PdfPreviewModalProps {
   responses: InspectionResponse[];
   inspection: Inspection;
   legislationLibrary?: Legislation[];
-  onGenerate: (opts: { selectedLegislations: string[]; signatureDataUrl: string | undefined }) => Promise<void>;
+  onGenerate: (opts: { selectedLegislations: string[]; referenceSources: ReferenceSource[]; signatureDataUrl: string | undefined }) => Promise<void>;
   isGenerating: boolean;
   progressLabel?: string;
 }
@@ -22,10 +31,15 @@ interface PdfPreviewModalProps {
 export function PdfPreviewModal({
   open, onClose, template, responses, inspection, legislationLibrary, onGenerate, isGenerating, progressLabel
 }: PdfPreviewModalProps) {
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [legislations, setLegislations] = useState<string[]>([]);
   const [legTags, setLegTags] = useState<Map<string, LegTag>>(new Map());
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [sources, setSources] = useState<ReferenceSource[]>([]);
+  const [sourceUrl, setSourceUrl] = useState('');
+  const [sourceTitle, setSourceTitle] = useState('');
+  const [sourceNote, setSourceNote] = useState('');
+  const [sourceUrlError, setSourceUrlError] = useState<string | null>(null);
   const [hasSignature, setHasSignature] = useState(false);
   const [skipSignature, setSkipSignature] = useState(false);
 
@@ -41,6 +55,11 @@ export function PdfPreviewModal({
     setStep(1);
     setHasSignature(false);
     setSkipSignature(false);
+    setSources(inspection.referenceSources || []);
+    setSourceUrl('');
+    setSourceTitle('');
+    setSourceNote('');
+    setSourceUrlError(null);
 
     // 1. Legislações CITADAS nos itens avaliados (comportamento original).
     const evaluatedIds = new Set(responses.map(r => r.itemId));
@@ -156,18 +175,45 @@ export function PdfPreviewModal({
     });
   };
 
+  const addSource = () => {
+    const url = sourceUrl.trim();
+    if (!url) {
+      setSourceUrlError('Informe o link da fonte.');
+      return;
+    }
+    if (!isValidHttpUrl(url)) {
+      setSourceUrlError('Link inválido. Use um endereço começando com http:// ou https://');
+      return;
+    }
+    setSources(prev => [...prev, {
+      id: crypto.randomUUID(),
+      url,
+      title: sourceTitle.trim() || undefined,
+      note: sourceNote.trim() || undefined,
+    }]);
+    setSourceUrl('');
+    setSourceTitle('');
+    setSourceNote('');
+    setSourceUrlError(null);
+  };
+
+  const removeSource = (id: string) => {
+    setSources(prev => prev.filter(s => s.id !== id));
+  };
+
   const handleGenerate = async () => {
     let signatureDataUrl: string | undefined;
     if (!skipSignature && canvasRef.current && hasSignature) {
       signatureDataUrl = canvasRef.current.toDataURL('image/png');
     }
-    await onGenerate({ selectedLegislations: Array.from(selected), signatureDataUrl });
+    await onGenerate({ selectedLegislations: Array.from(selected), referenceSources: sources, signatureDataUrl });
     onClose();
   };
 
   if (!open) return null;
 
-  const canProceed = step === 1 || skipSignature || hasSignature;
+  const canProceed = step !== 3 || skipSignature || hasSignature;
+  const stepTitle = step === 1 ? 'Referências Legislativas' : step === 2 ? 'Fontes Consultadas' : 'Assinatura Digital';
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
@@ -176,10 +222,10 @@ export function PdfPreviewModal({
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
           <div>
             <p className="text-xs font-bold text-primary-600 uppercase tracking-widest">
-              Passo {step} de 2
+              Passo {step} de 3
             </p>
             <h2 className="text-lg font-extrabold text-gray-900">
-              {step === 1 ? 'Referências Legislativas' : 'Assinatura Digital'}
+              {stepTitle}
             </h2>
           </div>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 transition-colors">
@@ -189,7 +235,7 @@ export function PdfPreviewModal({
 
         {/* Step indicators */}
         <div className="flex gap-2 px-5 pt-3 pb-1 shrink-0">
-          {[1, 2].map(s => (
+          {[1, 2, 3].map(s => (
             <div
               key={s}
               className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${step >= s ? 'bg-primary-500' : 'bg-gray-200'}`}
@@ -244,6 +290,83 @@ export function PdfPreviewModal({
           )}
 
           {step === 2 && (
+            <div className="space-y-4">
+              <p className="text-sm text-gray-500">
+                Anexe links de fontes consultadas além das legislações do roteiro — laudos, notas técnicas, páginas oficiais. Elas entram no PDF numa seção própria, após as referências legislativas.
+              </p>
+
+              {sources.length > 0 && (
+                <div className="space-y-1.5">
+                  {sources.map(source => (
+                    <div key={source.id} className="flex items-start gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm">
+                      <Link2 className="h-4 w-4 shrink-0 text-primary-500 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-900 truncate">{source.title || source.url}</p>
+                        <p className="text-xs text-gray-500 truncate">{source.url}</p>
+                        {source.note && <p className="text-xs text-gray-400 mt-0.5">{source.note}</p>}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeSource(source.id)}
+                        className="shrink-0 p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+                        aria-label={`Remover fonte ${source.title || source.url}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="rounded-xl border border-gray-200 p-3 space-y-2">
+                <div>
+                  <label htmlFor="source-url" className="text-xs font-medium text-gray-700">Link <span className="text-red-500">*</span></label>
+                  <input
+                    id="source-url"
+                    type="url"
+                    value={sourceUrl}
+                    onChange={e => { setSourceUrl(e.target.value); setSourceUrlError(null); }}
+                    placeholder="https://..."
+                    className="mt-1 w-full min-h-10 rounded-md border border-gray-300 px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-100"
+                  />
+                  {sourceUrlError && <p role="alert" className="mt-1 text-xs text-red-600">{sourceUrlError}</p>}
+                </div>
+                <div>
+                  <label htmlFor="source-title" className="text-xs font-medium text-gray-700">Título</label>
+                  <input
+                    id="source-title"
+                    value={sourceTitle}
+                    onChange={e => setSourceTitle(e.target.value)}
+                    placeholder="Ex.: Nota técnica ANVISA sobre..."
+                    className="mt-1 w-full min-h-10 rounded-md border border-gray-300 px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-100"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="source-note" className="text-xs font-medium text-gray-700">Nota (opcional)</label>
+                  <input
+                    id="source-note"
+                    value={sourceNote}
+                    onChange={e => setSourceNote(e.target.value)}
+                    placeholder="Ex.: consultado em 05/08/2026"
+                    className="mt-1 w-full min-h-10 rounded-md border border-gray-300 px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-100"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={addSource}
+                  className="inline-flex min-h-10 items-center gap-1.5 rounded-md border border-primary-200 bg-primary-50 px-3 text-sm font-semibold text-primary-800 hover:bg-primary-100"
+                >
+                  <Plus className="h-4 w-4" /> Adicionar fonte
+                </button>
+              </div>
+
+              {sources.length === 0 && (
+                <p className="text-xs text-gray-400">Nenhuma fonte adicionada. O relatório sai sem essa seção, sem problema.</p>
+              )}
+            </div>
+          )}
+
+          {step === 3 && (
             <div className="space-y-4">
               <p className="text-sm text-gray-500">
                 Assine abaixo com o dedo (celular/tablet) ou mouse. A assinatura será impressa na página de encerramento do PDF.
@@ -301,10 +424,10 @@ export function PdfPreviewModal({
 
         {/* Footer buttons */}
         <div className="shrink-0 px-5 py-4 border-t border-gray-100 flex justify-between gap-3">
-          {step === 2 ? (
+          {step > 1 ? (
             <Button
               variant="outline"
-              onClick={() => setStep(1)}
+              onClick={() => setStep(prev => (prev - 1) as 1 | 2 | 3)}
               className="flex items-center gap-1"
             >
               <ChevronLeft className="h-4 w-4" /> Voltar
@@ -313,9 +436,9 @@ export function PdfPreviewModal({
             <div />
           )}
 
-          {step === 1 ? (
+          {step < 3 ? (
             <Button
-              onClick={() => setStep(2)}
+              onClick={() => setStep(prev => (prev + 1) as 1 | 2 | 3)}
               className="flex items-center gap-1 ml-auto"
             >
               Próximo <ChevronRight className="h-4 w-4" />

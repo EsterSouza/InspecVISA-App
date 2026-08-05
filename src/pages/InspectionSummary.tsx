@@ -11,7 +11,7 @@ import { calculateScore, calculateAreaScores, getLatestResponsesByItem } from '.
 import { isRioState } from '../utils/state';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { db } from '../db/database';
-import type { Inspection, InspectionResponse, ChecklistTemplate } from '../types';
+import type { Inspection, InspectionResponse, ChecklistTemplate, ReferenceSource } from '../types';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { formatDateTime } from '../utils/imageUtils';
@@ -268,7 +268,7 @@ export function InspectionSummary() {
     }
   };
 
-  const handleGeneratePDF = async (opts: { selectedLegislations: string[]; signatureDataUrl?: string }) => {
+  const handleGeneratePDF = async (opts: { selectedLegislations: string[]; referenceSources?: ReferenceSource[]; signatureDataUrl?: string }) => {
     if (!currentInspection) return;
     if (!displayTemplate || !scoreArea) {
       alert('Nao foi possivel gerar o PDF porque o roteiro ou a pontuacao ainda nao carregou. Aguarde alguns segundos e tente novamente.');
@@ -277,6 +277,12 @@ export function InspectionSummary() {
     setIsGenerating(true);
     setPdfPhotoProgress(null);
     try {
+    // Persistir as fontes antes de gerar, para que reabrir o relatório mantenha a lista.
+    if (opts.referenceSources) {
+      setInspection({ ...currentInspection, referenceSources: opts.referenceSources });
+      InspectionService.updateInspection(currentInspection.id, { referenceSources: opts.referenceSources })
+        .catch(err => console.warn('[Summary] Falha ao salvar fontes consultadas:', err));
+    }
     const currentReadiness = await checkReportReadiness(currentInspection.id);
     setReadiness(currentReadiness);
     if (currentReadiness.conflictCount > 0) {
@@ -348,10 +354,10 @@ export function InspectionSummary() {
          scoreArea,
          settings as any,
          legislations,
-         { selectedLegislations: opts.selectedLegislations, signatureDataUrl: opts.signatureDataUrl, recurringItemIds }
+         { selectedLegislations: opts.selectedLegislations, referenceSources: opts.referenceSources, signatureDataUrl: opts.signatureDataUrl, recurringItemIds }
        );
        if (shouldSyncFinalSnapshot) {
-         const snapshotInspection = { ...currentInspection, reportTemplateSnapshot: displayTemplate };
+         const snapshotInspection = { ...currentInspection, reportTemplateSnapshot: displayTemplate, referenceSources: opts.referenceSources ?? currentInspection.referenceSources };
          await InspectionBundleSyncService.syncInspectionBundle(currentInspection.id, {
            finalizeReport: true,
            inspectionOverride: snapshotInspection,
