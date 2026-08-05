@@ -1,7 +1,7 @@
 // REF-02 — preenche checklist_items.legislation_url a partir da biblioteca curada.
 //
-//   node scripts/ref02-backfill-item-urls.mjs            # simulação (padrão)
-//   node scripts/ref02-backfill-item-urls.mjs --apply    # grava em produção
+//   npx tsx scripts/ref02-backfill-item-urls.ts            # simulação (padrão)
+//   npx tsx scripts/ref02-backfill-item-urls.ts --apply    # grava em produção
 //
 // Precisa de VITE_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY no ambiente (a chave
 // anon não enxerga checklist_items sob RLS). Passe a service role por variável de
@@ -15,11 +15,7 @@
 //
 // APLICAR EM PRODUÇÃO EXIGE AUTORIZAÇÃO EXPLÍCITA DA ESTER (regra 1 do handoff).
 import { createClient } from '@supabase/supabase-js';
-import { register } from 'node:module';
-import { pathToFileURL } from 'node:url';
-
-register('tsx/esm', pathToFileURL('./'));
-const { resolveLegislationUrl, resolveCitedLegislations } = await import('../src/utils/legislationRefs.ts');
+import { resolveLegislationUrl, resolveCitedLegislations } from '../src/utils/legislationRefs';
 
 const APPLY = process.argv.includes('--apply');
 const url = process.env.VITE_SUPABASE_URL;
@@ -32,8 +28,8 @@ if (!url || !key) {
 
 const sb = createClient(url, key, { auth: { persistSession: false } });
 
-async function readAll(table, select) {
-  const out = [];
+async function readAll(table: string, select: string) {
+  const out: any[] = [];
   for (let from = 0; ; from += 1000) {
     const { data, error } = await sb.from(table).select(select).order('id').range(from, from + 999);
     if (error) throw new Error(`${table}: ${error.message}`);
@@ -45,9 +41,9 @@ async function readAll(table, select) {
 
 const items = await readAll('checklist_items', 'id,legislation_name,legislation_url,requirement_type');
 
-const paraAtualizar = [];
-const jaCorretos = [];
-const semResolucao = [];
+const paraAtualizar: any[] = [];
+const jaCorretos: any[] = [];
+const semResolucao: any[] = [];
 
 for (const item of items) {
   const alvo = resolveLegislationUrl(item.legislation_name) || null;

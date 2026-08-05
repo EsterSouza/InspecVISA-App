@@ -828,16 +828,27 @@ INFRA-02. Backup do estado anterior das 42 linhas capturado antes da escrita.
 | Grafias `RDC ANVISA` antigas | **0** — os 10 renomes aplicados |
 | Nomes duplicados | **0** |
 
-**Ainda pendente:** o backfill de `checklist_items.legislation_url`. Ele precisa de
-`SUPABASE_SERVICE_ROLE_KEY` no ambiente, que não está disponível nesta máquina — a de
-`.env.vercel.production.local` vem vazia do Vercel. **Não é bloqueio de comportamento:** o app já
-resolve a URL pela biblioteca em tempo de renderização (`legislationUrlForItem`), então tela e PDF
-já mostram o link certo. O backfill só acerta o dado em repouso. Rodar com:
+**O backfill de `checklist_items.legislation_url` também foi aplicado**, com a service role fornecida
+pela Ester na conversa (usada só como variável de ambiente do comando, nunca gravada em arquivo).
 
-```
-node scripts/ref02-backfill-item-urls.mjs           # simulação
-node scripts/ref02-backfill-item-urls.mjs --apply   # grava
-```
+| Verificação | Resultado |
+|---|---|
+| Itens lidos | 918 |
+| Atualizados | **834** — 728 estavam vazios, 106 tinham a URL antiga do `datalegis` |
+| Itens sem `legislation_url` | 800 → **72** |
+| URLs apontando para `datalegis` | 106 → **0** |
+| URLs distintas em uso | **41** — uma por ato, sem grafia divergente |
+| Idempotência | reexecutado em simulação logo depois: **0 a atualizar** |
+
+**Os 72 restantes não são falha da carga: são itens cuja citação não nomeia ato algum** — "Boas
+Práticas", "Legislação Municipal", "Normas do Corpo de Bombeiros", "Princípios de Biossegurança".
+Desses, **48 estão marcados como `legal`**, e é aí que mora a pendência real: `requirement_type`
+nunca foi curado fora dos roteiros de estética. Em `templateService.ts` o padrão é `'legal'`, então
+todo item de ILPI e de alimentos nasceu legal. Esses 48 provavelmente são `good_practice`, como já
+são os equivalentes de estética — mas isso é decisão sanitária da Ester, não de refatoração, e vira
+card próprio. Enquanto não for decidido, eles aparecem no relatório como exigência legal sem base
+legal citável.
+
 
 **Deliberadamente fora:** regerar `docs/referencias/inventario.csv`, que exige dump de produção — a
 `SUPABASE_SERVICE_ROLE_KEY` de `.env.vercel.production.local` vem vazia do Vercel. O delta exato

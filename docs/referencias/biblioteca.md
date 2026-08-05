@@ -135,6 +135,8 @@ Dois achados de vigência mudaram o conteúdo dos roteiros, e não só da biblio
 | Normas regionais sem UF (o app as trataria como federais) | 3 — Decreto Rio 57.501/2026, Lei Municipal RJ 8.618/2024, Portaria SMSA/SUS-BH 0221/2022 | **0** — travado por teste |
 | Entradas sem segmento | 16 | 10, e agora por decisão: 4 federais de aplicação geral e 6 licenciamentos regionais que valem para todo segmento daquela UF |
 | Itens legais em código sem URL de legislação | 387 (a coluna do item era a única fonte) | **0** — travado por teste, contando os 4 suplementos regionais |
+| Itens no banco sem `legislation_url` | 800 de 918 | **72**, nenhum deles citando ato normativo |
+| Itens no banco apontando para `datalegis` | 106 | **0** |
 
 A meta "100% dos roteiros vivos" foi escolhida pela Ester em 05/08/2026, entre as três opções
 apresentadas com o inventário em mãos.
@@ -185,3 +187,15 @@ Recomputando a chave sobre o próprio CSV, as 57 linhas do REF-01 viram 54; rege
 
 Para regerar: `node scripts/ref02-dump.mjs` (precisa de service role) e depois
 `npx tsx scripts/ref01-build-inventory.ts`.
+
+## Estado em produção — 05/08/2026
+
+Biblioteca carregada (migration `20260805200700`) e backfill aplicado: 834 itens atualizados, 918
+lidos, 0 URLs de `datalegis` restantes, 41 URLs distintas em uso — uma por ato. Reexecutar o
+backfill não grava nada.
+
+Sobraram **72 itens sem URL, 48 deles marcados como `legal`**. Nenhum cita ato normativo: são
+"Boas Práticas", "Legislação Municipal", "Normas do Corpo de Bombeiros". A causa é que
+`requirement_type` só foi curado nos roteiros de estética — em `templateService.ts` o padrão é
+`'legal'`, então ILPI e alimentos nasceram inteiramente legais. Reclassificar esses 48 é decisão
+sanitária, não de código.
