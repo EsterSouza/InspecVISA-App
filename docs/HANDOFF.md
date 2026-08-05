@@ -211,8 +211,8 @@ que omitiu nada. Ver REF-01, REF-02 e REF-03.
 | **INFRA-02** | Reconciliar o ledger de migrations | Opus 5 | médio | — | ✅ **concluído 04/08** |
 | **EST-01** | Migrar respostas da inspeção em andamento | Opus 5 | alto | — | ✅ **concluído 03/08** |
 | **EST-02** | Verificar suplemento RJ de estética | Sonnet 5 | baixo | — | ✅ **concluído 05/08** |
-| **REF-01** | Catalogar os ~170 atos citados | Haiku 4.5 | médio | — | ⬜ pendente |
-| **REF-02** | Sanear a biblioteca e ligá-la aos roteiros | Opus 5 | alto | REF-01 | ⬜ pendente |
+| **REF-01** | Catalogar os atos citados | Haiku 4.5 | médio | — | ✅ **concluído 05/08** |
+| **REF-02** | Sanear a biblioteca e ligá-la aos roteiros | Opus 5 | alto | REF-01 (concluído) | ⬜ pendente |
 | **REF-03** | Fontes consultadas e links no relatório | Sonnet 5 | médio | REF-02 (só para enriquecer, não bloqueia) | ✅ **concluído 05/08** |
 | **PROD-01** | Aviso de pagamento quebrado no portal | Opus 5 | médio | — | ✅ **concluído 04/08** |
 | **PROD-02** | Auditoria do portal não grava nada | Opus 5 | baixo | — | ✅ **concluído 04/08** |
@@ -228,15 +228,16 @@ que omitiu nada. Ver REF-01, REF-02 e REF-03.
 | **DEBT-02** | Dívida de lint | Sonnet 5 | médio | — | ⬜ pendente |
 | **DEBT-03** | Pontas soltas do repositório | Haiku 4.5 | baixo | — | ✅ **concluído 05/08** |
 
-Ordem sugerida: **REF-01 → REF-02**, e a partir daí a onda do Portal 360.
-(INFRA-01, INFRA-02, EST-01, EST-02, PROD-01, PROD-02, PROD-03 e REF-03 já saíram da fila.)
+Ordem sugerida: **REF-02** agora que o inventário do REF-01 existe, e a partir daí a onda do Portal 360.
+(INFRA-01, INFRA-02, EST-01, EST-02, PROD-01, PROD-02, PROD-03, REF-01, REF-03 e DEBT-03 já saíram da
+fila.)
 
 Cards P360-001 a P360-007 foram concluídos e não aparecem aqui.
 
 ## 4.1 Divisão por modelo
 
-São **10 cards pendentes** (EST-02, REF-03 e DEBT-03 concluídos em 05/08). A divisão abaixo é o
-critério de despacho: abra a sessão com o modelo indicado e cole o card correspondente.
+São **9 cards pendentes** (EST-02, REF-03, DEBT-03 e REF-01 concluídos em 05/08). A divisão abaixo é
+o critério de despacho: abra a sessão com o modelo indicado e cole o card correspondente.
 
 ### Opus 5 — 5 cards
 
@@ -268,13 +269,10 @@ na tela e o teste diz se está certo.
 > **P360-015 é a exceção da regra.** Os testes E2E podem ser escritos por Sonnet 5, mas a revisão
 > de segurança, migrations e prova de produção tem de ser feita com Opus 5.
 
-### Haiku 4.5 — 1 card
+### Haiku 4.5 — 0 cards
 
-**Varredura mecânica, sem decisão.** Entrada e saída bem definidas, nenhum julgamento técnico.
-
-| Card | Por que Haiku 4.5 |
-|---|---|
-| **REF-01** | Extrair, normalizar com funções que já existem e tabular. Nenhuma decisão de vigência — isso é REF-02. |
+Não há cards pendentes hoje na categoria "varredura mecânica, sem decisão" — REF-01 e DEBT-03, os
+dois que existiam, foram concluídos em 05/08.
 
 ### O que não delegar por modelo, e sim à Ester
 
@@ -600,7 +598,7 @@ foi além de um `select` de uma coluna de um template.
 
 # Bloco 2 — Referências e banco de referências
 
-## REF-01 — Catalogar os atos normativos citados nos roteiros
+## REF-01 — Catalogar os atos normativos citados nos roteiros ✅ concluído em 05/08/2026
 
 **Modelo:** Haiku 4.5 · **Esforço:** médio
 
@@ -622,6 +620,60 @@ Tarefa de levantamento, sem decisão normativa. Números de partida na seção 2
 - Cada linha traz a contagem de itens que a citam.
 - Grafias divergentes do mesmo ato estão agrupadas.
 - Nenhuma escrita em `legislations` ou `checklist_items`.
+
+### Resultado — 05/08/2026
+
+Entregue em [`docs/referencias/inventario.csv`](referencias/inventario.csv) (62 linhas, uma por ato).
+Só leitura no Supabase de produção (as duas consultas usadas estão documentadas no cabeçalho de
+[`scripts/ref01-build-inventory.ts`](../scripts/ref01-build-inventory.ts), que reusa
+`extractBaseLegislation` e `canonicalLegislationKey` de `src/utils/legislationRefs.ts` sem
+reescrever nada). Nenhuma escrita em `legislations` ou `checklist_items`.
+
+**Os 918 itens de checklist têm `legislation_name` preenchido — 100% de cobertura**, sem nenhum
+item vazio. `extractBaseLegislation` reconheceu ao menos uma referência em todos os 918 (nenhum caiu
+em "sem extração"). Total de 1.235 citações (item × ato citado), agrupadas em 62 chaves canônicas.
+
+**O achado que muda a leitura do número "~170" da seção 2.6.** Aquele "~170 atos normativos
+distintos (aprox.)" era uma estimativa manual anterior a este inventário. O número medido — 62
+chaves canônicas — é mais baixo que o esperado, e a causa raiz **não é que existam poucos atos**: é
+um bug real em `canonicalLegislationKey` (usada também ao vivo por `PdfPreviewModal.tsx` para
+deduplicar a lista de legislações do relatório).
+
+`canonicalLegislationKey` extrai o "número" do ato pegando a **primeira sequência de dígitos** do
+texto, sem âncora no tipo do ato. Quando o texto bruto começa com "Art. N" antes da citação real —
+comum nos roteiros de ILPI, que citam artigo e lei juntos —, esse número do artigo é capturado no
+lugar do número da lei. Caso concreto, confirmado no CSV: a **Lei Municipal nº 1.812/2014** (RJ,
+citada em 19 itens) aparece **fragmentada em 5 chaves diferentes** — `LEI|276|2014` (13 itens),
+`LEI|277|2014` (2), `LEI|278|2014` (2), `LEI|279|2014` (1) e `LEI|289|2014` (1) — uma por artigo
+citado, em vez de uma chave só. A causa começa em `extractBaseLegislation`: o padrão de `Lei` só
+reconhece os qualificadores "Federal", "Estadual" e "Complementar"; "Municipal" não está na lista, o
+regex não casa, e o texto inteiro ("Art. 276, Lei Municipal 1.812/2014") cai no caminho de reserva
+sem normalização — é aí que `canonicalLegislationKey` pega o "276" em vez do "1812".
+
+Não corrigido neste card — a instrução explícita era reusar as funções como estão, sem reescrever.
+Fica sinalizado para quem pegar o REF-02 e para o card de correção do utilitário (aberto como tarefa
+em segundo plano nesta sessão): **a contagem real de atos distintos é maior que 62**, e o REF-02 não
+deve tomar essa lista como pronta — precisa revisar principalmente as linhas com `grafias_encontradas`
+heterogêneas antes de cadastrar na biblioteca.
+
+**Outros pontos do CSV, para quem for usá-lo no REF-02:**
+
+- A linha `OUTRO||` (110 itens) não é um ato — é o balde de textos sem forma normativa reconhecível
+  ("Boas Práticas", "Critério técnico de..."), majoritariamente de itens `good_practice`, que por
+  definição não têm base legal vigente. Não entra na contagem de atos a cadastrar.
+- 17 das 62 chaves já têm correspondência em `legislations` (`existe_em_legislations = sim`), batendo
+  com os "10 de ~170" citado antes só porque a base de comparação mudou — a cobertura real sobre os
+  atos *de fato reconhecidos* já é maior do que a seção 2.6 registrava.
+- Nenhuma colisão de chave canônica **dentro da própria** tabela `legislations` (duas entradas da
+  biblioteca virando a mesma chave) — checado e não ocorre hoje.
+- Os roteiros arquivados (prefixo `[ARQUIVADO]`) continuam na coluna "roteiros" de propósito: um ato
+  citado só em roteiro arquivado ainda merece entrar na biblioteca, porque inspeções antigas usam
+  esse roteiro no relatório.
+
+**Evidência:** `npm test` — 19 arquivos, 146 testes, todos passando (nada de produto foi tocado, só
+leitura no Supabase e um script novo em `scripts/`). Os dumps brutos usados como entrada
+(`ref01-raw.json`, `ref01-legislations.json`) não foram versionados — são snapshot de produção, não
+fonte de verdade do repositório; o cabeçalho do script documenta como regerá-los.
 
 ---
 
@@ -1427,3 +1479,4 @@ Ao concluir um card, marcar aqui e atualizar a tabela da seção 4.
 | 05/08/2026 | **EST-02** — concluído | Sonnet 5 | — | Suplemento RJ já funciona hoje por código (`supplementRegistry` casa por `id` estático ou por `name`); já havia teste cobrindo o cenário de UUID do Supabase. Nada foi alterado, só verificado. |
 | 05/08/2026 | **REF-03** — concluído | Sonnet 5 | — | Partes (a) e (b) adiantadas antes de REF-02 e fechadas com teste nesta sessão: `PdfPreviewModal.test.tsx` (5 casos) e `pdfGenerator.test.ts` (3 casos). Achado: `jsPDF.text` é propriedade de instância, não do prototype — `vi.mock('jspdf', ...)` foi o caminho, não `spyOn(prototype)`. 146 testes JS, build OK. |
 | 05/08/2026 | **DEBT-03** — concluído | Sonnet 5 | — | `sala-estetica.html` removido (autorizado pela Ester na conversa: "não faz parte desse projeto"). Ícones PWA quantizados sem perda visível (−90%, `public/` de 1,3 MB para 256 KB). `globPatterns` do service worker restrito a `js/css/html/woff2` — ícones seguem precacheados via `includeAssets`; achado: `logo sem fundo treinavisa.png`, não usado em lugar nenhum, estava sendo precacheado à toa pelo glob antigo. Precache: 72→66 entradas. Arquivos de negócio na raiz preservados, como já decidido. |
+| 05/08/2026 | **REF-01** — concluído | Sonnet 5 | — | `docs/referencias/inventario.csv`: 62 chaves canônicas a partir de 918 itens (100% de cobertura), via `scripts/ref01-build-inventory.ts` reusando `extractBaseLegislation`/`canonicalLegislationKey` sem reescrever nada. Achado: bug real em `canonicalLegislationKey` (também usada ao vivo por `PdfPreviewModal.tsx`) fragmenta um mesmo ato em várias chaves quando o texto começa com "Art. N" antes da citação — caso confirmado: Lei Municipal 1.812/2014 (19 itens) virou 5 chaves diferentes. Não corrigido (fora do escopo do card); sinalizado para REF-02 e como tarefa em segundo plano. |
