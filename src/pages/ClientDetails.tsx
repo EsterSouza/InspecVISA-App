@@ -43,6 +43,7 @@ export function ClientDetails() {
   const [actionPlan, setActionPlan] = useState<ClientActionPlanContext>({ latestOpenItems: [], recurringItems: [] });
   const [portalAccounts, setPortalAccounts] = useState<ClientPortalAccountRow[]>([]);
   const [portalAuditEvents, setPortalAuditEvents] = useState<ClientPortalAuditEvent[]>([]);
+  const [portalAuditError, setPortalAuditError] = useState<string | null>(null);
   const [clientRequests, setClientRequests] = useState<AppointmentRequest[]>([]);
   const [publishedAssets, setPublishedAssets] = useState<Record<string, AppointmentAttachment[]>>({});
   const [loading, setLoading] = useState(true);
@@ -123,8 +124,17 @@ export function ClientDetails() {
           setClientRequests(mine);
           const auditAccount = accounts.find((account) => account.client_ids.includes(id));
           AppointmentAdminService.listPortalAuditEvents(auditAccount ? { accountId: auditAccount.id, limit: 20 } : { clientId: id, limit: 20 })
-            .then(setPortalAuditEvents)
-            .catch((err) => console.warn('[ClientDetails] Falha ao carregar auditoria do portal:', err));
+            .then((events) => {
+              setPortalAuditEvents(events);
+              setPortalAuditError(null);
+            })
+            .catch((err) => {
+              // Falha de leitura tem de aparecer na tela: por meses a trilha nao existia e o painel
+              // mostrava "nenhuma atividade", que e exatamente como parece estar tudo bem.
+              console.error('[ClientDetails] Falha ao carregar auditoria do portal:', err);
+              setPortalAuditEvents([]);
+              setPortalAuditError(err instanceof Error ? err.message : String(err));
+            });
           const assets: Record<string, AppointmentAttachment[]> = {};
           await Promise.allSettled(
             mine.map(async (request) => {
@@ -630,7 +640,16 @@ export function ClientDetails() {
               <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-900">
                 Auditoria do portal
               </h3>
-              {portalAuditEvents.length === 0 ? (
+              {portalAuditError ? (
+                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                  <p className="font-bold">Nao foi possivel ler a trilha de auditoria.</p>
+                  <p className="mt-1">
+                    Isto nao significa que o cliente nao usou o portal — significa que a leitura
+                    falhou. Se persistir, avise no suporte.
+                  </p>
+                  <p className="mt-1 break-words text-xs text-amber-700">{portalAuditError}</p>
+                </div>
+              ) : portalAuditEvents.length === 0 ? (
                 <p className="rounded-md bg-gray-50 p-3 text-sm text-gray-500">
                   Nenhuma atividade registrada ainda.
                 </p>

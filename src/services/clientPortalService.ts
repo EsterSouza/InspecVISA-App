@@ -12,6 +12,33 @@ import { PUBLIC_APPOINTMENT_DRAFT_KEY } from '../utils/publicAppointmentForm';
 
 const TIMEOUT_MS = 30000;
 
+export interface ClientPortalAuditHealth {
+  ok: number;
+  failed: number;
+  lastError: string | null;
+  lastEventType: ClientPortalAuditEventType | null;
+  lastFailureAt: string | null;
+}
+
+const auditHealth: ClientPortalAuditHealth = {
+  ok: 0,
+  failed: 0,
+  lastError: null,
+  lastEventType: null,
+  lastFailureAt: null,
+};
+
+function recordAuditFailure(eventType: ClientPortalAuditEventType, err: unknown): void {
+  auditHealth.failed += 1;
+  auditHealth.lastError = err instanceof Error ? err.message : String(err);
+  auditHealth.lastEventType = eventType;
+  auditHealth.lastFailureAt = new Date().toISOString();
+  console.error(
+    `[ClientPortal] Auditoria falhou em "${eventType}" (${auditHealth.failed} desde que a pagina abriu):`,
+    err
+  );
+}
+
 function withTimeout<T>(promise: PromiseLike<T>, label: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
@@ -223,9 +250,16 @@ export const clientPortalService = {
       );
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
+      auditHealth.ok += 1;
     } catch (err) {
-      console.warn('[ClientPortal] Falha ao registrar auditoria:', err);
+      // Registrar auditoria nunca pode derrubar o portal do cliente, mas falhar em silencio ja
+      // custou meses: a funcao nao existia em producao e ninguem percebeu. Fica barulhento.
+      recordAuditFailure(eventType, err);
     }
+  },
+
+  auditHealth(): ClientPortalAuditHealth {
+    return { ...auditHealth };
   },
 
   async invoices(accountToken: string): Promise<ClientPortalInvoice[]> {

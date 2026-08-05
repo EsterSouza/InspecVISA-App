@@ -105,7 +105,11 @@ Confirmado presente no banco:
 
 A migration `checklist_items_requirement_type` consta **duas vezes** no ledger remoto, sob as
 versões `20260803205941` e `20260803221936`. O schema está correto; o ledger é que está sujo.
-Ver INFRA-02.
+
+O ledger inteiro foi auditado em 04/08/2026 contra o schema real — arquivo por arquivo, objeto por
+objeto — em [`docs/migrations-status.md`](migrations-status.md). **Não rodar `supabase db push`**
+antes do `migration repair` descrito lá: o CLI tentaria aplicar a migration de junho da auditoria e
+reverteria o endurecimento do PROD-01.
 
 ### 2.4 Roteiros de estética
 
@@ -205,14 +209,14 @@ que omitiu nada. Ver REF-01, REF-02 e REF-03.
 | Card | Título | Modelo | Esforço | Depende de | Estado |
 |---|---|---|---|---|---|
 | **INFRA-01** | Tirar o repositório do OneDrive | — | baixo | — | ✅ **concluído 03/08** |
-| **INFRA-02** | Reconciliar o ledger de migrations | Opus 5 | médio | — | ⬜ pendente |
+| **INFRA-02** | Reconciliar o ledger de migrations | Opus 5 | médio | — | ✅ **concluído 04/08** |
 | **EST-01** | Migrar respostas da inspeção em andamento | Opus 5 | alto | — | ✅ **concluído 03/08** |
 | **EST-02** | Verificar suplemento RJ de estética | Sonnet 5 | baixo | — | ⬜ pendente |
 | **REF-01** | Catalogar os ~170 atos citados | Haiku 4.5 | médio | — | ⬜ pendente |
 | **REF-02** | Sanear a biblioteca e ligá-la aos roteiros | Opus 5 | alto | REF-01 | ⬜ pendente |
 | **REF-03** | Fontes consultadas e links no relatório | Sonnet 5 | médio | REF-02 | ⬜ pendente |
 | **PROD-01** | Aviso de pagamento quebrado no portal | Opus 5 | médio | — | ✅ **concluído 04/08** |
-| **PROD-02** | Auditoria do portal não grava nada | Opus 5 | baixo | — | 🟨 **parcial** — falta observabilidade |
+| **PROD-02** | Auditoria do portal não grava nada | Opus 5 | baixo | — | ✅ **concluído 04/08** |
 | **P360-008** | Detalhe, notificações e calendário | Sonnet 5 | alto | — | ⬜ pendente |
 | **P360-009** | Início do portal por próximas ações | Sonnet 5 | alto | P360-008 | ⬜ pendente |
 | **P360-010** | Projeção segura do plano de ação | Opus 5 | alto | — | ⬜ pendente |
@@ -225,17 +229,17 @@ que omitiu nada. Ver REF-01, REF-02 e REF-03.
 | **DEBT-02** | Dívida de lint | Sonnet 5 | médio | — | ⬜ pendente |
 | **DEBT-03** | Pontas soltas do repositório | Haiku 4.5 | baixo | — | ⬜ pendente |
 
-Ordem sugerida: **REF-01 → REF-02 → REF-03 → PROD-02 → INFRA-02**, e a partir daí a onda do
-Portal 360. (INFRA-01, EST-01 e PROD-01 já saíram da fila.)
+Ordem sugerida: **REF-01 → REF-02 → REF-03**, e a partir daí a onda do Portal 360.
+(INFRA-01, INFRA-02, EST-01, PROD-01 e PROD-02 já saíram da fila.)
 
 Cards P360-001 a P360-007 foram concluídos e não aparecem aqui.
 
 ## 4.1 Divisão por modelo
 
-São **16 cards pendentes**. A divisão abaixo é o critério de despacho: abra a sessão com o modelo
+São **14 cards pendentes**. A divisão abaixo é o critério de despacho: abra a sessão com o modelo
 indicado e cole o card correspondente.
 
-### Opus 5 — 7 cards
+### Opus 5 — 5 cards
 
 Tudo que toca **banco, segurança ou decisão normativa**. O erro aqui é caro e silencioso: uma RPC
 sem grant correto quebra só para quem está logado, uma norma revogada citada como vigente vira
@@ -244,8 +248,6 @@ laudo errado, e um mapeamento de item malfeito reescreve a inspeção de uma cli
 | Card | Por que Opus 5 |
 |---|---|
 | **REF-02** | Verificação de vigência de ~170 atos e carga na biblioteca. Norma revogada cadastrada como vigente é erro que sai no relatório. |
-| **PROD-02** | O que sobrou é tornar a falha de auditoria observável no frontend; a migration já foi aplicada em PROD-01. |
-| **INFRA-02** | Auditoria de ledger contra schema real, decidindo caso a caso o que reaplicar. Reaplicar em massa reverteria comportamento em produção. |
 | **P360-010** | RLS, projeção de dados sanitários, isolamento entre tenants. |
 | **P360-011** | Storage privado, URL assinada, upload autenticado por token. |
 | **P360-012** | Tabelas novas tenant-scoped, rate limit, permissão por papel. |
@@ -324,9 +326,9 @@ Nada de técnico. Resta apenas, quando a Ester quiser: conferir se o OneDrive n�
 
 ---
 
-## INFRA-02 — Reconciliar o ledger de migrations com o Supabase remoto
+## INFRA-02 — Reconciliar o ledger de migrations com o Supabase remoto ✅ concluído em 04/08/2026
 
-**Modelo:** Opus 5 · **Esforço:** médio
+**Modelo:** Opus 5 · **Entrega:** [`docs/migrations-status.md`](migrations-status.md)
 
 **Por que:** `supabase_migrations.schema_migrations` não bate com `supabase/migrations/`. É a razão
 de PROD-01 e PROD-02 terem passado despercebidos por meses.
@@ -372,6 +374,37 @@ Ferramentas: MCP Supabase `list_migrations` e `execute_sql`, **somente leitura**
 - Cada linha tem evidência de consulta ao schema real, não suposição.
 - Nenhuma migration foi aplicada durante este card.
 - A duplicata de `checklist_items_requirement_type` tem recomendação explícita.
+
+### Resultado — 04/08/2026
+
+O documento está em [`docs/migrations-status.md`](migrations-status.md): 23 arquivos, cada um
+verificado por objeto no banco — coluna, função com assinatura e `search_path`, gatilho, policy,
+índice, constraint, grant e bucket — e não pelo número da versão. Para as funções redefinidas várias
+vezes, a prova foi marcador de conteúdo dentro de `pg_get_functiondef`.
+
+**O schema de produção está certo; o ledger é que está sujo.** 7 arquivos de junho não constam,
+9 constam sob outra versão, 1 está duplicado.
+
+**O achado que importa:** se alguém rodar `supabase db push`, o CLI vai tentar aplicar os 7 que
+"faltam" — inclusive `20260613125641_client_portal_audit`, que **reverteria o PROD-01**: voltaria
+`search_path = public` nas duas funções e recriaria as policies de update e delete na trilha de
+auditoria. Enquanto o `migration repair` não for feito, não rodar `db push`.
+
+**Segundo achado:** a entrada `026b_create_appointment_suspend_guard` está no ledger e **não tem
+arquivo em lugar nenhum** — foi aplicada direto em produção e nunca commitada. A guarda de suspensão
+de agendamento sobreviveu por acaso: as três migrations de agosto que redefiniram
+`client_portal_create_appointment` carregaram `scheduling_suspended` adiante. Bastava uma delas ter
+sido escrita sem a guarda para a suspensão parar de funcionar em silêncio.
+
+**A pasta `migrations/` da raiz é histórica, não morta.** Último commit em 18/06/2026. 4 arquivos são
+cópias byte a byte de arquivos em `supabase/migrations/`; os outros 29 são o único registro de coisas
+que estão em produção (multi-tenant, RLS, bucket de fotos, o sync em lote com 3.189 linhas em
+`sync_jobs`). Não apagar, não rodar — renomear para `migrations-legadas/` com um README.
+
+**Pendente de autorização da Ester** (as duas escrevem no ledger de produção): o `migration repair`
+das 7 versões e o `delete` da linha duplicada `20260803205941`.
+
+Nenhuma migration foi aplicada durante este card.
 
 ---
 
@@ -748,9 +781,9 @@ existem os default privileges do Supabase; a verificação pós-aplicação pego
 
 ---
 
-## PROD-02 — A auditoria do portal não grava nada 🟨 parcial
+## PROD-02 — A auditoria do portal não grava nada ✅ concluído em 04/08/2026
 
-**Modelo:** Opus 5 · **Esforço:** baixo — o que restou é frontend
+**Modelo:** Opus 5 · **Esforço:** baixo — o que restou era frontend
 
 **A parte de banco já foi feita em PROD-01, em 04/08/2026.** A função `client_portal_audit_event` e
 a tabela `client_portal_audit_events` existem em produção desde então, com RLS, trilha append-only e
@@ -773,6 +806,35 @@ engole a falha de auditoria com `console.warn`.
 
 - Login, visualização, download e pagamento geram linha de auditoria em produção.
 - Falha de auditoria passa a ser observável.
+
+### Resultado — 04/08/2026
+
+Duas pontas, porque a falha some de dois jeitos diferentes.
+
+**No portal do cliente** (`src/services/clientPortalService.ts`): a auditoria continua sem derrubar
+a página — isso não muda —, mas parou de ser silenciosa. O `console.warn` virou `console.error` com
+o tipo do evento e a contagem de falhas desde que a página abriu, e o serviço passou a manter um
+`auditHealth()` com acertos, falhas, último erro, último tipo e horário. Quem abrir o console vê o
+problema na primeira linha, não perdido entre avisos.
+
+**No painel da consultora** (`src/pages/ClientDetails.tsx`): esta era a armadilha real. Quando a
+leitura da trilha falhava, o `catch` só logava e a tela mostrava *"Nenhuma atividade registrada
+ainda"* — exatamente igual a um cliente que não usou o portal. Foi assim que o problema passou meses.
+Agora falha de leitura tem aviso próprio, em âmbar, dizendo que **não** significa ausência de uso, com
+a mensagem do erro junto.
+
+**Evidência**
+
+| Verificação | Resultado |
+|---|---|
+| `src/__tests__/services/clientPortalAudit.test.ts` (novo, 3 casos) | ✅ passa |
+| `npm test` | ✅ 17 arquivos, 138 testes |
+| `npm run build` | ✅ passa |
+
+**Pendente de uso real:** a trilha em produção ainda está com **0 linhas** — ninguém entrou no portal
+desde que a função foi criada, algumas horas atrás. O critério "login, visualização, download e
+pagamento geram linha" só se confirma no primeiro acesso real de cliente. Vale conferir no painel de
+um cliente depois do próximo login dele.
 
 ---
 
@@ -1231,6 +1293,8 @@ Ao concluir um card, marcar aqui e atualizar a tabela da seção 4.
 |---|---|---|---|---|
 | 03/08/2026 | Recuperação do incidente OneDrive | Opus 5 | — | 35 arquivos restaurados, 49 cópias e 2 refs falsas removidas; 135 testes e build OK. |
 | 03/08/2026 | **INFRA-01** — repositório movido para `C:\Saas\App` | Ester | — | Integridade verificada no destino: 135 testes, build, `git fsck`, `.env` e arquivos de trabalho preservados. |
+| 04/08/2026 | **INFRA-02** — concluído | Opus 5 | — | `docs/migrations-status.md`: 23 arquivos verificados objeto a objeto no banco. Schema certo, ledger sujo (7 ausentes, 9 sob outra versão, 1 duplicado). **Não rodar `supabase db push`** antes do `migration repair`: ele reaplicaria a migration de junho e reverteria o PROD-01. Pasta `migrations/` da raiz é histórica, não morta. Nada aplicado. |
+| 04/08/2026 | **PROD-02** — concluído | Opus 5 | — | Falha de auditoria deixou de ser silenciosa: `console.error` + `auditHealth()` no portal, e o painel da consultora passou a distinguir "não consegui ler a trilha" de "nenhuma atividade". 138 testes JS e build passando. Confirmação com linha real depende do próximo acesso de cliente. |
 | 04/08/2026 | **PROD-01** — concluído (e a parte de banco do **PROD-02**) | Opus 5 | — | O aviso de pagamento voltou a funcionar. A função já existia pronta na migration de junho que nunca foi aplicada; foi reescrita endurecida e aplicada como `20260805010139` + `20260805010218`. Trilha de auditoria criada, append-only, com grants para `anon` e `authenticated`. Suíte SQL nova, 135 testes JS passando. |
 | 04/08/2026 | **PROD-04 + DEBT-01** — concluídos | Opus 5 | — | Solicitação órfã não bloqueia mais o horário e `deleteSchedule` cancela a vinculada; margem pública passou a ser por registro (inspeção 4 h, demais 30 min). Migration `20260804140000` aplicada em produção; 135 testes JS e as duas suítes SQL passando. Falta autorização para limpar 7 linhas `confirmed` órfãs. |
 | 04/08/2026 | **PROD-03** — concluído | Opus 5 | — | Gatilhos de disponibilidade viraram `security definer`; agendamento pelo app voltou a funcionar. Migration `20260804120000` aplicada em produção. |
