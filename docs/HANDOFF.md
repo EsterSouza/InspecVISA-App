@@ -107,9 +107,8 @@ A migration `checklist_items_requirement_type` consta **duas vezes** no ledger r
 versões `20260803205941` e `20260803221936`. O schema está correto; o ledger é que está sujo.
 
 O ledger inteiro foi auditado em 04/08/2026 contra o schema real — arquivo por arquivo, objeto por
-objeto — em [`docs/migrations-status.md`](migrations-status.md). **Não rodar `supabase db push`**
-antes do `migration repair` descrito lá: o CLI tentaria aplicar a migration de junho da auditoria e
-reverteria o endurecimento do PROD-01.
+objeto — e **corrigido no mesmo dia**. Ver [`docs/migrations-status.md`](migrations-status.md). As 23
+versões de arquivo agora constam no ledger; a duplicata acima foi apagada.
 
 ### 2.4 Roteiros de estética
 
@@ -382,13 +381,18 @@ verificado por objeto no banco — coluna, função com assinatura e `search_pat
 índice, constraint, grant e bucket — e não pelo número da versão. Para as funções redefinidas várias
 vezes, a prova foi marcador de conteúdo dentro de `pg_get_functiondef`.
 
-**O schema de produção está certo; o ledger é que está sujo.** 7 arquivos de junho não constam,
-9 constam sob outra versão, 1 está duplicado.
+**O schema de produção estava certo; o ledger é que estava sujo.** 7 arquivos de junho não
+constavam, 12 constavam sob outra versão, 1 estava duplicado.
 
-**O achado que importa:** se alguém rodar `supabase db push`, o CLI vai tentar aplicar os 7 que
-"faltam" — inclusive `20260613125641_client_portal_audit`, que **reverteria o PROD-01**: voltaria
+**O achado que importava:** um `supabase db push` teria tentado aplicar 19 dos 23 arquivos. Entre
+eles, `20260613125641_client_portal_audit`, que **reverteria o PROD-01** — voltaria
 `search_path = public` nas duas funções e recriaria as policies de update e delete na trilha de
-auditoria. Enquanto o `migration repair` não for feito, não rodar `db push`.
+auditoria — e `20260627120000_portal_area_scores`, que devolveria `client_portal_overview` à versão
+de junho, sem pasta principal, scores por área nem estatísticas de NC.
+
+**Corrigido em 04/08/2026, com autorização da Ester**, escrevendo só na tabela de registro: as 7
+ausentes inseridas, as 12 divergentes renomeadas para a versão do arquivo, a duplicata apagada.
+Hoje as 23 versões de arquivo constam no ledger e um `db push` não teria nada a aplicar.
 
 **Segundo achado:** a entrada `026b_create_appointment_suspend_guard` está no ledger e **não tem
 arquivo em lugar nenhum** — foi aplicada direto em produção e nunca commitada. A guarda de suspensão
@@ -401,10 +405,12 @@ cópias byte a byte de arquivos em `supabase/migrations/`; os outros 29 são o �
 que estão em produção (multi-tenant, RLS, bucket de fotos, o sync em lote com 3.189 linhas em
 `sync_jobs`). Não apagar, não rodar — renomear para `migrations-legadas/` com um README.
 
-**Pendente de autorização da Ester** (as duas escrevem no ledger de produção): o `migration repair`
-das 7 versões e o `delete` da linha duplicada `20260803205941`.
+**Ainda pendente, e é só repositório:** renomear a pasta `migrations/` da raiz para
+`migrations-legadas/` com um README, e remover as 4 cópias byte a byte que ela tem de arquivos de
+`supabase/migrations/`.
 
-Nenhuma migration foi aplicada durante este card.
+Nenhuma migration de schema foi aplicada durante este card — as escritas foram exclusivamente na
+tabela `supabase_migrations.schema_migrations`.
 
 ---
 
@@ -1293,7 +1299,7 @@ Ao concluir um card, marcar aqui e atualizar a tabela da seção 4.
 |---|---|---|---|---|
 | 03/08/2026 | Recuperação do incidente OneDrive | Opus 5 | — | 35 arquivos restaurados, 49 cópias e 2 refs falsas removidas; 135 testes e build OK. |
 | 03/08/2026 | **INFRA-01** — repositório movido para `C:\Saas\App` | Ester | — | Integridade verificada no destino: 135 testes, build, `git fsck`, `.env` e arquivos de trabalho preservados. |
-| 04/08/2026 | **INFRA-02** — concluído | Opus 5 | — | `docs/migrations-status.md`: 23 arquivos verificados objeto a objeto no banco. Schema certo, ledger sujo (7 ausentes, 9 sob outra versão, 1 duplicado). **Não rodar `supabase db push`** antes do `migration repair`: ele reaplicaria a migration de junho e reverteria o PROD-01. Pasta `migrations/` da raiz é histórica, não morta. Nada aplicado. |
+| 04/08/2026 | **INFRA-02** — concluído | Opus 5 | — | `docs/migrations-status.md`: 23 arquivos verificados objeto a objeto no banco. Schema certo, ledger sujo (7 ausentes, 12 sob outra versão, 1 duplicado) — um `db push` teria reaplicado 19 dos 23 e revertido o PROD-01 e o overview de agosto. Ledger corrigido com autorização, sem tocar em schema. Pasta `migrations/` da raiz é histórica, não morta. |
 | 04/08/2026 | **PROD-02** — concluído | Opus 5 | — | Falha de auditoria deixou de ser silenciosa: `console.error` + `auditHealth()` no portal, e o painel da consultora passou a distinguir "não consegui ler a trilha" de "nenhuma atividade". 138 testes JS e build passando. Confirmação com linha real depende do próximo acesso de cliente. |
 | 04/08/2026 | **PROD-01** — concluído (e a parte de banco do **PROD-02**) | Opus 5 | — | O aviso de pagamento voltou a funcionar. A função já existia pronta na migration de junho que nunca foi aplicada; foi reescrita endurecida e aplicada como `20260805010139` + `20260805010218`. Trilha de auditoria criada, append-only, com grants para `anon` e `authenticated`. Suíte SQL nova, 135 testes JS passando. |
 | 04/08/2026 | **PROD-04 + DEBT-01** — concluídos | Opus 5 | — | Solicitação órfã não bloqueia mais o horário e `deleteSchedule` cancela a vinculada; margem pública passou a ser por registro (inspeção 4 h, demais 30 min). Migration `20260804140000` aplicada em produção; 135 testes JS e as duas suítes SQL passando. Falta autorização para limpar 7 linhas `confirmed` órfãs. |

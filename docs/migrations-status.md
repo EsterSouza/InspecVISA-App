@@ -1,32 +1,35 @@
 # INFRA-02 — Ledger de migrations × schema real
 
-**Data:** 04/08/2026 (BRT) · **Projeto:** `pfjacmawaigndqclgvpn` (produção) · **Somente leitura:
-nenhuma migration foi aplicada durante esta auditoria.**
+**Auditoria:** 04/08/2026 (BRT) · **Projeto:** `pfjacmawaigndqclgvpn` (produção)
+**Correção do ledger:** aplicada em 04/08/2026, com autorização da Ester. Nenhuma migration de
+schema foi aplicada — as escritas foram só na tabela de registro
+(`supabase_migrations.schema_migrations`).
 
 ---
 
-## Veredito
+## Situação atual: resolvido
 
-**O schema de produção está correto.** Os 23 arquivos de `supabase/migrations/` têm o conteúdo no
-banco — verificado objeto a objeto, não pelo número da versão. O que está errado é só o **ledger**
-(`supabase_migrations.schema_migrations`), em três formas:
+**As 23 migrations de `supabase/migrations/` estão registradas sob a versão do próprio arquivo.**
+Um `supabase db push` hoje não teria nada a aplicar. Antes da correção, teria tentado aplicar 19 das
+23 e revertido comportamento em produção.
 
-1. **7 arquivos de junho/2026 não constam no ledger**, embora o conteúdo esteja aplicado. Foram
-   aplicados por fora do CLI (editor SQL ou MCP).
-2. **9 arquivos constam sob outra versão**, porque foram reaplicados por outro caminho e o registro
-   pegou o horário da reaplicação, não o nome do arquivo.
-3. **Uma entrada está duplicada** (`checklist_items_requirement_type`).
+O que foi corrigido no ledger:
 
-**O risco concreto:** se alguém rodar `supabase db push`, o CLI vai tentar aplicar os 7 arquivos que
-"faltam" — inclusive `20260613125641_client_portal_audit`, que **reverteria o endurecimento feito no
-PROD-01** (voltaria `search_path = public` e recriaria as policies de update/delete na trilha de
-auditoria). Este é o único item que exige ação; o resto é higiene.
+| Situação encontrada | Quantos | O que foi feito |
+|---|---|---|
+| Arquivo aplicado no banco, **ausente** do ledger | 7 | linha inserida com a versão do arquivo |
+| Arquivo registrado **sob outra versão** | 12 | versão da linha renomeada para a do arquivo |
+| Arquivo com versão **já correta** | 4 | nada |
+| Entrada **duplicada** (`checklist_items_requirement_type`) | 1 | linha `20260803205941` apagada |
+
+O ledger foi de 39 para **45 linhas**: 23 correspondem 1:1 aos arquivos e 22 são história anterior a
+junho/2026, sem arquivo em `supabase/migrations/` (seção C).
 
 ---
 
-## Método
+## Método da auditoria
 
-Para cada arquivo, em vez de conferir se a versão consta no ledger, foi conferido se **o conteúdo
+Para cada arquivo, em vez de conferir se a versão constava no ledger, foi conferido se **o conteúdo
 está no banco**: colunas em `information_schema.columns`, funções e assinaturas em `pg_proc` (com
 `prosecdef` e `proconfig`), gatilhos em `pg_trigger`, policies em `pg_policies`, índices em
 `pg_indexes`, constraints em `pg_constraint`, grants por `has_function_privilege` /
@@ -41,39 +44,58 @@ e não apenas registrada.
 
 ## A. `supabase/migrations/` — 23 arquivos
 
-| Arquivo | Aplicado? | Versão no ledger | Evidência no schema real | Ação |
-|---|---|---|---|---|
-| `20260525135030_add_ilpi_cleaning_metrics` | ✅ | **mesma** `20260525135030` | `inspections.observed_cleaning_staff`, `usable_area_m2` | nenhuma |
-| `20260611091522_client_portal_access_email_calendar` | ✅ conteúdo | ❌ ausente | `client_portal_overview` e `client_portal_create_appointment` existem, já superadas por versões de agosto | `repair --status applied` |
-| `20260611101800_client_portal_access_links_and_folder` | ✅ conteúdo | ❌ ausente | `client_portal_accounts.username`, `access_code_plain`; `clients.has_personalized_sanitary_folder`, `personalized_sanitary_folder_url` | `repair --status applied` |
-| `20260611132931_persist_consultant_settings` | ✅ conteúdo | ❌ ausente | tabela `profiles` com `consultant_settings`, `consultant_role`, `coren`; RLS ativa | `repair --status applied` |
-| `20260611202749_lock_down_public_portal_token_access` | ✅ conteúdo | ❌ ausente | `public_get_appointment_status` e `public_get_appointment_assets` sem execute para `anon` **e** `authenticated` | `repair --status applied` |
-| `20260612101234_portal_account_contact_and_payment_due_date` | ✅ conteúdo | ❌ ausente | `client_portal_accounts.payment_type/status/link/updated_at/due_date` | `repair --status applied` |
-| `20260612113611_client_contacts_and_payment_links` | ✅ conteúdo | ❌ ausente | `clients.contacts`; `client_portal_accounts.payment_links` (jsonb, not null) | `repair --status applied` |
-| `20260613125641_client_portal_audit` | ❌ **nunca aplicada** | ❌ ausente | os objetos existem, mas vindos de `20260805010139` — com `search_path = ''` e sem policy de escrita | ⚠️ **`repair --status applied` ou remover o arquivo.** Aplicar reverteria o PROD-01 |
-| `20260627120000_portal_area_scores` | ✅ | `20260627164215` | `appointment_requests.sanitary_score`, `nutrition_score`; `client_portal_overview` menciona `nutrition_score` | nenhuma |
-| `20260709060000_appointment_requests_add_nc_stats` | ✅ | `20260709082424` | `critical/important/total/recurring/immediate_nc_count`, `nc_items` | nenhuma |
-| `20260709060100_client_portal_overview_add_nc_stats` | ✅ | `20260709082437` | `client_portal_overview` menciona `immediate_nc_count` | nenhuma |
-| `20260717090000_client_portal_invoices` | ✅ | `20260717135804` | tabela `client_portal_invoices` (1 linha), RLS ativa | nenhuma |
-| `20260801134443_portal_main_folder_and_settings` | ✅ | `20260802113029` | tabela `client_portal_settings`; `client_portal_accounts.main_drive_folder_url`; overview menciona `main_drive_folder_url` e `action_plan_enabled` | nenhuma |
-| `20260801144828_harden_portal_rpc_permissions` | ✅ | **mesma** `20260801144828` | `admin_*` sem execute para `anon`, com execute para `authenticated` | nenhuma |
-| `20260801161550_appointment_domain` | ✅ | `20260802113042` | `appointment_type` em requests e schedules; gatilho `enforce_sanitary_appointment_attachment`; índices `idx_*_tenant_type` | nenhuma |
-| `20260802105852_appointment_availability_intervals` | ✅ | `20260802113057` | tabela `appointment_blocks`; `private.appointment_has_conflict`, `resolve_appointment_duration_minutes`, os 3 gatilhos de disponibilidade; índices de intervalo | nenhuma |
-| `20260802115342_portal_public_request_purpose` | ✅ | `20260803162735` — registrada **com o nome do arquivo inteiro** | `public_create_calendar_appointment_request` menciona `subject` | cosmético; corrigir junto do repair |
-| `20260803190000_public_briefing_only` | ✅ | `20260803194019` | as duas RPCs de criação mencionam `briefing`; `resolve_appointment_duration_minutes` com 4 argumentos | nenhuma |
-| `20260803200000_checklist_items_requirement_type` | ✅ | `20260803205941` **e** `20260803221936` (duplicada) | `checklist_items.requirement_type` + check constraint; `legislation_url` | ⚠️ ver seção C |
-| `20260804120000_appointment_triggers_security_definer` | ✅ | `20260804174652` | os 3 gatilhos `private.enforce_*` com `prosecdef = true` e `search_path = ''` | nenhuma |
-| `20260804140000_appointment_buffer_por_registro` | ✅ | `20260805001248` | `private.appointment_conflict_buffer` existe; `appointment_has_conflict` chama ela | nenhuma |
-| `20260805010139_client_portal_audit_and_payment_ack` | ✅ | **mesma** `20260805010139` | tabela `client_portal_audit_events`, as 2 funções com `search_path = ''` | nenhuma |
-| `20260805010218_client_portal_audit_events_append_only_grants` | ✅ | **mesma** `20260805010218` | `authenticated` só com select na trilha; `anon` sem nada | nenhuma |
+Coluna "ledger antes": onde a linha estava antes da correção de 04/08/2026. Hoje todas estão sob a
+versão do arquivo.
 
-**Placar:** 23 arquivos, 23 com conteúdo em produção. 5 batem versão com o ledger, 9 constam sob
-outra versão, 7 não constam, 1 (a de junho) tem o conteúdo no banco por outra via e o arquivo é
-histórico.
+| Arquivo | Conteúdo no banco? | Ledger antes | Evidência no schema real |
+|---|---|---|---|
+| `20260525135030_add_ilpi_cleaning_metrics` | ✅ | já correta | `inspections.observed_cleaning_staff`, `usable_area_m2` |
+| `20260611091522_client_portal_access_email_calendar` | ✅ | **ausente** | `client_portal_overview` e `client_portal_create_appointment` existem, já superadas por versões de agosto |
+| `20260611101800_client_portal_access_links_and_folder` | ✅ | **ausente** | `client_portal_accounts.username`, `access_code_plain`; `clients.has_personalized_sanitary_folder`, `personalized_sanitary_folder_url` |
+| `20260611132931_persist_consultant_settings` | ✅ | **ausente** | tabela `profiles` com `consultant_settings`, `consultant_role`, `coren`; RLS ativa |
+| `20260611202749_lock_down_public_portal_token_access` | ✅ | **ausente** | `public_get_appointment_status` e `public_get_appointment_assets` sem execute para `anon` **e** `authenticated` |
+| `20260612101234_portal_account_contact_and_payment_due_date` | ✅ | **ausente** | `client_portal_accounts.payment_type/status/link/updated_at/due_date` |
+| `20260612113611_client_contacts_and_payment_links` | ✅ | **ausente** | `clients.contacts`; `client_portal_accounts.payment_links` |
+| `20260613125641_client_portal_audit` | ⚠️ nunca aplicada | **ausente** | os objetos existem, mas vindos de `20260805010139` — com `search_path = ''` e sem policy de escrita. Registrada como aplicada para nunca rodar; ver aviso no topo do arquivo |
+| `20260627120000_portal_area_scores` | ✅ | `20260627164215` | `appointment_requests.sanitary_score`, `nutrition_score`; overview menciona `nutrition_score` |
+| `20260709060000_appointment_requests_add_nc_stats` | ✅ | `20260709082424` | `critical/important/total/recurring/immediate_nc_count`, `nc_items` |
+| `20260709060100_client_portal_overview_add_nc_stats` | ✅ | `20260709082437` | overview menciona `immediate_nc_count` |
+| `20260717090000_client_portal_invoices` | ✅ | `20260717135804` | tabela `client_portal_invoices` (1 linha), RLS ativa |
+| `20260801134443_portal_main_folder_and_settings` | ✅ | `20260802113029` | tabela `client_portal_settings`; `client_portal_accounts.main_drive_folder_url`; overview menciona `action_plan_enabled` |
+| `20260801144828_harden_portal_rpc_permissions` | ✅ | já correta | `admin_*` sem execute para `anon`, com execute para `authenticated` |
+| `20260801161550_appointment_domain` | ✅ | `20260802113042` | `appointment_type` em requests e schedules; gatilho `enforce_sanitary_appointment_attachment`; índices `idx_*_tenant_type` |
+| `20260802105852_appointment_availability_intervals` | ✅ | `20260802113057` | tabela `appointment_blocks`; `private.appointment_has_conflict`, `resolve_appointment_duration_minutes`, os 3 gatilhos de disponibilidade |
+| `20260802115342_portal_public_request_purpose` | ✅ | `20260803162735`, com o nome do arquivo inteiro no campo `name` | `public_create_calendar_appointment_request` menciona `subject` |
+| `20260803190000_public_briefing_only` | ✅ | `20260803194019` | as duas RPCs de criação mencionam `briefing`; `resolve_appointment_duration_minutes` com 4 argumentos |
+| `20260803200000_checklist_items_requirement_type` | ✅ | `20260803205941` **e** `20260803221936` | `checklist_items.requirement_type` + check constraint; `legislation_url` |
+| `20260804120000_appointment_triggers_security_definer` | ✅ | `20260804174652` | os 3 gatilhos `private.enforce_*` com `prosecdef = true` e `search_path = ''` |
+| `20260804140000_appointment_buffer_por_registro` | ✅ | `20260805001248` | `private.appointment_conflict_buffer` existe; `appointment_has_conflict` chama ela |
+| `20260805010139_client_portal_audit_and_payment_ack` | ✅ | já correta | tabela `client_portal_audit_events`, as 2 funções com `search_path = ''` |
+| `20260805010218_client_portal_audit_events_append_only_grants` | ✅ | já correta | `authenticated` só com select na trilha; `anon` sem nada |
+
+### Por que as 12 "sob outra versão" também precisavam de conserto
+
+Não era cosmético, como esta auditoria chegou a supor num primeiro momento. O CLI compara a **versão
+do arquivo** com as versões do ledger. Um arquivo `20260627120000_*` registrado como `20260627164215`
+aparece como pendente, e o `db push` o reaplicaria — recolocando no ar a versão de junho de
+`client_portal_overview`, sem o suporte a pasta principal, scores por área e estatísticas de NC que
+vieram depois. A correção foi renomear a versão da linha, preservando a linha (e portanto a data real
+da aplicação no campo `name` e no histórico deste documento).
+
+### O caso `20260613125641_client_portal_audit`
+
+É o único arquivo cujo conteúdo **nunca rodou** em produção. Os objetos que ele descreve existem, mas
+vieram da reescrita endurecida do PROD-01. Ele foi registrado como aplicado justamente para nunca
+rodar: se rodasse, voltaria `search_path = public` nas duas funções do portal e recriaria as policies
+de update e delete na trilha de auditoria, desfazendo o trabalho de 04/08. O arquivo tem esse aviso
+no cabeçalho e fica como histórico.
 
 ---
 
 ## B. Entradas do ledger sem arquivo em `supabase/migrations/`
+
+São 22 e correspondem à era anterior a junho/2026. Não atrapalham: o CLI ignora versão remota que não
+tem arquivo local.
 
 | Versão | Nome no ledger | Origem | Conteúdo confirmado no banco |
 |---|---|---|---|
@@ -97,7 +119,7 @@ histórico.
 | `20260612092533` | `appointment_compliance_score` | sem arquivo | `appointment_requests.compliance_score` + check |
 | `20260616110716` | `025_legislation_uf_segments` | `migrations/025_*` | `legislations.uf`, `segments` |
 | `20260616111511` | `026_portal_suspend_and_hide_report` | `migrations/026_*` | `client_portal_accounts.scheduling_suspended`, `appointment_requests.report_hidden` |
-| `20260616111537` | `026b_create_appointment_suspend_guard` | ⚠️ **sem arquivo em lugar nenhum** | a guarda existe em produção: `client_portal_create_appointment` menciona `scheduling_suspended` |
+| `20260616111537` | `026b_create_appointment_suspend_guard` | ⚠️ **sem arquivo em lugar nenhum** | a guarda existe: `client_portal_create_appointment` menciona `scheduling_suspended` |
 | `20260618104844` | `inspection_attribution_and_cofinalize` | `migrations/027_*` | `inspections.consultant_names`, `finalized_by`, `last_edited_by` |
 
 **Sobre o `026b`:** foi aplicado direto em produção e o arquivo nunca foi commitado. Não virou
@@ -108,24 +130,7 @@ sido escrita sem a guarda para a suspensão de agendamento parar de funcionar em
 
 ---
 
-## C. A duplicata `checklist_items_requirement_type`
-
-Consta duas vezes: `20260803205941` e `20260803221936`. O arquivo é
-`20260803200000_checklist_items_requirement_type.sql`, e o schema está correto — `requirement_type`
-existe uma vez, com uma única check constraint, e `legislation_url` também.
-
-**Recomendação:** apagar a linha **`20260803205941`** e manter `20260803221936`, que é a aplicação
-mais recente e a que corresponde ao estado atual. É uma linha de ledger, não altera schema:
-
-```sql
-delete from supabase_migrations.schema_migrations where version = '20260803205941';
-```
-
-Não foi executado — é escrita em produção e depende de autorização.
-
----
-
-## D. A pasta `migrations/` da raiz — **histórica, não morta**
+## C. A pasta `migrations/` da raiz — **histórica, não morta**
 
 33 arquivos, numeração `001_` a `027_`. Último commit que a tocou: `b621a32`, de **18/06/2026**.
 Desde então, todo trabalho novo vai para `supabase/migrations/`.
@@ -142,32 +147,45 @@ Desde então, todo trabalho novo vai para `supabase/migrations/`.
 - **Nenhum dos arquivos `001`–`015` consta no ledger**, e nenhuma das entradas de março e abril do
   ledger tem arquivo. São dois registros históricos disjuntos do mesmo banco.
 
-**Recomendação:** não apagar e não rodar. Renomear para `migrations-legadas/` (ou mover para
-`docs/`) com um README de uma linha dizendo que é histórico anterior a 18/06/2026 e que o caminho
-ativo é `supabase/migrations/`. As 4 duplicatas exatas podem sair.
+**Recomendação, ainda pendente:** não apagar e não rodar. Renomear para `migrations-legadas/` (ou
+mover para `docs/`) com um README de uma linha dizendo que é histórico anterior a 18/06/2026 e que o
+caminho ativo é `supabase/migrations/`. As 4 duplicatas exatas podem sair. É mudança só de
+repositório, sem efeito em produção.
 
 ---
 
-## E. O que fazer, em ordem
+## D. O que foi executado em 04/08/2026
 
-1. **Antes de qualquer `supabase db push`**, marcar como aplicadas as 7 versões de junho que faltam
-   — em especial `20260613125641`, que se rodar reverte o PROD-01:
+Com autorização explícita da Ester, e só na tabela de registro:
 
-   ```bash
-   supabase migration repair --status applied 20260611091522 20260611101800 20260611132931 20260611202749 20260612101234 20260612113611 20260613125641
-   ```
+```sql
+-- 1. as 7 que faltavam
+insert into supabase_migrations.schema_migrations (version, name) values
+  ('20260611091522','client_portal_access_email_calendar'),
+  ('20260611101800','client_portal_access_links_and_folder'),
+  ('20260611132931','persist_consultant_settings'),
+  ('20260611202749','lock_down_public_portal_token_access'),
+  ('20260612101234','portal_account_contact_and_payment_due_date'),
+  ('20260612113611','client_contacts_and_payment_links'),
+  ('20260613125641','client_portal_audit')
+on conflict (version) do nothing;
 
-2. Apagar a linha duplicada `20260803205941` (seção C).
-3. Renomear a pasta legada da raiz e remover as 4 duplicatas exatas (seção D).
-4. As 9 divergências de versão da seção A **não precisam de conserto**: o conteúdo está aplicado e o
-   CLI não vai tentar reaplicar, porque o que ele compara é a versão registrada, e todas essas têm
-   registro. Corrigir daria trabalho e ganho zero.
+-- 2. a duplicata
+delete from supabase_migrations.schema_migrations where version = '20260803205941';
 
-Os itens 1 e 2 escrevem no ledger de produção e dependem de autorização da Ester.
+-- 3. as 12 registradas sob outra versão (uma linha por migration; exemplo)
+update supabase_migrations.schema_migrations set version = '20260627120000' where version = '20260627164215';
+-- ... idem para 20260709060000, 20260709060100, 20260717090000, 20260801134443, 20260801161550,
+--     20260802105852, 20260802115342 (também corrigindo `name`), 20260803190000, 20260803200000,
+--     20260804120000, 20260804140000
+```
+
+**Verificação depois:** 45 linhas no ledger; as 23 versões de arquivo de `supabase/migrations/`
+presentes; uma única linha com `name = 'checklist_items_requirement_type'`.
 
 ---
 
-## Observações que não são deste card
+## E. Observações que não são deste card
 
 - **`public.is_tenant_admin`, `public.is_tenant_staff` e `public.my_tenant_ids` existem em duplicata
   no schema `public`**, além das versões em `private`. As de `public` estão expostas via PostgREST
