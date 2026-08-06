@@ -88,8 +88,6 @@ export function Schedules() {
   const [repeatCount, setRepeatCount] = useState(2);
   const toggleConsultant = (name: string) =>
     setSelectedConsultants((prev) => prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]);
-  // Admin pode agendar a partir de hoje (sem antecedência mínima).
-  const minScheduleDate = toDateInputValue(new Date());
   const filteredClients = clientSearch
     ? clients.filter((client) => client.name.toLowerCase().includes(clientSearch.toLowerCase()))
     : clients;
@@ -635,10 +633,11 @@ export function Schedules() {
                     <label className="text-sm font-medium text-gray-700 flex items-center">
                       <Calendar className="mr-2 h-4 w-4 text-gray-400" /> Data
                     </label>
+                    {/* Sem data mínima: a equipe pode registrar visitas retroativas
+                        para lançar relatórios de inspeções já realizadas. */}
                     <input
                       type="date"
                       required
-                      min={minScheduleDate}
                       value={scheduledDate}
                       onChange={(e) => setScheduledDate(e.target.value)}
                       className="w-full rounded-xl border border-gray-300 p-3 text-sm"

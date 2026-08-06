@@ -111,6 +111,40 @@ function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : 'operação falhou.';
 }
 
+// Quantos cartões cada seção mostra por vez (evita a rolagem sem fim).
+const PAGE_SIZE = 10;
+
+// Fatia a lista em páginas. Se a lista encolher (ex.: após excluir), volta para
+// a última página válida em vez de mostrar vazio.
+function usePagedList<T>(items: T[]) {
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const current = Math.min(page, totalPages);
+  return {
+    page: current,
+    totalPages,
+    items: items.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE),
+    setPage,
+  };
+}
+
+function Pager({ page, totalPages, onChange }: { page: number; totalPages: number; onChange: (p: number) => void }) {
+  if (totalPages <= 1) return null;
+  return (
+    <div className="mt-4 flex items-center justify-center gap-3">
+      <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => onChange(page - 1)}>
+        Anterior
+      </Button>
+      <span className="text-xs font-semibold text-gray-500">
+        Página {page} de {totalPages}
+      </span>
+      <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => onChange(page + 1)}>
+        Próxima
+      </Button>
+    </div>
+  );
+}
+
 function formatDateBR(value: string | null): string {
   if (!value) return '—';
   const [y, m, d] = value.split('T')[0].split('-');
@@ -166,8 +200,8 @@ export function AppointmentRequestsPanel() {
   const [notCompletedTarget, setNotCompletedTarget] = useState<AppointmentRequest | null>(null);
   // Solicitações ativas (fica recolhida por padrão para não ocupar a tela)
   const [showActive, setShowActive] = useState(false);
-  // Encerradas (relatório publicado / canceladas)
-  const [showClosed, setShowClosed] = useState(true);
+  // Encerradas (relatório publicado / canceladas) — também recolhida por padrão
+  const [showClosed, setShowClosed] = useState(false);
   // Nova visita (agendamento direto pela equipe)
   const [showNewVisit, setShowNewVisit] = useState(false);
   // Aviso pós-publicação de relatório (e-mail + link de WhatsApp)
@@ -293,15 +327,20 @@ export function AppointmentRequestsPanel() {
     void withBusy(request.id, () => AppointmentAdminService.setReportHidden(request, next));
   };
 
-  const byAppointmentDate = (a: AppointmentRequest, b: AppointmentRequest) =>
-    requestDateTimeValue(a) - requestDateTimeValue(b);
-  const pending = requests.filter((r) => r.status === 'requested').sort(byAppointmentDate);
+  // Mais recentes primeiro; as mais antigas ficam no fim (e nas últimas páginas).
+  const byNewestFirst = (a: AppointmentRequest, b: AppointmentRequest) =>
+    requestDateTimeValue(b) - requestDateTimeValue(a);
+  const pending = requests.filter((r) => r.status === 'requested').sort(byNewestFirst);
   const active = requests
     .filter((r) => ['confirmed', 'in_progress', 'rescheduled', 'completed'].includes(r.status))
-    .sort(byAppointmentDate);
+    .sort(byNewestFirst);
   const closed = requests
     .filter((r) => ['report_available', 'cancelled'].includes(r.status))
-    .sort(byAppointmentDate);
+    .sort(byNewestFirst);
+
+  const pendingPage = usePagedList(pending);
+  const activePage = usePagedList(active);
+  const closedPage = usePagedList(closed);
 
   if (loading) {
     return (
@@ -373,7 +412,7 @@ export function AppointmentRequestsPanel() {
           </Card>
         ) : (
           <div className="grid gap-4">
-            {pending.map((request) => (
+            {pendingPage.items.map((request) => (
               <Card key={request.id} className="border-l-4 border-l-amber-400 shadow-sm">
                 <CardContent className="p-5">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -442,6 +481,7 @@ export function AppointmentRequestsPanel() {
                 </CardContent>
               </Card>
             ))}
+            <Pager page={pendingPage.page} totalPages={pendingPage.totalPages} onChange={pendingPage.setPage} />
           </div>
         )}
       </section>
@@ -470,7 +510,7 @@ export function AppointmentRequestsPanel() {
             </Card>
           ) : (
             <div className="grid gap-4">
-              {active.map((request) => (
+              {activePage.items.map((request) => (
                 <ActiveRequestCard
                   key={request.id}
                   request={request}
@@ -491,6 +531,7 @@ export function AppointmentRequestsPanel() {
                   onDelete={() => handleDelete(request)}
                 />
               ))}
+              <Pager page={activePage.page} totalPages={activePage.totalPages} onChange={activePage.setPage} />
             </div>
           )
         )}
@@ -510,7 +551,7 @@ export function AppointmentRequestsPanel() {
 
           {showClosed && (
             <div className="grid gap-3">
-              {closed.map((request) =>
+              {closedPage.items.map((request) =>
                 request.status === 'report_available' ? (
                   <ActiveRequestCard
                     key={request.id}
@@ -556,6 +597,7 @@ export function AppointmentRequestsPanel() {
                   </div>
                 )
               )}
+              <Pager page={closedPage.page} totalPages={closedPage.totalPages} onChange={closedPage.setPage} />
             </div>
           )}
         </section>
@@ -1800,7 +1842,8 @@ function NewVisitModal({ clients, onClose, onCreated }: NewVisitModalProps) {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-gray-700">Data</label>
-                <input type="date" value={date} min={new Date().toISOString().split('T')[0]} onChange={(e) => setDate(e.target.value)} className="w-full rounded-xl border border-gray-300 p-3 text-sm" />
+                {/* Sem data mínima: permite registrar visitas retroativas e lançar relatórios antigos. */}
+                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full rounded-xl border border-gray-300 p-3 text-sm" />
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-gray-700">Horário</label>
