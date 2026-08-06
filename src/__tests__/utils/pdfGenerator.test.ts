@@ -9,6 +9,10 @@ import type { ChecklistTemplate, ConsultantSettings, Inspection, InspectionRespo
 // string desenhada, preservando o comportamento real (a subclasse chama super()
 // e delega para o `text` original).
 const capturedTexts: string[] = [];
+/** Cada string desenhada, com a largura que ela realmente ocupa na página. */
+const drawnRuns: { text: string; x: number; right: number }[] = [];
+/** URLs registradas como link clicável. */
+const linkedUrls: string[] = [];
 
 vi.mock('jspdf', async (importOriginal) => {
   const actual = await importOriginal<typeof import('jspdf')>();
@@ -18,13 +22,29 @@ vi.mock('jspdf', async (importOriginal) => {
       const originalText = this.text.bind(this);
       this.text = ((...textArgs: Parameters<typeof originalText>) => {
         const value = textArgs[0];
+        const x = typeof textArgs[1] === 'number' ? textArgs[1] : 0;
+        const record = (line: string) => {
+          capturedTexts.push(line);
+          // Mede com o estado de fonte vigente no momento do desenho: é onde
+          // aparecia a divergência entre a largura usada para quebrar o texto e
+          // o tamanho com que ele era realmente impresso.
+          const align = (textArgs[3] as { align?: string } | undefined)?.align;
+          if (line.trim() && !align) drawnRuns.push({ text: line, x, right: x + this.getTextWidth(line) });
+        };
         if (Array.isArray(value)) {
-          value.forEach(v => { if (typeof v === 'string') capturedTexts.push(v); });
+          value.forEach(v => { if (typeof v === 'string') record(v); });
         } else if (typeof value === 'string') {
-          capturedTexts.push(value);
+          record(value);
         }
         return originalText(...textArgs);
       }) as typeof originalText;
+
+      const originalTextWithLink = this.textWithLink.bind(this);
+      this.textWithLink = ((...linkArgs: Parameters<typeof originalTextWithLink>) => {
+        const url = (linkArgs[3] as { url?: string } | undefined)?.url;
+        if (url) linkedUrls.push(url);
+        return originalTextWithLink(...linkArgs);
+      }) as typeof originalTextWithLink;
     }
   }
   return { ...actual, default: SpyingJsPDF };
@@ -115,7 +135,10 @@ describe('REF-03 - drawConsultedSources (via generatePDF)', () => {
 
     expect(capturedTexts).toContain('FONTES CONSULTADAS');
     expect(capturedTexts).toContain('Nota técnica ANVISA');
-    expect(capturedTexts.some(t => t.includes('Disponível em: <https://www.gov.br/anvisa/nota-tecnica>'))).toBe(true);
+    // O endereço vira texto clicável, sem o "Disponível em: <...>" que só servia
+    // para o papel e ocupava linhas inteiras de rastreamento.
+    expect(capturedTexts).toContain('www.gov.br/anvisa/nota-tecnica');
+    expect(linkedUrls).toContain('https://www.gov.br/anvisa/nota-tecnica');
     expect(capturedTexts).toContain('consultado em 05/08/2026');
   });
 
@@ -237,6 +260,104 @@ describe('relação dos itens cumpridos', () => {
     );
 
     expect(capturedTexts).not.toContain('RELAÇÃO DOS ITENS CUMPRIDOS');
+  });
+});
+
+describe('REL-02 - formatação dos itens do relatório', () => {
+  const margin = 20;
+  const contentW = 210 - margin * 2;
+
+  beforeEach(() => {
+    capturedTexts.length = 0;
+    drawnRuns.length = 0;
+    linkedUrls.length = 0;
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  // Uma NC com pergunta longa, texto maior que a página e link de busca: é a
+  // combinação que produzia título fora da caixa, texto sobre o rodapé e uma
+  // parede de URL crua.
+  const perguntaLonga = 'Apresenta relação atualizada dos profissionais, com função, habilitação e registro profissional junto ao respectivo conselho de classe?';
+  const buscaGoogle = 'https://www.google.com/search?client=opera-gx&hs=PLh&sca_esv=709ba7c645caa973&sxsrf=AePnu8f2ibe9_0UyABUMuMuCJ2sYtrkw:1785938747934&q=gaveta+bau+de+ch%C3%A3o+para+guarda+vassoura&source=lnms&sa=X&ved=2ahUKEwjS2qSl1ImWAxVDrpUCHZ58PHsQ0pQJegQICxAB&biw=1875&bih=958&dpr=1';
+  const textoLongo = Array.from(
+    { length: 22 },
+    (_, i) => `- Ponto ${i + 1}: revisar o procedimento, registrar a evidência em ata assinada pelo responsável técnico e arquivar na pasta sanitária, mantendo cópia digital para eventual fiscalização.`
+  ).join('\n');
+
+  const sectionsLongas: Section[] = [
+    {
+      id: 's1',
+      title: 'Documentação',
+      order: 1,
+      items: [
+        { id: 'nc-longa', sectionId: 's1', order: 1, description: perguntaLonga, legislation: 'RDC Anvisa nº 63/2011, arts. 29 e 30', weight: 10, isCritical: true },
+        { id: 'nc-2', sectionId: 's1', order: 2, description: 'A sala de procedimentos possui uso, identificação e dimensões compatíveis com as atividades executadas?', legislation: 'RDC Anvisa nº 50/2002', weight: 5, isCritical: true },
+      ],
+    },
+  ];
+
+  const respostasLongas: InspectionResponse[] = [
+    {
+      ...responses[0],
+      id: 'r-nc-longa',
+      itemId: 'nc-longa',
+      result: 'not_complies',
+      situationDescription: 'Não apresentaram listagem dos profissionais que executam serviços dentro do estabelecimento.',
+      correctiveAction: textoLongo,
+      links: [buscaGoogle],
+    },
+    {
+      ...responses[0],
+      id: 'r-nc-2',
+      itemId: 'nc-2',
+      result: 'not_complies',
+      situationDescription: 'Nenhum dos ambientes e salas são identificados.',
+      correctiveAction: 'Providenciar identificação para as portas das salas.',
+    },
+  ];
+
+  const gerar = async () => {
+    const score = calculateScore(respostasLongas, sectionsLongas);
+    await generatePDF(
+      inspection,
+      respostasLongas,
+      { ...template, sections: sectionsLongas },
+      score,
+      settings,
+      []
+    );
+  };
+
+  test('nenhuma linha desenhada passa da margem direita', async () => {
+    await gerar();
+
+    // O título era quebrado com 10,5pt e impresso com o 13pt herdado do cabeçalho
+    // de continuação — e vazava a caixa em mais de 10 mm.
+    const vazando = drawnRuns.filter(run => run.right > margin + contentW + 0.5);
+    expect(vazando).toEqual([]);
+  });
+
+  test('o link vira rótulo legível e clicável, sem a URL crua', async () => {
+    await gerar();
+
+    expect(linkedUrls).toContain(buscaGoogle);
+    expect(capturedTexts).toContain('Busca no Google: "gaveta bau de chão para guarda vassoura"');
+    expect(capturedTexts.some(t => t.includes('sca_esv') || t.includes('&ved='))).toBe(false);
+  });
+
+  test('o item que transborda a página se identifica na retomada', async () => {
+    await gerar();
+
+    expect(capturedTexts).toContain('NÃO CONFORMIDADES IDENTIFICADAS - CONTINUAÇÃO');
+    expect(capturedTexts).toContain('NC-001 (continuação)');
+    // Nada do texto longo é perdido: a última linha do bloco chega ao PDF.
+    expect(capturedTexts.some(t => t.includes('Ponto 22'))).toBe(true);
   });
 });
 

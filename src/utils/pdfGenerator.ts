@@ -39,6 +39,64 @@ async function loadImageSize(dataUrl: string, timeoutMs = 8000): Promise<{ width
   });
 }
 
+function truncate(text: string, max: number) {
+  const clean = text.replace(/\s+/g, ' ').trim();
+  return clean.length <= max ? clean : `${clean.slice(0, max - 3).trimEnd()}...`;
+}
+
+/**
+ * Rótulo legível para um endereço anexado pela consultora. Links de busca chegam
+ * com centenas de caracteres de rastreamento (`sca_esv`, `sxsrf`, `ved`...) e,
+ * impressos crus, ocupavam meia página sem dizer nada. O rótulo vai no texto
+ * clicável; `hint` é a dica curta de origem, para quem lê no papel.
+ */
+export function describeUrl(raw: string): { label: string; hint: string } {
+  const url = (raw || '').trim();
+  let parsed: URL | null = null;
+  try {
+    parsed = new URL(url);
+  } catch {
+    parsed = null;
+  }
+  if (!parsed) return { label: truncate(url, 90), hint: '' };
+
+  const host = parsed.hostname.replace(/^www\./i, '');
+  const term = parsed.searchParams.get('q') || parsed.searchParams.get('query') || '';
+  const engine = host.match(/^(google|bing|duckduckgo|yahoo)\b/i)?.[1];
+  if (engine && term) {
+    const engineName = engine.charAt(0).toUpperCase() + engine.slice(1).toLowerCase();
+    return { label: `Busca no ${engineName}: "${truncate(term.replace(/\+/g, ' '), 68)}"`, hint: host };
+  }
+
+  let path = parsed.pathname;
+  try {
+    path = decodeURIComponent(path);
+  } catch { /* mantém o caminho como veio */ }
+  path = path.replace(/\/+$/, '');
+  const withoutScheme = url.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+  // Endereço curto cabe inteiro; o resto vira host + caminho, sem a query.
+  if (withoutScheme.length <= 85) return { label: withoutScheme, hint: '' };
+  return { label: truncate(`${host}${path}`, 85), hint: host };
+}
+
+/** Escreve um texto clicável e sublinhado, e devolve a largura usada. */
+function drawUrlLink(
+  doc: jsPDF,
+  text: string,
+  x: number,
+  y: number,
+  url: string,
+  color: [number, number, number]
+) {
+  doc.setTextColor(...color);
+  doc.textWithLink(text, x, y, { url });
+  const width = doc.getTextWidth(text);
+  doc.setDrawColor(...color);
+  doc.setLineWidth(0.15);
+  doc.line(x, y + 0.9, x + width, y + 0.9);
+  return width;
+}
+
 export interface GeneratedPdfFile {
   blob: Blob;
   filename: string;
@@ -165,93 +223,291 @@ export async function generatePDF(
     doc.text(label.toUpperCase(), x + 7, y + 15);
   }
 
-  async function drawPhotoGrid(photos: InspectionResponse['photos'], startY: number) {
-    if (!photos || photos.length === 0) return startY;
+  // ── Fluxo dos itens (NC / excelência) ────────────────────
+  // Todo conteúdo de item passa por estes helpers. Antes, cada bloco era
+  // entregue inteiro a doc.text(): um texto mais alto que a página atravessava
+  // o rodapé e as linhas seguintes eram perdidas.
+  const flowBottom = pageH - 22;   // última linha possível antes do rodapé
+  const bodyX = margin + 7;        // eixo de texto dos itens
+  const bodyW = contentW - 14;
 
-    let photoY = startY;
-    if (photoY > pageH - 60) {
-      doc.addPage();
-      photoY = margin;
-    }
+  type FlowStyle = {
+    size?: number;
+    font?: 'normal' | 'bold' | 'italic';
+    color?: [number, number, number];
+    lineH?: number;
+    x?: number;
+    width?: number;
+  };
 
-    const maxImgW = (contentW - 5) / 2;
-    const maxImgH = maxImgW * 0.75;
-    let col = 0;
-    let currentRowMaxH = 0;
+  /** Abre a página seguinte para continuar o item em curso e devolve o novo y. */
+  type ContinueFlow = () => number;
 
-    for (const photo of photos) {
-      try {
-        if (!isLocalReportImage(photo.dataUrl)) {
-          console.warn('[PDF] Skipping unavailable local photo', photo.id);
-          continue;
-        }
+  const continueOnBlankPage: ContinueFlow = () => {
+    doc.addPage();
+    return margin;
+  };
 
-        const imageSize = await loadImageSize(photo.dataUrl);
-        if (!imageSize || imageSize.width <= 0 || imageSize.height <= 0) {
-          console.warn('[PDF] Skipping unreadable photo', photo.id);
-          continue;
-        }
+  function applyFlowStyle(style: FlowStyle) {
+    doc.setFont('helvetica', style.font || 'normal');
+    doc.setFontSize(style.size ?? 9.8);
+    doc.setTextColor(...(style.color || textColor));
+  }
 
-        const ratio = imageSize.height / imageSize.width;
-        let drawW = maxImgW;
-        let drawH = drawW * ratio;
-
-        if (drawH > maxImgH) {
-          drawH = maxImgH;
-          drawW = drawH / ratio;
-        }
-
-        const x = margin + col * (maxImgW + 5) + (maxImgW - drawW) / 2;
-        if (col === 0 && photoY + maxImgH > pageH - 20) {
-          doc.addPage();
-          photoY = margin;
-        }
-
-        doc.addImage(photo.dataUrl, getPdfImageFormat(photo.dataUrl) as any, x, photoY, drawW, drawH);
-        currentRowMaxH = Math.max(currentRowMaxH, drawH);
-
-        col++;
-        if (col === 2) {
-          col = 0;
-          photoY += currentRowMaxH + 3;
-          currentRowMaxH = 0;
-        }
-      } catch (err) {
-        console.warn('[PDF] Failed to add photo, skipping', photo.id, err);
+  function drawFlowText(
+    text: string,
+    startY: number,
+    style: FlowStyle = {},
+    onContinue: ContinueFlow = continueOnBlankPage
+  ) {
+    applyFlowStyle(style);
+    const lineH = style.lineH ?? 5;
+    const lines: string[] = doc.splitTextToSize(text, style.width ?? bodyW);
+    let cursor = startY;
+    for (const line of lines) {
+      if (cursor + lineH > flowBottom) {
+        cursor = onContinue();
+        applyFlowStyle(style);
       }
+      doc.text(line, style.x ?? bodyX, cursor);
+      cursor += lineH;
+    }
+    return cursor;
+  }
+
+  /** Rótulo + corpo, com o rótulo sempre na mesma página da primeira linha. */
+  function drawLabeledBlock(
+    label: string,
+    text: string,
+    startY: number,
+    labelColor: [number, number, number],
+    onContinue: ContinueFlow = continueOnBlankPage
+  ) {
+    let cursor = startY;
+    if (cursor + 10.5 > flowBottom) cursor = onContinue();
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.2);
+    doc.setTextColor(...labelColor);
+    doc.text(label, bodyX, cursor);
+    cursor += 5.2;
+    cursor = drawFlowText(text, cursor, { size: 9.8, lineH: 5 }, onContinue);
+    return cursor + 3.5;
+  }
+
+  /**
+   * Cabeçalho do item: código, selos, pergunta do roteiro e base legal na mesma
+   * caixa. A caixa é medida a partir do texto, então não sobra área vazia nem
+   * o título escapa da borda.
+   */
+  function drawItemHeader(opts: {
+    code: string;
+    title: string;
+    accent: [number, number, number];
+    tags?: { text: string; fill: [number, number, number] }[];
+    legal?: string;
+    startY: number;
+    onContinue?: ContinueFlow;
+  }) {
+    const { code, title, accent, tags = [], legal, startY } = opts;
+    const padX = 7;
+    const padTop = 6;
+    const padBottom = 4.4;
+    const metaH = 6.4;      // do código à primeira linha do título
+    const titleLineH = 5.2;
+    const legalGap = 4.6;
+    const legalLineH = 4.2;
+    const innerW = contentW - padX * 2;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10.4);
+    const titleLines: string[] = doc.splitTextToSize(title, innerW);
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(8.2);
+    const legalLines: string[] = legal ? doc.splitTextToSize(legal, innerW) : [];
+
+    const boxH = padTop + metaH + (titleLines.length - 1) * titleLineH
+      + (legalLines.length ? legalGap + (legalLines.length - 1) * legalLineH : 0)
+      + padBottom;
+
+    // O cabeçalho não se divide e não fica órfão: só é desenhado se couber
+    // junto com o rótulo e as duas primeiras linhas do corpo.
+    let boxY = startY;
+    if (boxY + boxH + 24 > flowBottom) boxY = (opts.onContinue || continueOnBlankPage)();
+
+    doc.setFillColor(...surfaceColor);
+    doc.setDrawColor(...borderColor);
+    doc.setLineWidth(0.2);
+    doc.roundedRect(margin, boxY, contentW, boxH, 2, 2, 'FD');
+    doc.setFillColor(...accent);
+    doc.roundedRect(margin, boxY, 2.6, boxH, 1.3, 1.3, 'F');
+
+    const metaBase = boxY + padTop;
+    let metaX = margin + padX;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(...accent);
+    doc.text(code, metaX, metaBase);
+    metaX += doc.getTextWidth(code) + 3.5;
+    tags.forEach((tag) => {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.6);
+      const tagW = doc.getTextWidth(tag.text) + 5;
+      doc.setFillColor(...tag.fill);
+      doc.roundedRect(metaX, metaBase - 3.6, tagW, 5, 1.6, 1.6, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.text(tag.text, metaX + 2.5, metaBase - 0.2);
+      metaX += tagW + 2.5;
+    });
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10.4);
+    doc.setTextColor(...textColor);
+    let lineY = metaBase + metaH;
+    titleLines.forEach((line) => {
+      doc.text(line, margin + padX, lineY);
+      lineY += titleLineH;
+    });
+
+    if (legalLines.length) {
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(8.2);
+      doc.setTextColor(...mutedColor);
+      let legalY = lineY - titleLineH + legalGap;
+      legalLines.forEach((line) => {
+        doc.text(line, margin + padX, legalY);
+        legalY += legalLineH;
+      });
     }
 
-    if (col > 0) photoY += currentRowMaxH + 3;
-    return photoY;
+    return boxY + boxH + 5.5;
+  }
+
+  async function drawPhotoGrid(
+    photos: InspectionResponse['photos'],
+    startY: number,
+    onContinue: ContinueFlow = continueOnBlankPage
+  ) {
+    const usable = (photos || []).filter((photo) => {
+      if (isLocalReportImage(photo.dataUrl)) return true;
+      console.warn('[PDF] Skipping unavailable local photo', photo.id);
+      return false;
+    });
+    if (usable.length === 0) return startY;
+
+    // Mede antes de desenhar: a célula tem tamanho fixo e a foto é centralizada
+    // dentro dela, então linhas com retrato e paisagem ficam alinhadas.
+    const measured: { photo: NonNullable<InspectionResponse['photos']>[number]; width: number; height: number }[] = [];
+    for (const photo of usable) {
+      const size = await loadImageSize(photo.dataUrl);
+      if (!size || size.width <= 0 || size.height <= 0) {
+        console.warn('[PDF] Skipping unreadable photo', photo.id);
+        continue;
+      }
+      measured.push({ photo, width: size.width, height: size.height });
+    }
+    if (measured.length === 0) return startY;
+
+    const gutter = 6;
+    const cellW = (bodyW - gutter) / 2;
+    const cellH = 54;
+    const captionH = 4.8;
+
+    let cursor = startY + 0.5;
+    if (cursor + 12 > flowBottom) cursor = onContinue();
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.6);
+    doc.setTextColor(...mutedColor);
+    doc.text('Registro fotográfico', bodyX, cursor);
+    cursor += 5;
+
+    for (let i = 0; i < measured.length; i += 2) {
+      const row = measured.slice(i, i + 2);
+      const rowH = cellH + (row.some(entry => entry.photo.caption) ? captionH : 0);
+      if (cursor + rowH > flowBottom) cursor = onContinue();
+
+      row.forEach((entry, col) => {
+        const cellX = bodyX + col * (cellW + gutter);
+        doc.setFillColor(...surfaceColor);
+        doc.setDrawColor(...borderColor);
+        doc.setLineWidth(0.2);
+        doc.roundedRect(cellX, cursor, cellW, cellH, 1.5, 1.5, 'FD');
+
+        const scale = Math.min((cellW - 3) / entry.width, (cellH - 3) / entry.height);
+        const drawW = entry.width * scale;
+        const drawH = entry.height * scale;
+        try {
+          doc.addImage(
+            entry.photo.dataUrl,
+            getPdfImageFormat(entry.photo.dataUrl) as any,
+            cellX + (cellW - drawW) / 2,
+            cursor + (cellH - drawH) / 2,
+            drawW,
+            drawH
+          );
+        } catch (err) {
+          console.warn('[PDF] Failed to add photo, skipping', entry.photo.id, err);
+        }
+
+        if (entry.photo.caption) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(7.2);
+          doc.setTextColor(...mutedColor);
+          const caption: string = doc.splitTextToSize(entry.photo.caption, cellW)[0];
+          doc.text(caption, cellX, cursor + cellH + 3.4);
+        }
+      });
+
+      cursor += rowH + gutter;
+    }
+    return cursor;
   }
 
   // Links anexados pelo consultor a este item durante a inspeção (não confundir
   // com as fontes gerais da inspeção, em drawConsultedSources).
-  function drawItemLinks(links: string[] | undefined, startY: number) {
-    if (!links || links.length === 0) return startY;
-    let linkY = startY;
-    if (linkY > pageH - 20) {
-      doc.addPage();
-      linkY = margin;
-    }
+  function drawItemLinks(
+    links: string[] | undefined,
+    startY: number,
+    onContinue: ContinueFlow = continueOnBlankPage
+  ) {
+    const list = (links || []).map(link => (link || '').trim()).filter(Boolean);
+    if (list.length === 0) return startY;
+
+    let cursor = startY + 0.5;
+    if (cursor + 12 > flowBottom) cursor = onContinue();
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8.5);
+    doc.setFontSize(8.6);
     doc.setTextColor(...mutedColor);
-    doc.text('Fontes consultadas neste item:', margin + 8, linkY);
-    linkY += 4.5;
-    doc.setFont('helvetica', 'italic');
-    doc.setFontSize(8);
-    doc.setTextColor(30, 107, 94);
-    for (const link of links) {
-      if (linkY > pageH - 15) {
-        doc.addPage();
-        linkY = margin;
+    doc.text('Fontes consultadas neste item', bodyX, cursor);
+    cursor += 5;
+
+    list.forEach((link) => {
+      const { label, hint } = describeUrl(link);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.6);
+      const lines: string[] = doc.splitTextToSize(label, bodyW - 6);
+      const blockH = lines.length * 4.5 + (hint ? 4 : 0);
+      if (cursor + blockH > flowBottom) cursor = onContinue();
+
+      doc.setFillColor(...secondaryColor);
+      doc.circle(bodyX + 1, cursor - 1.2, 0.8, 'F');
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.6);
+      lines.forEach((line, idx) => {
+        drawUrlLink(doc, line, bodyX + 5, cursor + idx * 4.5, link, secondaryColor);
+      });
+      cursor += lines.length * 4.5;
+
+      if (hint) {
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(7.4);
+        doc.setTextColor(...mutedColor);
+        doc.text(hint, bodyX + 5, cursor + 0.6);
+        cursor += 4;
       }
-      const lines: string[] = doc.splitTextToSize(`<${link}>`, contentW - 16);
-      doc.text(lines, margin + 8, linkY);
-      linkY += lines.length * 4 + 1;
-    }
-    return linkY + 3;
+      cursor += 1.6;
+    });
+
+    return cursor + 2;
   }
 
   // Helper: footer on every page
@@ -775,8 +1031,14 @@ export async function generatePDF(
         doc.setFont('helvetica', isRequirement ? 'italic' : 'normal');
         doc.setFontSize(isRequirement ? requirementFontSize : bodyFontSize);
         doc.setTextColor(...textColor);
-        doc.text(lines, cardInnerX, blockY, { maxWidth: cardInnerW });
-        return blockY + lines.length * (isRequirement ? requirementLineHeight : bodyLineHeight) + 5;
+        // Uma linha por vez, com a mesma entrelinha usada para medir o card:
+        // passar o bloco inteiro com maxWidth deixava o jsPDF usar a entrelinha
+        // dele (menor), então o texto ficava comprimido e sobrava vão no fim.
+        const lineHeight = isRequirement ? requirementLineHeight : bodyLineHeight;
+        lines.forEach((line, lineIdx) => {
+          doc.text(line, cardInnerX, blockY + lineIdx * lineHeight);
+        });
+        return blockY + lines.length * lineHeight + 5;
       };
 
       if (cardHeight <= fullPageCardHeight) {
@@ -948,17 +1210,13 @@ export async function generatePDF(
   }
 
   if (inspection.observations) {
-    if (y > pageH - 40) { doc.addPage(); y = margin; }
+    if (y + 16 > flowBottom) { doc.addPage(); y = margin; }
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
-    doc.setTextColor(30, 30, 30);
-    doc.text('Observações Gerais:', margin, y);
+    doc.setTextColor(...textColor);
+    doc.text('Observações Gerais', margin, y);
     y += 6;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    const obsLines = doc.splitTextToSize(inspection.observations, contentW);
-    doc.text(obsLines, margin, y);
-    y += obsLines.length * 5 + 5;
+    y = drawFlowText(inspection.observations, y, { size: 10, lineH: 5, x: margin, width: contentW }) + 5;
   }
 
   // ── PAGES 3+: NONCONFORMANCES ────────────────────────────
@@ -982,9 +1240,7 @@ export async function generatePDF(
       doc.addPage();
       y = margin;
       drawNonComplianceHeading(true);
-    };
-    const ensureNonComplianceSpace = (height: number) => {
-      if (y + height > pageH - 22) continueNonCompliancePage();
+      return y;
     };
 
     drawNonComplianceHeading();
@@ -994,102 +1250,67 @@ export async function generatePDF(
       const item = allItems.find(i => i.id === response.itemId);
       if (!item) continue;
 
-      const title = `[NC-${String(ncNum).padStart(3, '0')}] ${item.description}`;
-      const titleFontSize = 10.5;
-      const titleLineH = 5.4;          // espaçamento real entre linhas do título
-      const titleTopPad = 7;           // base da 1ª linha em relação ao topo da caixa
-      const titleBottomPad = 4;        // folga abaixo da última linha
-      const badgeGap = 2;
-      const badgeBoxH = 6.5;
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(titleFontSize);
-      // Largura de quebra alinhada ao desenho: texto em margin+8, padding direito de 8mm.
-      const titleLines: string[] = doc.splitTextToSize(title, contentW - 16);
-      const badgeHeight = item.isCritical ? badgeGap + badgeBoxH : 0;
-      const headerHeight =
-        titleTopPad + titleLines.length * titleLineH + badgeHeight + titleBottomPad;
-      ensureNonComplianceSpace(headerHeight + 12);
-      doc.setFillColor(248, 250, 252);
-      doc.setDrawColor(...borderColor);
-      doc.roundedRect(margin, y, contentW, headerHeight, 2, 2, 'FD');
-      const headerAccent: [number, number, number] = item.isCritical ? [185, 28, 28] : secondaryColor;
-      doc.setFillColor(...headerAccent);
-      doc.roundedRect(margin, y, 3, headerHeight, 1.5, 1.5, 'F');
-      doc.setTextColor(...textColor);
-      // Renderiza cada linha em posição explícita para a caixa caber exatamente o título.
-      titleLines.forEach((line, lineIdx) => {
-        doc.text(line, margin + 8, y + titleTopPad + lineIdx * titleLineH);
-      });
-      const headerY = y + titleTopPad + (titleLines.length - 1) * titleLineH + badgeGap + 2;
-      if (item.isCritical) {
-        doc.setFillColor(185, 28, 28);
-        doc.roundedRect(margin + 8, headerY, 33, badgeBoxH, 2, 2, 'F');
+      const code = `NC-${String(ncNum).padStart(3, '0')}`;
+      const accent: [number, number, number] = item.isCritical ? [185, 28, 28] : secondaryColor;
+      // Quando o item transborda a página, a retomada se identifica: antes o
+      // texto continuava no alto da página seguinte sem dizer de qual NC era.
+      const continueItem: ContinueFlow = () => {
+        continueNonCompliancePage();
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(7.5);
-        doc.setTextColor(255, 255, 255);
-        doc.text('ITEM CRÍTICO', margin + 24.5, headerY + 4.4, { align: 'center' });
-      }
-      y += headerHeight + 4;
-      if (item.legislation) {
-        doc.setFont('helvetica', 'italic');
-        doc.setFontSize(8.7);
-        doc.setTextColor(...mutedColor);
-        const legText = item.requirementType === 'good_practice'
-          ? `Boa prática — não é exigência legal: ${item.legislation}`
-          : `Base legal: ${item.legislation}`;
-        const legLines: string[] = doc.splitTextToSize(legText, contentW - 8);
-        ensureNonComplianceSpace(legLines.length * 4.5 + 4);
-        doc.text(legLines, margin + 8, y);
-        y += legLines.length * 4.5 + 4;
-      }
+        doc.setFontSize(8.6);
+        doc.setTextColor(...accent);
+        doc.text(`${code} (continuação)`, bodyX, y);
+        y += 6.5;
+        return y;
+      };
+
+      const tags: { text: string; fill: [number, number, number] }[] = [];
+      if (item.isCritical) tags.push({ text: 'ITEM CRÍTICO', fill: [185, 28, 28] });
+      if (recurringItemIds.has(response.itemId)) tags.push({ text: 'REINCIDENTE', fill: [127, 29, 29] });
+      if (item.requirementType === 'good_practice') tags.push({ text: 'BOA PRÁTICA', fill: mutedColor });
+
+      y = drawItemHeader({
+        code,
+        title: item.description,
+        accent,
+        tags,
+        legal: item.legislation
+          ? (item.requirementType === 'good_practice'
+              ? `Boa prática — não é exigência legal. Referência: ${item.legislation}`
+              : `Base legal: ${item.legislation}`)
+          : undefined,
+        startY: y,
+        onContinue: continueNonCompliancePage,
+      });
 
       if (response.situationDescription) {
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9.8);
-        const lines: string[] = doc.splitTextToSize(response.situationDescription, contentW - 16);
-        ensureNonComplianceSpace(lines.length * 5 + 12);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9.5);
-        doc.setTextColor(153, 27, 27);
-        doc.text('Situação encontrada:', margin + 8, y);
-        y += 5;
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9.8);
-        doc.setTextColor(...textColor);
-        doc.text(lines, margin + 8, y, { maxWidth: contentW - 16 });
-        y += lines.length * 5 + 5;
+        y = drawLabeledBlock('Situação encontrada', response.situationDescription, y, [153, 27, 27], continueItem);
       }
 
       if (response.correctiveAction) {
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9.8);
-        const lines: string[] = doc.splitTextToSize(response.correctiveAction, contentW - 16);
-        ensureNonComplianceSpace(lines.length * 5 + 12);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9.5);
-        doc.setTextColor(21, 101, 52);
-        doc.text('Ação corretiva:', margin + 8, y);
-        y += 5;
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9.8);
-        doc.setTextColor(...textColor);
-        doc.text(lines, margin + 8, y, { maxWidth: contentW - 16 });
-        y += lines.length * 5 + 5;
+        y = drawLabeledBlock('Ação corretiva', response.correctiveAction, y, [21, 101, 52], continueItem);
       }
 
-      // Photos
-      y = await drawPhotoGrid(response.photos, y);
-      y = drawItemLinks(response.links, y);
+      y = await drawPhotoGrid(response.photos, y, continueItem);
+      y = drawItemLinks(response.links, y, continueItem);
 
-      y += 6;
-      doc.setDrawColor(200, 200, 200);
-      doc.line(margin, y - 2, margin + contentW, y - 2);
+      if (ncNum < nonCompliantItems.length) {
+        y += 2.5;
+        if (y + 10 <= flowBottom) {
+          doc.setDrawColor(...borderColor);
+          doc.setLineWidth(0.2);
+          doc.line(margin, y, margin + contentW, y);
+          y += 7;
+        }
+      }
       ncNum++;
     }
 
-    y += 5;
+    if (y + 10 > flowBottom) continueNonCompliancePage();
+    y += 6;
+    doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    doc.setTextColor(30, 30, 30);
+    doc.setTextColor(...mutedColor);
     doc.text(`Ciente do Plano de Ação: ${inspection.accompanistName || 'Representante do Estabelecimento'}`, margin, y);
   }
 
@@ -1101,87 +1322,89 @@ export async function generatePDF(
   if (excellenceItems.length > 0) {
     doc.addPage();
     y = margin;
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(13);
-    doc.setTextColor(...secondaryColor);
-    doc.text('PONTOS DE EXCELÊNCIA E SUGESTÕES DE MELHORIA', margin, y);
-    y += 2;
-    doc.setDrawColor(...secondaryColor);
-    doc.line(margin, y, margin + contentW, y);
-    y += 8;
+    const excellenceAccent: [number, number, number] = [21, 101, 52];
+    const drawExcellenceHeading = (continuation = false) => {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(13);
+      doc.setTextColor(...primaryColor);
+      doc.text(
+        `PONTOS DE EXCELÊNCIA E SUGESTÕES DE MELHORIA${continuation ? ' - CONTINUAÇÃO' : ''}`,
+        margin,
+        y
+      );
+      y += 3;
+      doc.setDrawColor(...primaryColor);
+      doc.setLineWidth(0.4);
+      doc.line(margin, y, margin + contentW, y);
+      y += 10;
+    };
+    const continueExcellencePage = () => {
+      doc.addPage();
+      y = margin;
+      drawExcellenceHeading(true);
+      return y;
+    };
+
+    drawExcellenceHeading();
 
     let exNum = 1;
     for (const response of excellenceItems) {
       const item = allItems.find(i => i.id === response.itemId);
       if (!item) continue;
 
-      if (y > pageH - 50) { doc.addPage(); y = margin; }
+      const code = `EX-${String(exNum).padStart(3, '0')}`;
+      const continueItem: ContinueFlow = () => {
+        continueExcellencePage();
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.6);
+        doc.setTextColor(...excellenceAccent);
+        doc.text(`${code} (continuação)`, bodyX, y);
+        y += 6.5;
+        return y;
+      };
 
-      // EX header
-      doc.setFillColor(240, 245, 250);
-      doc.rect(margin, y - 4, contentW, 7, 'F');
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.setTextColor(30, 30, 30);
-      doc.text(`[EX-${String(exNum).padStart(3, '0')}] ${item.description.substring(0, 90)}`, margin + 2, y);
-      y += 5;
-
-      if (item.description.length > 90) {
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9);
-        const rest = doc.splitTextToSize(item.description.substring(90), contentW - 4);
-        doc.text(rest, margin + 2, y);
-        y += rest.length * 4;
-      }
+      // A pergunta do roteiro vai inteira no cabeçalho: antes era cortada em 90
+      // caracteres e o resto reaparecia como parágrafo solto.
+      y = drawItemHeader({
+        code,
+        title: item.description,
+        accent: excellenceAccent,
+        legal: item.legislation ? `Base legal: ${item.legislation}` : undefined,
+        startY: y,
+        onContinue: continueExcellencePage,
+      });
 
       if (response.situationDescription) {
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
-        doc.setTextColor(...secondaryColor);
-        doc.text('Destaque / Observação:', margin + 2, y);
-        y += 4;
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(30, 30, 30);
-        const lines = doc.splitTextToSize(response.situationDescription, contentW - 4);
-        doc.text(lines, margin + 2, y);
-        y += lines.length * 4 + 2;
+        y = drawLabeledBlock('Destaque / observação', response.situationDescription, y, secondaryColor, continueItem);
       }
 
       if (response.correctiveAction) {
-        if (y > pageH - 30) { doc.addPage(); y = margin; }
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
-        doc.setTextColor(30, 90, 60);
-        doc.text('Sugestão de Alto Padrão:', margin + 2, y);
-        y += 4;
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(30, 30, 30);
-        const lines = doc.splitTextToSize(response.correctiveAction, contentW - 4);
-        doc.text(lines, margin + 2, y);
-        y += lines.length * 4 + 2;
+        y = drawLabeledBlock('Sugestão de alto padrão', response.correctiveAction, y, excellenceAccent, continueItem);
       }
 
-      // Photos
-      y = await drawPhotoGrid(response.photos, y);
-      y = drawItemLinks(response.links, y);
+      y = await drawPhotoGrid(response.photos, y, continueItem);
+      y = drawItemLinks(response.links, y, continueItem);
 
-      y += 6;
-      doc.setDrawColor(220, 230, 240);
-      doc.line(margin, y - 2, margin + contentW, y - 2);
+      if (exNum < excellenceItems.length) {
+        y += 2.5;
+        if (y + 10 <= flowBottom) {
+          doc.setDrawColor(...borderColor);
+          doc.setLineWidth(0.2);
+          doc.line(margin, y, margin + contentW, y);
+          y += 7;
+        }
+      }
       exNum++;
     }
   }
 
   // ── SIGNATURE + DISCLAIMER ──────────────────────────────
-  if (y > pageH - 60) { doc.addPage(); y = margin; }
+  if (y > pageH - 70) { doc.addPage(); y = margin; }
   y += 10;
-  doc.setFont('helvetica', 'italic');
-  doc.setFontSize(9);
-  doc.setTextColor(90, 90, 90);
   const disclaimer = 'Este relatório foi elaborado com base nas legislações sanitárias vigentes, durante visita técnica realizada na data indicada. As referências legislativas completas constam na última seção deste documento.';
-  const dLines = doc.splitTextToSize(disclaimer, contentW);
-  doc.text(dLines, margin, y);
-  y += dLines.length * 5 + 15;
+  y = drawFlowText(disclaimer, y, {
+    size: 9, font: 'italic', color: mutedColor, lineH: 5, x: margin, width: contentW,
+  }) + 15;
 
   // Accomplice Signature
   if (inspection.signatureDataUrl) {
@@ -1426,11 +1649,13 @@ function drawReferencesABNT(
     y += 5;
   });
 
-  // Footer note
-  if (y < pageH - 25) {
-    y = pageH - 18;
+  // Nota de encerramento da seção, acima da régua do rodapé (que fica em pageH-16).
+  const noteY = pageH - 24;
+  if (y < noteY) {
+    y = noteY;
   } else {
-    if (y > pageH - 18) { doc.addPage(); y = pageH - 18; }
+    doc.addPage();
+    y = noteY;
   }
   doc.setFontSize(7.5);
   doc.setFont('helvetica', 'italic');
@@ -1469,50 +1694,79 @@ function drawConsultedSources(doc: jsPDF, sources?: ReferenceSource[]) {
   doc.setTextColor(107, 114, 128);
   doc.text('Fontes adicionais consultadas pela consultora durante a inspeção.', margin + 4, 34);
 
+  const linkColor: [number, number, number] = [45, 90, 142];
+  const textX = margin + 11;
+  const textW = contentW - 11;
+  const bottom = pageH - 22;
   let y = 58;
 
   sources.forEach((source, idx) => {
-    if (y > pageH - 25) {
+    const { label, hint } = describeUrl(source.url);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
+    const titleLines: string[] = doc.splitTextToSize(source.title || label, textW);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.6);
+    const linkLines: string[] = doc.splitTextToSize(label, textW);
+    doc.setFontSize(8.4);
+    const noteLines: string[] = source.note ? doc.splitTextToSize(source.note, textW) : [];
+
+    const blockH = titleLines.length * 5 + linkLines.length * 4.6 + (hint ? 4 : 0)
+      + (noteLines.length ? 1.5 + noteLines.length * 4.4 : 0) + 8;
+    if (y + blockH > bottom) {
       doc.addPage();
       y = margin;
     }
 
-    doc.setFillColor(30, 107, 94);
-    doc.circle(margin + 3, y - 1, 2.5, 'F');
+    doc.setFillColor(...linkColor);
+    doc.circle(margin + 3.5, y - 1.2, 2.6, 'F');
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
+    doc.setFontSize(7.6);
     doc.setTextColor(255, 255, 255);
-    doc.text(`${idx + 1}`, margin + 3, y + 0.5, { align: 'center' });
+    doc.text(`${idx + 1}`, margin + 3.5, y + 0.6, { align: 'center' });
 
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
     doc.setTextColor(31, 41, 55);
-    const titleLines = doc.splitTextToSize(source.title || source.url, contentW - 14);
-    doc.text(titleLines, margin + 10, y);
-    y += titleLines.length * 5.5 + 4;
+    titleLines.forEach((line) => {
+      doc.text(line, textX, y);
+      y += 5;
+    });
 
-    // O PDF costuma ser impresso — o link precisa ficar legível no papel,
-    // não só clicável.
-    doc.setFontSize(7.5);
-    doc.setTextColor(30, 107, 94);
-    doc.setFont('helvetica', 'italic');
-    const urlLines = doc.splitTextToSize(`Disponível em: <${source.url}>`, contentW - 14);
-    doc.text(urlLines, margin + 10, y);
-    y += urlLines.length * 4.5 + 3;
+    // Endereço clicável com rótulo legível — a URL crua de busca tinha centenas
+    // de caracteres de rastreamento e tomava a página inteira.
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.6);
+    linkLines.forEach((line, lineIdx) => {
+      drawUrlLink(doc, line, textX, y + lineIdx * 4.6, source.url, linkColor);
+    });
+    y += linkLines.length * 4.6;
 
-    if (source.note) {
-      doc.setFontSize(8);
+    if (hint) {
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(7.4);
       doc.setTextColor(107, 114, 128);
-      doc.setFont('helvetica', 'normal');
-      const noteLines = doc.splitTextToSize(source.note, contentW - 14);
-      doc.text(noteLines, margin + 10, y);
-      y += noteLines.length * 4.5 + 3;
+      doc.text(hint, textX, y + 0.6);
+      y += 4;
     }
 
+    if (noteLines.length) {
+      y += 1.5;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.4);
+      doc.setTextColor(107, 114, 128);
+      noteLines.forEach((line) => {
+        doc.text(line, textX, y);
+        y += 4.4;
+      });
+    }
+
+    y += 3;
     doc.setDrawColor(229, 231, 235);
-    doc.setLineWidth(0.3);
-    doc.line(margin + 10, y, margin + contentW, y);
-    y += 5;
+    doc.setLineWidth(0.2);
+    doc.line(textX, y, margin + contentW, y);
+    y += 6;
   });
 }
 
