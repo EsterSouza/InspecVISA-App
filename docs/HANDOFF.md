@@ -1,6 +1,6 @@
 # Handoff único — InspecVISA
 
-**Última atualização:** 06/08/2026 (BRT), ao concluir o REF-04 e aplicá-lo em produção ·
+**Última atualização:** 06/08/2026 (BRT), ao concluir o REF-04 (aplicado em produção) e abrir o REF-05 ·
 **Branch:** `main`, sincronizada com `origin/main` · O estado da seção 2 foi verificado em 03/08/2026,
 com as correções de 04/08 e 05/08 anotadas nas tabelas.
 
@@ -223,6 +223,7 @@ a página de referências do PDF.
 | **REF-02** | Sanear a biblioteca e ligá-la aos roteiros | Opus 5 | alto | REF-01 (concluído) | ✅ **concluído 05/08** · aplicado em produção (migration + backfill) |
 | **REF-03** | Fontes consultadas e links no relatório | Sonnet 5 | médio | REF-02 (só para enriquecer, não bloqueia) | ✅ **concluído 05/08** |
 | **REF-04** | Curar itens legais que citam texto genérico | Opus 5 | baixo | REF-02 (concluído) | ✅ **concluído 06/08** · aplicado em produção |
+| **REF-05** | Curar `requirement_type` em ILPI e alimentos | Opus 5 | médio | REF-04 (concluído) | ⬜ pendente |
 | **PROD-01** | Aviso de pagamento quebrado no portal | Opus 5 | médio | — | ✅ **concluído 04/08** |
 | **PROD-02** | Auditoria do portal não grava nada | Opus 5 | baixo | — | ✅ **concluído 04/08** |
 | **P360-008** | Detalhe, notificações e calendário | Sonnet 5 | alto | — | ⬜ pendente |
@@ -237,18 +238,20 @@ a página de referências do PDF.
 | **DEBT-02** | Dívida de lint | Sonnet 5 | médio | — | ⬜ pendente |
 | **DEBT-03** | Pontas soltas do repositório | Haiku 4.5 | baixo | — | ✅ **concluído 05/08** |
 
-Ordem sugerida: a onda do **Portal 360** — toda a linha de referências legislativas está fechada e
-aplicada em produção. (INFRA-01, INFRA-02, EST-01, EST-02, PROD-01, PROD-02, PROD-03, REF-01,
-REF-02, REF-03, REF-04 e DEBT-03 já saíram da fila.)
+Ordem sugerida: **REF-05** e depois a onda do **Portal 360**. O REF-05 vem antes porque contém uma
+precondição com prazo próprio — o ILPI (Base Federal), roteiro com 19 inspeções, está fora de
+sincronia com `src/data/`, e um reseed nesse estado apaga 12 itens que só existem no banco.
+(INFRA-01, INFRA-02, EST-01, EST-02, PROD-01, PROD-02, PROD-03, REF-01, REF-02, REF-03, REF-04 e
+DEBT-03 já saíram da fila.)
 
 Cards P360-001 a P360-007 foram concluídos e não aparecem aqui.
 
 ## 4.1 Divisão por modelo
 
-São **8 cards pendentes** (EST-02, REF-01, REF-02, REF-03 e DEBT-03 concluídos em 05/08). A divisão abaixo é
+São **9 cards pendentes** (EST-02, REF-01, REF-02, REF-03 e DEBT-03 concluídos em 05/08; REF-04 em 06/08). A divisão abaixo é
 o critério de despacho: abra a sessão com o modelo indicado e cole o card correspondente.
 
-### Opus 5 — 4 cards
+### Opus 5 — 5 cards
 
 Tudo que toca **banco, segurança ou decisão normativa**. O erro aqui é caro e silencioso: uma RPC
 sem grant correto quebra só para quem está logado, uma norma revogada citada como vigente vira
@@ -256,6 +259,7 @@ laudo errado, e um mapeamento de item malfeito reescreve a inspeção de uma cli
 
 | Card | Por que Opus 5 |
 |---|---|
+| **REF-05** | Decisão normativa item a item em ILPI e alimentos, mais reconciliação de roteiro com 19 inspeções. |
 | **P360-010** | RLS, projeção de dados sanitários, isolamento entre tenants. |
 | **P360-011** | Storage privado, URL assinada, upload autenticado por token. |
 | **P360-012** | Tabelas novas tenant-scoped, rate limit, permissão por papel. |
@@ -1120,6 +1124,177 @@ PowerShell falhava com "Faltam VITE_SUPABASE_URL" mesmo com o `.env` no lugar �
 `1457d49`; em vez de duplicá-lo, ele foi extraído para
 [`scripts/env.ts`](../scripts/env.ts) (`requireSupabaseEnv()`) e os dois scripts passaram a usá-lo.
 Script de manutenção novo deve importar de lá, não reler `process.env` na mão.
+
+---
+
+## REF-05 — Curar `requirement_type` nos roteiros de ILPI e de alimentos
+
+**Modelo:** Opus 5 · **Depende de:** REF-04 (concluído) · **Esforço:** médio
+
+O REF-04 fechou os itens que **não citavam ato algum**. Sobra a lacuna estrutural: o padrão de seed
+em [`templateService.ts:272`](../src/services/templateService.ts) é `item.requirementType || 'legal'`,
+e `requirement_type` só foi curado nos roteiros de estética. Todo item de ILPI e de alimentos nasceu
+`'legal'` — **393 itens em 4 roteiros vivos, nenhum `good_practice`**.
+
+### Antes de qualquer coisa: a regra que governa este card
+
+> **A legislação de ILPI não é a de estética. Não porte o precedente de estética por analogia de
+> assunto.** — Ester, 06/08/2026
+
+O exemplo que ela deu, e que serve de teste para qualquer decisão aqui: **lavanderia**. Em estética
+virou `good_practice` (`est-090`, `est-091`) porque não havia base legal vigente. Em ILPI é
+exigência legal explícita — a RDC 502/2021 trata do assunto em vários artigos, e no RJ há ainda a
+Lei Estadual nº 8.049/2018. Verificado no banco: os 15 itens de lavanderia/roupas dos roteiros vivos
+de ILPI citam **artigo específico** da RDC 502/2021 (Arts. 14, 15, 16 VI, 29 IX–X, 47, 48, 49, 50) ou
+a NR-6. Nenhum deles é candidato a boa prática.
+
+Regra prática: **reclassificar exige mostrar que o ato citado não exige aquilo.** "Parece boa
+prática" e "em estética virou boa prática" não bastam. Na dúvida, mantenha `legal`.
+
+### As âncoras normativas de cada roteiro
+
+Cada segmento se apoia num corpo normativo próprio, e a curadoria tem que ser lida contra **esse**
+corpo — não contra o de estética. Medido no banco em 06/08/2026, por resolução da citação:
+
+| Roteiro | Ato dominante | Cobertura |
+|---|---|---|
+| Serviços de Alimentação (Nacional) | **RDC Anvisa nº 216/2004** | **97 de 97 itens** |
+| Serviços de Alimentação (Município RJ) | **Portaria IVISA-RIO nº 002/2020** | 102 de 114 |
+| | + RDC Anvisa nº 216/2004 | 95 de 114 |
+| | + Decreto Rio nº 45.585/2018 | 24 de 114 |
+| ILPI (Base Federal) e ILPI Goiás | **RDC Anvisa nº 502/2021** | maioria; + Lei 10.741/2003, Lei Municipal 1.812/2014 (GO) |
+| Suplemento ILPI — RJ | **Lei Estadual RJ nº 8.049/2018** | 9 de 9 |
+
+Os cinco atos já estão na biblioteca. Nota de precisão: a lei estadual do RJ para ILPI é
+**8.049/2018** (17 de julho de 2018), não 2019 — a biblioteca está com o ano certo.
+
+O roteiro nacional de alimentos ancora **100% dos itens na RDC 216/2004**. Uma reclassificação ali
+significa afirmar que a RDC 216/2004 não exige aquele ponto — afirmação forte, que precisa da leitura
+do artigo, não de impressão.
+
+### O que o levantamento de 06/08/2026 mostrou
+
+Estado em produção, roteiros vivos de ILPI e alimentos:
+
+| Roteiro | Seções | Itens | `legal` | `good_practice` | Inspeções |
+|---|---|---|---|---|---|
+| ILPI (Base Federal) | 13 | 103 | 103 | 0 | **19** |
+| Serviços de Alimentação (Município RJ) | 12 | 114 | 114 | 0 | 0 |
+| ILPI \| Goiás / Senador Canedo | 13 | 79 | 79 | 0 | 0 |
+| Serviços de Alimentação (Nacional) | 11 | 97 | 97 | 0 | 0 |
+| **Total** | | **393** | **393** | **0** | |
+
+Há ainda o `[ARQUIVADO]` ILPI (Base Federal) (v2027), 105 itens, 0 inspeções — fora de escopo salvo
+decisão em contrário.
+
+**Três medidas que desaconselham reclassificação em massa:**
+
+1. **Nenhum item cita fonte não normativa isolada.** Os 393 resolvem para ato real — foi o REF-02 +
+   REF-04 que fecharam isso. Não existe aqui o sinal que denunciava os 48 do REF-04.
+2. **204 dos 393 são críticos.** Só **4** são não críticos com peso ≤ 2, que era o perfil dos itens
+   que viraram boa prática em estética. Os roteiros de ILPI e alimentos foram montados a partir de
+   texto normativo, item por artigo — a suposição de que "parte deles é boa prática" não se sustenta
+   como problema de massa.
+3. **13 citações misturam ato real com fonte auxiliar** — todas em ILPI Goiás, sempre no formato
+   `"Art. X, RDC 502/2021; Roteiro MPGO/UTPSS — <assunto>"`. O ato é legítimo; o "Roteiro MPGO/UTPSS"
+   é guia de fiscalização, não base legal. Mesmo defeito que o REF-04 corrigiu em
+   `"Lei nº 5.991/1973; legislação profissional aplicável"`, e a correção é a mesma: **limpar a
+   cauda, manter `legal`** — não reclassificar.
+
+Conclusão honesta para quem pegar este card: o resultado provável é **poucas reclassificações e
+várias limpezas de citação**. Se a curadoria terminar com quase tudo continuando `legal`, isso é um
+resultado válido e deve ser registrado como tal, não forçado.
+
+### Precondição — o ILPI (Base Federal) está fora de sincronia com o código
+
+Comparação descrição a descrição, código × banco:
+
+| Roteiro | Banco | Código | Só no banco | Só no código |
+|---|---|---|---|---|
+| **ILPI (Base Federal)** | **103** | **97** | **12** | **6** |
+| Serviços de Alimentação (Nacional) | 97 | 97 | 0 | 0 |
+| Serviços de Alimentação (Município RJ) | 114 | 114 | 0 | 0 |
+| ILPI \| Goiás / Senador Canedo | 79 | 79 | 0 | 0 |
+
+Só o ILPI Base Federal diverge — e é justamente o roteiro com **19 inspeções**. A divergência não é
+cosmética:
+
+- **Circulações internas.** Banco: *"largura mínima de 1,00m e as secundárias, no mínimo 0,80m, com
+  luz de vigília permanente. Circulações com largura igual ou superior a 1,50m possuem corrimão dos
+  dois lados…"*. Código: *"largura mínima de 1,50m e as secundárias, no mínimo 1,00m, garantindo a
+  passagem de cadeiras de rodas e macas."* **São exigências diferentes para a mesma coisa.**
+  Resolver contra a RDC 502/2021 antes de tocar em `requirement_type` — inspeção feita pela versão
+  errada gera não conformidade indevida ou deixa de gerar a devida.
+- **Cuidadores.** Banco: 1 item único com os três graus juntos (I 1:20, II 1:10, III 1:6). Código: 4
+  itens separados — um por grau, mais a escala de trabalho. Muda a granularidade do que entra no
+  score.
+- **10 itens de infraestrutura e assistência existem só no banco** (mofo/bolor, esquadrias e vidros,
+  instalações hidrossanitárias, vestiário de funcionários com área mínima, sala de descanso da
+  enfermagem, PIA, iluminação e ventilação naturais, limpeza e odores, revestimentos, mobilidade).
+  Foram criados direto no banco e nunca voltaram para `src/data/`.
+
+**Risco imediato, independente deste card:** um reseed do ILPI Base Federal apaga os 12 itens que só
+existem no banco e ressuscita os 6 que só existem no código. Reconciliar precisa vir **antes** da
+curadoria — senão a curadoria é feita sobre itens que o próximo seed descarta.
+
+### Escopo que não aparece no banco
+
+Os **suplementos regionais são aplicados em memória** por `getEffectiveTemplate`
+([`templates.ts:355`](../src/data/templates.ts)) e **nunca passam por `checklist_items`**. Logo não
+entram nos 393, mas entram no relatório do cliente:
+
+| Suplemento | Itens | `good_practice` |
+|---|---|---|
+| ILPI \| Goiás / Senador Canedo | 33 | 0 |
+| ILPI — Belo Horizonte (MG) | 27 | 0 |
+| ILPI — Rio de Janeiro (RJ) | 9 | 0 |
+| Estética — Rio de Janeiro | 1 | 0 |
+| **Total** | **70** | **0** |
+
+Os 9 do suplemento RJ citam a Lei Estadual RJ 8.049/2018 — a mesma norma que a Ester levantou. Como
+vivem só no código, aqui a correção é **só em `src/data/`**, sem banco. É o inverso do REF-04.
+
+### Implementação
+
+1. **Reconciliar o ILPI Base Federal** (precondição). Decidir, item a item, qual versão vale — a do
+   banco ou a do código — e deixar as duas iguais. A divergência das circulações é **decisão
+   sanitária da Ester**, não escolha de implementação: resolver contra a RDC 502/2021 e registrar a
+   evidência em `docs/referencias/biblioteca.md`.
+2. **Limpar as 13 citações com cauda não normativa** do ILPI Goiás (`; Roteiro MPGO/UTPSS…`).
+   Mantém `legal`, mantém o ato, tira a fonte auxiliar. Baixo risco.
+3. **Curadoria de `requirement_type`**, roteiro a roteiro, contra a âncora normativa daquele roteiro
+   (tabela acima), com o ônus da prova invertido: um item só vira `good_practice` se o ato citado,
+   lido, não exigir aquilo. Registrar a justificativa por item — o artigo consultado e o que ele diz
+   — como o REF-04 fez com a coluna `precedente`. Use o
+   skill `visa-legislacao-sanitaria` para ler a norma; **não cite artigo de memória.**
+4. **Aplicar em código e no banco.** Diferente do REF-04: estes roteiros **existem** em `src/data/`
+   (`templates.ts`, `templates_alimentos.ts`, `templates_ilpi_go.ts`), então mudar só o banco é
+   revertido pelo próximo seed. Os 70 itens de suplemento são só código.
+5. Reaproveitar o formato do [`ref04-curadoria-requirement-type.ts`](../scripts/ref04-curadoria-requirement-type.ts):
+   tabela de decisões explícita, simulação por padrão, `--apply` separado, idempotente. Importar
+   `requireSupabaseEnv` de [`scripts/env.ts`](../scripts/env.ts).
+
+### Testes
+
+- Estender `src/__tests__/data/legislationLibrary.test.ts` para travar o invariante já valendo hoje:
+  todo item `legal` em código resolve URL. Avaliar estendê-lo ao banco, como o REF-04 sugeriu.
+- Teste novo que falhe se um roteiro em `src/data/` divergir em contagem de itens do que está no
+  banco, para a sincronia não se perder de novo em silêncio.
+
+### Critérios de aceite
+
+- [ ] ILPI Base Federal com o mesmo conjunto de itens em código e banco; divergência das circulações
+      resolvida com evidência normativa registrada.
+- [ ] Nenhuma citação de ILPI/alimentos com cauda não normativa.
+- [ ] Toda reclassificação para `good_practice` acompanhada da justificativa de por que o ato citado
+      não exige aquilo. **Zero reclassificação por analogia com estética.**
+- [ ] Mudanças presentes em `src/data/` **e** no banco.
+- [ ] `npx vitest run` sem regressão sobre a linha de base de 162 passando.
+
+### Fora de escopo
+
+O `[ARQUIVADO]` ILPI (Base Federal) (v2027), 105 itens — não é selecionável e não tem inspeção. Só
+entra se a Ester quiser os relatórios históricos consistentes, como se fez no REF-04.
 
 ---
 
