@@ -227,6 +227,7 @@ a página de referências do PDF.
 | **PROD-01** | Aviso de pagamento quebrado no portal | Opus 5 | médio | — | ✅ **concluído 04/08** |
 | **PROD-02** | Auditoria do portal não grava nada | Opus 5 | baixo | — | ✅ **concluído 04/08** |
 | **REF-06** | Ligação resposta ↔ item quebrada | Opus 5 | alto | — | ✅ **concluído 06/08** · aplicado em produção (2 cargas) |
+| **REL-01** | Mostrar no relatório o que o cliente já cumpre | Opus 5 | baixo | — | ✅ **concluído 06/08** |
 | **P360-008** | Detalhe, notificações e calendário | Sonnet 5 | alto | — | ⬜ pendente |
 | **P360-009** | Início do portal por próximas ações | Sonnet 5 | alto | P360-008 | ⬜ pendente |
 | **P360-010** | Projeção segura do plano de ação | Opus 5 | alto | — | ⬜ pendente |
@@ -2110,6 +2111,61 @@ card não mexeu em código de teste). `npm run build` — passa. App testado no 
 
 ---
 
+# Bloco 6 — Relatório entregue ao cliente
+
+## REL-01 — Mostrar o que o cliente já cumpre ✅ concluído em 06/08/2026
+
+### O problema
+
+O relatório só provava o que faltava. Depois do plano de ação vinha o bloco
+`GRUPO 3 — ITENS EM CONFORMIDADE`, que era um parágrafo com o percentual e uma tabela de
+`% conformidade` por área — nenhum item nomeado. A única lista de itens cumpridos era
+`PONTOS DE EXCELÊNCIA E SUGESTÕES DE MELHORIA`, e ela filtra por
+`situationDescription || correctiveAction || photos || links`: o item cumprido sem observação
+digitada não aparecia em lugar nenhum do documento. Numa inspeção com 19 conformidades e nenhuma
+anotada, o cliente recebia um laudo que só listava as 5 falhas.
+
+### Implementação
+
+Tudo em `src/utils/pdfGenerator.ts`, logo depois da tabela de conformidade por área — a posição que
+a Ester pediu ("depois de mostrar as prioridades").
+
+- Bloco novo **`RELAÇÃO DOS ITENS CUMPRIDOS`**: uma `autoTable` por seção do roteiro, cabeçalho
+  `<seção> — N item(ns) em conformidade`, e uma linha por item cumprido com código sequencial
+  (`C-001`…), a descrição **na íntegra** (sem truncar) e a base legal.
+- Base legal reusa `extractBaseLegislation` (o mesmo do REF-02), então imprime o ato e não o artigo
+  inteiro. Item `requirement_type = 'good_practice'` sai como `Boa prática`, não como exigência.
+- Coluna **`Regularizado`**: marca o item cumprido que estava em não conformidade numa visita
+  anterior deste cliente. Reusa o `options.recurringItemIds` que a `InspectionSummary` já carrega via
+  `getRecurringItemIdsForClient` — nenhuma consulta nova. Sem inspeção anterior concluída o conjunto
+  vem vazio, nenhuma etiqueta aparece e a legenda do subtítulo some junto.
+- Paginação é da própria `autoTable` (`margin.top`/`bottom` ajustados para não bater no rodapé); o
+  cabeçalho da seção se repete a cada página nova.
+
+### Achado no caminho — rodapé duplicado (corrigido)
+
+`addFooter` era rodado em **dois** laços sobre todas as páginas: um antes das páginas de assinatura e
+referências, outro depois. Como o total mudava entre os dois, toda página saía com
+`Página 1 de 8` impresso por baixo de `Página 1 de 9`. Isso valia para **todo relatório já emitido**,
+não é regressão deste card. O primeiro laço foi removido; o segundo já cobria tudo.
+
+### Resultado — 06/08/2026
+
+- `src/__tests__/utils/pdfGenerator.test.ts`: 4 casos novos — lista item cumprido sem observação,
+  marca `Regularizado` com histórico, não marca sem histórico, e não desenha o bloco quando nada foi
+  cumprido. 21 testes no diretório `utils`, todos passando; `tsc -b` limpo.
+- Conferido em PDF real (amostra de 24 itens, 19 cumpridos, 2 seções): ordem
+  plano de ação → tabela por área → relação dos itens cumpridos → não conformidades, quebra de página
+  correta, `Regularizado` na linha certa e rodapé com um único `Página N de 9`.
+- **Ceiling conhecido:** `recurringItemIds` é "esteve em NC em *qualquer* visita anterior concluída",
+  não só na imediatamente anterior. Um item que foi NC há três visitas, regularizado na seguinte e
+  ainda cumprido hoje continua saindo como `Regularizado`. É o mesmo conjunto que já alimenta o selo
+  `REINCIDENTE` do plano de ação — trocar a semântica mudaria os dois.
+- **Fora de escopo:** a tela `InspectionSummary` não ganhou a relação nem a etiqueta; a mudança é só
+  no PDF.
+
+---
+
 ## 5. Decisões de produto já consolidadas
 
 Valem para qualquer card do Portal 360 e não devem ser reabertas sem a Ester.
@@ -2157,4 +2213,5 @@ Ao concluir um card, marcar aqui e atualizar a tabela da seção 4.
 | 05/08/2026 | **DEBT-03** — concluído | Sonnet 5 | — | `sala-estetica.html` removido (autorizado pela Ester na conversa: "não faz parte desse projeto"). Ícones PWA quantizados sem perda visível (−90%, `public/` de 1,3 MB para 256 KB). `globPatterns` do service worker restrito a `js/css/html/woff2` — ícones seguem precacheados via `includeAssets`; achado: `logo sem fundo treinavisa.png`, não usado em lugar nenhum, estava sendo precacheado à toa pelo glob antigo. Precache: 72→66 entradas. Arquivos de negócio na raiz preservados, como já decidido. |
 | 05/08/2026 | **REF-01** — concluído | Sonnet 5 | — | `docs/referencias/inventario.csv`: 918 itens (100% de cobertura), via `scripts/ref01-build-inventory.ts` reusando `extractBaseLegislation`/`canonicalLegislationKey`. Achado: bug real em `canonicalLegislationKey` (também usada ao vivo por `PdfPreviewModal.tsx`) fragmentava um mesmo ato em várias chaves quando o texto começava com "Art. N" antes da citação — caso confirmado: Lei Municipal 1.812/2014 (19 itens) virava 5 chaves diferentes. |
 | 05/08/2026 | Correção do bug de `canonicalLegislationKey` (tarefa em segundo plano acionada pela Ester) | Sonnet 5 | — | `extractBaseLegislation` passou a reconhecer "Municipal"/"Ordinária" como qualificador de `Lei` (com sigla de UF opcional); `canonicalLegislationKey` passou a ancorar a busca do número na posição do tipo reconhecido, não no início da string. `src/__tests__/utils/legislationRefs.test.ts` novo, 6 casos. Inventário do REF-01 regerado: 62 → 57 chaves canônicas (as 19 respostas da Lei Municipal 1.812/2014 se uniram em uma só). 152 testes JS, build OK. |
+| 06/08/2026 | **REL-01** — concluído | Opus 5 | — | O relatório passou a listar, na íntegra, os itens cumpridos (bloco `RELAÇÃO DOS ITENS CUMPRIDOS`, uma tabela por seção, com código, descrição completa e base legal), logo depois da tabela de conformidade por área. Antes, item cumprido sem observação digitada não aparecia em lugar nenhum — só as falhas eram nomeadas. Coluna `Regularizado` marca o que estava em NC em visita anterior, reusando o `recurringItemIds` já carregado (sem consulta nova; sem histórico, nenhuma etiqueta). Achado corrigido de quebra: `addFooter` rodava em dois laços e imprimia `Página 1 de 8` por baixo de `Página 1 de 9` em **todo** relatório já emitido. 4 testes novos, 21 no diretório `utils`, `tsc -b` limpo, conferido em PDF real. |
 | 06/08/2026 | **REF-06** — concluído, aplicado em produção | Opus 5 | `071adb2`, `8796143` |  Medido: dos 303 `item_id` órfãos, 272 eram "defeito" no papel mas só 6 inspeções tinham id de código; o que degradava mesmo eram 19 dos 26 relatórios concluídos (376 respostas), por três causas — inspeção criada antes do sync de roteiros, `city`/`state` que o servidor não devolve (suplemento regional some offline) e item reescrito no lugar trocando a pergunta de 18 respostas já entregues (o REF-05 fez a terceira). Decidido não remapear `responses`: congela-se o roteiro da época em `inspection_report_versions`. Roteiros `tpl-ilpi-v1` e federal-97 reconstruídos do git; o de 97 confere seção a seção com o PDF entregue ao Lar Recanto do Sossego em 14/04/2026. Código, scripts e simulação prontos e conferidos; 162 testes passando (as 4 falhas de `sync.test.ts` são anteriores). Duas cargas: a primeira congelou 15 relatórios e marcou 28 respostas com `deleted_at`; a segunda, depois de corrigir o script (a seção degradada estava sendo usada como fonte de texto), refez 6. Diagnóstico final: **0 respostas degradadas** nos 26 relatórios, contra 376 no começo. |

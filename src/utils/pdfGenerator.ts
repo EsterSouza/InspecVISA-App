@@ -881,6 +881,72 @@ export async function generatePDF(
     y += 4;
   }
 
+  // Relação integral do que está cumprido. A tabela acima só dá o percentual por
+  // área; o cliente precisa enxergar QUAIS exigências já atendeu — sem isso, o
+  // relatório só mostra o que falta. Itens conformes com observação/foto seguem
+  // detalhados em "Pontos de Excelência", mais adiante.
+  const compliantItemIds = new Set(
+    reportResponses.filter(r => r.result === 'complies').map(r => r.itemId)
+  );
+
+  if (compliantItemIds.size > 0) {
+    if (y > pageH - 60) { doc.addPage(); y = margin; }
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(22, 101, 52);
+    doc.text('RELAÇÃO DOS ITENS CUMPRIDOS', margin, y);
+    y += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(...mutedColor);
+    const compliantSubtitle = recurringItemIds.size > 0
+      ? 'Exigências verificadas em campo e atendidas pelo estabelecimento. "Regularizado" marca o item que estava em não conformidade em visita anterior.'
+      : 'Exigências verificadas em campo e atendidas pelo estabelecimento.';
+    const compliantSubtitleLines = doc.splitTextToSize(compliantSubtitle, contentW);
+    doc.text(compliantSubtitleLines, margin, y);
+    y += compliantSubtitleLines.length * 4.2 + 4;
+
+    let compliantNum = 1;
+    template.sections.forEach(section => {
+      const rows = section.items
+        .filter(item => compliantItemIds.has(item.id))
+        .map(item => {
+          const basis = item.requirementType === 'good_practice'
+            ? 'Boa prática'
+            : (extractBaseLegislation(item.legislation || '').join('; ') || item.legislation || '—');
+          // Estava em NC numa visita anterior deste cliente e agora está cumprido.
+          const status = recurringItemIds.has(item.id) ? 'Regularizado' : '';
+          return [`C-${String(compliantNum++).padStart(3, '0')}`, item.description, basis, status];
+        });
+      if (rows.length === 0) return;
+
+      const segment = section.segmentKey
+        ? (FOOD_SEGMENT_LABELS[section.segmentKey as FoodEstablishmentType] || section.segmentKey)
+        : '';
+      const sectionTitle = section.isExtraSection ? `${section.title} (${segment})` : section.title;
+
+      if (y > pageH - 40) { doc.addPage(); y = margin; }
+      autoTable(doc, {
+        startY: y,
+        head: [[{ content: `${sectionTitle} — ${rows.length} item(ns) em conformidade`, colSpan: 4 }]],
+        body: rows,
+        headStyles: { fillColor: [220, 252, 231], textColor: [22, 101, 52], fontSize: 8.5, fontStyle: 'bold', cellPadding: 2.3 },
+        bodyStyles: { fontSize: 8.5, textColor, cellPadding: 2.2, valign: 'top' },
+        alternateRowStyles: { fillColor: surfaceColor },
+        columnStyles: {
+          0: { cellWidth: 15, halign: 'center', textColor: mutedColor },
+          1: { cellWidth: 97 },
+          2: { cellWidth: 34, fontSize: 7.5, textColor: mutedColor },
+          3: { cellWidth: 24, fontSize: 7.5, fontStyle: 'bold', textColor: [22, 101, 52] },
+        },
+        margin: { left: margin, right: margin, top: margin, bottom: 22 },
+        theme: 'plain',
+      });
+      y = (doc as any).lastAutoTable.finalY + 6;
+    });
+    y += 6;
+  }
+
   if (inspection.observations) {
     if (y > pageH - 40) { doc.addPage(); y = margin; }
     doc.setFont('helvetica', 'bold');
@@ -1146,12 +1212,9 @@ export async function generatePDF(
     y += 5;
   });
 
-  // Add footers
-  const totalPages = (doc.internal as any).getNumberOfPages();
-  for (let i = 1; i <= totalPages; i++) {
-    doc.setPage(i);
-    addFooter(i, totalPages);
-  }
+  // O rodapé de todas as páginas é desenhado uma única vez, depois das páginas de
+  // assinatura e referências. Desenhar aqui também imprimia "Página 1 de 8" por
+  // baixo de "Página 1 de 9" — dois totais sobrepostos em cada página.
 
   // ── SIGNATURE PAGE ─────────────────────────────────────
   if (options.signatureDataUrl) {

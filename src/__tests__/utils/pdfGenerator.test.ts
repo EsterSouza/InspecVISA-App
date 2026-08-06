@@ -131,6 +131,115 @@ describe('REF-03 - drawConsultedSources (via generatePDF)', () => {
   });
 });
 
+describe('relação dos itens cumpridos', () => {
+  beforeEach(() => {
+    capturedTexts.length = 0;
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  // Antes, o bloco "ITENS EM CONFORMIDADE" era só a tabela de percentual por
+  // área: um item cumprido sem observação nenhuma não aparecia em lugar algum do
+  // relatório. O cliente lia só o que faltava.
+  const sectionsMistas: Section[] = [
+    {
+      id: 's1',
+      title: 'Documentação',
+      order: 1,
+      items: [
+        { id: 'ok-1', sectionId: 's1', order: 1, description: 'Possui licença sanitária vigente?', legislation: 'RDC 63/2011', weight: 10, isCritical: true },
+        { id: 'ok-2', sectionId: 's1', order: 2, description: 'Mantém POPs assinados pelo RT?', legislation: 'RDC 63/2011', weight: 5, isCritical: false },
+        { id: 'nc-1', sectionId: 's1', order: 3, description: 'Registra temperatura das câmaras?', legislation: 'RDC 63/2011', weight: 5, isCritical: false },
+      ],
+    },
+  ];
+
+  test('lista o item cumprido mesmo sem observação registrada', async () => {
+    const respostasMistas: InspectionResponse[] = [
+      { ...responses[0], id: 'r-ok-1', itemId: 'ok-1', result: 'complies' },
+      { ...responses[0], id: 'r-ok-2', itemId: 'ok-2', result: 'complies' },
+      { ...responses[0], id: 'r-nc-1', itemId: 'nc-1', result: 'not_complies' },
+    ];
+    const score = calculateScore(respostasMistas, sectionsMistas);
+
+    await generatePDF(
+      inspection,
+      respostasMistas,
+      { ...template, sections: sectionsMistas },
+      score,
+      settings,
+      []
+    );
+
+    expect(capturedTexts).toContain('RELAÇÃO DOS ITENS CUMPRIDOS');
+    expect(capturedTexts.some(t => t.includes('Documentação — 2 item(ns) em conformidade'))).toBe(true);
+    expect(capturedTexts).toContain('C-001');
+    expect(capturedTexts).toContain('C-002');
+    expect(capturedTexts.some(t => t.includes('Mantém POPs assinados pelo RT?'))).toBe(true);
+    // O item não conforme continua fora desta relação (tem seu próprio bloco).
+    expect(capturedTexts).not.toContain('C-003');
+  });
+
+  // "Regularizado" só faz sentido com histórico: recurringItemIds vem vazio
+  // quando o cliente não tem inspeção anterior concluída.
+  test('marca como regularizado o item que estava em NC na visita anterior', async () => {
+    const respostasMistas: InspectionResponse[] = [
+      { ...responses[0], id: 'r-ok-1', itemId: 'ok-1', result: 'complies' },
+      { ...responses[0], id: 'r-ok-2', itemId: 'ok-2', result: 'complies' },
+    ];
+    const score = calculateScore(respostasMistas, sectionsMistas);
+
+    await generatePDF(
+      inspection,
+      respostasMistas,
+      { ...template, sections: sectionsMistas },
+      score,
+      settings,
+      [],
+      { recurringItemIds: new Set(['ok-2']) }
+    );
+
+    expect(capturedTexts).toContain('Regularizado');
+    // A legenda é quebrada em linhas pelo splitTextToSize — junta antes de checar.
+    expect(capturedTexts.join(' ')).toContain('estava em não conformidade em visita anterior');
+  });
+
+  test('sem inspeção anterior, nenhum item é marcado como regularizado', async () => {
+    const respostasMistas: InspectionResponse[] = [
+      { ...responses[0], id: 'r-ok-1', itemId: 'ok-1', result: 'complies' },
+    ];
+    const score = calculateScore(respostasMistas, sectionsMistas);
+
+    await generatePDF(inspection, respostasMistas, { ...template, sections: sectionsMistas }, score, settings, []);
+
+    expect(capturedTexts).toContain('RELAÇÃO DOS ITENS CUMPRIDOS');
+    expect(capturedTexts).not.toContain('Regularizado');
+  });
+
+  test('não desenha a relação quando nada foi cumprido', async () => {
+    const somenteNC: InspectionResponse[] = [
+      { ...responses[0], id: 'r-nc-1', itemId: 'nc-1', result: 'not_complies' },
+    ];
+    const score = calculateScore(somenteNC, sectionsMistas);
+
+    await generatePDF(
+      inspection,
+      somenteNC,
+      { ...template, sections: sectionsMistas },
+      score,
+      settings,
+      []
+    );
+
+    expect(capturedTexts).not.toContain('RELAÇÃO DOS ITENS CUMPRIDOS');
+  });
+});
+
 describe('REF-02 - referências legislativas do relatório', () => {
   beforeEach(() => {
     capturedTexts.length = 0;
@@ -177,7 +286,9 @@ describe('REF-02 - referências legislativas do relatório', () => {
       []
     );
 
-    const referencias = capturedTexts.filter(t => t.includes('1.812') || t.includes('1812'));
+    // Só as entradas da página de referências (formato ABNT, com "n. "). A base
+    // legal também é impressa na relação de itens cumpridos, uma vez por item.
+    const referencias = capturedTexts.filter(t => t.includes('BRASIL') && t.includes('1.812'));
     expect(referencias).toHaveLength(1);
     expect(capturedTexts).not.toContain('Art. 276');
   });
