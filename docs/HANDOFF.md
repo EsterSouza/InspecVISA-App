@@ -1,6 +1,6 @@
 # Handoff único — InspecVISA
 
-**Última atualização:** 06/08/2026 (BRT), ao concluir o código do REF-04 ·
+**Última atualização:** 06/08/2026 (BRT), ao concluir o REF-04 e aplicá-lo em produção ·
 **Branch:** `main`, sincronizada com `origin/main` · O estado da seção 2 foi verificado em 03/08/2026,
 com as correções de 04/08 e 05/08 anotadas nas tabelas.
 
@@ -220,9 +220,9 @@ a página de referências do PDF.
 | **EST-01** | Migrar respostas da inspeção em andamento | Opus 5 | alto | — | ✅ **concluído 03/08** |
 | **EST-02** | Verificar suplemento RJ de estética | Sonnet 5 | baixo | — | ✅ **concluído 05/08** |
 | **REF-01** | Catalogar os atos citados | Haiku 4.5 | médio | — | ✅ **concluído 05/08** |
-| **REF-02** | Sanear a biblioteca e ligá-la aos roteiros | Opus 5 | alto | REF-01 (concluído) | ✅ **código concluído 05/08** · carga em produção aguarda autorização |
+| **REF-02** | Sanear a biblioteca e ligá-la aos roteiros | Opus 5 | alto | REF-01 (concluído) | ✅ **concluído 05/08** · aplicado em produção (migration + backfill) |
 | **REF-03** | Fontes consultadas e links no relatório | Sonnet 5 | médio | REF-02 (só para enriquecer, não bloqueia) | ✅ **concluído 05/08** |
-| **REF-04** | Curar itens legais que citam texto genérico | Opus 5 | baixo | REF-02 (concluído) | 🟡 **código concluído 06/08** · gravação em produção pendente |
+| **REF-04** | Curar itens legais que citam texto genérico | Opus 5 | baixo | REF-02 (concluído) | ✅ **concluído 06/08** · aplicado em produção |
 | **PROD-01** | Aviso de pagamento quebrado no portal | Opus 5 | médio | — | ✅ **concluído 04/08** |
 | **PROD-02** | Auditoria do portal não grava nada | Opus 5 | baixo | — | ✅ **concluído 04/08** |
 | **P360-008** | Detalhe, notificações e calendário | Sonnet 5 | alto | — | ⬜ pendente |
@@ -237,9 +237,9 @@ a página de referências do PDF.
 | **DEBT-02** | Dívida de lint | Sonnet 5 | médio | — | ⬜ pendente |
 | **DEBT-03** | Pontas soltas do repositório | Haiku 4.5 | baixo | — | ✅ **concluído 05/08** |
 
-Ordem sugerida: aplicar a carga do **REF-02** em produção (migration + backfill, ambos aguardando
-autorização) e a partir daí a onda do Portal 360. (INFRA-01, INFRA-02, EST-01, EST-02, PROD-01,
-PROD-02, PROD-03, REF-01, REF-02, REF-03 e DEBT-03 já saíram da fila.)
+Ordem sugerida: a onda do **Portal 360** — toda a linha de referências legislativas está fechada e
+aplicada em produção. (INFRA-01, INFRA-02, EST-01, EST-02, PROD-01, PROD-02, PROD-03, REF-01,
+REF-02, REF-03, REF-04 e DEBT-03 já saíram da fila.)
 
 Cards P360-001 a P360-007 foram concluídos e não aparecem aqui.
 
@@ -857,6 +857,11 @@ são os equivalentes de estética — mas isso é decisão sanitária da Ester, 
 card próprio. Enquanto não for decidido, eles aparecem no relatório como exigência legal sem base
 legal citável.
 
+> **Resolvido pelo REF-04 em 06/08/2026.** Os 48 foram curados e a carga aplicada: itens legais sem
+> URL em produção passaram de 48 para **0**. O levantamento também corrigiu duas suposições deste
+> parágrafo: 47 dos 48 estavam em roteiros `[ARQUIVADO]` (não em ILPI/alimentos), e
+> `requirement_type` **não** entra no cálculo do score. Ver o card REF-04.
+
 
 **Deliberadamente fora:** regerar `docs/referencias/inventario.csv`, que exige dump de produção — a
 `SUPABASE_SERVICE_ROLE_KEY` de `.env.vercel.production.local` vem vazia do Vercel. O delta exato
@@ -1074,11 +1079,11 @@ sem entrada. Foi catalogada; vigência e ementa conferidas no Planalto em 06/08/
 
 ### Critérios de aceite
 
-- [ ] `npx tsx scripts/ref04-curadoria-requirement-type.ts` reporta `legais sem ato e sem decisão: 0`.
-- [ ] Depois do `--apply`, `scripts/ref02-backfill-item-urls.ts` em simulação não lista mais nenhum
-      item legal sem URL.
-- [ ] Reexecutar o `--apply` não grava nada (`a gravar: 0`).
-- [ ] `npx vitest run` sem regressão sobre a linha de base de 162 passando.
+- [x] `npx tsx scripts/ref04-curadoria-requirement-type.ts` reporta `legais sem ato e sem decisão: 0`.
+- [x] Depois do `--apply`, `scripts/ref02-backfill-item-urls.ts` em simulação não lista mais nenhum
+      item legal sem URL (`sem ato catalogável: 53 (legais: 0)`).
+- [x] Reexecutar o script não grava nada (`a gravar: 0`, `já no estado final: 48`).
+- [x] `npx vitest run` sem regressão sobre a linha de base de 162 passando.
 
 ### Fora de escopo — registrado, não executado
 
@@ -1092,21 +1097,29 @@ com decisão sanitária item a item — não cabia neste.
 Vale também avaliar estender o invariante "todo item legal resolve URL" do
 `legislationLibrary.test.ts` (hoje só sobre os roteiros em código) para o banco.
 
-### Resultado — 06/08/2026
+### Resultado — 06/08/2026 · concluído e **aplicado em produção**
 
-**Código concluído; a gravação em produção não foi executada.** A simulação fecha em 48 itens
-(29 → `good_practice`, 19 → `legal` reancorado), zero sem decisão. `npx vitest run`: 162 passando,
-4 falhas preexistentes (`settingsStore.test.ts`, `sync.test.ts` — confirmadas com `git stash`, não
-têm relação com esta alteração).
+Autorizado pela Ester na conversa de 06/08. `--apply` gravou os **48 itens** — 29 para
+`good_practice`, 19 `legal` reancorados. Estado de `checklist_items` em produção depois da carga:
 
-O `--apply` foi bloqueado pelo classificador de permissões do harness, não por falta de autorização
-da Ester — ela autorizou o escopo completo na conversa de 06/08. Para concluir, rodar no terminal:
+| Medida | Antes | Depois |
+|---|---|---|
+| `legal` | 893 | **864** |
+| `good_practice` | 25 (só estética curada) | **54** |
+| **Itens legais sem `legislation_url`** | **48** | **0** |
 
-```
-npx tsx scripts/ref04-curadoria-requirement-type.ts --apply
-```
+Verificações: a segunda passada do REF-04 reporta `a gravar: 0` / `já no estado final: 48` — é
+idempotente. `scripts/ref02-backfill-item-urls.ts` em simulação passou a reportar
+`sem ato catalogável: 53 (legais: 0)`; os 53 são boas práticas, que por definição não têm ato.
+`npx vitest run`: 162 passando, 4 falhas preexistentes (`settingsStore.test.ts`, `sync.test.ts` —
+confirmadas com `git stash`, sem relação com esta alteração).
 
-Depois disso, marcar os critérios de aceite e fechar o card.
+**Ponta solta que apareceu na execução:** o script nasceu lendo só `process.env`, e rodá-lo direto no
+PowerShell falhava com "Faltam VITE_SUPABASE_URL" mesmo com o `.env` no lugar — o Node não carrega
+`.env` sozinho, quem carrega é o Vite. O REF-02 já tinha ganhado um leitor próprio no commit
+`1457d49`; em vez de duplicá-lo, ele foi extraído para
+[`scripts/env.ts`](../scripts/env.ts) (`requireSupabaseEnv()`) e os dois scripts passaram a usá-lo.
+Script de manutenção novo deve importar de lá, não reler `process.env` na mão.
 
 ---
 

@@ -5,7 +5,7 @@
 //   npx tsx scripts/ref04-curadoria-requirement-type.ts            # simulação (padrão)
 //   npx tsx scripts/ref04-curadoria-requirement-type.ts --apply    # grava em produção
 //
-// Precisa de VITE_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY no ambiente.
+// Lê VITE_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY do ambiente ou do .env (scripts/env.ts).
 //
 // POR QUE SÓ BANCO, E NÃO src/data/
 // Os 47 itens de estética vivem em três roteiros `[ARQUIVADO]` que já foram
@@ -23,15 +23,10 @@
 // APLICAR EM PRODUÇÃO EXIGE AUTORIZAÇÃO EXPLÍCITA DA ESTER (regra 1 do handoff).
 import { createClient } from '@supabase/supabase-js';
 import { resolveLegislationUrl } from '../src/utils/legislationRefs';
+import { requireSupabaseEnv } from './env';
 
 const APPLY = process.argv.includes('--apply');
-const url = process.env.VITE_SUPABASE_URL;
-const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!url || !key) {
-  console.error('Faltam VITE_SUPABASE_URL e/ou SUPABASE_SERVICE_ROLE_KEY no ambiente.');
-  process.exit(1);
-}
+const { url, key } = requireSupabaseEnv();
 
 const sb = createClient(url, key, { auth: { persistSession: false } });
 
@@ -96,7 +91,6 @@ const secs = await readAll('checklist_sections', 'id,template_id');
 const tpls = await readAll('checklist_templates', 'id,name');
 
 const tplBySection = new Map(secs.map((s: any) => [s.id, s.template_id]));
-const nomeTpl = new Map(tpls.map((t: any) => [t.id, t.name]));
 
 // Os roteiros tocados por esta curadoria, nomeados explicitamente. Escopar por
 // roteiro — e não por "citação que não resolve" — mantém o script idempotente:
