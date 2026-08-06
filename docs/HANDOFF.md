@@ -1195,11 +1195,22 @@ decisão em contrário.
    que viraram boa prática em estética. Os roteiros de ILPI e alimentos foram montados a partir de
    texto normativo, item por artigo — a suposição de que "parte deles é boa prática" não se sustenta
    como problema de massa.
-3. **13 citações misturam ato real com fonte auxiliar** — todas em ILPI Goiás, sempre no formato
-   `"Art. X, RDC 502/2021; Roteiro MPGO/UTPSS — <assunto>"`. O ato é legítimo; o "Roteiro MPGO/UTPSS"
-   é guia de fiscalização, não base legal. Mesmo defeito que o REF-04 corrigiu em
-   `"Lei nº 5.991/1973; legislação profissional aplicável"`, e a correção é a mesma: **limpar a
-   cauda, manter `legal`** — não reclassificar.
+3. **13 citações somam ato real e o Roteiro MPGO/UTPSS** — todas em ILPI Goiás, no formato
+   `"Art. X, RDC 502/2021; Roteiro MPGO/UTPSS — <assunto>"`. **A citação do roteiro do Ministério
+   Público fica.**
+
+   > O roteiro do Ministério Público é muito importante para qualquer ILPI. Pode abaixar o peso do
+   > item, mas não retirar a citação. — Ester, 06/08/2026
+   >
+   > Isto **revoga** a proposta inicial deste card, que tratava a menção ao MPGO/UTPSS como cauda a
+   > limpar por analogia com o `"; legislação profissional aplicável"` do REF-04. Os dois casos são
+   > diferentes: aquilo era enchimento vago sem fonte identificável; o Roteiro MPGO/UTPSS é fonte
+   > nomeada, real e usada na fiscalização de ILPI. O ajuste possível nesses itens é de **peso**,
+   > nunca de citação.
+
+   Como o REF-03 fez `drawReferencesABNT` parar de descartar norma sem verbete na biblioteca, esses
+   itens já aparecem corretamente na página de referências. Avaliar catalogar o Roteiro MPGO/UTPSS na
+   biblioteca para que também resolva URL.
 
 Conclusão honesta para quem pegar este card: o resultado provável é **poucas reclassificações e
 várias limpezas de citação**. Se a curadoria terminar com quase tudo continuando `legal`, isso é um
@@ -1219,19 +1230,46 @@ Comparação descrição a descrição, código × banco:
 Só o ILPI Base Federal diverge — e é justamente o roteiro com **19 inspeções**. A divergência não é
 cosmética:
 
-- **Circulações internas.** Banco: *"largura mínima de 1,00m e as secundárias, no mínimo 0,80m, com
-  luz de vigília permanente. Circulações com largura igual ou superior a 1,50m possuem corrimão dos
-  dois lados…"*. Código: *"largura mínima de 1,50m e as secundárias, no mínimo 1,00m, garantindo a
-  passagem de cadeiras de rodas e macas."* **São exigências diferentes para a mesma coisa.**
-  Resolver contra a RDC 502/2021 antes de tocar em `requirement_type` — inspeção feita pela versão
-  errada gera não conformidade indevida ou deixa de gerar a devida.
+- **Circulações internas — ✅ resolvido em 06/08/2026.** O banco estava certo e o código, errado.
+  O Art. 25 da RDC 502/2021 é literal:
+
+  > Art. 25. As circulações internas principais devem ter largura mínima de 1,00 m e as secundárias
+  > podem ter largura mínima de 0,80 m; contando com luz de vigília permanente.
+  > § 1º Circulações com largura maior ou igual a 1,50 m devem possuir corrimão dos dois lados.
+  > § 2º Circulações com largura menor que 1,50 m podem possuir corrimão em apenas um dos lados.
+
+  O código (`fed-004`, [`templates.ts`](../src/data/templates.ts)) exigia **1,50m** nas principais e
+  1,00m nas secundárias — confundiu o **limiar do § 1º** com a **largura mínima do caput**. O 1,50m
+  não é largura mínima: é o ponto a partir do qual o corrimão passa a ser obrigatório dos dois lados.
+  O item foi alinhado ao texto que já estava correto no banco, com a citação `Art. 25 da RDC
+  502/2021` mantida.
+
+  **Nenhuma inspeção foi julgada pelo texto errado:** as duas linhas de `checklist_items` com esse
+  item (a do roteiro vivo e a do v2027 arquivado) já traziam a redação correta. O defeito estava só
+  no código, e teria entrado em produção no próximo seed.
 - **Cuidadores.** Banco: 1 item único com os três graus juntos (I 1:20, II 1:10, III 1:6). Código: 4
   itens separados — um por grau, mais a escala de trabalho. Muda a granularidade do que entra no
-  score.
+  score. Lido o Art. 16 II em 06/08/2026, **o código é o mais fiel**: a norma separa as três alíneas
+  e distingue a carga horária (grau I "com carga horária de 8 horas/dia"; graus II e III "por
+  turno") — distinção que o item único do banco perde. **Não aplicado**, porque desmembrar 1 item em
+  4 num roteiro com 19 inspeções exige migrar respostas, como no EST-01.
+  <br>Achado colateral: o item do banco cita **"Inciso I do Art. 16"**, mas as proporções de cuidador
+  estão no **Inciso II**, alíneas a/b/c — o Inciso I é o Responsável Técnico com 20h semanais.
+  Citação errada por um inciso; correção de um campo, sem efeito em score.
 - **10 itens de infraestrutura e assistência existem só no banco** (mofo/bolor, esquadrias e vidros,
   instalações hidrossanitárias, vestiário de funcionários com área mínima, sala de descanso da
   enfermagem, PIA, iluminação e ventilação naturais, limpeza e odores, revestimentos, mobilidade).
-  Foram criados direto no banco e nunca voltaram para `src/data/`.
+  Foram criados direto no banco e nunca voltaram para `src/data/`. Conferidos contra o texto da RDC
+  em 06/08/2026: **estão bem ancorados** — Art. 21 (habitabilidade, higiene, salubridade, segurança,
+  acessibilidade), Art. 23 (instalações prediais), Art. 24 II (pisos), Art. 29 XIII (vestiário e
+  banheiro de funcionários, com as áreas de 3,6 m² e 0,5 m² exatamente como na norma), Art. 46 IV e
+  Art. 51. Dois não se apoiam na RDC, e corretamente não a citam: o **PIA** (Resolução CNAS 109/2009
+  + Art. 50 da Lei 10.741/2003 — a RDC exige Plano de Atenção Integral à Saúde no Art. 36, não PIA) e
+  a **sala de descanso da enfermagem** (Lei Federal 14.602/2023 + Lei Municipal RJ 8.618/2024). Este
+  último levanta uma questão de escopo para o card: **norma municipal do RJ dentro do roteiro Base
+  Federal** deveria estar no suplemento RJ, não na base.
+  <br>Ou seja: a direção da reconciliação é **trazer esses 10 do banco para `src/data/`**, não
+  descartá-los.
 
 **Risco imediato, independente deste card:** um reseed do ILPI Base Federal apaga os 12 itens que só
 existem no banco e ressuscita os 6 que só existem no código. Reconciliar precisa vir **antes** da
@@ -1260,8 +1298,8 @@ vivem só no código, aqui a correção é **só em `src/data/`**, sem banco. É
    banco ou a do código — e deixar as duas iguais. A divergência das circulações é **decisão
    sanitária da Ester**, não escolha de implementação: resolver contra a RDC 502/2021 e registrar a
    evidência em `docs/referencias/biblioteca.md`.
-2. **Limpar as 13 citações com cauda não normativa** do ILPI Goiás (`; Roteiro MPGO/UTPSS…`).
-   Mantém `legal`, mantém o ato, tira a fonte auxiliar. Baixo risco.
+2. **Rever o peso** dos 13 itens do ILPI Goiás que citam o Roteiro MPGO/UTPSS — e **só o peso**. A
+   citação permanece integralmente, ato e roteiro do MP. Ver a decisão da Ester acima.
 3. **Curadoria de `requirement_type`**, roteiro a roteiro, contra a âncora normativa daquele roteiro
    (tabela acima), com o ônus da prova invertido: um item só vira `good_practice` se o ato citado,
    lido, não exigir aquilo. Registrar a justificativa por item — o artigo consultado e o que ele diz
@@ -1285,7 +1323,7 @@ vivem só no código, aqui a correção é **só em `src/data/`**, sem banco. É
 
 - [ ] ILPI Base Federal com o mesmo conjunto de itens em código e banco; divergência das circulações
       resolvida com evidência normativa registrada.
-- [ ] Nenhuma citação de ILPI/alimentos com cauda não normativa.
+- [ ] As 13 citações do Roteiro MPGO/UTPSS **preservadas**; se algo mudou nesses itens, foi o peso.
 - [ ] Toda reclassificação para `good_practice` acompanhada da justificativa de por que o ato citado
       não exige aquilo. **Zero reclassificação por analogia com estética.**
 - [ ] Mudanças presentes em `src/data/` **e** no banco.

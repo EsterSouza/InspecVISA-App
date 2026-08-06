@@ -129,13 +129,13 @@ Dois achados de vigência mudaram o conteúdo dos roteiros, e não só da biblio
 
 | Medida | Antes do REF-02 | Depois |
 |---|---|---|
-| Entradas na biblioteca | 42 | **78** (51 vigentes, 27 vigentes com alterações) |
+| Entradas na biblioteca | 42 | **79** — 78 no REF-02, mais a Lei Federal nº 5.991/1973 no REF-04 |
 | Atos citados pelos roteiros vivos que estão na biblioteca | 13 de 41 (32%) | **41 de 41 (100%)** |
 | Entradas com UF declarada | 10 | **19** |
 | Normas regionais sem UF (o app as trataria como federais) | 3 — Decreto Rio 57.501/2026, Lei Municipal RJ 8.618/2024, Portaria SMSA/SUS-BH 0221/2022 | **0** — travado por teste |
 | Entradas sem segmento | 16 | 10, e agora por decisão: 4 federais de aplicação geral e 6 licenciamentos regionais que valem para todo segmento daquela UF |
 | Itens legais em código sem URL de legislação | 387 (a coluna do item era a única fonte) | **0** — travado por teste, contando os 4 suplementos regionais |
-| Itens no banco sem `legislation_url` | 800 de 918 | **72**, nenhum deles citando ato normativo |
+| Itens no banco sem `legislation_url` | 800 de 918 | **53** depois do REF-04 (eram 72), **todos `good_practice`** — item `legal` sem URL: **0** |
 | Itens no banco apontando para `datalegis` | 106 | **0** |
 
 A meta "100% dos roteiros vivos" foi escolhida pela Ester em 05/08/2026, entre as três opções
@@ -147,24 +147,38 @@ apresentadas com o inventário em mãos.
 por decisão de escopo. Se um relatório antigo for regerado, essas normas aparecem na página de
 referências com a formatação de fallback (sem ementa) — não somem, graças ao REF-03.
 
-| Ato | Onde é citado |
-|---|---|
-| Lei nº 5.991/1973 | [ARQUIVADO] Clínica de Estética e Saúde \| RJ |
-| Portaria MS nº 2.616/1998 | [ARQUIVADO] Estética e Beleza (v2027 e anterior) |
-| RDC nº 864/2024 | [ARQUIVADO] Estética e Beleza (v2027 e anterior) |
-| Resolução CNS nº 466/2012 | [ARQUIVADO] Estética e Beleza (v2027 e anterior) |
-| "Lei do Exercício Profissional" (sem número) | [ARQUIVADO] Estética e Beleza — não é citação catalogável |
+| Ato | Onde é citado | Situação depois do REF-04 (06/08/2026) |
+|---|---|---|
+| Lei nº 5.991/1973 | [ARQUIVADO] Clínica de Estética e Saúde \| RJ | **Catalogada.** Era lacuna real — ato vigente citado por 2 itens. Ementa e vigência conferidas no Planalto em 06/08 |
+| Portaria MS nº 2.616/1998 | [ARQUIVADO] Estética e Beleza (v2027 e anterior) | continua fora |
+| RDC nº 864/2024 | [ARQUIVADO] Estética e Beleza (v2027 e anterior) | continua fora |
+| Resolução CNS nº 466/2012 | [ARQUIVADO] Estética e Beleza (v2027 e anterior) | **não é mais citada** — os itens de TCLE foram reancorados na Lei nº 8.078/1990, art. 6º, III |
+| "Lei do Exercício Profissional" (sem número) | [ARQUIVADO] Estética e Beleza — não é citação catalogável | **não é mais citada** — reancorada na Nota Técnica Anvisa nº 2/2024 |
 
 **O balde `OUTRO`.** Citações sem forma normativa reconhecível — "Boas Práticas", "manual do
 fabricante", "Critério técnico de…", "Roteiro MPGO/UTPSS", "ROI ANVISA ILPI". Não são atos; a
 maioria ancora itens `good_practice`, que por definição não têm base legal vigente. O teste de
 cobertura os exclui explicitamente, e não por acidente.
 
-**Os 6 itens do ILPI Base Federal que existem no banco e não no código.** O roteiro tem 103 itens
-em produção e 97 em `src/data/templates.ts` — a diferença foi editada pelo app. A Resolução CNAS nº
-109/2009 apareceu por causa deles e está catalogada; se houver outros, o
-`scripts/ref02-backfill-item-urls.mjs` lista em modo simulação os itens legais que continuam sem
-URL. Reconciliar código e banco é assunto de outro card.
+> **Estar no balde `OUTRO` não autoriza remover a citação.** Decisão da Ester em 06/08/2026 sobre o
+> **Roteiro MPGO/UTPSS**, citado por 13 itens do ILPI Goiás sempre ao lado de um ato real: *"o
+> roteiro do Ministério Público é muito importante para qualquer ILPI; pode abaixar o peso do item,
+> mas não retirar a citação."* O balde diz que a fonte não é ato normativo e por isso não resolve
+> URL — não que ela seja descartável. Graças ao REF-03 ela aparece na página de referências com a
+> formatação de fallback. Vale avaliar catalogá-la. O mesmo raciocínio protege o "ROI ANVISA ILPI".
+
+**Os itens do ILPI Base Federal que divergem entre banco e código.** Medido de novo em 06/08/2026,
+descrição a descrição: **103 no banco, 97 no código, 12 só no banco e 6 só no código** — a contagem
+anterior ("6 itens que existem no banco e não no código") estava incompleta. A Resolução CNAS nº
+109/2009 apareceu por causa do item de PIA e está catalogada. Os 12 do banco foram conferidos contra
+a RDC 502/2021 e **estão bem ancorados** (Arts. 21, 23, 24 II, 29 XIII, 46 IV, 51), então a
+reconciliação é trazê-los para `src/data/`, não descartá-los. **É o card REF-05**, e é precondição
+da curadoria de `requirement_type` — sem ela, um reseed apaga os 12.
+
+Também em 06/08: **o item de circulações internas (`fed-004`) estava errado no código** — exigia
+1,50m nas principais, quando o Art. 25 da RDC 502/2021 exige 1,00m e reserva o 1,50m para o limiar
+de corrimão dos dois lados (§ 1º). O banco já estava correto; o código foi alinhado. Nenhuma
+inspeção foi julgada pelo texto errado.
 
 ## Efeito colateral no inventário do REF-01
 
