@@ -1,6 +1,6 @@
 # Handoff único — InspecVISA
 
-**Última atualização:** 05/08/2026 (BRT), ao concluir REF-02 ·
+**Última atualização:** 06/08/2026 (BRT), ao concluir o código do REF-04 ·
 **Branch:** `main`, sincronizada com `origin/main` · O estado da seção 2 foi verificado em 03/08/2026,
 com as correções de 04/08 e 05/08 anotadas nas tabelas.
 
@@ -155,7 +155,7 @@ depois do REF-02.
 
 | Medida | Antes (03/08) | Depois (05/08) |
 |---|---|---|
-| Registros na biblioteca de legislações | 42 | **78** |
+| Registros na biblioteca de legislações | 42 | **79** (78 no REF-02 + Lei 5.991/1973 no REF-04) |
 | Atos citados pelos roteiros **vivos** | estimados em ~170 | **41** medidos |
 | Desses, presentes na biblioteca | 13 (32%) | **41 (100%)** |
 | Itens legais em código sem URL de legislação | 387 | **0**, travado por teste |
@@ -176,6 +176,13 @@ descarta mais a norma que não tem verbete na biblioteca. O REF-02 removeu, alé
 defasada de `extractBaseLegislation` que vivia dentro de `pdfGenerator.ts` e nunca recebeu as
 correções do REF-01 — era ela que fazia a página de referências listar a mesma lei municipal cinco
 vezes, uma por artigo citado.
+
+**O que o REF-02 deixou aberto, e o REF-04 fechou** (06/08): os 48 itens `legal` que continuavam sem
+URL não tinham problema de resolução — a citação simplesmente não nomeava ato ("Boas Práticas",
+"Normas do Corpo de Bombeiros"). 47 deles estão em roteiros `[ARQUIVADO]` e 1 no ILPI Goiás. Ver
+REF-04 para a tabela de decisões. Registre-se, porque é fácil confundir: **`requirement_type` não
+entra no cálculo do score** — `scoring.ts` usa só `weight` e `isCritical`; o campo só muda o rótulo e
+a página de referências do PDF.
 
 ---
 
@@ -215,6 +222,7 @@ vezes, uma por artigo citado.
 | **REF-01** | Catalogar os atos citados | Haiku 4.5 | médio | — | ✅ **concluído 05/08** |
 | **REF-02** | Sanear a biblioteca e ligá-la aos roteiros | Opus 5 | alto | REF-01 (concluído) | ✅ **código concluído 05/08** · carga em produção aguarda autorização |
 | **REF-03** | Fontes consultadas e links no relatório | Sonnet 5 | médio | REF-02 (só para enriquecer, não bloqueia) | ✅ **concluído 05/08** |
+| **REF-04** | Curar itens legais que citam texto genérico | Opus 5 | baixo | REF-02 (concluído) | 🟡 **código concluído 06/08** · gravação em produção pendente |
 | **PROD-01** | Aviso de pagamento quebrado no portal | Opus 5 | médio | — | ✅ **concluído 04/08** |
 | **PROD-02** | Auditoria do portal não grava nada | Opus 5 | baixo | — | ✅ **concluído 04/08** |
 | **P360-008** | Detalhe, notificações e calendário | Sonnet 5 | alto | — | ⬜ pendente |
@@ -970,6 +978,135 @@ novos). `npm run build` — passa, mesmo tamanho de bundle na faixa de sempre.
 **Deliberadamente fora:** o achado de `jsPDF.text` como propriedade de instância vale para qualquer
 teste futuro que precise espiar chamadas de desenho do `pdfGenerator.ts` — vale lembrar disso e reusar
 o padrão de `vi.mock('jspdf', ...)` em vez de tentar `spyOn` no prototype de novo.
+
+---
+
+## REF-04 — Curar os itens legais que citam texto genérico em vez de ato normativo
+
+**Modelo:** Opus 5 · **Depende de:** REF-02 (concluído) · **Esforço:** baixo
+
+O REF-02 preencheu `checklist_items.legislation_url` a partir da biblioteca e deixou **48 itens
+`requirement_type = 'legal'` sem URL** — não por falha de resolução, mas porque a citação não nomeia
+ato algum: "Boas Práticas", "Normas do Corpo de Bombeiros", "Legislação Sanitária Local",
+"Princípios de Biossegurança". No relatório eles saem como exigência legal sem base legal citável.
+
+### O que o levantamento mostrou — 06/08/2026
+
+Três coisas mudaram o enquadramento original do card, e valem para quem for reler:
+
+1. **`requirement_type` não entra no score.** [`src/utils/scoring.ts`](../src/utils/scoring.ts) (MARP)
+   usa só `weight` e `isCritical`. O campo aparece em exatamente dois pontos, ambos no PDF: o rótulo
+   da linha de legislação (`pdfGenerator.ts:971`) e a exclusão da página ABNT (`pdfGenerator.ts:1276`).
+   Reclassificar é questão de honestidade do relatório, **não de nota**.
+2. **47 dos 48 estão em roteiros `[ARQUIVADO]`**, não em ILPI/alimentos como se supunha:
+
+   | Roteiro | Itens | Inspeções que o usaram |
+   |---|---|---|
+   | `[ARQUIVADO]` Estética e Beleza | 23 | 1 (23/04/2026) |
+   | `[ARQUIVADO]` Estética e Beleza (v2027) | 22 | 1 (18/05/2026) |
+   | `[ARQUIVADO]` Clínica de Estética e Saúde \| RJ | 2 | 0 |
+   | ILPI \| Goiás / Senador Canedo (**ativo**) | 1 | 0 |
+
+   Os arquivados não podem ser escolhidos em inspeção nova — o filtro
+   `!t.name.includes('[ARQUIVADO]')` está em `AdminTemplates.tsx:74` e `NewInspection.tsx:370` — e
+   **não existem mais em `src/data/`**. Logo, a gravação é só no banco e nenhum seed pode revertê-la.
+   ILPI Base Federal e alimentos: **zero** itens no conjunto; as citações deles já resolviam.
+3. **O único item vivo é resíduo do próprio REF-02.** Comparando o roteiro ILPI Goiás código × banco:
+   79 itens de cada lado, **1 divergência** — o `go-003`, que o REF-02 reancorou em
+   `templates_ilpi_go.ts:42` mas cujo backfill só gravou `legislation_url`, nunca `legislation_name`.
+
+Efeito real medido: 38 respostas tocam esses itens, **16 são não conformidades**, todas nas 2
+inspeções arquivadas — são as 16 que hoje saem no PDF com "Base legal:" sem base legal.
+
+### A decisão — Ester, 06/08/2026
+
+Nenhuma decisão normativa nova foi tomada. Cada um dos 23 itens distintos tem contraparte nos
+roteiros curados de 08/2026, e a decisão aplicada é a mesma que a Ester já tomou lá.
+
+**Vira `good_practice`** (15 itens distintos, 29 linhas nos dois roteiros):
+
+| Item arquivado | Citava | Precedente |
+|---|---|---|
+| Barreira de proteção descartável | Princípios de Biossegurança | `est-053` |
+| Extintores | Normas do Corpo de Bombeiros | `est-095` |
+| Saídas de emergência | Normas do Corpo de Bombeiros | `est-096` |
+| Sinalização visível (RT, telefones) | Legislação Local; Boas Práticas | `est-107` |
+| Guarda de pertences | Boas Práticas de Atendimento | `est-106` |
+| Descarte de embalagens | Boas Práticas | `est-104` |
+| Memorial descritivo | Boas Práticas de Gestão | `est-012` |
+| Qualificação de fornecedores | Boas Práticas de Gestão | `est-015` |
+| Fracionamento de produtos | Boas Práticas | `est-069` |
+| Amostras grátis — temperatura | Boas Práticas de Armazenamento | `est-076` |
+| Produtos à venda segregados | Legislação Municipal / Sanitária | `est-068` |
+| Contingência para termolábeis | Boas Práticas de Armazenamento | `est-072` |
+| Toalhas de uso individual | Legislação Municipal; Res. de Conselhos | `est-091` |
+| Lavanderia terceirizada | Boas Práticas | `est-090` |
+| Livro de Reclamações | Legislação do Consumidor | `est-102` |
+
+**Continua `legal`, reancorado em ato real** (19 linhas):
+
+| Item arquivado | Citava | Âncora | Precedente |
+|---|---|---|---|
+| Alvará/Licença Sanitária | Legislação Sanitária Federal e Local | RDC Anvisa nº 63/2011 | `est-001` |
+| CNPJ e CNAE compatíveis | Legislação Tributária e Sanitária | RDC Anvisa nº 63/2011 | `est-002` |
+| Profissionais habilitados | Lei do Exercício Prof.; Res. Conselhos | Nota Técnica Anvisa nº 2/2024 | `est-094` |
+| Estabelecimento organizado e limpo | Legislação Sanitária Local | RDC Anvisa nº 63/2011 | `est-031` |
+| Instruções pós-procedimento | CDC; Boas Práticas | Lei nº 8.078/1990, art. 6º, III | `est-061` |
+| Publicidade não enganosa | CDC; Resoluções de Conselhos | Lei nº 8.078/1990 | `est-092` |
+| TCLE por procedimento invasivo | Res. CNS 466/2012; Cód. de Ética | Lei nº 8.078/1990, art. 6º, III | `est-009` |
+| Bebedouro com água potável | Boas Práticas | NR-24 | `est-098` |
+| Medicamento identificado (RJ) | Lei nº 5.991/1973; legislação profissional | Lei nº 5.991/1973 | biblioteca |
+| Prescrição disponível (RJ) | legislação profissional aplicável | Lei nº 5.991/1973 | biblioteca |
+| CNPJ/CNAE ILPI GO (`go-003`) | Legislação Tributária Federal | Art. 8º, RDC 502/2021; Art. 276, Lei Municipal 1.812/2014 | REF-02 |
+
+A **Lei Federal nº 5.991/1973** era lacuna real da biblioteca — ato vigente, citado por dois itens,
+sem entrada. Foi catalogada; vigência e ementa conferidas no Planalto em 06/08/2026.
+
+### Implementação
+
+- [`src/data/legislationLibrary.ts`](../src/data/legislationLibrary.ts) — entrada nova da Lei 5.991/1973.
+- [`scripts/ref04-curadoria-requirement-type.ts`](../scripts/ref04-curadoria-requirement-type.ts) —
+  simulação por padrão, `--apply` para gravar. Escopa por **roteiro**, não por "citação que não
+  resolve": um filtro baseado na não-resolução deixaria de reencontrar os itens que ele mesmo acabou
+  de corrigir, e o script não seria idempotente. Aborta se sobrar item legal sem decisão, e aborta se
+  alguma âncora da tabela não resolver na biblioteca.
+- **Nada em `src/data/` para os 47** — os roteiros arquivados não existem mais no código.
+
+### Critérios de aceite
+
+- [ ] `npx tsx scripts/ref04-curadoria-requirement-type.ts` reporta `legais sem ato e sem decisão: 0`.
+- [ ] Depois do `--apply`, `scripts/ref02-backfill-item-urls.ts` em simulação não lista mais nenhum
+      item legal sem URL.
+- [ ] Reexecutar o `--apply` não grava nada (`a gravar: 0`).
+- [ ] `npx vitest run` sem regressão sobre a linha de base de 162 passando.
+
+### Fora de escopo — registrado, não executado
+
+A lacuna maior de `requirement_type` continua aberta: o padrão de seed em
+`templateService.ts:272` é `item.requirementType || 'legal'`, então **todo** item de ILPI e de
+alimentos nasceu `'legal'`. Depois deste card o banco tem 889 `legal` e 54 `good_practice`, e os
+`good_practice` são só de estética. Esses itens **citam ato real** (por isso não apareceram aqui),
+mas parte deles é boa prática rotulada como exigência legal. Curar ILPI e alimentos é card próprio,
+com decisão sanitária item a item — não cabia neste.
+
+Vale também avaliar estender o invariante "todo item legal resolve URL" do
+`legislationLibrary.test.ts` (hoje só sobre os roteiros em código) para o banco.
+
+### Resultado — 06/08/2026
+
+**Código concluído; a gravação em produção não foi executada.** A simulação fecha em 48 itens
+(29 → `good_practice`, 19 → `legal` reancorado), zero sem decisão. `npx vitest run`: 162 passando,
+4 falhas preexistentes (`settingsStore.test.ts`, `sync.test.ts` — confirmadas com `git stash`, não
+têm relação com esta alteração).
+
+O `--apply` foi bloqueado pelo classificador de permissões do harness, não por falta de autorização
+da Ester — ela autorizou o escopo completo na conversa de 06/08. Para concluir, rodar no terminal:
+
+```
+npx tsx scripts/ref04-curadoria-requirement-type.ts --apply
+```
+
+Depois disso, marcar os critérios de aceite e fechar o card.
 
 ---
 

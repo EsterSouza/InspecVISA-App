@@ -209,6 +209,14 @@ export const LEGISLATION_LIBRARY: LegislationEntry[] = [
 
   // ── Leis federais ────────────────────────────────────────────────────────
   {
+    name: 'Lei Federal nº 5.991/1973',
+    summary: 'Controle sanitário do comércio de drogas, medicamentos, insumos farmacêuticos e correlatos; identificação do medicamento e exigência de prescrição na dispensação.',
+    url: 'https://www.planalto.gov.br/ccivil_03/leis/l5991.htm',
+    segments: ['saude', 'estetica'],
+    status: 'vigente_com_alteracoes',
+    verifiedAt: '2026-08-06',
+  },
+  {
     name: 'Lei Federal nº 6.360/1976',
     summary: 'Vigilância sanitária a que ficam sujeitos os medicamentos, cosméticos, saneantes e produtos correlatos; exige regularização junto à Anvisa.',
     url: 'https://www.planalto.gov.br/ccivil_03/leis/l6360.htm',
