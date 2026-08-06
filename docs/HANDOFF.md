@@ -1,6 +1,6 @@
 # Handoff único — InspecVISA
 
-**Última atualização:** 06/08/2026 (BRT), ao concluir o REF-04 (aplicado em produção) e abrir o REF-05 ·
+**Última atualização:** 06/08/2026 (BRT), ao concluir o REF-04 e a precondição do REF-05, ambos aplicados em produção ·
 **Branch:** `main`, sincronizada com `origin/main` · O estado da seção 2 foi verificado em 03/08/2026,
 com as correções de 04/08 e 05/08 anotadas nas tabelas.
 
@@ -223,9 +223,10 @@ a página de referências do PDF.
 | **REF-02** | Sanear a biblioteca e ligá-la aos roteiros | Opus 5 | alto | REF-01 (concluído) | ✅ **concluído 05/08** · aplicado em produção (migration + backfill) |
 | **REF-03** | Fontes consultadas e links no relatório | Sonnet 5 | médio | REF-02 (só para enriquecer, não bloqueia) | ✅ **concluído 05/08** |
 | **REF-04** | Curar itens legais que citam texto genérico | Opus 5 | baixo | REF-02 (concluído) | ✅ **concluído 06/08** · aplicado em produção |
-| **REF-05** | Curar `requirement_type` em ILPI e alimentos | Opus 5 | médio | REF-04 (concluído) | ⬜ pendente |
+| **REF-05** | Curar `requirement_type` em ILPI e alimentos | Opus 5 | médio | REF-04 (concluído) | 🟡 **precondição concluída 06/08** · curadoria pendente |
 | **PROD-01** | Aviso de pagamento quebrado no portal | Opus 5 | médio | — | ✅ **concluído 04/08** |
 | **PROD-02** | Auditoria do portal não grava nada | Opus 5 | baixo | — | ✅ **concluído 04/08** |
+| **REF-06** | Ligação resposta ↔ item quebrada em 272 ids | Opus 5 | alto | — | ⬜ pendente |
 | **P360-008** | Detalhe, notificações e calendário | Sonnet 5 | alto | — | ⬜ pendente |
 | **P360-009** | Início do portal por próximas ações | Sonnet 5 | alto | P360-008 | ⬜ pendente |
 | **P360-010** | Projeção segura do plano de ação | Opus 5 | alto | — | ⬜ pendente |
@@ -238,9 +239,9 @@ a página de referências do PDF.
 | **DEBT-02** | Dívida de lint | Sonnet 5 | médio | — | ⬜ pendente |
 | **DEBT-03** | Pontas soltas do repositório | Haiku 4.5 | baixo | — | ✅ **concluído 05/08** |
 
-Ordem sugerida: **REF-05** e depois a onda do **Portal 360**. O REF-05 vem antes porque contém uma
-precondição com prazo próprio — o ILPI (Base Federal), roteiro com 19 inspeções, está fora de
-sincronia com `src/data/`, e um reseed nesse estado apaga 12 itens que só existem no banco.
+Ordem sugerida: **REF-06**, depois REF-05, depois a onda do **Portal 360**. O REF-06 vem primeiro
+porque é integridade de dado de cliente real e cresce com o tempo; a precondição que segurava o
+REF-05 já foi resolvida em 06/08.
 (INFRA-01, INFRA-02, EST-01, EST-02, PROD-01, PROD-02, PROD-03, REF-01, REF-02, REF-03, REF-04 e
 DEBT-03 já saíram da fila.)
 
@@ -248,10 +249,10 @@ Cards P360-001 a P360-007 foram concluídos e não aparecem aqui.
 
 ## 4.1 Divisão por modelo
 
-São **9 cards pendentes** (EST-02, REF-01, REF-02, REF-03 e DEBT-03 concluídos em 05/08; REF-04 em 06/08). A divisão abaixo é
+São **10 cards pendentes** (EST-02, REF-01, REF-02, REF-03 e DEBT-03 concluídos em 05/08; REF-04 em 06/08). A divisão abaixo é
 o critério de despacho: abra a sessão com o modelo indicado e cole o card correspondente.
 
-### Opus 5 — 5 cards
+### Opus 5 — 6 cards
 
 Tudo que toca **banco, segurança ou decisão normativa**. O erro aqui é caro e silencioso: uma RPC
 sem grant correto quebra só para quem está logado, uma norma revogada citada como vigente vira
@@ -259,7 +260,8 @@ laudo errado, e um mapeamento de item malfeito reescreve a inspeção de uma cli
 
 | Card | Por que Opus 5 |
 |---|---|
-| **REF-05** | Decisão normativa item a item em ILPI e alimentos, mais reconciliação de roteiro com 19 inspeções. |
+| **REF-05** | Decisão normativa item a item em ILPI e alimentos. A reconciliação do roteiro já saiu. |
+| **REF-06** | Integridade de dados de inspeção real: 272 respostas apontam para item que não existe no banco. |
 | **P360-010** | RLS, projeção de dados sanitários, isolamento entre tenants. |
 | **P360-011** | Storage privado, URL assinada, upload autenticado por token. |
 | **P360-012** | Tabelas novas tenant-scoped, rate limit, permissão por papel. |
@@ -1216,7 +1218,66 @@ Conclusão honesta para quem pegar este card: o resultado provável é **poucas 
 várias limpezas de citação**. Se a curadoria terminar com quase tudo continuando `legal`, isso é um
 resultado válido e deve ser registrado como tal, não forçado.
 
-### Precondição — o ILPI (Base Federal) está fora de sincronia com o código
+### Precondição — ✅ resolvida em 06/08/2026: o ILPI (Base Federal) está sincronizado
+
+**Feito e aplicado em produção.** O roteiro tinha 103 itens no banco e 97 no código; agora tem
+**106 dos dois lados, com zero divergência de descrição**. A direção da reconciliação foi, na maior
+parte, **trazer o banco para o código** — a produção era a verdade operacional e o código é que
+tinha ficado para trás:
+
+| O que | Direção | Efeito em produção |
+|---|---|---|
+| 10 itens que existiam só no banco | banco → código | nenhum |
+| 15 flags `isCritical` (banco `false`, código `true`) | banco → código | nenhum |
+| 2 citações de artigo em que o banco estava certo | banco → código | nenhum |
+| Circulações internas (`fed-004`) | banco → código | nenhum |
+| Cuidadores: 1 item agregado → 4 itens | código → banco | 1 reescrito, 3 inseridos |
+| Citação do descanso da enfermagem | código → banco | 1 citação ajustada |
+
+As 2 citações que o banco tinha certas, conferidas contra o texto da RDC: **Art. 29 VI** é a "sala
+administrativa/reunião" (o código dizia XII, que é o almoxarifado), e o banheiro do dormitório é o
+**Art. 29 I, item 5** (o código inventava uma "alínea b do Inciso IV", que trata de banheiro
+coletivo). Os 15 `isCritical` não foram julgados aqui: a diferença é uniforme numa só direção, o
+que indica calibração feita pela Ester no app, e reescrever o código para refletir produção não
+muda nada para ninguém. Se algum estiver errado do ponto de vista sanitário, é a curadoria deste
+card, não a reconciliação.
+
+**Como os cuidadores foram trocados sem tocar nas 18 inspeções.** A Ester pediu para aplicar só no
+roteiro, sem mexer no que já foi feito. O caminho óbvio — apagar o item agregado e inserir os 4 —
+não servia: 18 inspeções concluídas têm resposta nele, `responses.item_id` **não tem chave
+estrangeira** para `checklist_items` (verificado no `information_schema`), e apagar a linha deixaria
+18 respostas órfãs. O relatório as renderizaria na seção "Itens preservados do roteiro concluído"
+com a descrição degradada para o texto da resposta — e 8 delas são não conformidades que entram no
+plano de ação.
+
+A solução foi **reescrever o item agregado no lugar**, transformando-o no `fed-076a` (a checagem da
+escala de trabalho, que é o que ele já perguntava), e inserir os 3 itens por grau ao lado. Nenhuma
+resposta ficou órfã, nenhum relatório mudou de forma, e as próximas inspeções passam a ter a quebra
+fiel ao Art. 16 II a/b/c.
+
+> Isso substituiu o plano de congelar os 18 snapshots antes da troca, que foi a opção escolhida em
+> 06/08. Ao montar o congelamento descobriu-se que ele **não era viável nem necessário** — ver o
+> achado sobre `responses.item_id` logo abaixo. A reescrita no lugar entrega o mesmo resultado sem
+> escrever em nenhuma linha das inspeções.
+
+### Achado que virou card próprio — a ligação resposta ↔ item está parcialmente quebrada
+
+Ao verificar se dava para congelar os relatórios, apareceu algo maior. `snapshot_json`, em
+`inspection_report_versions`, guarda fotos, respostas e a inspeção — mas **não guarda o roteiro**.
+`resolveReportTemplate` ([`reportTemplate.ts`](../src/utils/reportTemplate.ts)) só usa o snapshot
+quando ele existe e cobre todas as respostas; sem ele, cai em `buildLegacyCompletedReportTemplate`,
+que reconstrói a partir do roteiro vivo.
+
+Medindo as respostas contra o banco inteiro: **303 `item_id` distintos não existem em
+`checklist_items`**. Só 31 casam com item de suplemento regional (que vive só no código, por
+desenho). Os outros **272 são ids do código** — `fed-078`, `ilpi-067`, `fed-001b` — de inspeções
+gravadas contra o roteiro de `src/data/` em vez do roteiro do servidor. Cada uma das 18 inspeções
+concluídas tem de 6 a 21 respostas nessa situação.
+
+Na prática esses relatórios já dependem da seção de recuperação para uma parte dos itens. **Isto é
+card próprio** — é da mesma família do EST-01 — e não foi tocado aqui.
+
+### Contexto original da precondição (mantido para referência)
 
 Comparação descrição a descrição, código × banco:
 
@@ -1294,10 +1355,10 @@ vivem só no código, aqui a correção é **só em `src/data/`**, sem banco. É
 
 ### Implementação
 
-1. **Reconciliar o ILPI Base Federal** (precondição). Decidir, item a item, qual versão vale — a do
-   banco ou a do código — e deixar as duas iguais. A divergência das circulações é **decisão
-   sanitária da Ester**, não escolha de implementação: resolver contra a RDC 502/2021 e registrar a
-   evidência em `docs/referencias/biblioteca.md`.
+1. ~~**Reconciliar o ILPI Base Federal** (precondição).~~ **✅ concluído em 06/08/2026** e aplicado em
+   produção pelo [`ref05-reconcilia-ilpi-base-federal.ts`](../scripts/ref05-reconcilia-ilpi-base-federal.ts).
+   106 itens dos dois lados, zero divergência. A trava de contagem em
+   `src/__tests__/services/checklistIntegrity.test.ts` foi atualizada de 97 para 106.
 2. **Rever o peso** dos 13 itens do ILPI Goiás que citam o Roteiro MPGO/UTPSS — e **só o peso**. A
    citação permanece integralmente, ato e roteiro do MP. Ver a decisão da Ester acima.
 3. **Curadoria de `requirement_type`**, roteiro a roteiro, contra a âncora normativa daquele roteiro
@@ -1316,12 +1377,14 @@ vivem só no código, aqui a correção é **só em `src/data/`**, sem banco. É
 
 - Estender `src/__tests__/data/legislationLibrary.test.ts` para travar o invariante já valendo hoje:
   todo item `legal` em código resolve URL. Avaliar estendê-lo ao banco, como o REF-04 sugeriu.
-- Teste novo que falhe se um roteiro em `src/data/` divergir em contagem de itens do que está no
-  banco, para a sincronia não se perder de novo em silêncio.
+- A trava de contagem por roteiro **já existe** em `src/__tests__/services/checklistIntegrity.test.ts`
+  (`EXPECTED_ITEM_COUNTS`) e pegou a mudança de 97 → 106 na hora. O que falta é uma trava que compare
+  código **contra o banco**, não contra um número escrito à mão — foi a ausência dela que deixou o
+  roteiro divergir por meses em silêncio.
 
 ### Critérios de aceite
 
-- [ ] ILPI Base Federal com o mesmo conjunto de itens em código e banco; divergência das circulações
+- [x] ILPI Base Federal com o mesmo conjunto de itens em código e banco; divergência das circulações
       resolvida com evidência normativa registrada.
 - [ ] As 13 citações do Roteiro MPGO/UTPSS **preservadas**; se algo mudou nesses itens, foi o peso.
 - [ ] Toda reclassificação para `good_practice` acompanhada da justificativa de por que o ato citado
@@ -1333,6 +1396,65 @@ vivem só no código, aqui a correção é **só em `src/data/`**, sem banco. É
 
 O `[ARQUIVADO]` ILPI (Base Federal) (v2027), 105 itens — não é selecionável e não tem inspeção. Só
 entra se a Ester quiser os relatórios históricos consistentes, como se fez no REF-04.
+
+---
+
+## REF-06 — 272 respostas apontam para item que não existe no banco
+
+**Modelo:** Opus 5 · **Depende de:** nada · **Esforço:** alto
+
+Apareceu ao verificar, no REF-05, se dava para congelar os relatórios concluídos. Não é hipótese:
+está medido em produção em 06/08/2026.
+
+### O que está quebrado
+
+`responses.item_id` **não tem chave estrangeira** para `checklist_items` — confirmado no
+`information_schema`. Nada impede uma resposta de apontar para um id que não existe, e é o que
+acontece: **303 `item_id` distintos** nas respostas não estão em `checklist_items`.
+
+| Origem | Quantos | Situação |
+|---|---|---|
+| Itens de suplemento regional (GO, BH, RJ) | 31 | **Por desenho.** Suplementos são aplicados em memória por `getEffectiveTemplate` e nunca passam por `checklist_items` |
+| **Ids do código** (`fed-078`, `ilpi-067`, `fed-001b`…) | **272** | **Defeito.** Respostas gravadas contra o roteiro de `src/data/` em vez do roteiro do servidor |
+
+Cada uma das 18 inspeções concluídas do ILPI Base Federal tem de **6 a 21** respostas nessa
+situação.
+
+### Por que ainda não explodiu
+
+`snapshot_json`, em `inspection_report_versions`, guarda fotos, respostas e a inspeção — mas **não
+guarda o roteiro**. `resolveReportTemplate` ([`reportTemplate.ts`](../src/utils/reportTemplate.ts))
+só usa o snapshot quando ele existe e cobre todas as respostas; sem ele, cai em
+`buildLegacyCompletedReportTemplate`, que reconstrói a partir do roteiro vivo e joga o que não
+reconhece numa seção **"Itens preservados do roteiro concluído"**, com a descrição degradada para o
+texto da resposta — ou, quando não há texto, para `Item preservado do relatorio concluido (<uuid>)`.
+
+Ou seja: a rede de segurança está funcionando e escondendo o problema. Os relatórios saem, com
+parte dos itens exibidos de forma degradada.
+
+### O que investigar antes de decidir
+
+1. **Por que o app grava id de código.** Achar o caminho em que a inspeção usa o roteiro de
+   `src/data/` em vez do sincronizado — provavelmente primeiro uso offline, antes do
+   `TemplateService` hidratar. É a causa; sem ela fechada, o conserto se desfaz.
+2. **Mapear os 272 para os itens reais.** Os ids de código (`fed-NNN`) têm correspondente por
+   descrição no banco. É o mesmo tipo de mapeamento do EST-01, que já tem precedente e cuidados
+   registrados.
+3. **Decidir sobre a FK.** Criar `responses.item_id → checklist_items(id)` impediria a recorrência,
+   mas quebra os suplementos, que legitimamente referenciam item fora da tabela. Uma saída é
+   materializar os suplementos em `checklist_items`; outra é aceitar a ausência de FK e travar por
+   teste.
+4. **Avaliar gravar o roteiro no snapshot** ao finalizar. O campo `reportTemplateSnapshot` já existe
+   em `Inspection` e é lido por `resolveReportTemplate` — só não está sendo persistido em
+   `snapshot_json`. Com ele, relatório concluído para de depender do roteiro vivo, e edições
+   futuras de roteiro deixam de alcançar relatório antigo.
+
+### Cuidados
+
+- **Nada aqui é mecânico.** Cada mapeamento errado reescreve a inspeção de uma cliente real.
+- Trabalhar sempre com simulação primeiro, como REF-02, REF-04 e REF-05.
+- As 18 inspeções concluídas são de clientes reais com relatório já entregue: o alvo é fazer o
+  relatório **voltar a exibir o item corretamente**, não alterar resultado, nota ou plano de ação.
 
 ---
 

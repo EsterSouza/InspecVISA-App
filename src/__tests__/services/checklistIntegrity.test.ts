@@ -56,7 +56,10 @@ function assertNoNearDuplicates(template: ChecklistTemplate, threshold = 0.75) {
 const EXPECTED_ITEM_COUNTS: Record<string, number> = {
   'tpl-estetica-clinica-v1': 114,
   'tpl-estetica-embelezamento-v1': 28,
-  'tpl-ilpi-federal-v1': 97,
+  // REF-05 (06/08/2026): 97 → 106. Dez itens existiam só no banco e foram trazidos para o
+  // código; os cuidadores voltaram a ser quatro itens, um por grau de dependência mais a
+  // escala, como o Art. 16 II a/b/c da RDC 502/2021 os separa.
+  'tpl-ilpi-federal-v1': 106,
   'tpl-ilpi-go-v1': 79,
   'tpl-alimentos-federal-v1': 97,
   'tpl-alimentos-rj-v1': 114,
