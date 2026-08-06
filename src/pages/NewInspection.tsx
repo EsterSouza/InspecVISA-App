@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronRight, ArrowLeft, WifiOff, Loader2, AlertTriangle, FileText } from 'lucide-react';
-import { db } from '../db/database';
+import { db, initializeDatabase } from '../db/database';
 import { ClientService } from '../services/clientService';
 import { InspectionService } from '../services/inspectionService';
 import { getTemplates, getEffectiveTemplate } from '../data/templates';
@@ -82,7 +82,28 @@ export function NewInspection() {
           }
         }
         
-        const dbTemplates = await db.templates.toArray();
+        let dbTemplates = await db.templates.toArray();
+
+        // Roteiro do servidor tem id UUID; os empacotados começam com 'tpl-'. Sem nenhum
+        // roteiro remoto em cache (aparelho novo, ou antes do sync de fundo, que só roda
+        // 6s depois do boot), a inspeção nasceria presa ao roteiro empacotado e cada
+        // resposta gravaria um id de código (`fed-001`…) que não existe em
+        // `checklist_items`. Foi assim que 6 inspeções concluídas ficaram com o relatório
+        // dependendo de um roteiro que depois sumiu do app. Esperar o sync é melhor do que
+        // criar a inspeção presa ao roteiro errado — offline, o empacotado segue valendo.
+        if (navigator.onLine && !dbTemplates.some(t => !t.id.startsWith('tpl-'))) {
+          try {
+            const { TemplateService } = await import('../services/templateService');
+            const remotos = await TemplateService.syncAllTemplatesToDexie();
+            if (remotos.length > 0) {
+              await initializeDatabase([...getTemplates(), ...remotos]);
+              dbTemplates = await db.templates.toArray();
+            }
+          } catch (err) {
+            console.warn('[NewInspection] Sync de roteiros falhou; seguindo com o empacotado:', err);
+          }
+        }
+
         const staticTemplates = getTemplates();
         const dbNames = new Set(dbTemplates.map(t => t.name));
         const mergedTemplates = [

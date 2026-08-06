@@ -47,3 +47,6 @@ planilha regulat*ANVISA*.xlsx
 # São snapshot, não fonte de verdade — ver o cabeçalho de scripts/ref02-dump.mjs.
 scripts/ref01-raw.json
 scripts/ref01-legislations.json
+
+# Cópias de trabalho locais (backups de cliente, roteiros antigos) — nunca versionar
+_local-nao-versionado/

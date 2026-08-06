@@ -22,6 +22,7 @@ import { InspectionIntegrityPanel } from '../components/inspection/InspectionInt
 import { belongsToActiveTenant, filterByActiveTenant } from '../utils/localScope';
 import { buildRecoveryTemplate } from '../utils/templateRecovery';
 import { resolveReportTemplate } from '../utils/reportTemplate';
+import { withClientLocation } from '../utils/inspectionLocation';
 
 const PDF_PHOTO_HYDRATION_TIMEOUT_MS = 12000;
 
@@ -111,7 +112,9 @@ export function InspectionSummary() {
 
         // ── PHASE 1: Render from Dexie immediately ─────────────────────────
         const localCandidate = await db.inspections.get(inspectionId);
-        const localInsp = belongsToActiveTenant(localCandidate) ? localCandidate : null;
+        const localInsp = belongsToActiveTenant(localCandidate)
+          ? await withClientLocation(localCandidate as Inspection)
+          : null;
 
         if (localInsp) {
           const localResps = filterByActiveTenant(await db.responses

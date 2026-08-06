@@ -1,6 +1,6 @@
 # Handoff único — InspecVISA
 
-**Última atualização:** 06/08/2026 (BRT), ao concluir o REF-04 e a precondição do REF-05, ambos aplicados em produção ·
+**Última atualização:** 06/08/2026 (BRT), ao concluir o código do REF-06 (a carga em produção é o que falta) ·
 **Branch:** `main`, sincronizada com `origin/main` · O estado da seção 2 foi verificado em 03/08/2026,
 com as correções de 04/08 e 05/08 anotadas nas tabelas.
 
@@ -226,7 +226,7 @@ a página de referências do PDF.
 | **REF-05** | Curar `requirement_type` em ILPI e alimentos | Opus 5 | médio | REF-04 (concluído) | 🟡 **precondição concluída 06/08** · curadoria pendente |
 | **PROD-01** | Aviso de pagamento quebrado no portal | Opus 5 | médio | — | ✅ **concluído 04/08** |
 | **PROD-02** | Auditoria do portal não grava nada | Opus 5 | baixo | — | ✅ **concluído 04/08** |
-| **REF-06** | Ligação resposta ↔ item quebrada em 272 ids | Opus 5 | alto | — | ⬜ pendente |
+| **REF-06** | Ligação resposta ↔ item quebrada | Opus 5 | alto | — | 🟡 **código concluído 06/08** · falta rodar `ref06-congela-roteiro-do-relatorio.ts --apply` |
 | **P360-008** | Detalhe, notificações e calendário | Sonnet 5 | alto | — | ⬜ pendente |
 | **P360-009** | Início do portal por próximas ações | Sonnet 5 | alto | P360-008 | ⬜ pendente |
 | **P360-010** | Projeção segura do plano de ação | Opus 5 | alto | — | ⬜ pendente |
@@ -239,9 +239,9 @@ a página de referências do PDF.
 | **DEBT-02** | Dívida de lint | Sonnet 5 | médio | — | ⬜ pendente |
 | **DEBT-03** | Pontas soltas do repositório | Haiku 4.5 | baixo | — | ✅ **concluído 05/08** |
 
-Ordem sugerida: **REF-06**, depois REF-05, depois a onda do **Portal 360**. O REF-06 vem primeiro
-porque é integridade de dado de cliente real e cresce com o tempo; a precondição que segurava o
-REF-05 já foi resolvida em 06/08.
+Ordem sugerida: fechar a carga do **REF-06** (um comando, ver o card), depois REF-05, depois a onda
+do **Portal 360**. O REF-06 veio primeiro porque é integridade de dado de cliente real e cresce com
+o tempo; a precondição que segurava o REF-05 já foi resolvida em 06/08.
 (INFRA-01, INFRA-02, EST-01, EST-02, PROD-01, PROD-02, PROD-03, REF-01, REF-02, REF-03, REF-04 e
 DEBT-03 já saíram da fila.)
 
@@ -261,7 +261,7 @@ laudo errado, e um mapeamento de item malfeito reescreve a inspeção de uma cli
 | Card | Por que Opus 5 |
 |---|---|
 | **REF-05** | Decisão normativa item a item em ILPI e alimentos. A reconciliação do roteiro já saiu. |
-| **REF-06** | Integridade de dados de inspeção real: 272 respostas apontam para item que não existe no banco. |
+| **REF-06** | Integridade de dados de inspeção real. Código concluído em 06/08; falta a carga em produção. |
 | **P360-010** | RLS, projeção de dados sanitários, isolamento entre tenants. |
 | **P360-011** | Storage privado, URL assinada, upload autenticado por token. |
 | **P360-012** | Tabelas novas tenant-scoped, rate limit, permissão por papel. |
@@ -1399,7 +1399,7 @@ entra se a Ester quiser os relatórios históricos consistentes, como se fez no 
 
 ---
 
-## REF-06 — 272 respostas apontam para item que não existe no banco
+## REF-06 — Respostas apontando para item que não existe no banco 🟡 código concluído em 06/08/2026
 
 **Modelo:** Opus 5 · **Depende de:** nada · **Esforço:** alto
 
@@ -1432,29 +1432,73 @@ texto da resposta — ou, quando não há texto, para `Item preservado do relato
 Ou seja: a rede de segurança está funcionando e escondendo o problema. Os relatórios saem, com
 parte dos itens exibidos de forma degradada.
 
-### O que investigar antes de decidir
+### O que a investigação de 06/08 encontrou
 
-1. **Por que o app grava id de código.** Achar o caminho em que a inspeção usa o roteiro de
-   `src/data/` em vez do sincronizado — provavelmente primeiro uso offline, antes do
-   `TemplateService` hidratar. É a causa; sem ela fechada, o conserto se desfaz.
-2. **Mapear os 272 para os itens reais.** Os ids de código (`fed-NNN`) têm correspondente por
-   descrição no banco. É o mesmo tipo de mapeamento do EST-01, que já tem precedente e cuidados
-   registrados.
-3. **Decidir sobre a FK.** Criar `responses.item_id → checklist_items(id)` impediria a recorrência,
-   mas quebra os suplementos, que legitimamente referenciam item fora da tabela. Uma saída é
-   materializar os suplementos em `checklist_items`; outra é aceitar a ausência de FK e travar por
-   teste.
-4. **Avaliar gravar o roteiro no snapshot** ao finalizar. O campo `reportTemplateSnapshot` já existe
-   em `Inspection` e é lido por `resolveReportTemplate` — só não está sendo persistido em
-   `snapshot_json`. Com ele, relatório concluído para de depender do roteiro vivo, e edições
-   futuras de roteiro deixam de alcançar relatório antigo.
+O número está certo; a leitura dele, não. `scripts/ref06-diagnostico-orfas.ts` roda o
+`resolveReportTemplate` de verdade sobre produção e separa órfão por desenho de estrago real:
+
+| Origem | ids | respostas | Veredito |
+|---|---|---|---|
+| Id do roteiro empacotado (`fed-*`, `ilpi-*`) | 228 | 601 | Defeito, mas concentrado em **6 inspeções** |
+| Suplemento regional (`rj-*`, `bh-*`) | 32 | 163 | Por desenho |
+| Item avulso (`extra\|…`) | 40 | 40 | Por desenho |
+| Item **apagado** do roteiro (3 uuids) | 3 | 24 | Defeito, e o mais recente |
+
+O que degradava de verdade: **19 dos 26 relatórios concluídos, 376 respostas** — e por três causas
+distintas, nenhuma delas "o id é de código":
+
+1. **Inspeção criada antes do primeiro sync de roteiros.** `initializeDatabase(staticTemplates)`
+   roda no boot e o sync remoto só 6 s depois — aparelho novo ou offline cria a inspeção presa ao
+   roteiro empacotado. Última ocorrência 12/06/2026. Nessas, os `fed-*` casam com o roteiro
+   empacotado e o relatório sai certo; as exceções são duas inspeções em `tpl-ilpi-v1` (roteiro que
+   sumiu do app) e a de Senador Canedo.
+2. **`mapFromPostgres` não preenche `city`/`state`** — as colunas nem existem em `inspections`.
+   Como `resolveReportTemplate` passa a inspeção no lugar do cliente, o suplemento regional só era
+   aplicado na fase online do `InspectionSummary`. Offline ou em outro aparelho, o RJ/BH sumia.
+3. **Reescrever item no lugar troca a pergunta.** O `30546905…` foi "proporção Grau I" até maio,
+   virou o agregado numa edição pelo editor (que também apagou Grau II, Grau III e o item da
+   escala → as 24 órfãs) e, no REF-05, virou "escala de trabalho". As 18 respostas de Grau I
+   passaram a ser exibidas sob a pergunta da escala nos relatórios que dependem do roteiro vivo.
+
+### As quatro decisões do card
+
+1. **FK: não criar.** `extra|…` e suplemento referenciam item fora da tabela legitimamente. Trava
+   por teste/diagnóstico, não por constraint.
+2. **Snapshot do roteiro: já existia.** `reportTemplateSnapshot` é gravado na finalização e vai no
+   payload (53 das 72 versões já tinham roteiro). O congelamento filtrado por papel também já
+   estava corrigido (`collaborationTemplate` usa `'ambos'` + `full`). O que faltava era snapshot
+   nas inspeções antigas.
+3. **Remapear `responses.item_id`: descartado.** É o caminho mais arriscado e nem sempre possível —
+   a mesma linha já mudou de pergunta duas vezes, então "o item atual equivalente" às vezes não
+   existe. Em vez disso, congela-se por inspeção o roteiro **da época**, que é o que
+   `resolveReportTemplate` procura primeiro. Nenhuma resposta é reescrita.
+4. **Causa fechada no código** (`NewInspection` espera o sync quando está online e não tem nenhum
+   roteiro remoto em cache; `withClientLocation` devolve `city`/`state` a partir do cliente local).
+
+### O que ficou no repositório
+
+| Arquivo | Papel |
+|---|---|
+| `scripts/ref06-diagnostico-orfas.ts` | Só leitura. Mede quantas respostas degradam em cada relatório, online e offline. |
+| `scripts/ref06-congela-roteiro-do-relatorio.ts` | Simulação por padrão, `--apply` grava. Monta o roteiro de cada relatório e congela em `inspection_report_versions`. |
+| `scripts/historico/roteiros-antigos.ts` | `tpl-ilpi-v1` (commit `e6ee078`, 105 itens) e o federal de 97 itens (commit `d76b234`), reconstruídos do git. Não editar. |
+| `src/utils/inspectionLocation.ts` | `withClientLocation` — completa a inspeção vinda do servidor com os dados do cliente. |
+
+O federal de 97 itens foi conferido seção a seção contra o **PDF entregue ao Lar Recanto do Sossego
+em 14/04/2026** (14/6/4/3/22/1/6/10/4/5/3/11/8 = 97). Esse mesmo PDF provou que as 26 respostas em
+`fed-055..058` e `fed-083..104` **nunca apareceram no relatório entregue** — não estão na nota nem
+no plano de ação, e não há texto para elas em artefato nenhum (nem no banco, nem em commit algum).
+Elas saem do ar por `deleted_at`, que é reversível, junto com 2 itens avulsos criados e nunca
+preenchidos. É a única perda de dado do card, e é reversível.
 
 ### Cuidados
 
 - **Nada aqui é mecânico.** Cada mapeamento errado reescreve a inspeção de uma cliente real.
 - Trabalhar sempre com simulação primeiro, como REF-02, REF-04 e REF-05.
-- As 18 inspeções concluídas são de clientes reais com relatório já entregue: o alvo é fazer o
+- As inspeções concluídas são de clientes reais com relatório já entregue: o alvo é fazer o
   relatório **voltar a exibir o item corretamente**, não alterar resultado, nota ou plano de ação.
+- Antes de reescrever item de roteiro no lugar, conferir num snapshot antigo qual era a pergunta.
+  Preservar o vínculo não basta se o sentido muda.
 
 ---
 
@@ -2099,3 +2143,4 @@ Ao concluir um card, marcar aqui e atualizar a tabela da seção 4.
 | 05/08/2026 | **DEBT-03** — concluído | Sonnet 5 | — | `sala-estetica.html` removido (autorizado pela Ester na conversa: "não faz parte desse projeto"). Ícones PWA quantizados sem perda visível (−90%, `public/` de 1,3 MB para 256 KB). `globPatterns` do service worker restrito a `js/css/html/woff2` — ícones seguem precacheados via `includeAssets`; achado: `logo sem fundo treinavisa.png`, não usado em lugar nenhum, estava sendo precacheado à toa pelo glob antigo. Precache: 72→66 entradas. Arquivos de negócio na raiz preservados, como já decidido. |
 | 05/08/2026 | **REF-01** — concluído | Sonnet 5 | — | `docs/referencias/inventario.csv`: 918 itens (100% de cobertura), via `scripts/ref01-build-inventory.ts` reusando `extractBaseLegislation`/`canonicalLegislationKey`. Achado: bug real em `canonicalLegislationKey` (também usada ao vivo por `PdfPreviewModal.tsx`) fragmentava um mesmo ato em várias chaves quando o texto começava com "Art. N" antes da citação — caso confirmado: Lei Municipal 1.812/2014 (19 itens) virava 5 chaves diferentes. |
 | 05/08/2026 | Correção do bug de `canonicalLegislationKey` (tarefa em segundo plano acionada pela Ester) | Sonnet 5 | — | `extractBaseLegislation` passou a reconhecer "Municipal"/"Ordinária" como qualificador de `Lei` (com sigla de UF opcional); `canonicalLegislationKey` passou a ancorar a busca do número na posição do tipo reconhecido, não no início da string. `src/__tests__/utils/legislationRefs.test.ts` novo, 6 casos. Inventário do REF-01 regerado: 62 → 57 chaves canônicas (as 19 respostas da Lei Municipal 1.812/2014 se uniram em uma só). 152 testes JS, build OK. |
+| 06/08/2026 | **REF-06** — código concluído | Opus 5 | — | Medido: dos 303 `item_id` órfãos, 272 eram "defeito" no papel mas só 6 inspeções tinham id de código; o que degradava mesmo eram 19 dos 26 relatórios concluídos (376 respostas), por três causas — inspeção criada antes do sync de roteiros, `city`/`state` que o servidor não devolve (suplemento regional some offline) e item reescrito no lugar trocando a pergunta de 18 respostas já entregues (o REF-05 fez a terceira). Decidido não remapear `responses`: congela-se o roteiro da época em `inspection_report_versions`. Roteiros `tpl-ilpi-v1` e federal-97 reconstruídos do git; o de 97 confere seção a seção com o PDF entregue ao Lar Recanto do Sossego em 14/04/2026. Código, scripts e simulação prontos e conferidos; 162 testes passando (as 4 falhas de `sync.test.ts` são anteriores). **Falta rodar** `npx tsx scripts/ref06-congela-roteiro-do-relatorio.ts --apply`: 15 relatórios a congelar e 28 respostas a marcar com `deleted_at`. |

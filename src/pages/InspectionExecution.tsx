@@ -18,6 +18,7 @@ import { ScheduleService } from '../services/scheduleService';
 import { getLocalActor } from '../utils/localActor';
 import { belongsToActiveTenant, filterByActiveTenant } from '../utils/localScope';
 import { buildRecoveryTemplate } from '../utils/templateRecovery';
+import { withClientLocation } from '../utils/inspectionLocation';
 import { getPreviousNCContextByInspection, type PreviousNCContext } from '../utils/actionPlanContext';
 
 
@@ -172,7 +173,10 @@ export function InspectionExecution() {
 
       // ── PHASE 1: Load from Dexie immediately (< 5ms) ──────────────────────
       const localCandidate = await db.inspections.get(id);
-      const localInsp = belongsToActiveTenant(localCandidate) ? localCandidate : null;
+      // Sem city/state o suplemento regional não é aplicado — ver withClientLocation.
+      const localInsp = belongsToActiveTenant(localCandidate)
+        ? await withClientLocation(localCandidate as Inspection)
+        : null;
 
       if (localInsp) {
         // Resolve template from cache right away
