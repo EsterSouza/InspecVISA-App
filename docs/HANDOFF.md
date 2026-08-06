@@ -1,6 +1,6 @@
 # Handoff único — InspecVISA
 
-**Última atualização:** 06/08/2026 (BRT), ao concluir o REF-06, aplicado em produção ·
+**Última atualização:** 06/08/2026 (BRT), ao concluir o AGD-01, com uma linha recriada em produção ·
 **Branch:** `main`, sincronizada com `origin/main` · O estado da seção 2 foi verificado em 03/08/2026,
 com as correções de 04/08 e 05/08 anotadas nas tabelas.
 
@@ -228,6 +228,7 @@ a página de referências do PDF.
 | **PROD-02** | Auditoria do portal não grava nada | Opus 5 | baixo | — | ✅ **concluído 04/08** |
 | **REF-06** | Ligação resposta ↔ item quebrada | Opus 5 | alto | — | ✅ **concluído 06/08** · aplicado em produção (2 cargas) |
 | **REL-01** | Mostrar no relatório o que o cliente já cumpre | Opus 5 | baixo | — | ✅ **concluído 06/08** |
+| **AGD-01** | Visita retroativa + ordem/paginação do painel de solicitações | Opus 5 | baixo | — | ✅ **concluído 06/08** · 1 linha recriada em produção |
 | **P360-008** | Detalhe, notificações e calendário | Sonnet 5 | alto | — | ⬜ pendente |
 | **P360-009** | Início do portal por próximas ações | Sonnet 5 | alto | P360-008 | ⬜ pendente |
 | **P360-010** | Projeção segura do plano de ação | Opus 5 | alto | — | ⬜ pendente |
@@ -2166,6 +2167,85 @@ não é regressão deste card. O primeiro laço foi removido; o segundo já cobr
 
 ---
 
+## AGD-01 — Visita retroativa e organização do painel de solicitações ✅ concluído em 06/08/2026
+
+### O que motivou o card
+
+A Ester relatou que "um registro de inspeção da Rede Sênior Icaraí foi apagado do sistema" — visita de
+30/06/2026, ausente do painel inclusive na seção Encerradas.
+
+**Nada foi apagado.** A investigação no Supabase de produção mostrou:
+
+- a inspeção `30fb2fe5-a101-46a2-af11-de9387076710` está íntegra: `status = completed`,
+  `deleted_at` nulo, **114 respostas**, consultoras Ester + Ana, `inspection_date` 30/06/2026;
+- o agendamento `21b25e7f-49ab-4074-987e-e5d62ef00fb0` (30/06, 11h30) existe e aponta para ela;
+- o que **não existia** era a linha em `appointment_requests`. Sem ela o painel não tem o que mostrar,
+  em nenhuma das três seções — e o cliente também não via a visita no portal.
+
+O padrão descarta acidente isolado de digitação: em 16/06/2026, entre 20h41 e 20h54, foram criadas
+sete visitas pelo portal (Riocentro, Méier Hemengarda, Méier Isolina, Campo Grande, **Icaraí**,
+Botafogo, Copacabana). Todas geraram `appointment_request`; só a do Icaraí não. O `schedule` dela foi
+criado normalmente no meio da sequência (20:54:18, entre Campo Grande às 20:54:01 e Botafogo às
+20:54:30). Não há trilha de auditoria do lado do staff — `client_portal_audit_events` só registra o
+portal do cliente —, então não dá para distinguir "o insert falhou" de "alguém excluiu depois" pelo
+botão de excluir definitivamente do painel. O efeito é o mesmo e a reparação é a mesma.
+
+Sinal de apoio: não há nenhum anexo em `appointment_attachments` para essa inspeção, ou seja, o
+relatório do Icaraí nunca chegou a ser publicado no portal.
+
+### Reparação aplicada em produção — autorizada pela Ester na conversa
+
+Uma linha inserida em `appointment_requests` (`a986c8b9-cd4d-46ae-b095-c4aa948f6840`), reconstruída a
+partir do agendamento e do cadastro do cliente: vinculada ao `schedule_id` e ao `inspection_id`,
+`requested_date` 30/06/2026 às 11:30, `consultant_names` herdado do agendamento,
+`created_at` espelhando o momento real da criação da visita (16/06/2026 20:54:18) e `internal_notes`
+registrando por escrito que o registro foi recriado em 06/08/2026 e por quê.
+
+Status escolhido: **`completed`** ("Relatório em andamento"). É o estado coerente — a visita foi
+realizada e a inspeção concluída, mas nenhum PDF foi publicado no portal. Assim ela aparece em
+Solicitações ativas e a publicação do relatório segue pelo fluxo normal do painel.
+
+Nenhuma outra linha foi tocada. Restam 9 `schedules` sem `appointment_request`, que são agendamentos
+internos criados pela tela de Agenda e não passam pelo painel — comportamento esperado, não mexido.
+
+### As duas mudanças de código
+
+**1. Visita retroativa.** A Ester precisa registrar visitas em data passada para lançar relatórios de
+inspeções antigas. O bloqueio era só de UI, em dois pontos, ambos removidos:
+
+- `src/pages/Schedules.tsx` — `min={minScheduleDate}` no input de data do modal "Agendar Nova
+  Inspeção" (a constante, que só servia a isso, saiu junto);
+- `src/components/schedules/AppointmentRequestsPanel.tsx` — `min` no input de data do `NewVisitModal`.
+
+`AppointmentAdminService.insertConfirmedRequest` e `ScheduleService.saveSchedule` não têm validação de
+data, e não há `CHECK` no banco — nada mais a destravar. Os campos de confirmar, remarcar e prazo do
+relatório já não tinham `min`. **As datas bloqueadas (`BlockedDatesSection`) mantêm o `min`
+deliberadamente**: bloquear feriado no passado não faz sentido.
+
+**2. Painel de solicitações.**
+
+- Ordenação invertida: `byAppointmentDate` (crescente) virou `byNewestFirst`, aplicada às três seções.
+- Paginação: `usePagedList` + `<Pager>`, `PAGE_SIZE = 10`, em pendentes, ativas e encerradas. O hook
+  recua para a última página válida quando a lista encolhe (ex.: depois de excluir), em vez de mostrar
+  uma página vazia.
+- `showClosed` passou a iniciar `false`. Agora Ativas e Encerradas começam recolhidas; Pendentes
+  continua sempre aberta, que é a caixa de entrada de trabalho.
+
+### Resultado — 06/08/2026
+
+- Produção: solicitação do Icaraí recriada e conferida por consulta — a visita de 30/06 volta a
+  aparecer no painel, ligada à inspeção concluída com as 114 respostas.
+- **173 testes passando** (21 arquivos) e `npm run build` OK. Nota: as 4 falhas de `sync.test.ts` que o
+  REF-06 registrou como preexistentes não ocorrem mais.
+- Verificação de UI: `tsc --noEmit` limpo e o app monta sem erro de console no dev server. O painel em
+  si fica atrás do login e não foi aberto no navegador nesta sessão.
+- **Fora de escopo, registrado e não executado:** o painel do staff não tem trilha de auditoria — uma
+  exclusão de solicitação hoje não deixa rastro, e foi isso que impediu de fechar a causa raiz deste
+  card. Enquanto não houver, um sumiço parecido continuará indistinguível entre falha de escrita e
+  exclusão manual.
+
+---
+
 ## 5. Decisões de produto já consolidadas
 
 Valem para qualquer card do Portal 360 e não devem ser reabertas sem a Ester.
@@ -2214,4 +2294,5 @@ Ao concluir um card, marcar aqui e atualizar a tabela da seção 4.
 | 05/08/2026 | **REF-01** — concluído | Sonnet 5 | — | `docs/referencias/inventario.csv`: 918 itens (100% de cobertura), via `scripts/ref01-build-inventory.ts` reusando `extractBaseLegislation`/`canonicalLegislationKey`. Achado: bug real em `canonicalLegislationKey` (também usada ao vivo por `PdfPreviewModal.tsx`) fragmentava um mesmo ato em várias chaves quando o texto começava com "Art. N" antes da citação — caso confirmado: Lei Municipal 1.812/2014 (19 itens) virava 5 chaves diferentes. |
 | 05/08/2026 | Correção do bug de `canonicalLegislationKey` (tarefa em segundo plano acionada pela Ester) | Sonnet 5 | — | `extractBaseLegislation` passou a reconhecer "Municipal"/"Ordinária" como qualificador de `Lei` (com sigla de UF opcional); `canonicalLegislationKey` passou a ancorar a busca do número na posição do tipo reconhecido, não no início da string. `src/__tests__/utils/legislationRefs.test.ts` novo, 6 casos. Inventário do REF-01 regerado: 62 → 57 chaves canônicas (as 19 respostas da Lei Municipal 1.812/2014 se uniram em uma só). 152 testes JS, build OK. |
 | 06/08/2026 | **REL-01** — concluído | Opus 5 | — | O relatório passou a listar, na íntegra, os itens cumpridos (bloco `RELAÇÃO DOS ITENS CUMPRIDOS`, uma tabela por seção, com código, descrição completa e base legal), logo depois da tabela de conformidade por área. Antes, item cumprido sem observação digitada não aparecia em lugar nenhum — só as falhas eram nomeadas. Coluna `Regularizado` marca o que estava em NC em visita anterior, reusando o `recurringItemIds` já carregado (sem consulta nova; sem histórico, nenhuma etiqueta). Achado corrigido de quebra: `addFooter` rodava em dois laços e imprimia `Página 1 de 8` por baixo de `Página 1 de 9` em **todo** relatório já emitido. 4 testes novos, 21 no diretório `utils`, `tsc -b` limpo, conferido em PDF real. |
+| 06/08/2026 | **AGD-01** — concluído, 1 linha recriada em produção | Opus 5 | `a47a400` | A inspeção do Icaraí de 30/06 nunca foi apagada: 114 respostas íntegras, agendamento vinculado. Faltava a linha em `appointment_requests` — no lote de 7 visitas criadas em 16/06 entre 20h41 e 20h54, só a do Icaraí não gerou solicitação, e sem trilha de auditoria do staff não dá para separar falha de escrita de exclusão manual. Recriada com autorização, status `completed` (nenhum PDF publicado no portal). Código: `min` de data removido do modal de agendamento e do de Nova visita (as datas bloqueadas mantêm, de propósito) — não havia validação equivalente no serviço nem `CHECK` no banco; painel passou a ordenar do mais recente para o mais antigo, paginar de 10 em 10 nas três seções e abrir com Ativas e Encerradas recolhidas. 173 testes e build OK. |
 | 06/08/2026 | **REF-06** — concluído, aplicado em produção | Opus 5 | `071adb2`, `8796143` |  Medido: dos 303 `item_id` órfãos, 272 eram "defeito" no papel mas só 6 inspeções tinham id de código; o que degradava mesmo eram 19 dos 26 relatórios concluídos (376 respostas), por três causas — inspeção criada antes do sync de roteiros, `city`/`state` que o servidor não devolve (suplemento regional some offline) e item reescrito no lugar trocando a pergunta de 18 respostas já entregues (o REF-05 fez a terceira). Decidido não remapear `responses`: congela-se o roteiro da época em `inspection_report_versions`. Roteiros `tpl-ilpi-v1` e federal-97 reconstruídos do git; o de 97 confere seção a seção com o PDF entregue ao Lar Recanto do Sossego em 14/04/2026. Código, scripts e simulação prontos e conferidos; 162 testes passando (as 4 falhas de `sync.test.ts` são anteriores). Duas cargas: a primeira congelou 15 relatórios e marcou 28 respostas com `deleted_at`; a segunda, depois de corrigir o script (a seção degradada estava sendo usada como fonte de texto), refez 6. Diagnóstico final: **0 respostas degradadas** nos 26 relatórios, contra 376 no começo. |
