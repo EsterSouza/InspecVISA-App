@@ -38,6 +38,7 @@ const { url, key } = requireSupabaseEnv();
 const sb = createClient(url, key, { auth: { persistSession: false } });
 
 const PLACEHOLDER = /^Item preservado do relat[oó]rio conclu[ií]do/i;
+const SECAO_DEGRADADA = 'sec-report-recovered';
 
 // Inspeção do Lar Recanto do Sossego (Senador Canedo/GO, 07/04/2026). 26 respostas foram
 // gravadas contra itens (`fed-055..058`, `fed-083..104`) que não existem em nenhum artefato:
@@ -155,7 +156,14 @@ for (const t of tpls) {
 type Candidato = { item: ChecklistItem; secao: Omit<Section, 'items'>; quando: number; fonte: string };
 const catalogo = new Map<string, Candidato[]>();
 
+/** Seções conhecidas por id, para reancorar item avulso cuja seção não está no esqueleto. */
+const secoesConhecidas = new Map<string, Omit<Section, 'items'>>();
+
 function registrar(item: any, secao: any, quando: number, fonte: string) {
+  // A seção "Itens preservados do roteiro concluído" é a própria degradação: os itens dela
+  // têm a descrição trocada pelo texto da resposta. Serve como fonte de nada.
+  if (secao.id === SECAO_DEGRADADA) return;
+  if (!secoesConhecidas.has(secao.id)) secoesConhecidas.set(secao.id, { id: secao.id, title: secao.title, order: secao.order ?? 0 });
   if (!item?.id || !item.description || PLACEHOLDER.test(item.description)) return;
   const lista = catalogo.get(item.id) || [];
   lista.push({ item: { ...item, sectionId: secao.id }, secao: { id: secao.id, title: secao.title, order: secao.order ?? 0 }, quando, fonte });
@@ -216,8 +224,12 @@ for (const insp of inspecoes) {
     const ids = new Set(t.sections.flatMap(s => s.items.map(i => i.id)));
     return avaliadas.filter((r: any) => ids.has(r.item_id)).length;
   };
+  // "Limpa" é a versão sem nenhum resíduo de degradação: nem placeholder, nem a seção
+  // "Itens preservados do roteiro concluído" — que exibe item real sob o título errado e
+  // com a descrição trocada pelo texto da resposta.
   const limpas = minhasVersoes.filter((v: any) =>
-    !v.template.sections.some((s: any) => s.items.some((i: any) => PLACEHOLDER.test(i.description || ''))));
+    !v.template.sections.some((s: any) =>
+      s.id === SECAO_DEGRADADA || s.items.some((i: any) => PLACEHOLDER.test(i.description || ''))));
   const melhorVersao = [...limpas].sort((a: any, b: any) => cobertura(b.template) - cobertura(a.template) || b.version - a.version)[0];
 
   const doBanco = !ROTEIRO_FORCADO[insp.id] && !melhorVersao && !ROTEIROS_HISTORICOS[insp.template_id];
@@ -258,8 +270,16 @@ for (const insp of inspecoes) {
   for (const r of faltando) {
     // Item avulso da inspeção: o texto é a própria resposta.
     if (String(r.item_id).startsWith('extra|') && r.custom_description) {
+      // O item avulso guarda a seção em que a consultora o acrescentou. Se essa seção não
+      // está no esqueleto (roteiro histórico tem `sec-fed-*`, o do banco tem uuid), casa
+      // pelo título; e só então cria a seção. Jogar no fim virava "item solto no relatório".
       const secaoId = String(r.item_id).split('|')[1];
-      const secao = template.sections.find((s: any) => s.id === secaoId) || template.sections[template.sections.length - 1];
+      const conhecida = secoesConhecidas.get(secaoId);
+      let secao = template.sections.find((s: any) => s.id === secaoId || (conhecida && s.title === conhecida.title));
+      if (!secao) {
+        secao = { ...(conhecida || { id: secaoId, title: 'Itens acrescentados na inspeção', order: 999 }), items: [] } as Section;
+        template.sections.push(secao);
+      }
       secao.items.push({ id: r.item_id, sectionId: secao.id, order: secao.items.length + 1, description: r.custom_description, weight: 1, isCritical: false } as ChecklistItem);
       recuperados += 1;
       continue;
@@ -285,10 +305,16 @@ for (const insp of inspecoes) {
   const cobre = new Set(template.sections.flatMap((s: any) => s.items.map((i: any) => i.id)));
   const descobertas = avaliadas.filter((r: any) => !cobre.has(r.item_id) && !(aceitaSemTexto && aceitaSemTexto.test(r.item_id)));
 
-  const jaEstavaBom = melhorVersao
-    && melhorVersao.version === proximaVersao - 1
-    && faltando.length === 0
-    && !ROTEIRO_FORCADO[insp.id];
+  // Idempotência por conteúdo: se a última versão já traz exatamente estas perguntas, não
+  // grava de novo. Comparar por versão/contagem não bastava — com `ROTEIRO_FORCADO` o
+  // script empilhava uma versão idêntica a cada execução.
+  const ultima = (versoesPorInspecao.get(insp.id) || [])
+    .filter((v: any) => v.template && typeof v.template === 'object')
+    .sort((a: any, b: any) => b.version - a.version)[0];
+  const impressao = (t: ChecklistTemplate) => t.sections
+    .flatMap(s => s.items.map(i => `${s.title}|${i.id}|${(i.description || '').trim()}`))
+    .sort().join('\n');
+  const jaEstavaBom = ultima && impressao(ultima.template) === impressao(template);
 
   planos.push({
     id: insp.id,

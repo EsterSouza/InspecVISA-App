@@ -170,8 +170,18 @@ for (const insp of inspecoes) {
   const roteiro = base?.name || `(sem roteiro: ${insp.template_id})`;
 
   if (!base) {
-    // Sem roteiro base o app cai no roteiro de recuperação: TODOS os itens degradam.
-    linhas.push({ id: insp.id, cliente: nome, roteiro, avaliadas, snapshot: 'sem roteiro', degradadasRemoto: resps.length, degradadasDexie: resps.length, itens: [] });
+    // Roteiro que sumiu do app (ex.: `tpl-ilpi-v1`). O InspectionSummary não tem o que
+    // passar para `resolveReportTemplate` e usa o snapshot cru — se houver. Sem ele,
+    // sobra o roteiro de recuperação e TODOS os itens degradam.
+    const cobre = new Set((snapshot?.sections || []).flatMap(s => s.items.map(i => i.id)));
+    const foraDoSnapshot = resps.filter(r => !cobre.has(r.itemId));
+    linhas.push({
+      id: insp.id, cliente: nome, roteiro, avaliadas,
+      snapshot: snapshot ? 'usado' : 'sem roteiro',
+      degradadasRemoto: snapshot ? foraDoSnapshot.length : resps.length,
+      degradadasDexie: snapshot ? foraDoSnapshot.length : resps.length,
+      itens: snapshot ? foraDoSnapshot.map(r => r.itemId) : [],
+    });
     continue;
   }
 
