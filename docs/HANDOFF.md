@@ -1,6 +1,6 @@
 # Handoff único — InspecVISA
 
-**Última atualização:** 06/08/2026 (BRT), ao concluir o código do REF-06 (a carga em produção é o que falta) ·
+**Última atualização:** 06/08/2026 (BRT), ao concluir o REF-06, aplicado em produção ·
 **Branch:** `main`, sincronizada com `origin/main` · O estado da seção 2 foi verificado em 03/08/2026,
 com as correções de 04/08 e 05/08 anotadas nas tabelas.
 
@@ -226,7 +226,7 @@ a página de referências do PDF.
 | **REF-05** | Curar `requirement_type` em ILPI e alimentos | Opus 5 | médio | REF-04 (concluído) | 🟡 **precondição concluída 06/08** · curadoria pendente |
 | **PROD-01** | Aviso de pagamento quebrado no portal | Opus 5 | médio | — | ✅ **concluído 04/08** |
 | **PROD-02** | Auditoria do portal não grava nada | Opus 5 | baixo | — | ✅ **concluído 04/08** |
-| **REF-06** | Ligação resposta ↔ item quebrada | Opus 5 | alto | — | 🟡 **código concluído 06/08** · falta rodar `ref06-congela-roteiro-do-relatorio.ts --apply` |
+| **REF-06** | Ligação resposta ↔ item quebrada | Opus 5 | alto | — | ✅ **concluído 06/08** · aplicado em produção (2 cargas) |
 | **P360-008** | Detalhe, notificações e calendário | Sonnet 5 | alto | — | ⬜ pendente |
 | **P360-009** | Início do portal por próximas ações | Sonnet 5 | alto | P360-008 | ⬜ pendente |
 | **P360-010** | Projeção segura do plano de ação | Opus 5 | alto | — | ⬜ pendente |
@@ -239,9 +239,9 @@ a página de referências do PDF.
 | **DEBT-02** | Dívida de lint | Sonnet 5 | médio | — | ⬜ pendente |
 | **DEBT-03** | Pontas soltas do repositório | Haiku 4.5 | baixo | — | ✅ **concluído 05/08** |
 
-Ordem sugerida: fechar a carga do **REF-06** (um comando, ver o card), depois REF-05, depois a onda
-do **Portal 360**. O REF-06 veio primeiro porque é integridade de dado de cliente real e cresce com
-o tempo; a precondição que segurava o REF-05 já foi resolvida em 06/08.
+Ordem sugerida: **REF-05**, depois a onda do **Portal 360**. O REF-06 saiu na frente porque era
+integridade de dado de cliente real e crescia com o tempo; foi concluído em 06/08, e a precondição
+que segurava o REF-05 também.
 (INFRA-01, INFRA-02, EST-01, EST-02, PROD-01, PROD-02, PROD-03, REF-01, REF-02, REF-03, REF-04 e
 DEBT-03 já saíram da fila.)
 
@@ -261,7 +261,7 @@ laudo errado, e um mapeamento de item malfeito reescreve a inspeção de uma cli
 | Card | Por que Opus 5 |
 |---|---|
 | **REF-05** | Decisão normativa item a item em ILPI e alimentos. A reconciliação do roteiro já saiu. |
-| **REF-06** | Integridade de dados de inspeção real. Código concluído em 06/08; falta a carga em produção. |
+| **REF-06** | Concluído em 06/08. Mantido aqui só como registro do critério de despacho. |
 | **P360-010** | RLS, projeção de dados sanitários, isolamento entre tenants. |
 | **P360-011** | Storage privado, URL assinada, upload autenticado por token. |
 | **P360-012** | Tabelas novas tenant-scoped, rate limit, permissão por papel. |
@@ -1399,7 +1399,7 @@ entra se a Ester quiser os relatórios históricos consistentes, como se fez no 
 
 ---
 
-## REF-06 — Respostas apontando para item que não existe no banco 🟡 código concluído em 06/08/2026
+## REF-06 — Respostas apontando para item que não existe no banco ✅ concluído em 06/08/2026
 
 **Modelo:** Opus 5 · **Depende de:** nada · **Esforço:** alto
 
@@ -1490,6 +1490,20 @@ em 14/04/2026** (14/6/4/3/22/1/6/10/4/5/3/11/8 = 97). Esse mesmo PDF provou que 
 no plano de ação, e não há texto para elas em artefato nenhum (nem no banco, nem em commit algum).
 Elas saem do ar por `deleted_at`, que é reversível, junto com 2 itens avulsos criados e nunca
 preenchidos. É a única perda de dado do card, e é reversível.
+
+### Resultado (medido em 06/08, depois das duas cargas)
+
+`npx tsx scripts/ref06-diagnostico-orfas.ts`: **0 respostas degradadas** nos 26 relatórios
+concluídos, online e offline — eram 376 online e 409 offline. Todos os 26 passaram a renderizar do
+próprio snapshot, portanto edição futura de roteiro não alcança mais relatório antigo. Nenhuma
+resposta foi reescrita. Rodar o script de novo não faz nada: ele compara o conteúdo do roteiro com
+o da última versão.
+
+A primeira carga resolveu só metade (sobraram 208) por um erro do próprio script, que vale
+registrar: ele aceitava, como fonte de texto, item que estava na seção **"Itens preservados do
+roteiro concluído"** de um snapshot antigo. Essa seção *é* a degradação — o item real está lá com a
+descrição trocada pelo texto da resposta. Congelar a partir dela recongela o estrago. Hoje essa
+seção não é fonte de nada, e uma versão que a contenha não conta como limpa.
 
 ### Cuidados
 
@@ -2143,4 +2157,4 @@ Ao concluir um card, marcar aqui e atualizar a tabela da seção 4.
 | 05/08/2026 | **DEBT-03** — concluído | Sonnet 5 | — | `sala-estetica.html` removido (autorizado pela Ester na conversa: "não faz parte desse projeto"). Ícones PWA quantizados sem perda visível (−90%, `public/` de 1,3 MB para 256 KB). `globPatterns` do service worker restrito a `js/css/html/woff2` — ícones seguem precacheados via `includeAssets`; achado: `logo sem fundo treinavisa.png`, não usado em lugar nenhum, estava sendo precacheado à toa pelo glob antigo. Precache: 72→66 entradas. Arquivos de negócio na raiz preservados, como já decidido. |
 | 05/08/2026 | **REF-01** — concluído | Sonnet 5 | — | `docs/referencias/inventario.csv`: 918 itens (100% de cobertura), via `scripts/ref01-build-inventory.ts` reusando `extractBaseLegislation`/`canonicalLegislationKey`. Achado: bug real em `canonicalLegislationKey` (também usada ao vivo por `PdfPreviewModal.tsx`) fragmentava um mesmo ato em várias chaves quando o texto começava com "Art. N" antes da citação — caso confirmado: Lei Municipal 1.812/2014 (19 itens) virava 5 chaves diferentes. |
 | 05/08/2026 | Correção do bug de `canonicalLegislationKey` (tarefa em segundo plano acionada pela Ester) | Sonnet 5 | — | `extractBaseLegislation` passou a reconhecer "Municipal"/"Ordinária" como qualificador de `Lei` (com sigla de UF opcional); `canonicalLegislationKey` passou a ancorar a busca do número na posição do tipo reconhecido, não no início da string. `src/__tests__/utils/legislationRefs.test.ts` novo, 6 casos. Inventário do REF-01 regerado: 62 → 57 chaves canônicas (as 19 respostas da Lei Municipal 1.812/2014 se uniram em uma só). 152 testes JS, build OK. |
-| 06/08/2026 | **REF-06** — código concluído | Opus 5 | — | Medido: dos 303 `item_id` órfãos, 272 eram "defeito" no papel mas só 6 inspeções tinham id de código; o que degradava mesmo eram 19 dos 26 relatórios concluídos (376 respostas), por três causas — inspeção criada antes do sync de roteiros, `city`/`state` que o servidor não devolve (suplemento regional some offline) e item reescrito no lugar trocando a pergunta de 18 respostas já entregues (o REF-05 fez a terceira). Decidido não remapear `responses`: congela-se o roteiro da época em `inspection_report_versions`. Roteiros `tpl-ilpi-v1` e federal-97 reconstruídos do git; o de 97 confere seção a seção com o PDF entregue ao Lar Recanto do Sossego em 14/04/2026. Código, scripts e simulação prontos e conferidos; 162 testes passando (as 4 falhas de `sync.test.ts` são anteriores). **Falta rodar** `npx tsx scripts/ref06-congela-roteiro-do-relatorio.ts --apply`: 15 relatórios a congelar e 28 respostas a marcar com `deleted_at`. |
+| 06/08/2026 | **REF-06** — concluído, aplicado em produção | Opus 5 | `071adb2`, `8796143` |  Medido: dos 303 `item_id` órfãos, 272 eram "defeito" no papel mas só 6 inspeções tinham id de código; o que degradava mesmo eram 19 dos 26 relatórios concluídos (376 respostas), por três causas — inspeção criada antes do sync de roteiros, `city`/`state` que o servidor não devolve (suplemento regional some offline) e item reescrito no lugar trocando a pergunta de 18 respostas já entregues (o REF-05 fez a terceira). Decidido não remapear `responses`: congela-se o roteiro da época em `inspection_report_versions`. Roteiros `tpl-ilpi-v1` e federal-97 reconstruídos do git; o de 97 confere seção a seção com o PDF entregue ao Lar Recanto do Sossego em 14/04/2026. Código, scripts e simulação prontos e conferidos; 162 testes passando (as 4 falhas de `sync.test.ts` são anteriores). Duas cargas: a primeira congelou 15 relatórios e marcou 28 respostas com `deleted_at`; a segunda, depois de corrigir o script (a seção degradada estava sendo usada como fonte de texto), refez 6. Diagnóstico final: **0 respostas degradadas** nos 26 relatórios, contra 376 no começo. |
