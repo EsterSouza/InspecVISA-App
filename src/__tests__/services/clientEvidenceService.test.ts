@@ -60,7 +60,7 @@ describe('REL-03 - evidencia do cliente na vistoria seguinte', () => {
   test('agrupa pelo item do ROTEIRO, nao pelo id do plano de acao', async () => {
     mockQueries([itemRow], [evidenceRow()]);
 
-    const byItem = await ClientEvidenceService.byItemForClient(CLIENT);
+    const { evidence: byItem } = await ClientEvidenceService.byItemForClient(CLIENT);
 
     // O elo entre os dois mundos e o `source_item_id`; sem isso a evidencia nunca acha o
     // requisito que a consultora esta avaliando na casa.
@@ -75,7 +75,7 @@ describe('REL-03 - evidencia do cliente na vistoria seguinte', () => {
   test('evidencia de um item do plano que sumiu e ignorada em silencio', async () => {
     mockQueries([itemRow], [evidenceRow({ action_item_id: 'plan-que-nao-existe' })]);
 
-    const byItem = await ClientEvidenceService.byItemForClient(CLIENT);
+    const { evidence: byItem } = await ClientEvidenceService.byItemForClient(CLIENT);
 
     expect(byItem.size).toBe(0);
   });
@@ -83,14 +83,14 @@ describe('REL-03 - evidencia do cliente na vistoria seguinte', () => {
   test('cliente sem plano de acao nao dispara a segunda consulta', async () => {
     mockQueries([], []);
 
-    const byItem = await ClientEvidenceService.byItemForClient(CLIENT);
+    const { evidence: byItem } = await ClientEvidenceService.byItemForClient(CLIENT);
 
     expect(byItem.size).toBe(0);
     expect(from).toHaveBeenCalledTimes(1);
   });
 
   test('sem clientId nem consulta o banco', async () => {
-    const byItem = await ClientEvidenceService.byItemForClient('');
+    const { evidence: byItem } = await ClientEvidenceService.byItemForClient('');
     expect(byItem.size).toBe(0);
     expect(from).not.toHaveBeenCalled();
   });
@@ -112,7 +112,7 @@ describe('REL-03 - evidencia do cliente na vistoria seguinte', () => {
       blob: () => Promise.resolve(new Blob(['x'], { type: 'image/jpeg' })),
     }));
 
-    const byItem = await ClientEvidenceService.prepareForReport(CLIENT);
+    const { evidence: byItem } = await ClientEvidenceService.prepareForReport(CLIENT);
     const rows = byItem.get('item-alvara')!;
 
     // A aprovada vira figura; a devolvida fica so como registro de texto, e o PDF nao engorda
@@ -132,9 +132,61 @@ describe('REL-03 - evidencia do cliente na vistoria seguinte', () => {
     });
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    const byItem = await ClientEvidenceService.prepareForReport(CLIENT);
+    const { evidence: byItem } = await ClientEvidenceService.prepareForReport(CLIENT);
 
     expect(byItem.get('item-alvara')![0].imageDataUrl).toBeUndefined();
     warn.mockRestore();
+  });
+});
+
+describe('PORT-03 - o cliente declara a situacao', () => {
+  beforeEach(() => {
+    from.mockReset();
+    storageFrom.mockReset();
+  });
+
+  test('a declaracao chega pelo item do roteiro, mesmo sem nenhum arquivo anexado', async () => {
+    mockQueries(
+      [{
+        ...itemRow,
+        client_status: 'not_done',
+        client_status_note: 'A pasta sanitaria nao foi feita: responsavel tecnico de licenca.',
+        client_status_at: '2026-07-20T12:00:00.000Z',
+        client_status_by_name: 'Joana Prado',
+        client_status_by_role: 'Gestora da unidade',
+      }],
+      []
+    );
+
+    const { evidence, declarations } = await ClientEvidenceService.byItemForClient(CLIENT);
+
+    // O caso da Ester: sem anexo nenhum, mas com resposta — e e a resposta que muda a conversa
+    // na proxima visita.
+    expect(evidence.size).toBe(0);
+    const declared = declarations.get('item-alvara')!;
+    expect(declared.status).toBe('not_done');
+    expect(declared.note).toMatch(/responsavel tecnico de licenca/);
+    expect(declared.byName).toBe('Joana Prado');
+    expect(declared.byRole).toBe('Gestora da unidade');
+  });
+
+  test('item sem declaracao nao entra no mapa', async () => {
+    mockQueries([itemRow], []);
+
+    const { declarations } = await ClientEvidenceService.byItemForClient(CLIENT);
+
+    expect(declarations.size).toBe(0);
+  });
+
+  test('declaracao e evidencia convivem no mesmo item', async () => {
+    mockQueries(
+      [{ ...itemRow, client_status: 'done', client_status_note: null, client_status_at: '2026-07-20T12:00:00.000Z', client_status_by_name: 'Carlos', client_status_by_role: 'RT' }],
+      [evidenceRow()]
+    );
+
+    const { evidence, declarations } = await ClientEvidenceService.byItemForClient(CLIENT);
+
+    expect(declarations.get('item-alvara')?.status).toBe('done');
+    expect(evidence.get('item-alvara')).toHaveLength(1);
   });
 });

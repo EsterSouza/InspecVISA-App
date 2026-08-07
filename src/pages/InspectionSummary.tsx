@@ -371,7 +371,8 @@ export function InspectionSummary() {
            referenceSources: opts.referenceSources,
            signatureDataUrl: opts.signatureDataUrl,
            recurringItemIds,
-           clientEvidenceByItemId,
+           clientEvidenceByItemId: clientEvidenceByItemId?.evidence,
+           clientDeclarationByItemId: clientEvidenceByItemId?.declarations,
          }
        );
        if (shouldSyncFinalSnapshot) {

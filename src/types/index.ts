@@ -421,7 +421,8 @@ export type ClientPortalAuditEventType =
   | 'action_plan_viewed'
   | 'evidence_submitted'
   | 'evidence_reviewed'
-  | 'evidence_download_clicked';
+  | 'evidence_download_clicked'
+  | 'item_status_declared';
 
 export interface AppointmentSlot {
   id: string;
@@ -559,9 +560,20 @@ export interface ClientActionItem {
   last_detected_on: string | null;
   published_at: string | null;
   resolved_at: string | null;
+  /**
+   * PORT-03 — o que o CLIENTE declarou. Não confundir com `status`, que é a decisão técnica da
+   * consultoria: aqui é a versão dele dos fatos, guardada ao lado e nunca por cima.
+   */
+  client_status: ClientDeclaredItemStatus | null;
+  client_status_note: string | null;
+  client_status_at: string | null;
+  client_status_by_name: string | null;
+  client_status_by_role: string | null;
   created_at: string;
   updated_at: string;
 }
+
+export type ClientDeclaredItemStatus = 'done' | 'in_progress' | 'not_done';
 
 export type ClientActionEvidenceStatus = 'pending' | 'approved' | 'changes_requested';
 

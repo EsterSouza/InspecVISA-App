@@ -1,12 +1,16 @@
 import React, { useState, useEffect, memo } from 'react';
-import { AlertTriangle, ExternalLink, LogIn, FileCheck2 } from 'lucide-react';
+import { AlertTriangle, ExternalLink, LogIn, FileCheck2, MessageSquare } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Badge } from '../ui/Badge';
 import { PhotoCapture } from './PhotoCapture';
 import { LinkCapture } from './LinkCapture';
 import type { ChecklistItem as ItemType, InspectionResponse, InspectionPhoto } from '../../types';
 import type { PreviousNCContext } from '../../utils/actionPlanContext';
-import { ClientEvidenceService, type ClientEvidenceForItem } from '../../services/clientEvidenceService';
+import {
+  ClientEvidenceService,
+  type ClientDeclarationForItem,
+  type ClientEvidenceForItem,
+} from '../../services/clientEvidenceService';
 import { getFieldSuggestions, type FieldSuggestions } from '../../utils/textSuggestions';
 import { legislationUrlForItem } from '../../utils/legislationRefs';
 import { VoiceDictationButton } from './VoiceDictationButton';
@@ -21,6 +25,8 @@ interface ChecklistItemProps {
   previousNC?: PreviousNCContext;
   /** REL-03 — o que o cliente alegou ter corrigido neste requisito, desde a última visita. */
   clientEvidence?: ClientEvidenceForItem[];
+  /** PORT-03 — a situação que o cliente declarou, inclusive "ainda não fiz" com o motivo. */
+  clientDeclaration?: ClientDeclarationForItem;
   onChange: (itemId: string, result: InspectionResponse['result']) => void;
   onUpdateDetails: (itemId: string, details: Partial<InspectionResponse>) => void;
   onAddPhoto: (itemId: string, photo: Omit<InspectionPhoto, 'id'>) => void | Promise<void>;
@@ -117,11 +123,53 @@ function ClientEvidencePanel({ evidence }: { evidence: ClientEvidenceForItem[] }
   );
 }
 
+const DECLARED_LABELS: Record<ClientDeclarationForItem['status'], string> = {
+  done: 'Cliente diz que JÁ CORRIGIU',
+  in_progress: 'Cliente diz que ESTÁ PROVIDENCIANDO',
+  not_done: 'Cliente diz que AINDA NÃO FEZ',
+};
+
+const DECLARED_THEME: Record<ClientDeclarationForItem['status'], string> = {
+  done: 'border-emerald-300 bg-emerald-50 text-emerald-900',
+  in_progress: 'border-sky-300 bg-sky-50 text-sky-900',
+  not_done: 'border-orange-300 bg-orange-50 text-orange-900',
+};
+
+/**
+ * PORT-03 — a resposta do cliente sobre esta pendência, na tela em que a consultora decide.
+ *
+ * O caso que motivou: *"não tem onde dizer que a pasta não foi feita"*. Quem não corrigiu ficava
+ * calado, e calado é indistinguível de "nem abriu o portal". Agora a diferença chega até aqui:
+ * chegar na casa sabendo que o responsável técnico está de licença muda a conversa.
+ */
+function ClientDeclarationPanel({ declaration }: { declaration: ClientDeclarationForItem }) {
+  return (
+    <div className={`mt-3 rounded-lg border p-3 text-sm ${DECLARED_THEME[declaration.status]}`}>
+      <p className="flex flex-wrap items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide">
+        <MessageSquare className="h-3.5 w-3.5" /> {DECLARED_LABELS[declaration.status]}
+        {declaration.at && (
+          <span className="font-normal normal-case opacity-80">
+            · {new Date(declaration.at).toLocaleDateString('pt-BR')}
+          </span>
+        )}
+      </p>
+      {declaration.note && <p className="mt-1.5 break-words text-xs">{declaration.note}</p>}
+      {declaration.byName && (
+        <p className="mt-1 text-[11px] opacity-80">
+          {declaration.byName}
+          {declaration.byRole ? ` — ${declaration.byRole}` : ''}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export const ChecklistItem = memo(function ChecklistItem({
   item,
   response,
   previousNC,
   clientEvidence,
+  clientDeclaration,
   onChange,
   onUpdateDetails,
   onAddPhoto,
@@ -356,11 +404,13 @@ export const ChecklistItem = memo(function ChecklistItem({
             </div>
           )}
 
+          {clientDeclaration && <ClientDeclarationPanel declaration={clientDeclaration} />}
           {!!clientEvidence?.length && <ClientEvidencePanel evidence={clientEvidence} />}
         </div>
       )}
 
-      {/* Item que não era NC na visita anterior, mas recebeu evidência: mostra assim mesmo. */}
+      {/* Item que não era NC na visita anterior, mas o cliente respondeu: mostra assim mesmo. */}
+      {!previousNC && clientDeclaration && <ClientDeclarationPanel declaration={clientDeclaration} />}
       {!previousNC && !!clientEvidence?.length && <ClientEvidencePanel evidence={clientEvidence} />}
 
       {/* Action Buttons */}

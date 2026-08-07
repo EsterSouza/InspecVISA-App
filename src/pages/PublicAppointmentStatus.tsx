@@ -32,7 +32,11 @@ import {
   type ClientPortalActionItem,
   type ClientPortalUnit,
 } from '../services/clientPortalService';
-import { PortalActionPlan, type SubmitEvidenceHandler } from '../components/client/PortalActionPlan';
+import {
+  PortalActionPlan,
+  type DeclareStatusHandler,
+  type SubmitEvidenceHandler,
+} from '../components/client/PortalActionPlan';
 import { formatReportDueDate } from '../utils/businessDays';
 import { PublicHeader } from '../components/public/PublicHeader';
 import { formatProtocol } from '../utils/protocol';
@@ -216,6 +220,20 @@ export function PublicAppointmentStatus() {
     [token]
   );
 
+  // PORT-03: "já corrigi", "estou providenciando" ou "ainda não fiz" — este último com motivo.
+  const handleDeclareStatus: DeclareStatusHandler = useCallback(
+    async ({ item, status, note, byName, byRole }) => {
+      if (!token) throw new Error('Link inválido.');
+      await clientPortalService.setItemStatus(
+        { visitToken: token },
+        { actionItemId: item.id, status, note, byName, byRole }
+      );
+      const plan = await clientPortalService.reportActionItems(token);
+      setActionItems(plan.items);
+    },
+    [token]
+  );
+
   // ─── Loading inicial ─────────────────────────────────────────
   if (loading) {
     return (
@@ -323,6 +341,18 @@ export function PublicAppointmentStatus() {
           <Home className="h-4 w-4" />
           Voltar ao painel do cliente
         </Link>
+
+        {/* PORT-02/03: o plano de ação vem PRIMEIRO. Quando o relatório é aberto pelo link, é
+            para isto que o gestor da casa entra — responder o que já corrigiu, anexar a prova ou
+            avisar o que ainda não deu para fazer. Deixar isso no rodapé, abaixo do protocolo e
+            da linha do tempo, escondia justamente a parte que exige ação dele. */}
+        <PortalActionPlan
+          items={actionItems}
+          error={actionItemsError}
+          onSubmitEvidence={handleSubmitEvidence}
+          onDeclareStatus={handleDeclareStatus}
+          alwaysShow
+        />
 
         {/* Protocolo */}
         <div className="mb-6 rounded-2xl border border-gray-100 bg-gray-50 p-5 text-center shadow-sm">
@@ -580,14 +610,6 @@ export function PublicAppointmentStatus() {
         )}
 
         {unit && <ContractTimeline unit={unit} />}
-
-        {/* PORT-02: o plano de ação da unidade, aqui mesmo no relatório. É esta a tela que o
-            gestor da casa abre pelo link, e é dela que sai a evidência de correção. */}
-        <PortalActionPlan
-          items={actionItems}
-          error={actionItemsError}
-          onSubmitEvidence={handleSubmitEvidence}
-        />
 
         {status.has_personalized_sanitary_folder && status.personalized_sanitary_folder_url && (
           <section className="mb-6 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-5 shadow-sm">

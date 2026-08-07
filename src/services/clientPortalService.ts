@@ -176,14 +176,27 @@ export interface ClientPortalActionItem {
   /** PORT-02 — quem assinou o último envio. Sem login, é isto que responde "quem alegou". */
   evidence_by_name: string | null;
   evidence_by_role: string | null;
+  /** PORT-03 — o que o CLIENTE declarou. Não confundir com `status`, que é a decisão técnica. */
+  client_status: ClientDeclaredStatus | null;
+  client_status_note: string | null;
+  client_status_at: string | null;
+  client_status_by_name: string | null;
+  client_status_by_role: string | null;
   accepts_evidence: boolean;
 }
 
-/** Assinatura obrigatória de quem insere a evidência (PORT-02). */
+/** Assinatura obrigatória de quem insere a evidência ou declara a situação (PORT-02/03). */
 export interface EvidenceAuthor {
   byName: string;
   byRole: string;
 }
+
+/**
+ * PORT-03 — o que o cliente diz sobre a pendência. `not_done` é o estado que faltava: antes,
+ * quem ainda não tinha corrigido só podia ficar calado, e silêncio é indistinguível de "nem
+ * abriu o portal".
+ */
+export type ClientDeclaredStatus = 'done' | 'in_progress' | 'not_done';
 
 /**
  * Evidência como o CLIENTE a recebe: sem bucket, sem caminho, com URL temporária assinada na
@@ -338,6 +351,47 @@ export const clientPortalService = {
     params: { actionItemId: string; uploadKey: string; file: File; note?: string } & EvidenceAuthor
   ): Promise<{ evidenceId: string; duplicate: boolean }> {
     return sendEvidence({ visitToken }, params);
+  },
+
+  /**
+   * PORT-03 — o cliente declara em que pé está a pendência. Sem arquivo, então vai direto pela
+   * RPC: o token é a autorização e não há caminho de Storage envolvido.
+   */
+  async setItemStatus(
+    auth: { accountToken?: string; visitToken?: string },
+    params: { actionItemId: string; status: ClientDeclaredStatus; note?: string } & EvidenceAuthor
+  ): Promise<void> {
+    if (!params.byName.trim() || !params.byRole.trim()) {
+      throw new Error('Informe seu nome e sua função para registrar quem respondeu.');
+    }
+    if (params.status === 'not_done' && !params.note?.trim()) {
+      throw new Error('Explique por que ainda não foi feito — é isso que a consultoria usa na próxima visita.');
+    }
+
+    const { data, error } = await withTimeout(
+      auth.accountToken
+        ? supabase.rpc('client_portal_set_item_status', {
+          p_token: auth.accountToken,
+          p_action_item_id: params.actionItemId,
+          p_status: params.status,
+          p_by_name: params.byName.trim(),
+          p_by_role: params.byRole.trim(),
+          p_note: params.note?.trim() || null,
+          p_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+        })
+        : supabase.rpc('public_report_set_item_status', {
+          p_visit_token: auth.visitToken,
+          p_action_item_id: params.actionItemId,
+          p_status: params.status,
+          p_by_name: params.byName.trim(),
+          p_by_role: params.byRole.trim(),
+          p_note: params.note?.trim() || null,
+          p_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+        }),
+      'SituacaoDoItem'
+    );
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
   },
 
   /** Plano de ação de uma unidade, aberto pelo link do relatório — sem login. */

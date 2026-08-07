@@ -16,7 +16,11 @@ import {
   type NextActionReturnedEvidence,
   type NextActionUpcomingAppointment,
 } from '../components/client/PortalNextAction';
-import { PortalActionPlan, type SubmitEvidenceHandler } from '../components/client/PortalActionPlan';
+import {
+  PortalActionPlan,
+  type DeclareStatusHandler,
+  type SubmitEvidenceHandler,
+} from '../components/client/PortalActionPlan';
 import { PortalAppointments, type PortalAppointmentVisit } from '../components/client/PortalAppointments';
 import { PortalDocuments } from '../components/client/PortalDocuments';
 import { PortalBilling } from '../components/client/PortalBilling';
@@ -173,6 +177,18 @@ export function ClientPortal() {
         byName,
         byRole,
       });
+      await loadActionItems(token);
+    },
+    [token, loadActionItems]
+  );
+
+  const handleDeclareStatus: DeclareStatusHandler = useCallback(
+    async ({ item, status, note, byName, byRole }) => {
+      if (!token) throw new Error('Sessão expirada. Entre de novo para responder.');
+      await clientPortalService.setItemStatus(
+        { accountToken: token },
+        { actionItemId: item.id, status, note, byName, byRole }
+      );
       await loadActionItems(token);
     },
     [token, loadActionItems]
@@ -454,6 +470,7 @@ export function ClientPortal() {
             error={actionItemsError}
             showUnitName={overview.units.length > 1 && !selectedUnitId}
             onSubmitEvidence={handleSubmitEvidence}
+            onDeclareStatus={handleDeclareStatus}
           />
         )}
 

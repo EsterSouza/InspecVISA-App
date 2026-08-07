@@ -10,7 +10,7 @@ import { isRioState } from './state';
 // extractBaseLegislation — sem os qualificadores do REF-01 nem as correções de
 // número/ano do REF-02. Passa a usar a mesma implementação do resto do app.
 import { extractBaseLegislation, canonicalLegislationKey } from './legislationRefs';
-import type { ClientEvidenceForItem } from '../services/clientEvidenceService';
+import type { ClientDeclarationForItem, ClientEvidenceForItem } from '../services/clientEvidenceService';
 
 
 function getPdfImageFormat(dataUrl: string) {
@@ -159,10 +159,13 @@ export async function generatePDF(
     recurringItemIds?: Set<string>;
     /** REL-03 — o que o cliente alegou ter corrigido, por item do roteiro. */
     clientEvidenceByItemId?: Map<string, ClientEvidenceForItem[]>;
+    /** PORT-03 — a situação que o cliente declarou, inclusive "ainda não fiz" com o motivo. */
+    clientDeclarationByItemId?: Map<string, ClientDeclarationForItem>;
   } = {}
 ): Promise<GeneratedPdfFile> {
   const recurringItemIds = options.recurringItemIds ?? new Set<string>();
   const clientEvidenceByItemId = options.clientEvidenceByItemId ?? new Map<string, ClientEvidenceForItem[]>();
+  const clientDeclarationByItemId = options.clientDeclarationByItemId ?? new Map<string, ClientDeclarationForItem>();
   const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -481,6 +484,41 @@ export async function generatePDF(
    *
    * Nada disto conclui pendência: a conclusão é o resultado desta vistoria, marcado item a item.
    */
+  /**
+   * PORT-03 — o que o cliente declarou, inclusive quando NÃO fez.
+   *
+   * Vem antes da evidência de propósito: é a versão dele dos fatos, e o motivo do "ainda não
+   * fiz" costuma ser o dado mais útil do relatório para a visita seguinte.
+   */
+  function drawClientDeclaration(
+    declaration: ClientDeclarationForItem | undefined,
+    startY: number,
+    onContinue: ContinueFlow = continueOnBlankPage
+  ) {
+    if (!declaration) return startY;
+
+    const rotulo: Record<ClientDeclarationForItem['status'], string> = {
+      done: 'já corrigiu',
+      in_progress: 'está providenciando',
+      not_done: 'ainda não fez',
+    };
+    const quando = declaration.at ? new Date(declaration.at).toLocaleDateString('pt-BR') : 'sem data';
+    const quem = declaration.byName
+      ? `${declaration.byName}${declaration.byRole ? ` (${declaration.byRole})` : ''}`
+      : 'não identificado';
+
+    const partes = [`${quando} — ${quem} declarou que ${rotulo[declaration.status]}.`];
+    if (declaration.note) partes.push(declaration.note);
+
+    return drawLabeledBlock(
+      'Resposta do estabelecimento',
+      partes.join(' '),
+      startY,
+      declaration.status === 'not_done' ? [154, 52, 18] : [7, 89, 133],
+      onContinue
+    );
+  }
+
   async function drawClientEvidence(
     evidence: ClientEvidenceForItem[] | undefined,
     startY: number,
@@ -1359,8 +1397,9 @@ export async function generatePDF(
       }
 
       y = await drawPhotoGrid(response.photos, y, continueItem);
-      // REL-03: o item voltou a ser NC — o que o cliente alegou ter feito fica registrado aqui,
-      // ao lado do achado desta visita. É a leitura que sustenta a reincidência.
+      // REL-03/PORT-03: o item voltou a ser NC — o que o cliente respondeu e o que anexou ficam
+      // registrados aqui, ao lado do achado desta visita. É a leitura que sustenta a reincidência.
+      y = drawClientDeclaration(clientDeclarationByItemId.get(response.itemId), y, continueItem);
       y = await drawClientEvidence(clientEvidenceByItemId.get(response.itemId), y, continueItem);
       y = drawItemLinks(response.links, y, continueItem);
 
@@ -1390,10 +1429,22 @@ export async function generatePDF(
   // que o cliente disse ter corrigido e que ESTA vistoria confirmou — é a parte que fecha o
   // ciclo: a pendência não fechou porque chegou anexo, fechou porque foi verificada em campo, e
   // o relatório guarda as duas coisas lado a lado.
-  const evidenceOnResolved = [...clientEvidenceByItemId.entries()]
-    .filter(([itemId]) => !nonCompliantItems.some((response) => response.itemId === itemId))
-    .map(([itemId, list]) => ({ item: allItems.find((i) => i.id === itemId), list }))
-    .filter((entry): entry is { item: NonNullable<typeof entry.item>; list: ClientEvidenceForItem[] } => !!entry.item);
+  const respondedItemIds = new Set<string>([
+    ...clientEvidenceByItemId.keys(),
+    ...clientDeclarationByItemId.keys(),
+  ]);
+  const evidenceOnResolved = [...respondedItemIds]
+    .filter((itemId) => !nonCompliantItems.some((response) => response.itemId === itemId))
+    .map((itemId) => ({
+      item: allItems.find((i) => i.id === itemId),
+      list: clientEvidenceByItemId.get(itemId) || [],
+      declaration: clientDeclarationByItemId.get(itemId),
+    }))
+    .filter((entry): entry is {
+      item: NonNullable<typeof entry.item>;
+      list: ClientEvidenceForItem[];
+      declaration: ClientDeclarationForItem | undefined;
+    } => !!entry.item);
 
   if (evidenceOnResolved.length > 0) {
     doc.addPage();
@@ -1413,8 +1464,9 @@ export async function generatePDF(
       doc.setFontSize(8.5);
       doc.setTextColor(...mutedColor);
       const nota = doc.splitTextToSize(
-        'Registro do que o estabelecimento apresentou como prova de correção entre uma visita e outra. '
-        + 'A conclusão de cada pendência é a verificação em campo desta inspeção, e não o recebimento do arquivo.',
+        'Registro do que o estabelecimento respondeu e apresentou como prova de correção entre uma '
+        + 'visita e outra. A conclusão de cada pendência é a verificação em campo desta inspeção, e '
+        + 'não a resposta nem o recebimento do arquivo.',
         contentW
       );
       doc.text(nota, margin, y);
@@ -1430,7 +1482,7 @@ export async function generatePDF(
     drawEvidenceHeading();
 
     let evidenceNum = 1;
-    for (const { item, list } of evidenceOnResolved) {
+    for (const { item, list, declaration } of evidenceOnResolved) {
       const code = `EV-${String(evidenceNum).padStart(3, '0')}`;
       y = drawItemHeader({
         code,
@@ -1440,6 +1492,7 @@ export async function generatePDF(
         startY: y,
         onContinue: continueEvidencePage,
       });
+      y = drawClientDeclaration(declaration, y, continueEvidencePage);
       y = await drawClientEvidence(list, y, continueEvidencePage);
       evidenceNum++;
     }

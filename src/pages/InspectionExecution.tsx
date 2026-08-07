@@ -20,7 +20,11 @@ import { belongsToActiveTenant, filterByActiveTenant } from '../utils/localScope
 import { buildRecoveryTemplate } from '../utils/templateRecovery';
 import { withClientLocation } from '../utils/inspectionLocation';
 import { getPreviousNCContextByInspection, type PreviousNCContext } from '../utils/actionPlanContext';
-import { ClientEvidenceService, type ClientEvidenceByItem } from '../services/clientEvidenceService';
+import {
+  ClientEvidenceService,
+  type ClientDeclarationByItem,
+  type ClientEvidenceByItem,
+} from '../services/clientEvidenceService';
 
 
 import { Button } from '../components/ui/Button';
@@ -95,6 +99,7 @@ export function InspectionExecution() {
   // REL-03 — o que o cliente alegou ter corrigido, por item do roteiro. Vem do servidor e é
   // best-effort: sem sinal, a vistoria segue igual, só sem a alegação na tela.
   const [clientEvidence, setClientEvidence] = useState<ClientEvidenceByItem>(new Map());
+  const [clientDeclarations, setClientDeclarations] = useState<ClientDeclarationByItem>(new Map());
   const [expandedSectionIds] = useState<string[]>([]);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [hideClientInfo, setHideClientInfo] = useState(false);
@@ -273,7 +278,10 @@ export function InspectionExecution() {
           // `await` da vistoria de propósito — é rede, e nada aqui pode segurar a abertura
           // do roteiro dentro da casa.
           void ClientEvidenceService.byItemForClient(enrichedInsp.clientId)
-            .then(setClientEvidence)
+            .then((result) => {
+              setClientEvidence(result.evidence);
+              setClientDeclarations(result.declarations);
+            })
             .catch((err) => console.warn('[Inspection] Evidencia do cliente indisponivel:', err));
 
           const effectivePreviousInspectionId = previousInspectionId
@@ -997,6 +1005,7 @@ export function InspectionExecution() {
                         response={resp}
                         previousNC={previousNCs.get(item.id)}
                         clientEvidence={clientEvidence.get(item.id)}
+                        clientDeclaration={clientDeclarations.get(item.id)}
                         onChange={handleResponseChange}
                         onUpdateDetails={handleUpdateDetails}
                         onAddPhoto={handleAddPhoto}

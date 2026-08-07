@@ -1100,6 +1100,27 @@ function ActionPlanPanel({ requestId, busy }: { requestId: string; busy: boolean
               </span>
             </div>
             <p className="mt-1 break-words text-sm text-gray-800">{item.title}</p>
+            {item.client_status && (
+              <p
+                className={`mt-1.5 rounded-md px-2 py-1 text-[11px] ${
+                  item.client_status === 'not_done'
+                    ? 'bg-orange-50 text-orange-900'
+                    : item.client_status === 'in_progress'
+                      ? 'bg-sky-50 text-sky-900'
+                      : 'bg-emerald-50 text-emerald-900'
+                }`}
+              >
+                <span className="font-bold uppercase">
+                  {item.client_status === 'not_done'
+                    ? 'Cliente: ainda não fez'
+                    : item.client_status === 'in_progress'
+                      ? 'Cliente: providenciando'
+                      : 'Cliente: já corrigiu'}
+                </span>
+                {item.client_status_note ? ` — ${item.client_status_note}` : ''}
+                {item.client_status_by_name ? ` (${item.client_status_by_name})` : ''}
+              </p>
+            )}
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {item.status !== 'published' && (
                 <Button

@@ -36,25 +36,42 @@ export interface ClientEvidenceForItem {
 
 export type ClientEvidenceByItem = Map<string, ClientEvidenceForItem[]>;
 
+/** PORT-03 — o que o cliente declarou sobre o item, mesmo sem ter anexado nada. */
+export interface ClientDeclarationForItem {
+  itemId: string;
+  status: 'done' | 'in_progress' | 'not_done';
+  note: string | null;
+  at: string | null;
+  byName: string | null;
+  byRole: string | null;
+}
+
+export type ClientDeclarationByItem = Map<string, ClientDeclarationForItem>;
+
 function isImage(mimeType: string): boolean {
   return mimeType.startsWith('image/');
 }
 
 export const ClientEvidenceService = {
   /**
-   * Todas as evidências que este cliente já enviou, agrupadas pelo item do roteiro. Mais
-   * recente primeiro dentro de cada item.
+   * O que este cliente respondeu sobre o plano de ação, pelo item do roteiro: as evidências que
+   * anexou (mais recente primeiro) e a situação que declarou. As duas coisas vêm juntas porque
+   * saem da mesma consulta e são lidas juntas — na vistoria e no relatório.
    */
-  async byItemForClient(clientId: string): Promise<ClientEvidenceByItem> {
+  async byItemForClient(clientId: string): Promise<{
+    evidence: ClientEvidenceByItem;
+    declarations: ClientDeclarationByItem;
+  }> {
     const byItem: ClientEvidenceByItem = new Map();
-    if (!clientId) return byItem;
+    const lastDeclarations: ClientDeclarationByItem = new Map();
+    if (!clientId) return { evidence: byItem, declarations: lastDeclarations };
 
     const { data: items, error: itemsError } = await supabase
       .from('client_action_items')
-      .select('id, source_item_id, status')
+      .select('id, source_item_id, status, client_status, client_status_note, client_status_at, client_status_by_name, client_status_by_role')
       .eq('client_id', clientId);
     if (itemsError) throw itemsError;
-    if (!items || items.length === 0) return byItem;
+    if (!items || items.length === 0) return { evidence: byItem, declarations: lastDeclarations };
 
     const bySourceItem = new Map<string, { sourceItemId: string; status: ClientEvidenceForItem['itemStatus'] }>();
     for (const item of items) {
@@ -62,6 +79,16 @@ export const ClientEvidenceService = {
         sourceItemId: item.source_item_id as string,
         status: item.status as ClientEvidenceForItem['itemStatus'],
       });
+      if (item.client_status) {
+        lastDeclarations.set(item.source_item_id as string, {
+          itemId: item.source_item_id as string,
+          status: item.client_status as ClientDeclarationForItem['status'],
+          note: (item.client_status_note as string) || null,
+          at: (item.client_status_at as string) || null,
+          byName: (item.client_status_by_name as string) || null,
+          byRole: (item.client_status_by_role as string) || null,
+        });
+      }
     }
 
     const { data: rows, error: evidenceError } = await supabase
@@ -94,7 +121,7 @@ export const ClientEvidenceService = {
       byItem.set(parent.sourceItemId, current);
     }
 
-    return byItem;
+    return { evidence: byItem, declarations: lastDeclarations };
   },
 
   /** URL temporária para abrir o arquivo na tela. Expira; basta pedir de novo. */
@@ -140,15 +167,18 @@ export const ClientEvidenceService = {
    * Prepara o material do relatório: para cada item, o registro textual de tudo que o cliente
    * enviou, e a imagem embutida apenas do que foi aprovado.
    */
-  async prepareForReport(clientId: string): Promise<ClientEvidenceByItem> {
-    const byItem = await this.byItemForClient(clientId);
-    for (const list of byItem.values()) {
+  async prepareForReport(clientId: string): Promise<{
+    evidence: ClientEvidenceByItem;
+    declarations: ClientDeclarationByItem;
+  }> {
+    const result = await this.byItemForClient(clientId);
+    for (const list of result.evidence.values()) {
       for (const evidence of list) {
         if (evidence.status !== 'approved') continue;
         const dataUrl = await this.imageDataUrl(evidence);
         if (dataUrl) evidence.imageDataUrl = dataUrl;
       }
     }
-    return byItem;
+    return result;
   },
 };

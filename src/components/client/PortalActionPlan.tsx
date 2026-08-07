@@ -6,11 +6,12 @@ import {
   ClipboardList,
   Clock3,
   Loader2,
+  MessageSquare,
   Paperclip,
   RefreshCw,
   UserRound,
 } from 'lucide-react';
-import type { ClientPortalActionItem } from '../../services/clientPortalService';
+import type { ClientDeclaredStatus, ClientPortalActionItem } from '../../services/clientPortalService';
 import type { ClientActionEvidenceStatus, ClientActionItemPriority } from '../../types';
 import { formatDateBR } from '../../utils/clientPortalFormat';
 import {
@@ -45,6 +46,14 @@ const evidenceTheme: Record<ClientActionEvidenceStatus, string> = {
   approved: 'border-emerald-200 bg-emerald-50 text-emerald-800',
   changes_requested: 'border-amber-200 bg-amber-50 text-amber-900',
 };
+
+export type DeclareStatusHandler = (params: {
+  item: ClientPortalActionItem;
+  status: ClientDeclaredStatus;
+  note: string;
+  byName: string;
+  byRole: string;
+}) => Promise<void>;
 
 export type SubmitEvidenceHandler = (params: {
   item: ClientPortalActionItem;
@@ -86,6 +95,13 @@ interface PortalActionPlanProps {
   /** Só faz sentido rotular a unidade quando o cliente enxerga mais de uma. */
   showUnitName?: boolean;
   onSubmitEvidence?: SubmitEvidenceHandler;
+  onDeclareStatus?: DeclareStatusHandler;
+  /**
+   * Quando o plano de ação É a página (o link do relatório), a seção precisa aparecer mesmo
+   * vazia e dizer por quê. Sumir faz o cliente concluir que a função não existe — foi
+   * exatamente o que aconteceu no primeiro teste do link.
+   */
+  alwaysShow?: boolean;
 }
 
 /**
@@ -250,6 +266,168 @@ function EvidenceUpload({
   );
 }
 
+const declaredLabel: Record<ClientDeclaredStatus, string> = {
+  done: 'Já corrigi',
+  in_progress: 'Estou providenciando',
+  not_done: 'Ainda não fiz',
+};
+
+const declaredTheme: Record<ClientDeclaredStatus, string> = {
+  done: 'border-emerald-300 bg-emerald-50 text-emerald-800',
+  in_progress: 'border-sky-300 bg-sky-50 text-sky-800',
+  not_done: 'border-orange-300 bg-orange-50 text-orange-900',
+};
+
+/**
+ * PORT-03 — o cliente diz em que pé está, inclusive quando NÃO fez.
+ *
+ * Antes só existia anexar arquivo, então quem ainda não corrigiu ficava calado — e calado é
+ * indistinguível de "nem abriu o portal". "Ainda não fiz" exige motivo, porque é o motivo que
+ * serve para a próxima visita; nos outros dois o texto é opcional, senão o cliente desiste de
+ * responder e volta ao silêncio, que é justamente o que isto resolve.
+ */
+function DeclareStatus({
+  item,
+  author,
+  onAuthorChange,
+  onDeclareStatus,
+}: {
+  item: ClientPortalActionItem;
+  author: { byName: string; byRole: string };
+  onAuthorChange: (author: { byName: string; byRole: string }) => void;
+  onDeclareStatus: DeclareStatusHandler;
+}) {
+  const [choice, setChoice] = useState<ClientDeclaredStatus | null>(null);
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const send = async () => {
+    if (!choice || busy) return;
+    if (!author.byName.trim() || !author.byRole.trim()) {
+      setError('Preencha seu nome e sua função antes de responder.');
+      return;
+    }
+    if (choice === 'not_done' && !note.trim()) {
+      setError('Conte o motivo — é o que a consultoria leva para a próxima visita.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await onDeclareStatus({
+        item,
+        status: choice,
+        note: note.trim(),
+        byName: author.byName.trim(),
+        byRole: author.byRole.trim(),
+      });
+      setChoice(null);
+      setNote('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível registrar agora.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mt-2.5 border-t border-dashed border-gray-200 pt-2.5">
+      <p className="mb-1.5 text-[11px] font-semibold text-gray-600">
+        {item.client_status ? 'Mudou de situação?' : 'Em que pé está?'}
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {(['done', 'in_progress', 'not_done'] as ClientDeclaredStatus[]).map((option) => (
+          <button
+            key={option}
+            type="button"
+            onClick={() => { setChoice(option); setError(null); }}
+            className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors ${
+              choice === option ? declaredTheme[option] : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            {declaredLabel[option]}
+          </button>
+        ))}
+      </div>
+
+      {choice && (
+        <div className="mt-2 space-y-2">
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={2}
+            maxLength={1000}
+            placeholder={choice === 'not_done' ? 'Por que ainda não foi feito? *' : 'Quer detalhar? (opcional)'}
+            aria-label="Detalhe da situação"
+            className="w-full rounded-md border border-gray-200 p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+          />
+          <div className="grid gap-2 sm:grid-cols-2">
+            <input
+              type="text"
+              value={author.byName}
+              onChange={(e) => onAuthorChange({ ...author, byName: e.target.value })}
+              maxLength={120}
+              placeholder="Seu nome *"
+              aria-label="Seu nome na resposta"
+              className="w-full rounded-md border border-gray-200 p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+            />
+            <input
+              type="text"
+              value={author.byRole}
+              onChange={(e) => onAuthorChange({ ...author, byRole: e.target.value })}
+              maxLength={120}
+              placeholder="Sua função *"
+              aria-label="Sua função na resposta"
+              className="w-full rounded-md border border-gray-200 p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+            />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void send()}
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-800 disabled:opacity-60"
+            >
+              {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MessageSquare className="h-3.5 w-3.5" />}
+              {busy ? 'Registrando...' : 'Registrar resposta'}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setChoice(null); setNote(''); setError(null); }}
+              disabled={busy}
+              className="rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {error && <p className="mt-2 text-[11px] font-medium text-red-700">{error}</p>}
+    </div>
+  );
+}
+
+function DeclaredState({ item }: { item: ClientPortalActionItem }) {
+  if (!item.client_status) return null;
+  return (
+    <div className={`mt-2.5 rounded-lg border px-2.5 py-2 text-xs ${declaredTheme[item.client_status]}`}>
+      <p className="font-semibold">
+        Sua resposta: {declaredLabel[item.client_status]}
+        {item.client_status_at ? ` · ${formatDateBR(item.client_status_at)}` : ''}
+      </p>
+      {item.client_status_note && <p className="mt-1">{item.client_status_note}</p>}
+      {item.client_status_by_name && (
+        <p className="mt-0.5 opacity-80">
+          Registrado por {item.client_status_by_name}
+          {item.client_status_by_role ? ` (${item.client_status_by_role})` : ''}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function EvidenceState({ item }: { item: ClientPortalActionItem }) {
   if (!item.evidence_status) return null;
   const status = item.evidence_status;
@@ -294,12 +472,14 @@ function ActionItemCard({
   author,
   onAuthorChange,
   onSubmitEvidence,
+  onDeclareStatus,
 }: {
   item: ClientPortalActionItem;
   showUnitName?: boolean;
   author: { byName: string; byRole: string };
   onAuthorChange: (author: { byName: string; byRole: string }) => void;
   onSubmitEvidence?: SubmitEvidenceHandler;
+  onDeclareStatus?: DeclareStatusHandler;
 }) {
   const resolved = item.status === 'resolved';
   return (
@@ -351,7 +531,17 @@ function ActionItemCard({
         )}
       </div>
 
+      <DeclaredState item={item} />
       <EvidenceState item={item} />
+
+      {onDeclareStatus && item.accepts_evidence && (
+        <DeclareStatus
+          item={item}
+          author={author}
+          onAuthorChange={onAuthorChange}
+          onDeclareStatus={onDeclareStatus}
+        />
+      )}
 
       {onSubmitEvidence && item.accepts_evidence && (
         <EvidenceUpload
@@ -371,6 +561,8 @@ export function PortalActionPlan({
   error,
   showUnitName,
   onSubmitEvidence,
+  onDeclareStatus,
+  alwaysShow,
 }: PortalActionPlanProps) {
   const [expanded, setExpanded] = useState(false);
   const [author, setAuthor] = useState(readStoredAuthor);
@@ -392,7 +584,26 @@ export function PortalActionPlan({
     );
   }
 
-  if (items.length === 0) return null;
+  // No link do relatório o plano de ação É a página: sumir quando está vazio faz o cliente
+  // concluir que a função não existe. Aparece e explica.
+  if (items.length === 0) {
+    if (!alwaysShow) return null;
+    return (
+      <section aria-labelledby="portal-action-plan" className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <h3
+          id="portal-action-plan"
+          className="mb-2 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-gray-700"
+        >
+          <ClipboardList className="h-4 w-4 text-primary-700" /> Plano de ação
+        </h3>
+        <p className="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-3 text-xs text-gray-600">
+          Nenhuma pendência publicada para esta unidade ainda. Assim que a consultoria publicar o
+          plano de ação desta inspeção, ele aparece aqui — e é por aqui que você responde o que já
+          foi corrigido, anexa a evidência ou avisa o que ainda não deu para fazer.
+        </p>
+      </section>
+    );
+  }
 
   const open = items.filter((item) => item.status !== 'resolved');
   const resolved = items.filter((item) => item.status === 'resolved');
@@ -430,6 +641,7 @@ export function PortalActionPlan({
               author={author}
               onAuthorChange={handleAuthorChange}
               onSubmitEvidence={onSubmitEvidence}
+              onDeclareStatus={onDeclareStatus}
             />
           ))}
         </ul>

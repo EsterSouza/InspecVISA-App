@@ -500,7 +500,7 @@ describe('REL-03 - evidência do cliente no relatório final', () => {
     expect(capturedTexts).toContain('EV-001');
     expect(capturedTexts).toContain('REGULARIZADO');
     // A frase que impede a leitura errada: quem conclui é a vistoria, não o anexo.
-    expect(capturedTexts.join(' ')).toMatch(/não o recebimento do arquivo/);
+    expect(capturedTexts.join(' ')).toMatch(/não a resposta nem o recebimento do arquivo/);
   });
 
   test('evidência sem revisão e devolvida aparecem com o estado correto', async () => {
