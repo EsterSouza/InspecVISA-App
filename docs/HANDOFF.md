@@ -1,6 +1,6 @@
 # Handoff único — InspecVISA
 
-**Última atualização:** 07/08/2026 (BRT), ao concluir o P360-011, aplicado em produção ·
+**Última atualização:** 07/08/2026 (BRT), ao concluir o PORT-02, aplicado em produção ·
 **Branch:** `main`, sincronizada com `origin/main` · O estado da seção 2 foi verificado em 03/08/2026,
 com as correções de 04/08 e 05/08 anotadas nas tabelas.
 
@@ -105,6 +105,7 @@ Confirmado presente no banco:
 | `client_action_items` (tabela + 3 RPCs) | ✅ existe desde 07/08/2026 — P360-010 |
 | `client_portal_account_features` (+ travas do portal) | ✅ existe desde 07/08/2026 — PORT-01 |
 | `client_action_evidence` (+ bucket privado e 4 RPCs) | ✅ existe desde 07/08/2026 — P360-011 |
+| `public_report_*` (link aberto do relatório) + autoria da evidência | ✅ existe desde 07/08/2026 — PORT-02 |
 
 A migration `checklist_items_requirement_type` consta **duas vezes** no ledger remoto, sob as
 versões `20260803205941` e `20260803221936`. O schema está correto; o ledger é que está sujo.
@@ -237,6 +238,8 @@ a página de referências do PDF.
 | **P360-010** | Projeção segura do plano de ação | Opus 5 | alto | — | ✅ **concluído 07/08/2026** · aplicado em produção; prova de ponta a ponta feita no app com conta de teste, depois apagada |
 | **PORT-01** | Central de acesso do portal por conta | Opus 5 | alto | P360-010 | ✅ **concluído 07/08/2026** · aplicado em produção (migration + edge function v6) |
 | **P360-011** | Evidências do cliente e revisão técnica | Opus 5 | alto | P360-010 | ✅ **concluído 07/08/2026** · aplicado em produção (migration + bucket privado + 2 edge functions); prova de ponta a ponta feita contra produção, depois apagada |
+| **PORT-02** | Link do relatório por unidade e autoria da evidência | Opus 5 | alto | P360-011 | ✅ **concluído 07/08/2026** · aplicado em produção; provado contra a visita real da Icaraí |
+| **REL-03** | Evidência do cliente na nova vistoria e no relatório final | Opus 5 | alto | PORT-02 | ⬜ **pendente** — é o que fecha o ciclo sanitário |
 | **P360-012** | Solicitações estruturadas de consultoria | Opus 5 | alto | — | ⬜ pendente |
 | **P360-013** | Painel operacional das consultoras | Sonnet 5 | alto | 010, 011, 012 | ⬜ pendente |
 | **P360-014** | Acessibilidade e responsividade | Sonnet 5 | médio | superfícies estáveis | ⬜ pendente |
@@ -2345,6 +2348,108 @@ Commit: `ae8f38c`.
 
 ---
 
+## PORT-02 — Link do relatório por unidade e autoria da evidência ✅ concluído 07/08/2026 · aplicado em produção
+
+**Modelo:** Opus 5 · **Esforço:** alto · **Depende de:** P360-011 · **Prioridade:** P1 comercial
+
+**O que motivou:** a **Rede Sênior é uma rede de franquias com 13 casas atrás de UMA conta de
+portal** (`mariomatheus@…`). Quem acompanha a correção em cada casa é o gestor dela — não o dono
+do contrato. Não havia como dar acesso ao gestor sem entregar o login que abre as treze.
+
+### A decisão da Ester, registrada
+
+Ela escolheu **link do relatório sem senha**, ciente do trade-off: *"pelo que eu conheço meu
+público vai ser mais fácil, mesmo ferindo um pouco a LGPD. Não tem nenhuma informação muito
+sensível."* A contrapartida que ela mesma propôs, e que está implementada: **todo envio de
+evidência exige nome e função de quem inseriu**. É essa assinatura que substitui a identificação
+do login e sustenta o relatório depois.
+
+A alternativa oferecida e recusada foi conta por gestor com login próprio — o banco já a suporta
+(a PK de `client_portal_account_clients` é `(account_id, client_id)`, então a mesma casa pode
+estar na conta do dono **e** na do gestor). Continua disponível se um dia ela mudar de ideia.
+
+### O que o link NÃO afrouxa
+
+- `report_hidden` fecha tudo: relatório oculto não abre por link, não lista plano de ação e não
+  recebe evidência. **Ocultar o relatório no painel é o botão de pânico para um link vazado.**
+- O token continua sendo o `public_token` da visita (uuid v4), que já existia.
+- O arquivo continua no bucket privado, só por URL temporária.
+- O link é da unidade **daquela visita e só dela**: o plano de ação sai filtrado por `client_id`,
+  e o envio só é aceito para item da mesma casa. Um token não abre a casa vizinha.
+- **Dinheiro não vaza**: sem conta, a resposta não traz `payment_link` nem vencimento. Cobrança é
+  assunto do dono do contrato, não do gestor da casa.
+
+### Efeito retroativo, registrado
+
+Como o link é o `public_token` que já existia, **todo link de visita já enviado por WhatsApp nos
+últimos meses passou a abrir sem login**. Não é um link novo por relatório: é o mesmo link, que
+antes exigia sessão e agora não exige. Se algum relatório específico não puder ficar assim, o
+caminho é **ocultar o relatório** naquela visita, no painel de Agendamentos.
+
+### Autoria vale nos dois caminhos
+
+Não só no link. A conta do portal é da **empresa**, não da pessoa: saber que "a conta Rede Sênior
+enviou" nunca respondeu quem foi. Agora `submitted_by_name`/`submitted_by_role` são obrigatórios
+por CHECK no banco, validados na RPC e no formulário, e aparecem no plano de ação, no aviso à
+equipe e na auditoria. No navegador a assinatura fica guardada entre um envio e outro — quem
+envia é a mesma pessoa a visita inteira, e redigitar a cada pendência faria ela desistir na
+segunda.
+
+### Objetos criados
+
+| Objeto | Papel |
+|---|---|
+| `client_action_evidence.submitted_by_name/role/source` | assinatura obrigatória + por onde entrou |
+| `private.register_action_evidence(...)` | **uma regra só** de registro, usada pelos dois caminhos |
+| `public_report_action_items(uuid)` | plano de ação pelo link; `anon` **e** `authenticated` |
+| `public_report_submit_evidence(...)` | envio pelo link; **só `service_role`** |
+| `public_report_list_evidence(uuid,uuid)` | leitura para assinar URL; **só `service_role`** |
+| `public_report_discard_evidence(uuid,uuid)` | desfaz registro órfão; **só `service_role`** |
+| edge `client-action-evidence` v2 | aceita `visitToken` além de `accountToken` |
+| edge `client-appointment-assets` v7 | abre sem `accountToken`, aplicando só o `report_hidden` |
+
+A assinatura antiga de `client_portal_submit_evidence` (sem autoria) foi **derrubada de
+propósito** — deixá-la viva manteria uma porta para evidência anônima. Há teste que falha se ela
+reaparecer.
+
+### Prova de produção — contra a visita real da Icaraí
+
+Token `99f3…3521b`, REDE SÊNIOR ICARAÍ, 44 anexos:
+
+- abre **sem login**: `access_mode: report_link`, 44 anexos, **44 URLs assinadas**, e
+  `payment_link: null`;
+- o caminho **logado não regrediu**: mesma visita com o token da conta devolve `access_mode:
+  account`, 44 anexos assinados e as travas da conta intactas;
+- conta de **outro cliente** mirando a mesma visita: `solicitacao fora do acesso do cliente`;
+- token inexistente: `link invalido`;
+- `anon` chamando `public_report_submit_evidence` direto pela REST: **`permission denied`** — o
+  registro só passa pela Edge Function.
+
+Nenhum dado de teste foi criado em produção nesta etapa: a prova usou uma visita que já existia,
+em leitura.
+
+### Testes
+
+- `supabase/tests/report_link_and_evidence_authorship.test.sql` (novo): grants, assinatura
+  obrigatória nos dois caminhos, envio e retry pelo link, link não alcança a casa vizinha nem
+  outro tenant, relatório oculto fechando as três RPCs, o que o link devolve (sem
+  `storage_path`, sem `source_item_id`), trava por conta **não** alcançando o link, origem e
+  assinatura gravadas, descarte restrito à própria origem, e a revisão continuando explícita.
+- `npm test`: **266 testes, 266 passando**. `tsc -b` e `build` limpos.
+
+### Fora de escopo, deliberado
+
+- **Não há link por gestor nem revogação de link individual.** O link é o da visita; fechar é
+  ocultar o relatório.
+- **A trava `action_plan` por conta não alcança o link** — é trava de CONTA, e o link não tem
+  conta. Está coberto por teste para ficar registrado como decisão, não esquecimento.
+- Não há e-mail/usuário único em `client_portal_accounts`: se um dia forem criadas contas por
+  gestor, cada um precisa de identificador próprio, senão o login fica ambíguo.
+
+Commit: `df3eca0`.
+
+---
+
 ## P360-012 — Solicitações estruturadas de consultoria
 
 **Modelo:** Opus 5 · **Esforço:** alto · **Prioridade:** P2
@@ -2780,5 +2885,6 @@ Ao concluir um card, marcar aqui e atualizar a tabela da seção 4.
 | 06/08/2026 | **AGD-01** — concluído, 1 linha recriada em produção | Opus 5 | `a47a400` | A inspeção do Icaraí de 30/06 nunca foi apagada: 114 respostas íntegras, agendamento vinculado. Faltava a linha em `appointment_requests` — no lote de 7 visitas criadas em 16/06 entre 20h41 e 20h54, só a do Icaraí não gerou solicitação, e sem trilha de auditoria do staff não dá para separar falha de escrita de exclusão manual. Recriada com autorização, status `completed` (nenhum PDF publicado no portal). Código: `min` de data removido do modal de agendamento e do de Nova visita (as datas bloqueadas mantêm, de propósito) — não havia validação equivalente no serviço nem `CHECK` no banco; painel passou a ordenar do mais recente para o mais antigo, paginar de 10 em 10 nas três seções e abrir com Ativas e Encerradas recolhidas. 173 testes e build OK. |
 | 07/08/2026 | **PORT-01** — concluído, aplicado em produção | Opus 5 | `96d344b` | Achado que motivou metade do card: ligar "suspender agendamento" **também** bloqueava o download de tudo que já tinha sido entregue — a Edge Function usava `scheduling_suspended` para decidir se assinava a URL dos anexos, desde junho. Separado: atraso suspende agendar; esconder entrega virou decisão explícita por conta, em `client_portal_account_features` (liberado/oculto/programado + travar em atraso), com `private.portal_account_gates` como fonte única lida pelo overview, pelo plano de ação, pelo agendamento e pela Edge Function (v5→v6). Suspensão virou modo (`auto`/`always_open`/`suspended`) com tolerância de 5 dias por tenant; liberação programada sem cron, decidida na leitura. Controles reorganizados num modal "Acesso do portal"; o toggle saiu do modal de Pagamento. Medido antes de aplicar: nenhuma das 3 contas ativas muda de estado (atraso exige vencimento cadastrado). Prova no app com conta 30 dias vencida: agendamento suspenso sozinho e relatório/foto/score visíveis ao mesmo tempo. Suíte SQL nova; 235/239 testes. |
 | 07/08/2026 | **P360-011** — concluído, aplicado em produção | Opus 5 | `ae8f38c` | O cliente passou a responder a pendência: manda a prova, a consultora aprova ou devolve com orientação. Três decisões seguraram o desenho — **upload não resolve nada** (aprovar o arquivo e resolver a pendência são dois botões separados, `p_resolve_item`); **o cliente não escolhe onde o arquivo cai** (nome e caminho gerados no servidor, extensão vinda do MIME conferido, `../../etc/passwd` vira `passwd.pdf`); e **bucket próprio** `client-action-evidence`, privado, porque o `client-portal-files` tem policy que libera para `anon` todo objeto de `appointment_attachments`. Nenhum papel do navegador escreve no bucket: as RPCs de envio/leitura/descarte só têm grant para `service_role`, e a Edge Function é a única porta — ela confere os **magic bytes**, então `.exe` renomeado de `.pdf` não entra. Idempotência por `(item, upload_key)`, com caminho derivado da chave: retry sobrescreve o mesmo objeto. Registra primeiro, sobe depois, e desfaz o registro se a subida falhar. Prova contra produção e as Edge Functions reais: envio, retry sem duplicar, devolver, reenviar, aprovar sem resolver, aprovar e resolver, trava do portal, URL assinada expirando em 8s e renovando, objeto inacessível sem token e para `anon`, e auditoria sem caminho nem URL. Dados de teste apagados e conferidos em zero, inclusive no Storage. Suíte SQL nova + 20 testes JS; 259/259. |
+| 07/08/2026 | **PORT-02** — concluído, aplicado em produção | Opus 5 | `df3eca0` | A Rede Sênior tem **13 casas atrás de uma conta só**: quem acompanha a correção em cada casa é o gestor dela, e não havia como dar acesso sem entregar o login do dono, que abre as treze. Decisão da Ester: o link do relatório passa a abrir **sem senha**, com a contrapartida que ela propôs — **nome e função obrigatórios em todo envio de evidência**, nos dois caminhos, porque a conta do portal é da empresa e nunca respondeu quem foi. O link não afrouxa o resto: `report_hidden` fecha tudo (é o botão de pânico para link vazado), o arquivo segue no bucket privado com URL temporária, o token só abre a unidade daquela visita e, sem conta, não vai link de pagamento na resposta. **Efeito retroativo registrado:** é o mesmo `public_token` de sempre, então todo link já enviado por WhatsApp passou a abrir sem login. A regra de registro virou uma só (`private.register_action_evidence`) para os dois caminhos, e a assinatura antiga que aceitava envio anônimo foi derrubada de propósito (há teste que falha se voltar). Provado contra a visita real da Icaraí: abre sem login com os 44 anexos assinados, o caminho logado não regrediu, conta de outro cliente segue negada e `anon` não registra evidência direto (`permission denied`). Suíte SQL nova; 266/266. |
 | 07/08/2026 | **P360-010** — concluído, aplicado em produção | Opus 5 | `3bd8376` | `client_action_items` é projeção, não espelho: publicar o relatório copia as NCs, e nada no portal toca em `responses`. Um índice único parcial (`where status <> 'resolved'`) resolve os três casos de uma vez — republicação idempotente, reincidência somando ocorrência no item aberto, e item resolvido preservado como histórico quando a inspeção nova republica o mesmo requisito. Gate de visibilidade é o `report_hidden` da visita, reaplicado em tempo real na leitura; suspensão de agendamento **não** esconde item (decisão registrada). Vencimento ancorado em `America/Sao_Paulo`. Grants conferidos em produção com `has_table_privilege`. Prova feita no app contra o banco de produção com conta de teste — plano de ação, prazo vencido, resolver e histórico confirmados na tela — e todos os dados de teste apagados depois. 17 testes JS novos + suíte SQL nova; 235/239 testes (as 4 falhas são anteriores, confirmado com `git stash`). |
 | 06/08/2026 | **REF-06** — concluído, aplicado em produção | Opus 5 | `071adb2`, `8796143` |  Medido: dos 303 `item_id` órfãos, 272 eram "defeito" no papel mas só 6 inspeções tinham id de código; o que degradava mesmo eram 19 dos 26 relatórios concluídos (376 respostas), por três causas — inspeção criada antes do sync de roteiros, `city`/`state` que o servidor não devolve (suplemento regional some offline) e item reescrito no lugar trocando a pergunta de 18 respostas já entregues (o REF-05 fez a terceira). Decidido não remapear `responses`: congela-se o roteiro da época em `inspection_report_versions`. Roteiros `tpl-ilpi-v1` e federal-97 reconstruídos do git; o de 97 confere seção a seção com o PDF entregue ao Lar Recanto do Sossego em 14/04/2026. Código, scripts e simulação prontos e conferidos; 162 testes passando (as 4 falhas de `sync.test.ts` são anteriores). Duas cargas: a primeira congelou 15 relatórios e marcou 28 respostas com `deleted_at`; a segunda, depois de corrigir o script (a seção degradada estava sendo usada como fonte de texto), refez 6. Diagnóstico final: **0 respostas degradadas** nos 26 relatórios, contra 376 no começo. |
