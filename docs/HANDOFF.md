@@ -1,6 +1,6 @@
 # Handoff único — InspecVISA
 
-**Última atualização:** 07/08/2026 (BRT), ao concluir o P360-010, aplicado em produção ·
+**Última atualização:** 07/08/2026 (BRT), ao concluir o PORT-01, aplicado em produção ·
 **Branch:** `main`, sincronizada com `origin/main` · O estado da seção 2 foi verificado em 03/08/2026,
 com as correções de 04/08 e 05/08 anotadas nas tabelas.
 
@@ -103,6 +103,7 @@ Confirmado presente no banco:
 | `client_portal_audit_event` (função) | ✅ existe desde 04/08/2026 — PROD-01 |
 | `client_portal_audit_events` (tabela) | ✅ existe desde 04/08/2026 — PROD-01 |
 | `client_action_items` (tabela + 3 RPCs) | ✅ existe desde 07/08/2026 — P360-010 |
+| `client_portal_account_features` (+ travas do portal) | ✅ existe desde 07/08/2026 — PORT-01 |
 
 A migration `checklist_items_requirement_type` consta **duas vezes** no ledger remoto, sob as
 versões `20260803205941` e `20260803221936`. O schema está correto; o ledger é que está sujo.
@@ -233,6 +234,7 @@ a página de referências do PDF.
 | **P360-008** | Detalhe, notificações e calendário | Sonnet 5 | alto | — | ✅ **concluído 06/08** · aplicado em produção; achada e corrigida edge function `client-appointment-assets` desatualizada (v4→v5, sem os campos do P360-004) |
 | **P360-009** | Início do portal por próximas ações | Sonnet 5 | alto | P360-008 | ✅ **concluído 07/08/2026** |
 | **P360-010** | Projeção segura do plano de ação | Opus 5 | alto | — | ✅ **concluído 07/08/2026** · aplicado em produção; prova de ponta a ponta feita no app com conta de teste, depois apagada |
+| **PORT-01** | Central de acesso do portal por conta | Opus 5 | alto | P360-010 | ✅ **concluído 07/08/2026** · aplicado em produção (migration + edge function v6) |
 | **P360-011** | Evidências do cliente e revisão técnica | Opus 5 | alto | P360-010 | ⬜ pendente |
 | **P360-012** | Solicitações estruturadas de consultoria | Opus 5 | alto | — | ⬜ pendente |
 | **P360-013** | Painel operacional das consultoras | Sonnet 5 | alto | 010, 011, 012 | ⬜ pendente |
@@ -2044,6 +2046,118 @@ Commit: `3bd8376`.
 
 ---
 
+## PORT-01 — Central de acesso do portal por conta ✅ concluído 07/08/2026 · aplicado em produção
+
+**Modelo:** Opus 5 · **Esforço:** alto · **Prioridade:** P1 comercial
+
+**O que motivou:** a Ester pediu que o cliente inadimplente **continue vendo o que já foi
+entregue**, e que ela tenha, no painel, como ocultar ou programar a liberação de qualquer função
+— hoje os controles ficavam espalhados entre Clientes e Agendamentos.
+
+### O que estava espalhado, e onde
+
+| Onde ficava | O que controlava | Escopo |
+|---|---|---|
+| Clientes → Portal → 💳 Pagamento | suspender agendamento, status/link/vencimento | conta |
+| Clientes → Portal → ⚙️ Configurações | tutorial, acessos rápidos, agenda multiuso, plano de ação, solicitações | **tenant inteiro** |
+| Clientes → ficha da unidade | pasta sanitária, auditoria, acompanhamento online | unidade |
+| Agendamentos → card da solicitação | ocultar relatório, ocultar/resolver item do plano | visita / item |
+
+Faltava o meio: **liga/desliga por conta**. Desligar "plano de ação" desligava para todos os
+clientes de uma vez.
+
+### Achado que motivou metade do card
+
+Ligar "Suspender agendamentos" **também bloqueava o download de tudo que já tinha sido
+entregue**: a Edge Function `client-appointment-assets` usava `scheduling_suspended` para decidir
+se assinava a URL dos anexos (`const locked = account.scheduling_suspended === true`). O cliente
+via "Relatório disponível" na lista e não conseguia abrir. Era exatamente o oposto da regra que a
+Ester queria. Não era regressão deste card — estava assim desde junho.
+
+### Implementação
+
+- **`client_portal_account_features`** (conta × função): `released` / `hidden` / `scheduled`, com
+  `release_at`, `hide_at` e `lock_when_overdue`. Ausência de linha = liberado, então só o que a
+  consultora tocou vira registro. Funções cobertas, por decisão da Ester (só entrega técnica):
+  relatórios e documentos, fotos, plano de ação e indicadores de conformidade.
+- **`client_portal_accounts.scheduling_suspension_mode`**: `auto` (suspende sozinho no atraso) /
+  `always_open` (trava manual de exceção) / `suspended` (manual permanente). A coluna antiga
+  `scheduling_suspended` virou legado, mantida em sincronia só com a parte manual.
+- **`client_portal_settings.overdue_grace_days`** (default **5**, escolhido pela Ester): tolerância
+  depois do vencimento antes de a conta contar como em atraso.
+- **`private.portal_account_gates`** é a única fonte de verdade. `client_portal_overview`,
+  `client_portal_action_items`, `client_portal_create_appointment` e a Edge Function todas leem
+  dela — não há regra de visibilidade duplicada em lugar nenhum.
+- **Liberação programada sem cron nem job**: quem decide é a leitura, comparando com `now()` na
+  hora em que o cliente abre o portal. Nada roda em segundo plano, nada pode "esquecer de rodar".
+- **Edge Function republicada (v5→v6)**: o `locked` sumiu. Agora o filtro é tipo do compromisso +
+  `report_hidden` da visita + travas da conta, e todo anexo visível é assinado.
+- **UI**: novo modal **"Acesso do portal"** (ícone de escudo na linha da conta) com o modo de
+  agendamento e as quatro funções. O toggle "Suspender agendamentos" **saiu** do modal de
+  Pagamento — lá ficou só dinheiro. A tolerância entrou em Configurações do portal.
+- **Portal do cliente**: aviso honesto quando algo está fechado ("Relatórios e documentos estão
+  temporariamente indisponíveis... fale com a consultoria"), em vez de mostrar zero e deixar o
+  cliente achar que nunca foi entregue. `PublicAppointmentStatus` parou de bloquear por
+  `scheduling_suspended` e passou a bloquear pela trava.
+
+### A regra, em uma frase
+
+Atraso suspende **agendar**. Esconder **entrega** é decisão explícita da consultora — por conta,
+por função, opcionalmente com data ou amarrada ao atraso.
+
+### Prova de produção — feita no app, com conta de teste
+
+Conta de teste **30 dias em atraso**, com relatório, foto e score. Confirmado na tela do portal:
+
+- banner "Agendamentos suspensos" **automático**, sem ninguém tocar em nada;
+- e, ao mesmo tempo, **1 relatório, 1 foto e conformidade 81% visíveis** — a regra que a Ester
+  pediu;
+- ocultando `reports` e programando `compliance`: contadores foram a zero, a seção de
+  conformidade sumiu, as fotos (não tocadas) continuaram, e o aviso honesto apareceu;
+- `always_open`: o botão "Agendar horário" voltou mesmo com a conta 30 dias vencida;
+- na Edge Function, com a conta em atraso: os dois anexos **voltam** na resposta (antes o
+  `locked` os teria deixado sem URL); ocultando `photos`, a foto some da resposta inteira e o
+  relatório fica.
+
+**Limite do teste, registrado:** a assinatura da URL em si não foi exercitada porque o fixture
+aponta para objetos que não existem no Storage, e não há como subir arquivo no bucket privado sem
+sessão de staff. O código não tem mais nenhum desvio de suspensão em volta da assinatura. Vale
+conferir abrindo um relatório real de conta vencida.
+
+Todos os dados de teste foram apagados e conferidos em zero.
+
+### Impacto medido antes de aplicar
+
+Nenhuma das três contas ativas muda de estado: CAROLINE (paga), Rede Sênior (vence 30/08, ainda
+não venceu) e Samantha (sem vencimento cadastrado). **Atraso exige data de vencimento explícita** —
+sem isso nada bloqueia sozinho, senão toda conta que nunca teve vencimento cadastrado seria
+cortada na primeira leitura.
+
+### Testes
+
+- `supabase/tests/portal_feature_gates.test.sql`: grants e RLS, tudo liberado por padrão, ocultar
+  função a função sem derrubar as vizinhas, liberação programada antes/depois da data, ocultação
+  programada, tolerância respeitada, atraso não esconde entrega, `lock_when_overdue` fecha só o
+  que foi marcado, pagamento reabre, trava manual de exceção, toggle legado migrando para o modo
+  novo e tenant cruzado.
+- `npm test`: 239 testes, 235 passando (as mesmas 4 falhas anteriores). `tsc -b` e `npm run build`
+  limpos.
+
+### Fora de escopo, deliberado
+
+- Agendamento, tutorial, WhatsApp e acessos rápidos **não** entraram no liga/desliga por conta —
+  a Ester escolheu "só as de entrega técnica". Agendamento tem o modo próprio; o resto continua
+  sendo configuração do tenant.
+- Notas fiscais não são travadas: são documento fiscal do cliente, não entrega técnica.
+- A tolerância é **um número por tenant**, não por conta. Se aparecer cliente que precisa de prazo
+  diferente, vira coluna em `client_portal_accounts`.
+- Não há trilha de auditoria das mudanças de trava além de `updated_by`/`updated_at` na própria
+  linha.
+
+Commit: `PENDENTE`.
+
+---
+
 ## P360-011 — Evidências do cliente e revisão técnica
 
 **Modelo:** Opus 5 · **Esforço:** alto · **Depende de:** P360-010 · **Prioridade:** P1 sanitário
@@ -2511,5 +2625,6 @@ Ao concluir um card, marcar aqui e atualizar a tabela da seção 4.
 | 05/08/2026 | Correção do bug de `canonicalLegislationKey` (tarefa em segundo plano acionada pela Ester) | Sonnet 5 | — | `extractBaseLegislation` passou a reconhecer "Municipal"/"Ordinária" como qualificador de `Lei` (com sigla de UF opcional); `canonicalLegislationKey` passou a ancorar a busca do número na posição do tipo reconhecido, não no início da string. `src/__tests__/utils/legislationRefs.test.ts` novo, 6 casos. Inventário do REF-01 regerado: 62 → 57 chaves canônicas (as 19 respostas da Lei Municipal 1.812/2014 se uniram em uma só). 152 testes JS, build OK. |
 | 06/08/2026 | **REL-01** — concluído | Opus 5 | — | O relatório passou a listar, na íntegra, os itens cumpridos (bloco `RELAÇÃO DOS ITENS CUMPRIDOS`, uma tabela por seção, com código, descrição completa e base legal), logo depois da tabela de conformidade por área. Antes, item cumprido sem observação digitada não aparecia em lugar nenhum — só as falhas eram nomeadas. Coluna `Regularizado` marca o que estava em NC em visita anterior, reusando o `recurringItemIds` já carregado (sem consulta nova; sem histórico, nenhuma etiqueta). Achado corrigido de quebra: `addFooter` rodava em dois laços e imprimia `Página 1 de 8` por baixo de `Página 1 de 9` em **todo** relatório já emitido. 4 testes novos, 21 no diretório `utils`, `tsc -b` limpo, conferido em PDF real. |
 | 06/08/2026 | **AGD-01** — concluído, 1 linha recriada em produção | Opus 5 | `a47a400` | A inspeção do Icaraí de 30/06 nunca foi apagada: 114 respostas íntegras, agendamento vinculado. Faltava a linha em `appointment_requests` — no lote de 7 visitas criadas em 16/06 entre 20h41 e 20h54, só a do Icaraí não gerou solicitação, e sem trilha de auditoria do staff não dá para separar falha de escrita de exclusão manual. Recriada com autorização, status `completed` (nenhum PDF publicado no portal). Código: `min` de data removido do modal de agendamento e do de Nova visita (as datas bloqueadas mantêm, de propósito) — não havia validação equivalente no serviço nem `CHECK` no banco; painel passou a ordenar do mais recente para o mais antigo, paginar de 10 em 10 nas três seções e abrir com Ativas e Encerradas recolhidas. 173 testes e build OK. |
+| 07/08/2026 | **PORT-01** — concluído, aplicado em produção | Opus 5 | `PENDENTE` | Achado que motivou metade do card: ligar "suspender agendamento" **também** bloqueava o download de tudo que já tinha sido entregue — a Edge Function usava `scheduling_suspended` para decidir se assinava a URL dos anexos, desde junho. Separado: atraso suspende agendar; esconder entrega virou decisão explícita por conta, em `client_portal_account_features` (liberado/oculto/programado + travar em atraso), com `private.portal_account_gates` como fonte única lida pelo overview, pelo plano de ação, pelo agendamento e pela Edge Function (v5→v6). Suspensão virou modo (`auto`/`always_open`/`suspended`) com tolerância de 5 dias por tenant; liberação programada sem cron, decidida na leitura. Controles reorganizados num modal "Acesso do portal"; o toggle saiu do modal de Pagamento. Medido antes de aplicar: nenhuma das 3 contas ativas muda de estado (atraso exige vencimento cadastrado). Prova no app com conta 30 dias vencida: agendamento suspenso sozinho e relatório/foto/score visíveis ao mesmo tempo. Suíte SQL nova; 235/239 testes. |
 | 07/08/2026 | **P360-010** — concluído, aplicado em produção | Opus 5 | `3bd8376` | `client_action_items` é projeção, não espelho: publicar o relatório copia as NCs, e nada no portal toca em `responses`. Um índice único parcial (`where status <> 'resolved'`) resolve os três casos de uma vez — republicação idempotente, reincidência somando ocorrência no item aberto, e item resolvido preservado como histórico quando a inspeção nova republica o mesmo requisito. Gate de visibilidade é o `report_hidden` da visita, reaplicado em tempo real na leitura; suspensão de agendamento **não** esconde item (decisão registrada). Vencimento ancorado em `America/Sao_Paulo`. Grants conferidos em produção com `has_table_privilege`. Prova feita no app contra o banco de produção com conta de teste — plano de ação, prazo vencido, resolver e histórico confirmados na tela — e todos os dados de teste apagados depois. 17 testes JS novos + suíte SQL nova; 235/239 testes (as 4 falhas são anteriores, confirmado com `git stash`). |
 | 06/08/2026 | **REF-06** — concluído, aplicado em produção | Opus 5 | `071adb2`, `8796143` |  Medido: dos 303 `item_id` órfãos, 272 eram "defeito" no papel mas só 6 inspeções tinham id de código; o que degradava mesmo eram 19 dos 26 relatórios concluídos (376 respostas), por três causas — inspeção criada antes do sync de roteiros, `city`/`state` que o servidor não devolve (suplemento regional some offline) e item reescrito no lugar trocando a pergunta de 18 respostas já entregues (o REF-05 fez a terceira). Decidido não remapear `responses`: congela-se o roteiro da época em `inspection_report_versions`. Roteiros `tpl-ilpi-v1` e federal-97 reconstruídos do git; o de 97 confere seção a seção com o PDF entregue ao Lar Recanto do Sossego em 14/04/2026. Código, scripts e simulação prontos e conferidos; 162 testes passando (as 4 falhas de `sync.test.ts` são anteriores). Duas cargas: a primeira congelou 15 relatórios e marcou 28 respostas com `deleted_at`; a segunda, depois de corrigir o script (a seção degradada estava sendo usada como fonte de texto), refez 6. Diagnóstico final: **0 respostas degradadas** nos 26 relatórios, contra 376 no começo. |

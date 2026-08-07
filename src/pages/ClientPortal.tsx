@@ -317,6 +317,18 @@ export function ClientPortal() {
 
   // ─── Painel do cliente ───────────────────────────────────────
   const schedulingSuspended = !!overview.scheduling_suspended;
+  // Esconder entrega sem dizer nada faria o portal mentir ("nenhum relatório disponível").
+  // O cliente não vê o motivo, mas sabe que existe e a quem perguntar.
+  const blockedFeatures = (
+    [
+      ['reports', 'Relatórios e documentos'],
+      ['photos', 'Fotos'],
+      ['compliance', 'Indicadores de conformidade'],
+      ['action_plan', 'Plano de ação'],
+    ] as const
+  )
+    .filter(([key]) => overview.feature_gates?.[key] === false)
+    .map(([, label]) => label);
   const totalVisits = overview.units.reduce((sum, u) => sum + u.visits.length, 0);
 
   return (
@@ -385,6 +397,17 @@ export function ClientPortal() {
               ))}
             </select>
           </div>
+        )}
+
+        {blockedFeatures.length > 0 && (
+          <section className="mb-6 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
+            <span className="font-semibold text-gray-800">
+              {blockedFeatures.join(', ')}{' '}
+              {blockedFeatures.length === 1 ? 'está temporariamente indisponível' : 'estão temporariamente indisponíveis'}{' '}
+              no seu portal.
+            </span>{' '}
+            Fale com a equipe da consultoria para liberar.
+          </section>
         )}
 
         {overview.action_plan_enabled && (

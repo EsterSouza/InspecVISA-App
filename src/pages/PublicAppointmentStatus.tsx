@@ -222,8 +222,13 @@ export function PublicAppointmentStatus() {
   const reportPdf = assets.find((a) => a.kind === 'report_pdf' && a.signed_url);
   const photos = assets.filter((a) => a.kind === 'photo' && a.signed_url);
   const attachments = assets.filter((a) => a.kind === 'attachment');
-  // Suspensão por pagamento: itens ficam visíveis (contam), porém bloqueados (sem signed_url).
-  const suspended = !!status.scheduling_suspended;
+  // PORT-01: suspensão de agendamento não bloqueia mais o que já foi entregue. O que bloqueia
+  // arquivo é a trava por conta — e quando ela está ligada a Edge Function nem devolve o
+  // anexo, então "bloqueado" aqui é só o que a consultora fechou de propósito.
+  const gates = status.feature_gates || {};
+  const reportsBlocked = gates.reports === false;
+  const photosBlocked = gates.photos === false;
+  const suspended = reportsBlocked || photosBlocked;
   const hasReport = assets.some((a) => a.kind === 'report_pdf');
   const photoCount = assets.filter((a) => a.kind === 'photo').length;
   const hasDeliverables = hasReport || photoCount > 0 || attachments.length > 0;
@@ -321,10 +326,14 @@ export function PublicAppointmentStatus() {
           <div className="mb-6 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
             <Lock className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
             <div className="min-w-0">
-              <p className="text-sm font-bold text-red-700">Acesso suspenso por pendência de pagamento</p>
+              <p className="text-sm font-bold text-red-700">Arquivos temporariamente indisponíveis</p>
               <p className="mt-0.5 text-xs text-red-600">
-                O relatório, as fotos e os anexos desta inspeção estão temporariamente bloqueados
-                por falta de pagamento. Regularize o pagamento para liberar o acesso aos arquivos.
+                {reportsBlocked && photosBlocked
+                  ? 'O relatório, as fotos e os anexos desta inspeção'
+                  : reportsBlocked
+                    ? 'O relatório e os anexos desta inspeção'
+                    : 'As fotos desta inspeção'}{' '}
+                não estão disponíveis no momento. Fale com a equipe da consultoria para liberar.
               </p>
               {status.payment_due_date && (
                 <p className="mt-1 text-xs font-semibold text-red-700">
@@ -570,10 +579,10 @@ export function PublicAppointmentStatus() {
               <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
                 <Lock className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
                 <div>
-                  <p className="text-sm font-semibold text-red-700">Relatório disponível — bloqueado</p>
+                  <p className="text-sm font-semibold text-red-700">Relatório disponível — indisponível no momento</p>
                   <p className="mt-0.5 text-xs text-red-600">
-                    O relatório desta inspeção já está pronto, mas o acesso está bloqueado por
-                    pendência de pagamento. Regularize o pagamento para liberar o download.
+                    O relatório desta inspeção já está pronto, mas não está liberado no seu portal
+                    agora. Fale com a equipe da consultoria.
                   </p>
                 </div>
               </div>
@@ -614,7 +623,7 @@ export function PublicAppointmentStatus() {
                 </h4>
                 <div className="flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-3 text-sm font-semibold text-red-600">
                   <Lock className="h-4 w-4" />
-                  Galeria bloqueada por pendência de pagamento
+                  Galeria não liberada no momento
                 </div>
               </div>
             ) : null}
@@ -645,7 +654,7 @@ export function PublicAppointmentStatus() {
                         <div className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 p-3 opacity-70">
                           {suspended ? <Lock className="h-5 w-5 shrink-0 text-red-500" /> : attachmentIcon(asset)}
                           <span className="min-w-0 flex-1 truncate text-sm text-gray-500">
-                            {asset.file_name || 'Anexo'} {suspended ? '(bloqueado por pagamento)' : '(indisponível)'}
+                            {asset.file_name || 'Anexo'} (indisponível)
                           </span>
                         </div>
                       )}

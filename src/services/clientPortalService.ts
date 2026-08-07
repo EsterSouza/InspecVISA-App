@@ -4,6 +4,7 @@ import type {
   AppointmentType,
   AppointmentAttachment,
   ClientActionItemPriority,
+  ClientPortalFeatureGates,
   ClientPortalAuditEventType,
   ClientPortalSettings,
   PublicAppointmentStatusResult,
@@ -121,6 +122,8 @@ export interface ClientPortalOverview extends Omit<ClientPortalSettings, 'tenant
   account_name: string;
   main_drive_folder_url: string | null;
   scheduling_suspended?: boolean;
+  /** PORT-01 — o que está liberado nesta conta. Ausente = tudo liberado. */
+  feature_gates?: Partial<ClientPortalFeatureGates>;
   payment?: ClientPortalPayment;
   units: ClientPortalUnit[];
 }

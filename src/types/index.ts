@@ -502,6 +502,34 @@ export interface AppointmentAttachment {
   created_at: string;
 }
 
+/**
+ * PORT-01 — funções de entrega técnica que a consultora pode liberar/ocultar por CONTA de
+ * portal. Agendamento não entra aqui: tem modo próprio (`SchedulingSuspensionMode`), e o
+ * tutorial/WhatsApp/acessos rápidos continuam sendo configuração do tenant.
+ */
+export type ClientPortalFeature = 'reports' | 'photos' | 'action_plan' | 'compliance';
+export type ClientPortalFeatureState = 'released' | 'hidden' | 'scheduled';
+export type ClientPortalFeatureGates = Record<ClientPortalFeature, boolean>;
+
+export interface ClientPortalFeatureRow {
+  account_id: string;
+  tenant_id: string;
+  feature: ClientPortalFeature;
+  state: ClientPortalFeatureState;
+  release_at: string | null;
+  hide_at: string | null;
+  lock_when_overdue: boolean;
+  updated_at: string;
+  updated_by: string | null;
+}
+
+/**
+ * `auto` suspende sozinho quando a conta passa da tolerância de atraso; `always_open` é a
+ * trava manual para o cliente que a consultora sabe que vai pagar; `suspended` é suspensão
+ * manual permanente.
+ */
+export type SchedulingSuspensionMode = 'auto' | 'always_open' | 'suspended';
+
 export type ClientActionItemPriority = 'urgent' | 'important' | 'recommended';
 export type ClientActionItemStatus = 'hidden' | 'published' | 'resolved';
 
@@ -568,6 +596,8 @@ export interface ClientPortalSettings {
   multi_purpose_schedule: boolean;
   action_plan_enabled: boolean;
   service_requests_enabled: boolean;
+  // Dias de tolerância depois do vencimento antes de a conta contar como em atraso.
+  overdue_grace_days?: number;
 }
 
 export interface PublicAppointmentPayload {
@@ -621,6 +651,8 @@ export interface PublicAppointmentStatusResult {
   personalized_sanitary_folder_url?: string | null;
   /** Conta suspensa por pendência de pagamento: relatório/arquivos ficam bloqueados (visíveis, sem abrir/baixar). */
   scheduling_suspended?: boolean;
+  /** PORT-01 — travas por conta. Ausente = tudo liberado. */
+  feature_gates?: Partial<ClientPortalFeatureGates>;
   payment_link?: string | null;
   payment_due_date?: string | null;
   created_at: string;

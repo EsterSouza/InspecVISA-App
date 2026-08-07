@@ -47,16 +47,27 @@ Deno.serve(async (req) => {
 
     const { data: account, error: accountError } = await admin
       .from('client_portal_accounts')
-      .select('id, name, scheduling_suspended, payment_link, payment_due_date')
+      .select('id, name, payment_link, payment_due_date')
       .eq('portal_token', accountToken)
       .eq('is_active', true)
       .maybeSingle();
     if (accountError) throw accountError;
     if (!account) return jsonResponse({ error: 'acesso invalido' }, { status: 403 });
 
-    // Conta suspensa por pagamento: o cliente continua vendo que há relatorio/arquivos,
-    // mas eles ficam bloqueados (sem URL assinada para abrir/baixar).
-    const locked = account.scheduling_suspended === true;
+    // PORT-01: inadimplência NÃO bloqueia o que já foi entregue. Antes, `scheduling_suspended`
+    // impedia a assinatura da URL de todos os anexos — o cliente via o relatório na lista e
+    // não conseguia abrir. Agora suspensão vale só para agendar, e esconder entrega é decisão
+    // explícita por conta, resolvida em client_portal_feature_gates.
+    const { data: gates, error: gatesError } = await admin.rpc('client_portal_feature_gates', {
+      p_token: accountToken,
+    });
+    if (gatesError) throw gatesError;
+    if (gates?.error) return jsonResponse({ error: 'acesso invalido' }, { status: 403 });
+
+    const features = gates?.features || {};
+    const reportsReleased = features.reports !== false;
+    const photosReleased = features.photos !== false;
+    const schedulingSuspended = gates?.scheduling_suspended === true;
 
     const { data: requestRow, error: requestError } = await admin
       .from('appointment_requests')
@@ -89,18 +100,20 @@ Deno.serve(async (req) => {
       .order('created_at', { ascending: true });
     if (assetsError) throw assetsError;
 
-    // Relatório oculto pela equipe: não expõe os PDFs de relatório ao cliente.
+    // Três filtros somados: tipo do compromisso, relatório oculto naquela visita e as travas
+    // por conta. Relatórios e anexos andam juntos na trava `reports`; fotos têm a sua.
     const appointmentType = requestRow.appointment_type || 'inspection';
-    const visibleRows = appointmentType !== 'inspection'
-      ? (rows || []).filter((asset) => asset.kind === 'attachment')
-      : requestRow.report_hidden
-        ? (rows || []).filter((asset) => asset.kind !== 'report_pdf')
-        : (rows || []);
+    const visibleRows = (rows || []).filter((asset) => {
+      if (appointmentType !== 'inspection') return asset.kind === 'attachment' && reportsReleased;
+      if (asset.kind === 'report_pdf') return reportsReleased && !requestRow.report_hidden;
+      if (asset.kind === 'attachment') return reportsReleased;
+      if (asset.kind === 'photo') return photosReleased;
+      return true;
+    });
 
     const assets = await Promise.all(visibleRows.map(async (asset) => {
       let signedUrl: string | undefined;
-      // Suspenso: nao gera URL assinada (bloqueia abrir/baixar), mas mantem o item visivel.
-      if (!locked && asset.storage_bucket && asset.storage_path) {
+      if (asset.storage_bucket && asset.storage_path) {
         const { data } = await admin.storage
           .from(asset.storage_bucket)
           .createSignedUrl(asset.storage_path, 60 * 60);
@@ -140,7 +153,8 @@ Deno.serve(async (req) => {
         report_due_at: appointmentType === 'inspection' ? requestRow.report_due_at : null,
         report_due_source: appointmentType === 'inspection' ? requestRow.report_due_source : null,
         notes: requestRow.notes,
-        scheduling_suspended: locked,
+        scheduling_suspended: schedulingSuspended,
+        feature_gates: features,
         payment_link: account.payment_link || null,
         payment_due_date: account.payment_due_date || null,
         has_personalized_sanitary_folder: clientRow?.has_personalized_sanitary_folder || false,

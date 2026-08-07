@@ -10,11 +10,18 @@ import {
   Mail,
   Pencil,
   Settings2,
+  ShieldCheck,
   Trash2,
   Upload,
   UserPlus,
 } from 'lucide-react';
-import type { Client, ClientPortalSettings } from '../../types';
+import type {
+  Client,
+  ClientPortalFeature,
+  ClientPortalFeatureRow,
+  ClientPortalSettings,
+  SchedulingSuspensionMode,
+} from '../../types';
 import {
   AppointmentAdminService,
   type ClientPortalAccountRow,
@@ -54,6 +61,7 @@ export function ClientPortalManagement({ accounts, clients, onChanged }: ClientP
   const [editTarget, setEditTarget] = useState<ClientPortalAccountRow | null>(null);
   const [paymentTarget, setPaymentTarget] = useState<ClientPortalAccountRow | null>(null);
   const [invoicesTarget, setInvoicesTarget] = useState<ClientPortalAccountRow | null>(null);
+  const [accessTarget, setAccessTarget] = useState<ClientPortalAccountRow | null>(null);
   const [showSettings, setShowSettings] = useState(false);
 
   const portalUrl = `${window.location.origin}/cliente`;
@@ -166,9 +174,14 @@ export function ClientPortalManagement({ accounts, clients, onChanged }: ClientP
                     {account.payment_status === 'paid' ? 'Pago' : 'Pgto pendente'}
                     {account.payment_type ? ` · ${account.payment_type === 'monthly' ? 'mensal' : 'único'}` : ''}
                   </span>
-                  {account.scheduling_suspended && (
+                  {account.scheduling_suspension_mode === 'suspended' && (
                     <span className="flex items-center gap-1 shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold uppercase text-red-700">
                       <CalendarOff className="h-3 w-3" /> Agendamento suspenso
+                    </span>
+                  )}
+                  {account.scheduling_suspension_mode === 'always_open' && (
+                    <span className="flex items-center gap-1 shrink-0 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold uppercase text-sky-700">
+                      Agenda liberada mesmo em atraso
                     </span>
                   )}
                 </div>
@@ -180,6 +193,15 @@ export function ClientPortalManagement({ accounts, clients, onChanged }: ClientP
                 </p>
               </div>
               <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={busyId === account.id}
+                  onClick={() => setAccessTarget(account)}
+                  title="Acesso do portal: o que este cliente enxerga e quando"
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                </Button>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -335,6 +357,14 @@ export function ClientPortalManagement({ accounts, clients, onChanged }: ClientP
             setEditTarget(null);
             onChanged();
           }}
+        />
+      )}
+
+      {accessTarget && (
+        <PortalAccessModal
+          account={accessTarget}
+          onClose={() => setAccessTarget(null)}
+          onSaved={onChanged}
         />
       )}
 
@@ -529,6 +559,253 @@ interface PaymentModalProps {
   onSaved: () => void;
 }
 
+// ─── Central de acesso do portal (PORT-01) ────────────────────
+//
+// Um lugar só para "o que este cliente enxerga e quando". Pagamento continua no modal de
+// Pagamento — lá é dinheiro; aqui é acesso.
+
+const PORTAL_FEATURES: { key: ClientPortalFeature; label: string; hint: string }[] = [
+  { key: 'reports', label: 'Relatórios e documentos', hint: 'PDFs de laudo e anexos publicados na visita.' },
+  { key: 'photos', label: 'Fotos', hint: 'Fotos da inspeção anexadas ao compromisso.' },
+  { key: 'action_plan', label: 'Plano de ação', hint: 'Pendências publicadas com prazo e responsável.' },
+  { key: 'compliance', label: 'Indicadores de conformidade', hint: 'Percentuais, classificação e contagem de não conformidades.' },
+];
+
+const SCHEDULING_MODES: { key: SchedulingSuspensionMode; label: string; hint: string }[] = [
+  { key: 'auto', label: 'Automático', hint: 'Suspende sozinho quando a conta passa da tolerância de atraso, e volta quando o pagamento é marcado como pago.' },
+  { key: 'always_open', label: 'Sempre liberado', hint: 'Exceção manual: continua agendando mesmo em atraso.' },
+  { key: 'suspended', label: 'Suspenso', hint: 'Suspenso na mão, independente de pagamento.' },
+];
+
+/** `datetime-local` só aceita `YYYY-MM-DDTHH:mm`; o banco devolve ISO com fuso. */
+function toLocalInput(value: string | null): string {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+interface PortalAccessModalProps {
+  account: ClientPortalAccountRow;
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+function PortalAccessModal({ account, onClose, onSaved }: PortalAccessModalProps) {
+  const [rows, setRows] = useState<ClientPortalFeatureRow[]>([]);
+  const [mode, setMode] = useState<SchedulingSuspensionMode>(account.scheduling_suspension_mode);
+  const [graceDays, setGraceDays] = useState<number>(5);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = React.useCallback(() => {
+    setLoading(true);
+    Promise.all([
+      AppointmentAdminService.listPortalFeatures(account.id),
+      AppointmentAdminService.getPortalSettings().catch(() => null),
+    ])
+      .then(([featureRows, settings]) => {
+        setRows(featureRows);
+        if (settings?.overdue_grace_days != null) setGraceDays(settings.overdue_grace_days);
+      })
+      .catch((err) => setError(errorMessage(err)))
+      .finally(() => setLoading(false));
+  }, [account.id]);
+
+  useEffect(load, [load]);
+
+  const rowFor = (feature: ClientPortalFeature) => rows.find((row) => row.feature === feature);
+
+  const save = async (feature: ClientPortalFeature, patch: Partial<ClientPortalFeatureRow>) => {
+    const current = rowFor(feature);
+    setBusy(feature);
+    setError(null);
+    try {
+      await AppointmentAdminService.setPortalFeature(account.id, feature, {
+        state: patch.state ?? current?.state ?? 'released',
+        releaseAt: patch.release_at !== undefined ? patch.release_at : current?.release_at ?? null,
+        hideAt: patch.hide_at !== undefined ? patch.hide_at : current?.hide_at ?? null,
+        lockWhenOverdue:
+          patch.lock_when_overdue !== undefined ? patch.lock_when_overdue : current?.lock_when_overdue ?? false,
+      });
+      load();
+      onSaved();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const saveMode = async (next: SchedulingSuspensionMode) => {
+    setBusy('scheduling');
+    setError(null);
+    try {
+      await AppointmentAdminService.setSchedulingMode(account.id, next);
+      setMode(next);
+      onSaved();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <Card className="max-h-[90vh] w-full max-w-2xl overflow-y-auto shadow-2xl">
+        <CardContent className="p-6">
+          <h3 className="mb-1 text-xl font-bold text-gray-900">Acesso do portal</h3>
+          <p className="mb-5 text-sm text-gray-500">{account.name}</p>
+
+          {error && (
+            <div className="mb-4 rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+          )}
+
+          <div className="mb-5 rounded-xl border border-gray-100 bg-gray-50 p-3">
+            <p className="text-sm font-bold text-gray-800">Agendamento</p>
+            <p className="mb-3 text-xs text-gray-500">
+              Tolerância atual: {graceDays} dia{graceDays === 1 ? '' : 's'} depois do vencimento. Muda em
+              Configurações do portal e vale para toda a carteira.
+            </p>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {SCHEDULING_MODES.map((option) => (
+                <button
+                  key={option.key}
+                  type="button"
+                  disabled={busy === 'scheduling'}
+                  onClick={() => void saveMode(option.key)}
+                  title={option.hint}
+                  className={`rounded-xl border p-2.5 text-left text-xs transition-colors ${
+                    mode === option.key
+                      ? 'border-primary-500 bg-primary-50 text-primary-800'
+                      : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <span className="block text-sm font-bold">{option.label}</span>
+                  <span className="mt-0.5 block leading-tight">{option.hint}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <p className="mb-1 text-sm font-bold text-gray-800">O que o cliente enxerga</p>
+          <p className="mb-3 text-xs text-gray-500">
+            Atraso de pagamento <span className="font-semibold">não</span> esconde o que já foi entregue. Só o que
+            estiver marcado abaixo fecha sozinho quando a conta atrasa.
+          </p>
+
+          {loading ? (
+            <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-sm text-gray-400">
+              Carregando as travas desta conta...
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {PORTAL_FEATURES.map(({ key, label, hint }) => {
+                const row = rowFor(key);
+                const state = row?.state ?? 'released';
+                return (
+                  <div key={key} className="rounded-xl border border-gray-100 bg-white p-3">
+                    <div className="mb-2 flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-gray-900">{label}</p>
+                        <p className="text-xs text-gray-400">{hint}</p>
+                      </div>
+                      {busy === key && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-gray-400" />}
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {(['released', 'hidden', 'scheduled'] as const).map((option) => (
+                        <button
+                          key={option}
+                          type="button"
+                          disabled={busy === key}
+                          onClick={() =>
+                            void save(key, {
+                              state: option,
+                              // Programar sem data é recusado pelo banco; sugere daqui a uma semana.
+                              release_at:
+                                option === 'scheduled'
+                                  ? row?.release_at ||
+                                    new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+                                  : null,
+                            })
+                          }
+                          className={`h-9 rounded-lg border text-xs font-bold transition-colors ${
+                            state === option
+                              ? option === 'hidden'
+                                ? 'border-red-400 bg-red-50 text-red-700'
+                                : option === 'scheduled'
+                                  ? 'border-sky-400 bg-sky-50 text-sky-700'
+                                  : 'border-green-500 bg-green-50 text-green-700'
+                              : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+                          }`}
+                        >
+                          {option === 'released' ? 'Liberado' : option === 'hidden' ? 'Oculto' : 'Programado'}
+                        </button>
+                      ))}
+                    </div>
+
+                    {state === 'scheduled' && (
+                      <label className="mt-2 block text-xs text-gray-600">
+                        Liberar a partir de
+                        <input
+                          type="datetime-local"
+                          value={toLocalInput(row?.release_at ?? null)}
+                          disabled={busy === key}
+                          onChange={(e) =>
+                            void save(key, {
+                              state: 'scheduled',
+                              release_at: e.target.value ? new Date(e.target.value).toISOString() : null,
+                            })
+                          }
+                          className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-sm"
+                        />
+                      </label>
+                    )}
+
+                    <label className="mt-2 block text-xs text-gray-600">
+                      Ocultar a partir de <span className="text-gray-400">(fim de contrato — opcional)</span>
+                      <input
+                        type="datetime-local"
+                        value={toLocalInput(row?.hide_at ?? null)}
+                        disabled={busy === key}
+                        onChange={(e) =>
+                          void save(key, { hide_at: e.target.value ? new Date(e.target.value).toISOString() : null })
+                        }
+                        className="mt-1 w-full rounded-lg border border-gray-300 p-2 text-sm"
+                      />
+                    </label>
+
+                    <label className="mt-2 flex items-center gap-2 text-xs text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={!!row?.lock_when_overdue}
+                        disabled={busy === key}
+                        onChange={(e) => void save(key, { lock_when_overdue: e.target.checked })}
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+                      Fechar sozinho enquanto o pagamento estiver atrasado
+                    </label>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="mt-6 flex justify-end">
+            <Button type="button" variant="outline" onClick={onClose}>
+              Fechar
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function PaymentModal({ account, onClose, onSaved }: PaymentModalProps) {
   const [type, setType] = useState<'monthly' | 'one_time' | null>(account.payment_type);
   const [status, setStatus] = useState<'pending' | 'paid'>(account.payment_status);
@@ -539,28 +816,12 @@ function PaymentModal({ account, onClose, onSaved }: PaymentModalProps) {
       : [{ label: 'Principal', url: account.payment_link || '' }]
   );
   const [dueDate, setDueDate] = useState(account.payment_due_date || '');
-  const [suspended, setSuspended] = useState(account.scheduling_suspended);
-  const [togglingSuspend, setTogglingSuspend] = useState(false);
   const [sendingOverdue, setSendingOverdue] = useState(false);
   const [overdueSent, setOverdueSent] = useState(false);
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const handleToggleSuspended = async () => {
-    const next = !suspended;
-    setTogglingSuspend(true);
-    setError(null);
-    try {
-      await AppointmentAdminService.setSchedulingSuspended(account.id, next);
-      setSuspended(next);
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setTogglingSuspend(false);
-    }
-  };
 
   const handleSendOverdueEmail = async () => {
     setSendingOverdue(true);
@@ -724,28 +985,10 @@ function PaymentModal({ account, onClose, onSaved }: PaymentModalProps) {
               </div>
             </div>
 
+            {/* Suspender agendamento saiu daqui: virou modo (auto/exceção/manual) em
+                "Acesso do portal", junto com as demais travas do que o cliente enxerga.
+                Aqui fica só dinheiro. */}
             <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 space-y-3">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium text-gray-700">Suspender agendamentos</p>
-                  <p className="text-xs text-gray-400">Bloqueia novos agendamentos do cliente por falta de pagamento. Pode ser revertido a qualquer momento.</p>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={suspended}
-                  disabled={togglingSuspend}
-                  onClick={() => void handleToggleSuspended()}
-                  className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${suspended ? 'bg-red-500' : 'bg-gray-300'} ${togglingSuspend ? 'opacity-60' : ''}`}
-                >
-                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${suspended ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                </button>
-              </div>
-              {suspended && (
-                <div className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700">
-                  Agendamentos suspensos. O cliente verá um aviso e não conseguirá agendar até a regularização.
-                </div>
-              )}
               <Button
                 type="button"
                 variant="outline"
@@ -832,6 +1075,7 @@ function PortalSettingsModal({ onClose, onSaved }: PortalSettingsModalProps) {
         multi_purpose_schedule: settings.multi_purpose_schedule,
         action_plan_enabled: settings.action_plan_enabled,
         service_requests_enabled: settings.service_requests_enabled,
+        overdue_grace_days: settings.overdue_grace_days,
       });
       onSaved();
     } catch (err) {
@@ -905,6 +1149,24 @@ function PortalSettingsModal({ onClose, onSaved }: PortalSettingsModalProps) {
                   </label>
                 ))}
               </div>
+
+              <label className="block space-y-1.5 text-sm font-medium text-gray-700">
+                Tolerância de atraso (dias)
+                <input
+                  type="number"
+                  min={0}
+                  max={180}
+                  value={settings.overdue_grace_days ?? 5}
+                  onChange={(e) =>
+                    setSettings({ ...settings, overdue_grace_days: Math.max(0, Number(e.target.value) || 0) })
+                  }
+                  className="w-full rounded-xl border border-gray-300 p-2.5 text-sm font-normal"
+                />
+                <span className="block text-xs font-normal text-gray-500">
+                  Dias depois do vencimento antes de a conta contar como em atraso. Só conta quando há data de
+                  vencimento cadastrada, e é o que dispara a suspensão automática de agendamento.
+                </span>
+              </label>
 
               {error && (
                 <div className="rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">{error}</div>
