@@ -1871,6 +1871,8 @@ sem erros de console nem de servidor.
 **Novos eventos de auditoria** (`ClientPortalAuditEventType`, sem migration — `event_type` é
 `text` livre no banco): `next_action_clicked` e `unit_filter_changed`.
 
+Commit: `f783196`.
+
 ---
 
 ## P360-010 — Projeção segura do plano de ação
