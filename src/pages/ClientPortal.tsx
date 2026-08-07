@@ -13,6 +13,7 @@ import {
   PortalNextAction,
   type NextActionOverdueItem,
   type NextActionPaymentOverdue,
+  type NextActionReturnedEvidence,
   type NextActionUpcomingAppointment,
 } from '../components/client/PortalNextAction';
 import { PortalActionPlan, type SubmitEvidenceHandler } from '../components/client/PortalActionPlan';
@@ -241,6 +242,22 @@ export function ClientPortal() {
     [actionItems, selectedUnitId]
   );
 
+  // Devolução vem ANTES de prazo vencido: o item vencido o cliente já sabe que está atrasado,
+  // enquanto a devolução é informação nova, dele para nós, que só ele pode destravar. Se os dois
+  // valem para o mesmo item, mandar refazer a evidência é a ação útil.
+  const nextActionReturnedEvidence: NextActionReturnedEvidence | null = useMemo(() => {
+    const returned = filteredActionItems.find(
+      (item) => item.status === 'published' && item.evidence_status === 'changes_requested'
+    );
+    if (!returned) return null;
+    return {
+      type: 'evidence_returned',
+      unitName: returned.unit_name,
+      itemLabel: returned.title,
+      href: '#portal-action-plan',
+    };
+  }, [filteredActionItems]);
+
   const nextActionOverdueItem: NextActionOverdueItem | null = useMemo(() => {
     // O mais atrasado primeiro; o portal já entrega a lista ordenada por prazo.
     const overdue = filteredActionItems.find((item) => item.status === 'published' && item.is_overdue);
@@ -382,6 +399,7 @@ export function ClientPortal() {
         <PortalNextAction
           paymentOverdue={nextActionPayment}
           upcomingAppointment={nextActionAppointment}
+          returnedEvidence={overview.action_plan_enabled ? nextActionReturnedEvidence : null}
           overdueItem={overview.action_plan_enabled ? nextActionOverdueItem : null}
           onAudit={audit}
         />
