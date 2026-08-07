@@ -3,6 +3,7 @@ import { formatAppointmentLeadTimeMessage, isAppointmentAtLeast24hAhead } from '
 import type {
   AppointmentType,
   AppointmentAttachment,
+  ClientActionEvidenceStatus,
   ClientActionItemPriority,
   ClientPortalFeatureGates,
   ClientPortalAuditEventType,
@@ -10,6 +11,7 @@ import type {
   PublicAppointmentStatusResult,
 } from '../types';
 import { isInspectionAppointment, normalizeAppointmentType } from '../utils/appointmentType';
+import { checkEvidenceFile } from '../utils/evidenceFile';
 import { PUBLIC_APPOINTMENT_DRAFT_KEY } from '../utils/publicAppointmentForm';
 
 const TIMEOUT_MS = 30000;
@@ -41,10 +43,10 @@ function recordAuditFailure(eventType: ClientPortalAuditEventType, err: unknown)
   );
 }
 
-function withTimeout<T>(promise: PromiseLike<T>, label: string): Promise<T> {
+function withTimeout<T>(promise: PromiseLike<T>, label: string, timeoutMs = TIMEOUT_MS): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error(`${label} demorou demais para responder.`)), TIMEOUT_MS);
+    timer = setTimeout(() => reject(new Error(`${label} demorou demais para responder.`)), timeoutMs);
   });
   return Promise.race([Promise.resolve(promise), timeout]).finally(() => {
     if (timer) clearTimeout(timer);
@@ -164,9 +166,39 @@ export interface ClientPortalActionItem {
   last_detected_on: string | null;
   resolved_at: string | null;
   visit_token: string | null;
+  /** P360-011 — em que pé está a prova de correção. Nunca traz caminho de arquivo. */
+  evidence_count: number;
+  evidence_status: ClientActionEvidenceStatus | null;
+  evidence_file_name: string | null;
+  evidence_submitted_at: string | null;
+  evidence_reviewed_at: string | null;
+  evidence_review_note: string | null;
+  accepts_evidence: boolean;
+}
+
+/**
+ * Evidência como o CLIENTE a recebe: sem bucket, sem caminho, com URL temporária assinada na
+ * hora pela Edge Function. Renovar é reabrir a lista.
+ */
+export interface ClientPortalEvidence {
+  id: string;
+  action_item_id: string;
+  file_name: string;
+  mime_type: string;
+  file_size: number;
+  status: ClientActionEvidenceStatus;
+  client_note: string | null;
+  review_note: string | null;
+  submitted_at: string;
+  reviewed_at: string | null;
+  signed_url?: string;
+  signed_url_expires_in?: number;
 }
 
 const TOKEN_KEY = 'inspecvisa-client-portal-token';
+
+/** 10 MB numa conexão de ILPI do interior não cabe nos 30s das outras chamadas. */
+const UPLOAD_TIMEOUT_MS = 180000;
 
 export const clientPortalService = {
   getStoredToken(): string | null {
@@ -233,6 +265,51 @@ export const clientPortalService = {
     if (error) throw error;
     if (data?.error) throw new Error(data.error);
     return (data?.items ?? []) as ClientPortalActionItem[];
+  },
+
+  /**
+   * P360-011 — envia a prova de correção de uma pendência.
+   *
+   * `uploadKey` é a identidade do envio: gerada uma vez por arquivo escolhido e reusada em
+   * qualquer nova tentativa, para que retry e clique duplo caiam na mesma linha em vez de
+   * criarem evidências repetidas. Quem valida de verdade é o servidor; `checkEvidenceFile`
+   * roda antes só para não fazer o cliente esperar um upload que vai ser recusado.
+   */
+  async submitEvidence(
+    token: string,
+    params: { actionItemId: string; uploadKey: string; file: File; note?: string }
+  ): Promise<{ evidenceId: string; duplicate: boolean }> {
+    const check = checkEvidenceFile(params.file);
+    if (!check.ok) throw new Error(check.message);
+
+    const form = new FormData();
+    form.append('accountToken', token);
+    form.append('actionItemId', params.actionItemId);
+    form.append('uploadKey', params.uploadKey);
+    if (params.note) form.append('note', params.note);
+    form.append('file', params.file);
+
+    const { data, error } = await withTimeout(
+      supabase.functions.invoke('client-action-evidence', { body: form }),
+      'EnvioDeEvidencia',
+      UPLOAD_TIMEOUT_MS
+    );
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    return { evidenceId: data.evidence_id as string, duplicate: !!data.duplicate };
+  },
+
+  /** Lista as evidências do acesso com URL temporária recém-assinada. */
+  async evidence(token: string, actionItemId?: string | null): Promise<ClientPortalEvidence[]> {
+    const { data, error } = await withTimeout(
+      supabase.functions.invoke('client-action-evidence', {
+        body: { accountToken: token, actionItemId: actionItemId || null },
+      }),
+      'EvidenciasPortalCliente'
+    );
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    return (data?.evidence ?? []) as ClientPortalEvidence[];
   },
 
   async createAppointment(

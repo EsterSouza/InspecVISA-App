@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import { PortalActionPlan } from '../../components/client/PortalActionPlan';
 import type { ClientPortalActionItem } from '../../services/clientPortalService';
 
@@ -22,6 +22,13 @@ function actionItem(overrides: Partial<ClientPortalActionItem> = {}): ClientPort
     last_detected_on: '2026-03-10',
     resolved_at: null,
     visit_token: 'visit-token',
+    evidence_count: 0,
+    evidence_status: null,
+    evidence_file_name: null,
+    evidence_submitted_at: null,
+    evidence_reviewed_at: null,
+    evidence_review_note: null,
+    accepts_evidence: true,
     ...overrides,
   };
 }
@@ -95,5 +102,119 @@ describe('P360-010 - PortalActionPlan', () => {
 
     rerender(<PortalActionPlan items={[actionItem()]} showUnitName />);
     expect(screen.getByText('Unidade Centro')).toBeInTheDocument();
+  });
+});
+
+describe('P360-011 - evidência no plano de ação do cliente', () => {
+  // `applyAccept: false` para o teste exercitar a checagem do app, e não o filtro que o
+  // atributo `accept` já faz no seletor de arquivos do sistema.
+  function pickFile(item: ClientPortalActionItem, file: File) {
+    const input = screen.getByTestId(`evidence-input-${item.id}`) as HTMLInputElement;
+    return userEvent.setup({ applyAccept: false }).upload(input, file);
+  }
+
+  const pdf = () => new File(['%PDF-1.4 conteudo'], 'Protocolo Vigilância.pdf', { type: 'application/pdf' });
+
+  test('sem handler de envio o cliente não vê botão de evidência', () => {
+    render(<PortalActionPlan items={[actionItem()]} />);
+    expect(screen.queryByRole('button', { name: /Enviar evidência/ })).not.toBeInTheDocument();
+  });
+
+  test('item que não aceita evidência não oferece envio', () => {
+    render(
+      <PortalActionPlan
+        items={[actionItem({ accepts_evidence: false })]}
+        onSubmitEvidence={vi.fn()}
+      />
+    );
+    expect(screen.queryByRole('button', { name: /Enviar evidência/ })).not.toBeInTheDocument();
+  });
+
+  test('envia o arquivo com uma chave de idempotência e o comentário do cliente', async () => {
+    const onSubmitEvidence = vi.fn().mockResolvedValue(undefined);
+    const item = actionItem();
+    render(<PortalActionPlan items={[item]} onSubmitEvidence={onSubmitEvidence} />);
+
+    await pickFile(item, pdf());
+    await userEvent.type(screen.getByPlaceholderText(/Quer explicar o que foi feito/), 'Protocolo em anexo');
+    await userEvent.click(screen.getByRole('button', { name: /Enviar para a consultoria/ }));
+
+    expect(onSubmitEvidence).toHaveBeenCalledTimes(1);
+    const call = onSubmitEvidence.mock.calls[0][0];
+    expect(call.item.id).toBe('item-1');
+    expect(call.file.name).toBe('Protocolo Vigilância.pdf');
+    expect(call.note).toBe('Protocolo em anexo');
+    expect(call.uploadKey).toMatch(/^[0-9a-f-]{36}$/i);
+  });
+
+  test('arquivo grande demais é barrado antes de subir', async () => {
+    const onSubmitEvidence = vi.fn();
+    const item = actionItem();
+    render(<PortalActionPlan items={[item]} onSubmitEvidence={onSubmitEvidence} />);
+
+    const huge = new File([new Uint8Array(11 * 1024 * 1024)], 'enorme.pdf', { type: 'application/pdf' });
+    await pickFile(item, huge);
+
+    expect(screen.getByText(/o limite é 10 MB/)).toBeInTheDocument();
+    expect(onSubmitEvidence).not.toHaveBeenCalled();
+  });
+
+  test('formato fora da lista é barrado antes de subir', async () => {
+    const onSubmitEvidence = vi.fn();
+    const item = actionItem();
+    render(<PortalActionPlan items={[item]} onSubmitEvidence={onSubmitEvidence} />);
+
+    await pickFile(item, new File(['MZ'], 'planilha.xlsx', { type: 'application/vnd.ms-excel' }));
+
+    expect(screen.getByText(/Formato não aceito/)).toBeInTheDocument();
+    expect(onSubmitEvidence).not.toHaveBeenCalled();
+  });
+
+  test('falha no envio mantém o arquivo escolhido e explica o erro', async () => {
+    const onSubmitEvidence = vi.fn().mockRejectedValue(new Error('arquivo acima do limite de 10 MB'));
+    const item = actionItem();
+    render(<PortalActionPlan items={[item]} onSubmitEvidence={onSubmitEvidence} />);
+
+    await pickFile(item, pdf());
+    await userEvent.click(screen.getByRole('button', { name: /Enviar para a consultoria/ }));
+
+    expect(screen.getByText('arquivo acima do limite de 10 MB')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Enviar para a consultoria/ })).toBeInTheDocument();
+  });
+
+  test('cliente acompanha o estado da evidência e a orientação da consultora', () => {
+    render(
+      <PortalActionPlan
+        items={[
+          actionItem({
+            evidence_count: 2,
+            evidence_status: 'changes_requested',
+            evidence_file_name: 'protocolo.pdf',
+            evidence_submitted_at: '2026-08-05',
+            evidence_review_note: 'O protocolo está ilegível. Reenvie o PDF original.',
+          }),
+        ]}
+        onSubmitEvidence={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText(/Evidência devolvida para ajuste/)).toBeInTheDocument();
+    expect(screen.getByText(/O protocolo está ilegível/)).toBeInTheDocument();
+    expect(screen.getByText(/2 arquivos enviados/)).toBeInTheDocument();
+    // Depois da devolução o cliente reenvia; o botão muda de rótulo, não some.
+    expect(screen.getByRole('button', { name: /Enviar outra evidência/ })).toBeInTheDocument();
+  });
+
+  test('evidência em análise deixa claro que a pendência continua aberta', () => {
+    render(
+      <PortalActionPlan
+        items={[actionItem({ evidence_count: 1, evidence_status: 'pending' })]}
+        onSubmitEvidence={vi.fn()}
+      />
+    );
+    expect(screen.getByText(/Evidência em análise/)).toBeInTheDocument();
+    expect(screen.getByText(/pendência continua aberta/)).toBeInTheDocument();
+    // O contador do cabeçalho não muda com o upload: 1 pendente continua 1 pendente.
+    expect(screen.getByText('1 pendente')).toBeInTheDocument();
   });
 });

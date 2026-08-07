@@ -1,8 +1,23 @@
-import { useState } from 'react';
-import { AlertTriangle, CalendarClock, CheckCircle2, ClipboardList, UserRound } from 'lucide-react';
+import { useRef, useState } from 'react';
+import {
+  AlertTriangle,
+  CalendarClock,
+  CheckCircle2,
+  ClipboardList,
+  Clock3,
+  Loader2,
+  Paperclip,
+  RefreshCw,
+  UserRound,
+} from 'lucide-react';
 import type { ClientPortalActionItem } from '../../services/clientPortalService';
-import type { ClientActionItemPriority } from '../../types';
+import type { ClientActionEvidenceStatus, ClientActionItemPriority } from '../../types';
 import { formatDateBR } from '../../utils/clientPortalFormat';
+import {
+  EVIDENCE_ACCEPT_ATTRIBUTE,
+  EVIDENCE_LIMITS_LABEL,
+  checkEvidenceFile,
+} from '../../utils/evidenceFile';
 
 /** Acima disso a lista começa recolhida — o plano de ação de uma rede passa fácil de 30 itens. */
 const COMPACT_THRESHOLD = 5;
@@ -19,15 +34,201 @@ const priorityTheme: Record<ClientActionItemPriority, string> = {
   recommended: 'bg-sky-100 text-sky-700',
 };
 
+const evidenceLabel: Record<ClientActionEvidenceStatus, string> = {
+  pending: 'Evidência em análise',
+  approved: 'Evidência aprovada',
+  changes_requested: 'Evidência devolvida para ajuste',
+};
+
+const evidenceTheme: Record<ClientActionEvidenceStatus, string> = {
+  pending: 'border-sky-200 bg-sky-50 text-sky-800',
+  approved: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+  changes_requested: 'border-amber-200 bg-amber-50 text-amber-900',
+};
+
+export type SubmitEvidenceHandler = (params: {
+  item: ClientPortalActionItem;
+  file: File;
+  uploadKey: string;
+  note: string;
+}) => Promise<void>;
+
 interface PortalActionPlanProps {
   items: ClientPortalActionItem[];
   loading?: boolean;
   error?: boolean;
   /** Só faz sentido rotular a unidade quando o cliente enxerga mais de uma. */
   showUnitName?: boolean;
+  onSubmitEvidence?: SubmitEvidenceHandler;
 }
 
-function ActionItemCard({ item, showUnitName }: { item: ClientPortalActionItem; showUnitName?: boolean }) {
+/**
+ * P360-011 — envio da prova de correção.
+ *
+ * A `uploadKey` nasce junto com a escolha do arquivo e sobrevive a quantas tentativas forem
+ * precisas: é ela que faz o servidor reconhecer o reenvio como o MESMO envio, em vez de
+ * empilhar cópias quando a rede cai no meio.
+ */
+function EvidenceUpload({
+  item,
+  onSubmitEvidence,
+}: {
+  item: ClientPortalActionItem;
+  onSubmitEvidence: SubmitEvidenceHandler;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [uploadKey, setUploadKey] = useState<string>('');
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const reset = () => {
+    setFile(null);
+    setUploadKey('');
+    setNote('');
+    setError(null);
+    if (inputRef.current) inputRef.current.value = '';
+  };
+
+  const handleChoose = (chosen: File | undefined) => {
+    if (!chosen) return;
+    const check = checkEvidenceFile(chosen);
+    if (!check.ok) {
+      setFile(null);
+      setError(check.message ?? 'Arquivo não aceito.');
+      return;
+    }
+    setError(null);
+    setFile(chosen);
+    setUploadKey(crypto.randomUUID());
+  };
+
+  const handleSend = async () => {
+    if (!file || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await onSubmitEvidence({ item, file, uploadKey, note: note.trim() });
+      reset();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível enviar agora. Tente de novo.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const alreadySent = item.evidence_count > 0;
+
+  return (
+    <div className="mt-2.5 border-t border-dashed border-gray-200 pt-2.5">
+      <input
+        ref={inputRef}
+        type="file"
+        accept={EVIDENCE_ACCEPT_ATTRIBUTE}
+        className="hidden"
+        onChange={(e) => handleChoose(e.target.files?.[0])}
+        data-testid={`evidence-input-${item.id}`}
+      />
+
+      {!file ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            className="inline-flex items-center gap-1.5 rounded-md border border-primary-200 bg-primary-50 px-2.5 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-100"
+          >
+            {alreadySent ? <RefreshCw className="h-3.5 w-3.5" /> : <Paperclip className="h-3.5 w-3.5" />}
+            {alreadySent ? 'Enviar outra evidência' : 'Enviar evidência'}
+          </button>
+          <span className="text-[11px] text-gray-400">{EVIDENCE_LIMITS_LABEL}</span>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <p className="flex items-center gap-1.5 text-xs text-gray-700">
+            <Paperclip className="h-3.5 w-3.5 text-gray-400" />
+            <span className="font-medium">{file.name}</span>
+          </p>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={2}
+            maxLength={1000}
+            placeholder="Quer explicar o que foi feito? (opcional)"
+            className="w-full rounded-md border border-gray-200 p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+          />
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void handleSend()}
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-800 disabled:opacity-60"
+            >
+              {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Paperclip className="h-3.5 w-3.5" />}
+              {busy ? 'Enviando...' : 'Enviar para a consultoria'}
+            </button>
+            <button
+              type="button"
+              onClick={reset}
+              disabled={busy}
+              className="rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {error && <p className="mt-2 text-[11px] font-medium text-red-700">{error}</p>}
+    </div>
+  );
+}
+
+function EvidenceState({ item }: { item: ClientPortalActionItem }) {
+  if (!item.evidence_status) return null;
+  const status = item.evidence_status;
+
+  return (
+    <div className={`mt-2.5 rounded-lg border px-2.5 py-2 text-xs ${evidenceTheme[status]}`}>
+      <p className="flex flex-wrap items-center gap-1.5 font-semibold">
+        {status === 'pending' && <Clock3 className="h-3.5 w-3.5" />}
+        {status === 'approved' && <CheckCircle2 className="h-3.5 w-3.5" />}
+        {status === 'changes_requested' && <AlertTriangle className="h-3.5 w-3.5" />}
+        {evidenceLabel[status]}
+        {item.evidence_count > 1 && (
+          <span className="font-normal opacity-80">· {item.evidence_count} arquivos enviados</span>
+        )}
+      </p>
+      {item.evidence_submitted_at && (
+        <p className="mt-0.5 opacity-80">
+          Enviada em {formatDateBR(item.evidence_submitted_at)}
+          {item.evidence_file_name ? ` · ${item.evidence_file_name}` : ''}
+        </p>
+      )}
+      {item.evidence_review_note && (
+        <p className="mt-1.5">
+          <span className="font-semibold">Orientação da consultoria: </span>
+          {item.evidence_review_note}
+        </p>
+      )}
+      {status === 'pending' && (
+        <p className="mt-1 opacity-80">
+          A consultoria avisa quando terminar a análise. A pendência continua aberta até lá.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ActionItemCard({
+  item,
+  showUnitName,
+  onSubmitEvidence,
+}: {
+  item: ClientPortalActionItem;
+  showUnitName?: boolean;
+  onSubmitEvidence?: SubmitEvidenceHandler;
+}) {
   const resolved = item.status === 'resolved';
   return (
     <li
@@ -77,11 +278,23 @@ function ActionItemCard({ item, showUnitName }: { item: ClientPortalActionItem; 
           </span>
         )}
       </div>
+
+      <EvidenceState item={item} />
+
+      {onSubmitEvidence && item.accepts_evidence && (
+        <EvidenceUpload item={item} onSubmitEvidence={onSubmitEvidence} />
+      )}
     </li>
   );
 }
 
-export function PortalActionPlan({ items, loading, error, showUnitName }: PortalActionPlanProps) {
+export function PortalActionPlan({
+  items,
+  loading,
+  error,
+  showUnitName,
+  onSubmitEvidence,
+}: PortalActionPlanProps) {
   const [expanded, setExpanded] = useState(false);
 
   if (loading) {
@@ -127,7 +340,12 @@ export function PortalActionPlan({ items, loading, error, showUnitName }: Portal
       ) : (
         <ul className="space-y-2">
           {visible.map((item) => (
-            <ActionItemCard key={item.id} item={item} showUnitName={showUnitName} />
+            <ActionItemCard
+              key={item.id}
+              item={item}
+              showUnitName={showUnitName}
+              onSubmitEvidence={onSubmitEvidence}
+            />
           ))}
         </ul>
       )}

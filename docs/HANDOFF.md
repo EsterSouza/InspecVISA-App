@@ -1,6 +1,6 @@
 # Handoff único — InspecVISA
 
-**Última atualização:** 07/08/2026 (BRT), ao concluir o PORT-01, aplicado em produção ·
+**Última atualização:** 07/08/2026 (BRT), ao concluir o P360-011, aplicado em produção ·
 **Branch:** `main`, sincronizada com `origin/main` · O estado da seção 2 foi verificado em 03/08/2026,
 com as correções de 04/08 e 05/08 anotadas nas tabelas.
 
@@ -104,6 +104,7 @@ Confirmado presente no banco:
 | `client_portal_audit_events` (tabela) | ✅ existe desde 04/08/2026 — PROD-01 |
 | `client_action_items` (tabela + 3 RPCs) | ✅ existe desde 07/08/2026 — P360-010 |
 | `client_portal_account_features` (+ travas do portal) | ✅ existe desde 07/08/2026 — PORT-01 |
+| `client_action_evidence` (+ bucket privado e 4 RPCs) | ✅ existe desde 07/08/2026 — P360-011 |
 
 A migration `checklist_items_requirement_type` consta **duas vezes** no ledger remoto, sob as
 versões `20260803205941` e `20260803221936`. O schema está correto; o ledger é que está sujo.
@@ -235,7 +236,7 @@ a página de referências do PDF.
 | **P360-009** | Início do portal por próximas ações | Sonnet 5 | alto | P360-008 | ✅ **concluído 07/08/2026** |
 | **P360-010** | Projeção segura do plano de ação | Opus 5 | alto | — | ✅ **concluído 07/08/2026** · aplicado em produção; prova de ponta a ponta feita no app com conta de teste, depois apagada |
 | **PORT-01** | Central de acesso do portal por conta | Opus 5 | alto | P360-010 | ✅ **concluído 07/08/2026** · aplicado em produção (migration + edge function v6) |
-| **P360-011** | Evidências do cliente e revisão técnica | Opus 5 | alto | P360-010 | ⬜ pendente |
+| **P360-011** | Evidências do cliente e revisão técnica | Opus 5 | alto | P360-010 | ✅ **concluído 07/08/2026** · aplicado em produção (migration + bucket privado + 2 edge functions); prova de ponta a ponta feita contra produção, depois apagada |
 | **P360-012** | Solicitações estruturadas de consultoria | Opus 5 | alto | — | ⬜ pendente |
 | **P360-013** | Painel operacional das consultoras | Sonnet 5 | alto | 010, 011, 012 | ⬜ pendente |
 | **P360-014** | Acessibilidade e responsividade | Sonnet 5 | médio | superfícies estáveis | ⬜ pendente |
@@ -1845,7 +1846,13 @@ substitui a tabela. Plugar os três sinais restantes é trabalho de quem impleme
 a interface já está pronta em `PortalNextAction.tsx`.
 
 > **Atualização de 07/08/2026:** o P360-010 criou `client_action_items` e ligou o `item_overdue`.
-> Faltam `evidence_returned` (P360-011) e `request_awaiting_client` (P360-012).
+> O P360-011 criou `client_action_evidence` e o estado da evidência já chega ao portal dentro de
+> cada item do plano de ação — mas o sinal `evidence_returned` da **próxima ação** (a faixa do topo
+> da tela) **não** foi ligado: a devolução aparece no item, não no topo. Ligar é uma linha em
+> `ClientPortal.tsx`, no mesmo molde do `nextActionOverdueItem`, procurando o primeiro item com
+> `evidence_status === 'changes_requested'`. Ficou de fora para não competir com o item vencido pelo
+> mesmo espaço sem a Ester ter dito qual dos dois vem primeiro. Falta ainda
+> `request_awaiting_client` (P360-012).
 
 **Filtro de unidade**: `<select>` acima das seções (só aparece com >1 unidade), afeta
 `PortalDocuments`, `PortalCompliance`, `PortalAppointments` e o cálculo do compromisso próximo do
@@ -2189,6 +2196,152 @@ Commit: `96d344b`.
 - Evidência nunca fica em bucket público.
 - O item não é resolvido automaticamente pelo simples upload.
 - A consultora acessa o arquivo apenas com autorização e URL temporária.
+
+### Resultado — 07/08/2026 · aplicado em produção
+
+**Concluído.** Migration `20260807184950_client_action_evidence` aplicada em produção com
+autorização da Ester na conversa, junto com o bucket privado e as duas Edge Functions.
+
+#### As três decisões que moldaram o card
+
+**1. Upload não resolve nada.** A evidência nasce `pending` e o item continua aberto. Resolver é
+escolha explícita da consultora, e no painel são **dois botões separados** — "Aprovar" e "Aprovar e
+resolver" — em vez de um botão com pergunta. Aceitar o arquivo e dar a pendência sanitária por
+encerrada são decisões diferentes: a prova pode servir e a correção ainda precisar ser conferida na
+próxima visita. Aprovar sem resolver está coberto por teste, em SQL e em produção.
+
+**2. O cliente nunca escolhe onde o arquivo cai.** Nome e caminho saem do servidor
+(`private.safe_evidence_file_name` + `client_portal_submit_evidence`): a extensão vem do **MIME
+conferido**, não do nome enviado; o nome é transliterado e reduzido a `[a-z0-9._-]`; o caminho é
+`<tenant>/<unidade>/<item>/<upload_key>-<nome>`. `../../etc/passwd` vira `passwd.pdf` e
+`Laudo.pdf.exe` vira `laudo-pdf.pdf`. Não existe caminho vindo do navegador.
+
+**3. Bucket próprio.** `client-action-evidence`, privado, 10 MB, quatro MIMEs. Não reaproveitou o
+`client-portal-files` de propósito: lá existe a policy `client_portal_published_assets_select_anon`,
+que libera para `anon` **todo objeto registrado em `appointment_attachments`** — e ali mora o que a
+consultoria publica, não o que o cliente envia. Nenhum papel do navegador escreve neste bucket: a
+única porta de escrita é a Edge Function, com service role.
+
+#### Objetos criados
+
+| Objeto | Papel |
+|---|---|
+| bucket `client-action-evidence` | privado, 10 MB, `pdf/jpeg/png/webp`; policies de select/delete só para staff do tenant |
+| `client_action_evidence` | RLS ativa; `authenticated` só com **select**; `anon` sem nada |
+| `client_action_evidence_notifications` | idempotência de e-mail, no molde de `appointment_notification_log` |
+| `private.safe_evidence_file_name(text,text)` | nome seguro; sem grant para papel nenhum |
+| `client_portal_submit_evidence(...)` | registra o envio e toda a autorização; **só `service_role`** |
+| `client_portal_list_evidence(uuid,uuid)` | leitura com `storage_path` para assinar; **só `service_role`** |
+| `client_portal_discard_evidence(uuid,uuid)` | desfaz o registro quando a subida falha; **só `service_role`** |
+| `admin_review_client_action_evidence(...)` | aprovar/devolver, com `p_resolve_item`; `authenticated` |
+| `client_portal_action_items(uuid,uuid)` | reescrita: ganhou o resumo da evidência por item |
+| edge `client-action-evidence` | `list` (JSON) e `upload` (multipart); confere magic bytes, grava e avisa a equipe |
+| edge `notify-evidence-reviewed` | avisa o cliente depois da revisão, deduplicado por `reviewed_at` |
+
+Grants conferidos em produção com `has_table_privilege`/`has_function_privilege` **depois** de
+aplicar: `anon` não tem nada na tabela, `authenticated` tem só `select` (nem update nem delete), as
+três RPCs de envio/leitura/descarte não são executáveis por `anon` **nem por `authenticated`** — só
+`service_role` —, a de revisão é só de `authenticated`, e a leitura do plano de ação continua com
+grant para os dois papéis.
+
+#### Onde a autorização mora
+
+Toda ela no Postgres, dentro de `client_portal_submit_evidence`: token da conta, trava
+`action_plan` da conta (PORT-01), vínculo do item com uma unidade do acesso, `report_hidden` da
+visita, situação do item (`published`), MIME, tamanho e teto de 10 arquivos por pendência. A Edge
+Function cuida só do byte. Consequência prática: o TypeScript não tem regra de acesso para
+divergir do banco, e a suíte SQL testa a regra real.
+
+A Edge Function acrescenta a única coisa que o banco não consegue: **conferir os bytes**. O tipo sai
+da assinatura do arquivo (`%PDF`, `FFD8FF`, `89504E47`, `RIFF…WEBP`), não do `Content-Type` que o
+navegador declarou nem da extensão. Um `.exe` renomeado para `.pdf` é recusado — verificado em
+produção.
+
+#### Idempotência
+
+A identidade do envio é `(action_item_id, upload_key)`, com a chave gerada pelo navegador **uma vez
+por arquivo escolhido** e reusada em qualquer nova tentativa. O caminho no Storage deriva dela, então
+o retry reencontra a mesma linha e sobrescreve o mesmo objeto. Ordem deliberada: **registra primeiro,
+sobe depois** — se a subida falhar, a Edge Function chama `client_portal_discard_evidence`, que só
+apaga o que ainda está `pending` e nunca foi revisado.
+
+As duas notificações usam o mesmo cadeado por linha: `dedupe_key` fixa no envio, e o carimbo de
+`reviewed_at` na revisão — por isso `admin_review_client_action_evidence` usa `clock_timestamp()` e
+não `now()`. Uma revisão nova (devolver depois de aprovar) notifica de novo; um retry, não.
+
+#### Prova de produção — feita contra o banco e as Edge Functions reais
+
+Conta de portal, duas unidades (uma **fora** do acesso), duas visitas e três itens de plano de ação,
+todos com prefixo `[TESTE P360-011]` e ids `0e11…`. As RPCs de staff foram exercitadas com o papel
+real (`set local role authenticated` + claim de um admin do tenant); as do cliente, por HTTP, com a
+chave `anon`, contra a Edge Function publicada. Confirmado:
+
+- envio válido → `pending`, `teamNotified: true` (e-mail à equipe saiu de verdade);
+- **retry com a mesma chave** → `duplicate: true`, mesmo `evidence_id`, sem segundo e-mail;
+- `.exe` renomeado de `.pdf` → `tipo de arquivo nao aceito`; arquivo vazio → `arquivo vazio`;
+- item de unidade fora do acesso → `item fora do acesso`; token inválido → `acesso invalido`;
+- URL assinada baixa o PDF (`http 200`, `application/pdf`); o mesmo objeto **sem** o token e pela
+  REST com a chave `anon` → `400`; assinar com a chave `anon` → `404` (a RLS esconde o objeto);
+- URL de 8s: `200` dentro da validade, `400` depois — e renovar com autorização volta a `200`;
+- devolver sem orientação → recusado; devolver com orientação → o cliente recebe estado **e** texto
+  no `client_portal_action_items`, e o item continua `published`;
+- reenvio depois da devolução → evidência nova `pending`, a anterior preservada
+  (`evidence_count: 2`);
+- **aprovar sem resolver → item continua `published`**; aprovar com `p_resolve_item` → `resolved`, e
+  o item passa a devolver `accepts_evidence: false`;
+- travar `action_plan` na conta → envio recusado, listagem vazia e plano de ação vazio;
+- auditoria com `evidence_submitted`/`evidence_reviewed` **sem caminho, sem URL e sem conteúdo**
+  (conferido por regex no payload);
+- nenhuma das 3 contas de portal ativas do tenant enxergou qualquer item de teste.
+
+**Todos os dados de teste foram apagados ao final** e conferidos em zero — inclusive os dois objetos
+no Storage. O bucket ficou vazio e as duas tabelas novas ficaram em zero, como esperado.
+
+**Limite do teste, registrado:** o caminho servidor foi exercitado por HTTP com multipart real, e a
+tela do portal foi coberta por 8 testes de componente (escolha do arquivo, chave de idempotência,
+recusa por tamanho e por formato, erro de envio, estado e orientação da consultora). O que **não**
+foi feito é o clique de ponta a ponta no navegador com uma conta real: entrar no portal exige senha
+de cliente de produção. O elo não exercitado é o `supabase.functions.invoke` mandando `FormData` —
+comportamento padrão do supabase-js, coberto por teste de unidade na forma do corpo. Vale um envio
+real na primeira vez que a Ester usar.
+
+**Ressalva de encoding, sem consequência:** no teste por `curl` o nome `Protocolo Vigilância.pdf`
+chegou ao servidor com o `â` já corrompido pelo shell do Windows, e virou
+`protocolo-vigil-ncia-2026.pdf`. Não é defeito da sanitização: chamada direta,
+`private.safe_evidence_file_name('Protocolo Vigilância 2026.pdf', 'application/pdf')` devolve
+`protocolo-vigilancia-2026.pdf`. Byte estranho vira `-`, que é o comportamento desejado.
+
+#### Testes
+
+- `supabase/tests/client_action_evidence.test.sql` (novo): grants e RLS das duas tabelas, as três
+  RPCs fechadas para o navegador, sanitização de nome (travessia, extensão dupla, acento, caminho
+  do Windows, nome vazio, extensão do MIME), envio que **não** resolve o item, retry sem duplicar,
+  MIME/vazio/limite exato/acima do limite, unidade fora do acesso, tenant cruzado, token inválido,
+  item oculto/resolvido/de relatório oculto, trava do portal, teto de 10 por pendência, descarte
+  por conta certa e errada, aprovar/devolver/reenviar/reabrir, tenant cruzado na revisão, listagem
+  restrita ao acesso e dedupe da notificação. Roda encadeado a `portal_feature_gates.test.sql`.
+- `src/__tests__/utils/evidenceFile.test.ts` (7) e `src/__tests__/services/clientPortalEvidence.test.ts` (5).
+- `src/__tests__/components/PortalActionPlan.test.tsx`: +8 casos de evidência.
+- `npm test`: **259 testes, 259 passando**. As 4 falhas de `zustand/persist` citadas nos cards
+  anteriores não reapareceram nesta máquina. `npx tsc -b` limpo e `npm run build` OK.
+- As 7 suítes SQL rodaram em Postgres puro, todas passando.
+
+#### Fora de escopo, deliberado
+
+- **O sinal `evidence_returned` da próxima ação não foi ligado.** A devolução aparece dentro do item
+  do plano de ação, não na faixa do topo. Ligar é uma linha em `ClientPortal.tsx`; ficou de fora
+  porque disputaria espaço com o item vencido e não há decisão da Ester sobre qual vem primeiro.
+- **Não há tela de "evidências para revisar" agregada.** A revisão acontece dentro do card da
+  solicitação, em Agendamentos, junto do item — com um contador `N evidência(s) para revisar` no
+  cabeçalho do painel. Um inbox por consultora é o P360-013.
+- **Sem antivírus e sem OCR.** O que se confere é assinatura de tipo, tamanho e origem.
+- **A consultora não apaga evidência pelo app.** A policy de delete no Storage existe para o staff
+  do tenant, mas nenhuma tela usa: apagar prova recebida é decisão que ninguém pediu.
+- **O cliente não apaga o que enviou.** Reenviar substitui na prática (o mais recente é o que vale
+  para o estado do item), e o histórico fica.
+- **Sem quota por conta.** O teto é de 10 arquivos **por pendência**, não por cliente.
+
+Commit: `<preenchido no commit seguinte>`.
 
 ---
 
@@ -2626,5 +2779,6 @@ Ao concluir um card, marcar aqui e atualizar a tabela da seção 4.
 | 06/08/2026 | **REL-01** — concluído | Opus 5 | — | O relatório passou a listar, na íntegra, os itens cumpridos (bloco `RELAÇÃO DOS ITENS CUMPRIDOS`, uma tabela por seção, com código, descrição completa e base legal), logo depois da tabela de conformidade por área. Antes, item cumprido sem observação digitada não aparecia em lugar nenhum — só as falhas eram nomeadas. Coluna `Regularizado` marca o que estava em NC em visita anterior, reusando o `recurringItemIds` já carregado (sem consulta nova; sem histórico, nenhuma etiqueta). Achado corrigido de quebra: `addFooter` rodava em dois laços e imprimia `Página 1 de 8` por baixo de `Página 1 de 9` em **todo** relatório já emitido. 4 testes novos, 21 no diretório `utils`, `tsc -b` limpo, conferido em PDF real. |
 | 06/08/2026 | **AGD-01** — concluído, 1 linha recriada em produção | Opus 5 | `a47a400` | A inspeção do Icaraí de 30/06 nunca foi apagada: 114 respostas íntegras, agendamento vinculado. Faltava a linha em `appointment_requests` — no lote de 7 visitas criadas em 16/06 entre 20h41 e 20h54, só a do Icaraí não gerou solicitação, e sem trilha de auditoria do staff não dá para separar falha de escrita de exclusão manual. Recriada com autorização, status `completed` (nenhum PDF publicado no portal). Código: `min` de data removido do modal de agendamento e do de Nova visita (as datas bloqueadas mantêm, de propósito) — não havia validação equivalente no serviço nem `CHECK` no banco; painel passou a ordenar do mais recente para o mais antigo, paginar de 10 em 10 nas três seções e abrir com Ativas e Encerradas recolhidas. 173 testes e build OK. |
 | 07/08/2026 | **PORT-01** — concluído, aplicado em produção | Opus 5 | `96d344b` | Achado que motivou metade do card: ligar "suspender agendamento" **também** bloqueava o download de tudo que já tinha sido entregue — a Edge Function usava `scheduling_suspended` para decidir se assinava a URL dos anexos, desde junho. Separado: atraso suspende agendar; esconder entrega virou decisão explícita por conta, em `client_portal_account_features` (liberado/oculto/programado + travar em atraso), com `private.portal_account_gates` como fonte única lida pelo overview, pelo plano de ação, pelo agendamento e pela Edge Function (v5→v6). Suspensão virou modo (`auto`/`always_open`/`suspended`) com tolerância de 5 dias por tenant; liberação programada sem cron, decidida na leitura. Controles reorganizados num modal "Acesso do portal"; o toggle saiu do modal de Pagamento. Medido antes de aplicar: nenhuma das 3 contas ativas muda de estado (atraso exige vencimento cadastrado). Prova no app com conta 30 dias vencida: agendamento suspenso sozinho e relatório/foto/score visíveis ao mesmo tempo. Suíte SQL nova; 235/239 testes. |
+| 07/08/2026 | **P360-011** — concluído, aplicado em produção | Opus 5 | `<sha>` | O cliente passou a responder a pendência: manda a prova, a consultora aprova ou devolve com orientação. Três decisões seguraram o desenho — **upload não resolve nada** (aprovar o arquivo e resolver a pendência são dois botões separados, `p_resolve_item`); **o cliente não escolhe onde o arquivo cai** (nome e caminho gerados no servidor, extensão vinda do MIME conferido, `../../etc/passwd` vira `passwd.pdf`); e **bucket próprio** `client-action-evidence`, privado, porque o `client-portal-files` tem policy que libera para `anon` todo objeto de `appointment_attachments`. Nenhum papel do navegador escreve no bucket: as RPCs de envio/leitura/descarte só têm grant para `service_role`, e a Edge Function é a única porta — ela confere os **magic bytes**, então `.exe` renomeado de `.pdf` não entra. Idempotência por `(item, upload_key)`, com caminho derivado da chave: retry sobrescreve o mesmo objeto. Registra primeiro, sobe depois, e desfaz o registro se a subida falhar. Prova contra produção e as Edge Functions reais: envio, retry sem duplicar, devolver, reenviar, aprovar sem resolver, aprovar e resolver, trava do portal, URL assinada expirando em 8s e renovando, objeto inacessível sem token e para `anon`, e auditoria sem caminho nem URL. Dados de teste apagados e conferidos em zero, inclusive no Storage. Suíte SQL nova + 20 testes JS; 259/259. |
 | 07/08/2026 | **P360-010** — concluído, aplicado em produção | Opus 5 | `3bd8376` | `client_action_items` é projeção, não espelho: publicar o relatório copia as NCs, e nada no portal toca em `responses`. Um índice único parcial (`where status <> 'resolved'`) resolve os três casos de uma vez — republicação idempotente, reincidência somando ocorrência no item aberto, e item resolvido preservado como histórico quando a inspeção nova republica o mesmo requisito. Gate de visibilidade é o `report_hidden` da visita, reaplicado em tempo real na leitura; suspensão de agendamento **não** esconde item (decisão registrada). Vencimento ancorado em `America/Sao_Paulo`. Grants conferidos em produção com `has_table_privilege`. Prova feita no app contra o banco de produção com conta de teste — plano de ação, prazo vencido, resolver e histórico confirmados na tela — e todos os dados de teste apagados depois. 17 testes JS novos + suíte SQL nova; 235/239 testes (as 4 falhas são anteriores, confirmado com `git stash`). |
 | 06/08/2026 | **REF-06** — concluído, aplicado em produção | Opus 5 | `071adb2`, `8796143` |  Medido: dos 303 `item_id` órfãos, 272 eram "defeito" no papel mas só 6 inspeções tinham id de código; o que degradava mesmo eram 19 dos 26 relatórios concluídos (376 respostas), por três causas — inspeção criada antes do sync de roteiros, `city`/`state` que o servidor não devolve (suplemento regional some offline) e item reescrito no lugar trocando a pergunta de 18 respostas já entregues (o REF-05 fez a terceira). Decidido não remapear `responses`: congela-se o roteiro da época em `inspection_report_versions`. Roteiros `tpl-ilpi-v1` e federal-97 reconstruídos do git; o de 97 confere seção a seção com o PDF entregue ao Lar Recanto do Sossego em 14/04/2026. Código, scripts e simulação prontos e conferidos; 162 testes passando (as 4 falhas de `sync.test.ts` são anteriores). Duas cargas: a primeira congelou 15 relatórios e marcou 28 respostas com `deleted_at`; a segunda, depois de corrigir o script (a seção degradada estava sendo usada como fonte de texto), refez 6. Diagnóstico final: **0 respostas degradadas** nos 26 relatórios, contra 376 no começo. |

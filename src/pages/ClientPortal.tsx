@@ -15,7 +15,7 @@ import {
   type NextActionPaymentOverdue,
   type NextActionUpcomingAppointment,
 } from '../components/client/PortalNextAction';
-import { PortalActionPlan } from '../components/client/PortalActionPlan';
+import { PortalActionPlan, type SubmitEvidenceHandler } from '../components/client/PortalActionPlan';
 import { PortalAppointments, type PortalAppointmentVisit } from '../components/client/PortalAppointments';
 import { PortalDocuments } from '../components/client/PortalDocuments';
 import { PortalBilling } from '../components/client/PortalBilling';
@@ -57,6 +57,23 @@ export function ClientPortal() {
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
 
+  const loadActionItems = useCallback(async (portalToken: string, options: { audit?: boolean } = {}) => {
+    try {
+      const items = await clientPortalService.actionItems(portalToken);
+      setActionItems(items);
+      setActionItemsError(false);
+      if (options.audit && items.length > 0) {
+        void clientPortalService.audit(portalToken, 'action_plan_viewed', {
+          open: items.filter((item) => item.status !== 'resolved').length,
+          overdue: items.filter((item) => item.is_overdue).length,
+        });
+      }
+    } catch (err) {
+      console.warn('[ClientPortal] Falha ao carregar o plano de acao:', err);
+      setActionItemsError(true);
+    }
+  }, []);
+
   const loadOverview = useCallback(async (portalToken: string) => {
     setLoading(true);
     try {
@@ -88,24 +105,9 @@ export function ClientPortal() {
           console.warn('[ClientPortal] Falha ao carregar notas fiscais:', err);
           setInvoicesError(true);
         }),
-      clientPortalService
-        .actionItems(portalToken)
-        .then((items) => {
-          setActionItems(items);
-          setActionItemsError(false);
-          if (items.length > 0) {
-            void clientPortalService.audit(portalToken, 'action_plan_viewed', {
-              open: items.filter((item) => item.status !== 'resolved').length,
-              overdue: items.filter((item) => item.is_overdue).length,
-            });
-          }
-        })
-        .catch((err) => {
-          console.warn('[ClientPortal] Falha ao carregar o plano de acao:', err);
-          setActionItemsError(true);
-        }),
+      loadActionItems(portalToken, { audit: true }),
     ]);
-  }, []);
+  }, [loadActionItems]);
 
   useEffect(() => {
     if (token) void loadOverview(token);
@@ -156,6 +158,22 @@ export function ClientPortal() {
       setPaymentAckBusy(false);
     }
   };
+
+  // P360-011 — o envio da evidência não muda o item: ele volta do servidor com o estado novo
+  // (`pending`) e a pendência continua aberta até a consultora decidir.
+  const handleSubmitEvidence: SubmitEvidenceHandler = useCallback(
+    async ({ item, file, uploadKey, note }) => {
+      if (!token) throw new Error('Sessão expirada. Entre de novo para enviar o arquivo.');
+      await clientPortalService.submitEvidence(token, {
+        actionItemId: item.id,
+        uploadKey,
+        file,
+        note,
+      });
+      await loadActionItems(token);
+    },
+    [token, loadActionItems]
+  );
 
   const handleUnitFilterChange = (unitId: string | null) => {
     setSelectedUnitId(unitId);
@@ -415,6 +433,7 @@ export function ClientPortal() {
             items={filteredActionItems}
             error={actionItemsError}
             showUnitName={overview.units.length > 1 && !selectedUnitId}
+            onSubmitEvidence={handleSubmitEvidence}
           />
         )}
 

@@ -6,6 +6,8 @@ import type {
   AppointmentRequest,
   AppointmentSlot,
   AttachmentKind,
+  ClientActionEvidence,
+  ClientActionEvidenceStatus,
   ClientActionItem,
   ClientActionItemStatus,
   ClientPortalFeature,
@@ -966,6 +968,74 @@ export const AppointmentAdminService = {
     });
     if (error) throw error;
     if (data?.error) throw new Error(data.error);
+  },
+
+  // ─── Evidência do cliente (P360-011) ───────────────────────
+
+  async listActionItemEvidence(itemIds: string[]): Promise<ClientActionEvidence[]> {
+    if (itemIds.length === 0) return [];
+    const { data, error } = await supabase
+      .from('client_action_evidence')
+      .select('*')
+      .in('action_item_id', itemIds)
+      .order('submitted_at', { ascending: false });
+    if (error) throw error;
+    return (data || []) as ClientActionEvidence[];
+  },
+
+  /**
+   * URL temporária para a consultora abrir o arquivo. É assinada na hora, a cada clique: se
+   * expirar, basta clicar de novo. A policy de Storage restringe a assinatura ao staff do
+   * tenant dono do caminho — o arquivo nunca fica público.
+   */
+  async evidenceSignedUrl(
+    evidence: Pick<ClientActionEvidence, 'storage_bucket' | 'storage_path'>
+  ): Promise<string> {
+    const { data, error } = await supabase.storage
+      .from(evidence.storage_bucket)
+      .createSignedUrl(evidence.storage_path, 3600);
+    if (error) throw error;
+    if (!data?.signedUrl) throw new Error('Nao foi possivel abrir o arquivo agora.');
+    return data.signedUrl;
+  },
+
+  /**
+   * Aprovar ou devolver. `resolveItem` é o único caminho para a pendência fechar a partir daqui:
+   * aprovar o arquivo e dar a pendência por resolvida são decisões separadas, e a segunda é
+   * sempre explícita da consultora.
+   */
+  async reviewEvidence(
+    evidenceId: string,
+    params: { status: Exclude<ClientActionEvidenceStatus, 'pending'>; note?: string; resolveItem?: boolean }
+  ): Promise<{ itemResolved: boolean }> {
+    const { data, error } = await supabase.rpc('admin_review_client_action_evidence', {
+      p_evidence_id: evidenceId,
+      p_status: params.status,
+      p_note: params.note?.trim() || null,
+      p_resolve_item: !!params.resolveItem,
+      p_reviewed_by: getLocalActor().name || null,
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    return { itemResolved: !!data?.item_resolved };
+  },
+
+  /** Avisa o cliente do resultado da revisão. Falhar aqui não desfaz a revisão. */
+  async notifyEvidenceReviewed(evidenceId: string): Promise<{ whatsappLink?: string } | null> {
+    try {
+      const { data, error } = await withTimeout(
+        supabase.functions.invoke('notify-evidence-reviewed', {
+          body: { evidenceId, portalUrl: `${window.location.origin}/cliente` },
+        }),
+        'NotificarRevisaoEvidencia',
+        30000
+      );
+      if (error) throw error;
+      return data as { whatsappLink?: string };
+    } catch (err) {
+      console.warn('[AppointmentAdmin] Falha ao notificar a revisao da evidencia:', err);
+      return null;
+    }
   },
 
   // ─── Travas do portal por conta (PORT-01) ──────────────────

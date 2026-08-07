@@ -418,7 +418,10 @@ export type ClientPortalAuditEventType =
   | 'support_whatsapp_clicked'
   | 'next_action_clicked'
   | 'unit_filter_changed'
-  | 'action_plan_viewed';
+  | 'action_plan_viewed'
+  | 'evidence_submitted'
+  | 'evidence_reviewed'
+  | 'evidence_download_clicked';
 
 export interface AppointmentSlot {
   id: string;
@@ -556,6 +559,36 @@ export interface ClientActionItem {
   last_detected_on: string | null;
   published_at: string | null;
   resolved_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ClientActionEvidenceStatus = 'pending' | 'approved' | 'changes_requested';
+
+/**
+ * Evidência de correção enviada pelo cliente (P360-011), como o staff a enxerga. O arquivo
+ * mora num bucket privado próprio: `storage_path` só serve para assinar a URL temporária, e
+ * nunca é exibido. Aprovar a evidência **não** resolve a pendência — resolver é escolha
+ * explícita da consultora na revisão.
+ */
+export interface ClientActionEvidence {
+  id: string;
+  tenant_id: string;
+  client_id: string;
+  action_item_id: string;
+  account_id: string | null;
+  upload_key: string;
+  storage_bucket: string;
+  storage_path: string;
+  file_name: string;
+  mime_type: string;
+  file_size: number;
+  client_note: string | null;
+  status: ClientActionEvidenceStatus;
+  review_note: string | null;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+  submitted_at: string;
   created_at: string;
   updated_at: string;
 }
