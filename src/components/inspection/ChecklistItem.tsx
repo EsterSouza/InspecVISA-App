@@ -6,6 +6,7 @@ import { PhotoCapture } from './PhotoCapture';
 import { LinkCapture } from './LinkCapture';
 import type { ChecklistItem as ItemType, InspectionResponse, InspectionPhoto } from '../../types';
 import type { PreviousNCContext } from '../../utils/actionPlanContext';
+import { ClientEvidenceService, type ClientEvidenceForItem } from '../../services/clientEvidenceService';
 import { getFieldSuggestions, type FieldSuggestions } from '../../utils/textSuggestions';
 import { legislationUrlForItem } from '../../utils/legislationRefs';
 import { VoiceDictationButton } from './VoiceDictationButton';
@@ -18,6 +19,8 @@ interface ChecklistItemProps {
   item: ItemType;
   response?: InspectionResponse;
   previousNC?: PreviousNCContext;
+  /** REL-03 — o que o cliente alegou ter corrigido neste requisito, desde a última visita. */
+  clientEvidence?: ClientEvidenceForItem[];
   onChange: (itemId: string, result: InspectionResponse['result']) => void;
   onUpdateDetails: (itemId: string, details: Partial<InspectionResponse>) => void;
   onAddPhoto: (itemId: string, photo: Omit<InspectionPhoto, 'id'>) => void | Promise<void>;
@@ -25,10 +28,100 @@ interface ChecklistItemProps {
   onEditDescription?: (itemId: string, description: string) => void;
 }
 
+const EVIDENCE_LABELS: Record<ClientEvidenceForItem['status'], string> = {
+  pending: 'Aguardando sua revisão',
+  approved: 'Aprovada por você',
+  changes_requested: 'Devolvida para ajuste',
+};
+
+const EVIDENCE_THEME: Record<ClientEvidenceForItem['status'], string> = {
+  pending: 'bg-sky-100 text-sky-800',
+  approved: 'bg-green-100 text-green-800',
+  changes_requested: 'bg-amber-100 text-amber-900',
+};
+
+/**
+ * REL-03 — o que o cliente alegou, aqui dentro da caixa do item.
+ *
+ * É esta a tela em que a consultora decide "cumpre" ou "não cumpre", dentro da casa. Sem isto
+ * ela decidia sem saber que o cliente tinha mandado o protocolo em julho — a prova existia, mas
+ * ficava no painel de Agendamentos, longe da decisão.
+ *
+ * O arquivo abre por URL temporária, assinada na hora do clique. Se a visita estiver sem sinal,
+ * o texto (que é o que sustenta a decisão) continua na tela; só a imagem não abre.
+ */
+function ClientEvidencePanel({ evidence }: { evidence: ClientEvidenceForItem[] }) {
+  const [openingId, setOpeningId] = useState<string | null>(null);
+
+  const open = async (row: ClientEvidenceForItem) => {
+    setOpeningId(row.evidenceId);
+    try {
+      const url = await ClientEvidenceService.signedUrl(row);
+      if (url) window.open(url, '_blank', 'noopener,noreferrer');
+      else alert('Nao foi possivel abrir o arquivo agora. Confira a conexao.');
+    } finally {
+      setOpeningId(null);
+    }
+  };
+
+  return (
+    <div className="mt-3 rounded-lg border border-sky-200 bg-sky-50/70 p-3">
+      <p className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-sky-800">
+        <FileCheck2 className="h-3.5 w-3.5" /> O que o cliente enviou ({evidence.length})
+      </p>
+      <div className="space-y-2">
+        {evidence.map((row) => (
+          <div key={row.evidenceId} className="rounded-md border border-sky-100 bg-white px-2.5 py-2">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${EVIDENCE_THEME[row.status]}`}>
+                {EVIDENCE_LABELS[row.status]}
+              </span>
+              <span className="text-[11px] text-gray-500">
+                {new Date(row.submittedAt).toLocaleDateString('pt-BR')}
+              </span>
+              {row.byName && (
+                <span className="text-[11px] font-medium text-gray-700">
+                  {row.byName}
+                  {row.byRole ? ` — ${row.byRole}` : ''}
+                </span>
+              )}
+            </div>
+            {row.clientNote && (
+              <p className="mt-1 break-words text-xs text-gray-800">
+                <span className="font-semibold">Alegação: </span>
+                {row.clientNote}
+              </p>
+            )}
+            {row.reviewNote && (
+              <p className="mt-1 break-words text-[11px] text-gray-600">
+                <span className="font-semibold">Sua orientação: </span>
+                {row.reviewNote}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => void open(row)}
+              disabled={openingId === row.evidenceId}
+              className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-sky-800 underline hover:text-sky-950 disabled:opacity-60"
+            >
+              <ExternalLink className="h-3 w-3" />
+              {openingId === row.evidenceId ? 'Abrindo...' : row.fileName}
+            </button>
+          </div>
+        ))}
+      </div>
+      <p className="mt-2 text-[10px] leading-relaxed text-sky-900/70">
+        Receber a evidência não conclui a pendência — quem decide se foi cumprido é esta vistoria.
+      </p>
+    </div>
+  );
+}
+
 export const ChecklistItem = memo(function ChecklistItem({
   item,
   response,
   previousNC,
+  clientEvidence,
   onChange,
   onUpdateDetails,
   onAddPhoto,
@@ -262,8 +355,13 @@ export const ChecklistItem = memo(function ChecklistItem({
               ))}
             </div>
           )}
+
+          {!!clientEvidence?.length && <ClientEvidencePanel evidence={clientEvidence} />}
         </div>
       )}
+
+      {/* Item que não era NC na visita anterior, mas recebeu evidência: mostra assim mesmo. */}
+      {!previousNC && !!clientEvidence?.length && <ClientEvidencePanel evidence={clientEvidence} />}
 
       {/* Action Buttons */}
       <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">

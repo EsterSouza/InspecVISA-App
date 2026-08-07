@@ -10,6 +10,7 @@ import { isRioState } from './state';
 // extractBaseLegislation — sem os qualificadores do REF-01 nem as correções de
 // número/ano do REF-02. Passa a usar a mesma implementação do resto do app.
 import { extractBaseLegislation, canonicalLegislationKey } from './legislationRefs';
+import type { ClientEvidenceForItem } from '../services/clientEvidenceService';
 
 
 function getPdfImageFormat(dataUrl: string) {
@@ -151,9 +152,17 @@ export async function generatePDF(
   score: InspectionScore,
   settings: ConsultantSettings,
   legislations: any[] = [],
-  options: { selectedLegislations?: string[]; referenceSources?: ReferenceSource[]; signatureDataUrl?: string; recurringItemIds?: Set<string> } = {}
+  options: {
+    selectedLegislations?: string[];
+    referenceSources?: ReferenceSource[];
+    signatureDataUrl?: string;
+    recurringItemIds?: Set<string>;
+    /** REL-03 — o que o cliente alegou ter corrigido, por item do roteiro. */
+    clientEvidenceByItemId?: Map<string, ClientEvidenceForItem[]>;
+  } = {}
 ): Promise<GeneratedPdfFile> {
   const recurringItemIds = options.recurringItemIds ?? new Set<string>();
+  const clientEvidenceByItemId = options.clientEvidenceByItemId ?? new Map<string, ClientEvidenceForItem[]>();
   const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -459,6 +468,64 @@ export async function generatePDF(
 
       cursor += rowH + gutter;
     }
+    return cursor;
+  }
+
+  /**
+   * REL-03 — o que o cliente alegou ter corrigido neste requisito, entre uma visita e outra.
+   *
+   * Regra decidida pela Ester: **registro textual sempre, imagem só do que ela aprovou.** O
+   * texto é o que sustenta o laudo — quem assinou, quando, o que disse ter feito e qual foi a
+   * decisão técnica. A figura entra apenas para a prova aceita, senão o relatório de ILPI, que
+   * já é pesado com as fotos da consultora, dobraria de tamanho carregando arquivo recusado.
+   *
+   * Nada disto conclui pendência: a conclusão é o resultado desta vistoria, marcado item a item.
+   */
+  async function drawClientEvidence(
+    evidence: ClientEvidenceForItem[] | undefined,
+    startY: number,
+    onContinue: ContinueFlow = continueOnBlankPage
+  ) {
+    if (!evidence || evidence.length === 0) return startY;
+
+    const statusLabel: Record<ClientEvidenceForItem['status'], string> = {
+      pending: 'recebida, sem revisão técnica',
+      approved: 'aprovada pela consultoria',
+      changes_requested: 'devolvida para ajuste',
+    };
+
+    const linhas = evidence.map((row) => {
+      const quando = new Date(row.submittedAt).toLocaleDateString('pt-BR');
+      const quem = row.byName
+        ? `${row.byName}${row.byRole ? ` (${row.byRole})` : ''}`
+        : 'não identificado';
+      const partes = [`${quando} — ${quem} — ${statusLabel[row.status]}.`];
+      if (row.clientNote) partes.push(`Alegação: ${row.clientNote}`);
+      if (row.reviewNote) partes.push(`Parecer da consultoria: ${row.reviewNote}`);
+      partes.push(`Arquivo: ${row.fileName}`);
+      return partes.join(' ');
+    });
+
+    let cursor = drawLabeledBlock(
+      'Evidência apresentada pelo cliente',
+      linhas.join('\n'),
+      startY,
+      [7, 89, 133],
+      onContinue
+    );
+
+    // Só imagem aprovada vira figura. `drawPhotoGrid` já pula o que não for data URL local.
+    const aprovadas = evidence
+      .filter((row) => row.status === 'approved' && row.imageDataUrl)
+      .map((row) => ({
+        id: row.evidenceId,
+        responseId: '',
+        dataUrl: row.imageDataUrl as string,
+        caption: `Evidência do cliente — ${row.byName || 'sem assinatura'} · ${new Date(row.submittedAt).toLocaleDateString('pt-BR')}`,
+        createdAt: new Date(row.submittedAt),
+      })) as unknown as InspectionResponse['photos'];
+
+    cursor = await drawPhotoGrid(aprovadas, cursor, onContinue);
     return cursor;
   }
 
@@ -1292,6 +1359,9 @@ export async function generatePDF(
       }
 
       y = await drawPhotoGrid(response.photos, y, continueItem);
+      // REL-03: o item voltou a ser NC — o que o cliente alegou ter feito fica registrado aqui,
+      // ao lado do achado desta visita. É a leitura que sustenta a reincidência.
+      y = await drawClientEvidence(clientEvidenceByItemId.get(response.itemId), y, continueItem);
       y = drawItemLinks(response.links, y, continueItem);
 
       if (ncNum < nonCompliantItems.length) {
@@ -1312,6 +1382,67 @@ export async function generatePDF(
     doc.setFontSize(8);
     doc.setTextColor(...mutedColor);
     doc.text(`Ciente do Plano de Ação: ${inspection.accompanistName || 'Representante do Estabelecimento'}`, margin, y);
+  }
+
+  // ── REL-03: EVIDÊNCIAS DO CLIENTE EM ITENS JÁ REGULARIZADOS ──
+  //
+  // O item que voltou a ser NC já mostra a alegação junto do achado, lá em cima. Aqui ficam os
+  // que o cliente disse ter corrigido e que ESTA vistoria confirmou — é a parte que fecha o
+  // ciclo: a pendência não fechou porque chegou anexo, fechou porque foi verificada em campo, e
+  // o relatório guarda as duas coisas lado a lado.
+  const evidenceOnResolved = [...clientEvidenceByItemId.entries()]
+    .filter(([itemId]) => !nonCompliantItems.some((response) => response.itemId === itemId))
+    .map(([itemId, list]) => ({ item: allItems.find((i) => i.id === itemId), list }))
+    .filter((entry): entry is { item: NonNullable<typeof entry.item>; list: ClientEvidenceForItem[] } => !!entry.item);
+
+  if (evidenceOnResolved.length > 0) {
+    doc.addPage();
+    y = margin;
+    const evidenceAccent: [number, number, number] = [7, 89, 133];
+    const drawEvidenceHeading = (continuation = false) => {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(13);
+      doc.setTextColor(...primaryColor);
+      doc.text(`EVIDÊNCIAS APRESENTADAS PELO CLIENTE${continuation ? ' - CONTINUAÇÃO' : ''}`, margin, y);
+      y += 3;
+      doc.setDrawColor(...primaryColor);
+      doc.setLineWidth(0.4);
+      doc.line(margin, y, margin + contentW, y);
+      y += 7;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(...mutedColor);
+      const nota = doc.splitTextToSize(
+        'Registro do que o estabelecimento apresentou como prova de correção entre uma visita e outra. '
+        + 'A conclusão de cada pendência é a verificação em campo desta inspeção, e não o recebimento do arquivo.',
+        contentW
+      );
+      doc.text(nota, margin, y);
+      y += nota.length * 4.2 + 5;
+    };
+    const continueEvidencePage = () => {
+      doc.addPage();
+      y = margin;
+      drawEvidenceHeading(true);
+      return y;
+    };
+
+    drawEvidenceHeading();
+
+    let evidenceNum = 1;
+    for (const { item, list } of evidenceOnResolved) {
+      const code = `EV-${String(evidenceNum).padStart(3, '0')}`;
+      y = drawItemHeader({
+        code,
+        title: item.description,
+        accent: evidenceAccent,
+        tags: recurringItemIds.has(item.id) ? [{ text: 'REGULARIZADO', fill: [22, 101, 52] }] : [],
+        startY: y,
+        onContinue: continueEvidencePage,
+      });
+      y = await drawClientEvidence(list, y, continueEvidencePage);
+      evidenceNum++;
+    }
   }
 
   // ── PAGES: EXCELÊNCIA E MELHORIAS ──────────────────────

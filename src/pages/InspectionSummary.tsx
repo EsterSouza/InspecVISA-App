@@ -350,6 +350,15 @@ export function InspectionSummary() {
        const { getRecurringItemIdsForClient } = await import('../utils/actionPlanContext');
        const recurringItemIds = await getRecurringItemIdsForClient(currentInspection.clientId, currentInspection.id)
          .catch(() => new Set<string>());
+       // REL-03: o que o cliente alegou ter corrigido entra no relatório final. Registro
+       // textual sempre; a imagem é baixada aqui e embutida só para o que foi aprovado. Sem
+       // rede, o PDF sai igual ao de antes — nunca falha por causa disto.
+       const { ClientEvidenceService } = await import('../services/clientEvidenceService');
+       const clientEvidenceByItemId = await ClientEvidenceService.prepareForReport(currentInspection.clientId)
+         .catch((err) => {
+           console.warn('[Summary] Evidencia do cliente indisponivel para o relatorio:', err);
+           return undefined;
+         });
        const generatedPdf = await generatePDF(
          currentInspection,
          pdfResponses,
@@ -357,7 +366,13 @@ export function InspectionSummary() {
          scoreArea,
          settings as any,
          legislations,
-         { selectedLegislations: opts.selectedLegislations, referenceSources: opts.referenceSources, signatureDataUrl: opts.signatureDataUrl, recurringItemIds }
+         {
+           selectedLegislations: opts.selectedLegislations,
+           referenceSources: opts.referenceSources,
+           signatureDataUrl: opts.signatureDataUrl,
+           recurringItemIds,
+           clientEvidenceByItemId,
+         }
        );
        if (shouldSyncFinalSnapshot) {
          const snapshotInspection = { ...currentInspection, reportTemplateSnapshot: displayTemplate, referenceSources: opts.referenceSources ?? currentInspection.referenceSources };

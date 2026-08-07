@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { generatePDF } from '../../utils/pdfGenerator';
 import { calculateScore } from '../../utils/scoring';
 import type { ChecklistTemplate, ConsultantSettings, Inspection, InspectionResponse, ReferenceSource, Section } from '../../types';
+import type { ClientEvidenceForItem } from '../../services/clientEvidenceService';
 
 // jsPDF anexa `text` como propriedade própria da instância (via mixin da API),
 // não no prototype — spyOn(jsPDF.prototype, 'text') não intercepta nada. Em vez
@@ -412,5 +413,126 @@ describe('REF-02 - referências legislativas do relatório', () => {
     const referencias = capturedTexts.filter(t => t.includes('BRASIL') && t.includes('1.812'));
     expect(referencias).toHaveLength(1);
     expect(capturedTexts).not.toContain('Art. 276');
+  });
+});
+
+describe('REL-03 - evidência do cliente no relatório final', () => {
+  beforeEach(() => {
+    capturedTexts.length = 0;
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function evidence(overrides: Partial<ClientEvidenceForItem> = {}): ClientEvidenceForItem {
+    return {
+      itemId: 'item-1',
+      evidenceId: 'ev-1',
+      status: 'approved',
+      fileName: 'protocolo.pdf',
+      mimeType: 'application/pdf',
+      clientNote: 'Protocolo de renovacao aberto na VISA em 12/07.',
+      reviewNote: 'Documento aceito.',
+      byName: 'Joana Prado',
+      byRole: 'Gestora da unidade',
+      submittedAt: '2026-07-15T12:00:00.000Z',
+      reviewedAt: '2026-07-16T12:00:00.000Z',
+      storageBucket: 'client-action-evidence',
+      storagePath: 'tenant/cliente/item/arquivo.pdf',
+      itemStatus: 'resolved',
+      ...overrides,
+    };
+  }
+
+  const naoConforme: InspectionResponse[] = [
+    {
+      id: 'resp-nc',
+      inspectionId: 'insp-1',
+      itemId: 'item-1',
+      result: 'not_complies',
+      situationDescription: 'Alvara continua vencido.',
+      correctiveAction: 'Protocolar a renovacao.',
+      createdAt: new Date('2026-08-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-08-01T00:00:00.000Z'),
+      syncStatus: 'synced',
+    },
+  ];
+
+  test('sem evidência o relatório sai igual ao de antes', async () => {
+    const score = calculateScore(responses, sections);
+    await generatePDF(inspection, responses, template, score, settings, []);
+
+    expect(capturedTexts).not.toContain('Evidência apresentada pelo cliente');
+    expect(capturedTexts).not.toContain('EVIDÊNCIAS APRESENTADAS PELO CLIENTE');
+  });
+
+  test('item que voltou a ser NC leva a alegação do cliente junto do achado', async () => {
+    const score = calculateScore(naoConforme, sections);
+    await generatePDF(inspection, naoConforme, template, score, settings, [], {
+      recurringItemIds: new Set(['item-1']),
+      clientEvidenceByItemId: new Map([['item-1', [evidence()]]]),
+    });
+
+    expect(capturedTexts).toContain('Evidência apresentada pelo cliente');
+    const corrido = capturedTexts.join(' ');
+    // Quem assinou, quando, o que alegou e qual foi o parecer — é isso que sustenta o laudo.
+    expect(corrido).toMatch(/Joana Prado/);
+    expect(corrido).toMatch(/Gestora da unidade/);
+    expect(corrido).toMatch(/aprovada pela consultoria/);
+    expect(corrido).toMatch(/Protocolo de renovacao aberto na VISA/);
+    expect(corrido).toMatch(/Parecer da consultoria: Documento aceito/);
+    // E o item continua sendo NC nesta visita: o anexo não concluiu nada.
+    expect(capturedTexts).toContain('NÃO CONFORMIDADES IDENTIFICADAS');
+  });
+
+  test('item já regularizado ganha seção própria, sem se misturar com as NCs', async () => {
+    const score = calculateScore(responses, sections);
+    await generatePDF(inspection, responses, template, score, settings, [], {
+      recurringItemIds: new Set(['item-1']),
+      clientEvidenceByItemId: new Map([['item-1', [evidence()]]]),
+    });
+
+    expect(capturedTexts).toContain('EVIDÊNCIAS APRESENTADAS PELO CLIENTE');
+    expect(capturedTexts).toContain('EV-001');
+    expect(capturedTexts).toContain('REGULARIZADO');
+    // A frase que impede a leitura errada: quem conclui é a vistoria, não o anexo.
+    expect(capturedTexts.join(' ')).toMatch(/não o recebimento do arquivo/);
+  });
+
+  test('evidência sem revisão e devolvida aparecem com o estado correto', async () => {
+    const score = calculateScore(responses, sections);
+    await generatePDF(inspection, responses, template, score, settings, [], {
+      clientEvidenceByItemId: new Map([['item-1', [
+        evidence({ evidenceId: 'ev-2', status: 'pending', reviewNote: null }),
+        evidence({ evidenceId: 'ev-3', status: 'changes_requested', reviewNote: 'Ilegivel, reenvie.' }),
+      ]]]),
+    });
+
+    const corrido = capturedTexts.join(' ');
+    expect(corrido).toMatch(/recebida, sem revisão técnica/);
+    expect(corrido).toMatch(/devolvida para ajuste/);
+    expect(corrido).toMatch(/Ilegivel, reenvie/);
+  });
+
+  test('envio sem assinatura antiga não quebra o relatório', async () => {
+    const score = calculateScore(responses, sections);
+    await generatePDF(inspection, responses, template, score, settings, [], {
+      clientEvidenceByItemId: new Map([['item-1', [evidence({ byName: null, byRole: null })]]]),
+    });
+
+    expect(capturedTexts.join(' ')).toMatch(/não identificado/);
+  });
+
+  test('item com evidência que não existe no roteiro é ignorado, não quebra', async () => {
+    const score = calculateScore(responses, sections);
+    await generatePDF(inspection, responses, template, score, settings, [], {
+      clientEvidenceByItemId: new Map([['item-que-sumiu-do-roteiro', [evidence({ itemId: 'item-que-sumiu-do-roteiro' })]]]),
+    });
+
+    expect(capturedTexts).not.toContain('EVIDÊNCIAS APRESENTADAS PELO CLIENTE');
   });
 });
