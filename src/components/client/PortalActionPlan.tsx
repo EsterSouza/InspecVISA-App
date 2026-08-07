@@ -51,7 +51,33 @@ export type SubmitEvidenceHandler = (params: {
   file: File;
   uploadKey: string;
   note: string;
+  byName: string;
+  byRole: string;
 }) => Promise<void>;
+
+/**
+ * PORT-02 — nome e função ficam na página, não no card do item: quem envia é a mesma pessoa
+ * durante a visita inteira, e repetir a digitação a cada pendência faria ela desistir na
+ * segunda. Guardado só no navegador, para reaparecer preenchido na próxima vez.
+ */
+const AUTHOR_KEY = 'inspecvisa-evidencia-autor';
+
+export function readStoredAuthor(): { byName: string; byRole: string } {
+  try {
+    const raw = localStorage.getItem(AUTHOR_KEY);
+    if (!raw) return { byName: '', byRole: '' };
+    const parsed = JSON.parse(raw) as { byName?: string; byRole?: string };
+    return { byName: parsed.byName || '', byRole: parsed.byRole || '' };
+  } catch {
+    return { byName: '', byRole: '' };
+  }
+}
+
+export function storeAuthor(author: { byName: string; byRole: string }) {
+  try {
+    localStorage.setItem(AUTHOR_KEY, JSON.stringify(author));
+  } catch { /* armazenamento indisponível */ }
+}
 
 interface PortalActionPlanProps {
   items: ClientPortalActionItem[];
@@ -71,9 +97,13 @@ interface PortalActionPlanProps {
  */
 function EvidenceUpload({
   item,
+  author,
+  onAuthorChange,
   onSubmitEvidence,
 }: {
   item: ClientPortalActionItem;
+  author: { byName: string; byRole: string };
+  onAuthorChange: (author: { byName: string; byRole: string }) => void;
   onSubmitEvidence: SubmitEvidenceHandler;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -106,10 +136,21 @@ function EvidenceUpload({
 
   const handleSend = async () => {
     if (!file || busy) return;
+    if (!author.byName.trim() || !author.byRole.trim()) {
+      setError('Preencha seu nome e sua função antes de enviar.');
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
-      await onSubmitEvidence({ item, file, uploadKey, note: note.trim() });
+      await onSubmitEvidence({
+        item,
+        file,
+        uploadKey,
+        note: note.trim(),
+        byName: author.byName.trim(),
+        byRole: author.byRole.trim(),
+      });
       reset();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível enviar agora. Tente de novo.');
@@ -157,6 +198,31 @@ function EvidenceUpload({
             placeholder="Quer explicar o que foi feito? (opcional)"
             className="w-full rounded-md border border-gray-200 p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
           />
+          <div className="grid gap-2 sm:grid-cols-2">
+            <input
+              type="text"
+              required
+              value={author.byName}
+              onChange={(e) => onAuthorChange({ ...author, byName: e.target.value })}
+              maxLength={120}
+              placeholder="Seu nome *"
+              aria-label="Seu nome"
+              className="w-full rounded-md border border-gray-200 p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+            />
+            <input
+              type="text"
+              required
+              value={author.byRole}
+              onChange={(e) => onAuthorChange({ ...author, byRole: e.target.value })}
+              maxLength={120}
+              placeholder="Sua função *"
+              aria-label="Sua função"
+              className="w-full rounded-md border border-gray-200 p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+            />
+          </div>
+          <p className="text-[11px] text-gray-400">
+            O nome e a função ficam registrados no relatório junto com a evidência.
+          </p>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
@@ -203,6 +269,8 @@ function EvidenceState({ item }: { item: ClientPortalActionItem }) {
         <p className="mt-0.5 opacity-80">
           Enviada em {formatDateBR(item.evidence_submitted_at)}
           {item.evidence_file_name ? ` · ${item.evidence_file_name}` : ''}
+          {item.evidence_by_name ? ` · por ${item.evidence_by_name}` : ''}
+          {item.evidence_by_role ? ` (${item.evidence_by_role})` : ''}
         </p>
       )}
       {item.evidence_review_note && (
@@ -223,10 +291,14 @@ function EvidenceState({ item }: { item: ClientPortalActionItem }) {
 function ActionItemCard({
   item,
   showUnitName,
+  author,
+  onAuthorChange,
   onSubmitEvidence,
 }: {
   item: ClientPortalActionItem;
   showUnitName?: boolean;
+  author: { byName: string; byRole: string };
+  onAuthorChange: (author: { byName: string; byRole: string }) => void;
   onSubmitEvidence?: SubmitEvidenceHandler;
 }) {
   const resolved = item.status === 'resolved';
@@ -282,7 +354,12 @@ function ActionItemCard({
       <EvidenceState item={item} />
 
       {onSubmitEvidence && item.accepts_evidence && (
-        <EvidenceUpload item={item} onSubmitEvidence={onSubmitEvidence} />
+        <EvidenceUpload
+          item={item}
+          author={author}
+          onAuthorChange={onAuthorChange}
+          onSubmitEvidence={onSubmitEvidence}
+        />
       )}
     </li>
   );
@@ -296,6 +373,12 @@ export function PortalActionPlan({
   onSubmitEvidence,
 }: PortalActionPlanProps) {
   const [expanded, setExpanded] = useState(false);
+  const [author, setAuthor] = useState(readStoredAuthor);
+
+  const handleAuthorChange = (next: { byName: string; byRole: string }) => {
+    setAuthor(next);
+    storeAuthor(next);
+  };
 
   if (loading) {
     return <section className="mb-6 h-28 animate-pulse rounded-xl border border-gray-200 bg-gray-50" aria-hidden="true" />;
@@ -344,6 +427,8 @@ export function PortalActionPlan({
               key={item.id}
               item={item}
               showUnitName={showUnitName}
+              author={author}
+              onAuthorChange={handleAuthorChange}
               onSubmitEvidence={onSubmitEvidence}
             />
           ))}
@@ -367,7 +452,13 @@ export function PortalActionPlan({
           </summary>
           <ul className="mt-2 space-y-2">
             {resolved.map((item) => (
-              <ActionItemCard key={item.id} item={item} showUnitName={showUnitName} />
+              <ActionItemCard
+                key={item.id}
+                item={item}
+                showUnitName={showUnitName}
+                author={author}
+                onAuthorChange={handleAuthorChange}
+              />
             ))}
           </ul>
         </details>

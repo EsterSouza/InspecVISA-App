@@ -27,7 +27,12 @@ import {
   XCircle,
 } from 'lucide-react';
 import type { AppointmentAttachment, PublicAppointmentStatusResult } from '../types';
-import { clientPortalService, type ClientPortalUnit } from '../services/clientPortalService';
+import {
+  clientPortalService,
+  type ClientPortalActionItem,
+  type ClientPortalUnit,
+} from '../services/clientPortalService';
+import { PortalActionPlan, type SubmitEvidenceHandler } from '../components/client/PortalActionPlan';
 import { formatReportDueDate } from '../utils/businessDays';
 import { PublicHeader } from '../components/public/PublicHeader';
 import { formatProtocol } from '../utils/protocol';
@@ -131,6 +136,8 @@ export function PublicAppointmentStatus() {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [showGallery, setShowGallery] = useState(false);
   const [unit, setUnit] = useState<ClientPortalUnit | null>(null);
+  const [actionItems, setActionItems] = useState<ClientPortalActionItem[]>([]);
+  const [actionItemsError, setActionItemsError] = useState(false);
 
   const load = useCallback(async (isRefresh = false) => {
     if (!token) {
@@ -138,29 +145,44 @@ export function PublicAppointmentStatus() {
       setLoading(false);
       return;
     }
+    // PORT-02: o link do relatório abre sozinho. Antes, sem o token da conta no navegador, a
+    // página respondia "acesso restrito" — o que inviabilizava dar acesso ao gestor de uma casa
+    // da rede sem entregar o login do dono do contrato, que abre todas. Quem está logado
+    // continua entrando pelo mesmo caminho, com as travas da conta valendo.
     const accountToken = clientPortalService.getStoredToken();
-    if (!accountToken) {
-      setInvalidToken(true);
-      setLoading(false);
-      return;
-    }
     if (isRefresh) setRefreshing(true);
     try {
       const result = await clientPortalService.appointmentDetails(accountToken, token);
       setStatus(result.status);
       setAssets(result.assets || []);
       setInvalidToken(false);
-      void clientPortalService.audit(accountToken, 'appointment_viewed', {
-        unit_name: result.status.unit_name,
-        status: result.status.status,
-      }, { appointmentToken: token });
-      // Cronograma do contrato: busca a unidade do cliente no overview do portal.
-      if (result.status.client_id) {
-        clientPortalService.overview(accountToken)
-          .then((overview) => {
-            setUnit(overview.units.find((u) => u.client_id === result.status.client_id) || null);
-          })
-          .catch((err) => console.warn('[PublicAppointmentStatus] Falha ao carregar cronograma:', err));
+
+      // O plano de ação vem pela RPC do link, que não pede conta. Falha aqui não derruba o
+      // relatório: o gestor ainda precisa conseguir baixar o PDF.
+      clientPortalService
+        .reportActionItems(token)
+        .then((plan) => {
+          setActionItems(plan.items);
+          setActionItemsError(false);
+        })
+        .catch((err) => {
+          console.warn('[PublicAppointmentStatus] Falha ao carregar o plano de acao:', err);
+          setActionItemsError(true);
+        });
+
+      if (accountToken) {
+        void clientPortalService.audit(accountToken, 'appointment_viewed', {
+          unit_name: result.status.unit_name,
+          status: result.status.status,
+        }, { appointmentToken: token });
+        // Cronograma do contrato: só existe para quem entrou pela conta.
+        if (result.status.client_id) {
+          clientPortalService.overview(accountToken)
+            .then((overview) => {
+              setUnit(overview.units.find((u) => u.client_id === result.status.client_id) || null);
+            })
+            .catch((err) => console.warn('[PublicAppointmentStatus] Falha ao carregar cronograma:', err));
+        }
       }
     } catch (err) {
       console.warn('[PublicAppointmentStatus] Token inválido ou erro de consulta:', err);
@@ -174,6 +196,25 @@ export function PublicAppointmentStatus() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // O envio sempre vai pelo token da VISITA, mesmo quando a pessoa está logada: quem abre esta
+  // tela está olhando o relatório de uma casa específica, e é a ela que a evidência pertence.
+  const handleSubmitEvidence: SubmitEvidenceHandler = useCallback(
+    async ({ item, file, uploadKey, note, byName, byRole }) => {
+      if (!token) throw new Error('Link inválido.');
+      await clientPortalService.submitReportEvidence(token, {
+        actionItemId: item.id,
+        uploadKey,
+        file,
+        note,
+        byName,
+        byRole,
+      });
+      const plan = await clientPortalService.reportActionItems(token);
+      setActionItems(plan.items);
+    },
+    [token]
+  );
 
   // ─── Loading inicial ─────────────────────────────────────────
   if (loading) {
@@ -539,6 +580,14 @@ export function PublicAppointmentStatus() {
         )}
 
         {unit && <ContractTimeline unit={unit} />}
+
+        {/* PORT-02: o plano de ação da unidade, aqui mesmo no relatório. É esta a tela que o
+            gestor da casa abre pelo link, e é dela que sai a evidência de correção. */}
+        <PortalActionPlan
+          items={actionItems}
+          error={actionItemsError}
+          onSubmitEvidence={handleSubmitEvidence}
+        />
 
         {status.has_personalized_sanitary_folder && status.personalized_sanitary_folder_url && (
           <section className="mb-6 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-5 shadow-sm">

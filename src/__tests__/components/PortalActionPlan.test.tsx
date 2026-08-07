@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { PortalActionPlan } from '../../components/client/PortalActionPlan';
 import type { ClientPortalActionItem } from '../../services/clientPortalService';
 
@@ -28,6 +28,8 @@ function actionItem(overrides: Partial<ClientPortalActionItem> = {}): ClientPort
     evidence_submitted_at: null,
     evidence_reviewed_at: null,
     evidence_review_note: null,
+    evidence_by_name: null,
+    evidence_by_role: null,
     accepts_evidence: true,
     ...overrides,
   };
@@ -115,6 +117,29 @@ describe('P360-011 - evidência no plano de ação do cliente', () => {
 
   const pdf = () => new File(['%PDF-1.4 conteudo'], 'Protocolo Vigilância.pdf', { type: 'application/pdf' });
 
+  // A assinatura e obrigatoria desde o PORT-02: sem ela o envio nem sai.
+  async function signAs(name = 'Joana Prado', role = 'Gestora da unidade') {
+    await userEvent.type(screen.getByLabelText('Seu nome'), name);
+    await userEvent.type(screen.getByLabelText('Sua função'), role);
+  }
+
+  // O ambiente de teste roda com `--no-experimental-webstorage` e entrega um `localStorage`
+  // capenga (o mesmo que já quebrou o `zustand/persist` aqui). Como a assinatura guardada é
+  // parte do comportamento, o teste instala um armazenamento de verdade em memória.
+  beforeEach(() => {
+    const store = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => void store.set(key, value),
+      removeItem: (key: string) => void store.delete(key),
+      clear: () => store.clear(),
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   test('sem handler de envio o cliente não vê botão de evidência', () => {
     render(<PortalActionPlan items={[actionItem()]} />);
     expect(screen.queryByRole('button', { name: /Enviar evidência/ })).not.toBeInTheDocument();
@@ -137,6 +162,7 @@ describe('P360-011 - evidência no plano de ação do cliente', () => {
 
     await pickFile(item, pdf());
     await userEvent.type(screen.getByPlaceholderText(/Quer explicar o que foi feito/), 'Protocolo em anexo');
+    await signAs();
     await userEvent.click(screen.getByRole('button', { name: /Enviar para a consultoria/ }));
 
     expect(onSubmitEvidence).toHaveBeenCalledTimes(1);
@@ -144,6 +170,8 @@ describe('P360-011 - evidência no plano de ação do cliente', () => {
     expect(call.item.id).toBe('item-1');
     expect(call.file.name).toBe('Protocolo Vigilância.pdf');
     expect(call.note).toBe('Protocolo em anexo');
+    expect(call.byName).toBe('Joana Prado');
+    expect(call.byRole).toBe('Gestora da unidade');
     expect(call.uploadKey).toMatch(/^[0-9a-f-]{36}$/i);
   });
 
@@ -176,6 +204,7 @@ describe('P360-011 - evidência no plano de ação do cliente', () => {
     render(<PortalActionPlan items={[item]} onSubmitEvidence={onSubmitEvidence} />);
 
     await pickFile(item, pdf());
+    await signAs();
     await userEvent.click(screen.getByRole('button', { name: /Enviar para a consultoria/ }));
 
     expect(screen.getByText('arquivo acima do limite de 10 MB')).toBeInTheDocument();
@@ -203,6 +232,56 @@ describe('P360-011 - evidência no plano de ação do cliente', () => {
     expect(screen.getByText(/2 arquivos enviados/)).toBeInTheDocument();
     // Depois da devolução o cliente reenvia; o botão muda de rótulo, não some.
     expect(screen.getByRole('button', { name: /Enviar outra evidência/ })).toBeInTheDocument();
+  });
+
+  test('sem nome e função o envio não sai, e o arquivo escolhido continua ali', async () => {
+    const onSubmitEvidence = vi.fn();
+    const item = actionItem();
+    render(<PortalActionPlan items={[item]} onSubmitEvidence={onSubmitEvidence} />);
+
+    await pickFile(item, pdf());
+    await userEvent.type(screen.getByLabelText('Seu nome'), 'Joana Prado');
+    await userEvent.click(screen.getByRole('button', { name: /Enviar para a consultoria/ }));
+
+    expect(onSubmitEvidence).not.toHaveBeenCalled();
+    expect(screen.getByText(/Preencha seu nome e sua função/)).toBeInTheDocument();
+    expect(screen.getByText('Protocolo Vigilância.pdf')).toBeInTheDocument();
+  });
+
+  test('a assinatura volta preenchida no envio seguinte', async () => {
+    const onSubmitEvidence = vi.fn().mockResolvedValue(undefined);
+    const item = actionItem();
+    const { unmount } = render(<PortalActionPlan items={[item]} onSubmitEvidence={onSubmitEvidence} />);
+
+    await pickFile(item, pdf());
+    await signAs();
+    await userEvent.click(screen.getByRole('button', { name: /Enviar para a consultoria/ }));
+    unmount();
+
+    // Quem envia é a mesma pessoa a visita inteira; digitar de novo a cada pendência faria
+    // ela desistir na segunda.
+    render(<PortalActionPlan items={[item]} onSubmitEvidence={onSubmitEvidence} />);
+    await pickFile(item, pdf());
+    expect(screen.getByLabelText('Seu nome')).toHaveValue('Joana Prado');
+    expect(screen.getByLabelText('Sua função')).toHaveValue('Gestora da unidade');
+  });
+
+  test('quem assinou o envio aparece junto do estado', () => {
+    render(
+      <PortalActionPlan
+        items={[
+          actionItem({
+            evidence_count: 1,
+            evidence_status: 'pending',
+            evidence_submitted_at: '2026-08-05',
+            evidence_by_name: 'Joana Prado',
+            evidence_by_role: 'Gestora da unidade',
+          }),
+        ]}
+        onSubmitEvidence={vi.fn()}
+      />
+    );
+    expect(screen.getByText(/por Joana Prado \(Gestora da unidade\)/)).toBeInTheDocument();
   });
 
   test('evidência em análise deixa claro que a pendência continua aberta', () => {

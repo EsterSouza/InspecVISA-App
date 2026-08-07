@@ -163,13 +163,15 @@ export function ClientPortal() {
   // P360-011 — o envio da evidência não muda o item: ele volta do servidor com o estado novo
   // (`pending`) e a pendência continua aberta até a consultora decidir.
   const handleSubmitEvidence: SubmitEvidenceHandler = useCallback(
-    async ({ item, file, uploadKey, note }) => {
+    async ({ item, file, uploadKey, note, byName, byRole }) => {
       if (!token) throw new Error('Sessão expirada. Entre de novo para enviar o arquivo.');
       await clientPortalService.submitEvidence(token, {
         actionItemId: item.id,
         uploadKey,
         file,
         note,
+        byName,
+        byRole,
       });
       await loadActionItems(token);
     },

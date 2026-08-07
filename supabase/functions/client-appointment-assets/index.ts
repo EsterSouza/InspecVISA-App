@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
     const payload = await req.json().catch(() => ({}));
     const accountToken = asUuid(payload.accountToken);
     const appointmentToken = asUuid(payload.appointmentToken);
-    if (!accountToken || !appointmentToken) {
+    if (!appointmentToken) {
       return jsonResponse({ error: 'tokens invalidos' }, { status: 400 });
     }
 
@@ -45,29 +45,41 @@ Deno.serve(async (req) => {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    const { data: account, error: accountError } = await admin
-      .from('client_portal_accounts')
-      .select('id, name, payment_link, payment_due_date')
-      .eq('portal_token', accountToken)
-      .eq('is_active', true)
-      .maybeSingle();
-    if (accountError) throw accountError;
-    if (!account) return jsonResponse({ error: 'acesso invalido' }, { status: 403 });
+    // PORT-02: sem `accountToken` a chamada vem do LINK ABERTO do relatório — o gestor da casa,
+    // que não tem (nem deve ter) o login do dono do contrato. Nesse modo o único portão é o
+    // `report_hidden` da própria visita, conferido mais abaixo: as travas por CONTA não se
+    // aplicam porque não há conta. Decisão da Ester, registrada no handoff.
+    let account: { id: string; name: string; payment_link: string | null; payment_due_date: string | null } | null = null;
+    let features: Record<string, boolean> = {};
+    let schedulingSuspended = false;
 
-    // PORT-01: inadimplência NÃO bloqueia o que já foi entregue. Antes, `scheduling_suspended`
-    // impedia a assinatura da URL de todos os anexos — o cliente via o relatório na lista e
-    // não conseguia abrir. Agora suspensão vale só para agendar, e esconder entrega é decisão
-    // explícita por conta, resolvida em client_portal_feature_gates.
-    const { data: gates, error: gatesError } = await admin.rpc('client_portal_feature_gates', {
-      p_token: accountToken,
-    });
-    if (gatesError) throw gatesError;
-    if (gates?.error) return jsonResponse({ error: 'acesso invalido' }, { status: 403 });
+    if (accountToken) {
+      const { data: accountRow, error: accountError } = await admin
+        .from('client_portal_accounts')
+        .select('id, name, payment_link, payment_due_date')
+        .eq('portal_token', accountToken)
+        .eq('is_active', true)
+        .maybeSingle();
+      if (accountError) throw accountError;
+      if (!accountRow) return jsonResponse({ error: 'acesso invalido' }, { status: 403 });
+      account = accountRow;
 
-    const features = gates?.features || {};
+      // PORT-01: inadimplência NÃO bloqueia o que já foi entregue. Antes, `scheduling_suspended`
+      // impedia a assinatura da URL de todos os anexos — o cliente via o relatório na lista e
+      // não conseguia abrir. Agora suspensão vale só para agendar, e esconder entrega é decisão
+      // explícita por conta, resolvida em client_portal_feature_gates.
+      const { data: gates, error: gatesError } = await admin.rpc('client_portal_feature_gates', {
+        p_token: accountToken,
+      });
+      if (gatesError) throw gatesError;
+      if (gates?.error) return jsonResponse({ error: 'acesso invalido' }, { status: 403 });
+
+      features = gates?.features || {};
+      schedulingSuspended = gates?.scheduling_suspended === true;
+    }
+
     const reportsReleased = features.reports !== false;
     const photosReleased = features.photos !== false;
-    const schedulingSuspended = gates?.scheduling_suspended === true;
 
     const { data: requestRow, error: requestError } = await admin
       .from('appointment_requests')
@@ -77,14 +89,19 @@ Deno.serve(async (req) => {
     if (requestError) throw requestError;
     if (!requestRow?.client_id) return jsonResponse({ error: 'solicitacao nao vinculada ao cliente' }, { status: 404 });
 
-    const { data: link, error: linkError } = await admin
-      .from('client_portal_account_clients')
-      .select('client_id')
-      .eq('account_id', account.id)
-      .eq('client_id', requestRow.client_id)
-      .maybeSingle();
-    if (linkError) throw linkError;
-    if (!link) return jsonResponse({ error: 'solicitacao fora do acesso do cliente' }, { status: 403 });
+    if (account) {
+      const { data: link, error: linkError } = await admin
+        .from('client_portal_account_clients')
+        .select('client_id')
+        .eq('account_id', account.id)
+        .eq('client_id', requestRow.client_id)
+        .maybeSingle();
+      if (linkError) throw linkError;
+      if (!link) return jsonResponse({ error: 'solicitacao fora do acesso do cliente' }, { status: 403 });
+    } else if (requestRow.report_hidden) {
+      // No modo link, ocultar o relatório fecha a porta inteira — não sobra nem a lista.
+      return jsonResponse({ error: 'relatorio indisponivel' }, { status: 403 });
+    }
 
     const { data: clientRow, error: clientError } = await admin
       .from('clients')
@@ -155,8 +172,11 @@ Deno.serve(async (req) => {
         notes: requestRow.notes,
         scheduling_suspended: schedulingSuspended,
         feature_gates: features,
-        payment_link: account.payment_link || null,
-        payment_due_date: account.payment_due_date || null,
+        // Pelo link não há conta, então também não há cobrança: dinheiro é assunto do dono do
+        // contrato, não do gestor da casa.
+        payment_link: account?.payment_link || null,
+        payment_due_date: account?.payment_due_date || null,
+        access_mode: account ? 'account' : 'report_link',
         has_personalized_sanitary_folder: clientRow?.has_personalized_sanitary_folder || false,
         personalized_sanitary_folder_url: clientRow?.personalized_sanitary_folder_url || null,
         created_at: requestRow.created_at,

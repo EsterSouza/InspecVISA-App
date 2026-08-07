@@ -173,7 +173,16 @@ export interface ClientPortalActionItem {
   evidence_submitted_at: string | null;
   evidence_reviewed_at: string | null;
   evidence_review_note: string | null;
+  /** PORT-02 — quem assinou o último envio. Sem login, é isto que responde "quem alegou". */
+  evidence_by_name: string | null;
+  evidence_by_role: string | null;
   accepts_evidence: boolean;
+}
+
+/** Assinatura obrigatória de quem insere a evidência (PORT-02). */
+export interface EvidenceAuthor {
+  byName: string;
+  byRole: string;
 }
 
 /**
@@ -199,6 +208,44 @@ const TOKEN_KEY = 'inspecvisa-client-portal-token';
 
 /** 10 MB numa conexão de ILPI do interior não cabe nos 30s das outras chamadas. */
 const UPLOAD_TIMEOUT_MS = 180000;
+
+/**
+ * Envio da evidência. Os dois caminhos — login da conta e link aberto do relatório — mandam o
+ * mesmo `FormData` para a mesma Edge Function; muda só qual token vai junto. A `uploadKey` é a
+ * identidade do envio: gerada uma vez por arquivo escolhido e reusada em qualquer tentativa
+ * seguinte, para retry e clique duplo caírem na mesma linha. Quem valida de verdade é o
+ * servidor; `checkEvidenceFile` roda antes só para não fazer o cliente esperar um upload que
+ * vai ser recusado.
+ */
+async function sendEvidence(
+  auth: { accountToken?: string; visitToken?: string },
+  params: { actionItemId: string; uploadKey: string; file: File; note?: string } & EvidenceAuthor
+): Promise<{ evidenceId: string; duplicate: boolean }> {
+  const check = checkEvidenceFile(params.file);
+  if (!check.ok) throw new Error(check.message);
+  if (!params.byName.trim() || !params.byRole.trim()) {
+    throw new Error('Informe seu nome e sua função para registrar quem enviou.');
+  }
+
+  const form = new FormData();
+  if (auth.accountToken) form.append('accountToken', auth.accountToken);
+  if (auth.visitToken) form.append('visitToken', auth.visitToken);
+  form.append('actionItemId', params.actionItemId);
+  form.append('uploadKey', params.uploadKey);
+  form.append('byName', params.byName.trim());
+  form.append('byRole', params.byRole.trim());
+  if (params.note) form.append('note', params.note);
+  form.append('file', params.file);
+
+  const { data, error } = await withTimeout(
+    supabase.functions.invoke('client-action-evidence', { body: form }),
+    'EnvioDeEvidencia',
+    UPLOAD_TIMEOUT_MS
+  );
+  if (error) throw error;
+  if (data?.error) throw new Error(data.error);
+  return { evidenceId: data.evidence_id as string, duplicate: !!data.duplicate };
+}
 
 export const clientPortalService = {
   getStoredToken(): string | null {
@@ -277,26 +324,41 @@ export const clientPortalService = {
    */
   async submitEvidence(
     token: string,
-    params: { actionItemId: string; uploadKey: string; file: File; note?: string }
+    params: { actionItemId: string; uploadKey: string; file: File; note?: string } & EvidenceAuthor
   ): Promise<{ evidenceId: string; duplicate: boolean }> {
-    const check = checkEvidenceFile(params.file);
-    if (!check.ok) throw new Error(check.message);
+    return sendEvidence({ accountToken: token }, params);
+  },
 
-    const form = new FormData();
-    form.append('accountToken', token);
-    form.append('actionItemId', params.actionItemId);
-    form.append('uploadKey', params.uploadKey);
-    if (params.note) form.append('note', params.note);
-    form.append('file', params.file);
+  /**
+   * PORT-02 — o mesmo envio, mas pelo link aberto do relatório: quem usa é o gestor da casa,
+   * que não tem o login do dono do contrato. Sem conta, a assinatura é a identificação.
+   */
+  async submitReportEvidence(
+    visitToken: string,
+    params: { actionItemId: string; uploadKey: string; file: File; note?: string } & EvidenceAuthor
+  ): Promise<{ evidenceId: string; duplicate: boolean }> {
+    return sendEvidence({ visitToken }, params);
+  },
 
+  /** Plano de ação de uma unidade, aberto pelo link do relatório — sem login. */
+  async reportActionItems(visitToken: string): Promise<{ unitName: string; items: ClientPortalActionItem[] }> {
     const { data, error } = await withTimeout(
-      supabase.functions.invoke('client-action-evidence', { body: form }),
-      'EnvioDeEvidencia',
-      UPLOAD_TIMEOUT_MS
+      supabase.rpc('public_report_action_items', { p_visit_token: visitToken }),
+      'PlanoDeAcaoDoRelatorio'
     );
     if (error) throw error;
     if (data?.error) throw new Error(data.error);
-    return { evidenceId: data.evidence_id as string, duplicate: !!data.duplicate };
+    const unitName = (data?.unit_name as string) || '';
+    // A RPC do link devolve menos campos que a do portal (nada de unidade por item nem de
+    // token da visita, que ali seriam redundantes). Completa para o componente ser um só.
+    const items = ((data?.items ?? []) as Partial<ClientPortalActionItem>[]).map((item) => ({
+      client_id: '',
+      unit_name: unitName,
+      visit_token: null,
+      last_detected_on: null,
+      ...item,
+    })) as ClientPortalActionItem[];
+    return { unitName, items };
   },
 
   /** Lista as evidências do acesso com URL temporária recém-assinada. */
@@ -330,10 +392,18 @@ export const clientPortalService = {
     return data as { public_token: string };
   },
 
-  async appointmentDetails(accountToken: string, appointmentToken: string): Promise<ClientAppointmentDetails> {
+  /**
+   * PORT-02 — `accountToken` nulo é o link aberto do relatório: a Edge Function valida só o
+   * token da visita e aplica o `report_hidden` dela. As travas por conta não entram porque
+   * não há conta.
+   */
+  async appointmentDetails(
+    accountToken: string | null,
+    appointmentToken: string
+  ): Promise<ClientAppointmentDetails> {
     const { data, error } = await withTimeout(
       supabase.functions.invoke('client-appointment-assets', {
-        body: { accountToken, appointmentToken },
+        body: { accountToken: accountToken || null, appointmentToken },
       }),
       'ArquivosPortalCliente'
     );

@@ -92,6 +92,8 @@ async function notifyTeam(admin: any, evidenceId: string, info: {
   unitName: string;
   itemTitle: string;
   fileName: string;
+  byName: string;
+  byRole: string;
 }) {
   // A linha é o cadeado: quem conseguiu inserir manda o e-mail. Retry cai no conflito.
   const { data: inserted, error } = await admin
@@ -111,6 +113,7 @@ async function notifyTeam(admin: any, evidenceId: string, info: {
   const plain = [
     'O cliente enviou uma evidencia de correcao.',
     '',
+    `Enviado por: ${info.byName} — ${info.byRole}`,
     `Cliente: ${info.accountName}`,
     `Unidade: ${info.unitName}`,
     `Pendencia: ${info.itemTitle}`,
@@ -122,6 +125,7 @@ async function notifyTeam(admin: any, evidenceId: string, info: {
     <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#16203C">
       <h2 style="color:#0A1638;margin:0 0 10px">Evidencia enviada pelo cliente</h2>
       <div style="border:1px solid #DDE3F0;border-radius:8px;padding:16px;background:#F4F6FA">
+        <p style="margin:0 0 6px"><strong>Enviado por:</strong> ${esc(info.byName)} &mdash; ${esc(info.byRole)}</p>
         <p style="margin:0 0 6px"><strong>Cliente:</strong> ${esc(info.accountName)}</p>
         <p style="margin:0 0 6px"><strong>Unidade:</strong> ${esc(info.unitName)}</p>
         <p style="margin:0 0 6px"><strong>Pendencia:</strong> ${esc(info.itemTitle)}</p>
@@ -160,15 +164,25 @@ Deno.serve(async (req) => {
     const contentType = req.headers.get('content-type') || '';
 
     // ─── Listar (JSON) ───────────────────────────────────────────────────────
+    //
+    // Dois caminhos, duas RPCs: `accountToken` é o login do portal; `visitToken` é o link
+    // aberto do relatório (PORT-02). A escolha é feita aqui, mas a regra de quem pode ver o
+    // quê continua inteira no Postgres, uma por caminho.
     if (!contentType.includes('multipart/form-data')) {
       const payload = await req.json().catch(() => ({}));
       const accountToken = asUuid(payload.accountToken);
-      if (!accountToken) return jsonResponse({ error: 'token invalido' }, { status: 400 });
+      const visitToken = asUuid(payload.visitToken);
+      if (!accountToken && !visitToken) return jsonResponse({ error: 'token invalido' }, { status: 400 });
 
-      const { data, error } = await admin.rpc('client_portal_list_evidence', {
-        p_token: accountToken,
-        p_action_item_id: asUuid(payload.actionItemId),
-      });
+      const { data, error } = accountToken
+        ? await admin.rpc('client_portal_list_evidence', {
+          p_token: accountToken,
+          p_action_item_id: asUuid(payload.actionItemId),
+        })
+        : await admin.rpc('public_report_list_evidence', {
+          p_visit_token: visitToken,
+          p_action_item_id: asUuid(payload.actionItemId),
+        });
       if (error) throw error;
       if (data?.error) return jsonResponse({ error: data.error }, { status: 403 });
 
@@ -186,13 +200,21 @@ Deno.serve(async (req) => {
     // ─── Enviar (multipart) ──────────────────────────────────────────────────
     const form = await req.formData();
     const accountToken = asUuid(form.get('accountToken'));
+    const visitToken = asUuid(form.get('visitToken'));
     const actionItemId = asUuid(form.get('actionItemId'));
     const uploadKey = asUuid(form.get('uploadKey'));
     const note = String(form.get('note') ?? '').trim().slice(0, 1000);
+    // PORT-02: sem login, é a assinatura que diz quem alegou o quê. Obrigatória nos dois
+    // caminhos — a conta do portal é da empresa, não da pessoa.
+    const byName = String(form.get('byName') ?? '').trim().slice(0, 120);
+    const byRole = String(form.get('byRole') ?? '').trim().slice(0, 120);
     const file = form.get('file');
 
-    if (!accountToken || !actionItemId || !uploadKey) {
+    if ((!accountToken && !visitToken) || !actionItemId || !uploadKey) {
       return jsonResponse({ error: 'envio invalido' }, { status: 400 });
+    }
+    if (!byName || !byRole) {
+      return jsonResponse({ error: 'informe seu nome e sua funcao' }, { status: 400 });
     }
     if (!(file instanceof File)) {
       return jsonResponse({ error: 'arquivo ausente' }, { status: 400 });
@@ -213,16 +235,31 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { data: registered, error: registerError } = await admin.rpc('client_portal_submit_evidence', {
-      p_token: accountToken,
-      p_action_item_id: actionItemId,
-      p_upload_key: uploadKey,
-      p_file_name: file.name,
-      p_mime_type: mimeType,
-      p_file_size: buffer.byteLength,
-      p_note: note || null,
-      p_user_agent: req.headers.get('user-agent'),
-    });
+    const { data: registered, error: registerError } = accountToken
+      ? await admin.rpc('client_portal_submit_evidence', {
+        p_token: accountToken,
+        p_action_item_id: actionItemId,
+        p_upload_key: uploadKey,
+        p_file_name: file.name,
+        p_mime_type: mimeType,
+        p_file_size: buffer.byteLength,
+        p_by_name: byName,
+        p_by_role: byRole,
+        p_note: note || null,
+        p_user_agent: req.headers.get('user-agent'),
+      })
+      : await admin.rpc('public_report_submit_evidence', {
+        p_visit_token: visitToken,
+        p_action_item_id: actionItemId,
+        p_upload_key: uploadKey,
+        p_file_name: file.name,
+        p_mime_type: mimeType,
+        p_file_size: buffer.byteLength,
+        p_by_name: byName,
+        p_by_role: byRole,
+        p_note: note || null,
+        p_user_agent: req.headers.get('user-agent'),
+      });
     if (registerError) throw registerError;
     if (registered?.error) return jsonResponse({ error: registered.error }, { status: 403 });
 
@@ -233,10 +270,17 @@ Deno.serve(async (req) => {
     if (uploadError) {
       // Sem arquivo, o registro é ruído: some com ele para o cliente poder tentar de novo.
       if (!registered.duplicate) {
-        await admin.rpc('client_portal_discard_evidence', {
-          p_token: accountToken,
-          p_evidence_id: registered.evidence_id,
-        });
+        if (accountToken) {
+          await admin.rpc('client_portal_discard_evidence', {
+            p_token: accountToken,
+            p_evidence_id: registered.evidence_id,
+          });
+        } else {
+          await admin.rpc('public_report_discard_evidence', {
+            p_visit_token: visitToken,
+            p_evidence_id: registered.evidence_id,
+          });
+        }
       }
       console.error('[client-action-evidence] falha ao gravar o objeto:', uploadError);
       return jsonResponse({ error: 'nao foi possivel guardar o arquivo agora' }, { status: 502 });
@@ -246,10 +290,14 @@ Deno.serve(async (req) => {
     let notifyError: string | undefined;
     try {
       teamNotified = await notifyTeam(admin, registered.evidence_id, {
-        accountName: registered.account_name || 'Cliente',
+        // Pelo link não há conta; quem responde pelo envio é a assinatura, e é ela que a
+        // equipe precisa ler no aviso.
+        accountName: registered.account_name || `${byName} (${byRole})`,
         unitName: registered.unit_name || '-',
         itemTitle: registered.item_title || '-',
         fileName: registered.file_name || 'arquivo',
+        byName,
+        byRole,
       });
     } catch (err) {
       // O arquivo já está guardado: falhar o aviso não pode fazer o cliente reenviar.
