@@ -937,6 +937,26 @@ export function ClientDetails() {
             </div>
           </div>
 
+          <div className="rounded-md border border-emerald-100 bg-emerald-50/60 p-4 space-y-3">
+            <p className="text-sm font-semibold text-gray-800">Marcos do cronograma do contrato</p>
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+              <input
+                type="checkbox"
+                {...register('hasAuditService')}
+                className="rounded text-emerald-600 focus:ring-emerald-500"
+              />
+              Cliente tem auditoria contratada
+            </label>
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+              <input
+                type="checkbox"
+                {...register('hasOnlineFollowup')}
+                className="rounded text-emerald-600 focus:ring-emerald-500"
+              />
+              Cliente tem acompanhamento online contratado
+            </label>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">Cidade</label>

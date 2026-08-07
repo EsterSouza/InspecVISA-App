@@ -5,6 +5,7 @@ import {
   Building2,
   CalendarClock,
   CalendarDays,
+  CalendarPlus,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -21,14 +22,19 @@ import {
   Paperclip,
   Plus,
   RefreshCw,
+  Video,
   X,
   XCircle,
 } from 'lucide-react';
 import type { AppointmentAttachment, PublicAppointmentStatusResult } from '../types';
-import { clientPortalService } from '../services/clientPortalService';
+import { clientPortalService, type ClientPortalUnit } from '../services/clientPortalService';
 import { formatReportDueDate } from '../utils/businessDays';
 import { PublicHeader } from '../components/public/PublicHeader';
 import { formatProtocol } from '../utils/protocol';
+import { APPOINTMENT_TYPE_RULES, normalizeAppointmentType } from '../utils/appointmentType';
+import { buildIcs, downloadIcs } from '../utils/ics';
+import { buildGoogleCalendarLink, buildOutlookCalendarLink } from '../utils/calendarLinks';
+import { ContractTimeline } from '../components/portal/ContractTimeline';
 
 const PERIOD_LABELS: Record<string, string> = {
   manha: 'Manhã',
@@ -42,7 +48,7 @@ interface TimelineStep {
   description?: string;
 }
 
-const TIMELINE_STEPS: TimelineStep[] = [
+const SANITARY_TIMELINE_STEPS: TimelineStep[] = [
   { label: 'Solicitação recebida' },
   { label: 'Confirmada / Agendada' },
   { label: 'Inspeção em andamento' },
@@ -51,8 +57,14 @@ const TIMELINE_STEPS: TimelineStep[] = [
   { label: 'Relatório disponível' },
 ];
 
-/** Índice da etapa ATUAL na linha do tempo para cada status. */
-function currentStepIndex(status: PublicAppointmentStatusResult['status']): number {
+const SIMPLE_TIMELINE_STEPS: TimelineStep[] = [
+  { label: 'Solicitada' },
+  { label: 'Confirmada' },
+  { label: 'Realizada' },
+];
+
+/** Índice da etapa ATUAL na linha do tempo sanitária (inspeção) para cada status. */
+function sanitaryStepIndex(status: PublicAppointmentStatusResult['status']): number {
   switch (status) {
     case 'requested': return 0;
     case 'confirmed': return 1;
@@ -63,6 +75,31 @@ function currentStepIndex(status: PublicAppointmentStatusResult['status']): numb
     case 'cancelled': return -1;
     default: return 0;
   }
+}
+
+/** Índice da etapa ATUAL na linha do tempo simples (reuniões/orientações) para cada status. */
+function simpleStepIndex(status: PublicAppointmentStatusResult['status']): number {
+  switch (status) {
+    case 'requested': return 0;
+    case 'confirmed': return 1;
+    case 'rescheduled': return 1;
+    case 'in_progress': return 1;
+    case 'completed': return 2;
+    case 'report_available': return 2;
+    case 'cancelled': return -1;
+    default: return 0;
+  }
+}
+
+/** Compromisso confirmado em menos de 48h — aviso simples, calculado na leitura. */
+function formatUpcomingBanner(startsAtIso: string | null | undefined): string | null {
+  if (!startsAtIso) return null;
+  const diffMs = new Date(startsAtIso).getTime() - Date.now();
+  if (diffMs <= 0 || diffMs > 48 * 60 * 60 * 1000) return null;
+  const hours = Math.round(diffMs / (60 * 60 * 1000));
+  if (hours <= 1) return 'Seu compromisso é em menos de 1 hora.';
+  if (hours < 24) return `Seu compromisso é em ${hours}h.`;
+  return 'Seu compromisso é amanhã.';
 }
 
 function formatDateBR(value: string | null): string {
@@ -93,6 +130,7 @@ export function PublicAppointmentStatus() {
   const [invalidToken, setInvalidToken] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [showGallery, setShowGallery] = useState(false);
+  const [unit, setUnit] = useState<ClientPortalUnit | null>(null);
 
   const load = useCallback(async (isRefresh = false) => {
     if (!token) {
@@ -116,6 +154,14 @@ export function PublicAppointmentStatus() {
         unit_name: result.status.unit_name,
         status: result.status.status,
       }, { appointmentToken: token });
+      // Cronograma do contrato: busca a unidade do cliente no overview do portal.
+      if (result.status.client_id) {
+        clientPortalService.overview(accountToken)
+          .then((overview) => {
+            setUnit(overview.units.find((u) => u.client_id === result.status.client_id) || null);
+          })
+          .catch((err) => console.warn('[PublicAppointmentStatus] Falha ao carregar cronograma:', err));
+      }
     } catch (err) {
       console.warn('[PublicAppointmentStatus] Token inválido ou erro de consulta:', err);
       setInvalidToken(true);
@@ -167,7 +213,10 @@ export function PublicAppointmentStatus() {
     );
   }
 
-  const stepIndex = currentStepIndex(status.status);
+  const appointmentType = normalizeAppointmentType(status.appointment_type);
+  const typeRules = APPOINTMENT_TYPE_RULES[appointmentType];
+  const timelineSteps = typeRules.usesSanitaryTimeline ? SANITARY_TIMELINE_STEPS : SIMPLE_TIMELINE_STEPS;
+  const stepIndex = typeRules.usesSanitaryTimeline ? sanitaryStepIndex(status.status) : simpleStepIndex(status.status);
   const isCancelled = status.status === 'cancelled';
   const isRescheduled = status.status === 'rescheduled';
   const reportPdf = assets.find((a) => a.kind === 'report_pdf' && a.signed_url);
@@ -179,6 +228,32 @@ export function PublicAppointmentStatus() {
   const photoCount = assets.filter((a) => a.kind === 'photo').length;
   const hasDeliverables = hasReport || photoCount > 0 || attachments.length > 0;
   const accountToken = clientPortalService.getStoredToken();
+  const canAddToCalendar = ['confirmed', 'in_progress'].includes(status.status)
+    && !!status.requested_starts_at && !!status.requested_ends_at;
+  const upcomingBanner = ['confirmed', 'in_progress'].includes(status.status)
+    ? formatUpcomingBanner(status.requested_starts_at)
+    : null;
+  const calendarInput = canAddToCalendar ? {
+    subject: status.subject || typeRules.label,
+    startsAt: status.requested_starts_at as string,
+    endsAt: status.requested_ends_at as string,
+    location: status.attendance_mode === 'online' ? 'Online' : (status.municipality || status.district),
+    meetingUrl: status.meeting_url,
+  } : null;
+  const handleDownloadIcs = () => {
+    if (!calendarInput) return;
+    const ics = buildIcs({
+      id: status.id,
+      subject: calendarInput.subject,
+      startsAt: calendarInput.startsAt,
+      endsAt: calendarInput.endsAt,
+      location: calendarInput.location,
+      meetingUrl: calendarInput.meetingUrl,
+      updatedAt: status.updated_at,
+      status: 'confirmed',
+    });
+    downloadIcs(`compromisso-${formatProtocol(token || '')}`, ics);
+  };
   const auditAsset = (
     eventType: 'report_download_clicked' | 'attachment_download_clicked' | 'photo_download_clicked',
     asset: AppointmentAttachment
@@ -278,16 +353,23 @@ export function PublicAppointmentStatus() {
           </div>
         )}
 
+        {upcomingBanner && (
+          <div className="mb-6 flex items-center gap-3 rounded-xl border border-primary-100 bg-primary-50 p-4">
+            <CalendarClock className="h-5 w-5 shrink-0 text-primary-600" />
+            <p className="text-sm font-semibold text-primary-800">{upcomingBanner}</p>
+          </div>
+        )}
+
         {/* Linha do tempo */}
         <section className="mb-6 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
           <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-600">
             Andamento
           </h3>
           <ol className="space-y-0">
-            {TIMELINE_STEPS.map((step, i) => {
+            {timelineSteps.map((step, i) => {
               const done = !isCancelled && i < stepIndex;
               const current = !isCancelled && i === stepIndex;
-              const isLast = i === TIMELINE_STEPS.length - 1;
+              const isLast = i === timelineSteps.length - 1;
               return (
                 <li key={step.label} className="relative flex gap-3 pb-1">
                   {/* Conector vertical */}
@@ -383,8 +465,60 @@ export function PublicAppointmentStatus() {
           </dl>
         </section>
 
+        {/* Link online — só depois de confirmado (já filtrado pelo backend) */}
+        {status.meeting_url && (
+          <section className="mb-6 rounded-2xl border border-primary-100 bg-primary-50/50 p-5 shadow-sm">
+            <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-primary-700">
+              <Video className="h-4 w-4" /> Link da reunião
+            </h3>
+            <a
+              href={status.meeting_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary-600 px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700"
+            >
+              <Video className="h-4 w-4" />
+              Entrar na reunião
+            </a>
+          </section>
+        )}
+
+        {/* Adicionar ao calendário — só quando o compromisso está confirmado */}
+        {calendarInput && (
+          <section className="mb-6 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+            <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-600">
+              <CalendarPlus className="h-4 w-4" /> Adicionar ao calendário
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleDownloadIcs}
+                className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                <Download className="h-3.5 w-3.5" /> Baixar .ics
+              </button>
+              <a
+                href={buildGoogleCalendarLink(calendarInput)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Google Calendar
+              </a>
+              <a
+                href={buildOutlookCalendarLink(calendarInput)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Outlook
+              </a>
+            </div>
+          </section>
+        )}
+
         {/* Prazo do relatório */}
-        {!isCancelled && (
+        {!isCancelled && typeRules.showsReportDueDate && (
           <section className="mb-6 rounded-2xl border border-primary-100 bg-primary-50/50 p-5 shadow-sm">
             <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-primary-700">
               Prazo do relatório
@@ -394,6 +528,8 @@ export function PublicAppointmentStatus() {
             </p>
           </section>
         )}
+
+        {unit && <ContractTimeline unit={unit} />}
 
         {status.has_personalized_sanitary_folder && status.personalized_sanitary_folder_url && (
           <section className="mb-6 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-5 shadow-sm">

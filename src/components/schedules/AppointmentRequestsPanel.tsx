@@ -28,6 +28,7 @@ import type {
 } from '../../types';
 import {
   AppointmentAdminService,
+  type AppointmentEventNotificationResult,
   type BlockedDateRow,
   type InspectionOption,
   type InspectionPhotoOption,
@@ -45,6 +46,15 @@ const PERIOD_LABELS: Record<string, string> = {
   manha: 'Manhã',
   tarde: 'Tarde',
   integral: 'Integral',
+};
+
+// Aviso pós-ação (relatório publicado / confirmação / remarcação / cancelamento).
+type EventNotifyKind = 'report_available' | 'confirmed' | 'rescheduled' | 'cancelled';
+const EVENT_NOTIFY_TITLES: Record<EventNotifyKind, string> = {
+  report_available: 'Relatório publicado',
+  confirmed: 'Compromisso confirmado',
+  rescheduled: 'Compromisso remarcado',
+  cancelled: 'Compromisso cancelado',
 };
 
 // Consultoras da equipe — quem fica responsável pela visita (a inspeção herda).
@@ -204,8 +214,9 @@ export function AppointmentRequestsPanel() {
   const [showClosed, setShowClosed] = useState(false);
   // Nova visita (agendamento direto pela equipe)
   const [showNewVisit, setShowNewVisit] = useState(false);
-  // Aviso pós-publicação de relatório (e-mail + link de WhatsApp)
-  const [reportNotify, setReportNotify] = useState<{ unitName: string; emailSent: boolean; whatsappLink?: string } | null>(null);
+  // Aviso pós-ação (relatório publicado / confirmação / remarcação / cancelamento):
+  // e-mail (deduplicado) + link de WhatsApp pronto para a consultora encaminhar.
+  const [eventNotify, setEventNotify] = useState<{ unitName: string; kind: EventNotifyKind; emailSent: boolean; whatsappLink?: string | null } | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -237,17 +248,24 @@ export function AppointmentRequestsPanel() {
     void loadData();
   }, []);
 
-  const withBusy = async (id: string, fn: () => Promise<void>) => {
+  const withBusy = async <T,>(id: string, fn: () => Promise<T>): Promise<T | undefined> => {
     setBusy(id);
     try {
-      await fn();
+      const result = await fn();
       await loadData();
+      return result;
     } catch (err) {
       console.error(err);
       alert(`Erro: ${errorMessage(err)}`);
+      return undefined;
     } finally {
       setBusy(null);
     }
+  };
+
+  const showEventNotify = (unitName: string, kind: EventNotifyKind, notify: AppointmentEventNotificationResult | null) => {
+    if (!notify) return;
+    setEventNotify({ unitName, kind, emailSent: notify.emailSent, whatsappLink: notify.whatsappLink });
   };
 
   const handleReschedule = (request: AppointmentRequest) => {
@@ -256,7 +274,8 @@ export function AppointmentRequestsPanel() {
 
   const handleCancel = (request: AppointmentRequest) => {
     if (!confirm(`Cancelar a solicitação de "${request.unit_name}"?`)) return;
-    void withBusy(request.id, () => AppointmentAdminService.cancelRequest(request));
+    void withBusy(request.id, () => AppointmentAdminService.cancelRequest(request))
+      .then((result) => showEventNotify(request.unit_name, 'cancelled', result ?? null));
   };
 
   const handleDelete = (request: AppointmentRequest) => {
@@ -307,7 +326,7 @@ export function AppointmentRequestsPanel() {
     setBusy(request.id);
     AppointmentAdminService.publishReport(request, file)
       .then((res) => {
-        setReportNotify({ unitName: request.unit_name, emailSent: res.emailSent, whatsappLink: res.whatsappLink });
+        setEventNotify({ unitName: request.unit_name, kind: 'report_available', emailSent: res.emailSent, whatsappLink: res.whatsappLink });
         return loadData();
       })
       .catch((err) => {
@@ -612,7 +631,8 @@ export function AppointmentRequestsPanel() {
           request={confirmTarget}
           clients={clients}
           onClose={() => setConfirmTarget(null)}
-          onConfirmed={() => {
+          onConfirmed={(notify) => {
+            showEventNotify(confirmTarget.unit_name, 'confirmed', notify);
             setConfirmTarget(null);
             void loadData();
           }}
@@ -645,7 +665,8 @@ export function AppointmentRequestsPanel() {
         <RescheduleModal
           request={rescheduleTarget}
           onClose={() => setRescheduleTarget(null)}
-          onSaved={() => {
+          onSaved={(notify) => {
+            showEventNotify(rescheduleTarget.unit_name, 'rescheduled', notify);
             setRescheduleTarget(null);
             void loadData();
           }}
@@ -674,23 +695,25 @@ export function AppointmentRequestsPanel() {
         />
       )}
 
-      {reportNotify && (
+      {eventNotify && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <Card className="w-full max-w-sm shadow-2xl">
             <CardContent className="p-6 text-center">
               <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
                 <CheckCircle className="h-6 w-6 text-green-600" />
               </div>
-              <h3 className="text-lg font-bold text-gray-900">Relatório publicado</h3>
-              <p className="mt-1 text-sm text-gray-500">{reportNotify.unitName}</p>
+              <h3 className="text-lg font-bold text-gray-900">
+                {EVENT_NOTIFY_TITLES[eventNotify.kind]}
+              </h3>
+              <p className="mt-1 text-sm text-gray-500">{eventNotify.unitName}</p>
               <p className="mt-3 rounded-lg bg-gray-50 p-3 text-sm text-gray-700">
-                {reportNotify.emailSent
+                {eventNotify.emailSent
                   ? 'E-mail enviado ao cliente automaticamente.'
                   : 'Sem e-mail cadastrado do cliente — avise pelo WhatsApp abaixo.'}
               </p>
-              {reportNotify.whatsappLink ? (
+              {eventNotify.whatsappLink ? (
                 <a
-                  href={reportNotify.whatsappLink}
+                  href={eventNotify.whatsappLink}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md border border-green-200 bg-green-50 px-4 py-2.5 text-sm font-semibold text-green-700 hover:bg-green-100"
@@ -700,7 +723,7 @@ export function AppointmentRequestsPanel() {
               ) : (
                 <p className="mt-4 text-xs text-gray-400">Cliente sem WhatsApp cadastrado.</p>
               )}
-              <Button variant="ghost" className="mt-2 w-full" onClick={() => setReportNotify(null)}>
+              <Button variant="ghost" className="mt-2 w-full" onClick={() => setEventNotify(null)}>
                 Fechar
               </Button>
             </CardContent>
@@ -1096,7 +1119,7 @@ interface ConfirmRequestModalProps {
   request: AppointmentRequest;
   clients: Client[];
   onClose: () => void;
-  onConfirmed: () => void;
+  onConfirmed: (notify: AppointmentEventNotificationResult | null) => void;
 }
 
 function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: ConfirmRequestModalProps) {
@@ -1187,7 +1210,7 @@ function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: Confirm
       };
       // 3. Atualizar a solicitação primeiro; só então persistir o agendamento
       // interno, evitando Schedule órfão caso a confirmação falhe.
-      await AppointmentAdminService.confirmRequest(request, {
+      const notify = await AppointmentAdminService.confirmRequest(request, {
         confirmedDate,
         confirmedTime: confirmedTime || '09:00',
         clientId,
@@ -1197,7 +1220,7 @@ function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: Confirm
       });
       await ScheduleService.saveSchedule(schedule);
 
-      onConfirmed();
+      onConfirmed(notify);
     } catch (err) {
       console.error(err);
       setError(errorMessage(err) || 'Falha ao confirmar a solicitação.');
@@ -1888,7 +1911,7 @@ function NewVisitModal({ clients, onClose, onCreated }: NewVisitModalProps) {
 interface RescheduleModalProps {
   request: AppointmentRequest;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (notify: AppointmentEventNotificationResult | null) => void;
 }
 
 function RescheduleModal({ request, onClose, onSaved }: RescheduleModalProps) {
@@ -1899,12 +1922,10 @@ function RescheduleModal({ request, onClose, onSaved }: RescheduleModalProps) {
   const handleSave = async (onlyMark: boolean) => {
     setSaving(true);
     try {
-      if (onlyMark) {
-        await AppointmentAdminService.rescheduleRequest(request);
-      } else {
-        await AppointmentAdminService.rescheduleRequest(request, date, time);
-      }
-      onSaved();
+      const notify = onlyMark
+        ? await AppointmentAdminService.rescheduleRequest(request)
+        : await AppointmentAdminService.rescheduleRequest(request, date, time);
+      onSaved(notify);
     } catch (err) {
       alert(`Erro: ${errorMessage(err)}`);
     } finally {

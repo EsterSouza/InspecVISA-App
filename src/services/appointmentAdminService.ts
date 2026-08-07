@@ -110,6 +110,11 @@ export interface ReportAvailableNotificationResult {
   whatsappLink?: string | null;
 }
 
+export type AppointmentEventType = 'confirmed' | 'rescheduled' | 'cancelled';
+
+/** Mesmo formato de ReportAvailableNotificationResult — reusa a UI existente. */
+export type AppointmentEventNotificationResult = ReportAvailableNotificationResult;
+
 export interface BlockedDateRow {
   id: string;
   day: string;
@@ -236,7 +241,7 @@ export const AppointmentAdminService = {
       consultantNames?: string[];
       manualDueDate?: string;
     }
-  ): Promise<void> {
+  ): Promise<AppointmentEventNotificationResult | null> {
     // Mantém data, hora e janela de bloqueio do calendário público
     // consistentes com o horário realmente confirmado.
     // A equipe (consultoras) pode agendar a qualquer momento — a antecedência
@@ -262,6 +267,7 @@ export const AppointmentAdminService = {
       updates.report_due_source = 'manual';
     }
     await this.updateRequest(request.id, updates);
+    return this.notifyAppointmentEvent(request.id, 'confirmed', request.public_token);
   },
 
   async markInProgress(request: AppointmentRequest): Promise<void> {
@@ -350,7 +356,7 @@ export const AppointmentAdminService = {
     request: AppointmentRequest,
     suggestedDate?: string,
     suggestedTime?: string
-  ): Promise<void> {
+  ): Promise<AppointmentEventNotificationResult | null> {
     const updates: Partial<AppointmentRequest> = { status: 'rescheduled' };
     let startsAt: Date | null = null;
     if (suggestedDate) {
@@ -385,9 +391,10 @@ export const AppointmentAdminService = {
         console.warn('[AppointmentAdmin] Falha ao mover o agendamento interno vinculado:', err);
       }
     }
+    return this.notifyAppointmentEvent(request.id, 'rescheduled', request.public_token);
   },
 
-  async cancelRequest(request: AppointmentRequest): Promise<void> {
+  async cancelRequest(request: AppointmentRequest): Promise<AppointmentEventNotificationResult | null> {
     await this.updateRequest(request.id, { status: 'cancelled' });
     // Libera a agenda interna: o Schedule criado na confirmação deixa de bloquear o calendário.
     if (request.schedule_id) {
@@ -398,6 +405,7 @@ export const AppointmentAdminService = {
         console.warn('[AppointmentAdmin] Falha ao remover o agendamento interno vinculado:', err);
       }
     }
+    return this.notifyAppointmentEvent(request.id, 'cancelled', request.public_token);
   },
 
   async markCompleted(id: string): Promise<void> {
@@ -998,6 +1006,32 @@ export const AppointmentAdminService = {
     );
     if (error) throw error;
     return data as ReportAvailableNotificationResult;
+  },
+
+  // Confirmação/remarcação/cancelamento: e-mail deduplicado (idempotente por evento) + link de
+  // WhatsApp pronto para a consultora encaminhar. Notificação nunca derruba a ação principal —
+  // uma falha aqui não pode impedir a solicitação de ser confirmada/remarcada/cancelada.
+  async notifyAppointmentEvent(
+    appointmentRequestId: string,
+    eventType: AppointmentEventType,
+    publicToken: string
+  ): Promise<AppointmentEventNotificationResult | null> {
+    try {
+      const tenantId = requireTenantId();
+      const portalUrl = `${window.location.origin}/cliente/visita/${publicToken}`;
+      const { data, error } = await withTimeout(
+        supabase.functions.invoke('notify-appointment-event', {
+          body: { appointmentRequestId, tenantId, eventType, portalUrl },
+        }),
+        'NotificarCompromissoCliente',
+        30000
+      );
+      if (error) throw error;
+      return data as AppointmentEventNotificationResult;
+    } catch (err) {
+      console.warn('[AppointmentAdmin] Falha ao notificar compromisso:', err);
+      return null;
+    }
   },
 
   async setPortalAccountClients(accountId: string, clientIds: string[]): Promise<void> {

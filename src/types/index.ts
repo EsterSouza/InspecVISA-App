@@ -47,6 +47,8 @@ export interface Client {
   contacts?: ClientContact[];
   hasPersonalizedSanitaryFolder?: boolean;
   personalizedSanitaryFolderUrl?: string;
+  hasAuditService?: boolean;
+  hasOnlineFollowup?: boolean;
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date | null;

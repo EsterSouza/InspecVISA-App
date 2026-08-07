@@ -229,7 +229,7 @@ a página de referências do PDF.
 | **REF-06** | Ligação resposta ↔ item quebrada | Opus 5 | alto | — | ✅ **concluído 06/08** · aplicado em produção (2 cargas) |
 | **REL-01** | Mostrar no relatório o que o cliente já cumpre | Opus 5 | baixo | — | ✅ **concluído 06/08** |
 | **AGD-01** | Visita retroativa + ordem/paginação do painel de solicitações | Opus 5 | baixo | — | ✅ **concluído 06/08** · 1 linha recriada em produção |
-| **P360-008** | Detalhe, notificações e calendário | Sonnet 5 | alto | — | ⬜ pendente |
+| **P360-008** | Detalhe, notificações e calendário | Sonnet 5 | alto | — | ✅ **concluído 06/08** · aplicado em produção; achada e corrigida edge function `client-appointment-assets` desatualizada (v4→v5, sem os campos do P360-004) |
 | **P360-009** | Início do portal por próximas ações | Sonnet 5 | alto | P360-008 | ⬜ pendente |
 | **P360-010** | Projeção segura do plano de ação | Opus 5 | alto | — | ⬜ pendente |
 | **P360-011** | Evidências do cliente e revisão técnica | Opus 5 | alto | P360-010 | ⬜ pendente |

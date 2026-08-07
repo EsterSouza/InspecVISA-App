@@ -85,6 +85,8 @@ export interface ClientPortalUnit {
   state: string | null;
   has_personalized_sanitary_folder?: boolean;
   personalized_sanitary_folder_url?: string | null;
+  has_audit_service?: boolean;
+  has_online_followup?: boolean;
   visits: ClientPortalVisit[];
 }
 

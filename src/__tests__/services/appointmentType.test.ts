@@ -57,6 +57,8 @@ describe('P360-004 - dominio de compromissos', () => {
       'training',
       'other',
       'briefing',
+      'audit',
+      'online_followup',
     ]);
     for (const type of APPOINTMENT_TYPES) {
       expect(normalizeAppointmentType(type)).toBe(type);
