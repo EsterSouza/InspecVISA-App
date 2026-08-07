@@ -415,7 +415,9 @@ export type ClientPortalAuditEventType =
   | 'main_drive_folder_opened'
   | 'portal_tutorial_opened'
   | 'schedule_cta_clicked'
-  | 'support_whatsapp_clicked';
+  | 'support_whatsapp_clicked'
+  | 'next_action_clicked'
+  | 'unit_filter_changed';
 
 export interface AppointmentSlot {
   id: string;

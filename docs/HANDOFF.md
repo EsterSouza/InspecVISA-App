@@ -230,7 +230,7 @@ a página de referências do PDF.
 | **REL-01** | Mostrar no relatório o que o cliente já cumpre | Opus 5 | baixo | — | ✅ **concluído 06/08** |
 | **AGD-01** | Visita retroativa + ordem/paginação do painel de solicitações | Opus 5 | baixo | — | ✅ **concluído 06/08** · 1 linha recriada em produção |
 | **P360-008** | Detalhe, notificações e calendário | Sonnet 5 | alto | — | ✅ **concluído 06/08** · aplicado em produção; achada e corrigida edge function `client-appointment-assets` desatualizada (v4→v5, sem os campos do P360-004) |
-| **P360-009** | Início do portal por próximas ações | Sonnet 5 | alto | P360-008 | ⬜ pendente |
+| **P360-009** | Início do portal por próximas ações | Sonnet 5 | alto | P360-008 | ✅ **concluído 07/08/2026** |
 | **P360-010** | Projeção segura do plano de ação | Opus 5 | alto | — | ⬜ pendente |
 | **P360-011** | Evidências do cliente e revisão técnica | Opus 5 | alto | P360-010 | ⬜ pendente |
 | **P360-012** | Solicitações estruturadas de consultoria | Opus 5 | alto | — | ⬜ pendente |
@@ -1810,6 +1810,66 @@ link de reunião mesmo com o código novo certo. Corrigida republicando a versã
 - O cliente chega ao destino em no máximo um clique.
 - Falha de notas fiscais não derruba agenda nem documentos.
 - A página não usa uma grade longa de cards idênticos.
+
+### Resultado — 07/08/2026
+
+**Concluído no código, com uma ressalva de escopo deliberada (regra 2 da seção 1).**
+
+`ClientPortal.tsx` (antes um único arquivo de ~800 linhas) foi decomposto em seis componentes em
+`src/components/client/`: `PortalQuickActions` (já existia), `PortalNextAction`,
+`PortalAppointments`, `PortalDocuments`, `PortalBilling` e `PortalCompliance`. Utilitários de data
+e pagamento compartilhados foram extraídos para `src/utils/clientPortalFormat.ts`
+(`toDateKey`, `parseDateParts`, `formatDateBR`, `formatCompetenceMonth`, `paymentLinks`,
+`filterUnitsBySelection`, `scoreColor`), eliminando a duplicação que existia entre a página e
+`ContractTimeline.tsx`.
+
+**`PortalNextAction`** resolve um único sinal por vez, na ordem fixa do card — pagamento vencido,
+compromisso próximo, evidência devolvida, item vencido, solicitação aguardando cliente — nunca
+mostrando dois ao mesmo tempo. A página hoje só alimenta os dois primeiros com dado real:
+
+- **Pagamento vencido**: deriva de `overview.payment`, considerado vencido quando `status ===
+  'pending'` e (sem `due_date` ou `due_date` já passou).
+- **Compromisso próximo**: primeira visita ativa dentro de 7 dias, já respeitando o filtro de
+  unidade.
+
+**O que ficou deliberadamente de fora, e por quê:** `evidence_returned`, `item_overdue` e
+`request_awaiting_client` existem como tipos completos no componente — com props tipadas, render e
+os 8 testes de prioridade cobrindo isolado/combinado/ordem — mas **nenhum produtor de dado real os
+alimenta ainda**, porque `client_action_items` (P360-010) e `client_action_evidence`/
+`client_service_requests` (P360-011/P360-012) não existem no banco. `ClientPortalSettings` já
+carrega `action_plan_enabled`/`service_requests_enabled` como flags de configuração, mas isso não
+substitui a tabela. Plugar os três sinais restantes é trabalho de quem implementar aqueles cards —
+a interface já está pronta em `PortalNextAction.tsx`.
+
+**Filtro de unidade**: `<select>` acima das seções (só aparece com >1 unidade), afeta
+`PortalDocuments`, `PortalCompliance`, `PortalAppointments` e o cálculo do compromisso próximo do
+`PortalNextAction`. "Plano de ação" não é filtrado porque não existe ainda (mesma ressalva acima).
+Auditado como `unit_filter_changed`.
+
+**Grade de cards eliminada**: os quatro tiles idênticos (`Em acompanhamento`/`Relatórios`/
+`Fotos`/`Anexos`) viraram uma faixa compacta de 3 estatísticas em `PortalDocuments` (o
+`Em acompanhamento` migrou para o cabeçalho de `PortalAppointments`), como pedia o critério de
+aceite.
+
+**Falha de notas fiscais isolada**: já era estruturalmente verdade (chamada separada com
+try/catch), mas agora `PortalBilling` recebe `invoicesError` e mostra uma mensagem inline em vez
+de simplesmente esconder a seção — coberto por teste (`PortalBilling.test.tsx`).
+
+**Skeleton de carregamento**: `PortalDocuments`, `PortalBilling` e `PortalAppointments` aceitam
+`loading` e renderizam um placeholder `animate-pulse`; a página ainda não passa `loading=true`
+durante o fetch (mantém o spinner de tela cheia existente), então esse prop fica pronto para uso
+futuro sem regressão — registrado aqui para não ser confundido com o critério "skeleton" já
+cumprido nos testes de componente.
+
+**Testes**: `PortalNextAction.test.tsx` (11), `PortalAppointments.test.tsx` (5),
+`PortalDocuments.test.tsx` (4), `PortalBilling.test.tsx` (5), `PortalCompliance.test.tsx` (4) e
+`clientPortalFormat.test.ts` (5) — 34 testes novos. `npm test`: 30 arquivos, **222 testes**, todos
+passando (188 de antes + 34 novos). `npm run build` e `tsc -b` passam sem erro. Verificação em
+browser real limitada à tela de login (sem credencial de portal para testar a área autenticada) —
+sem erros de console nem de servidor.
+
+**Novos eventos de auditoria** (`ClientPortalAuditEventType`, sem migration — `event_type` é
+`text` livre no banco): `next_action_clicked` e `unit_filter_changed`.
 
 ---
 
