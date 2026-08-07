@@ -1738,9 +1738,11 @@ cliente — ela abre o link no WhatsApp pessoal do PC e encaminha pelo celular.
 
 **Verificado de verdade** (não só por leitura de código): criado e apagado cliente/compromissos de
 teste em produção, timeline condicional e cronograma conferidos no navegador com dados reais,
-security advisors do Supabase sem alerta novo. **Não verificado manualmente:** importação do
-`.ics`/links num Google Calendar ou Outlook reais, e um envio de e-mail de ponta a ponta via SMTP
-(cobertos por teste automatizado/SQL, não por um teste ao vivo com inbox real).
+security advisors do Supabase sem alerta novo. E-mail de confirmação disparado de ponta a ponta via
+SMTP real para a Ester (07/08) — chegou com texto, tipo e data corretos; o retry confirmou
+`emailSent: false` na segunda tentativa (dedupe funcionando em produção, não só no teste SQL). `.ics`
+reconhecido e aberto pelo Windows/Outlook como arquivo de calendário válido (import completo não
+testado por falta de Outlook configurado na máquina de teste, não por limitação do código).
 
 **Achado à parte:** a edge function `client-appointment-assets` publicada estava numa versão de
 antes do P360-004 (sem `appointment_type`/`meeting_url`), o que quebrava a timeline condicional e o
