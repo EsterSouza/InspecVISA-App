@@ -1724,11 +1724,27 @@ explícita da Ester.
 Cards herdados do plano aprovado em 01/08/2026, com o conteúdo preservado. P360-001 a P360-007
 estão concluídos.
 
-## P360-008 — Detalhe, notificações e calendário do compromisso
+## P360-008 — Detalhe, notificações e calendário do compromisso ✅ concluído 06/08
 
 **Modelo:** Sonnet 5 · **Esforço:** alto · **Prioridade:** P1
 
 **Resultado:** o cliente recebe confirmação útil, link de reunião e opção de adicionar ao calendário.
+
+**Desvio combinado com a Ester:** sem lembrete automático por e-mail/WhatsApp (ela já lembra os
+clientes por fora) — no lugar entrou um aviso visual simples no portal ("compromisso em breve"),
+calculado na leitura, sem cron. WhatsApp de confirmação/remarcação/cancelamento continua manual,
+mas agora sempre aponta pro número profissional fixo da consultora (21993397315), nunca pro do
+cliente — ela abre o link no WhatsApp pessoal do PC e encaminha pelo celular.
+
+**Verificado de verdade** (não só por leitura de código): criado e apagado cliente/compromissos de
+teste em produção, timeline condicional e cronograma conferidos no navegador com dados reais,
+security advisors do Supabase sem alerta novo. **Não verificado manualmente:** importação do
+`.ics`/links num Google Calendar ou Outlook reais, e um envio de e-mail de ponta a ponta via SMTP
+(cobertos por teste automatizado/SQL, não por um teste ao vivo com inbox real).
+
+**Achado à parte:** a edge function `client-appointment-assets` publicada estava numa versão de
+antes do P360-004 (sem `appointment_type`/`meeting_url`), o que quebrava a timeline condicional e o
+link de reunião mesmo com o código novo certo. Corrigida republicando a versão atual (v4→v5).
 
 ### Implementação
 
