@@ -417,7 +417,8 @@ export type ClientPortalAuditEventType =
   | 'schedule_cta_clicked'
   | 'support_whatsapp_clicked'
   | 'next_action_clicked'
-  | 'unit_filter_changed';
+  | 'unit_filter_changed'
+  | 'action_plan_viewed';
 
 export interface AppointmentSlot {
   id: string;
@@ -499,6 +500,36 @@ export interface AppointmentAttachment {
   caption: string | null;
   signed_url?: string; // preenchido pelo serviço, nunca expor storage_path bruto ao cliente
   created_at: string;
+}
+
+export type ClientActionItemPriority = 'urgent' | 'important' | 'recommended';
+export type ClientActionItemStatus = 'hidden' | 'published' | 'resolved';
+
+/**
+ * Projeção do plano de ação (P360-010) como o staff a enxerga. O cliente recebe uma versão
+ * reduzida, sem `source_item_id`, `inspection_id` nem qualquer id de checklist.
+ */
+export interface ClientActionItem {
+  id: string;
+  tenant_id: string;
+  client_id: string;
+  appointment_request_id: string | null;
+  inspection_id: string | null;
+  source_item_id: string;
+  title: string;
+  situation: string;
+  recommended_action: string;
+  priority: ClientActionItemPriority;
+  responsible: string | null;
+  due_date: string | null;
+  status: ClientActionItemStatus;
+  occurrence_count: number;
+  first_detected_on: string | null;
+  last_detected_on: string | null;
+  published_at: string | null;
+  resolved_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ClientPortalAuditEvent {

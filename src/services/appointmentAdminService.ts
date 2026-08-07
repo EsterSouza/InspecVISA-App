@@ -6,10 +6,13 @@ import type {
   AppointmentRequest,
   AppointmentSlot,
   AttachmentKind,
+  ClientActionItem,
+  ClientActionItemStatus,
   ClientPortalAuditEvent,
   ClientPortalSettings,
   SlotPeriod,
 } from '../types';
+import type { ClientActionItemPayload } from '../utils/clientActionPlan';
 import { getActiveTenantId } from '../utils/localScope';
 import { assertInspectionAppointment, normalizeAppointmentType } from '../utils/appointmentType';
 
@@ -904,6 +907,46 @@ export const AppointmentAdminService = {
       p_suspended: suspended,
     });
     if (error) throw error;
+  },
+
+  // ─── Plano de ação projetado para o cliente (P360-010) ─────
+
+  /**
+   * Publica a projeção das NCs do relatório. Idempotente: republicar o mesmo relatório
+   * atualiza as mesmas linhas, e item já resolvido nunca é sobrescrito. Nada aqui toca em
+   * `responses` — a projeção é uma cópia à parte.
+   */
+  async publishActionItems(
+    request: AppointmentRequest,
+    items: ClientActionItemPayload[]
+  ): Promise<{ created: number; updated: number }> {
+    assertInspectionRequest(request, 'publicar o plano de ação');
+    const { data, error } = await supabase.rpc('admin_publish_client_action_items', {
+      p_appointment_request_id: request.id,
+      p_items: items,
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    return { created: data?.created ?? 0, updated: data?.updated ?? 0 };
+  },
+
+  async listActionItems(requestId: string): Promise<ClientActionItem[]> {
+    const { data, error } = await supabase
+      .from('client_action_items')
+      .select('*')
+      .eq('appointment_request_id', requestId)
+      .order('due_date', { ascending: true, nullsFirst: false });
+    if (error) throw error;
+    return (data || []) as ClientActionItem[];
+  },
+
+  async setActionItemStatus(itemId: string, status: ClientActionItemStatus): Promise<void> {
+    const { data, error } = await supabase.rpc('admin_set_client_action_item_status', {
+      p_id: itemId,
+      p_status: status,
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
   },
 
   async setReportHidden(request: AppointmentRequest, hidden: boolean): Promise<void> {

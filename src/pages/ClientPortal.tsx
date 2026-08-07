@@ -9,13 +9,20 @@ import {
 } from 'lucide-react';
 import { PublicHeader } from '../components/public/PublicHeader';
 import { PortalQuickActions } from '../components/client/PortalQuickActions';
-import { PortalNextAction, type NextActionPaymentOverdue, type NextActionUpcomingAppointment } from '../components/client/PortalNextAction';
+import {
+  PortalNextAction,
+  type NextActionOverdueItem,
+  type NextActionPaymentOverdue,
+  type NextActionUpcomingAppointment,
+} from '../components/client/PortalNextAction';
+import { PortalActionPlan } from '../components/client/PortalActionPlan';
 import { PortalAppointments, type PortalAppointmentVisit } from '../components/client/PortalAppointments';
 import { PortalDocuments } from '../components/client/PortalDocuments';
 import { PortalBilling } from '../components/client/PortalBilling';
 import { PortalCompliance } from '../components/client/PortalCompliance';
 import {
   clientPortalService,
+  type ClientPortalActionItem,
   type ClientPortalInvoice,
   type ClientPortalOverview,
 } from '../services/clientPortalService';
@@ -33,6 +40,8 @@ export function ClientPortal() {
   const [overview, setOverview] = useState<ClientPortalOverview | null>(null);
   const [invoices, setInvoices] = useState<ClientPortalInvoice[]>([]);
   const [invoicesError, setInvoicesError] = useState(false);
+  const [actionItems, setActionItems] = useState<ClientPortalActionItem[]>([]);
+  const [actionItemsError, setActionItemsError] = useState(false);
   const [loading, setLoading] = useState(!!clientPortalService.getStoredToken());
 
   const [identifier, setIdentifier] = useState('');
@@ -66,14 +75,36 @@ export function ClientPortal() {
       setLoading(false);
     }
 
-    try {
-      const invoiceRows = await clientPortalService.invoices(portalToken);
-      setInvoices(invoiceRows);
-      setInvoicesError(false);
-    } catch (err) {
-      console.warn('[ClientPortal] Falha ao carregar notas fiscais:', err);
-      setInvoicesError(true);
-    }
+    // Notas fiscais e plano de ação em chamadas separadas e em paralelo: cada uma falha
+    // sozinha, e a pendência sanitária não pode esperar a Edge Function do financeiro.
+    await Promise.all([
+      clientPortalService
+        .invoices(portalToken)
+        .then((invoiceRows) => {
+          setInvoices(invoiceRows);
+          setInvoicesError(false);
+        })
+        .catch((err) => {
+          console.warn('[ClientPortal] Falha ao carregar notas fiscais:', err);
+          setInvoicesError(true);
+        }),
+      clientPortalService
+        .actionItems(portalToken)
+        .then((items) => {
+          setActionItems(items);
+          setActionItemsError(false);
+          if (items.length > 0) {
+            void clientPortalService.audit(portalToken, 'action_plan_viewed', {
+              open: items.filter((item) => item.status !== 'resolved').length,
+              overdue: items.filter((item) => item.is_overdue).length,
+            });
+          }
+        })
+        .catch((err) => {
+          console.warn('[ClientPortal] Falha ao carregar o plano de acao:', err);
+          setActionItemsError(true);
+        }),
+    ]);
   }, []);
 
   useEffect(() => {
@@ -105,6 +136,8 @@ export function ClientPortal() {
     setOverview(null);
     setInvoices([]);
     setInvoicesError(false);
+    setActionItems([]);
+    setActionItemsError(false);
     setSelectedUnitId(null);
     setIdentifier('');
     setCode('');
@@ -184,6 +217,24 @@ export function ClientPortal() {
       publicToken: next.public_token,
     };
   }, [filteredVisits]);
+
+  const filteredActionItems = useMemo(
+    () => (selectedUnitId ? actionItems.filter((item) => item.client_id === selectedUnitId) : actionItems),
+    [actionItems, selectedUnitId]
+  );
+
+  const nextActionOverdueItem: NextActionOverdueItem | null = useMemo(() => {
+    // O mais atrasado primeiro; o portal já entrega a lista ordenada por prazo.
+    const overdue = filteredActionItems.find((item) => item.status === 'published' && item.is_overdue);
+    if (!overdue || !overdue.due_date) return null;
+    return {
+      type: 'item_overdue',
+      unitName: overdue.unit_name,
+      itemLabel: overdue.title,
+      dueDate: overdue.due_date,
+      href: '#portal-action-plan',
+    };
+  }, [filteredActionItems]);
 
   // ─── Carregando painel ───────────────────────────────────────
   if (loading) {
@@ -298,7 +349,12 @@ export function ClientPortal() {
           </div>
         </div>
 
-        <PortalNextAction paymentOverdue={nextActionPayment} upcomingAppointment={nextActionAppointment} onAudit={audit} />
+        <PortalNextAction
+          paymentOverdue={nextActionPayment}
+          upcomingAppointment={nextActionAppointment}
+          overdueItem={overview.action_plan_enabled ? nextActionOverdueItem : null}
+          onAudit={audit}
+        />
 
         <PortalQuickActions
           enabled={overview.quick_access_enabled}
@@ -329,6 +385,14 @@ export function ClientPortal() {
               ))}
             </select>
           </div>
+        )}
+
+        {overview.action_plan_enabled && (
+          <PortalActionPlan
+            items={filteredActionItems}
+            error={actionItemsError}
+            showUnitName={overview.units.length > 1 && !selectedUnitId}
+          />
         )}
 
         <PortalDocuments visits={filteredVisits} />

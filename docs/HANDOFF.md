@@ -1,6 +1,6 @@
 # Handoff único — InspecVISA
 
-**Última atualização:** 06/08/2026 (BRT), ao concluir o AGD-01, com uma linha recriada em produção ·
+**Última atualização:** 07/08/2026 (BRT), ao concluir o P360-010, aplicado em produção ·
 **Branch:** `main`, sincronizada com `origin/main` · O estado da seção 2 foi verificado em 03/08/2026,
 com as correções de 04/08 e 05/08 anotadas nas tabelas.
 
@@ -102,6 +102,7 @@ Confirmado presente no banco:
 | `client_portal_payment_acknowledge` (função) | ✅ existe desde 04/08/2026 — PROD-01 |
 | `client_portal_audit_event` (função) | ✅ existe desde 04/08/2026 — PROD-01 |
 | `client_portal_audit_events` (tabela) | ✅ existe desde 04/08/2026 — PROD-01 |
+| `client_action_items` (tabela + 3 RPCs) | ✅ existe desde 07/08/2026 — P360-010 |
 
 A migration `checklist_items_requirement_type` consta **duas vezes** no ledger remoto, sob as
 versões `20260803205941` e `20260803221936`. O schema está correto; o ledger é que está sujo.
@@ -231,7 +232,7 @@ a página de referências do PDF.
 | **AGD-01** | Visita retroativa + ordem/paginação do painel de solicitações | Opus 5 | baixo | — | ✅ **concluído 06/08** · 1 linha recriada em produção |
 | **P360-008** | Detalhe, notificações e calendário | Sonnet 5 | alto | — | ✅ **concluído 06/08** · aplicado em produção; achada e corrigida edge function `client-appointment-assets` desatualizada (v4→v5, sem os campos do P360-004) |
 | **P360-009** | Início do portal por próximas ações | Sonnet 5 | alto | P360-008 | ✅ **concluído 07/08/2026** |
-| **P360-010** | Projeção segura do plano de ação | Opus 5 | alto | — | ⬜ pendente |
+| **P360-010** | Projeção segura do plano de ação | Opus 5 | alto | — | ✅ **concluído 07/08/2026** · aplicado em produção; prova de ponta a ponta feita no app com conta de teste, depois apagada |
 | **P360-011** | Evidências do cliente e revisão técnica | Opus 5 | alto | P360-010 | ⬜ pendente |
 | **P360-012** | Solicitações estruturadas de consultoria | Opus 5 | alto | — | ⬜ pendente |
 | **P360-013** | Painel operacional das consultoras | Sonnet 5 | alto | 010, 011, 012 | ⬜ pendente |
@@ -1841,6 +1842,9 @@ carrega `action_plan_enabled`/`service_requests_enabled` como flags de configura
 substitui a tabela. Plugar os três sinais restantes é trabalho de quem implementar aqueles cards —
 a interface já está pronta em `PortalNextAction.tsx`.
 
+> **Atualização de 07/08/2026:** o P360-010 criou `client_action_items` e ligou o `item_overdue`.
+> Faltam `evidence_returned` (P360-011) e `request_awaiting_client` (P360-012).
+
 **Filtro de unidade**: `<select>` acima das seções (só aparece com >1 unidade), afeta
 `PortalDocuments`, `PortalCompliance`, `PortalAppointments` e o cálculo do compromisso próximo do
 `PortalNextAction`. "Plano de ação" não é filtrado porque não existe ainda (mesma ressalva acima).
@@ -1905,6 +1909,138 @@ Commit: `f783196`.
 - O cliente não recebe IDs nem estrutura do checklist além do necessário.
 - Alteração no portal não modifica `responses`.
 - A consultora consegue ocultar item inadequado antes da publicação.
+
+### Resultado — 07/08/2026 · aplicado em produção
+
+**Concluído.** Migration `20260807102311_client_action_items` aplicada em produção com
+autorização da Ester na conversa.
+
+#### O modelo
+
+`client_action_items` é uma **projeção**, não uma view nem um espelho de `responses`. A
+publicação do relatório copia as NCs para lá; escrever nessa tabela não altera nada da inspeção,
+e apagá-la inteira não perde nenhum dado técnico. `source_item_id` viaja junto só como chave de
+deduplicação — a RPC de leitura do cliente **não** o devolve.
+
+A identidade de um item aberto é `(tenant_id, client_id, source_item_id)`, garantida por um
+**índice único parcial** `where status <> 'resolved'`. Dessa única decisão saem os três
+comportamentos que o card pedia:
+
+- republicar o mesmo relatório dá `update` na mesma linha (idempotente, sem somar ocorrência —
+  a contagem só sobe quando o `inspection_id` muda);
+- o item que reaparece na inspeção seguinte atualiza o item aberto, preserva
+  `first_detected_on` e soma ocorrência (é o que o portal mostra como `Reincidente (Nx)`);
+- o item já **resolvido** fica fora do índice, então nunca é sobrescrito: a recorrência nasce
+  como linha nova e o histórico do que foi corrigido continua de pé.
+
+#### Objetos criados
+
+| Objeto | Papel |
+|---|---|
+| `client_action_items` | projeção; RLS ativa, `authenticated` só com **select** |
+| `admin_publish_client_action_items(uuid, jsonb)` | upsert em lote na publicação do relatório; `authenticated` |
+| `admin_set_client_action_item_status(uuid, text)` | publicar / ocultar / resolver / reabrir; `authenticated` |
+| `client_portal_action_items(uuid, uuid)` | leitura pelo token da conta; `anon` **e** `authenticated` |
+
+Grants conferidos em produção com `has_table_privilege`/`has_function_privilege` depois de
+aplicar (não só pelo teste local — ver a memória dos default privileges): `anon` não tem nada na
+tabela, `authenticated` tem só `select`, as duas RPCs de staff não são executáveis por `anon`, e
+a RPC de leitura tem grant para os dois papéis.
+
+#### Regra de visibilidade
+
+O item nasce `hidden` quando a visita está com `report_hidden = true`, e a RPC de leitura
+**reaplica o gate em tempo real** — ocultar o relatório depois some com os itens já publicados
+daquela visita, e mostrar de novo os traz de volta. Item resolvido só aparece para o cliente se
+um dia chegou a ser publicado (`published_at is not null`), então o que foi ocultado e depois
+resolvido não vaza pelo histórico.
+
+**Decisão registrada:** "oculto ou suspenso" foi implementado como **`report_hidden` apenas**. A
+suspensão de agendamento (`scheduling_suspended`) é alavanca de inadimplência e hoje não esconde
+relatório nenhum; esconder a pendência sanitária junto seria mudança de regra de produto, não
+implementação deste card. Se a Ester quiser que a suspensão apague o plano de ação também, é uma
+linha a mais no `where` da RPC.
+
+#### Prazo e prioridade
+
+`responses.deadline` é texto livre com sugestões (`Imediato`, `24 horas`, `30 dias`...).
+`deadlineToDays` converte para dias corridos a partir da data da visita; o que não dá para datar
+("assim que possível") vai ao portal **sem prazo**, em vez de ganhar prazo inventado. A
+prioridade repete a classificação do plano de ação do PDF: crítico → `urgent`, peso ≥ 5 →
+`important`, resto → `recommended`. `requirement_type` continua fora do cálculo.
+
+Vencimento é calculado com `(now() at time zone 'America/Sao_Paulo')::date` dentro da RPC. Entre
+21h e meia-noite BRT o servidor já está no dia seguinte em UTC, e um `current_date` marcaria como
+vencido um item que ainda vence hoje.
+
+#### Onde encostou no app
+
+- `src/utils/clientActionPlan.ts` (novo) — monta a projeção a partir das mesmas NCs que
+  alimentam o PDF.
+- `src/pages/InspectionSummary.tsx` — publica a projeção logo depois de `setInspectionStats`,
+  dentro do mesmo `try/catch` que já isolava os scores: falhar aqui não bloqueia a publicação do
+  relatório.
+- `src/components/client/PortalActionPlan.tsx` (novo) — seção do portal; recolhe acima de 5
+  pendências, separa o histórico em `<details>`, marca vencido e reincidente.
+- `src/pages/ClientPortal.tsx` — liga o sinal `item_overdue` da próxima ação (o terceiro dos três
+  que o P360-009 deixou pronto e sem produtor) e carrega **notas fiscais e plano de ação em
+  paralelo**: eram sequenciais, e a pendência sanitária ficava esperando a Edge Function do
+  financeiro.
+- `src/components/schedules/AppointmentRequestsPanel.tsx` — `ActionPlanPanel` no card da
+  solicitação, com publicar / ocultar / resolver / reabrir por item.
+- Evento de auditoria novo: `action_plan_viewed` (sem migration, `event_type` é `text` livre).
+
+#### Prova de produção — feita no app, com conta de teste
+
+Foram criados em produção uma conta de portal de teste, duas unidades (uma **fora** do acesso da
+conta) e duas visitas, todas com o prefixo `[TESTE P360-010]` no nome e `0e51…` no id. As RPCs
+foram exercitadas com o papel real (`set local role authenticated` + claims de staff para as de
+admin, `anon` para a de leitura), e o portal foi aberto no app rodando contra o banco de
+produção. Confirmado na tela:
+
+- a faixa **"Item vencido no plano de ação"** no topo, acima dos indicadores;
+- a seção **PLANO DE AÇÃO** com as três prioridades, achado, "O que fazer", responsável e prazo;
+- `Prazo vencido` no item de 20/07 e nada marcado no de 14/08;
+- depois de resolver um item pelo painel: `2 pendentes · 1 vencida(s) · 1 concluída(s)` e o
+  resolvido no bloco **Histórico**, não apagado.
+
+E confirmado por consulta: republicação idempotente (`created 0 / updated 1`), item da unidade
+não vinculada **nunca** aparece para a conta, filtro por unidade fora do acesso responde
+`unidade fora do acesso`, token inválido responde `acesso invalido`, `report_hidden` derruba os
+3 itens para 0 e devolve os 3 ao ser desmarcado, item ocultado individualmente some, e
+**nenhuma** das outras contas de portal ativas do tenant enxergou qualquer item de teste.
+
+**Todos os dados de teste foram apagados ao final** e conferidos em zero (`client_action_items`,
+clientes, contas e visitas com o prefixo de teste). A tabela ficou vazia em produção, como
+esperado: a projeção só nasce quando um relatório novo for publicado pelo app.
+
+#### Testes
+
+- `supabase/tests/client_action_items.test.sql` (novo): grants e RLS, publicação, republicação
+  idempotente, recorrência entre inspeções, resolvido preservado, reabertura recusada quando já
+  existe item aberto para o mesmo requisito, tenant cruzado, cliente cruzado, relatório oculto,
+  vencimento no fuso e o contrato do que o cliente recebe. Roda com o fixture de
+  `appointment_availability.test.sql`.
+- `src/__tests__/utils/clientActionPlan.test.ts` (8) e
+  `src/__tests__/components/PortalActionPlan.test.tsx` (9).
+- `npm test`: **239 testes, 235 passando**. As 4 falhas (`sync.test.ts`, `settingsStore.test.ts`,
+  todas `storage.setItem is not a function` do `zustand/persist`) foram confirmadas **na árvore
+  limpa, com `git stash`**: são anteriores a este card.
+- `npx tsc -b` limpo e `npm run build` OK.
+
+#### Fora de escopo, deliberado
+
+- **Item que deixou de ser NC não se resolve sozinho.** Se a inspeção seguinte não aponta mais o
+  requisito, o item continua aberto. É o modelo que o P360-011 exige ("a aprovação resolve o item
+  somente por ação explícita da consultora") e a leitura sanitária correta: pendência fecha com
+  evidência, não por ausência. Quem quiser fechar, fecha pelo botão **Resolver** do painel.
+- **`P360-011` não foi antecipado**: não há upload de evidência, bucket, nem estado
+  `changes_requested`. O `id` do item já sai na RPC de leitura justamente para o P360-011
+  amarrar a evidência nele.
+- A seção do portal não filtra por visita nem lincha o item ao PDF de origem; `visit_token` já
+  vai no payload para quem quiser fazer isso depois.
+
+Commit: `134dbc8`.
 
 ---
 
@@ -2375,4 +2511,5 @@ Ao concluir um card, marcar aqui e atualizar a tabela da seção 4.
 | 05/08/2026 | Correção do bug de `canonicalLegislationKey` (tarefa em segundo plano acionada pela Ester) | Sonnet 5 | — | `extractBaseLegislation` passou a reconhecer "Municipal"/"Ordinária" como qualificador de `Lei` (com sigla de UF opcional); `canonicalLegislationKey` passou a ancorar a busca do número na posição do tipo reconhecido, não no início da string. `src/__tests__/utils/legislationRefs.test.ts` novo, 6 casos. Inventário do REF-01 regerado: 62 → 57 chaves canônicas (as 19 respostas da Lei Municipal 1.812/2014 se uniram em uma só). 152 testes JS, build OK. |
 | 06/08/2026 | **REL-01** — concluído | Opus 5 | — | O relatório passou a listar, na íntegra, os itens cumpridos (bloco `RELAÇÃO DOS ITENS CUMPRIDOS`, uma tabela por seção, com código, descrição completa e base legal), logo depois da tabela de conformidade por área. Antes, item cumprido sem observação digitada não aparecia em lugar nenhum — só as falhas eram nomeadas. Coluna `Regularizado` marca o que estava em NC em visita anterior, reusando o `recurringItemIds` já carregado (sem consulta nova; sem histórico, nenhuma etiqueta). Achado corrigido de quebra: `addFooter` rodava em dois laços e imprimia `Página 1 de 8` por baixo de `Página 1 de 9` em **todo** relatório já emitido. 4 testes novos, 21 no diretório `utils`, `tsc -b` limpo, conferido em PDF real. |
 | 06/08/2026 | **AGD-01** — concluído, 1 linha recriada em produção | Opus 5 | `a47a400` | A inspeção do Icaraí de 30/06 nunca foi apagada: 114 respostas íntegras, agendamento vinculado. Faltava a linha em `appointment_requests` — no lote de 7 visitas criadas em 16/06 entre 20h41 e 20h54, só a do Icaraí não gerou solicitação, e sem trilha de auditoria do staff não dá para separar falha de escrita de exclusão manual. Recriada com autorização, status `completed` (nenhum PDF publicado no portal). Código: `min` de data removido do modal de agendamento e do de Nova visita (as datas bloqueadas mantêm, de propósito) — não havia validação equivalente no serviço nem `CHECK` no banco; painel passou a ordenar do mais recente para o mais antigo, paginar de 10 em 10 nas três seções e abrir com Ativas e Encerradas recolhidas. 173 testes e build OK. |
+| 07/08/2026 | **P360-010** — concluído, aplicado em produção | Opus 5 | `134dbc8` | `client_action_items` é projeção, não espelho: publicar o relatório copia as NCs, e nada no portal toca em `responses`. Um índice único parcial (`where status <> 'resolved'`) resolve os três casos de uma vez — republicação idempotente, reincidência somando ocorrência no item aberto, e item resolvido preservado como histórico quando a inspeção nova republica o mesmo requisito. Gate de visibilidade é o `report_hidden` da visita, reaplicado em tempo real na leitura; suspensão de agendamento **não** esconde item (decisão registrada). Vencimento ancorado em `America/Sao_Paulo`. Grants conferidos em produção com `has_table_privilege`. Prova feita no app contra o banco de produção com conta de teste — plano de ação, prazo vencido, resolver e histórico confirmados na tela — e todos os dados de teste apagados depois. 17 testes JS novos + suíte SQL nova; 235/239 testes (as 4 falhas são anteriores, confirmado com `git stash`). |
 | 06/08/2026 | **REF-06** — concluído, aplicado em produção | Opus 5 | `071adb2`, `8796143` |  Medido: dos 303 `item_id` órfãos, 272 eram "defeito" no papel mas só 6 inspeções tinham id de código; o que degradava mesmo eram 19 dos 26 relatórios concluídos (376 respostas), por três causas — inspeção criada antes do sync de roteiros, `city`/`state` que o servidor não devolve (suplemento regional some offline) e item reescrito no lugar trocando a pergunta de 18 respostas já entregues (o REF-05 fez a terceira). Decidido não remapear `responses`: congela-se o roteiro da época em `inspection_report_versions`. Roteiros `tpl-ilpi-v1` e federal-97 reconstruídos do git; o de 97 confere seção a seção com o PDF entregue ao Lar Recanto do Sossego em 14/04/2026. Código, scripts e simulação prontos e conferidos; 162 testes passando (as 4 falhas de `sync.test.ts` são anteriores). Duas cargas: a primeira congelou 15 relatórios e marcou 28 respostas com `deleted_at`; a segunda, depois de corrigir o script (a seção degradada estava sendo usada como fonte de texto), refez 6. Diagnóstico final: **0 respostas degradadas** nos 26 relatórios, contra 376 no começo. |

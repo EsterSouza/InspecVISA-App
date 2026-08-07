@@ -3,6 +3,7 @@ import { formatAppointmentLeadTimeMessage, isAppointmentAtLeast24hAhead } from '
 import type {
   AppointmentType,
   AppointmentAttachment,
+  ClientActionItemPriority,
   ClientPortalAuditEventType,
   ClientPortalSettings,
   PublicAppointmentStatusResult,
@@ -138,6 +139,30 @@ export interface ClientPortalInvoice {
   signed_url?: string;
 }
 
+/**
+ * Item do plano de ação como o CLIENTE o recebe (P360-010). É de propósito menor que a linha
+ * de `client_action_items`: sem `source_item_id`, sem `inspection_id`, sem nada da estrutura
+ * do checklist. `visit_token` é o mesmo token público que o portal já usa nos compromissos.
+ */
+export interface ClientPortalActionItem {
+  id: string;
+  client_id: string;
+  unit_name: string;
+  title: string;
+  situation: string;
+  recommended_action: string;
+  priority: ClientActionItemPriority;
+  responsible: string | null;
+  due_date: string | null;
+  status: 'published' | 'resolved';
+  is_overdue: boolean;
+  occurrence_count: number;
+  first_detected_on: string | null;
+  last_detected_on: string | null;
+  resolved_at: string | null;
+  visit_token: string | null;
+}
+
 const TOKEN_KEY = 'inspecvisa-client-portal-token';
 
 export const clientPortalService = {
@@ -192,6 +217,19 @@ export const clientPortalService = {
         })),
       })),
     };
+  },
+
+  async actionItems(token: string, clientId?: string | null): Promise<ClientPortalActionItem[]> {
+    const { data, error } = await withTimeout(
+      supabase.rpc('client_portal_action_items', {
+        p_token: token,
+        p_client_id: clientId || null,
+      }),
+      'PlanoDeAcaoPortalCliente'
+    );
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    return (data?.items ?? []) as ClientPortalActionItem[];
   },
 
   async createAppointment(

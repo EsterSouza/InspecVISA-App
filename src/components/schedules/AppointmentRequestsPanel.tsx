@@ -4,6 +4,7 @@ import {
   CalendarOff,
   CalendarPlus,
   CheckCircle,
+  ClipboardList,
   Clock,
   Eye,
   EyeOff,
@@ -17,12 +18,14 @@ import {
   Phone,
   Play,
   RefreshCw,
+  RotateCcw,
   Trash2,
   XCircle,
 } from 'lucide-react';
 import type {
   AppointmentAttachment,
   AppointmentRequest,
+  ClientActionItem,
   Client,
   Schedule,
 } from '../../types';
@@ -833,6 +836,153 @@ function PublishedFilesPanel({ requestId, busy }: { requestId: string; busy: boo
   );
 }
 
+// ─── Plano de ação projetado para o cliente (P360-010) ────────
+
+const ACTION_PRIORITY_LABELS: Record<ClientActionItem['priority'], string> = {
+  urgent: 'Urgente',
+  important: 'Importante',
+  recommended: 'Recomendada',
+};
+
+const ACTION_STATUS_LABELS: Record<ClientActionItem['status'], string> = {
+  published: 'Visível ao cliente',
+  hidden: 'Oculto',
+  resolved: 'Resolvido',
+};
+
+/**
+ * Os itens nascem da publicação do relatório (InspectionSummary). Aqui a consultora revisa o
+ * que o cliente vê: ocultar item inadequado, republicar, resolver e reabrir. Nada disso toca
+ * em `responses` — é a projeção que muda.
+ */
+function ActionPlanPanel({ requestId, busy }: { requestId: string; busy: boolean }) {
+  const [items, setItems] = useState<ClientActionItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  const loadItems = useCallback(() => {
+    setLoading(true);
+    AppointmentAdminService.listActionItems(requestId)
+      .then(setItems)
+      .catch((err) => console.warn('[ActionPlanPanel] Falha ao carregar o plano de acao:', err))
+      .finally(() => setLoading(false));
+  }, [requestId]);
+
+  useEffect(() => {
+    if (!busy) loadItems();
+  }, [busy, loadItems]);
+
+  const changeStatus = async (item: ClientActionItem, status: ClientActionItem['status']) => {
+    setSavingId(item.id);
+    try {
+      await AppointmentAdminService.setActionItemStatus(item.id, status);
+      loadItems();
+    } catch (err) {
+      alert(`Erro: ${errorMessage(err)}`);
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  if (loading && items.length === 0) {
+    return (
+      <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 text-xs text-gray-400">
+        Carregando plano de ação do portal...
+      </div>
+    );
+  }
+
+  if (items.length === 0) return null;
+
+  const visible = items.filter((item) => item.status === 'published').length;
+
+  return (
+    <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-gray-500">
+          <ClipboardList className="h-3.5 w-3.5" /> Plano de ação no portal · {visible} de {items.length} visível(is)
+        </p>
+        <button type="button" onClick={loadItems} className="text-xs font-semibold text-primary-700 hover:text-primary-900">
+          Atualizar
+        </button>
+      </div>
+      <div className="space-y-2">
+        {items.map((item) => (
+          <div key={item.id} className="rounded-lg border border-gray-100 bg-white px-3 py-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold uppercase text-gray-600">
+                {ACTION_PRIORITY_LABELS[item.priority]}
+              </span>
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                  item.status === 'published'
+                    ? 'bg-green-100 text-green-700'
+                    : item.status === 'hidden'
+                      ? 'bg-amber-100 text-amber-700'
+                      : 'bg-gray-100 text-gray-500'
+                }`}
+              >
+                {ACTION_STATUS_LABELS[item.status]}
+              </span>
+              {item.occurrence_count > 1 && (
+                <span className="text-[10px] font-bold uppercase text-purple-700">
+                  Reincidente ({item.occurrence_count}x)
+                </span>
+              )}
+              <span className="text-[11px] text-gray-500">
+                {item.due_date ? `Prazo ${formatDateBR(item.due_date)}` : 'Sem prazo'}
+                {item.responsible ? ` · ${item.responsible}` : ''}
+              </span>
+            </div>
+            <p className="mt-1 break-words text-sm text-gray-800">{item.title}</p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {item.status !== 'published' && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={savingId === item.id}
+                  onClick={() => void changeStatus(item, 'published')}
+                  className="text-green-700 hover:bg-green-50"
+                >
+                  {item.status === 'resolved'
+                    ? <><RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Reabrir</>
+                    : <><Eye className="mr-1.5 h-3.5 w-3.5" /> Publicar</>}
+                </Button>
+              )}
+              {item.status === 'published' && (
+                <>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={savingId === item.id}
+                    onClick={() => void changeStatus(item, 'hidden')}
+                    className="text-amber-700 hover:bg-amber-50"
+                  >
+                    <EyeOff className="mr-1.5 h-3.5 w-3.5" /> Ocultar
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={savingId === item.id}
+                    onClick={() => void changeStatus(item, 'resolved')}
+                    className="text-primary-700 hover:bg-primary-50"
+                  >
+                    <CheckCircle className="mr-1.5 h-3.5 w-3.5" /> Resolver
+                  </Button>
+                </>
+              )}
+              {savingId === item.id && <Loader2 className="h-4 w-4 animate-spin text-gray-400" />}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ActiveRequestCard({
   request,
   showIlpiAreaScores,
@@ -1107,6 +1257,8 @@ function ActiveRequestCard({
           </div>
 
           <PublishedFilesPanel requestId={request.id} busy={busy} />
+
+          <ActionPlanPanel requestId={request.id} busy={busy} />
         </div>
       </CardContent>
     </Card>

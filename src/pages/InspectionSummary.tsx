@@ -407,8 +407,17 @@ export function InspectionSummary() {
                immediateNcCount: nonCompliantResponses.filter(r => (r.deadline || '').trim() === 'Imediato').length,
                ncItems,
              });
+
+             // Projeção do plano de ação para o portal (P360-010). Cópia separada das NCs:
+             // o cliente acompanha a pendência sem nunca tocar em `responses`. Republicar o
+             // mesmo relatório é idempotente e item já resolvido não é sobrescrito.
+             const { buildClientActionItems } = await import('../utils/clientActionPlan');
+             await AppointmentAdminService.publishActionItems(
+               linkedRequest,
+               buildClientActionItems(nonCompliantResponses, allItemsList, currentInspection.inspectionDate)
+             );
            } catch (scoreErr) {
-             console.warn('[Summary] Falha ao gravar scores do portal automaticamente:', scoreErr);
+             console.warn('[Summary] Falha ao gravar scores/plano de acao do portal automaticamente:', scoreErr);
            }
          } else {
            console.warn('[Summary] PDF final gerado, mas nao ha solicitacao/agendamento vinculado para publicar no portal.');
