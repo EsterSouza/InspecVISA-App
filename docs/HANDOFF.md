@@ -1,6 +1,6 @@
 # Handoff único — InspecVISA
 
-**Última atualização:** 07/08/2026 (BRT), ao concluir o PORT-02, aplicado em produção ·
+**Última atualização:** 07/08/2026 (BRT), ao concluir o REL-03 ·
 **Branch:** `main`, sincronizada com `origin/main` · O estado da seção 2 foi verificado em 03/08/2026,
 com as correções de 04/08 e 05/08 anotadas nas tabelas.
 
@@ -239,7 +239,7 @@ a página de referências do PDF.
 | **PORT-01** | Central de acesso do portal por conta | Opus 5 | alto | P360-010 | ✅ **concluído 07/08/2026** · aplicado em produção (migration + edge function v6) |
 | **P360-011** | Evidências do cliente e revisão técnica | Opus 5 | alto | P360-010 | ✅ **concluído 07/08/2026** · aplicado em produção (migration + bucket privado + 2 edge functions); prova de ponta a ponta feita contra produção, depois apagada |
 | **PORT-02** | Link do relatório por unidade e autoria da evidência | Opus 5 | alto | P360-011 | ✅ **concluído 07/08/2026** · aplicado em produção; provado contra a visita real da Icaraí |
-| **REL-03** | Evidência do cliente na nova vistoria e no relatório final | Opus 5 | alto | PORT-02 | ⬜ **pendente** — é o que fecha o ciclo sanitário |
+| **REL-03** | Evidência do cliente na nova vistoria e no relatório final | Opus 5 | alto | PORT-02 | ✅ **concluído 07/08/2026** · só código (sem migration); fecha o ciclo sanitário |
 | **P360-012** | Solicitações estruturadas de consultoria | Opus 5 | alto | — | ⬜ pendente |
 | **P360-013** | Painel operacional das consultoras | Sonnet 5 | alto | 010, 011, 012 | ⬜ pendente |
 | **P360-014** | Acessibilidade e responsividade | Sonnet 5 | médio | superfícies estáveis | ⬜ pendente |
@@ -2450,6 +2450,92 @@ Commit: `df3eca0`.
 
 ---
 
+## REL-03 — Evidência do cliente na nova vistoria e no relatório final ✅ concluído 07/08/2026
+
+**Modelo:** Opus 5 · **Esforço:** alto · **Depende de:** PORT-02 · **Prioridade:** P1 sanitário
+
+**O que motivou, na voz da Ester:** *"quando abre um novo relatório pra esse cliente, esse
+relatório precisa estar ventilado pra essas imagens e textos que o cliente escreveu no plano de
+ação dele que ele fez, pra de fato eu garantir que de fato foi cumprido. E aí ficar salvo num
+relatório final."*
+
+**A quebra que existia:** o P360-011 fez o cliente mandar a prova, mas ela ficava só no painel
+de Agendamentos, no card da visita antiga. A tela em que a decisão sanitária acontece — o
+roteiro, dentro da casa, marcando *cumpre* ou *não cumpre* — não sabia que o protocolo tinha
+chegado em julho.
+
+### O elo
+
+`client_action_items.source_item_id` **é o id do item do roteiro**, o mesmo `itemId` das
+respostas da inspeção. Foi por isso que ele existe desde o P360-010. Com ele a alegação do
+cliente encontra o requisito que está sendo avaliado agora, sem chave nova e sem FK nova.
+
+### Na vistoria
+
+`ClientEvidenceService.byItemForClient(clientId)` devolve tudo que o cliente já enviou, agrupado
+pelo item do roteiro. A caixa **"Plano de ação anterior"** do `ChecklistItem` ganhou um painel
+com: o que ele alegou, **quem assinou (nome e função)**, quando, o estado da revisão e o arquivo
+— que abre por URL temporária assinada no clique.
+
+**Offline:** a busca é best-effort e roda **fora do `await`** da abertura do roteiro. Sem sinal a
+vistoria abre igual, só sem a alegação na tela. Nada de rede pode segurar a consultora na porta
+da ILPI. O texto, que é o que sustenta a decisão, fica em memória durante a visita; só a imagem
+depende de conexão no momento do clique.
+
+### No relatório final
+
+Regra escolhida pela Ester: **registro textual sempre, imagem só do que ela aprovou.**
+
+- **Item que voltou a ser NC**: a alegação sai dentro do próprio bloco da não conformidade, ao
+  lado do achado desta visita. É a leitura que sustenta a reincidência — "ele disse que
+  protocolou em julho, e em agosto o alvará continua vencido".
+- **Item que esta vistoria confirmou como cumprido**: seção própria **"EVIDÊNCIAS APRESENTADAS
+  PELO CLIENTE"**, com `EV-001`, o selo `REGULARIZADO` e a frase que impede a leitura errada:
+  *"A conclusão de cada pendência é a verificação em campo desta inspeção, e não o recebimento
+  do arquivo."*
+- **Imagem recusada ou sem revisão não vira figura** — entra como registro de texto. O PDF de
+  ILPI já é pesado com as fotos da consultora; carregar arquivo que não serve dobraria o
+  tamanho à toa.
+
+### Onde encostou
+
+| Arquivo | O quê |
+|---|---|
+| `src/services/clientEvidenceService.ts` (novo) | busca por `source_item_id`, assina URL, baixa a imagem aprovada como data URL |
+| `src/components/inspection/ChecklistItem.tsx` | painel "O que o cliente enviou" dentro do item |
+| `src/pages/InspectionExecution.tsx` | carrega a evidência ao abrir, sem bloquear o roteiro |
+| `src/utils/pdfGenerator.ts` | `drawClientEvidence` + a seção dos regularizados |
+| `src/pages/InspectionSummary.tsx` | `prepareForReport` na geração do PDF, com `catch` que não derruba o relatório |
+
+### Testes
+
+- `src/__tests__/services/clientEvidenceService.test.ts` (6): agrupamento pelo item do roteiro,
+  item do plano que sumiu ignorado em silêncio, cliente sem plano não dispara a segunda
+  consulta, **só imagem aprovada é embutida** (devolvida e PDF ficam de fora), e falha ao baixar
+  não derruba a geração.
+- `src/__tests__/utils/pdfGenerator.test.ts` (+6): sem evidência o relatório sai idêntico ao de
+  antes; NC leva a alegação junto do achado; regularizado ganha seção própria; estados `pending`
+  e `changes_requested` saem com o rótulo certo; envio sem assinatura vira "não identificado";
+  item que sumiu do roteiro é ignorado.
+- **Conferido em PDF de verdade**, gerado e extraído com `pdftotext`: os dois blocos saem dentro
+  da caixa, com quebra correta e sem vazar para o rodapé (o modo de falha registrado na memória
+  do projeto).
+- `npm test`: **278 testes, 278 passando**. `tsc -b` e `build` limpos.
+
+### Fora de escopo, deliberado
+
+- **A evidência não é pré-baixada para uso offline.** Se a consultora abrir o roteiro sem sinal,
+  não há alegação na tela. Guardar no Dexie exigiria tabela nova e traria arquivo de até 10 MB
+  para o celular; não foi pedido.
+- **Nada aqui resolve pendência sozinho.** Continua valendo o modelo do P360-010: quem fecha é a
+  consultora, agora com a vistoria em campo como confirmação.
+- O relatório não traz a imagem em tamanho cheio nem galeria; entra na mesma grade de fotos do
+  restante do laudo.
+
+Commit: `15fd415`.
+
+---
+
 ## P360-012 — Solicitações estruturadas de consultoria
 
 **Modelo:** Opus 5 · **Esforço:** alto · **Prioridade:** P2
@@ -2886,5 +2972,6 @@ Ao concluir um card, marcar aqui e atualizar a tabela da seção 4.
 | 07/08/2026 | **PORT-01** — concluído, aplicado em produção | Opus 5 | `96d344b` | Achado que motivou metade do card: ligar "suspender agendamento" **também** bloqueava o download de tudo que já tinha sido entregue — a Edge Function usava `scheduling_suspended` para decidir se assinava a URL dos anexos, desde junho. Separado: atraso suspende agendar; esconder entrega virou decisão explícita por conta, em `client_portal_account_features` (liberado/oculto/programado + travar em atraso), com `private.portal_account_gates` como fonte única lida pelo overview, pelo plano de ação, pelo agendamento e pela Edge Function (v5→v6). Suspensão virou modo (`auto`/`always_open`/`suspended`) com tolerância de 5 dias por tenant; liberação programada sem cron, decidida na leitura. Controles reorganizados num modal "Acesso do portal"; o toggle saiu do modal de Pagamento. Medido antes de aplicar: nenhuma das 3 contas ativas muda de estado (atraso exige vencimento cadastrado). Prova no app com conta 30 dias vencida: agendamento suspenso sozinho e relatório/foto/score visíveis ao mesmo tempo. Suíte SQL nova; 235/239 testes. |
 | 07/08/2026 | **P360-011** — concluído, aplicado em produção | Opus 5 | `ae8f38c` | O cliente passou a responder a pendência: manda a prova, a consultora aprova ou devolve com orientação. Três decisões seguraram o desenho — **upload não resolve nada** (aprovar o arquivo e resolver a pendência são dois botões separados, `p_resolve_item`); **o cliente não escolhe onde o arquivo cai** (nome e caminho gerados no servidor, extensão vinda do MIME conferido, `../../etc/passwd` vira `passwd.pdf`); e **bucket próprio** `client-action-evidence`, privado, porque o `client-portal-files` tem policy que libera para `anon` todo objeto de `appointment_attachments`. Nenhum papel do navegador escreve no bucket: as RPCs de envio/leitura/descarte só têm grant para `service_role`, e a Edge Function é a única porta — ela confere os **magic bytes**, então `.exe` renomeado de `.pdf` não entra. Idempotência por `(item, upload_key)`, com caminho derivado da chave: retry sobrescreve o mesmo objeto. Registra primeiro, sobe depois, e desfaz o registro se a subida falhar. Prova contra produção e as Edge Functions reais: envio, retry sem duplicar, devolver, reenviar, aprovar sem resolver, aprovar e resolver, trava do portal, URL assinada expirando em 8s e renovando, objeto inacessível sem token e para `anon`, e auditoria sem caminho nem URL. Dados de teste apagados e conferidos em zero, inclusive no Storage. Suíte SQL nova + 20 testes JS; 259/259. |
 | 07/08/2026 | **PORT-02** — concluído, aplicado em produção | Opus 5 | `df3eca0` | A Rede Sênior tem **13 casas atrás de uma conta só**: quem acompanha a correção em cada casa é o gestor dela, e não havia como dar acesso sem entregar o login do dono, que abre as treze. Decisão da Ester: o link do relatório passa a abrir **sem senha**, com a contrapartida que ela propôs — **nome e função obrigatórios em todo envio de evidência**, nos dois caminhos, porque a conta do portal é da empresa e nunca respondeu quem foi. O link não afrouxa o resto: `report_hidden` fecha tudo (é o botão de pânico para link vazado), o arquivo segue no bucket privado com URL temporária, o token só abre a unidade daquela visita e, sem conta, não vai link de pagamento na resposta. **Efeito retroativo registrado:** é o mesmo `public_token` de sempre, então todo link já enviado por WhatsApp passou a abrir sem login. A regra de registro virou uma só (`private.register_action_evidence`) para os dois caminhos, e a assinatura antiga que aceitava envio anônimo foi derrubada de propósito (há teste que falha se voltar). Provado contra a visita real da Icaraí: abre sem login com os 44 anexos assinados, o caminho logado não regrediu, conta de outro cliente segue negada e `anon` não registra evidência direto (`permission denied`). Suíte SQL nova; 266/266. |
+| 07/08/2026 | **REL-03** — concluído | Opus 5 | `15fd415` | Fecha o ciclo: a prova que o cliente manda chega até a tela em que a decisão sanitária acontece — o roteiro, dentro da casa — e até o relatório final. O elo é o `source_item_id`, que já era o id do item do roteiro desde o P360-010. Na vistoria, a caixa "Plano de ação anterior" mostra a alegação, quem assinou, quando e o arquivo por URL temporária; a busca roda fora do `await` da abertura, então sem sinal o roteiro abre igual. No PDF, como a Ester decidiu: **registro textual sempre, imagem só do que ela aprovou** — item que voltou a ser NC leva a alegação junto do achado, e o que a vistoria confirmou ganha a seção "EVIDÊNCIAS APRESENTADAS PELO CLIENTE", com a frase que impede a leitura errada (a conclusão é a verificação em campo, não o recebimento do arquivo). Conferido em PDF real com `pdftotext`: sem vazamento de caixa. Sem migration. 278/278. |
 | 07/08/2026 | **P360-010** — concluído, aplicado em produção | Opus 5 | `3bd8376` | `client_action_items` é projeção, não espelho: publicar o relatório copia as NCs, e nada no portal toca em `responses`. Um índice único parcial (`where status <> 'resolved'`) resolve os três casos de uma vez — republicação idempotente, reincidência somando ocorrência no item aberto, e item resolvido preservado como histórico quando a inspeção nova republica o mesmo requisito. Gate de visibilidade é o `report_hidden` da visita, reaplicado em tempo real na leitura; suspensão de agendamento **não** esconde item (decisão registrada). Vencimento ancorado em `America/Sao_Paulo`. Grants conferidos em produção com `has_table_privilege`. Prova feita no app contra o banco de produção com conta de teste — plano de ação, prazo vencido, resolver e histórico confirmados na tela — e todos os dados de teste apagados depois. 17 testes JS novos + suíte SQL nova; 235/239 testes (as 4 falhas são anteriores, confirmado com `git stash`). |
 | 06/08/2026 | **REF-06** — concluído, aplicado em produção | Opus 5 | `071adb2`, `8796143` |  Medido: dos 303 `item_id` órfãos, 272 eram "defeito" no papel mas só 6 inspeções tinham id de código; o que degradava mesmo eram 19 dos 26 relatórios concluídos (376 respostas), por três causas — inspeção criada antes do sync de roteiros, `city`/`state` que o servidor não devolve (suplemento regional some offline) e item reescrito no lugar trocando a pergunta de 18 respostas já entregues (o REF-05 fez a terceira). Decidido não remapear `responses`: congela-se o roteiro da época em `inspection_report_versions`. Roteiros `tpl-ilpi-v1` e federal-97 reconstruídos do git; o de 97 confere seção a seção com o PDF entregue ao Lar Recanto do Sossego em 14/04/2026. Código, scripts e simulação prontos e conferidos; 162 testes passando (as 4 falhas de `sync.test.ts` são anteriores). Duas cargas: a primeira congelou 15 relatórios e marcou 28 respostas com `deleted_at`; a segunda, depois de corrigir o script (a seção degradada estava sendo usada como fonte de texto), refez 6. Diagnóstico final: **0 respostas degradadas** nos 26 relatórios, contra 376 no começo. |
