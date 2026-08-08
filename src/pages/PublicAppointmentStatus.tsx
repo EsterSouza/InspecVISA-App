@@ -239,10 +239,15 @@ export function PublicAppointmentStatus() {
     return (
       <div className="min-h-screen bg-white">
         <PublicHeader />
-        <div className="flex flex-col items-center justify-center py-24">
-          <Loader2 className="mb-3 h-8 w-8 animate-spin text-primary-600" />
-          <p className="text-sm text-gray-500">Consultando sua solicitação...</p>
-        </div>
+        <main className="mx-auto max-w-2xl px-4 py-8" role="status" aria-live="polite">
+          <div className="mb-6 h-24 animate-pulse rounded-2xl bg-gray-100" aria-hidden="true" />
+          <div className="space-y-3">
+            <div className="h-5 w-1/2 animate-pulse rounded bg-gray-100" aria-hidden="true" />
+            <div className="h-20 animate-pulse rounded-xl bg-gray-100" aria-hidden="true" />
+            <div className="h-20 animate-pulse rounded-xl bg-gray-100" aria-hidden="true" />
+          </div>
+          <span className="sr-only">Consultando sua solicitação...</span>
+        </main>
       </div>
     );
   }
@@ -356,7 +361,7 @@ export function PublicAppointmentStatus() {
 
         {/* Protocolo */}
         <div className="mb-6 rounded-2xl border border-gray-100 bg-gray-50 p-5 text-center shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Protocolo</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Protocolo</p>
           <p className="mt-1 font-mono text-3xl font-bold tracking-widest text-gray-900">
             {formatProtocol(token || '')}
           </p>
@@ -508,14 +513,14 @@ export function PublicAppointmentStatus() {
             <div className="flex items-start gap-3">
               <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
               <div>
-                <dt className="text-xs text-gray-400">Unidade</dt>
+                <dt className="text-xs text-gray-500">Unidade</dt>
                 <dd className="break-words font-medium text-gray-900">{status.unit_name}</dd>
               </div>
             </div>
             <div className="flex items-start gap-3">
               <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
               <div>
-                <dt className="text-xs text-gray-400">Atendimento</dt>
+                <dt className="text-xs text-gray-500">Atendimento</dt>
                 <dd className="font-medium text-gray-900">{status.district}</dd>
                 {status.attendance_mode === 'presencial' && status.municipality && (
                   <dd className="text-xs text-gray-500">{status.municipality}</dd>
@@ -530,7 +535,7 @@ export function PublicAppointmentStatus() {
             <div className="flex items-start gap-3">
               <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
               <div>
-                <dt className="text-xs text-gray-400">Data solicitada</dt>
+                <dt className="text-xs text-gray-500">Data solicitada</dt>
                 <dd className="font-medium text-gray-900">
                   {formatDateBR(status.requested_date)}
                   {status.requested_time ? ` às ${status.requested_time}` : ''}
@@ -667,7 +672,7 @@ export function PublicAppointmentStatus() {
               <div className="mt-6">
                 <h4 className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-gray-500">
                   <span>Fotos da inspeção</span>
-                  <span className="text-gray-400">{photos.length} foto{photos.length === 1 ? '' : 's'}</span>
+                  <span className="text-gray-500">{photos.length} foto{photos.length === 1 ? '' : 's'}</span>
                 </h4>
                 <button
                   type="button"
@@ -690,7 +695,7 @@ export function PublicAppointmentStatus() {
               <div className="mt-6">
                 <h4 className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-gray-500">
                   <span>Fotos da inspeção</span>
-                  <span className="text-gray-400">{photoCount} foto{photoCount === 1 ? '' : 's'}</span>
+                  <span className="text-gray-500">{photoCount} foto{photoCount === 1 ? '' : 's'}</span>
                 </h4>
                 <div className="flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-3 text-sm font-semibold text-red-600">
                   <Lock className="h-4 w-4" />

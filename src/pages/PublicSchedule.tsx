@@ -469,7 +469,7 @@ export function PublicSchedule() {
             <h1 className="text-xl font-bold text-gray-900">Solicitação enviada</h1>
             <p className="mt-2 text-sm text-gray-600">Nossa equipe analisará o pedido e retornará com a confirmação.</p>
             <div className="mt-6 rounded-lg border border-gray-200 bg-white p-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Protocolo</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Protocolo</p>
               <p className="mt-1 font-mono text-2xl font-bold tracking-widest text-gray-900">{formatProtocol(token)}</p>
             </div>
             <Link to="/cliente" className="mt-6 inline-flex w-full min-h-11 items-center justify-center gap-2 rounded-md bg-primary-700 px-5 py-3 text-sm font-semibold text-white hover:bg-primary-800">
@@ -568,7 +568,7 @@ export function PublicSchedule() {
                   }<button type="button" onClick={() => setCalendarReloadKey((value) => value + 1)} className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-md border border-red-200 bg-white px-3 text-sm font-semibold text-red-700 hover:bg-red-50"><RefreshCw className="h-4 w-4" /> Tentar novamente</button></div>
                 ) : days.length === 0 ? <p className="rounded-md border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">Não há disponibilidade para esta finalidade e duração neste mês.</p> : (
                   <>
-                    <div className="grid grid-cols-7 gap-1.5 text-center text-[11px] font-bold uppercase text-gray-400 sm:gap-2">{CALENDAR_WEEKDAYS.map((label) => <div key={label} className="py-1">{label}</div>)}</div>
+                    <div className="grid grid-cols-7 gap-1.5 text-center text-[11px] font-bold uppercase text-gray-500 sm:gap-2">{CALENDAR_WEEKDAYS.map((label) => <div key={label} className="py-1">{label}</div>)}</div>
                     <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
                       {calendarCells.map((cell) => {
                         const available = !!cell.available;

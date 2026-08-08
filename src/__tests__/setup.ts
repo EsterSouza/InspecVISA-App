@@ -1,5 +1,8 @@
 import '@testing-library/jest-dom';
-import { vi } from 'vitest';
+import { toHaveNoViolations } from 'jest-axe';
+import { expect, vi } from 'vitest';
+
+expect.extend(toHaveNoViolations);
 
 // Mock do Supabase para não precisar de conexão real nos testes unitários
 vi.mock('../lib/supabase', () => ({

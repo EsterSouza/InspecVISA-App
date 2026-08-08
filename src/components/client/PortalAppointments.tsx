@@ -120,8 +120,9 @@ export function PortalAppointments({
             <button
               type="button"
               onClick={() => onCalendarMonthChange(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))}
-              className="rounded-md border border-gray-200 p-1.5 text-gray-600 hover:bg-gray-50"
+              className="flex h-11 w-11 items-center justify-center rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50"
               title="Mês anterior"
+              aria-label="Mês anterior"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -131,8 +132,9 @@ export function PortalAppointments({
             <button
               type="button"
               onClick={() => onCalendarMonthChange(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))}
-              className="rounded-md border border-gray-200 p-1.5 text-gray-600 hover:bg-gray-50"
+              className="flex h-11 w-11 items-center justify-center rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50"
               title="Próximo mês"
+              aria-label="Próximo mês"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -142,15 +144,16 @@ export function PortalAppointments({
                 const n = new Date();
                 onCalendarMonthChange(new Date(n.getFullYear(), n.getMonth(), 1));
               }}
-              className="ml-1 inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+              className="ml-1 inline-flex h-11 items-center gap-1 rounded-md border border-gray-200 px-2.5 text-xs font-semibold text-gray-600 hover:bg-gray-50"
               title="Voltar ao mês atual"
+              aria-label="Voltar ao mês atual"
             >
               <RotateCcw className="h-3.5 w-3.5" /> Hoje
             </button>
           </div>
         </div>
         <div>
-          <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold uppercase text-gray-400 sm:gap-2 sm:text-[11px]">
+          <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold uppercase text-gray-500 sm:gap-2 sm:text-[11px]">
             {CALENDAR_WEEKDAYS.map((label) => (
               <div key={label} className="py-1">{label}</div>
             ))}
@@ -210,12 +213,12 @@ export function PortalAppointments({
         <header className="flex items-center gap-2 border-b border-gray-100 bg-gray-50/70 px-5 py-3.5">
           <CalendarDays className="h-4 w-4 shrink-0 text-primary-700" />
           <h3 className="text-sm font-bold text-gray-900">Agendamentos e arquivos</h3>
-          <span className="ml-auto text-xs text-gray-400">
+          <span className="ml-auto text-xs text-gray-500">
             {sortedVisits.length} visita{sortedVisits.length === 1 ? '' : 's'}
           </span>
         </header>
         {sortedVisits.length === 0 ? (
-          <p className="px-5 py-6 text-center text-sm text-gray-400">Nenhum compromisso registrado ainda.</p>
+          <p className="px-5 py-6 text-center text-sm text-gray-500">Nenhum compromisso registrado ainda.</p>
         ) : (
           <ul className="divide-y divide-gray-50">
             {sortedVisits.map((visit) => {

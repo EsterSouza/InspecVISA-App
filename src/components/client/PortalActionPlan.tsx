@@ -102,6 +102,7 @@ interface PortalActionPlanProps {
    * exatamente o que aconteceu no primeiro teste do link.
    */
   alwaysShow?: boolean;
+  onRetry?: () => void;
 }
 
 /**
@@ -198,7 +199,7 @@ function EvidenceUpload({
             {alreadySent ? <RefreshCw className="h-3.5 w-3.5" /> : <Paperclip className="h-3.5 w-3.5" />}
             {alreadySent ? 'Enviar outra evidência' : 'Enviar evidência'}
           </button>
-          <span className="text-[11px] text-gray-400">{EVIDENCE_LIMITS_LABEL}</span>
+          <span className="text-[11px] text-gray-500">{EVIDENCE_LIMITS_LABEL}</span>
         </div>
       ) : (
         <div className="space-y-2">
@@ -212,7 +213,7 @@ function EvidenceUpload({
             rows={2}
             maxLength={1000}
             placeholder="Quer explicar o que foi feito? (opcional)"
-            className="w-full rounded-md border border-gray-200 p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+            className="w-full rounded-md border border-gray-200 p-2 text-xs placeholder:text-gray-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
           />
           <div className="grid gap-2 sm:grid-cols-2">
             <input
@@ -223,7 +224,7 @@ function EvidenceUpload({
               maxLength={120}
               placeholder="Seu nome *"
               aria-label="Seu nome"
-              className="w-full rounded-md border border-gray-200 p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+              className="w-full rounded-md border border-gray-200 p-2 text-xs placeholder:text-gray-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
             />
             <input
               type="text"
@@ -233,10 +234,10 @@ function EvidenceUpload({
               maxLength={120}
               placeholder="Sua função *"
               aria-label="Sua função"
-              className="w-full rounded-md border border-gray-200 p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+              className="w-full rounded-md border border-gray-200 p-2 text-xs placeholder:text-gray-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
             />
           </div>
-          <p className="text-[11px] text-gray-400">
+          <p className="text-[11px] text-gray-500">
             O nome e a função ficam registrados no relatório junto com a evidência.
           </p>
           <div className="flex flex-wrap gap-2">
@@ -563,6 +564,7 @@ export function PortalActionPlan({
   onSubmitEvidence,
   onDeclareStatus,
   alwaysShow,
+  onRetry,
 }: PortalActionPlanProps) {
   const [expanded, setExpanded] = useState(false);
   const [author, setAuthor] = useState(readStoredAuthor);
@@ -578,8 +580,17 @@ export function PortalActionPlan({
 
   if (error) {
     return (
-      <section className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800">
-        Não foi possível carregar o plano de ação agora. Atualize a página ou fale com a equipe da consultoria.
+      <section className="mb-6 flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800 sm:flex-row sm:items-center sm:justify-between">
+        <p role="alert">Não foi possível carregar o plano de ação agora. Atualize a página ou fale com a equipe da consultoria.</p>
+        {onRetry && (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-800 hover:bg-amber-100"
+          >
+            <RefreshCw className="h-4 w-4" /> Tentar novamente
+          </button>
+        )}
       </section>
     );
   }

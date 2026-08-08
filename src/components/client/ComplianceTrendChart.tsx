@@ -16,7 +16,7 @@ type CompliancePoint = {
 export function ComplianceTrendChart({ data }: { data: CompliancePoint[] }) {
   if (!data || data.length === 0) {
     return (
-      <div className="flex h-full w-full items-center justify-center rounded-xl bg-gray-50 text-sm text-gray-400">
+      <div className="flex h-full w-full items-center justify-center rounded-xl bg-gray-50 text-sm text-gray-500">
         Sem dados de conformidade ainda.
       </div>
     );

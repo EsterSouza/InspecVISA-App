@@ -439,6 +439,7 @@ export function Schedules() {
                 variant="outline"
                 size="sm"
                 onClick={() => setCalendarMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
+                aria-label="Mês anterior"
               >
                 Anterior
               </Button>
@@ -450,6 +451,7 @@ export function Schedules() {
                   const now = new Date();
                   setCalendarMonth(new Date(now.getFullYear(), now.getMonth(), 1));
                 }}
+                aria-label="Voltar ao mês atual"
               >
                 Hoje
               </Button>
@@ -458,13 +460,14 @@ export function Schedules() {
                 variant="outline"
                 size="sm"
                 onClick={() => setCalendarMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
+                aria-label="Próximo mês"
               >
                 Próximo
               </Button>
             </div>
           </div>
 
-          <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold uppercase text-gray-400">
+          <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold uppercase text-gray-500">
             {WEEKDAY_LABELS.map((label) => (
               <div key={label} className="py-1">{label}</div>
             ))}
@@ -478,7 +481,7 @@ export function Schedules() {
               return (
                 <div
                   key={key}
-                  className={`min-h-[92px] rounded-lg border p-2 text-left ${
+                  className={`min-h-[150px] rounded-lg border p-2 text-left ${
                     isToday
                       ? 'border-primary-500 bg-primary-50'
                       : inCurrentMonth
@@ -495,14 +498,14 @@ export function Schedules() {
                         key={schedule.id}
                         type="button"
                         onClick={() => handleEdit(schedule)}
-                        className="block w-full truncate rounded bg-primary-50 px-1.5 py-1 text-left text-[11px] font-medium text-primary-800 hover:bg-primary-100"
+                        className="flex min-h-11 w-full items-center truncate rounded bg-primary-50 px-1.5 text-left text-[11px] font-medium text-primary-800 hover:bg-primary-100"
                         title={`${schedule.clientName || 'Cliente'} - ${schedule.scheduledAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`}
                       >
                         {schedule.scheduledAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} {schedule.clientName || 'Cliente'}
                       </button>
                     ))}
                     {daySchedules.length > 2 && (
-                      <div className="text-[11px] font-semibold text-gray-400">+{daySchedules.length - 2}</div>
+                      <div className="text-[11px] font-semibold text-gray-500">+{daySchedules.length - 2}</div>
                     )}
                   </div>
                 </div>
@@ -527,7 +530,7 @@ export function Schedules() {
                 <Card
                   key={schedule.id}
                   id={`schedule-${schedule.id}`}
-                  className={`overflow-hidden border-l-4 border-l-primary-500 shadow-sm hover:shadow-md transition-shadow ${
+                  className={`overflow-hidden shadow-sm hover:shadow-md transition-shadow ${
                     focusScheduleId === String(schedule.id) ? 'ring-2 ring-primary-400' : ''
                   }`}
                 >
@@ -579,7 +582,7 @@ export function Schedules() {
                    <div className="flex items-center space-x-3">
                      <CheckCircle className="h-4 w-4 text-gray-400" />
                      <span className="text-sm font-medium text-gray-700">{schedule.clientName}</span>
-                     <span className="text-xs text-gray-400">{formatDateTime(schedule.scheduledAt)}</span>
+                     <span className="text-xs text-gray-500">{formatDateTime(schedule.scheduledAt)}</span>
                    </div>
                    {schedule.status === 'completed' ? (
                      <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">CONCLUÍDO</span>
@@ -596,17 +599,18 @@ export function Schedules() {
 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <Card className="w-full max-w-lg shadow-2xl">
+          <Card role="dialog" aria-modal="true" aria-labelledby="schedule-modal-title" className="w-full max-w-lg shadow-2xl">
             <CardContent className="p-6">
-              <h3 className="text-xl font-bold text-gray-900 mb-6">
+              <h3 id="schedule-modal-title" className="text-xl font-bold text-gray-900 mb-6">
                 {isEditing ? 'Editar Agendamento' : 'Agendar Nova Inspeção'}
               </h3>
               <form onSubmit={handleSchedule} className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700 flex items-center">
-                    <User className="mr-2 h-4 w-4 text-gray-400" /> Cliente
+                  <label htmlFor="schedule-client-search" className="text-sm font-medium text-gray-700 flex items-center">
+                    <User className="mr-2 h-4 w-4 text-gray-400" aria-hidden="true" /> Cliente
                   </label>
                   <input
+                    id="schedule-client-search"
                     type="text"
                     placeholder="Buscar cliente..."
                     value={clientSearch}
@@ -614,7 +618,7 @@ export function Schedules() {
                       setClientSearch(e.target.value);
                       setSelectedClientId('');
                     }}
-                    className="w-full rounded-xl border border-gray-300 p-3 text-sm"
+                    className="w-full rounded-xl border border-gray-300 p-3 text-sm placeholder:text-gray-500"
                   />
                   <div className="max-h-44 overflow-y-auto rounded-xl border border-gray-200 bg-white">
                     {filteredClients.length > 0 ? (
@@ -628,11 +632,11 @@ export function Schedules() {
                           }`}
                         >
                           <span className="font-medium">{client.name}</span>
-                          <span className="shrink-0 text-xs text-gray-400">{client.category?.toUpperCase()}</span>
+                          <span className="shrink-0 text-xs text-gray-500">{client.category?.toUpperCase()}</span>
                         </button>
                       ))
                     ) : (
-                      <div className="px-3 py-2 text-sm text-gray-400">Nenhum cliente encontrado.</div>
+                      <div className="px-3 py-2 text-sm text-gray-500">Nenhum cliente encontrado.</div>
                     )}
                   </div>
                   {selectedClient && (
@@ -644,12 +648,13 @@ export function Schedules() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700 flex items-center">
-                      <Calendar className="mr-2 h-4 w-4 text-gray-400" /> Data
+                    <label htmlFor="schedule-date" className="text-sm font-medium text-gray-700 flex items-center">
+                      <Calendar className="mr-2 h-4 w-4 text-gray-400" aria-hidden="true" /> Data
                     </label>
                     {/* Sem data mínima: a equipe pode registrar visitas retroativas
                         para lançar relatórios de inspeções já realizadas. */}
                     <input
+                      id="schedule-date"
                       type="date"
                       required
                       value={scheduledDate}
@@ -658,10 +663,11 @@ export function Schedules() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700 flex items-center">
-                      <Clock className="mr-2 h-4 w-4 text-gray-400" /> Horário
+                    <label htmlFor="schedule-time" className="text-sm font-medium text-gray-700 flex items-center">
+                      <Clock className="mr-2 h-4 w-4 text-gray-400" aria-hidden="true" /> Horário
                     </label>
                     <input
+                      id="schedule-time"
                       type="time"
                       required
                       value={scheduledTime}
@@ -684,8 +690,9 @@ export function Schedules() {
                     </label>
                     {repeatMonthly && (
                       <div className="flex items-center gap-2 pl-6">
-                        <span className="text-sm text-gray-600">Quantas visitas:</span>
+                        <label htmlFor="schedule-repeat-count" className="text-sm text-gray-600">Quantas visitas:</label>
                         <input
+                          id="schedule-repeat-count"
                           type="number"
                           min={2}
                           max={12}
@@ -693,15 +700,15 @@ export function Schedules() {
                           onChange={(e) => setRepeatCount(Math.min(12, Math.max(2, Number(e.target.value) || 2)))}
                           className="w-20 rounded-lg border border-gray-300 p-2 text-sm"
                         />
-                        <span className="text-xs text-gray-400">(cria {repeatCount} agendamentos independentes, um por mês)</span>
+                        <span className="text-xs text-gray-500">(cria {repeatCount} agendamentos independentes, um por mês)</span>
                       </div>
                     )}
                   </div>
                 )}
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Consultora(s) responsável(is)</label>
-                  <div className="flex flex-wrap gap-2">
+                  <span id="schedule-consultants-label" className="text-sm font-medium text-gray-700">Consultora(s) responsável(is)</span>
+                  <div className="flex flex-wrap gap-2" role="group" aria-labelledby="schedule-consultants-label">
                     {CONSULTANTS.map((name) => {
                       const active = selectedConsultants.includes(name);
                       return (
@@ -709,7 +716,8 @@ export function Schedules() {
                           key={name}
                           type="button"
                           onClick={() => toggleConsultant(name)}
-                          className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
+                          aria-pressed={active}
+                          className={`min-h-11 rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
                             active
                               ? 'bg-primary-600 text-white shadow-sm'
                               : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
@@ -720,16 +728,17 @@ export function Schedules() {
                       );
                     })}
                   </div>
-                  <p className="text-xs text-gray-400">A inspeção criada a partir desta visita herda quem você marcar aqui.</p>
+                  <p className="text-xs text-gray-500">A inspeção criada a partir desta visita herda quem você marcar aqui.</p>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Observações (Opcional)</label>
+                  <label htmlFor="schedule-notes" className="text-sm font-medium text-gray-700">Observações (Opcional)</label>
                   <textarea
+                    id="schedule-notes"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     rows={3}
-                    className="w-full rounded-xl border border-gray-300 p-3 text-sm"
+                    className="w-full rounded-xl border border-gray-300 p-3 text-sm placeholder:text-gray-500"
                     placeholder="Ex: Levar checklist extra..."
                   />
                 </div>

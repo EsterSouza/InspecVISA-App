@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { axe } from 'jest-axe';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { PortalActionPlan } from '../../components/client/PortalActionPlan';
 import type { ClientPortalActionItem } from '../../services/clientPortalService';
@@ -295,5 +296,22 @@ describe('P360-011 - evidência no plano de ação do cliente', () => {
     expect(screen.getByText(/pendência continua aberta/)).toBeInTheDocument();
     // O contador do cabeçalho não muda com o upload: 1 pendente continua 1 pendente.
     expect(screen.getByText('1 pendente')).toBeInTheDocument();
+  });
+});
+
+describe('P360-014 — acessibilidade do plano de ação', () => {
+  test('lista de pendências não tem violações críticas de WCAG A/AA', async () => {
+    const { container } = render(<PortalActionPlan items={[actionItem()]} />);
+    expect(await axe(container)).toHaveNoViolations();
+  });
+
+  test('estado de erro com retry não tem violações e expõe o botão de tentar novamente', async () => {
+    const onRetry = vi.fn();
+    const { container } = render(<PortalActionPlan items={[]} error onRetry={onRetry} />);
+    const retryButton = screen.getByRole('button', { name: /Tentar novamente/ });
+    expect(retryButton).toBeInTheDocument();
+    await userEvent.click(retryButton);
+    expect(onRetry).toHaveBeenCalledTimes(1);
+    expect(await axe(container)).toHaveNoViolations();
   });
 });

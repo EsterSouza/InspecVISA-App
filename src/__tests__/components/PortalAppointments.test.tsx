@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { ComponentProps } from 'react';
+import { axe } from 'jest-axe';
 import { describe, expect, test } from 'vitest';
 import { PortalAppointments, type PortalAppointmentVisit } from '../../components/client/PortalAppointments';
 
@@ -73,5 +74,28 @@ describe('P360-009 - PortalAppointments', () => {
     );
     expect(screen.queryByText('Unidade A')).not.toBeInTheDocument();
     expect(container.querySelector('[aria-hidden="true"]')).toBeInTheDocument();
+  });
+});
+
+describe('P360-014 — acessibilidade da agenda', () => {
+  test('calendário com compromissos não tem violações críticas de WCAG A/AA', async () => {
+    const { container } = render(
+      <MemoryRouter>
+        <PortalAppointments
+          visits={[visit(), visit({ public_token: 'b', unitName: 'Unidade B', requested_date: '2026-08-20' })]}
+          schedulingSuspended={false}
+          calendarMonth={new Date(2026, 7, 1)}
+          onCalendarMonthChange={() => {}}
+        />
+      </MemoryRouter>
+    );
+    expect(await axe(container)).toHaveNoViolations();
+  });
+
+  test('botões de navegação do mês têm nome acessível', () => {
+    renderAppointments();
+    expect(screen.getByRole('button', { name: 'Mês anterior' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Próximo mês' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Voltar ao mês atual' })).toBeInTheDocument();
   });
 });

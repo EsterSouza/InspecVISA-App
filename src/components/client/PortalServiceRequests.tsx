@@ -7,6 +7,7 @@ import {
   MessageSquare,
   Paperclip,
   Plus,
+  RefreshCw,
   UserRound,
   X,
 } from 'lucide-react';
@@ -60,6 +61,7 @@ interface PortalServiceRequestsProps {
   error?: boolean;
   onCreate?: CreateServiceRequestHandler;
   onReply?: ReplyServiceRequestHandler;
+  onRetry?: () => void;
 }
 
 // ─── Formulário de abertura ───────────────────────────────────────────────────
@@ -245,7 +247,7 @@ function NewRequestForm({
           >
             <Paperclip className="h-3.5 w-3.5" /> Anexar arquivo (opcional)
           </button>
-          <span className="text-[11px] text-gray-400">{EVIDENCE_LIMITS_LABEL}</span>
+          <span className="text-[11px] text-gray-500">{EVIDENCE_LIMITS_LABEL}</span>
         </div>
       )}
 
@@ -407,13 +409,13 @@ function RequestCard({
         <span className="text-[11px] text-gray-500">
           {SERVICE_REQUEST_CATEGORY_LABELS[request.category]}
         </span>
-        {showUnitName && <span className="text-[11px] text-gray-400">· {request.unit_name}</span>}
+        {showUnitName && <span className="text-[11px] text-gray-500">· {request.unit_name}</span>}
       </div>
 
       <p className="mt-1.5 text-sm font-semibold text-gray-900">{request.subject}</p>
       <p className="mt-1 whitespace-pre-wrap text-xs text-gray-600">{request.description}</p>
 
-      <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-gray-400">
+      <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-gray-500">
         <span>Aberta em {formatDateBR(request.created_at)}</span>
         <span>· Última atualização em {formatDateBR(request.last_event_at)}</span>
         {request.assigned_to && (
@@ -450,7 +452,7 @@ function RequestCard({
                 <span className="font-semibold text-gray-700">
                   {event.actor_kind === 'client' ? 'Você' : event.actor_name || 'Consultoria'}
                 </span>
-                <span className="text-gray-400"> · {formatDateBR(event.created_at)}</span>
+                <span className="text-gray-500"> · {formatDateBR(event.created_at)}</span>
                 {event.note && <p className="whitespace-pre-wrap">{event.note}</p>}
               </li>
             ))}
@@ -482,6 +484,7 @@ export function PortalServiceRequests({
   error,
   onCreate,
   onReply,
+  onRetry,
 }: PortalServiceRequestsProps) {
   const [formOpen, setFormOpen] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
@@ -498,9 +501,20 @@ export function PortalServiceRequests({
 
   if (error) {
     return (
-      <section className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800">
-        Não foi possível carregar suas solicitações agora. Atualize a página ou fale com a equipe
-        da consultoria.
+      <section className="mb-6 flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800 sm:flex-row sm:items-center sm:justify-between">
+        <p role="alert">
+          Não foi possível carregar suas solicitações agora. Atualize a página ou fale com a equipe
+          da consultoria.
+        </p>
+        {onRetry && (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-800 hover:bg-amber-100"
+          >
+            <RefreshCw className="h-4 w-4" /> Tentar novamente
+          </button>
+        )}
       </section>
     );
   }

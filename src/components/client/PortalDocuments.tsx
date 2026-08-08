@@ -25,7 +25,7 @@ export function PortalDocuments({ visits, loading }: PortalDocumentsProps) {
 
   if (stats.every((s) => s.value === 0)) {
     return (
-      <section className="mb-6 rounded-xl border border-dashed border-gray-200 bg-white p-4 text-center text-xs text-gray-400">
+      <section className="mb-6 rounded-xl border border-dashed border-gray-200 bg-white p-4 text-center text-xs text-gray-500">
         Nenhum relatório, foto ou anexo disponível ainda.
       </section>
     );
@@ -41,7 +41,7 @@ export function PortalDocuments({ visits, loading }: PortalDocumentsProps) {
           <Icon className="h-4 w-4 shrink-0 text-primary-600" />
           <div>
             <p className="text-lg font-black leading-none text-gray-950">{value}</p>
-            <p className="text-[10px] font-bold uppercase leading-tight text-gray-400">{label}</p>
+            <p className="text-[10px] font-bold uppercase leading-tight text-gray-500">{label}</p>
           </div>
         </div>
       ))}

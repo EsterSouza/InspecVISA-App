@@ -87,6 +87,17 @@ export function ClientPortal() {
     }
   }, []);
 
+  const loadInvoices = useCallback(async (portalToken: string) => {
+    try {
+      const invoiceRows = await clientPortalService.invoices(portalToken);
+      setInvoices(invoiceRows);
+      setInvoicesError(false);
+    } catch (err) {
+      console.warn('[ClientPortal] Falha ao carregar notas fiscais:', err);
+      setInvoicesError(true);
+    }
+  }, []);
+
   const loadServiceRequests = useCallback(async (portalToken: string) => {
     try {
       setServiceRequests(await clientPortalService.serviceRequests(portalToken));
@@ -120,22 +131,13 @@ export function ClientPortal() {
     // Notas fiscais e plano de ação em chamadas separadas e em paralelo: cada uma falha
     // sozinha, e a pendência sanitária não pode esperar a Edge Function do financeiro.
     await Promise.all([
-      clientPortalService
-        .invoices(portalToken)
-        .then((invoiceRows) => {
-          setInvoices(invoiceRows);
-          setInvoicesError(false);
-        })
-        .catch((err) => {
-          console.warn('[ClientPortal] Falha ao carregar notas fiscais:', err);
-          setInvoicesError(true);
-        }),
+      loadInvoices(portalToken),
       loadActionItems(portalToken, { audit: true }),
       // Só busca solicitação onde o módulo está ligado: a seção nem aparece nos outros
       // tenants, e a RPC devolveria lista vazia de qualquer forma.
       serviceRequestsEnabled ? loadServiceRequests(portalToken) : Promise.resolve(),
     ]);
-  }, [loadActionItems, loadServiceRequests]);
+  }, [loadInvoices, loadActionItems, loadServiceRequests]);
 
   useEffect(() => {
     if (token) void loadOverview(token);
@@ -350,9 +352,10 @@ export function ClientPortal() {
     return (
       <div className="min-h-screen bg-gray-50">
         <PublicHeader />
-        <div className="flex flex-col items-center justify-center py-24">
-          <Loader2 className="mb-3 h-8 w-8 animate-spin text-primary-600" />
-          <p className="text-sm text-gray-500">Carregando seu painel...</p>
+        <div className="flex flex-col items-center justify-center py-24" role="status" aria-live="polite">
+          <div className="mb-3 h-8 w-8 animate-pulse rounded-full bg-primary-100" aria-hidden="true" />
+          <div className="h-3 w-40 animate-pulse rounded bg-gray-200" aria-hidden="true" />
+          <span className="sr-only">Carregando seu painel...</span>
         </div>
       </div>
     );
@@ -372,34 +375,36 @@ export function ClientPortal() {
 
             <form onSubmit={handleLogin} className="mt-6 space-y-4">
               <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
-                  <Mail className="h-4 w-4 text-gray-400" /> E-mail ou usuario
+                <label htmlFor="portal-login-identifier" className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
+                  <Mail className="h-4 w-4 text-gray-400" aria-hidden="true" /> E-mail ou usuario
                 </label>
                 <input
+                  id="portal-login-identifier"
                   type="text"
                   required
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   placeholder="contato@suaempresa.com.br ou usuario"
-                  className="w-full rounded-md border border-gray-300 p-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+                  className="w-full rounded-md border border-gray-300 p-3 text-sm placeholder:text-gray-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
-                  <KeyRound className="h-4 w-4 text-gray-400" /> Senha
+                <label htmlFor="portal-login-password" className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
+                  <KeyRound className="h-4 w-4 text-gray-400" aria-hidden="true" /> Senha
                 </label>
                 <input
+                  id="portal-login-password"
                   type="password"
                   required
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                   placeholder="Senha permanente fornecida pela consultoria"
-                  className="w-full rounded-md border border-gray-300 p-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+                  className="w-full rounded-md border border-gray-300 p-3 text-sm placeholder:text-gray-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
                 />
               </div>
 
               {error && (
-                <div className="rounded-md border border-red-100 bg-red-50 p-3 text-sm text-red-700">
+                <div role="alert" className="rounded-md border border-red-100 bg-red-50 p-3 text-sm text-red-700">
                   {error}
                 </div>
               )}
@@ -527,6 +532,7 @@ export function ClientPortal() {
             showUnitName={overview.units.length > 1 && !selectedUnitId}
             onSubmitEvidence={handleSubmitEvidence}
             onDeclareStatus={handleDeclareStatus}
+            onRetry={() => void loadActionItems(token, { audit: true })}
           />
         )}
 
@@ -541,6 +547,7 @@ export function ClientPortal() {
             error={serviceRequestsError}
             onCreate={handleCreateServiceRequest}
             onReply={handleReplyServiceRequest}
+            onRetry={() => void loadServiceRequests(token)}
           />
         )}
 
@@ -556,6 +563,7 @@ export function ClientPortal() {
           paymentAckSent={paymentAckSent}
           onAcknowledgePayment={() => void handlePaymentAcknowledgement()}
           onAudit={audit}
+          onRetryInvoices={() => void loadInvoices(token)}
         />
 
         {filteredUnits.length === 0 ? (
@@ -563,12 +571,14 @@ export function ClientPortal() {
             Nenhuma unidade vinculada ao seu acesso ainda. Fale com a equipe da consultoria.
           </div>
         ) : (
-          <PortalAppointments
-            visits={filteredVisits}
-            schedulingSuspended={schedulingSuspended}
-            calendarMonth={calendarMonth}
-            onCalendarMonthChange={setCalendarMonth}
-          />
+          <div id="portal-agenda">
+            <PortalAppointments
+              visits={filteredVisits}
+              schedulingSuspended={schedulingSuspended}
+              calendarMonth={calendarMonth}
+              onCalendarMonthChange={setCalendarMonth}
+            />
+          </div>
         )}
 
         <p className="mt-8 text-center text-xs text-gray-400">

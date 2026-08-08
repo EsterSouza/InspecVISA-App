@@ -154,7 +154,7 @@ export function ContractTimeline({ unit }: ContractTimelineProps) {
                   </span>
                 )}
                 {!m.plannedLabel && !m.completedDate && !m.completedStatus && (
-                  <span className="text-gray-400">Sem data prevista</span>
+                  <span className="text-gray-500">Sem data prevista</span>
                 )}
               </div>
             </div>

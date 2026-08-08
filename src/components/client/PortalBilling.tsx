@@ -1,4 +1,4 @@
-import { CheckCircle2, CreditCard, Download, FileText, Loader2, Receipt } from 'lucide-react';
+import { CheckCircle2, CreditCard, Download, FileText, Loader2, Receipt, RefreshCw } from 'lucide-react';
 import type { ClientPortalAuditEventType } from '../../types';
 import type { ClientPortalInvoice, ClientPortalPayment } from '../../services/clientPortalService';
 import { formatCompetenceMonth, formatDateBR, paymentLinks } from '../../utils/clientPortalFormat';
@@ -12,6 +12,7 @@ interface PortalBillingProps {
   onAcknowledgePayment: () => void;
   onAudit: (eventType: ClientPortalAuditEventType, payload?: Record<string, unknown>) => void;
   loading?: boolean;
+  onRetryInvoices?: () => void;
 }
 
 export function PortalBilling({
@@ -23,6 +24,7 @@ export function PortalBilling({
   onAcknowledgePayment,
   onAudit,
   loading,
+  onRetryInvoices,
 }: PortalBillingProps) {
   if (loading) {
     return (
@@ -108,16 +110,25 @@ export function PortalBilling({
       )}
 
       {invoicesError ? (
-        <p className="rounded-xl border border-dashed border-gray-200 bg-white p-3 text-center text-xs text-gray-400">
-          Não foi possível carregar as notas fiscais agora. O restante do painel continua disponível.
-        </p>
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-gray-200 bg-white p-3 text-center text-xs text-gray-500 sm:flex-row sm:justify-between sm:text-left">
+          <p role="alert">Não foi possível carregar as notas fiscais agora. O restante do painel continua disponível.</p>
+          {onRetryInvoices && (
+            <button
+              type="button"
+              onClick={onRetryInvoices}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+            >
+              <RefreshCw className="h-4 w-4" /> Tentar novamente
+            </button>
+          )}
+        </div>
       ) : (
         invoices.length > 0 && (
           <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
             <header className="flex items-center gap-2 border-b border-gray-100 bg-gray-50/70 px-5 py-3.5">
               <Receipt className="h-4 w-4 shrink-0 text-primary-700" />
               <h3 className="text-sm font-bold text-gray-900">Notas Fiscais</h3>
-              <span className="ml-auto text-xs text-gray-400">
+              <span className="ml-auto text-xs text-gray-500">
                 {invoices.length} nota{invoices.length === 1 ? '' : 's'}
               </span>
             </header>
@@ -149,7 +160,7 @@ export function PortalBilling({
                       <Download className="h-3.5 w-3.5" /> Baixar
                     </a>
                   ) : (
-                    <span className="shrink-0 text-xs text-gray-400">Indisponível</span>
+                    <span className="shrink-0 text-xs text-gray-500">Indisponível</span>
                   )}
                 </li>
               ))}

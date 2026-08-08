@@ -1,6 +1,6 @@
 # Handoff único — InspecVISA
 
-**Última atualização:** 08/08/2026 (BRT), ao concluir o P360-013, aplicado em produção ·
+**Última atualização:** 08/08/2026 (BRT), ao concluir o P360-014 (frontend, sem migration) ·
 **Branch:** `main`, sincronizada com `origin/main` · O estado da seção 2 foi verificado em 03/08/2026,
 com as correções de 04/08 e 05/08 anotadas nas tabelas.
 
@@ -245,7 +245,7 @@ a página de referências do PDF.
 | **PORT-03** | O cliente declara a situação do item (inclusive "não fiz") | Opus 5 | médio | PORT-02 | ✅ **concluído 07/08/2026** · aplicado em produção |
 | **P360-012** | Solicitações estruturadas de consultoria | Opus 5 | alto | — | ✅ **concluído 08/08/2026** · aplicado em produção (2 migrations + bucket privado + 2 edge functions); inclui o backfill retroativo do plano de ação, com 306 pendências projetadas em 16 unidades |
 | **P360-013** | Painel operacional das consultoras | Sonnet 5 | alto | 010, 011, 012 | ✅ **concluído 08/08/2026** · aplicado em produção (migration só de funções, sem tabela nova); rota `/painel` nova, sem mexer no Dashboard existente |
-| **P360-014** | Acessibilidade e responsividade | Sonnet 5 | médio | superfícies estáveis | ⬜ pendente |
+| **P360-014** | Acessibilidade e responsividade | Sonnet 5 | médio | superfícies estáveis | ✅ **concluído 08/08/2026** · sem migration, frontend puro |
 | **P360-015** | E2E, rollout e prova de produção | Opus 5 | alto | onda a publicar | ⬜ pendente |
 | **DEBT-01** | Margem pública de 4 h por tipo | Sonnet 5 | médio | — | ✅ **concluído 04/08** |
 | **DEBT-02** | Dívida de lint | Sonnet 5 | médio | — | ⬜ pendente |
@@ -2897,6 +2897,83 @@ concentrar regras em páginas gigantes.
 - Nenhum alvo primário abaixo de 44×44 px.
 - Nenhum overflow horizontal entre 320 e 1440 px.
 - Componentes extraídos mantêm comportamento e testes.
+
+### Resultado — 08/08/2026
+
+Feito. Sem migration — card inteiro é frontend (componentes React/TSX + CSS + testes).
+
+- **Decomposição** (sem mudar comportamento, props inalteradas nas páginas hospedeiras):
+  `src/components/schedules/AppointmentRequestsPanel.tsx` (2530 → ~330 linhas) virou
+  `appointmentRequestsShared.ts`, `Pager.tsx`, `ConsultantPicker.tsx`,
+  `PendingRequestsSection.tsx`, `ActiveRequestsSection.tsx`, `ClosedRequestsSection.tsx`,
+  `ActiveRequestCard.tsx`, `PublishedFilesPanel.tsx`, `ActionPlanPanel.tsx`,
+  `BlockedDatesSection.tsx` e `modals/{Confirm,AddPhotos,DueDate,NewVisit,Reschedule,
+  NotCompleted}Modal.tsx`. `src/components/clients/ClientPortalManagement.tsx` (1479 → ~330
+  linhas) virou `portal/shared.ts` e `portal/{Invoices,Payment,PortalAccess,PortalSettings,
+  EditPortalUnits,CreatePortalAccount}Modal.tsx`. `Schedules.tsx` e `Clients.tsx` continuam
+  montando os componentes principais sem mudança de props.
+- **Labels/aria**: todo `<label>` que era irmão solto de um `<input>` (login do portal,
+  modais de confirmação/remarcação/nova visita/pagamento/notas fiscais) ganhou `htmlFor`/`id`.
+  Grupos de botão-toggle (modo de atendimento, tipo de pagamento, consultoras) ganharam
+  `role="group"` + `aria-pressed`. Seções recolhíveis (`▾`/`▸`) ganharam `aria-expanded` +
+  `aria-controls`. Todo modal (~14 no total, os dois domínios) ganhou
+  `role="dialog" aria-modal="true" aria-labelledby`. Botões só-de-ícone ganharam `aria-label`
+  espelhando o `title` já existente.
+- **Alvos de 44×44px**: chip de compromisso no calendário admin (`Schedules.tsx`) e botões de
+  navegação de mês (admin e portal) foram ajustados para `min-h-11`/`h-11`; célula do calendário
+  admin cresceu de 92px para 150px para caber os chips maiores sem perder densidade. Os chips
+  desktop-only do calendário do portal (`PortalAppointments.tsx`) ficaram como estão — a lista
+  "Agendamentos e arquivos" abaixo já é o caminho primário compatível com 44px, e o chip é um
+  atalho secundário sobre um dispositivo de mouse.
+- **Contraste**: `text-gray-400` (2.54:1 no branco, medido ao vivo via navegador — abaixo de
+  AA) trocado por `text-gray-500` (4.83:1, confirmado matematicamente e ao vivo) em todo texto
+  de apoio dos dois domínios e do portal do cliente — mantido só onde `text-gray-400`/`300` é
+  estado intencionalmente esmaecido (dia fora do mês no calendário, etapa futura no rastreio de
+  protocolo). Placeholder ganhou `placeholder:text-gray-500` via constante `TEXT_INPUT`
+  compartilhada. **A alegação do card sobre "texto cinza sobre fundo colorido" em
+  `ClientPortalManagement` não foi confirmada** — grep e inspeção ao vivo (`getComputedStyle`
+  no navegador) não encontraram nenhuma ocorrência real; o padrão mais próximo é
+  `border-gray-200 text-gray-600` no estado inativo de toggles, que não é o defeito descrito.
+  Provavelmente já corrigido no commit `96d344b` (central de acesso do portal). Registrado aqui
+  em vez de inventar uma correção para um problema que não existe.
+- **Bordas decorativas**: removida a `border-l-4 border-l-{amber-400,primary-500}` dos cards de
+  solicitação (`PendingRequestsSection.tsx`, `ActiveRequestCard.tsx`) e do card de próxima
+  visita em `Schedules.tsx` — o badge de status já cobre a mesma informação sem depender só de
+  cor.
+- **Skeletons**: spinner central de `AppointmentRequestsPanel` (carregamento principal),
+  `InvoicesModal`/`PortalSettingsModal` (dentro dos modais), `ClientPortal.tsx` (topo, antes de
+  saber se é login ou painel) e `PublicAppointmentStatus.tsx` (consulta de protocolo) viraram
+  blocos `animate-pulse` com `role="status"`/`aria-live` e texto `sr-only`, no formato já usado
+  em `PortalActionPlan.tsx` etc.
+- **Retry por seção**: `PortalActionPlan`, `PortalServiceRequests` e `PortalBilling` (notas
+  fiscais) ganharam botão "Tentar novamente" no estado de erro, ligado a um `loadX()` que já
+  existia — nenhuma reestruturação de fetch. `InvoicesModal`/`PortalSettingsModal` (admin)
+  ganharam o mesmo. `AppointmentRequestsPanel` passou a avisar (sem bloquear a tela) quando
+  clientes ou datas bloqueadas falham ao carregar, com retry — antes falhava em silêncio.
+- **`prefers-reduced-motion`**: uma regra global em `src/index.css` neutraliza toda
+  `animation`/`transition` (inclusive as futuras) sem tocar componente por componente —
+  confirmado ao vivo que a regra compila no CSS servido.
+- **Teste**: `jest-axe` (v11) instalado, matcher registrado em `src/__tests__/setup.ts`. 12
+  testes novos (login do portal, agenda, plano de ação, `PendingRequestsSection`,
+  `ClientPortalManagement`) fazem varredura de axe — zero violações. `npx tsc --noEmit` limpo;
+  `npm test` com 314 testes (302 existentes + 12 novos) passando.
+- **Verificação manual no navegador** (rotas públicas, sem exigir login): `/cliente` (login) e
+  `/agendar` sem overflow horizontal em 320px nem 1440px; foco visível confirmado por teclado no
+  login; nomes acessíveis confirmados via `getComputedStyle`/DOM direto (não só a heurística do
+  leitor da ferramenta, que às vezes prioriza placeholder incorretamente — comportamento real do
+  navegador segue o `label` corretamente). **Deixado de fora**: verificação visual ao vivo de
+  `/schedules` e `/clients` — são rotas internas autenticadas e não havia credencial de teste
+  disponível nesta sessão; cobertos por leitura de código + `tsc` + testes automatizados.
+- **NVDA/VoiceOver**: não executado (leitor de tela do SO, fora deste ambiente). Roteiro manual
+  em `docs/roteiro-nvda-voiceover-portal.md`, cobrindo login, agenda e plano de ação, para a
+  Ester rodar.
+- **Deixado de fora, deliberadamente**: focus trap completo dentro dos modais (o critério de
+  aceite pede nome acessível e foco visível, não trap — construir um focus trap genérico é
+  escopo maior que o card pede); unificação das duas cópias de `errorMessage`/`generateAccessCode`
+  entre os domínios de agenda e portal (duplicação pré-existente, resolver seria escopo cruzado
+  com outros arquivos fora do card); dark mode (`darkMode: 'class'` está no `tailwind.config.js`
+  mas não encontrei nenhum toggle real usando isso no app — parece config morta, não vale gastar
+  tempo testando algo que não é alcançável pelo usuário).
 
 ---
 
