@@ -52,10 +52,11 @@ export function Login() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-primary-100/80 ml-1">E-mail corporativo</label>
+                <label htmlFor="staff-login-email" className="text-sm font-medium text-primary-100/80 ml-1">E-mail corporativo</label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-primary-100/40" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-primary-100/40" aria-hidden="true" />
                   <input
+                    id="staff-login-email"
                     type="email"
                     required
                     value={email}
@@ -67,10 +68,11 @@ export function Login() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-primary-100/80 ml-1">Senha</label>
+                <label htmlFor="staff-login-password" className="text-sm font-medium text-primary-100/80 ml-1">Senha</label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-primary-100/40" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-primary-100/40" aria-hidden="true" />
                   <input
+                    id="staff-login-password"
                     type="password"
                     required
                     value={password}

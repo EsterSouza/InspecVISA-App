@@ -50,3 +50,8 @@ scripts/ref01-legislations.json
 
 # Cópias de trabalho locais (backups de cliente, roteiros antigos) — nunca versionar
 _local-nao-versionado/
+
+# Credenciais do tenant de homologação (P360-015) e artefatos do Playwright
+.env.homolog
+test-results/
+playwright-report/

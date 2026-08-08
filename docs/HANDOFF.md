@@ -1,6 +1,7 @@
 # Handoff único — InspecVISA
 
-**Última atualização:** 08/08/2026 (BRT), ao concluir o P360-014 (frontend, sem migration) ·
+**Última atualização:** 08/08/2026 (BRT), ao concluir o P360-015 (procedimento de liberação;
+sem migration, mas com dados de homologação criados em produção — ver `docs/rollout.md`) ·
 **Branch:** `main`, sincronizada com `origin/main` · O estado da seção 2 foi verificado em 03/08/2026,
 com as correções de 04/08 e 05/08 anotadas nas tabelas.
 
@@ -246,9 +247,10 @@ a página de referências do PDF.
 | **P360-012** | Solicitações estruturadas de consultoria | Opus 5 | alto | — | ✅ **concluído 08/08/2026** · aplicado em produção (2 migrations + bucket privado + 2 edge functions); inclui o backfill retroativo do plano de ação, com 306 pendências projetadas em 16 unidades |
 | **P360-013** | Painel operacional das consultoras | Sonnet 5 | alto | 010, 011, 012 | ✅ **concluído 08/08/2026** · aplicado em produção (migration só de funções, sem tabela nova); rota `/painel` nova, sem mexer no Dashboard existente |
 | **P360-014** | Acessibilidade e responsividade | Sonnet 5 | médio | superfícies estáveis | ✅ **concluído 08/08/2026** · sem migration, frontend puro |
-| **P360-015** | E2E, rollout e prova de produção | Opus 5 | alto | onda a publicar | ⬜ pendente |
+| **P360-015** | E2E, rollout e prova de produção | Opus 5 | alto | onda a publicar | ✅ **concluído 08/08/2026** · sem migration; CI, Playwright, smoke e tenant de homologação criados em produção |
 | **DEBT-01** | Margem pública de 4 h por tipo | Sonnet 5 | médio | — | ✅ **concluído 04/08** |
 | **DEBT-02** | Dívida de lint | Sonnet 5 | médio | — | ⬜ pendente |
+| **SEC-01** | Endurecer o que a revisão do P360-015 encontrou | Opus 5 | médio | P360-015 (concluído) | ⬜ pendente · nada aberto hoje; precisa de autorização para tocar em produção |
 | **DEBT-03** | Pontas soltas do repositório | Haiku 4.5 | baixo | — | ✅ **concluído 05/08** |
 
 Ordem sugerida: **REF-05**, depois a onda do **Portal 360**. O REF-06 saiu na frente porque era
@@ -3018,9 +3020,171 @@ Feito. Sem migration — card inteiro é frontend (componentes React/TSX + CSS +
 **Observação:** ainda que os testes sejam escritos por Sonnet 5, a revisão de segurança, migrations
 e prova de produção deve ser feita com Opus 5.
 
+### O que o card assumia e não existia
+
+Três premissas do card não se sustentavam quando fui verificar:
+
+- **Não havia ambiente de homologação.** Um projeto Supabase, um tenant com dados
+  (`Ester Souza`, 23 clientes), dois tenants zerados de seed antigo e nenhuma conta de teste em
+  `auth.users`. "Começar pela homologação" não tinha por onde começar.
+- **Não havia CI.** Sem `.github/`. O Vercel publica direto do push, então "CI verde no SHA
+  publicado" era um critério que ninguém podia cumprir nem contestar.
+- **As ondas já estavam liberadas.** No tenant de produção as quatro flags de
+  `client_portal_settings` já estavam ligadas. O P360-015 não chegou a tempo de escalonar o Portal
+  360 — o que ele entrega é o mecanismo daqui em diante, mais a prova de que o que está no ar hoje
+  é íntegro.
+
+A escolha do ambiente foi da Ester: tenant de homologação **dentro do banco de produção**, em vez de
+branch pago ou Supabase local. É o que permite provar isolamento entre tenants de verdade, que é
+justamente o item mais sensível da lista de testes mínimos.
+
+### O que foi feito
+
+**Marca de build.** `vite.config.ts` passou a gerar `/build-info.json` (SHA, branch, ambiente,
+horário) e a carimbar `<meta name="build-sha">` no HTML. São duas perguntas diferentes: o JSON diz
+de qual commit é o *deploy*; a meta diz de qual commit é o *HTML que este navegador recebeu*.
+Divergir entre os dois é a assinatura de service worker preso em bundle antigo. O JSON fica fora do
+precache de propósito — o glob do workbox só pega `js/css/html/woff2` — e ganhou `no-store` no
+`vercel.json`.
+
+**Smoke de produção** (`scripts/prod-smoke.ts`). Confere o SHA publicado, o SHA do HTML, os
+cabeçalhos sem cache, e procura a **string literal** de cada onda dentro dos chunks que o `sw.js`
+lista. Ao liberar uma onda nova, acrescente uma linha em `MARCADORES`. Achado no caminho: o
+catch-all do `vercel.json` devolve o `index.html` com **200** para qualquer caminho inexistente —
+então "o endpoint responde 200" não prova absolutamente nada neste projeto, e um arquivo ausente
+chega como HTML em vez de 404.
+
+**CI** (`.github/workflows/ci.yml`). Três jobs: `js` (`npm run build` + `npm test`), `sql` (as 15
+suítes de `supabase/tests`, uma por banco, num serviço `postgres:16` — o mesmo procedimento que o
+handoff descrevia como manual) e `e2e`, sob demanda, com as credenciais em secrets.
+
+**Tenant de homologação** (`supabase/homolog/seed.sql` e `teardown.sql`). Dois tenants com ids
+fixos em `aaaa0015` e tudo prefixado `[HOMOLOG]`: unidade com pasta personalizada e unidade sem,
+conta em dia, conta em atraso, conta em outro tenant, visita concluída, reunião futura e duas
+pendências no plano de ação (uma vencida). O teardown apaga **por tenant**, não por prefixo de id
+— os testes criam linhas com id gerado pelo banco —, e aborta se sobrar qualquer coisa.
+
+**Playwright** — 25 testes, rodados em desktop e em Pixel 5 (**50 execuções, todas passando**):
+acesso válido/inválido/em atraso/de outro tenant, pasta principal versus personalizada, tutorial com
+a chamada de auditoria observada na rede, os três estados do PORT-03, envio de evidência, regressão
+de pagamento/conformidade/agenda/solicitações, isolamento no app interno, service worker e
+recuperação depois de limpar cache e worker.
+
+### Achados
+
+**1. A env `VITE_DEFAULT_TENANT_ID` da Vercel tem um BOM (U+FEFF).** Comparando o bundle publicado
+com o build local do `33c11fd`, os 65 chunks são idênticos depois de normalizar os hashes de nome —
+com **uma única** diferença de conteúdo em todo o bundle:
+`cleanTenantId("﻿60191f17-…")` contra `cleanTenantId("60191f17-…")`. Não quebra nada hoje
+porque `cleanTenantId` remove `﻿` explicitamente (sinal de que alguém já tropeçou nisso). O
+risco é o próximo consumidor: quem ler a env sem passar pela função funciona local e falha em
+produção. Registrado em `docs/rollout.md`.
+
+**2. Os labels do login da equipe não estavam associados aos inputs.** `src/pages/Login.tsx` tinha
+`<label>` sem `htmlFor` e `<input>` sem `id`: um leitor de tela anunciava o campo de senha como
+"••••••••", que é o placeholder. Só apareceu porque o E2E tenta achar o campo pelo rótulo, como um
+leitor de tela faria. O P360-014 não pegou — a tela de login ficou fora do escopo dele. Corrigido
+(`htmlFor`/`id` nos dois campos, `aria-hidden` nos ícones decorativos).
+
+**3. Bucket `photos` é público, sem limite de tamanho nem restrição de MIME.** Criado em 19/03/2026,
+**vazio**, e nenhum código o referencia — todo mundo usa `inspection-photos`. Risco latente, não
+ativo: é o bucket de nome mais óbvio, e existe uma tabela `photos` no schema para aumentar a
+confusão. **Não mexi** — está na fila como SEC-01.
+
+**4. Os grants amplos de `anon` nas 20 tabelas antigas são inócuos hoje, e são a única margem.**
+`clients`, `inspections`, `responses`, `photos`, `client_portal_accounts` e outras têm
+`SELECT/INSERT/UPDATE/DELETE/TRUNCATE` para `anon`, herdados do default privilege do Supabase.
+Provei empiricamente com `set role anon` que não rende nada — leitura devolve 0 linhas, insert é
+negado com 42501, update e delete atingem 0 linhas — porque **nenhuma policy** existe para `anon`
+nessas tabelas. Ou seja: o que segura é só o RLS. Revogar seria endurecimento de baixo risco, mas
+troca "0 linhas" por "permission denied", que é mudança de comportamento observável, e há 27
+tabelas acessadas direto pelo cliente Supabase no `src/`. **Não fiz no meio deste card** — virou
+SEC-01, que é onde isso deve ser medido caminho a caminho.
+
+**5. Sem advisor de nível ERROR.** Todas as tabelas de `public` com RLS ligado e ao menos uma
+policy; zero funções `security definer` sem `search_path` fixo; nem `anon` nem `authenticated`
+podem criar objetos em `public` (não há hijacking de `search_path`); de `private`, só as três
+auxiliares de RLS são executáveis por `authenticated`. Os 17 `security definer` abertos a `anon` são
+as RPCs do portal por token e do agendamento público — esperados.
+
+### Armadilhas que custaram tempo e ficaram documentadas
+
+- **Usuário criado por SQL em `auth.users` quebra o GoTrue** se os campos de token forem `NULL`: o
+  login devolve `500 Database error querying schema`, que não menciona coluna nenhuma e parece erro
+  de senha. O seed insere `''` nos oito campos.
+- **`getByLabel(/^Senha$/)` não casa** porque o texto do label é `" Senha"` — o espaço vem do
+  `<Icon /> Senha` no JSX, e o Playwright não faz trim quando o seletor é regex.
+- **O app interno é offline-first**: em contexto novo do Playwright, `/clients` e `/schedules`
+  mostram vazio até sincronizar. Os testes de isolamento passaram a observar o que o **servidor**
+  devolve, com o token da sessão, em vez da lista na tela — é o RLS que precisa ser provado, e uma
+  lista vazia provaria o contrário do que parece.
+- **A reserva concorrente não passa pela tela de propósito**: `/agendar` usa o
+  `VITE_DEFAULT_TENANT_ID` do bundle, que em produção é o tenant real. Um teste de corrida pela
+  interface criaria solicitação de verdade na agenda da Ester. O teste chama a RPC com o tenant de
+  homologação no payload — mesmo caminho de código, sem o efeito colateral.
+- **Datas calculadas caem em fim de semana.** A primeira versão do teste de concorrência somava 21
+  dias e caiu num sábado; as duas reservas foram recusadas por indisponibilidade e o teste "falhou"
+  sem falar do que queria falar. Agora ele pergunta ao banco qual horário está livre.
+
+### Resultado — 08/08/2026
+
+- **314 testes JS** (40 arquivos), **15 suítes SQL** e **50 execuções E2E** passando; `npm run build`
+  OK. O `e2e/` precisou entrar no `exclude` do Vitest, que estava coletando os specs do Playwright.
+- Isolamento entre tenants provado por três caminhos independentes: portal por token (`overview` do
+  tenant A traz 2 unidades, o do B traz 1, token inexistente devolve "acesso invalido"), sessão
+  autenticada de staff (`clients` e `appointment_requests` só devolvem o tenant de homologação) e
+  consulta direta com `set role anon`.
+- **Pendente de decisão da Ester:** SEC-01 (fechar o bucket `photos` e revogar os grants de `anon`).
+- **Pendência de conteúdo, não de código:** o tenant de produção está sem `tutorial_pdf_url`. O
+  tutorial do portal é decisão de produto já consolidada e nunca foi configurado.
+
 ---
 
 # Bloco 5 — Dívida técnica
+
+## SEC-01 — Endurecer o que a revisão do P360-015 encontrou
+
+**Modelo:** Opus 5 · **Esforço:** médio · **Prioridade:** média — nada está aberto hoje, mas as duas
+pontas removem a margem de erro
+
+Dois achados da revisão de RLS, RPC e Storage. Nenhum é exploração ativa; os dois são a diferença
+entre "seguro" e "seguro por um fio só".
+
+**1. Bucket `photos` público.** Criado em 19/03/2026, `public = true`, sem `file_size_limit` e sem
+`allowed_mime_types`. Está **vazio** e nenhum código o referencia — as fotos vivem em
+`inspection-photos`, privado e restrito a 5 MB de jpeg/png/webp. O risco é o nome: é o bucket mais
+óbvio para alguém escrever `.from('photos')` um dia, e aí foto de cliente vai parar em URL pública.
+Tornar privado (ou apagar) não quebra nada hoje — mas é escrita em produção e precisa de
+autorização.
+
+**2. Grants de `anon` nas tabelas antigas.** 20 tabelas de `public` — entre elas `clients`,
+`inspections`, `responses`, `photos` e `client_portal_accounts` — têm
+`SELECT/INSERT/UPDATE/DELETE/TRUNCATE` para `anon`, herdados do default privilege do Supabase. As
+tabelas criadas do P360-010 em diante já nascem endurecidas.
+
+Medido em 08/08/2026, com `set role anon`: leitura devolve 0 linhas, insert é negado com 42501,
+update e delete atingem 0 linhas. **Não há uma única policy para `anon` nessas tabelas** — quem
+segura é o RLS, sozinho. O grant não acrescenta acesso; acrescenta o risco de uma policy futura
+mal escrita virar vazamento em vez de erro.
+
+### Por que não foi feito junto com o P360-015
+
+Revogar troca "0 linhas" por "permission denied", que é **mudança de comportamento observável**. Há
+27 tabelas acessadas direto pelo cliente Supabase no `src/`, e as páginas públicas (`/agendar`,
+`/portal/:token`, `/cliente/visita/:token`) usam o mesmo cliente com papel `anon`. Se alguma delas
+fizer `select` direto numa dessas tabelas e hoje receber `[]`, passaria a receber erro. Fazer isso
+no card que **institui** a disciplina de liberação seria contradizê-lo.
+
+### Implementação
+
+1. Mapear, caminho a caminho, todo `.from('<tabela>')` alcançável sem sessão. As páginas públicas
+   devem usar só RPC — confirmar que é verdade, não presumir.
+2. `revoke` por tabela, em migration própria, começando pelas que nenhuma página pública toca.
+3. Cobrir em suíte SQL nova: `anon` recebe `permission denied`, `authenticated` do tenant continua
+   lendo o que já lia.
+4. `photos`: `public = false` ou remoção do bucket, com autorização da Ester registrada.
+
+---
 
 ## DEBT-01 — Margem pública de 4 h vale igual para inspeção de 12 h e briefing de 15 min ✅ concluído em 04/08/2026
 
@@ -3317,3 +3481,4 @@ Ao concluir um card, marcar aqui e atualizar a tabela da seção 4.
 | 07/08/2026 | **PORT-03** — concluído, aplicado em produção | Opus 5 | `9d39cd9` | Lacuna que a Ester apontou: *"não tem onde dizer que a pasta não foi feita"*. A única ação do cliente no plano era anexar arquivo; quem ainda não corrigiu ficava mudo, e mudo é indistinguível de "nem abriu o portal". Três estados — "Já corrigi", "Estou providenciando", "Ainda não fiz" — com justificativa obrigatória só no último, porque "não fiz" sozinho não serve para a próxima visita e exigir texto nos outros faria o cliente desistir de responder. Assinatura obrigatória como no PORT-02, e **declarar não resolve pendência**: continua sendo a consultora, com a vistoria em campo confirmando (REL-03). A resposta chega ao painel, à caixa do item na nova vistoria e ao relatório final, antes da evidência. Junto veio o conserto do que ela viu: o plano de ação subiu para o **topo** da página do relatório e passa a aparecer **mesmo vazio**, explicando que ainda não há pendência publicada — sumir quando vazio foi o que a fez concluir que o link não abria o plano, com `client_action_items` zerado em produção. Suíte SQL nova; 281/281. |
 | 07/08/2026 | **P360-010** — concluído, aplicado em produção | Opus 5 | `3bd8376` | `client_action_items` é projeção, não espelho: publicar o relatório copia as NCs, e nada no portal toca em `responses`. Um índice único parcial (`where status <> 'resolved'`) resolve os três casos de uma vez — republicação idempotente, reincidência somando ocorrência no item aberto, e item resolvido preservado como histórico quando a inspeção nova republica o mesmo requisito. Gate de visibilidade é o `report_hidden` da visita, reaplicado em tempo real na leitura; suspensão de agendamento **não** esconde item (decisão registrada). Vencimento ancorado em `America/Sao_Paulo`. Grants conferidos em produção com `has_table_privilege`. Prova feita no app contra o banco de produção com conta de teste — plano de ação, prazo vencido, resolver e histórico confirmados na tela — e todos os dados de teste apagados depois. 17 testes JS novos + suíte SQL nova; 235/239 testes (as 4 falhas são anteriores, confirmado com `git stash`). |
 | 06/08/2026 | **REF-06** — concluído, aplicado em produção | Opus 5 | `071adb2`, `8796143` |  Medido: dos 303 `item_id` órfãos, 272 eram "defeito" no papel mas só 6 inspeções tinham id de código; o que degradava mesmo eram 19 dos 26 relatórios concluídos (376 respostas), por três causas — inspeção criada antes do sync de roteiros, `city`/`state` que o servidor não devolve (suplemento regional some offline) e item reescrito no lugar trocando a pergunta de 18 respostas já entregues (o REF-05 fez a terceira). Decidido não remapear `responses`: congela-se o roteiro da época em `inspection_report_versions`. Roteiros `tpl-ilpi-v1` e federal-97 reconstruídos do git; o de 97 confere seção a seção com o PDF entregue ao Lar Recanto do Sossego em 14/04/2026. Código, scripts e simulação prontos e conferidos; 162 testes passando (as 4 falhas de `sync.test.ts` são anteriores). Duas cargas: a primeira congelou 15 relatórios e marcou 28 respostas com `deleted_at`; a segunda, depois de corrigir o script (a seção degradada estava sendo usada como fonte de texto), refez 6. Diagnóstico final: **0 respostas degradadas** nos 26 relatórios, contra 376 no começo. |
+| 08/08/2026 | **P360-015** — concluído; sem migration, com dados de homologação criados em produção | Opus 5 | a registrar após o deploy | Três premissas do card não existiam: **não havia homologação** (um tenant com dados, nenhuma conta de teste), **não havia CI** (`.github/` ausente; o Vercel publica direto do push) e **as ondas do Portal 360 já estavam liberadas** no tenant de produção — o card chega como mecanismo daqui em diante, não como escalonamento do que já foi. Entregues: marca de build (`/build-info.json` + meta `build-sha`, fora do precache de propósito), smoke que procura a **string literal** de cada onda dentro dos chunks do `sw.js`, CI com três jobs (build+vitest, as 15 suítes SQL em Postgres puro, E2E sob demanda), tenant de homologação com seed e teardown que confere em zero, e 25 testes Playwright rodados em desktop e Pixel 5 (**50 execuções, todas passando**). Prova do bundle: o publicado é idêntico ao build local do `33c11fd` depois de normalizar hashes, com **uma** diferença de conteúdo — a env `VITE_DEFAULT_TENANT_ID` da Vercel tem um **BOM (U+FEFF)**, hoje neutralizado por `cleanTenantId` e perigoso para o próximo consumidor. Achados de segurança sem exploração ativa viraram **SEC-01**: bucket `photos` público (vazio, sem uso) e grants de `anon` em 20 tabelas antigas (provado com `set role anon` que não rendem nada — só o RLS segura). Corrigido de quebra: os labels do login da equipe não tinham `htmlFor`/`id`, e um leitor de tela anunciava o campo de senha como "••••••••" — o E2E achou porque procura o campo pelo rótulo. Também descoberto: o catch-all do `vercel.json` responde **200 com o index.html** para caminho inexistente, então "health endpoint responde" não prova nada aqui. 314 testes JS, 15 suítes SQL, build OK. |

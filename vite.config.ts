@@ -1,10 +1,62 @@
+import { execSync } from 'node:child_process';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
+function gitOutput(command: string): string {
+  try {
+    return execSync(command, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Carimba o SHA no que é publicado. Sem isso não há como responder "o bundle em
+ * produção é deste commit?" — comparar hash de chunk não serve, porque o hash
+ * muda com qualquer variável de ambiente inlinada.
+ *
+ * O `build-info.json` é a fonte para o smoke (`scripts/prod-smoke.ts`): fica fora
+ * do precache do service worker de propósito, porque o glob do workbox só pega
+ * js/css/html/woff2. A meta tag responde outra pergunta — de qual build é o HTML
+ * que este navegador recebeu —, que é o que denuncia service worker preso em
+ * versão antiga.
+ */
+function buildInfoPlugin() {
+  const sha = process.env.VERCEL_GIT_COMMIT_SHA || gitOutput('git rev-parse HEAD') || 'desconhecido';
+  const branch =
+    process.env.VERCEL_GIT_COMMIT_REF || gitOutput('git rev-parse --abbrev-ref HEAD') || 'desconhecido';
+  const info = {
+    sha,
+    shaCurto: sha.slice(0, 7),
+    branch,
+    ambiente: process.env.VERCEL_ENV || 'local',
+    geradoEm: new Date().toISOString(),
+  };
+
+  return {
+    name: 'inspecvisa-build-info',
+    apply: 'build' as const,
+    transformIndexHtml() {
+      return [
+        { tag: 'meta', attrs: { name: 'build-sha', content: info.sha }, injectTo: 'head' as const },
+        { tag: 'meta', attrs: { name: 'build-at', content: info.geradoEm }, injectTo: 'head' as const },
+      ];
+    },
+    generateBundle(this: { emitFile: (file: Record<string, unknown>) => void }) {
+      this.emitFile({
+        type: 'asset',
+        fileName: 'build-info.json',
+        source: `${JSON.stringify(info, null, 2)}\n`,
+      });
+    },
+  };
+}
+
 export default defineConfig({
   plugins: [
     react(),
+    buildInfoPlugin(),
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
@@ -78,7 +130,9 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/__tests__/setup.ts'],
-    exclude: ['**/node_modules/**', '**/dist/**', '**/.claude/**'],
+    // `e2e/` é do Playwright: o Vitest coleta os arquivos e falha na hora de
+    // importar `@playwright/test`.
+    exclude: ['**/node_modules/**', '**/dist/**', '**/.claude/**', '**/e2e/**'],
     coverage: {
       provider: 'v8',
       include: ['src/services/**', 'src/store/**', 'src/components/**'],
