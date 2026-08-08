@@ -64,11 +64,20 @@ revoke all on function private.deadline_to_days(text) from authenticated;
 
 -- ─── As NCs de uma inspeção, no formato que a publicação espera ───────────────
 --
--- Ordem de resolução do requisito, e o porquê de cada degrau:
+-- Ordem de resolução do TÍTULO, e o porquê de cada degrau:
 --   1. snapshot do relatório  — é o que o cliente leu no PDF;
---   2. `checklist_items` vivo — quando a inspeção é anterior ao congelamento (REF-06);
+--   2. `checklist_items` vivo — texto legível para item que não está no snapshot;
 --   3. `custom_description`   — item avulso, que nunca esteve em roteiro nenhum;
 --   4. rótulo genérico        — resposta órfã de item apagado, sem descrição própria.
+--
+-- A CLASSIFICAÇÃO (urgente/importante/recomendada) segue regra diferente, e essa diferença é
+-- deliberada: quando existe snapshot do relatório entregue, só ele vale. Item que não está
+-- nele não estava no roteiro daquele relatório, e o cliente foi informado sem severidade — o
+-- roteiro de hoje não pode promovê-lo a urgente depois. Só quando a inspeção não tem snapshot
+-- nenhum (anterior ao REF-06) o roteiro vivo classifica, porque aí é a única fonte que existe.
+--
+-- Na SAENS PENA isso valia para 4 itens: o roteiro de hoje os traz como críticos, o relatório
+-- entregue não os continha, e sem esta separação o portal mostraria urgência que o PDF não tem.
 --
 -- Resposta apagada (`deleted_at`) fica de fora: ela não entrou no relatório.
 
@@ -85,7 +94,15 @@ as $function$
     from public.inspection_report_versions v
     where v.inspection_id = p_inspection_id
       and v.snapshot_json -> 'reportSnapshot' ? 'template'
-    order by v.inspection_id, v.version desc
+    order by
+      v.inspection_id,
+      -- `inspection_report_versions` guarda uma versão por SINCRONIZAÇÃO, não por relatório.
+      -- A que vale é a que gerou o PDF entregue (`finalizeReport`): a SAENS PENA tem uma
+      -- versão de 06/08 sem finalização, com 89 itens críticos contra 76 na de 19/06 que
+      -- virou PDF. Pegar a mais recente classificaria como urgente o que o cliente leu como
+      -- importante — o portal contradizendo o relatório na mão dele.
+      ((v.snapshot_json ->> 'finalizeReport')::boolean is true) desc,
+      v.version desc
   ),
   frozen as (
     select
@@ -99,7 +116,8 @@ as $function$
   ),
   base as (
     select
-      (i.inspection_date at time zone 'America/Sao_Paulo')::date as visit_date
+      (i.inspection_date at time zone 'America/Sao_Paulo')::date as visit_date,
+      exists (select 1 from frozen) as has_frozen
     from public.inspections i
     where i.id = p_inspection_id
   )
@@ -121,9 +139,12 @@ as $function$
           nullif(btrim(r.corrective_action), ''),
           'Definir medida corretiva e registrar evidência de conclusão.'
         ),
+        -- Com snapshot entregue, só ele classifica; sem snapshot, o roteiro vivo é a única fonte.
         'priority', case
-          when coalesce(f.is_critical, ci.is_critical, false) then 'urgent'
-          when coalesce(f.weight, ci.weight, 0) >= 5 then 'important'
+          when case when b.has_frozen then coalesce(f.is_critical, false) else coalesce(ci.is_critical, false) end
+            then 'urgent'
+          when case when b.has_frozen then coalesce(f.weight, 0) else coalesce(ci.weight, 0) end >= 5
+            then 'important'
           else 'recommended'
         end,
         'responsible', nullif(btrim(r.responsible), ''),

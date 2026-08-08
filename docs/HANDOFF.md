@@ -1,7 +1,6 @@
 # Handoff único — InspecVISA
 
-**Última atualização:** 08/08/2026 (BRT), ao concluir o P360-012 — código pronto, **nada
-aplicado em produção ainda** ·
+**Última atualização:** 08/08/2026 (BRT), ao concluir o P360-012, aplicado em produção ·
 **Branch:** `main`, sincronizada com `origin/main` · O estado da seção 2 foi verificado em 03/08/2026,
 com as correções de 04/08 e 05/08 anotadas nas tabelas.
 
@@ -107,8 +106,8 @@ Confirmado presente no banco:
 | `client_portal_account_features` (+ travas do portal) | ✅ existe desde 07/08/2026 — PORT-01 |
 | `client_action_evidence` (+ bucket privado e 4 RPCs) | ✅ existe desde 07/08/2026 — P360-011 |
 | `public_report_*` (link aberto do relatório) + autoria da evidência | ✅ existe desde 07/08/2026 — PORT-02 |
-| `client_service_requests` (+ eventos, bucket privado e 6 RPCs) | ⬜ **arquivo escrito, não aplicado** — P360-012 |
-| `admin_backfill_client_action_items` (projeção retroativa) | ⬜ **arquivo escrito, não aplicado** — adendo do P360-010 |
+| `client_service_requests` (+ eventos, bucket privado e 6 RPCs) | ✅ existe desde 08/08/2026 — P360-012 |
+| `admin_backfill_client_action_items` (projeção retroativa) | ✅ existe desde 08/08/2026 — adendo do P360-010; rodado em 16 visitas |
 
 A migration `checklist_items_requirement_type` consta **duas vezes** no ledger remoto, sob as
 versões `20260803205941` e `20260803221936`. O schema está correto; o ledger é que está sujo.
@@ -244,7 +243,7 @@ a página de referências do PDF.
 | **PORT-02** | Link do relatório por unidade e autoria da evidência | Opus 5 | alto | P360-011 | ✅ **concluído 07/08/2026** · aplicado em produção; provado contra a visita real da Icaraí |
 | **REL-03** | Evidência do cliente na nova vistoria e no relatório final | Opus 5 | alto | PORT-02 | ✅ **concluído 07/08/2026** · só código (sem migration); fecha o ciclo sanitário |
 | **PORT-03** | O cliente declara a situação do item (inclusive "não fiz") | Opus 5 | médio | PORT-02 | ✅ **concluído 07/08/2026** · aplicado em produção |
-| **P360-012** | Solicitações estruturadas de consultoria | Opus 5 | alto | — | ✅ **concluído 08/08/2026** · código, migrations e testes prontos; **aguardando autorização para aplicar em produção** |
+| **P360-012** | Solicitações estruturadas de consultoria | Opus 5 | alto | — | ✅ **concluído 08/08/2026** · aplicado em produção (2 migrations + bucket privado + 2 edge functions); inclui o backfill retroativo do plano de ação, com 306 pendências projetadas em 16 unidades |
 | **P360-013** | Painel operacional das consultoras | Sonnet 5 | alto | 010, 011, 012 | ⬜ pendente |
 | **P360-014** | Acessibilidade e responsividade | Sonnet 5 | médio | superfícies estáveis | ⬜ pendente |
 | **P360-015** | E2E, rollout e prova de produção | Opus 5 | alto | onda a publicar | ⬜ pendente |
@@ -2097,9 +2096,54 @@ do roteiro congelado e não do reescrito, prioridade por criticidade e peso, pra
 data da visita, resposta apagada e conforme fora da projeção, inspeção aberta e tenant vizinho
 intocados, ensaio que não escreve, backfill idempotente e a pendência chegando ao portal.
 
-**Ainda não foi aplicado nem executado em produção** — depende de autorização da Ester.
+#### Aplicado e executado em produção — 08/08/2026, com autorização da Ester
 
-Commit: `c50a70b` (junto com o P360-012).
+`20260808105105_backfill_client_action_items` + duas correções (abaixo). Rodado em todas as 16
+visitas com relatório entregue: **306 pendências criadas**, em 16 unidades. Segunda execução deu
+`created 0 / updated 306` — idempotente, como projetado.
+
+| | |
+|---|---|
+| Pendências projetadas | 306, todas `published` |
+| Unidades alcançadas | 16 |
+| Sem prazo (texto indatável) | 26 |
+| Com prazo vencido hoje | 180 (visitas de junho/julho com prazo de 30 dias) |
+| Título genérico (`Requisito avaliado`) | 0 — todo item resolveu descrição real |
+| Contas de portal que enxergam | Rede Sênior (252 itens, 13 unidades) e MEIRE BEAUTY (20) |
+
+As outras 34 pendências (Santorini 23 e Santa Efigênia 11) existem no banco e **não aparecem
+para ninguém**: essas unidades não têm conta de portal vinculada.
+
+#### Duas correções que a prova de produção encontrou
+
+A conferência foi comparar item por item com os contadores que o app gravou **na publicação do
+relatório** (`critical_nc_count` / `important_nc_count`), que saíram do mesmo roteiro congelado
+que o PDF usou. Na primeira execução, 3 das 15 unidades com contadores divergiram. As duas
+causas:
+
+1. **`inspection_report_versions` guarda uma versão por SINCRONIZAÇÃO, não por relatório.** A
+   SAENS PENA tem 5 versões; a de 06/08/2026 (sem `finalizeReport`) traz 89 itens críticos
+   contra 76 na de 19/06, que é a que gerou o PDF — o `report_pdf` foi anexado 6 segundos depois
+   dela. Pegar a mais recente classificava como urgente o que o cliente leu como importante.
+   Corrigido: a escolha passou a ser a última versão com `finalizeReport = true`, com a mais
+   recente como fallback.
+2. **Item respondido que não está no snapshot do relatório.** São itens acrescentados ao roteiro
+   depois da entrega e respondidos numa edição posterior (4 na SAENS PENA). O roteiro de hoje os
+   traz como críticos; o relatório entregue não os continha, então o cliente foi informado sem
+   severidade. Corrigido: **quando existe snapshot, só ele classifica**; o roteiro vivo só
+   classifica quando a inspeção não tem snapshot nenhum (anterior ao REF-06). O **título**
+   continua podendo vir do roteiro vivo — texto legível é melhor que `Requisito avaliado`, e não
+   muda a gravidade do que foi dito.
+
+Depois das duas correções: **as 15 unidades com contadores batem exatamente** em total, críticas
+e importantes. A ICARAÍ não tem contadores gravados no relatório (aquela visita nunca recebeu as
+estatísticas), então não há com o que comparar — os 11 itens dela vieram do snapshot dela.
+
+A lição vale para além deste card: **contra dado real, a conferência não é "a função rodou sem
+erro", é comparar com o que o cliente recebeu.** As duas correções passariam por qualquer teste
+sintético.
+
+Commits: `c50a70b` (implementação) e `<sha-correcoes>` (as duas correções + regressões).
 
 ---
 
@@ -2613,11 +2657,11 @@ Commit: `15fd415`.
 - Não existe conversa em tempo real nem expectativa de resposta instantânea.
 - Solicitações não aparecem misturadas com agendamentos.
 
-### Resultado — 08/08/2026 · aguardando autorização para aplicar em produção
+### Resultado — 08/08/2026 · aplicado em produção
 
-**Concluído em código.** Migration `20260808001200_client_service_requests` escrita e testada em
-Postgres puro; **nada foi aplicado em produção** — a aplicação depende de autorização da Ester,
-como manda a regra 1.
+**Concluído.** Migration `20260808105015_client_service_requests` aplicada em produção com
+autorização da Ester na conversa, junto com as duas edge functions. Grants, RLS e bucket
+conferidos no banco depois de aplicar (ver abaixo).
 
 #### O modelo
 
@@ -2710,6 +2754,28 @@ vale mesmo sem o arquivo.
 - `src/__tests__/services/clientPortalServiceRequests.test.ts` (9) e
   `src/__tests__/components/PortalServiceRequests.test.tsx` (12).
 - `npm test`: **37 arquivos, 302 testes, todos passando**. `npx tsc -b` limpo e `npm run build` OK.
+
+#### Prova de produção — conferida no banco depois de aplicar
+
+Não pelo teste local, que não tem os default privileges do Supabase (ver a memória do PROD-01).
+Confirmado com `has_table_privilege` / `has_function_privilege` no banco real:
+
+- `anon` não tem **nada** nas três tabelas novas; `authenticated` tem **só select**, sem
+  insert/update/delete — e RLS ativa nas três;
+- as três RPCs do cliente têm grant para `anon` **e** `authenticated` (o app usa um cliente
+  Supabase só); `admin_update_service_request`, `admin_set_service_request_sla` e
+  `admin_backfill_client_action_items` **não** são executáveis por `anon`;
+- `client_portal_attach_service_request_file` não é executável nem por `anon` nem por
+  `authenticated` — só `service_role`, como o card exige;
+- bucket `client-service-request-files` criado **privado**, com teto de 10 MB, e as **duas**
+  policies de `storage.objects` criadas (desta vez a migration tinha privilégio).
+
+As edge functions `client-service-request` e `notify-service-request` foram publicadas na v1,
+com `verify_jwt` ligado, como as do P360-011.
+
+`service_requests_enabled` **já estava ligado** no tenant de produção, então a seção aparece no
+portal assim que a Vercel publicar o push da `main`. Não houve mudança de configuração de
+produto neste passo.
 
 #### Fora de escopo, deliberado
 

@@ -101,6 +101,8 @@ values (
   '60000000-0000-4000-8000-000000000031',
   1,
   jsonb_build_object(
+    -- Esta é a versão que gerou o PDF entregue.
+    'finalizeReport', true,
     'reportSnapshot', jsonb_build_object(
       'template', jsonb_build_object(
         'sections', jsonb_build_array(
@@ -117,6 +119,34 @@ values (
                 'description', 'Lavatorio exclusivo para higienizacao das maos',
                 'weight', 5,
                 'isCritical', false
+              )
+            )
+          )
+        )
+      )
+    )
+  )
+);
+
+-- Sincronização POSTERIOR à entrega, sem `finalizeReport`, com o item reclassificado como
+-- crítico. A projeção tem de ignorar esta versão: o PDF que o cliente tem na mão é o da
+-- versão 1. Foi um achado real na SAENS PENA (versão de 06/08 com 89 críticos contra 76 na
+-- de 19/06, que virou PDF).
+insert into public.inspection_report_versions (inspection_id, version, snapshot_json)
+values (
+  '60000000-0000-4000-8000-000000000031',
+  2,
+  jsonb_build_object(
+    'reportSnapshot', jsonb_build_object(
+      'template', jsonb_build_object(
+        'sections', jsonb_build_array(
+          jsonb_build_object(
+            'items', jsonb_build_array(
+              jsonb_build_object(
+                'id', '90000000-0000-4000-8000-000000000002',
+                'description', 'RECLASSIFICADO DEPOIS DA ENTREGA',
+                'weight', 10,
+                'isCritical', true
               )
             )
           )
@@ -143,6 +173,19 @@ insert into public.responses (
     'complies', null, null, null, null
   );
 
+-- Item que o roteiro de HOJE traz como crítico e que NÃO estava no relatório entregue. O
+-- cliente foi informado sem severidade; o roteiro novo não pode promovê-lo a urgente. Título
+-- legível pode vir do roteiro vivo — classificação, não. Achado real na SAENS PENA.
+insert into public.checklist_items (id, description, weight, is_critical)
+values ('90000000-0000-4000-8000-000000000003', 'Item acrescentado ao roteiro depois da entrega', 10, true);
+
+insert into public.responses (
+  inspection_id, item_id, result, situation_description, deadline
+) values (
+  '60000000-0000-4000-8000-000000000031', '90000000-0000-4000-8000-000000000003',
+  'not_complies', 'Respondido numa edicao posterior a entrega.', '15 dias'
+);
+
 -- Item avulso, sem roteiro nenhum: o título tem de vir da descrição própria.
 insert into public.responses (
   inspection_id, item_id, result, situation_description, custom_description, deadline
@@ -165,7 +208,7 @@ values
   ('60000000-0000-4000-8000-000000000003', 'item-em-andamento', 'not_complies', 'Inspecao aberta.'),
   ('60000000-0000-4000-8000-000000000005', 'item-outro-tenant', 'not_complies', 'Outra consultoria.');
 
-\ir ../migrations/20260808002000_backfill_client_action_items.sql
+\ir ../migrations/20260808105105_backfill_client_action_items.sql
 
 -- ─── Conversão do prazo ───────────────────────────────────────────────────────
 do $$
@@ -213,7 +256,7 @@ begin
   if not exists (
     select 1 from jsonb_array_elements(v_result -> 'detail') d
     where (d ->> 'appointment_request_id')::uuid = '50000000-0000-4000-8000-000000000031'
-      and (d ->> 'items')::int = 3
+      and (d ->> 'items')::int = 4
   ) then
     raise exception 'o ensaio nao contou as NCs da visita concluida: %', v_result;
   end if;
@@ -240,8 +283,8 @@ begin
   v_result := public.admin_backfill_client_action_items(
     '50000000-0000-4000-8000-000000000031', false
   );
-  if (v_result ->> 'created')::int <> 3 then
-    raise exception 'o backfill nao criou as 3 pendencias: %', v_result;
+  if (v_result ->> 'created')::int <> 4 then
+    raise exception 'o backfill nao criou as 4 pendencias: %', v_result;
   end if;
 
   -- O texto vem do roteiro CONGELADO, não do que foi reescrito depois.
@@ -271,6 +314,10 @@ begin
   if v_item.priority <> 'important' or v_item.due_date is distinct from date '2026-07-10' then
     raise exception 'item de peso 5 com 30 dias saiu errado: % / %', v_item.priority, v_item.due_date;
   end if;
+  -- A reclassificação posterior à entrega não vale: vale o que virou PDF.
+  if v_item.title <> 'Lavatorio exclusivo para higienizacao das maos' then
+    raise exception 'a projecao usou a sincronizacao posterior em vez do relatorio entregue: %', v_item.title;
+  end if;
 
   -- Item avulso: título da descrição própria e, sem prazo datável, sem prazo.
   select * into v_item
@@ -283,6 +330,17 @@ begin
     raise exception 'prazo indatavel virou data no item avulso: %', v_item.due_date;
   end if;
 
+  -- Item acrescentado ao roteiro depois da entrega: titulo legivel, severidade do relatorio.
+  select * into v_item
+  from public.client_action_items
+  where source_item_id = '90000000-0000-4000-8000-000000000003';
+  if v_item.priority <> 'recommended' then
+    raise exception 'o roteiro de hoje promoveu a urgente um item que o relatorio nao tinha: %', v_item.priority;
+  end if;
+  if v_item.title <> 'Item acrescentado ao roteiro depois da entrega' then
+    raise exception 'perdeu o titulo legivel do item fora do snapshot: %', v_item.title;
+  end if;
+
   -- Resposta apagada e resposta conforme ficaram de fora.
   if exists (select 1 from public.client_action_items where source_item_id = 'item-apagado') then
     raise exception 'resposta apagada entrou na projecao';
@@ -290,7 +348,7 @@ begin
   if (
     select count(*) from public.client_action_items
     where appointment_request_id = '50000000-0000-4000-8000-000000000031'
-  ) <> 3 then
+  ) <> 4 then
     raise exception 'a projecao criou mais linhas do que ha NCs';
   end if;
 end;
@@ -305,14 +363,14 @@ begin
   v_result := public.admin_backfill_client_action_items(
     '50000000-0000-4000-8000-000000000031', false
   );
-  if (v_result ->> 'created')::int <> 0 or (v_result ->> 'updated')::int <> 3 then
+  if (v_result ->> 'created')::int <> 0 or (v_result ->> 'updated')::int <> 4 then
     raise exception 'o segundo backfill nao foi idempotente: %', v_result;
   end if;
 
   select count(*) into v_total
   from public.client_action_items
   where appointment_request_id = '50000000-0000-4000-8000-000000000031';
-  if v_total <> 3 then
+  if v_total <> 4 then
     raise exception 'o segundo backfill duplicou linhas: %', v_total;
   end if;
 end;

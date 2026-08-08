@@ -22,7 +22,7 @@ values (
 )
 on conflict (user_id, tenant_id) do update set role = excluded.role;
 
-\ir ../migrations/20260808001200_client_service_requests.sql
+\ir ../migrations/20260808105015_client_service_requests.sql
 
 -- Tokens em jogo, para não confundir mais adiante:
 --   conta A  = 20000000-…-000003 (tenant A, enxerga a unidade …0001)
