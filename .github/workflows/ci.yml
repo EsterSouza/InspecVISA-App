@@ -100,6 +100,12 @@ jobs:
       E2E_PORTAL_CODE_OUTRO_TENANT: ${{ secrets.E2E_PORTAL_CODE_OUTRO_TENANT }}
       E2E_PORTAL_EMAIL_SUSPENSA: ${{ secrets.E2E_PORTAL_EMAIL_SUSPENSA }}
       E2E_PORTAL_CODE_SUSPENSA: ${{ secrets.E2E_PORTAL_CODE_SUSPENSA }}
+      # `agenda.spec.ts` e `staff.spec.ts` falam com o Supabase direto para provar
+      # isolamento entre tenants e a reserva concorrente. Sem estes três o job
+      # falharia em "Falta E2E_SUPABASE_URL" mesmo com todos os outros secrets.
+      E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+      E2E_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
+      E2E_TENANT_HOMOLOG: ${{ secrets.E2E_TENANT_HOMOLOG }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
