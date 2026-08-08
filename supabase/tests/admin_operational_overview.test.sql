@@ -4,7 +4,7 @@
 -- ação, evidência, travas por conta, solicitações e os helpers `private`).
 \ir client_service_requests.test.sql
 
-\ir ../migrations/20260808120000_admin_operational_overview.sql
+\ir ../migrations/20260808113928_admin_operational_overview.sql
 
 -- Tokens em jogo (herdados da cadeia de fixtures):
 --   tenant A = aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa (o `private.my_tenant_ids()` do fixture só enxerga este)
