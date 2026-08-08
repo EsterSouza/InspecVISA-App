@@ -1,5 +1,12 @@
 -- P360-010 (adendo) — projetar o plano de ação das inspeções que JÁ foram entregues.
 --
+-- NOTA DE LEDGER (conferido em 08/08/2026): em produção este arquivo corresponde a TRÊS linhas
+-- de `supabase_migrations.schema_migrations` — `20260808105105`, mais as duas correções
+-- aplicadas em seguida, `20260808105841_backfill_uses_finalized_report_snapshot` e
+-- `20260808110104_backfill_severity_from_delivered_report_only`. O arquivo já traz o resultado
+-- final das três (é o que está no banco hoje), então não existe arquivo separado para elas e
+-- não há nada pendente de aplicar. Ver `docs/migrations-status.md`, seção F.
+--
 -- A projeção do P360-010 só nasce quando o app publica um relatório novo. Quem foi
 -- inspecionado antes de 07/08/2026 abre o portal e vê a seção vazia — o que é pior do que não
 -- ter a seção: dá a entender que não há pendência. Esta função vai buscar as NCs das inspeções

@@ -2855,12 +2855,14 @@ Feito e aplicado em produção. Sem tabela nova: agrega o que os cards 010–012
 - **Deixado de fora**: verificação visual em browser com login real (não há credencial de teste
   disponível nesta sessão — a Ester confirmou que pode conferir depois no login normal). A
   cobertura ficou concentrada no teste SQL, que exercita a mesma migration aplicada em produção.
-- **Achado fora do escopo, não corrigido**: o ledger de produção tem duas migrations
+- **Achado fora do escopo — reconciliado em 08/08/2026**: o ledger de produção tem duas migrations
   (`20260808105841_backfill_uses_finalized_report_snapshot` e
   `20260808110104_backfill_severity_from_delivered_report_only`) sem arquivo correspondente em
   `supabase/migrations/` local — mesmo tipo de deriva que o INFRA-02 já resolveu uma vez (ver
-  seção 1, regra de ledger). Não mexi nisso por não ser do escopo do card; vale reconciliar antes
-  que acumule mais.
+  seção 1, regra de ledger). Conferido depois: as duas são correções do backfill do P360-012 e o
+  arquivo `20260808105105_backfill_client_action_items.sql` **já traz o resultado final das três**
+  (o `has_frozen` da segunda correção está no arquivo e no banco). Não havia nada por aplicar; ficou
+  registrado como nota no topo do arquivo e em `docs/migrations-status.md`, seção F.
 - SHA: `a3ed4d6`.
 
 ---

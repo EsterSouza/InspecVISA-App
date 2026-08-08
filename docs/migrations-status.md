@@ -195,3 +195,26 @@ presentes; uma única linha com `name = 'checklist_items_requirement_type'`.
   aplica e não é buraco aberto, mas não há motivo para o papel anônimo enxergar essa função.
 - **`appointment_slots` está com 0 linhas** e o modelo atual é `appointment_blocks` +
   `private.appointment_has_conflict`. Provavelmente é tabela morta; confirmar antes de remover.
+
+---
+
+## F. Reconferência de 08/08/2026 — depois do P360-015
+
+Comparação direta entre `supabase/migrations/` (35 arquivos) e o ledger de produção
+(`supabase_migrations.schema_migrations`, 59 linhas):
+
+- **Os 35 arquivos estão no ledger, um a um.** Nada pendente de aplicar; `supabase db push` continua
+  sem nada a fazer.
+- **Duas linhas do ledger não têm arquivo próprio** — `20260808105841_backfill_uses_finalized_report_snapshot`
+  e `20260808110104_backfill_severity_from_delivered_report_only`. São as duas correções do backfill
+  do P360-012, aplicadas por MCP logo depois da migration original. O arquivo
+  `20260808105105_backfill_client_action_items.sql` **já foi reescrito com o resultado final das
+  três** — conferido em produção: `private.client_action_items_from_inspection` contém o `has_frozen`
+  da segunda correção. Um clone limpo aplicando só os arquivos chega ao mesmo estado do banco.
+  Registrado como nota no topo do arquivo em vez de virar dois arquivos que replicariam uma versão
+  obsoleta no meio do caminho.
+- `20260613125641_client_portal_audit` segue como está descrito na seção A: registrada para nunca
+  rodar, com o conteúdo real vindo de `20260805010139`.
+
+As 22 linhas restantes do ledger são história anterior a junho/2026, sem arquivo — mesma situação da
+seção C.
