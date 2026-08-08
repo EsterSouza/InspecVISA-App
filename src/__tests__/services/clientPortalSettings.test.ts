@@ -49,8 +49,36 @@ describe('P360-002 - configuracao segura do portal', () => {
       p_email: 'cliente@example.com',
       p_username: 'cliente-a',
       p_main_drive_folder_url: 'https://drive.google.com/principal',
+      // Sem tutorial informado, a conta volta a herdar o padrao do tenant.
+      p_tutorial_pdf_url: null,
     });
     expect(JSON.stringify(rpc.mock.calls)).not.toContain('personalized_sanitary_folder');
+  });
+
+  test('PORT-04 - o tutorial da conta vai na mesma RPC, normalizado', async () => {
+    await AppointmentAdminService.updatePortalAccount('account-a', {
+      email: 'cliente@example.com',
+      username: 'cliente-a',
+      mainDriveFolderUrl: 'https://drive.google.com/principal',
+      tutorialPdfUrl: ' https://drive.google.com/tutorial-da-conta.pdf ',
+    });
+
+    expect(rpc).toHaveBeenCalledWith('admin_update_client_portal_account_configuration', {
+      p_account_id: 'account-a',
+      p_email: 'cliente@example.com',
+      p_username: 'cliente-a',
+      p_main_drive_folder_url: 'https://drive.google.com/principal',
+      p_tutorial_pdf_url: 'https://drive.google.com/tutorial-da-conta.pdf',
+    });
+  });
+
+  test('PORT-04 - tutorial em HTTP e recusado antes de chegar ao banco', async () => {
+    await expect(AppointmentAdminService.updatePortalAccount('account-a', {
+      email: 'cliente@example.com',
+      tutorialPdfUrl: 'http://exemplo.com/tutorial.pdf',
+    })).rejects.toThrow('URL HTTPS válida');
+
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   test('rejeita HTTP antes de chamar a RPC administrativa', async () => {

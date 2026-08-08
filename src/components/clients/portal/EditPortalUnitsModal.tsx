@@ -17,6 +17,7 @@ export function EditPortalUnitsModal({ account, clients, onClose, onSaved }: Edi
   const [email, setEmail] = useState(account.email);
   const [username, setUsername] = useState(account.username || '');
   const [mainDriveFolderUrl, setMainDriveFolderUrl] = useState(account.main_drive_folder_url || '');
+  const [tutorialPdfUrl, setTutorialPdfUrl] = useState(account.tutorial_pdf_url || '');
   const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(account.client_ids));
   const [saving, setSaving] = useState(false);
@@ -51,6 +52,7 @@ export function EditPortalUnitsModal({ account, clients, onClose, onSaved }: Edi
         email,
         username,
         mainDriveFolderUrl,
+        tutorialPdfUrl,
       });
       await AppointmentAdminService.setPortalAccountClients(account.id, [...selectedIds]);
       onSaved();
@@ -107,6 +109,22 @@ export function EditPortalUnitsModal({ account, clients, onClose, onSaved }: Edi
             />
             <span className="block text-xs font-normal text-gray-500">
               Pasta raiz única desta conta. Não altera as Pastas Sanitárias Personalizadas de cada unidade.
+            </span>
+          </div>
+
+          <div className="mb-4 space-y-1.5 text-sm font-medium text-gray-700">
+            <label htmlFor="edit-portal-tutorial">Tutorial do portal desta conta</label>
+            <input
+              id="edit-portal-tutorial"
+              type="url"
+              value={tutorialPdfUrl}
+              onChange={(e) => setTutorialPdfUrl(e.target.value)}
+              placeholder="https://drive.google.com/..."
+              className={`${TEXT_INPUT} font-normal`}
+            />
+            <span className="block text-xs font-normal text-gray-500">
+              PDF que este cliente vê nos acessos rápidos. Em branco, ele recebe o tutorial padrão
+              configurado em Configurações do portal.
             </span>
           </div>
 

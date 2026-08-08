@@ -250,6 +250,7 @@ a página de referências do PDF.
 | **P360-015** | E2E, rollout e prova de produção | Opus 5 | alto | onda a publicar | ✅ **concluído 08/08/2026** · sem migration; CI, Playwright, smoke e tenant de homologação criados em produção |
 | **DEBT-01** | Margem pública de 4 h por tipo | Sonnet 5 | médio | — | ✅ **concluído 04/08** |
 | **DEBT-02** | Dívida de lint | Sonnet 5 | médio | — | ⬜ pendente |
+| **PORT-04** | Tutorial do portal por conta do cliente | Opus 5 | baixo | — | ✅ **concluído 08/08/2026** · aplicado em produção (1 migration); o campo do tenant vira padrão |
 | **SEC-01** | Endurecer o que a revisão do P360-015 encontrou | Opus 5 | médio | P360-015 (concluído) | ✅ **concluído 08/08/2026** · aplicado em produção (2 migrations), autorizado pela Ester; 50 execuções E2E depois do revoke |
 | **DEBT-03** | Pontas soltas do repositório | Haiku 4.5 | baixo | — | ✅ **concluído 05/08** |
 
@@ -3138,8 +3139,51 @@ as RPCs do portal por token e do agendamento público — esperados.
   consulta direta com `set role anon`.
 - **Decidido pela Ester em 08/08/2026:** SEC-01 aprovado e aplicado — bucket `photos` fechado e
   grants de `anon` revogados. Ver a seção do card.
-- **Pendência de conteúdo, não de código:** o tenant de produção está sem `tutorial_pdf_url`. O
-  tutorial do portal é decisão de produto já consolidada e nunca foi configurado.
+- **A pendência do tutorial virou o PORT-04.** Era descrita aqui como "falta configurar
+  `tutorial_pdf_url` no tenant"; a Ester corrigiu a premissa — o tutorial é de cada cliente, e um
+  campo por tenant serviria o mesmo PDF para todo mundo. Ver o card.
+
+---
+
+## PORT-04 — Tutorial do portal por conta do cliente ✅ concluído em 08/08/2026
+
+**Aplicado em produção** pela migration `20260808191341_portal_tutorial_por_conta`.
+
+**O que estava errado.** O P360-015 fechou dizendo que faltava "configurar o `tutorial_pdf_url` do
+tenant". A Ester leu e respondeu que o tutorial era para ser específico de cada cliente — e ela está
+certa: `client_portal_settings` tem **uma linha por tenant**, então o campo serviria o mesmo PDF a
+todos os clientes do portal. Nunca foi preenchido em produção; se tivesse sido, o erro estaria no ar.
+
+**Decisão dela (08/08/2026): por conta do portal.** A conta é o login, a empresa — a Rede Sênior tem
+um tutorial valendo para as 16 unidades. Por unidade seria personalização que ninguém pediu, e um
+link a manter por endereço.
+
+### Implementação
+
+- Coluna `tutorial_pdf_url` em `client_portal_accounts`, com a mesma trava de HTTPS que já vale para
+  a Pasta Principal.
+- `client_portal_overview` ganhou **uma linha**: `coalesce(conta, tenant)`. O campo do tenant
+  continua existindo como PADRÃO — dá para ter um tutorial genérico e sobrescrever só onde importa.
+- Sobrecarga de 5 argumentos de `admin_update_client_portal_account_configuration`. **A de 4
+  argumentos não foi tocada de propósito**: ela nunca menciona `tutorial_pdf_url`, então um PWA
+  antigo em cache que salve por ela preserva o tutorial. Virar parâmetro com default na mesma função
+  faria a chamada antiga limpar o campo sem querer.
+- Campo novo em "Editar acesso"; o do tenant passou a se chamar "Tutorial padrão do portal".
+
+### O risco real deste card, e como foi coberto
+
+`create or replace` não aceita remendo: para acrescentar uma linha foi preciso reescrever as ~130
+linhas do `client_portal_overview`. **Na primeira transcrição eu troquei `action_plan_enabled` por
+`service_requests_enabled` no `select ... into`** — duas booleanas lado a lado, que teriam ligado a
+função errada no portal sem nenhum erro aparecer.
+
+A suíte `portal_tutorial_por_conta.test.sql` existe por causa disso: ela encadeia a suíte do PORT-01
+e **repete as asserções dela depois da reescrita** (contagem de relatório, foto, anexo, score,
+travas, pagamento, unidades), e checa as duas flags com valores diferentes, invertendo-as em
+seguida. Conferido também em produção depois de aplicar, pelo texto da função (`pg_get_functiondef`).
+
+**Prova:** 17 suítes SQL em container limpo, 320 testes JS (4 novos de componente, cobrindo o rótulo
+associado ao campo — o que o P360-014 pediu), `npm run build` OK.
 
 ---
 

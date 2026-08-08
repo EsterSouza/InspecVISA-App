@@ -24,6 +24,7 @@ function account(overrides: Partial<ClientPortalAccountRow> = {}): ClientPortalA
     scheduling_suspended: false,
     scheduling_suspension_mode: 'auto',
     main_drive_folder_url: null,
+    tutorial_pdf_url: null,
     ...overrides,
   };
 }

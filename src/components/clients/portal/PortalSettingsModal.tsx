@@ -96,7 +96,7 @@ export function PortalSettingsModal({ onClose, onSaved }: PortalSettingsModalPro
           ) : settings ? (
             <div className="space-y-4">
               <div className="space-y-1.5 text-sm font-medium text-gray-700">
-                <label htmlFor="portal-settings-tutorial">Tutorial do portal (PDF)</label>
+                <label htmlFor="portal-settings-tutorial">Tutorial padrão do portal (PDF)</label>
                 <input
                   id="portal-settings-tutorial"
                   type="url"
@@ -105,7 +105,10 @@ export function PortalSettingsModal({ onClose, onSaved }: PortalSettingsModalPro
                   placeholder="https://.../tutorial.pdf"
                   className={`${TEXT_INPUT} font-normal`}
                 />
-                <span className="block text-xs font-normal text-gray-500">Informe uma URL HTTPS pública para o PDF.</span>
+                <span className="block text-xs font-normal text-gray-500">
+                  Vale para quem não tem tutorial próprio. Para dar um PDF só a um cliente, use o
+                  campo da conta em Editar acesso. URL HTTPS.
+                </span>
               </div>
 
               <div className="space-y-1.5 text-sm font-medium text-gray-700">

@@ -62,6 +62,8 @@ export interface ClientPortalAccountRow {
   scheduling_suspended: boolean;
   scheduling_suspension_mode: SchedulingSuspensionMode;
   main_drive_folder_url: string | null;
+  /** Tutorial desta conta. Nulo faz o portal cair no padrão do tenant. */
+  tutorial_pdf_url: string | null;
 }
 
 export interface PaymentLinkOption {
@@ -734,7 +736,7 @@ export const AppointmentAdminService = {
     let { data, error }: { data: any[] | null; error: any } = await withTimeout(
       supabase
         .from('client_portal_accounts')
-        .select('id, name, email, username, portal_token, access_code_plain, is_active, created_at, payment_type, payment_status, payment_link, payment_links, payment_due_date, scheduling_suspended, scheduling_suspension_mode, main_drive_folder_url, client_portal_account_clients(client_id)')
+        .select('id, name, email, username, portal_token, access_code_plain, is_active, created_at, payment_type, payment_status, payment_link, payment_links, payment_due_date, scheduling_suspended, scheduling_suspension_mode, main_drive_folder_url, tutorial_pdf_url, client_portal_account_clients(client_id)')
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false }),
       'AcessosPortal'
@@ -746,6 +748,7 @@ export const AppointmentAdminService = {
         error.message?.includes('access_code_plain') ||
         error.message?.includes('payment_') ||
         error.message?.includes('main_drive_folder_url') ||
+        error.message?.includes('tutorial_pdf_url') ||
         error.message?.includes('scheduling_suspension_mode') ||
         error.message?.includes('portal_token');
       if (!missingColumn) throw error;
@@ -779,6 +782,7 @@ export const AppointmentAdminService = {
       scheduling_suspended: row.scheduling_suspended ?? false,
       scheduling_suspension_mode: (row.scheduling_suspension_mode ?? 'auto') as SchedulingSuspensionMode,
       main_drive_folder_url: row.main_drive_folder_url ?? null,
+      tutorial_pdf_url: row.tutorial_pdf_url ?? null,
     }));
   },
 
@@ -1100,13 +1104,19 @@ export const AppointmentAdminService = {
 
   async updatePortalAccount(
     accountId: string,
-    params: { email: string; username?: string | null; mainDriveFolderUrl?: string | null }
+    params: {
+      email: string;
+      username?: string | null;
+      mainDriveFolderUrl?: string | null;
+      tutorialPdfUrl?: string | null;
+    }
   ): Promise<void> {
     const { error } = await supabase.rpc('admin_update_client_portal_account_configuration', {
       p_account_id: accountId,
       p_email: params.email,
       p_username: params.username?.trim() || null,
       p_main_drive_folder_url: normalizeOptionalHttpsUrl(params.mainDriveFolderUrl, 'A Pasta Principal Completa'),
+      p_tutorial_pdf_url: normalizeOptionalHttpsUrl(params.tutorialPdfUrl, 'O tutorial do portal'),
     });
     if (error) throw error;
   },
