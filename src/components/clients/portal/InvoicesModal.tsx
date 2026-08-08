@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Download, Loader2, RefreshCw, Trash2, Upload } from 'lucide-react';
-import type { ClientPortalInvoiceRow } from '../../../types';
-import { AppointmentAdminService, type ClientPortalAccountRow } from '../../../services/appointmentAdminService';
+import {
+  AppointmentAdminService,
+  type ClientPortalAccountRow,
+  type ClientPortalInvoiceRow,
+} from '../../../services/appointmentAdminService';
 import { Button } from '../../ui/Button';
 import { Card, CardContent } from '../../ui/Card';
 import { errorMessage } from './shared';
