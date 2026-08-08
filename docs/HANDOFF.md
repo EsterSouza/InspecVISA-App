@@ -2143,7 +2143,7 @@ A lição vale para além deste card: **contra dado real, a conferência não é
 erro", é comparar com o que o cliente recebeu.** As duas correções passariam por qualquer teste
 sintético.
 
-Commits: `c50a70b` (implementação) e `<sha-correcoes>` (as duas correções + regressões).
+Commits: `c50a70b` (implementação) e `217f4a0` (as duas correções + regressões).
 
 ---
 
