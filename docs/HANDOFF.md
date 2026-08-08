@@ -2974,6 +2974,7 @@ Feito. Sem migration — card inteiro é frontend (componentes React/TSX + CSS +
   com outros arquivos fora do card); dark mode (`darkMode: 'class'` está no `tailwind.config.js`
   mas não encontrei nenhum toggle real usando isso no app — parece config morta, não vale gastar
   tempo testando algo que não é alcançável pelo usuário).
+- SHA: `ea5bb4c`.
 
 ---
 
