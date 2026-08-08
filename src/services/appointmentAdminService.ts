@@ -786,7 +786,7 @@ export const AppointmentAdminService = {
     const tenantId = requireTenantId();
     const { data, error } = await supabase
       .from('client_portal_settings')
-      .select('tenant_id, tutorial_pdf_url, support_whatsapp, quick_access_enabled, multi_purpose_schedule, action_plan_enabled, service_requests_enabled, overdue_grace_days')
+      .select('tenant_id, tutorial_pdf_url, support_whatsapp, quick_access_enabled, multi_purpose_schedule, action_plan_enabled, service_requests_enabled, overdue_grace_days, service_request_sla')
       .eq('tenant_id', tenantId)
       .maybeSingle();
     if (error) throw error;
@@ -799,6 +799,7 @@ export const AppointmentAdminService = {
       action_plan_enabled: false,
       service_requests_enabled: false,
       overdue_grace_days: 5,
+      service_request_sla: {},
     };
   },
 

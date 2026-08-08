@@ -422,7 +422,9 @@ export type ClientPortalAuditEventType =
   | 'evidence_submitted'
   | 'evidence_reviewed'
   | 'evidence_download_clicked'
-  | 'item_status_declared';
+  | 'item_status_declared'
+  | 'service_request_created'
+  | 'service_request_replied';
 
 export interface AppointmentSlot {
   id: string;
@@ -605,6 +607,88 @@ export interface ClientActionEvidence {
   updated_at: string;
 }
 
+// ─── Solicitações de consultoria (P360-012) ─────────────────────────────────
+
+export type ServiceRequestCategory =
+  | 'documentacao'
+  | 'licenciamento'
+  | 'notificacao_visa'
+  | 'obra_reforma'
+  | 'treinamento'
+  | 'produto_equipamento'
+  | 'boas_praticas'
+  | 'outro';
+
+export type ServiceRequestStatus =
+  | 'open'
+  | 'in_progress'
+  | 'awaiting_client'
+  | 'resolved'
+  | 'cancelled';
+
+export type ServiceRequestPriority = 'low' | 'normal' | 'high' | 'urgent';
+
+/** Derivado do status, nunca digitado. É o que separa a fila da equipe da fila do cliente. */
+export type ServiceRequestWaitingOn = 'client' | 'team' | 'none';
+
+export type ServiceRequestEventType =
+  | 'created'
+  | 'status_changed'
+  | 'priority_changed'
+  | 'assigned'
+  | 'note'
+  | 'client_reply'
+  | 'attachment_added';
+
+/**
+ * Solicitação como o STAFF a enxerga. O cliente recebe uma versão reduzida (sem prioridade,
+ * sem nota interna e sem caminho de Storage) — ver `ClientPortalServiceRequest`.
+ */
+export interface ServiceRequest {
+  id: string;
+  tenant_id: string;
+  client_id: string;
+  account_id: string | null;
+  request_number: number;
+  category: ServiceRequestCategory;
+  subject: string;
+  description: string;
+  status: ServiceRequestStatus;
+  priority: ServiceRequestPriority;
+  assigned_to: string | null;
+  submission_key: string;
+  opened_by_name: string | null;
+  opened_by_role: string | null;
+  /** Prazo informativo congelado na abertura. Nulo = nada foi prometido ao cliente. */
+  sla_days: number | null;
+  sla_hint_date: string | null;
+  attachment_bucket: string | null;
+  attachment_path: string | null;
+  attachment_name: string | null;
+  attachment_mime: string | null;
+  attachment_size: number | null;
+  last_event_at: string;
+  awaiting_client_since: string | null;
+  closed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ServiceRequestEvent {
+  id: string;
+  request_id: string;
+  tenant_id: string;
+  event_type: ServiceRequestEventType;
+  from_status: ServiceRequestStatus | null;
+  to_status: ServiceRequestStatus | null;
+  note: string | null;
+  actor_kind: 'client' | 'staff' | 'system';
+  actor_name: string | null;
+  actor_role: string | null;
+  visible_to_client: boolean;
+  created_at: string;
+}
+
 export interface ClientPortalAuditEvent {
   id: string;
   tenant_id: string;
@@ -643,6 +727,11 @@ export interface ClientPortalSettings {
   service_requests_enabled: boolean;
   // Dias de tolerância depois do vencimento antes de a conta contar como em atraso.
   overdue_grace_days?: number;
+  /**
+   * P360-012 — prazo INFORMATIVO de primeiro retorno, em dias corridos, por categoria de
+   * solicitação (`{"documentacao": 3, "default": 5}`). Vazio = o portal não fala em prazo.
+   */
+  service_request_sla?: Partial<Record<ServiceRequestCategory | 'default', number>>;
 }
 
 export interface PublicAppointmentPayload {

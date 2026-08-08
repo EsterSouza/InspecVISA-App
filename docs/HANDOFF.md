@@ -1,6 +1,7 @@
 # Handoff único — InspecVISA
 
-**Última atualização:** 07/08/2026 (BRT), ao concluir o PORT-03, aplicado em produção ·
+**Última atualização:** 08/08/2026 (BRT), ao concluir o P360-012 — código pronto, **nada
+aplicado em produção ainda** ·
 **Branch:** `main`, sincronizada com `origin/main` · O estado da seção 2 foi verificado em 03/08/2026,
 com as correções de 04/08 e 05/08 anotadas nas tabelas.
 
@@ -106,6 +107,8 @@ Confirmado presente no banco:
 | `client_portal_account_features` (+ travas do portal) | ✅ existe desde 07/08/2026 — PORT-01 |
 | `client_action_evidence` (+ bucket privado e 4 RPCs) | ✅ existe desde 07/08/2026 — P360-011 |
 | `public_report_*` (link aberto do relatório) + autoria da evidência | ✅ existe desde 07/08/2026 — PORT-02 |
+| `client_service_requests` (+ eventos, bucket privado e 6 RPCs) | ⬜ **arquivo escrito, não aplicado** — P360-012 |
+| `admin_backfill_client_action_items` (projeção retroativa) | ⬜ **arquivo escrito, não aplicado** — adendo do P360-010 |
 
 A migration `checklist_items_requirement_type` consta **duas vezes** no ledger remoto, sob as
 versões `20260803205941` e `20260803221936`. O schema está correto; o ledger é que está sujo.
@@ -241,7 +244,7 @@ a página de referências do PDF.
 | **PORT-02** | Link do relatório por unidade e autoria da evidência | Opus 5 | alto | P360-011 | ✅ **concluído 07/08/2026** · aplicado em produção; provado contra a visita real da Icaraí |
 | **REL-03** | Evidência do cliente na nova vistoria e no relatório final | Opus 5 | alto | PORT-02 | ✅ **concluído 07/08/2026** · só código (sem migration); fecha o ciclo sanitário |
 | **PORT-03** | O cliente declara a situação do item (inclusive "não fiz") | Opus 5 | médio | PORT-02 | ✅ **concluído 07/08/2026** · aplicado em produção |
-| **P360-012** | Solicitações estruturadas de consultoria | Opus 5 | alto | — | ⬜ pendente |
+| **P360-012** | Solicitações estruturadas de consultoria | Opus 5 | alto | — | ✅ **concluído 08/08/2026** · código, migrations e testes prontos; **aguardando autorização para aplicar em produção** |
 | **P360-013** | Painel operacional das consultoras | Sonnet 5 | alto | 010, 011, 012 | ⬜ pendente |
 | **P360-014** | Acessibilidade e responsividade | Sonnet 5 | médio | superfícies estáveis | ⬜ pendente |
 | **P360-015** | E2E, rollout e prova de produção | Opus 5 | alto | onda a publicar | ⬜ pendente |
@@ -2055,6 +2058,47 @@ esperado: a projeção só nasce quando um relatório novo for publicado pelo ap
 
 Commit: `3bd8376`.
 
+### Adendo — 08/08/2026 · projeção retroativa (`admin_backfill_client_action_items`)
+
+**O que motivou:** a projeção só nascia quando o app publicava um relatório **novo**. Quem foi
+inspecionado antes de 07/08/2026 abria o portal e via a seção vazia — pior do que não ter a
+seção, porque dá a entender que não há pendência. Em produção há **16 visitas com relatório
+entregue e inspeção concluída**, com ~340 NCs, e `client_action_items` estava em zero.
+
+Migration `20260808002000_backfill_client_action_items`: cria a função, **não escreve nada** ao
+ser aplicada. O default é `p_dry_run => true` — sem argumento, ela só conta o que faria.
+
+```sql
+select public.admin_backfill_client_action_items();                 -- ensaio, por visita
+select public.admin_backfill_client_action_items('<visita>', false); -- uma visita, para valer
+select public.admin_backfill_client_action_items(null, false);       -- todas, para valer
+```
+
+Três cuidados, porque isto mexe em dado real de cliente:
+
+- **Não há segundo caminho de escrita.** Quem grava é o `admin_publish_client_action_items` do
+  próprio card, então idempotência, recorrência entre inspeções, item já resolvido preservado e
+  a regra do relatório oculto continuam valendo e continuam num lugar só. Rodar duas vezes dá
+  `created 0`.
+- **O roteiro vem congelado.** Peso, criticidade e texto do requisito saem do snapshot que o
+  relatório usou (REF-06), não do roteiro de hoje: item reescrito ou arquivado depois da visita
+  não muda a pendência que o cliente recebeu no PDF. A ordem de resolução é snapshot →
+  `checklist_items` vivo → `custom_description` → rótulo genérico.
+- **Só inspeção `completed`**, e só onde o chamador é staff do tenant. Inspeção em andamento
+  vira plano de ação quando o relatório for publicado; antecipar mostraria pendência que ainda
+  pode mudar.
+
+`private.deadline_to_days` replica `deadlineToDays` de `src/utils/clientActionPlan.ts`,
+**inclusive no que ela recusa**: o que não dá para datar ("assim que possível", "30" sem
+unidade) vira item sem prazo em vez de ganhar prazo inventado.
+
+Teste: `supabase/tests/backfill_client_action_items.test.sql` — conversão de prazo, título vindo
+do roteiro congelado e não do reescrito, prioridade por criticidade e peso, prazo a partir da
+data da visita, resposta apagada e conforme fora da projeção, inspeção aberta e tenant vizinho
+intocados, ensaio que não escreve, backfill idempotente e a pendência chegando ao portal.
+
+**Ainda não foi aplicado nem executado em produção** — depende de autorização da Ester.
+
 ---
 
 ## PORT-01 — Central de acesso do portal por conta ✅ concluído 07/08/2026 · aplicado em produção
@@ -2566,6 +2610,115 @@ Commit: `15fd415`.
 - A consultora distingue claramente o que aguarda cliente do que aguarda equipe.
 - Não existe conversa em tempo real nem expectativa de resposta instantânea.
 - Solicitações não aparecem misturadas com agendamentos.
+
+### Resultado — 08/08/2026 · aguardando autorização para aplicar em produção
+
+**Concluído em código.** Migration `20260808001200_client_service_requests` escrita e testada em
+Postgres puro; **nada foi aplicado em produção** — a aplicação depende de autorização da Ester,
+como manda a regra 1.
+
+#### O modelo
+
+Uma solicitação é uma **demanda numerada**, não uma conversa. Três decisões estruturais, e cada
+uma existe para impedir que isto vire caixa de entrada:
+
+1. **Não é chat.** Não há campo de mensagem livre nos dois sentidos. O cliente abre a demanda
+   com assunto e descrição e só volta a escrever quando a solicitação está em
+   `awaiting_client` — quer dizer, quando a consultoria perguntou alguma coisa. Fora disso o
+   campo de resposta não existe na tela, e a RPC recusa (`esta solicitacao nao esta aguardando
+   resposta sua`).
+2. **Prazo não se promete sozinho.** `sla_days` sai de `client_portal_settings.service_request_sla`
+   (jsonb por categoria, configurável na tela), é **congelado na linha** no momento da abertura e
+   nasce nulo quando nada foi configurado. Sem regra administrativa, o portal não fala em prazo:
+   não estima, não escreve "em breve". Mudar a configuração depois não reescreve o que já foi
+   dito a ninguém.
+3. **Quem espera quem é derivado, nunca digitado.** `private.service_request_waiting_on(status)`
+   é a única fonte da distinção, no portal e no painel. Não existe marcar "aguardando cliente" e
+   esquecer de mudar o status.
+
+#### Objetos criados
+
+| Objeto | Papel |
+|---|---|
+| `client_service_requests` | a demanda; RLS ativa, `authenticated` só com **select** |
+| `client_service_request_events` | histórico append-only; `visible_to_client` default **false** |
+| `client_service_request_notifications` | cadeado de idempotência do e-mail (mesmo desenho do P360-008/011) |
+| `client_portal_settings.service_request_sla` | prazo informativo por categoria; `{}` = não promete nada |
+| bucket `client-service-request-files` | privado, próprio; nenhum papel do navegador escreve |
+| `client_portal_create_service_request(...)` | abertura pelo token da conta; `anon` **e** `authenticated` |
+| `client_portal_service_requests(uuid, uuid)` | leitura pelo token; `anon` **e** `authenticated` |
+| `client_portal_reply_service_request(...)` | resposta do cliente, só em `awaiting_client` |
+| `client_portal_attach_service_request_file(...)` | registro do anexo; **só `service_role`** |
+| `client_portal_discard_service_request_file(...)` | desfaz o registro quando a subida falha; **só `service_role`** |
+| `admin_update_service_request(...)` | status, prioridade, responsável e nota num gesto; `authenticated` |
+| `admin_set_service_request_sla(uuid, jsonb)` | configura o prazo informativo; `authenticated` |
+
+#### Papel, duplicidade e rate limit
+
+- **Cancelar é só do administrador.** Consultora atende, prioriza, pergunta, conclui e reabre;
+  cancelar apaga a demanda da vista do cliente sem entregar nada, e é a única ação daqui sem
+  volta prática. A checagem é `tenant_users.role = 'admin'`, ao lado do `is_tenant_staff` que
+  vale para o resto.
+- **Perguntar ao cliente exige dizer o quê** (`p_note` obrigatório em `awaiting_client`) e a
+  nota vira visível **à força** — mesma regra do `changes_requested` do P360-011. Perguntar sem
+  dizer o que se quer devolve o cliente para o zero.
+- **Duas travas de duplicidade.** A primeira é `(tenant_id, submission_key)`: a chave nasce com
+  o formulário no navegador, então clique duplo e retry de rede caem na mesma linha, com o mesmo
+  número. A segunda é por conteúdo — mesma unidade, mesmo assunto, ainda aberta, nos últimos 10
+  minutos — para quem recarrega a página e digita tudo de novo achando que não foi.
+- **Rate limit por conta**: 5 aberturas por hora e 15 em aberto. Os dois tetos existem por
+  motivos diferentes: o da hora contém teclado preso e script; o de abertas contém a fila que
+  ninguém consegue atender.
+- **Numeração sequencial por tenant**, com `pg_advisory_xact_lock` na abertura: sem ele, duas
+  aberturas simultâneas leriam o mesmo `max()` e a segunda quebraria no índice único.
+
+#### Anexo
+
+Um por solicitação, no bucket privado próprio, com a mesma disciplina do P360-011: o tipo sai
+dos **bytes** (não do `Content-Type` nem da extensão), o nome é gerado no servidor por
+`private.safe_evidence_file_name` (`../../etc/passwd.exe` vira `passwd.pdf`) e o caminho é
+`<tenant>/<unidade>/<solicitação>/<nome>`. Registra primeiro, sobe depois; se a subida falhar, a
+Edge Function limpa **só o anexo** — a solicitação continua de pé, porque o pedido do cliente
+vale mesmo sem o arquivo.
+
+#### Onde encostou no app
+
+- `supabase/functions/client-service-request/` (nova) — anexo e aviso à equipe.
+- `supabase/functions/notify-service-request/` (nova) — aviso ao cliente em `awaiting_client` e
+  em `resolved`, com o modelo de e-mail da marca e link de WhatsApp para o número profissional.
+- `src/utils/serviceRequests.ts` (novo) — o vocabulário num lugar só. Dois conjuntos de rótulos
+  de propósito: para a equipe o estado é da fila ("Nova", "Em atendimento"); para o cliente é
+  sobre quem tem de agir ("Recebida", "Aguardando você").
+- `src/services/serviceRequestService.ts` (novo) — lado da equipe.
+- `src/services/clientPortalService.ts` — abertura, leitura, resposta e anexo pelo portal.
+- `src/components/client/PortalServiceRequests.tsx` (novo) — seção do portal.
+- `src/pages/ServiceRequests.tsx` (novo) + rota `/requests` + item na Sidebar — painel interno,
+  organizado por **quem está esperando** (equipe / cliente / encerradas), com filtros de
+  unidade, responsável, prioridade e busca por assunto ou número, e o editor do prazo
+  informativo.
+- Eventos de auditoria novos: `service_request_created` e `service_request_replied`.
+
+#### Testes
+
+- `supabase/tests/client_service_requests.test.sql` (novo): grants e RLS, trava do tenant,
+  abertura, validação de conteúdo, isolamento por token/unidade/tenant, duplo clique e retry,
+  duplicidade por conteúdo, rate limit, SLA configurável e congelado, papel na mudança de
+  status, o que o cliente vê (e o que **não** vê — prioridade e nota interna), resposta só em
+  `awaiting_client`, encerramento e anexo (tipo, tamanho, caminho, anexo único, descarte).
+- `src/__tests__/services/clientPortalServiceRequests.test.ts` (9) e
+  `src/__tests__/components/PortalServiceRequests.test.tsx` (12).
+- `npm test`: **37 arquivos, 302 testes, todos passando**. `npx tsc -b` limpo e `npm run build` OK.
+
+#### Fora de escopo, deliberado
+
+- **Sem trava por conta** (`client_portal_account_features`): a liberação continua sendo do
+  tenant inteiro, pelo `service_requests_enabled` que já existia. Ligar por conta é uma linha no
+  `check` da tabela do PORT-01 quando fizer falta.
+- **Solicitação não entra na "próxima ação"** do topo do portal (P360-009). O contador
+  "aguardando você" já destaca na seção; misturar com pendência sanitária competiria com o que
+  é mais grave.
+- **Contadores agregados por consultora** são o P360-013; aqui o painel conta em cima da lista
+  já filtrada.
 
 ---
 

@@ -21,6 +21,11 @@ import {
   type DeclareStatusHandler,
   type SubmitEvidenceHandler,
 } from '../components/client/PortalActionPlan';
+import {
+  PortalServiceRequests,
+  type CreateServiceRequestHandler,
+  type ReplyServiceRequestHandler,
+} from '../components/client/PortalServiceRequests';
 import { PortalAppointments, type PortalAppointmentVisit } from '../components/client/PortalAppointments';
 import { PortalDocuments } from '../components/client/PortalDocuments';
 import { PortalBilling } from '../components/client/PortalBilling';
@@ -30,6 +35,7 @@ import {
   type ClientPortalActionItem,
   type ClientPortalInvoice,
   type ClientPortalOverview,
+  type ClientPortalServiceRequest,
 } from '../services/clientPortalService';
 import { generateFranchisePdf } from '../utils/franchiseReport';
 import { filterUnitsBySelection, paymentLinks, toDateKey } from '../utils/clientPortalFormat';
@@ -47,6 +53,8 @@ export function ClientPortal() {
   const [invoicesError, setInvoicesError] = useState(false);
   const [actionItems, setActionItems] = useState<ClientPortalActionItem[]>([]);
   const [actionItemsError, setActionItemsError] = useState(false);
+  const [serviceRequests, setServiceRequests] = useState<ClientPortalServiceRequest[]>([]);
+  const [serviceRequestsError, setServiceRequestsError] = useState(false);
   const [loading, setLoading] = useState(!!clientPortalService.getStoredToken());
 
   const [identifier, setIdentifier] = useState('');
@@ -79,11 +87,23 @@ export function ClientPortal() {
     }
   }, []);
 
+  const loadServiceRequests = useCallback(async (portalToken: string) => {
+    try {
+      setServiceRequests(await clientPortalService.serviceRequests(portalToken));
+      setServiceRequestsError(false);
+    } catch (err) {
+      console.warn('[ClientPortal] Falha ao carregar as solicitacoes:', err);
+      setServiceRequestsError(true);
+    }
+  }, []);
+
   const loadOverview = useCallback(async (portalToken: string) => {
     setLoading(true);
+    let serviceRequestsEnabled = false;
     try {
       const data = await clientPortalService.overview(portalToken);
       setOverview(data);
+      serviceRequestsEnabled = !!data.service_requests_enabled;
       setError(null);
       void clientPortalService.audit(portalToken, 'overview_viewed', {
         units: data.units.length,
@@ -111,8 +131,11 @@ export function ClientPortal() {
           setInvoicesError(true);
         }),
       loadActionItems(portalToken, { audit: true }),
+      // Só busca solicitação onde o módulo está ligado: a seção nem aparece nos outros
+      // tenants, e a RPC devolveria lista vazia de qualquer forma.
+      serviceRequestsEnabled ? loadServiceRequests(portalToken) : Promise.resolve(),
     ]);
-  }, [loadActionItems]);
+  }, [loadActionItems, loadServiceRequests]);
 
   useEffect(() => {
     if (token) void loadOverview(token);
@@ -145,6 +168,8 @@ export function ClientPortal() {
     setInvoicesError(false);
     setActionItems([]);
     setActionItemsError(false);
+    setServiceRequests([]);
+    setServiceRequestsError(false);
     setSelectedUnitId(null);
     setIdentifier('');
     setCode('');
@@ -192,6 +217,32 @@ export function ClientPortal() {
       await loadActionItems(token);
     },
     [token, loadActionItems]
+  );
+
+  // P360-012 — abrir a solicitação não muda mais nada na tela: ela volta do servidor com
+  // número e estado próprios, e é a lista que se recarrega.
+  const handleCreateServiceRequest: CreateServiceRequestHandler = useCallback(
+    async (input) => {
+      if (!token) throw new Error('Sessão expirada. Entre de novo para registrar sua solicitação.');
+      const result = await clientPortalService.createServiceRequest(token, input);
+      await loadServiceRequests(token);
+      return { requestNumber: result.requestNumber, attachmentError: result.attachmentError };
+    },
+    [token, loadServiceRequests]
+  );
+
+  const handleReplyServiceRequest: ReplyServiceRequestHandler = useCallback(
+    async ({ request, message, byName, byRole }) => {
+      if (!token) throw new Error('Sessão expirada. Entre de novo para responder.');
+      await clientPortalService.replyServiceRequest(token, {
+        requestId: request.id,
+        message,
+        byName,
+        byRole,
+      });
+      await loadServiceRequests(token);
+    },
+    [token, loadServiceRequests]
   );
 
   const handleUnitFilterChange = (unitId: string | null) => {
@@ -258,6 +309,11 @@ export function ClientPortal() {
   const filteredActionItems = useMemo(
     () => (selectedUnitId ? actionItems.filter((item) => item.client_id === selectedUnitId) : actionItems),
     [actionItems, selectedUnitId]
+  );
+
+  const filteredServiceRequests = useMemo(
+    () => (selectedUnitId ? serviceRequests.filter((request) => request.client_id === selectedUnitId) : serviceRequests),
+    [serviceRequests, selectedUnitId]
   );
 
   // Devolução vem ANTES de prazo vencido: o item vencido o cliente já sabe que está atrasado,
@@ -471,6 +527,20 @@ export function ClientPortal() {
             showUnitName={overview.units.length > 1 && !selectedUnitId}
             onSubmitEvidence={handleSubmitEvidence}
             onDeclareStatus={handleDeclareStatus}
+          />
+        )}
+
+        {/*
+          Solicitações vêm antes dos documentos e SEPARADAS dos compromissos (critério de
+          aceite do P360-012): pedido administrativo e visita agendada são coisas diferentes.
+        */}
+        {overview.service_requests_enabled && (
+          <PortalServiceRequests
+            requests={filteredServiceRequests}
+            units={overview.units}
+            error={serviceRequestsError}
+            onCreate={handleCreateServiceRequest}
+            onReply={handleReplyServiceRequest}
           />
         )}
 

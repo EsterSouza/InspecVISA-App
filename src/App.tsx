@@ -17,6 +17,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m
 const Clients = lazy(() => import('./pages/Clients').then(m => ({ default: m.Clients })));
 const ClientDetails = lazy(() => import('./pages/ClientDetails').then(m => ({ default: m.ClientDetails })));
 const Schedules = lazy(() => import('./pages/Schedules').then(m => ({ default: m.Schedules })));
+const ServiceRequests = lazy(() => import('./pages/ServiceRequests').then(m => ({ default: m.ServiceRequests })));
 const Settings = lazy(() => import('./pages/Settings').then(m => ({ default: m.Settings })));
 const SyncCenter = lazy(() => import('./pages/SyncCenter').then(m => ({ default: m.SyncCenter })));
 const Inspections = lazy(() => import('./pages/Inspections').then(m => ({ default: m.Inspections })));
@@ -144,6 +145,8 @@ function InternalApp({ isInitializing }: InternalAppProps) {
             <Route path="/clients" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
             <Route path="/clients/:id" element={<ProtectedRoute><ClientDetails /></ProtectedRoute>} />
             <Route path="/schedules" element={<ProtectedRoute><Schedules /></ProtectedRoute>} />
+            {/* P360-012 — fora de /schedules de propósito: solicitação não é compromisso. */}
+            <Route path="/requests" element={<ProtectedRoute><ServiceRequests /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/inspections" element={<ProtectedRoute><Inspections /></ProtectedRoute>} />
             <Route path="/new" element={<ProtectedRoute><NewInspection /></ProtectedRoute>} />

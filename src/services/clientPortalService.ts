@@ -9,6 +9,10 @@ import type {
   ClientPortalAuditEventType,
   ClientPortalSettings,
   PublicAppointmentStatusResult,
+  ServiceRequestCategory,
+  ServiceRequestEventType,
+  ServiceRequestStatus,
+  ServiceRequestWaitingOn,
 } from '../types';
 import { isInspectionAppointment, normalizeAppointmentType } from '../utils/appointmentType';
 import { checkEvidenceFile } from '../utils/evidenceFile';
@@ -215,6 +219,58 @@ export interface ClientPortalEvidence {
   reviewed_at: string | null;
   signed_url?: string;
   signed_url_expires_in?: number;
+}
+
+/**
+ * P360-012 — solicitação como o CLIENTE a recebe. Menor que a linha de
+ * `client_service_requests` de propósito: sem prioridade (gestão de fila interna), sem nota
+ * interna da equipe e sem caminho de Storage.
+ */
+export interface ClientPortalServiceRequest {
+  id: string;
+  request_number: number;
+  client_id: string;
+  unit_name: string;
+  category: ServiceRequestCategory;
+  subject: string;
+  description: string;
+  status: ServiceRequestStatus;
+  waiting_on: ServiceRequestWaitingOn;
+  assigned_to: string | null;
+  /** Prazo informativo congelado na abertura. Nulo = nada foi prometido. */
+  sla_days: number | null;
+  sla_hint_date: string | null;
+  attachment_name: string | null;
+  opened_by_name: string | null;
+  opened_by_role: string | null;
+  created_at: string;
+  last_event_at: string;
+  closed_at: string | null;
+  /** Só é `true` quando a consultoria perguntou algo. É o que impede isto de virar chat. */
+  accepts_reply: boolean;
+  events: ClientPortalServiceRequestEvent[];
+}
+
+export interface ClientPortalServiceRequestEvent {
+  id: string;
+  event_type: ServiceRequestEventType;
+  to_status: ServiceRequestStatus | null;
+  note: string | null;
+  actor_kind: 'client' | 'staff' | 'system';
+  actor_name: string | null;
+  created_at: string;
+}
+
+export interface CreateServiceRequestInput {
+  clientId: string;
+  category: ServiceRequestCategory;
+  subject: string;
+  description: string;
+  /** Uma por formulário preenchido: é o que faz clique duplo e retry caírem na mesma linha. */
+  submissionKey: string;
+  byName?: string;
+  byRole?: string;
+  file?: File | null;
 }
 
 const TOKEN_KEY = 'inspecvisa-client-portal-token';
@@ -516,6 +572,110 @@ export const clientPortalService = {
     if (error) throw error;
     if (data?.error) throw new Error(data.error);
     return (data?.invoices ?? []) as ClientPortalInvoice[];
+  },
+
+  // ─── Solicitações de consultoria (P360-012) ─────────────────────────────
+
+  async serviceRequests(token: string, clientId?: string | null): Promise<ClientPortalServiceRequest[]> {
+    const { data, error } = await withTimeout(
+      supabase.rpc('client_portal_service_requests', {
+        p_token: token,
+        p_client_id: clientId || null,
+      }),
+      'SolicitacoesPortalCliente'
+    );
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    return (data?.requests ?? []) as ClientPortalServiceRequest[];
+  },
+
+  /**
+   * Abre a solicitação e, só depois, anexa o arquivo.
+   *
+   * A ordem é deliberada: a demanda do cliente vale mesmo sem o anexo. Se a subida falhar, ele
+   * recebe um aviso sobre o ARQUIVO — não sobre o pedido, que já está registrado e numerado.
+   * Reenviar com a mesma `submissionKey` cai na mesma linha em vez de abrir uma segunda.
+   */
+  async createServiceRequest(
+    token: string,
+    input: CreateServiceRequestInput
+  ): Promise<{ requestId: string; requestNumber: number; duplicate: boolean; attachmentError?: string }> {
+    if (input.file) {
+      const check = checkEvidenceFile(input.file);
+      if (!check.ok) throw new Error(check.message);
+    }
+
+    const { data, error } = await withTimeout(
+      supabase.rpc('client_portal_create_service_request', {
+        p_token: token,
+        p_client_id: input.clientId,
+        p_category: input.category,
+        p_subject: input.subject.trim(),
+        p_description: input.description.trim(),
+        p_submission_key: input.submissionKey,
+        p_by_name: input.byName?.trim() || null,
+        p_by_role: input.byRole?.trim() || null,
+        p_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+      }),
+      'AbrirSolicitacaoPortalCliente'
+    );
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+
+    const requestId = data.request_id as string;
+    const result = {
+      requestId,
+      requestNumber: data.request_number as number,
+      duplicate: !!data.duplicate,
+    };
+
+    // Reenvio da mesma submissão não repete o anexo nem o aviso à equipe.
+    if (data.duplicate) return result;
+
+    if (input.file) {
+      const form = new FormData();
+      form.append('accountToken', token);
+      form.append('requestId', requestId);
+      form.append('file', input.file);
+      const upload = await withTimeout(
+        supabase.functions.invoke('client-service-request', { body: form }),
+        'AnexoDaSolicitacao',
+        UPLOAD_TIMEOUT_MS
+      );
+      const attachmentError = upload.error
+        ? upload.error.message
+        : (upload.data?.error as string | undefined);
+      if (attachmentError) return { ...result, attachmentError };
+      return result;
+    }
+
+    // Sem arquivo, o aviso à equipe é a única razão de chamar a Edge Function. Falhar aqui não
+    // desfaz nada: a solicitação já está registrada.
+    void supabase.functions
+      .invoke('client-service-request', { body: { accountToken: token, requestId } })
+      .catch((err) => console.warn('[ClientPortal] Aviso da solicitacao a equipe falhou:', err));
+
+    return result;
+  },
+
+  /** Só existe quando a solicitação está `awaiting_client` — o servidor recusa o resto. */
+  async replyServiceRequest(
+    token: string,
+    params: { requestId: string; message: string; byName?: string; byRole?: string }
+  ): Promise<void> {
+    const { data, error } = await withTimeout(
+      supabase.rpc('client_portal_reply_service_request', {
+        p_token: token,
+        p_request_id: params.requestId,
+        p_message: params.message.trim(),
+        p_by_name: params.byName?.trim() || null,
+        p_by_role: params.byRole?.trim() || null,
+        p_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+      }),
+      'ResponderSolicitacaoPortalCliente'
+    );
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
   },
 
   async acknowledgePayment(token: string, note?: string): Promise<void> {

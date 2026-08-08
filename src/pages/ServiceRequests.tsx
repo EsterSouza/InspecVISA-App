@@ -1,0 +1,672 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  AlertCircle,
+  CheckCircle2,
+  Clock3,
+  ExternalLink,
+  Headset,
+  Loader2,
+  MessageSquare,
+  Paperclip,
+  RefreshCw,
+  Send,
+  UserRound,
+} from 'lucide-react';
+import type {
+  Client,
+  ServiceRequest,
+  ServiceRequestEvent,
+  ServiceRequestPriority,
+  ServiceRequestStatus,
+} from '../types';
+import { ClientService } from '../services/clientService';
+import { ServiceRequestService } from '../services/serviceRequestService';
+import { AppointmentAdminService } from '../services/appointmentAdminService';
+import { getLocalActor } from '../utils/localActor';
+import {
+  SERVICE_REQUEST_CATEGORIES,
+  SERVICE_REQUEST_CATEGORY_LABELS,
+  SERVICE_REQUEST_PRIORITY_LABELS,
+  SERVICE_REQUEST_STATUS_LABELS,
+  serviceRequestWaitingOn,
+} from '../utils/serviceRequests';
+
+/**
+ * P360-012 — painel interno das solicitações.
+ *
+ * A tela é organizada pela pergunta que a consultora faz cem vezes por dia: **o que depende de
+ * mim?** Por isso a separação primária não é por status nem por cliente, e sim por quem está
+ * esperando — a fila da equipe primeiro, a do cliente depois, e o encerrado fora do caminho.
+ *
+ * Esta página fica FORA de Agendamentos de propósito (critério de aceite do card): solicitação
+ * não é compromisso, não tem data nem duração, e misturar as duas listas foi exatamente o que
+ * fez o WhatsApp virar o canal padrão.
+ */
+
+const CONSULTANTS = ['Ester Caiafa', 'Ana Roberta Ribeiro'];
+
+type QueueFilter = 'team' | 'client' | 'closed' | 'all';
+
+const QUEUE_LABELS: Record<QueueFilter, string> = {
+  team: 'Aguardando a equipe',
+  client: 'Aguardando o cliente',
+  closed: 'Encerradas',
+  all: 'Todas',
+};
+
+const QUEUE_STATUSES: Record<QueueFilter, ServiceRequestStatus[] | undefined> = {
+  team: ['open', 'in_progress'],
+  client: ['awaiting_client'],
+  closed: ['resolved', 'cancelled'],
+  all: undefined,
+};
+
+const statusTheme: Record<ServiceRequestStatus, string> = {
+  open: 'bg-sky-100 text-sky-800',
+  in_progress: 'bg-indigo-100 text-indigo-800',
+  awaiting_client: 'bg-amber-100 text-amber-900',
+  resolved: 'bg-emerald-100 text-emerald-800',
+  cancelled: 'bg-gray-100 text-gray-600',
+};
+
+const priorityTheme: Record<ServiceRequestPriority, string> = {
+  low: 'bg-gray-100 text-gray-600',
+  normal: 'bg-gray-100 text-gray-700',
+  high: 'bg-amber-100 text-amber-800',
+  urgent: 'bg-red-100 text-red-700',
+};
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+function formatDateTimeBR(value: string | null): string {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+/** Há quantos dias parada — é o número que decide o que a consultora abre primeiro. */
+function daysSince(value: string): number {
+  const diff = Date.now() - new Date(value).getTime();
+  return Math.max(0, Math.floor(diff / 86400000));
+}
+
+// ─── Card de uma solicitação ──────────────────────────────────────────────────
+
+function RequestCard({
+  request,
+  unitName,
+  onChanged,
+}: {
+  request: ServiceRequest;
+  unitName: string;
+  onChanged: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [events, setEvents] = useState<ServiceRequestEvent[]>([]);
+  const [note, setNote] = useState('');
+  const [noteVisible, setNoteVisible] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [whatsappLink, setWhatsappLink] = useState<string | null>(null);
+
+  const waitingOn = serviceRequestWaitingOn(request.status);
+  const stalled = daysSince(request.last_event_at);
+
+  const loadEvents = useCallback(() => {
+    ServiceRequestService.events(request.id)
+      .then(setEvents)
+      .catch((err) => console.warn('[ServiceRequests] Falha ao carregar o historico:', err));
+  }, [request.id]);
+
+  useEffect(() => {
+    if (open) loadEvents();
+  }, [open, loadEvents]);
+
+  const apply = async (changes: Parameters<typeof ServiceRequestService.update>[1], notify = false) => {
+    setBusy(true);
+    setError(null);
+    setWhatsappLink(null);
+    try {
+      await ServiceRequestService.update(request.id, changes);
+      // Avisar o cliente é sempre depois: a mudança já está gravada, e falhar o e-mail não
+      // pode desfazer a decisão nem fazer a consultora repetir o gesto.
+      if (notify) {
+        const result = await ServiceRequestService.notifyClient(request.id);
+        setWhatsappLink(result?.whatsappLink || null);
+      }
+      setNote('');
+      setNoteVisible(false);
+      if (open) loadEvents();
+      onChanged();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const askClient = () => {
+    if (!note.trim()) {
+      setError('Diga ao cliente o que você precisa que ele responda.');
+      return;
+    }
+    void apply({ status: 'awaiting_client', note: note.trim(), noteVisibleToClient: true }, true);
+  };
+
+  const openAttachment = async () => {
+    try {
+      const url = await ServiceRequestService.attachmentUrl(request);
+      window.open(url, '_blank', 'noopener');
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+
+  return (
+    <li
+      className={`rounded-xl border bg-white p-3 shadow-sm ${
+        waitingOn === 'team' ? 'border-primary-200' : 'border-gray-200'
+      }`}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-600">
+          Nº {request.request_number}
+        </span>
+        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${statusTheme[request.status]}`}>
+          {SERVICE_REQUEST_STATUS_LABELS[request.status]}
+        </span>
+        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${priorityTheme[request.priority]}`}>
+          {SERVICE_REQUEST_PRIORITY_LABELS[request.priority]}
+        </span>
+        <span className="text-[11px] font-medium text-gray-500">
+          {SERVICE_REQUEST_CATEGORY_LABELS[request.category]}
+        </span>
+        <span className="text-[11px] text-gray-400">· {unitName}</span>
+        {request.assigned_to ? (
+          <span className="inline-flex items-center gap-1 text-[11px] text-gray-500">
+            <UserRound className="h-3 w-3" /> {request.assigned_to}
+          </span>
+        ) : (
+          <span className="text-[11px] font-semibold text-amber-700">sem responsável</span>
+        )}
+      </div>
+
+      <p className="mt-1.5 text-sm font-bold text-gray-900">{request.subject}</p>
+      <p className="mt-1 whitespace-pre-wrap text-xs text-gray-600">{request.description}</p>
+
+      <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-gray-400">
+        <span>Aberta em {formatDateTimeBR(request.created_at)}</span>
+        <span>· Última movimentação {formatDateTimeBR(request.last_event_at)}</span>
+        {waitingOn !== 'none' && stalled >= 3 && (
+          <span className="font-bold text-amber-700">· parada há {stalled} dias</span>
+        )}
+        {request.sla_hint_date && waitingOn !== 'none' && (
+          <span className="inline-flex items-center gap-1">
+            <Clock3 className="h-3 w-3" /> retorno prometido até {request.sla_hint_date.split('-').reverse().join('/')}
+          </span>
+        )}
+        {request.opened_by_name && (
+          <span>· por {request.opened_by_name}{request.opened_by_role ? ` (${request.opened_by_role})` : ''}</span>
+        )}
+      </p>
+
+      {request.attachment_name && (
+        <button
+          type="button"
+          onClick={() => void openAttachment()}
+          className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-gray-200 px-2 py-1 text-[11px] font-semibold text-gray-700 hover:bg-gray-50"
+        >
+          <Paperclip className="h-3 w-3" /> {request.attachment_name}
+          <ExternalLink className="h-3 w-3 text-gray-400" />
+        </button>
+      )}
+
+      {/* ─── Ações ─── */}
+      <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-dashed border-gray-200 pt-2.5">
+        <select
+          value={request.assigned_to || ''}
+          onChange={(e) => void apply({ assignedTo: e.target.value || null })}
+          disabled={busy}
+          aria-label="Responsável"
+          className="rounded-md border border-gray-200 px-2 py-1 text-[11px] font-medium text-gray-700"
+        >
+          <option value="">Sem responsável</option>
+          {CONSULTANTS.map((name) => (
+            <option key={name} value={name}>{name}</option>
+          ))}
+        </select>
+
+        <select
+          value={request.priority}
+          onChange={(e) => void apply({ priority: e.target.value as ServiceRequestPriority })}
+          disabled={busy}
+          aria-label="Prioridade"
+          className="rounded-md border border-gray-200 px-2 py-1 text-[11px] font-medium text-gray-700"
+        >
+          {(Object.keys(SERVICE_REQUEST_PRIORITY_LABELS) as ServiceRequestPriority[]).map((value) => (
+            <option key={value} value={value}>{SERVICE_REQUEST_PRIORITY_LABELS[value]}</option>
+          ))}
+        </select>
+
+        {request.status === 'open' && (
+          <button
+            type="button"
+            onClick={() => void apply({ status: 'in_progress', assignedTo: request.assigned_to || getLocalActor().name })}
+            disabled={busy}
+            className="rounded-md bg-primary-700 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-primary-800 disabled:opacity-60"
+          >
+            Assumir
+          </button>
+        )}
+
+        {waitingOn !== 'none' && (
+          <button
+            type="button"
+            onClick={() => void apply({ status: 'resolved', note: note.trim() || undefined, noteVisibleToClient: !!note.trim() }, true)}
+            disabled={busy}
+            className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
+          >
+            <CheckCircle2 className="h-3 w-3" /> Concluir
+          </button>
+        )}
+
+        {request.status === 'resolved' && (
+          <button
+            type="button"
+            onClick={() => void apply({ status: 'in_progress' })}
+            disabled={busy}
+            className="rounded-md border border-gray-200 px-2.5 py-1 text-[11px] font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+          >
+            Reabrir
+          </button>
+        )}
+
+        <button
+          type="button"
+          onClick={() => setOpen((value) => !value)}
+          className="ml-auto text-[11px] font-semibold text-primary-700 hover:text-primary-900"
+        >
+          {open ? 'Fechar histórico' : 'Histórico e resposta'}
+        </button>
+      </div>
+
+      {open && (
+        <div className="mt-2.5 space-y-2.5 rounded-lg border border-gray-100 bg-gray-50 p-2.5">
+          <ul className="space-y-1.5">
+            {events.length === 0 && <li className="text-[11px] text-gray-400">Sem registros ainda.</li>}
+            {events.map((event) => (
+              <li key={event.id} className="text-[11px] text-gray-600">
+                <span className="font-semibold text-gray-700">
+                  {event.actor_kind === 'client' ? 'Cliente' : event.actor_name || 'Equipe'}
+                </span>
+                <span className="text-gray-400"> · {formatDateTimeBR(event.created_at)}</span>
+                {event.to_status && (
+                  <span className="ml-1 rounded bg-white px-1 text-[10px] font-semibold text-gray-500">
+                    {SERVICE_REQUEST_STATUS_LABELS[event.to_status]}
+                  </span>
+                )}
+                {!event.visible_to_client && event.actor_kind === 'staff' && (
+                  <span className="ml-1 text-[10px] font-semibold uppercase text-gray-400">interna</span>
+                )}
+                {event.note && <p className="whitespace-pre-wrap text-gray-700">{event.note}</p>}
+              </li>
+            ))}
+          </ul>
+
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={3}
+            maxLength={2000}
+            placeholder="Escreva para o cliente ou registre uma nota interna"
+            aria-label="Nota da solicitação"
+            className="w-full rounded-md border border-gray-200 p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+          />
+          <label className="flex items-center gap-1.5 text-[11px] font-medium text-gray-600">
+            <input
+              type="checkbox"
+              checked={noteVisible}
+              onChange={(e) => setNoteVisible(e.target.checked)}
+              className="h-3.5 w-3.5"
+            />
+            O cliente pode ler esta nota
+          </label>
+
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              onClick={() => void apply({ note: note.trim(), noteVisibleToClient: noteVisible })}
+              disabled={busy || !note.trim()}
+              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-gray-700 hover:bg-gray-100 disabled:opacity-60"
+            >
+              <MessageSquare className="h-3 w-3" /> Registrar nota
+            </button>
+            <button
+              type="button"
+              onClick={askClient}
+              disabled={busy}
+              className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800 hover:bg-amber-100 disabled:opacity-60"
+            >
+              <Send className="h-3 w-3" /> Perguntar ao cliente
+            </button>
+          </div>
+          <p className="text-[11px] text-gray-400">
+            "Perguntar ao cliente" passa a solicitação para a fila dele e envia o aviso. A nota
+            vai junto — sem ela, ele vê que está esperando e não sabe o quê.
+          </p>
+        </div>
+      )}
+
+      {whatsappLink && (
+        <a
+          href={whatsappLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-900"
+        >
+          <ExternalLink className="h-3 w-3" /> Avisar também pelo WhatsApp
+        </a>
+      )}
+
+      {busy && <p className="mt-2 flex items-center gap-1 text-[11px] text-gray-400"><Loader2 className="h-3 w-3 animate-spin" /> salvando…</p>}
+      {error && <p className="mt-2 text-[11px] font-medium text-red-700">{error}</p>}
+    </li>
+  );
+}
+
+// ─── Prazos informativos ──────────────────────────────────────────────────────
+
+/**
+ * O SLA daqui é **promessa ao cliente**, e por isso nasce vazio. Enquanto a Ester não definir
+ * um número, o portal não fala em prazo nenhum — não diz "em breve", não estima. Deixar em
+ * branco é uma resposta válida e é o default.
+ */
+function SlaPanel({
+  sla,
+  onSaved,
+}: {
+  sla: Record<string, number>;
+  onSaved: (sla: Record<string, number>) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<Record<string, string>>(() =>
+    Object.fromEntries(Object.entries(sla).map(([key, value]) => [key, String(value)]))
+  );
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  const save = async () => {
+    setBusy(true);
+    setError(null);
+    setSaved(false);
+    try {
+      const next: Record<string, number> = {};
+      for (const [key, value] of Object.entries(draft)) {
+        const days = Number(value);
+        if (!value.trim()) continue;
+        if (!Number.isFinite(days) || days <= 0 || days > 365) {
+          throw new Error(`Prazo inválido em "${key}": use de 1 a 365 dias, ou deixe em branco.`);
+        }
+        next[key] = Math.round(days);
+      }
+      await ServiceRequestService.saveSla(next);
+      onSaved(next);
+      setSaved(true);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mb-4 rounded-lg border border-gray-200 bg-white p-3">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="flex w-full items-center justify-between gap-2 text-left"
+      >
+        <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-gray-600">
+          <Clock3 className="h-3.5 w-3.5" /> Prazo informativo de retorno
+        </span>
+        <span className="text-[11px] font-semibold text-primary-700">
+          {open ? 'fechar' : Object.keys(sla).length ? `${Object.keys(sla).length} configurado(s)` : 'nenhum — o portal não promete prazo'}
+        </span>
+      </button>
+
+      {open && (
+        <div className="mt-3 space-y-2">
+          <p className="text-[11px] text-gray-500">
+            Em dias corridos, contados da abertura. O número é congelado na solicitação no
+            momento em que ela nasce — mudar aqui não reescreve o que já foi dito a ninguém.
+            Deixe em branco para não prometer nada nessa categoria.
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {[{ value: 'default', label: 'Padrão (todas)' }, ...SERVICE_REQUEST_CATEGORIES].map((category) => (
+              <label key={category.value} className="flex items-center justify-between gap-2 rounded-md border border-gray-100 px-2 py-1.5 text-[11px] text-gray-700">
+                <span>{category.label}</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={draft[category.value] ?? ''}
+                  onChange={(e) => setDraft((prev) => ({ ...prev, [category.value]: e.target.value }))}
+                  placeholder="—"
+                  aria-label={`Prazo para ${category.label}`}
+                  className="w-16 rounded border border-gray-200 px-1.5 py-0.5 text-right"
+                />
+              </label>
+            ))}
+          </div>
+          {error && <p className="text-[11px] font-medium text-red-700">{error}</p>}
+          {saved && <p className="text-[11px] font-medium text-emerald-700">Prazos salvos.</p>}
+          <button
+            type="button"
+            onClick={() => void save()}
+            disabled={busy}
+            className="rounded-md bg-primary-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-primary-800 disabled:opacity-60"
+          >
+            Salvar prazos
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Página ───────────────────────────────────────────────────────────────────
+
+export function ServiceRequests() {
+  const [requests, setRequests] = useState<ServiceRequest[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [queue, setQueue] = useState<QueueFilter>('team');
+  const [clientId, setClientId] = useState('');
+  const [assignedTo, setAssignedTo] = useState('');
+  const [priority, setPriority] = useState<ServiceRequestPriority | ''>('');
+  const [search, setSearch] = useState('');
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [sla, setSla] = useState<Record<string, number>>({});
+
+  const load = useCallback(() => {
+    setLoading(true);
+    ServiceRequestService.list({
+      status: QUEUE_STATUSES[queue],
+      clientId: clientId || null,
+      assignedTo: assignedTo || null,
+      priority: priority || null,
+      search,
+    })
+      .then((rows) => {
+        setRequests(rows);
+        setError(null);
+      })
+      .catch((err) => setError(errorMessage(err)))
+      .finally(() => setLoading(false));
+  }, [queue, clientId, assignedTo, priority, search]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  useEffect(() => {
+    ClientService.getClients()
+      .then(setClients)
+      .catch((err) => console.warn('[ServiceRequests] Falha ao carregar unidades:', err));
+    // A trava é do tenant: se estiver desligada, o cliente não consegue abrir nada e a tela
+    // vazia significaria "ninguém pediu", que é mentira.
+    AppointmentAdminService.getPortalSettings()
+      .then((settings) => {
+        setEnabled(!!settings.service_requests_enabled);
+        setSla((settings.service_request_sla || {}) as Record<string, number>);
+      })
+      .catch((err) => {
+        console.warn('[ServiceRequests] Falha ao ler as configuracoes do portal:', err);
+        setEnabled(null);
+      });
+  }, []);
+
+  const clientNames = useMemo(
+    () => new Map(clients.map((client) => [client.id, client.name])),
+    [clients]
+  );
+
+  const counts = useMemo(() => {
+    const waitingTeam = requests.filter((r) => serviceRequestWaitingOn(r.status) === 'team').length;
+    const waitingClient = requests.filter((r) => serviceRequestWaitingOn(r.status) === 'client').length;
+    const unassigned = requests.filter((r) => !r.assigned_to && serviceRequestWaitingOn(r.status) !== 'none').length;
+    return { waitingTeam, waitingClient, unassigned };
+  }, [requests]);
+
+  return (
+    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="flex items-center gap-2 text-2xl font-black tracking-tight text-gray-950">
+            <Headset className="h-6 w-6 text-primary-700" /> Solicitações
+          </h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Demandas abertas pelos clientes no portal. Não são agendamentos: aqui não há data nem
+            duração, só o que alguém pediu e em que pé está.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={load}
+          className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+        >
+          <RefreshCw className="h-3.5 w-3.5" /> Atualizar
+        </button>
+      </div>
+
+      {enabled === false && (
+        <p className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            As solicitações estão <strong>desligadas</strong> no portal deste tenant — nenhum
+            cliente consegue abrir demanda. Ligue em Clientes › Portal › Configurações.
+          </span>
+        </p>
+      )}
+
+      <SlaPanel sla={sla} onSaved={setSla} />
+
+      <div className="mb-4 flex flex-wrap gap-1.5">
+        {(Object.keys(QUEUE_LABELS) as QueueFilter[]).map((value) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setQueue(value)}
+            className={`rounded-md px-3 py-1.5 text-xs font-bold ${
+              queue === value ? 'bg-primary-700 text-white' : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            {QUEUE_LABELS[value]}
+          </button>
+        ))}
+      </div>
+
+      <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Assunto ou número"
+          aria-label="Buscar solicitação"
+          className="rounded-md border border-gray-200 px-2.5 py-1.5 text-xs"
+        />
+        <select
+          value={clientId}
+          onChange={(e) => setClientId(e.target.value)}
+          aria-label="Filtrar por unidade"
+          className="rounded-md border border-gray-200 px-2.5 py-1.5 text-xs"
+        >
+          <option value="">Todas as unidades</option>
+          {clients.map((client) => (
+            <option key={client.id} value={client.id}>{client.name}</option>
+          ))}
+        </select>
+        <select
+          value={assignedTo}
+          onChange={(e) => setAssignedTo(e.target.value)}
+          aria-label="Filtrar por responsável"
+          className="rounded-md border border-gray-200 px-2.5 py-1.5 text-xs"
+        >
+          <option value="">Qualquer responsável</option>
+          {CONSULTANTS.map((name) => (
+            <option key={name} value={name}>{name}</option>
+          ))}
+        </select>
+        <select
+          value={priority}
+          onChange={(e) => setPriority(e.target.value as ServiceRequestPriority | '')}
+          aria-label="Filtrar por prioridade"
+          className="rounded-md border border-gray-200 px-2.5 py-1.5 text-xs"
+        >
+          <option value="">Qualquer prioridade</option>
+          {(Object.keys(SERVICE_REQUEST_PRIORITY_LABELS) as ServiceRequestPriority[]).map((value) => (
+            <option key={value} value={value}>{SERVICE_REQUEST_PRIORITY_LABELS[value]}</option>
+          ))}
+        </select>
+      </div>
+
+      <p className="mb-3 text-xs font-medium text-gray-500">
+        {requests.length} solicitação(ões) nesta lista
+        {counts.waitingTeam > 0 && <span className="ml-1 font-bold text-primary-700">· {counts.waitingTeam} com a equipe</span>}
+        {counts.waitingClient > 0 && <span className="ml-1 font-bold text-amber-700">· {counts.waitingClient} com o cliente</span>}
+        {counts.unassigned > 0 && <span className="ml-1 font-bold text-red-700">· {counts.unassigned} sem responsável</span>}
+      </p>
+
+      {error && (
+        <p className="mb-3 rounded-md border border-red-100 bg-red-50 p-3 text-xs text-red-700">{error}</p>
+      )}
+
+      {loading && requests.length === 0 ? (
+        <div className="flex justify-center py-16">
+          <Loader2 className="h-6 w-6 animate-spin text-primary-600" />
+        </div>
+      ) : requests.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-gray-200 bg-white p-8 text-center text-sm text-gray-500">
+          Nenhuma solicitação nesta fila.
+        </p>
+      ) : (
+        <ul className="space-y-2.5">
+          {requests.map((request) => (
+            <RequestCard
+              key={request.id}
+              request={request}
+              unitName={clientNames.get(request.client_id) || 'Unidade'}
+              onChanged={load}
+            />
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
