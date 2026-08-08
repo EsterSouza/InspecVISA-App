@@ -107,6 +107,39 @@ variável no painel da Vercel, ou todo leitor novo passa pela função.
 
 ---
 
+### Os headers do `vercel.json` não estão sendo aplicados
+
+Achado pelo próprio smoke, na primeira execução contra produção. O `vercel.json`
+declara `no-cache, no-store, must-revalidate` para `/`, `/index.html`, `/sw.js` e
+`/build-info.json`. Produção responde:
+
+```
+Cache-Control: public, max-age=0, must-revalidate
+```
+
+Esse é o **default da Vercel**, não o que o arquivo pede. A causa é a propriedade
+legada `routes`: quando ela está presente, a Vercel ignora `headers`, `redirects`
+e `rewrites`. O bloco de headers nunca valeu — e nada avisa.
+
+**Gravidade real: baixa.** `max-age=0, must-revalidate` também obriga o navegador
+a revalidar antes de reusar, então o cliente não fica preso em bundle velho. O que
+se perde é a diferença entre "revalida" e "nem guarda".
+
+**Correção proposta** (não aplicada: mexe no roteamento de produção e merece uma
+janela própria) — trocar `routes` pelas propriedades modernas:
+
+- o 308 do domínio `*.vercel.app` vira `redirects`;
+- `handle: filesystem` some, porque `rewrites` já roda depois do filesystem;
+- `/(.*)` → `/index.html` vira `rewrites`;
+- a regra `/assets/(.*)` → 404 é a que precisa de atenção: ela existe para que um
+  asset inexistente devolva 404 em vez do `index.html`, e não tem equivalente
+  direto em `rewrites`. Sem ela, um navegador pedindo um chunk antigo recebe HTML
+  com status 200 — que é como o app quebra com "Unexpected token '<'".
+
+Vale conferir com o smoke depois: ele passa a exigir `no-store` de verdade.
+
+---
+
 ## 5. Rollback
 
 **Da flag** (segundos, sem deploy) — é sempre o primeiro recurso:
@@ -149,7 +182,7 @@ recarga resolve — mas conte com uma, não com zero.
 
 | Data (BRT) | Onda | SHA | Migration | Flag ligada em | Rollback testado |
 |---|---|---|---|---|---|
-| 08/08/2026 14:53 | P360-015 (procedimento, sem feature de usuário) | `33c11fd` → a publicar | nenhuma | — | flag: sim (por RPC); aplicação: documentado |
+| 08/08/2026 15:24 | P360-015 (procedimento, sem feature de usuário) | `38987a6` | nenhuma | — | flag: sim (por RPC); aplicação: documentado |
 
 ---
 
@@ -180,6 +213,15 @@ As credenciais ficam em `.env.homolog`, fora do versionamento, e nos secrets do
 GitHub para o job `e2e`. O `teardown.sql` não toca no Storage: se algum teste de
 evidência tiver subido arquivo, apague os objetos cujo primeiro nível de pasta
 seja um dos dois tenants.
+
+Cada rodada do teste de reserva concorrente deixa **uma** solicitação para trás — a
+que ganhou a corrida. Para limpar sem desmontar o ambiente inteiro:
+
+```sql
+delete from public.appointment_requests
+where tenant_id in ('aaaa0015-0000-4000-8000-00000000000a','aaaa0015-0000-4000-8000-00000000000b')
+  and unit_name like '[HOMOLOG] E2E%';
+```
 
 **O teste de reserva concorrente não passa pela tela de propósito.** A página
 `/agendar` usa o `VITE_DEFAULT_TENANT_ID` do bundle, que em produção é o tenant

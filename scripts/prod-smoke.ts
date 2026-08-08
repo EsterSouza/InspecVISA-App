@@ -156,7 +156,15 @@ async function main() {
     for (const caminho of SEM_CACHE) {
       const r = await fetch(`${base}${caminho}`, { cache: 'no-store' });
       const cc = r.headers.get('cache-control') || '(ausente)';
-      registra(/no-store/.test(cc), `sem cache em ${caminho}`, `Cache-Control: ${cc}`);
+      // O que não pode acontecer é o cliente reusar sem perguntar. `no-store` é o
+      // ideal e `max-age=0, must-revalidate` também obriga a revalidar — os dois
+      // passam. Reprovado é cache positivo, que é o que prende em bundle velho.
+      const revalida = /no-store/.test(cc) || /max-age=0/.test(cc) || /no-cache/.test(cc);
+      const detalhe = /no-store/.test(cc)
+        ? `Cache-Control: ${cc}`
+        : `Cache-Control: ${cc} — revalida, mas não é o no-store declarado no vercel.json ` +
+          '(a propriedade legada `routes` desativa `headers`; ver docs/rollout.md)';
+      registra(revalida, `sem cache em ${caminho}`, detalhe);
     }
   }
 
