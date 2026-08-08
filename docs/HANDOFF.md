@@ -2099,6 +2099,8 @@ intocados, ensaio que não escreve, backfill idempotente e a pendência chegando
 
 **Ainda não foi aplicado nem executado em produção** — depende de autorização da Ester.
 
+Commit: `c50a70b` (junto com o P360-012).
+
 ---
 
 ## PORT-01 — Central de acesso do portal por conta ✅ concluído 07/08/2026 · aplicado em produção
@@ -2719,6 +2721,8 @@ vale mesmo sem o arquivo.
   é mais grave.
 - **Contadores agregados por consultora** são o P360-013; aqui o painel conta em cima da lista
   já filtrada.
+
+Commit: `c50a70b`.
 
 ---
 
