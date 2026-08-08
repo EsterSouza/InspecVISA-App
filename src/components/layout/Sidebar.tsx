@@ -6,6 +6,7 @@ import {
   Calendar,
   ClipboardCheck,
   FileText,
+  Gauge,
   Headset,
   Home,
   LogOut,
@@ -20,6 +21,7 @@ import { SyncIndicator } from '../ui/SyncIndicator';
 
 const staffNavItems = [
   { to: '/', icon: Home, label: 'Início' },
+  { to: '/painel', icon: Gauge, label: 'Painel' },
   { to: '/clients', icon: Users, label: 'Clientes' },
   { to: '/templates', icon: FileText, label: 'Roteiros' },
   { to: '/legislations', icon: BookOpen, label: 'Biblioteca' },

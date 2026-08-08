@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   AlertCircle,
   CheckCircle2,
@@ -99,12 +100,14 @@ function RequestCard({
   request,
   unitName,
   onChanged,
+  initialOpen,
 }: {
   request: ServiceRequest;
   unitName: string;
   onChanged: () => void;
+  initialOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(!!initialOpen);
   const [events, setEvents] = useState<ServiceRequestEvent[]>([]);
   const [note, setNote] = useState('');
   const [noteVisible, setNoteVisible] = useState(false);
@@ -167,9 +170,10 @@ function RequestCard({
 
   return (
     <li
+      id={`request-${request.id}`}
       className={`rounded-xl border bg-white p-3 shadow-sm ${
         waitingOn === 'team' ? 'border-primary-200' : 'border-gray-200'
-      }`}
+      } ${initialOpen ? 'ring-2 ring-primary-400' : ''}`}
     >
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-600">
@@ -481,12 +485,16 @@ function SlaPanel({
 // ─── Página ───────────────────────────────────────────────────────────────────
 
 export function ServiceRequests() {
+  const [searchParams] = useSearchParams();
+  // Deep link do painel operacional (P360-013): abre a fila certa já com a solicitação em foco.
+  const focusRequestId = searchParams.get('id');
+
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [queue, setQueue] = useState<QueueFilter>('team');
+  const [queue, setQueue] = useState<QueueFilter>(focusRequestId ? 'all' : 'team');
   const [clientId, setClientId] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
   const [priority, setPriority] = useState<ServiceRequestPriority | ''>('');
@@ -536,6 +544,11 @@ export function ServiceRequests() {
     () => new Map(clients.map((client) => [client.id, client.name])),
     [clients]
   );
+
+  useEffect(() => {
+    if (!focusRequestId || requests.length === 0) return;
+    document.getElementById(`request-${focusRequestId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [focusRequestId, requests]);
 
   const counts = useMemo(() => {
     const waitingTeam = requests.filter((r) => serviceRequestWaitingOn(r.status) === 'team').length;
@@ -663,6 +676,7 @@ export function ServiceRequests() {
               request={request}
               unitName={clientNames.get(request.client_id) || 'Unidade'}
               onChanged={load}
+              initialOpen={request.id === focusRequestId}
             />
           ))}
         </ul>

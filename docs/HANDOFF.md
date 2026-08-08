@@ -1,6 +1,6 @@
 # Handoff único — InspecVISA
 
-**Última atualização:** 08/08/2026 (BRT), ao concluir o P360-012, aplicado em produção ·
+**Última atualização:** 08/08/2026 (BRT), ao concluir o P360-013, aplicado em produção ·
 **Branch:** `main`, sincronizada com `origin/main` · O estado da seção 2 foi verificado em 03/08/2026,
 com as correções de 04/08 e 05/08 anotadas nas tabelas.
 
@@ -244,7 +244,7 @@ a página de referências do PDF.
 | **REL-03** | Evidência do cliente na nova vistoria e no relatório final | Opus 5 | alto | PORT-02 | ✅ **concluído 07/08/2026** · só código (sem migration); fecha o ciclo sanitário |
 | **PORT-03** | O cliente declara a situação do item (inclusive "não fiz") | Opus 5 | médio | PORT-02 | ✅ **concluído 07/08/2026** · aplicado em produção |
 | **P360-012** | Solicitações estruturadas de consultoria | Opus 5 | alto | — | ✅ **concluído 08/08/2026** · aplicado em produção (2 migrations + bucket privado + 2 edge functions); inclui o backfill retroativo do plano de ação, com 306 pendências projetadas em 16 unidades |
-| **P360-013** | Painel operacional das consultoras | Sonnet 5 | alto | 010, 011, 012 | ⬜ pendente |
+| **P360-013** | Painel operacional das consultoras | Sonnet 5 | alto | 010, 011, 012 | ✅ **concluído 08/08/2026** · aplicado em produção (migration só de funções, sem tabela nova); rota `/painel` nova, sem mexer no Dashboard existente |
 | **P360-014** | Acessibilidade e responsividade | Sonnet 5 | médio | superfícies estáveis | ⬜ pendente |
 | **P360-015** | E2E, rollout e prova de produção | Opus 5 | alto | onda a publicar | ⬜ pendente |
 | **DEBT-01** | Margem pública de 4 h por tipo | Sonnet 5 | médio | — | ✅ **concluído 04/08** |
@@ -2821,6 +2821,44 @@ Commit: `c50a70b`.
 - Nenhum contador depende apenas de Dexie ou localStorage.
 - A visão por consultora não omite compromissos compartilhados.
 - Dados financeiros e técnicos ficam separados visual e semanticamente.
+
+### Resultado — 08/08/2026
+
+Feito e aplicado em produção. Sem tabela nova: agrega o que os cards 010–012 já criaram.
+
+- Migration `20260808113928_admin_operational_overview.sql`: duas RPCs staff,
+  `admin_operational_counts` (contagem dos 6 blocos, uma chamada) e `admin_operational_items`
+  (lista paginada de um bloco por vez). Escopo por `private.my_tenant_ids()` +
+  `is_tenant_staff`, sem `p_tenant_id` — mesmo padrão de `client_action_items`. Consultora é
+  string livre (`assigned_to`/`responsible`/`consultant_names`), nunca `user_id`; o bloco
+  financeiro não filtra por consultora (conta não tem consultora confiável).
+- **Indisponibilidade parcial por módulo é no servidor**: cada bloco de `admin_operational_counts`
+  roda dentro do próprio `begin/exception`; testado renomeando `client_portal_accounts` durante o
+  teste SQL e conferindo que os outros 5 blocos continuam retornando número.
+- Frontend: `src/services/operationalOverviewService.ts`, `src/pages/OperationalPanel.tsx`, rota
+  nova `/painel` (não mexe no Dashboard atual em `/`), item novo na Sidebar. Cada bloco busca sua
+  lista de forma isolada (fetch + try/catch próprio) — replica no frontend o mesmo isolamento do
+  backend.
+- Deep link real (query/route param, não `navigate(path, {state})`): `/schedules?scheduleId=`,
+  `/requests?id=`. Adicionado suporte a esses parâmetros em `Schedules.tsx` e
+  `ServiceRequests.tsx` (rolagem + destaque até o item, fila certa já selecionada). Evidência e
+  plano de ação vencido linkam para `/clients/:id` (não há tela dedicada de revisão de
+  evidência). Financeiro não linka: a conta cobre N unidades, não há um registro único de
+  origem.
+- Teste: `supabase/tests/admin_operational_overview.test.sql` (novo, encadeado em
+  `client_service_requests.test.sql`) — permissões, contagem sem filtro, filtro por consultora
+  (inclusive o caso "sem dono" zerando o bloco), filtro por cliente, itens paginados com tipo e
+  deep link, paginação com 26 linhas de volume, e o teste de falha isolada por bloco.
+- `npx tsc --noEmit` limpo; `npm test` com os 302 testes existentes passando.
+- **Deixado de fora**: verificação visual em browser com login real (não há credencial de teste
+  disponível nesta sessão — a Ester confirmou que pode conferir depois no login normal). A
+  cobertura ficou concentrada no teste SQL, que exercita a mesma migration aplicada em produção.
+- **Achado fora do escopo, não corrigido**: o ledger de produção tem duas migrations
+  (`20260808105841_backfill_uses_finalized_report_snapshot` e
+  `20260808110104_backfill_severity_from_delivered_report_only`) sem arquivo correspondente em
+  `supabase/migrations/` local — mesmo tipo de deriva que o INFRA-02 já resolveu uma vez (ver
+  seção 1, regra de ledger). Não mexi nisso por não ser do escopo do card; vale reconciliar antes
+  que acumule mais.
 
 ---
 

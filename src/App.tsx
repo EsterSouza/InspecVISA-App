@@ -18,6 +18,7 @@ const Clients = lazy(() => import('./pages/Clients').then(m => ({ default: m.Cli
 const ClientDetails = lazy(() => import('./pages/ClientDetails').then(m => ({ default: m.ClientDetails })));
 const Schedules = lazy(() => import('./pages/Schedules').then(m => ({ default: m.Schedules })));
 const ServiceRequests = lazy(() => import('./pages/ServiceRequests').then(m => ({ default: m.ServiceRequests })));
+const OperationalPanel = lazy(() => import('./pages/OperationalPanel').then(m => ({ default: m.OperationalPanel })));
 const Settings = lazy(() => import('./pages/Settings').then(m => ({ default: m.Settings })));
 const SyncCenter = lazy(() => import('./pages/SyncCenter').then(m => ({ default: m.SyncCenter })));
 const Inspections = lazy(() => import('./pages/Inspections').then(m => ({ default: m.Inspections })));
@@ -142,6 +143,8 @@ function InternalApp({ isInitializing }: InternalAppProps) {
         <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            {/* P360-013 — rota nova e separada da home: não mexe no Dashboard existente. */}
+            <Route path="/painel" element={<ProtectedRoute><OperationalPanel /></ProtectedRoute>} />
             <Route path="/clients" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
             <Route path="/clients/:id" element={<ProtectedRoute><ClientDetails /></ProtectedRoute>} />
             <Route path="/schedules" element={<ProtectedRoute><Schedules /></ProtectedRoute>} />

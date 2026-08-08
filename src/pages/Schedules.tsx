@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { Client, Schedule } from '../types';
 import { formatDateTime, generateId } from '../utils/imageUtils';
 import { Button } from '../components/ui/Button';
@@ -64,6 +64,9 @@ function buildMonthDays(month: Date): Date[] {
 
 export function Schedules() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  // Deep link do painel operacional (P360-013): abre a agenda já rolada até o compromisso.
+  const focusScheduleId = searchParams.get('scheduleId');
   const [activeTab, setActiveTab] = useState<SchedulesTab>('agenda');
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -324,6 +327,11 @@ export function Schedules() {
 
   const upcomingSchedules = schedules.filter(s => s.status === 'pending');
   const pastSchedules = schedules.filter(s => s.status !== 'pending').slice(0, 10);
+
+  useEffect(() => {
+    if (!focusScheduleId || schedules.length === 0) return;
+    document.getElementById(`schedule-${focusScheduleId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [focusScheduleId, schedules]);
   const monthDays = buildMonthDays(calendarMonth);
   const todayKey = dateKey(new Date());
   const schedulesByDay = schedules.reduce<Record<string, Schedule[]>>((acc, schedule) => {
@@ -516,7 +524,13 @@ export function Schedules() {
           ) : (
             <div className="grid gap-4">
               {upcomingSchedules.map(schedule => (
-                <Card key={schedule.id} className="overflow-hidden border-l-4 border-l-primary-500 shadow-sm hover:shadow-md transition-shadow">
+                <Card
+                  key={schedule.id}
+                  id={`schedule-${schedule.id}`}
+                  className={`overflow-hidden border-l-4 border-l-primary-500 shadow-sm hover:shadow-md transition-shadow ${
+                    focusScheduleId === String(schedule.id) ? 'ring-2 ring-primary-400' : ''
+                  }`}
+                >
                   <CardContent className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-start space-x-4">
                       <div className="bg-primary-50 p-3 rounded-xl flex flex-col items-center justify-center min-w-[64px]">
