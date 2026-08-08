@@ -200,8 +200,8 @@ presentes; uma única linha com `name = 'checklist_items_requirement_type'`.
 
 ## F. Reconferência de 08/08/2026 — depois do P360-015
 
-Comparação direta entre `supabase/migrations/` (35 arquivos) e o ledger de produção
-(`supabase_migrations.schema_migrations`, 59 linhas):
+Comparação direta entre `supabase/migrations/` (35 arquivos na conferência; 37 depois do SEC-01) e
+o ledger de produção (`supabase_migrations.schema_migrations`, 59 linhas; 61 depois do SEC-01):
 
 - **Os 35 arquivos estão no ledger, um a um.** Nada pendente de aplicar; `supabase db push` continua
   sem nada a fazer.
@@ -218,3 +218,7 @@ Comparação direta entre `supabase/migrations/` (35 arquivos) e o ledger de pro
 
 As 22 linhas restantes do ledger são história anterior a junho/2026, sem arquivo — mesma situação da
 seção C.
+
+As duas migrations do SEC-01 (`20260808185142_sec01_close_photos_bucket` e
+`20260808185210_sec01_revoke_anon_table_grants`) foram aplicadas pelo MCP em 08/08/2026 e o arquivo
+local já nasceu com a versão que o ledger gravou — a regra da seção D valendo na prática.

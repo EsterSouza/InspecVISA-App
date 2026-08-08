@@ -250,7 +250,7 @@ a página de referências do PDF.
 | **P360-015** | E2E, rollout e prova de produção | Opus 5 | alto | onda a publicar | ✅ **concluído 08/08/2026** · sem migration; CI, Playwright, smoke e tenant de homologação criados em produção |
 | **DEBT-01** | Margem pública de 4 h por tipo | Sonnet 5 | médio | — | ✅ **concluído 04/08** |
 | **DEBT-02** | Dívida de lint | Sonnet 5 | médio | — | ⬜ pendente |
-| **SEC-01** | Endurecer o que a revisão do P360-015 encontrou | Opus 5 | médio | P360-015 (concluído) | ⬜ pendente · nada aberto hoje; precisa de autorização para tocar em produção |
+| **SEC-01** | Endurecer o que a revisão do P360-015 encontrou | Opus 5 | médio | P360-015 (concluído) | ✅ **concluído 08/08/2026** · aplicado em produção (2 migrations), autorizado pela Ester; 50 execuções E2E depois do revoke |
 | **DEBT-03** | Pontas soltas do repositório | Haiku 4.5 | baixo | — | ✅ **concluído 05/08** |
 
 Ordem sugerida: **REF-05**, depois a onda do **Portal 360**. O REF-06 saiu na frente porque era
@@ -3136,7 +3136,8 @@ as RPCs do portal por token e do agendamento público — esperados.
   tenant A traz 2 unidades, o do B traz 1, token inexistente devolve "acesso invalido"), sessão
   autenticada de staff (`clients` e `appointment_requests` só devolvem o tenant de homologação) e
   consulta direta com `set role anon`.
-- **Pendente de decisão da Ester:** SEC-01 (fechar o bucket `photos` e revogar os grants de `anon`).
+- **Decidido pela Ester em 08/08/2026:** SEC-01 aprovado e aplicado — bucket `photos` fechado e
+  grants de `anon` revogados. Ver a seção do card.
 - **Pendência de conteúdo, não de código:** o tenant de produção está sem `tutorial_pdf_url`. O
   tutorial do portal é decisão de produto já consolidada e nunca foi configurado.
 
@@ -3144,7 +3145,12 @@ as RPCs do portal por token e do agendamento público — esperados.
 
 # Bloco 5 — Dívida técnica
 
-## SEC-01 — Endurecer o que a revisão do P360-015 encontrou
+## SEC-01 — Endurecer o que a revisão do P360-015 encontrou ✅ concluído em 08/08/2026
+
+**Aplicado em produção**, com autorização da Ester, por duas migrations:
+`20260808185142_sec01_close_photos_bucket` e `20260808185210_sec01_revoke_anon_table_grants`.
+O resultado e o achado que apareceu no meio do caminho estão no fim desta seção; o texto abaixo
+fica como registro do que foi decidido antes.
 
 **Modelo:** Opus 5 · **Esforço:** médio · **Prioridade:** média — nada está aberto hoje, mas as duas
 pontas removem a margem de erro
@@ -3185,6 +3191,55 @@ no card que **institui** a disciplina de liberação seria contradizê-lo.
 3. Cobrir em suíte SQL nova: `anon` recebe `permission denied`, `authenticated` do tenant continua
    lendo o que já lia.
 4. `photos`: `public = false` ou remoção do bucket, com autorização da Ester registrada.
+
+### Resultado — 08/08/2026
+
+**O mapeamento não confirmou a premissa: ele achou um acoplamento que ninguém tinha visto.**
+
+A expressão de uma policy roda com as permissões de **quem consulta**. A policy
+`client_portal_published_assets_select_anon`, em `storage.objects`, libera para `anon` o objeto
+referenciado por uma linha de `appointment_attachments` — ou seja, ela **consulta uma das tabelas
+do revoke**. Provado em Postgres 16 com repro mínimo: sem o grant, a policy para de devolver "nada"
+e passa a devolver `permission denied for table appointment_attachments` para **qualquer** leitura
+de `storage.objects` como `anon`. Revogar sem derrubar a policy teria trocado uma porta que ninguém
+usa por uma armadilha. As duas coisas foram na mesma migration, e o teste novo cobre exatamente
+esse caso.
+
+O caminho real do cliente não passa por ali: os anexos chegam por URL assinada emitida pela edge
+function `client-appointment-assets` com `service_role`, que não passa por RLS.
+
+Dois ajustes de rota em relação ao plano original:
+
+- **A contagem era 20, são 23 tabelas.** A lista foi refeita a partir de
+  `information_schema.role_table_grants`, não do card.
+- **"Não há uma única policy para `anon`" estava errado.** `appointment_slots` tinha
+  `anon select public slots`. A tabela está com 0 linhas e o modelo atual é `appointment_blocks` +
+  `private.appointment_has_conflict`, então a policy caiu junto — era exatamente o cenário
+  "policy + grant" que o card queria evitar, já existindo.
+- **`revoke ... from anon` não bastava em `sync_inspection_bundle`.** O ACL tinha `=X/postgres`, o
+  PUBLIC; enquanto ele estivesse lá, tirar de `anon` não mudaria nada. O revoke é de PUBLIC, com
+  `authenticated` e `service_role` reafirmados logo em seguida.
+
+**O que não foi mexido, de propósito:** o default privilege do schema `public` continua concedendo
+para `anon` em tabela nova — está definido para `postgres` **e** para `supabase_admin`, e mexer nele
+mudaria o comportamento de tudo que o Supabase criar daqui pra frente. A disciplina segue a mesma:
+toda migration que cria tabela revoga explicitamente (ver
+[supabase-default-privileges-em-tabela-nova]).
+
+**Prova:**
+
+- Suíte nova `supabase/tests/sec01_anon_grants.test.sql`: reproduz as 23 tabelas como o Supabase as
+  entrega, aplica a migration e confere os dois lados — `anon` sem nenhum dos 7 privilégios,
+  `authenticated` com os 4 de sempre, as duas policies fora, `storage.objects` devolvendo vazio em
+  vez de erro, e a função invoker fechada para `anon` e aberta para `authenticated`.
+- **16 suítes SQL** passando em container limpo (a suíte nova entra na conta).
+- Em produção, depois de aplicar: **0 grants de `anon`** em `public`, **0 policies** que citem
+  `anon` em qualquer schema, bucket `photos` privado com 5 MB e jpeg/png/webp. Com `set role anon`:
+  `clients` e `inspections` respondem **42501**, `storage.objects` responde sem erro, e
+  `client_portal_login` continua respondendo.
+- **50 execuções E2E** (desktop + Pixel 5) contra `inspecvisa.consultorasanitaria.com.br` **depois**
+  do revoke: portal do cliente, canal público de agendamento, PWA e app interno, todos passando.
+- 314 testes JS, `npm run build` OK.
 
 ---
 
