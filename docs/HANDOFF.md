@@ -2859,6 +2859,7 @@ Feito e aplicado em produção. Sem tabela nova: agrega o que os cards 010–012
   `supabase/migrations/` local — mesmo tipo de deriva que o INFRA-02 já resolveu uma vez (ver
   seção 1, regra de ledger). Não mexi nisso por não ser do escopo do card; vale reconciliar antes
   que acumule mais.
+- SHA: `a3ed4d6`.
 
 ---
 
