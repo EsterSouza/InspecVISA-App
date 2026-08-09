@@ -348,10 +348,19 @@ Nomes de modelo mudam rápido; escolher o mais recente no `/model` e calibrar o 
 | Card | Estado |
 |---|---|
 | FE-01 a FE-03 | ✅ Entregues em 09/08/2026 · calendário de semana acrescentado na revisão do mesmo dia |
-| FE-13 (calendário) | ✅ desenhado nos três artefatos — falta implementar, na onda 1 |
-| Onda 1 (portal) | **Próxima a começar** — prioridade máxima |
+| FE-13 (calendário) | ✅ implementado (commit `fb37e7f`) |
+| FE-04a (tokens/fontes/primitivos/Modal) | ✅ Entregue em 09/08/2026 (commit `b16a9ae`) — ver detalhe abaixo |
+| Onda 1 (portal) | **Em andamento** — falta FE-09 e FE-10 |
 | Ondas 2 e 3 | Depois do portal no ar |
 | MCP do DesignMD | ✅ funcionando — URL corrigida para `www` e servidor aprovado em `~/.claude.json` |
+
+### FE-04a — o que foi feito e o que ficou pra depois
+
+Feito: paleta oficial (`primary`/`navy`/`secondary`/`amber`) e fontes Sora + Source Sans 3 no `tailwind.config.js`; `tailwindcss-animate` instalado; `Modal.tsx` reescrito com `<dialog>` nativo (fechar no backdrop e trava de rolagem escritos); bug do `Button variant="secondary"` corrigido; primitivos novos `Input`, `Textarea`, `Select`, `Label`, `EmptyState`, `Skeleton`, `Toast` (+ `useToastStore`) em `src/components/ui`, `<Toaster />` montado no `App.tsx`. Build (`npm run build`) limpo.
+
+Achado durante a implementação: `Source Sans 3` sem aspas no `fontFamily` é CSS inválido (o "3" isolado não é identificador válido) — a declaração inteira era descartada e o app caía em Times New Roman. Corrigido com aspas.
+
+Ficou pra depois: **não troquei `alert()`/`confirm()`** — busquei em `ClientPortal.tsx` e `src/components/client/*` (o portal real) e não encontrado nenhuma ocorrência hoje; existem só em telas admin, fora do escopo desta onda. Os primitivos novos também **ainda não substituem** os inputs crus espalhados pelas telas — isso é adoção, entra quando FE-09 quebrar o `ClientPortal.tsx` em rotas.
 
 Conferido nos três artefatos: 15 pares de contraste medidos em tempo real sem nenhuma reprovação nos dois temas; nenhuma rolagem horizontal em 375px, 1280px e 1440px; menor alvo de toque de 44px; nenhum erro de console; `<dialog>` devolvendo o foco ao botão de origem; e o calendário caindo para lista por dia abaixo de 720px.
 
