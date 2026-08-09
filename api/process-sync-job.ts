@@ -179,7 +179,13 @@ async function processSyncJob(admin: any, jobId: string, userId: string) {
 
     const preparedPhotos = await runLimited(photos, PHOTO_UPLOAD_CONCURRENCY, async (rawPhoto) => {
       const photo = { ...(rawPhoto as Record<string, unknown>) };
-      const localDataUrl = photo.local_data_url || photo.localDataUrl || null;
+      // O payload vem do cliente, então os bytes chegam como `unknown`: sem estreitar para
+      // string, `dataUrlToUpload` recebia o que viesse e quebrava com TypeError lá dentro.
+      const rawLocalDataUrl = photo.local_data_url || photo.localDataUrl || null;
+      if (rawLocalDataUrl !== null && typeof rawLocalDataUrl !== 'string') {
+        throw new Error('Formato de foto local invalido para upload.');
+      }
+      const localDataUrl = rawLocalDataUrl;
       delete photo.local_data_url;
       delete photo.localDataUrl;
 
