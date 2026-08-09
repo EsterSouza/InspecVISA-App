@@ -11,6 +11,7 @@ import { Loader2 } from 'lucide-react';
 import { Sidebar } from './components/layout/Sidebar';
 import { BottomNav } from './components/layout/BottomNav';
 import { InstallPWA } from './components/InstallPWA';
+import { Toaster } from './components/ui/Toast';
 
 // Lazy Loaded Pages
 const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })));
@@ -360,6 +361,7 @@ function App() {
   return (
     <BrowserRouter>
       <InstallPWA />
+      <Toaster />
       <Routes>
         {/* Public routes — no authentication required */}
         <Route
