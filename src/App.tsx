@@ -389,7 +389,7 @@ function App() {
           }
         />
         <Route
-          path="/cliente"
+          path="/cliente/*"
           element={
             <Suspense fallback={<RouteFallback />}>
               <ClientPortal />

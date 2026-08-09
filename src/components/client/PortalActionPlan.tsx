@@ -23,6 +23,9 @@ import {
 /** Acima disso a lista começa recolhida — o plano de ação de uma rede passa fácil de 30 itens. */
 const COMPACT_THRESHOLD = 5;
 
+/** Pendências mostradas por unidade em "Todas" — o resto só aparece ao abrir a unidade inteira. */
+const GROUP_PREVIEW_LIMIT = 3;
+
 const priorityLabel: Record<ClientActionItemPriority, string> = {
   urgent: 'Urgente',
   important: 'Importante',
@@ -92,8 +95,15 @@ interface PortalActionPlanProps {
   items: ClientPortalActionItem[];
   loading?: boolean;
   error?: boolean;
-  /** Só faz sentido rotular a unidade quando o cliente enxerga mais de uma. */
-  showUnitName?: boolean;
+  /**
+   * "Todas as unidades" com mais de uma unidade: as pendências abertas viram grupos por
+   * unidade (cabeçalho + contadores), em vez de uma lista só empilhada. Cada grupo mostra no
+   * máximo `GROUP_PREVIEW_LIMIT` pendências; o resto só aparece ao trocar o filtro pra aquela
+   * unidade via `onSelectUnit`.
+   */
+  groupByUnit?: boolean;
+  /** Troca o filtro global de unidade — usado pelo "ver todas as pendências de <unidade>". */
+  onSelectUnit?: (clientId: string) => void;
   onSubmitEvidence?: SubmitEvidenceHandler;
   onDeclareStatus?: DeclareStatusHandler;
   /**
@@ -556,11 +566,45 @@ function ActionItemCard({
   );
 }
 
+interface ActionItemGroup {
+  clientId: string;
+  unitName: string;
+  items: ClientPortalActionItem[];
+  overdueCount: number;
+}
+
+/**
+ * Agrupa as pendências abertas por unidade, preservando a ordem que já vem da RPC (prazo,
+ * depois prioridade) dentro de cada grupo. Ordena os grupos pela urgência: mais vencidas
+ * primeiro, depois mais pendências, depois nome — é a unidade que mais precisa de atenção.
+ */
+function groupOpenItemsByUnit(open: ClientPortalActionItem[]): ActionItemGroup[] {
+  const groups = new Map<string, ActionItemGroup>();
+  for (const item of open) {
+    const group = groups.get(item.client_id);
+    if (group) {
+      group.items.push(item);
+      if (item.is_overdue) group.overdueCount += 1;
+    } else {
+      groups.set(item.client_id, {
+        clientId: item.client_id,
+        unitName: item.unit_name,
+        items: [item],
+        overdueCount: item.is_overdue ? 1 : 0,
+      });
+    }
+  }
+  return Array.from(groups.values()).sort(
+    (a, b) => b.overdueCount - a.overdueCount || b.items.length - a.items.length || a.unitName.localeCompare(b.unitName)
+  );
+}
+
 export function PortalActionPlan({
   items,
   loading,
   error,
-  showUnitName,
+  groupByUnit,
+  onSelectUnit,
   onSubmitEvidence,
   onDeclareStatus,
   alwaysShow,
@@ -621,6 +665,8 @@ export function PortalActionPlan({
   const overdue = open.filter((item) => item.is_overdue).length;
   const compact = open.length > COMPACT_THRESHOLD && !expanded;
   const visible = compact ? open.slice(0, COMPACT_THRESHOLD) : open;
+  const isGrouped = !!groupByUnit && new Set(open.map((item) => item.client_id)).size > 1;
+  const groups = isGrouped ? groupOpenItemsByUnit(open) : [];
 
   return (
     <section aria-labelledby="portal-action-plan" className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -642,13 +688,49 @@ export function PortalActionPlan({
         <p className="rounded-lg border border-dashed border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
           Nenhuma pendência em aberto. Tudo que foi apontado já está concluído.
         </p>
+      ) : isGrouped ? (
+        <div className="space-y-4">
+          {groups.map((group) => (
+            <div key={group.clientId}>
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <h4 className="text-xs font-bold uppercase tracking-wide text-gray-600">{group.unitName}</h4>
+                <span className="text-[11px] font-medium text-gray-500">
+                  {group.items.length} pendente{group.items.length === 1 ? '' : 's'}
+                  {group.overdueCount > 0 && (
+                    <span className="ml-1 font-bold text-red-700">· {group.overdueCount} vencida(s)</span>
+                  )}
+                </span>
+              </div>
+              <ul className="space-y-2">
+                {group.items.slice(0, GROUP_PREVIEW_LIMIT).map((item) => (
+                  <ActionItemCard
+                    key={item.id}
+                    item={item}
+                    author={author}
+                    onAuthorChange={handleAuthorChange}
+                    onSubmitEvidence={onSubmitEvidence}
+                    onDeclareStatus={onDeclareStatus}
+                  />
+                ))}
+              </ul>
+              {group.items.length > GROUP_PREVIEW_LIMIT && onSelectUnit && (
+                <button
+                  type="button"
+                  onClick={() => onSelectUnit(group.clientId)}
+                  className="mt-2 text-xs font-semibold text-primary-700 hover:text-primary-900"
+                >
+                  Ver todas as {group.items.length} pendências de {group.unitName}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
       ) : (
         <ul className="space-y-2">
           {visible.map((item) => (
             <ActionItemCard
               key={item.id}
               item={item}
-              showUnitName={showUnitName}
               author={author}
               onAuthorChange={handleAuthorChange}
               onSubmitEvidence={onSubmitEvidence}
@@ -658,7 +740,7 @@ export function PortalActionPlan({
         </ul>
       )}
 
-      {open.length > COMPACT_THRESHOLD && (
+      {!isGrouped && open.length > COMPACT_THRESHOLD && (
         <button
           type="button"
           onClick={() => setExpanded((value) => !value)}
@@ -678,7 +760,7 @@ export function PortalActionPlan({
               <ActionItemCard
                 key={item.id}
                 item={item}
-                showUnitName={showUnitName}
+                showUnitName={!!groupByUnit}
                 author={author}
                 onAuthorChange={handleAuthorChange}
               />

@@ -47,3 +47,17 @@ export function filterUnitsBySelection<T extends { client_id: string }>(
   if (!selectedUnitId) return units;
   return units.filter((unit) => unit.client_id === selectedUnitId);
 }
+
+/** Nota de conformidade da visita mais recente já pontuada; `null` se nenhuma visita tem nota. */
+export function latestComplianceScore(
+  visits: { compliance_score?: number | null; requested_date: string | null; requested_time?: string | null }[]
+): number | null {
+  const scored = visits.filter((v) => typeof v.compliance_score === 'number');
+  if (scored.length === 0) return null;
+  const latest = scored
+    .slice()
+    .sort((a, b) =>
+      `${b.requested_date || ''}${b.requested_time || ''}`.localeCompare(`${a.requested_date || ''}${a.requested_time || ''}`)
+    )[0];
+  return latest.compliance_score as number;
+}

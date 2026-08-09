@@ -99,12 +99,39 @@ describe('P360-010 - PortalActionPlan', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  test('só rotula a unidade quando o cliente enxerga mais de uma', () => {
-    const { rerender } = render(<PortalActionPlan items={[actionItem()]} />);
-    expect(screen.queryByText('Unidade Centro')).not.toBeInTheDocument();
-
-    rerender(<PortalActionPlan items={[actionItem()]} showUnitName />);
+  test('agrupa por unidade em "Todas as unidades" e mostra um cabeçalho por grupo', () => {
+    render(
+      <PortalActionPlan
+        items={[
+          actionItem(),
+          actionItem({ id: 'item-2', client_id: 'client-2', unit_name: 'Unidade Zona Sul', title: 'Extintor vencido' }),
+        ]}
+        groupByUnit
+      />
+    );
     expect(screen.getByText('Unidade Centro')).toBeInTheDocument();
+    expect(screen.getByText('Unidade Zona Sul')).toBeInTheDocument();
+  });
+
+  test('unidade única não agrupa mesmo com groupByUnit', () => {
+    render(<PortalActionPlan items={[actionItem()]} groupByUnit />);
+    expect(screen.queryByText('Unidade Centro')).not.toBeInTheDocument();
+  });
+
+  test('grupo com mais de 3 pendências oferece abrir a unidade inteira', async () => {
+    const onSelectUnit = vi.fn();
+    const items = [
+      ...Array.from({ length: 4 }, (_, index) =>
+        actionItem({ id: `centro-${index}`, title: `Pendência Centro ${index}` })
+      ),
+      actionItem({ id: 'zona-sul-1', client_id: 'client-2', unit_name: 'Unidade Zona Sul', title: 'Extintor vencido' }),
+    ];
+    render(<PortalActionPlan items={items} groupByUnit onSelectUnit={onSelectUnit} />);
+
+    expect(screen.queryByText('Pendência Centro 3')).not.toBeInTheDocument();
+    const openUnitButton = screen.getByRole('button', { name: /Ver todas as 4 pendências de Unidade Centro/ });
+    await userEvent.click(openUnitButton);
+    expect(onSelectUnit).toHaveBeenCalledWith('client-1');
   });
 });
 

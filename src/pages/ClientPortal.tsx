@@ -1,35 +1,22 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  ClipboardCheck,
-  Download,
-  KeyRound,
-  Loader2,
-  LogOut,
-  Mail,
-} from 'lucide-react';
+import { ClipboardCheck, KeyRound, Loader2, Mail } from 'lucide-react';
 import { PublicHeader } from '../components/public/PublicHeader';
-import { PortalQuickActions } from '../components/client/PortalQuickActions';
 import {
-  PortalNextAction,
   type NextActionOverdueItem,
   type NextActionPaymentOverdue,
   type NextActionReturnedEvidence,
   type NextActionUpcomingAppointment,
 } from '../components/client/PortalNextAction';
 import {
-  PortalActionPlan,
   type DeclareStatusHandler,
   type SubmitEvidenceHandler,
 } from '../components/client/PortalActionPlan';
 import {
-  PortalServiceRequests,
   type CreateServiceRequestHandler,
   type ReplyServiceRequestHandler,
 } from '../components/client/PortalServiceRequests';
-import { PortalAppointments, type PortalAppointmentVisit } from '../components/client/PortalAppointments';
-import { PortalDocuments } from '../components/client/PortalDocuments';
-import { PortalBilling } from '../components/client/PortalBilling';
-import { PortalCompliance } from '../components/client/PortalCompliance';
+import { type PortalAppointmentVisit } from '../components/client/PortalAppointments';
+import { ClientPortalShell } from '../components/client/ClientPortalShell';
 import {
   clientPortalService,
   type ClientPortalActionItem,
@@ -37,7 +24,6 @@ import {
   type ClientPortalOverview,
   type ClientPortalServiceRequest,
 } from '../services/clientPortalService';
-import { generateFranchisePdf } from '../utils/franchiseReport';
 import { filterUnitsBySelection, paymentLinks, toDateKey } from '../utils/clientPortalFormat';
 
 const ACTIVE_VISIT_STATUSES = new Set(['requested', 'confirmed', 'in_progress', 'rescheduled', 'completed']);
@@ -65,22 +51,25 @@ export function ClientPortal() {
   const [paymentAckSent, setPaymentAckSent] = useState(false);
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
 
-  const loadActionItems = useCallback(async (portalToken: string, options: { audit?: boolean } = {}) => {
-    try {
-      const items = await clientPortalService.actionItems(portalToken);
-      setActionItems(items);
-      setActionItemsError(false);
-      if (options.audit && items.length > 0) {
-        void clientPortalService.audit(portalToken, 'action_plan_viewed', {
-          open: items.filter((item) => item.status !== 'resolved').length,
-          overdue: items.filter((item) => item.is_overdue).length,
-        });
+  const loadActionItems = useCallback(
+    async (portalToken: string, clientId: string | null, options: { audit?: boolean } = {}) => {
+      try {
+        const items = await clientPortalService.actionItems(portalToken, clientId);
+        setActionItems(items);
+        setActionItemsError(false);
+        if (options.audit && items.length > 0) {
+          void clientPortalService.audit(portalToken, 'action_plan_viewed', {
+            open: items.filter((item) => item.status !== 'resolved').length,
+            overdue: items.filter((item) => item.is_overdue).length,
+          });
+        }
+      } catch (err) {
+        console.warn('[ClientPortal] Falha ao carregar o plano de acao:', err);
+        setActionItemsError(true);
       }
-    } catch (err) {
-      console.warn('[ClientPortal] Falha ao carregar o plano de acao:', err);
-      setActionItemsError(true);
-    }
-  }, []);
+    },
+    []
+  );
 
   const loadInvoices = useCallback(async (portalToken: string) => {
     try {
@@ -93,9 +82,9 @@ export function ClientPortal() {
     }
   }, []);
 
-  const loadServiceRequests = useCallback(async (portalToken: string) => {
+  const loadServiceRequests = useCallback(async (portalToken: string, clientId: string | null) => {
     try {
-      setServiceRequests(await clientPortalService.serviceRequests(portalToken));
+      setServiceRequests(await clientPortalService.serviceRequests(portalToken, clientId));
       setServiceRequestsError(false);
     } catch (err) {
       console.warn('[ClientPortal] Falha ao carregar as solicitacoes:', err);
@@ -103,40 +92,42 @@ export function ClientPortal() {
     }
   }, []);
 
-  const loadOverview = useCallback(async (portalToken: string) => {
-    setLoading(true);
-    let serviceRequestsEnabled = false;
-    try {
-      const data = await clientPortalService.overview(portalToken);
-      setOverview(data);
-      serviceRequestsEnabled = !!data.service_requests_enabled;
-      setError(null);
-      void clientPortalService.audit(portalToken, 'overview_viewed', {
-        units: data.units.length,
-      });
-    } catch (err) {
-      console.warn('[ClientPortal] Falha ao carregar painel:', err);
-      clientPortalService.clearToken();
-      setToken(null);
-      setOverview(null);
-    } finally {
-      setLoading(false);
-    }
-
-    // Notas fiscais e plano de ação em chamadas separadas e em paralelo: cada uma falha
-    // sozinha, e a pendência sanitária não pode esperar a Edge Function do financeiro.
-    await Promise.all([
-      loadInvoices(portalToken),
-      loadActionItems(portalToken, { audit: true }),
-      // Só busca solicitação onde o módulo está ligado: a seção nem aparece nos outros
-      // tenants, e a RPC devolveria lista vazia de qualquer forma.
-      serviceRequestsEnabled ? loadServiceRequests(portalToken) : Promise.resolve(),
-    ]);
-  }, [loadInvoices, loadActionItems, loadServiceRequests]);
+  const loadOverview = useCallback(
+    async (portalToken: string) => {
+      setLoading(true);
+      try {
+        const data = await clientPortalService.overview(portalToken);
+        setOverview(data);
+        setError(null);
+        void clientPortalService.audit(portalToken, 'overview_viewed', { units: data.units.length });
+      } catch (err) {
+        console.warn('[ClientPortal] Falha ao carregar painel:', err);
+        clientPortalService.clearToken();
+        setToken(null);
+        setOverview(null);
+      } finally {
+        setLoading(false);
+      }
+      await loadInvoices(portalToken);
+    },
+    [loadInvoices]
+  );
 
   useEffect(() => {
     if (token) void loadOverview(token);
   }, [token, loadOverview]);
+
+  // Plano de ação e solicitações são buscados por unidade: a RPC já filtra no servidor
+  // (`p_client_id`), então trocar o filtro global refaz a busca em vez de filtrar em memória.
+  useEffect(() => {
+    if (!token) return;
+    void loadActionItems(token, selectedUnitId, { audit: true });
+  }, [token, selectedUnitId, loadActionItems]);
+
+  useEffect(() => {
+    if (!token || !overview?.service_requests_enabled) return;
+    void loadServiceRequests(token, selectedUnitId);
+  }, [token, selectedUnitId, overview?.service_requests_enabled, loadServiceRequests]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -199,9 +190,9 @@ export function ClientPortal() {
         byName,
         byRole,
       });
-      await loadActionItems(token);
+      await loadActionItems(token, selectedUnitId);
     },
-    [token, loadActionItems]
+    [token, selectedUnitId, loadActionItems]
   );
 
   const handleDeclareStatus: DeclareStatusHandler = useCallback(
@@ -211,9 +202,9 @@ export function ClientPortal() {
         { accountToken: token },
         { actionItemId: item.id, status, note, byName, byRole }
       );
-      await loadActionItems(token);
+      await loadActionItems(token, selectedUnitId);
     },
-    [token, loadActionItems]
+    [token, selectedUnitId, loadActionItems]
   );
 
   // P360-012 — abrir a solicitação não muda mais nada na tela: ela volta do servidor com
@@ -222,10 +213,10 @@ export function ClientPortal() {
     async (input) => {
       if (!token) throw new Error('Sessão expirada. Entre de novo para registrar sua solicitação.');
       const result = await clientPortalService.createServiceRequest(token, input);
-      await loadServiceRequests(token);
+      await loadServiceRequests(token, selectedUnitId);
       return { requestNumber: result.requestNumber, attachmentError: result.attachmentError };
     },
-    [token, loadServiceRequests]
+    [token, selectedUnitId, loadServiceRequests]
   );
 
   const handleReplyServiceRequest: ReplyServiceRequestHandler = useCallback(
@@ -237,9 +228,9 @@ export function ClientPortal() {
         byName,
         byRole,
       });
-      await loadServiceRequests(token);
+      await loadServiceRequests(token, selectedUnitId);
     },
-    [token, loadServiceRequests]
+    [token, selectedUnitId, loadServiceRequests]
   );
 
   const handleUnitFilterChange = (unitId: string | null) => {
@@ -303,21 +294,11 @@ export function ClientPortal() {
     };
   }, [filteredVisits]);
 
-  const filteredActionItems = useMemo(
-    () => (selectedUnitId ? actionItems.filter((item) => item.client_id === selectedUnitId) : actionItems),
-    [actionItems, selectedUnitId]
-  );
-
-  const filteredServiceRequests = useMemo(
-    () => (selectedUnitId ? serviceRequests.filter((request) => request.client_id === selectedUnitId) : serviceRequests),
-    [serviceRequests, selectedUnitId]
-  );
-
   // Devolução vem ANTES de prazo vencido: o item vencido o cliente já sabe que está atrasado,
   // enquanto a devolução é informação nova, dele para nós, que só ele pode destravar. Se os dois
   // valem para o mesmo item, mandar refazer a evidência é a ação útil.
   const nextActionReturnedEvidence: NextActionReturnedEvidence | null = useMemo(() => {
-    const returned = filteredActionItems.find(
+    const returned = actionItems.find(
       (item) => item.status === 'published' && item.evidence_status === 'changes_requested'
     );
     if (!returned) return null;
@@ -325,22 +306,22 @@ export function ClientPortal() {
       type: 'evidence_returned',
       unitName: returned.unit_name,
       itemLabel: returned.title,
-      href: '#portal-action-plan',
+      href: '/cliente/plano-de-acao',
     };
-  }, [filteredActionItems]);
+  }, [actionItems]);
 
   const nextActionOverdueItem: NextActionOverdueItem | null = useMemo(() => {
     // O mais atrasado primeiro; o portal já entrega a lista ordenada por prazo.
-    const overdue = filteredActionItems.find((item) => item.status === 'published' && item.is_overdue);
+    const overdue = actionItems.find((item) => item.status === 'published' && item.is_overdue);
     if (!overdue || !overdue.due_date) return null;
     return {
       type: 'item_overdue',
       unitName: overdue.unit_name,
       itemLabel: overdue.title,
       dueDate: overdue.due_date,
-      href: '#portal-action-plan',
+      href: '/cliente/plano-de-acao',
     };
-  }, [filteredActionItems]);
+  }, [actionItems]);
 
   // ─── Carregando painel ───────────────────────────────────────
   if (loading) {
@@ -443,141 +424,38 @@ export function ClientPortal() {
   return (
     <div className="min-h-screen bg-gray-50">
       <PublicHeader />
-      <main className="mx-auto max-w-6xl px-4 py-8 pb-16 sm:px-6">
-        <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-950">{overview.account_name}</h2>
-            <p className="mt-1 text-sm text-gray-500">
-              {overview.units.length} unidade{overview.units.length === 1 ? '' : 's'} ·{' '}
-              {totalVisits} compromisso{totalVisits === 1 ? '' : 's'}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => generateFranchisePdf(overview)}
-              className="inline-flex items-center gap-1.5 rounded-md border border-primary-200 bg-primary-50 px-3 py-2 text-xs font-semibold text-primary-700 hover:bg-primary-100"
-            >
-              <Download className="h-3.5 w-3.5" /> Resumo (PDF)
-            </button>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-100"
-            >
-              <LogOut className="h-3.5 w-3.5" /> Sair
-            </button>
-          </div>
-        </div>
-
-        <PortalNextAction
-          paymentOverdue={nextActionPayment}
-          upcomingAppointment={nextActionAppointment}
-          returnedEvidence={overview.action_plan_enabled ? nextActionReturnedEvidence : null}
-          overdueItem={overview.action_plan_enabled ? nextActionOverdueItem : null}
-          onAudit={audit}
-        />
-
-        <PortalQuickActions
-          enabled={overview.quick_access_enabled}
-          mainDriveFolderUrl={overview.main_drive_folder_url}
-          tutorialPdfUrl={overview.tutorial_pdf_url}
-          supportWhatsapp={overview.support_whatsapp}
-          schedulingSuspended={schedulingSuspended}
-          units={overview.units}
-          onAudit={audit}
-        />
-
-        {overview.units.length > 1 && (
-          <div className="mb-6 flex items-center gap-2">
-            <label htmlFor="portal-unit-filter" className="text-xs font-bold uppercase tracking-wide text-gray-500">
-              Unidade
-            </label>
-            <select
-              id="portal-unit-filter"
-              value={selectedUnitId ?? ''}
-              onChange={(e) => handleUnitFilterChange(e.target.value || null)}
-              className="rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-sm font-medium text-gray-700 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
-            >
-              <option value="">Todas</option>
-              {overview.units.map((unit) => (
-                <option key={unit.client_id} value={unit.client_id}>
-                  {unit.client_name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {blockedFeatures.length > 0 && (
-          <section className="mb-6 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
-            <span className="font-semibold text-gray-800">
-              {blockedFeatures.join(', ')}{' '}
-              {blockedFeatures.length === 1 ? 'está temporariamente indisponível' : 'estão temporariamente indisponíveis'}{' '}
-              no seu portal.
-            </span>{' '}
-            Fale com a equipe da consultoria para liberar.
-          </section>
-        )}
-
-        {overview.action_plan_enabled && (
-          <PortalActionPlan
-            items={filteredActionItems}
-            error={actionItemsError}
-            showUnitName={overview.units.length > 1 && !selectedUnitId}
-            onSubmitEvidence={handleSubmitEvidence}
-            onDeclareStatus={handleDeclareStatus}
-            onRetry={() => void loadActionItems(token, { audit: true })}
-          />
-        )}
-
-        {/*
-          Solicitações vêm antes dos documentos e SEPARADAS dos compromissos (critério de
-          aceite do P360-012): pedido administrativo e visita agendada são coisas diferentes.
-        */}
-        {overview.service_requests_enabled && (
-          <PortalServiceRequests
-            requests={filteredServiceRequests}
-            units={overview.units}
-            error={serviceRequestsError}
-            onCreate={handleCreateServiceRequest}
-            onReply={handleReplyServiceRequest}
-            onRetry={() => void loadServiceRequests(token)}
-          />
-        )}
-
-        <PortalDocuments visits={filteredVisits} />
-
-        <PortalCompliance units={filteredUnits} />
-
-        <PortalBilling
-          payment={overview.payment}
-          invoices={invoices}
-          invoicesError={invoicesError}
-          paymentAckBusy={paymentAckBusy}
-          paymentAckSent={paymentAckSent}
-          onAcknowledgePayment={() => void handlePaymentAcknowledgement()}
-          onAudit={audit}
-          onRetryInvoices={() => void loadInvoices(token)}
-        />
-
-        {filteredUnits.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-gray-200 bg-white p-8 text-center text-sm text-gray-500">
-            Nenhuma unidade vinculada ao seu acesso ainda. Fale com a equipe da consultoria.
-          </div>
-        ) : (
-          <div id="portal-agenda">
-            <PortalAppointments
-              visits={filteredVisits}
-              schedulingSuspended={schedulingSuspended}
-            />
-          </div>
-        )}
-
-        <p className="mt-8 text-center text-xs text-gray-400">
-          Toque em um compromisso para ver seus detalhes e os materiais aplicáveis.
-        </p>
-      </main>
+      <ClientPortalShell
+        overview={overview}
+        invoices={invoices}
+        invoicesError={invoicesError}
+        actionItems={actionItems}
+        actionItemsError={actionItemsError}
+        serviceRequests={serviceRequests}
+        serviceRequestsError={serviceRequestsError}
+        selectedUnitId={selectedUnitId}
+        onUnitFilterChange={handleUnitFilterChange}
+        filteredUnits={filteredUnits}
+        filteredVisits={filteredVisits}
+        nextActionPayment={nextActionPayment}
+        nextActionAppointment={nextActionAppointment}
+        nextActionReturnedEvidence={nextActionReturnedEvidence}
+        nextActionOverdueItem={nextActionOverdueItem}
+        blockedFeatures={blockedFeatures}
+        schedulingSuspended={schedulingSuspended}
+        totalVisits={totalVisits}
+        audit={audit}
+        onSubmitEvidence={handleSubmitEvidence}
+        onDeclareStatus={handleDeclareStatus}
+        onCreateServiceRequest={handleCreateServiceRequest}
+        onReplyServiceRequest={handleReplyServiceRequest}
+        paymentAckBusy={paymentAckBusy}
+        paymentAckSent={paymentAckSent}
+        onAcknowledgePayment={() => void handlePaymentAcknowledgement()}
+        onLogout={handleLogout}
+        onRetryActionItems={() => void loadActionItems(token, selectedUnitId, { audit: true })}
+        onRetryServiceRequests={() => void loadServiceRequests(token, selectedUnitId)}
+        onRetryInvoices={() => void loadInvoices(token)}
+      />
     </div>
   );
 }
