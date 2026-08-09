@@ -64,11 +64,6 @@ export function ClientPortal() {
   const [paymentAckBusy, setPaymentAckBusy] = useState(false);
   const [paymentAckSent, setPaymentAckSent] = useState(false);
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
-  // Calendário: começa sempre no mês corrente
-  const [calendarMonth, setCalendarMonth] = useState(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1);
-  });
 
   const loadActionItems = useCallback(async (portalToken: string, options: { audit?: boolean } = {}) => {
     try {
@@ -575,8 +570,6 @@ export function ClientPortal() {
             <PortalAppointments
               visits={filteredVisits}
               schedulingSuspended={schedulingSuspended}
-              calendarMonth={calendarMonth}
-              onCalendarMonthChange={setCalendarMonth}
             />
           </div>
         )}

@@ -286,7 +286,7 @@ Regra que decide a coluna **Esforço**: o que o protótipo já resolveu não é 
 | FE-04a | Tokens no Tailwind + fontes Sora / Source Sans 3 | Sonnet 5 | baixo | — |
 | FE-04a | Primitivos do portal: `Input`, `Textarea`, `Select`, `Label`, `Badge`, `Card`, `EmptyState`, `Skeleton` | Sonnet 5 | médio | tokens |
 | FE-04a | `Modal` com `<dialog>` nativo + `Toast`, e matar `alert()`/`confirm()` | Opus 5 | médio | primitivos |
-| FE-13 | `WeekCalendar` compartilhado + alternador Semana / Lista | Opus 5 | médio-alto | primitivos |
+| FE-13 | `WeekCalendar` compartilhado + alternador Semana / Lista ✅ | Opus 5 | médio-alto | primitivos |
 | FE-09 | Quebrar `ClientPortal.tsx` em rotas de seção | Opus 5 | médio-alto | primitivos |
 | FE-09 | Plano de ação agrupado por unidade + comparativo + amostra de 3 | Opus 5 | médio-alto | rotas |
 | FE-09 | `p_client_id` nas RPCs e PDF respeitando o filtro de unidade | Sonnet 5 | médio | rotas |
@@ -303,7 +303,7 @@ Regra que decide a coluna **Esforço**: o que o protótipo já resolveu não é 
 | FE-04b | `PageShell` + `PageHeader` | Sonnet 5 | baixo | — |
 | FE-08 | Tela nova de Plano de Ação: lista + detalhe com `situation` e `recommended_action` | Opus 5 | médio-alto | `Table` |
 | FE-06 | Rail colapsável persistido + drawer no celular + nova ordem do menu | Sonnet 5 | médio | `Drawer` |
-| FE-13 | Agendamentos do admin reusando o `WeekCalendar` | Sonnet 5 | baixo | FE-13 da onda 1 |
+| FE-13 | Agendamentos do admin reusando o `WeekCalendar` ✅ | Sonnet 5 | baixo | FE-13 da onda 1 |
 | FE-07 | Aba de Arquivos + corrigir o N+1 de `listAttachments` | Sonnet 5 | médio | `Table` |
 | FE-05 | Larguras: `max-w-*` → `PageShell` em ~15 páginas | Haiku 4.5 · ou Codex | baixo | `PageShell` |
 | — | Converter listas de cards em tabelas nas telas restantes | Codex (medium) | médio | exemplo aprovado |
@@ -348,7 +348,7 @@ Nomes de modelo mudam rápido; escolher o mais recente no `/model` e calibrar o 
 | Card | Estado |
 |---|---|
 | FE-01 a FE-03 | ✅ Entregues em 09/08/2026 · calendário de semana acrescentado na revisão do mesmo dia |
-| FE-13 (calendário) | ✅ implementado (commit `fb37e7f`) |
+| FE-13 (calendário) | ✅ protótipo aprovado (commit `fb37e7f`) e componente React entregue — `WeekCalendar` em `src/components/ui/`, consumido pelo Portal (`PortalAppointments.tsx`) e pelos Agendamentos do admin (`Schedules.tsx`). Régua 07h–19h cresce (não corta) se algum compromisso ficar fora da faixa; sábado ainda não entra na grade — seguem em aberto com a Ester. |
 | FE-04a (tokens/fontes/primitivos/Modal) | ✅ Entregue em 09/08/2026 (commit `b16a9ae`) — ver detalhe abaixo |
 | Onda 1 (portal) | **Em andamento** — falta FE-09 e FE-10 |
 | Ondas 2 e 3 | Depois do portal no ar |

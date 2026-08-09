@@ -1,15 +1,16 @@
-import { CalendarDays, CalendarOff, ChevronLeft, ChevronRight, FileText, Image, Paperclip, RotateCcw } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { CalendarDays, CalendarOff, FileText, Image, Paperclip } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import type { ClientPortalVisit } from '../../services/clientPortalService';
 import { formatDateBR, parseDateParts, toDateKey } from '../../utils/clientPortalFormat';
+import { WeekCalendar, type WeekCalendarEvent, type WeekCalendarEventState, type WeekCalendarWeek } from '../ui/WeekCalendar';
+import { addDays, formatWeekPeriod, mondayOf } from '../../utils/weekCalendarDates';
 
 export type PortalAppointmentVisit = ClientPortalVisit & { unitName: string; city: string | null };
 
 interface PortalAppointmentsProps {
   visits: PortalAppointmentVisit[];
   schedulingSuspended: boolean;
-  calendarMonth: Date;
-  onCalendarMonthChange: (next: Date) => void;
   loading?: boolean;
 }
 
@@ -47,15 +48,24 @@ function visitDisplayStatus(status: string, suspended: boolean): { label: string
   };
 }
 
+function visitCalendarState(status: string, suspended: boolean): WeekCalendarEventState {
+  if (suspended && SUSPENDABLE_VISIT_STATUSES.has(status)) return 'atencao';
+  if (status === 'cancelled') return 'atencao';
+  if (status === 'requested' || status === 'rescheduled') return 'a-confirmar';
+  return 'confirmado'; // confirmed, in_progress, completed, report_available
+}
+
 const CALENDAR_WEEKDAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'];
 
 export function PortalAppointments({
   visits,
   schedulingSuspended,
-  calendarMonth,
-  onCalendarMonthChange,
   loading,
 }: PortalAppointmentsProps) {
+  const navigate = useNavigate();
+  const [agendaView, setAgendaView] = useState<'semana' | 'lista'>('semana');
+  const [weekStart, setWeekStart] = useState(() => mondayOf(new Date()));
+
   if (loading) {
     return (
       <div className="mb-8 h-64 animate-pulse rounded-xl border border-gray-200 bg-gray-50" aria-hidden="true" />
@@ -72,26 +82,37 @@ export function PortalAppointments({
     return aUpcoming ? ka.localeCompare(kb) : kb.localeCompare(ka);
   });
 
-  const visitsByDate = new Map<string, PortalAppointmentVisit[]>();
-  for (const visit of visits) {
-    if (!visit.requested_date) continue;
-    const list = visitsByDate.get(visit.requested_date) || [];
-    list.push(visit);
-    visitsByDate.set(visit.requested_date, list);
-  }
-
-  const month = `${calendarMonth.getFullYear()}-${String(calendarMonth.getMonth() + 1).padStart(2, '0')}`;
-  const monthStart = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1);
-  const monthEnd = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 0);
-  const start = new Date(monthStart);
-  const end = new Date(monthEnd);
-  start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
-  end.setDate(end.getDate() + (6 - ((end.getDay() + 6) % 7)));
-  const cells: Date[] = [];
-  for (const cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
-    cells.push(new Date(cursor));
-  }
   const todayKey = toDateKey(new Date());
+  const weekDays = Array.from({ length: 5 }, (_, i) => addDays(weekStart, i));
+  const weekEvents: WeekCalendarEvent[] = visits
+    .map((visit) => {
+      if (!visit.requested_date || !visit.requested_time) return null;
+      const dayIndex = weekDays.findIndex((d) => toDateKey(d) === visit.requested_date);
+      if (dayIndex === -1) return null;
+      const startHour = Number(visit.requested_time.split(':')[0]);
+      if (!Number.isFinite(startHour)) return null;
+      const event: WeekCalendarEvent = {
+        id: visit.public_token,
+        dayIndex,
+        startHour,
+        durationHours: 1,
+        title: visit.unitName,
+        subtitle: [visit.requested_time, visit.city].filter(Boolean).join(' · '),
+        state: visitCalendarState(visit.status, schedulingSuspended),
+        onClick: () => navigate(`/cliente/visita/${visit.public_token}`),
+      };
+      return event;
+    })
+    .filter((e): e is WeekCalendarEvent => e !== null);
+  const currentWeek: WeekCalendarWeek = {
+    periodLabel: formatWeekPeriod(weekStart),
+    days: weekDays.map((d, i) => ({
+      label: CALENDAR_WEEKDAYS[i],
+      dayNumber: d.getDate(),
+      isToday: toDateKey(d) === todayKey,
+    })),
+    events: weekEvents,
+  };
 
   return (
     <>
@@ -116,97 +137,38 @@ export function PortalAppointments({
             <CalendarDays className="h-4 w-4 shrink-0 text-primary-700" />
             Calendário de compromissos
           </h3>
-          <div className="flex items-center justify-between gap-1 sm:justify-end">
+          <div className="flex gap-1 rounded-lg bg-gray-100 p-1">
             <button
               type="button"
-              onClick={() => onCalendarMonthChange(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))}
-              className="flex h-11 w-11 items-center justify-center rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50"
-              title="Mês anterior"
-              aria-label="Mês anterior"
+              onClick={() => setAgendaView('semana')}
+              aria-pressed={agendaView === 'semana'}
+              className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
+                agendaView === 'semana' ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
             >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <span className="flex-1 text-center text-sm font-bold lowercase text-gray-900 first-letter:uppercase sm:min-w-[130px] sm:flex-none">
-              {calendarMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
-            </span>
-            <button
-              type="button"
-              onClick={() => onCalendarMonthChange(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))}
-              className="flex h-11 w-11 items-center justify-center rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50"
-              title="Próximo mês"
-              aria-label="Próximo mês"
-            >
-              <ChevronRight className="h-4 w-4" />
+              Semana
             </button>
             <button
               type="button"
-              onClick={() => {
-                const n = new Date();
-                onCalendarMonthChange(new Date(n.getFullYear(), n.getMonth(), 1));
-              }}
-              className="ml-1 inline-flex h-11 items-center gap-1 rounded-md border border-gray-200 px-2.5 text-xs font-semibold text-gray-600 hover:bg-gray-50"
-              title="Voltar ao mês atual"
-              aria-label="Voltar ao mês atual"
+              onClick={() => setAgendaView('lista')}
+              aria-pressed={agendaView === 'lista'}
+              className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
+                agendaView === 'lista' ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
             >
-              <RotateCcw className="h-3.5 w-3.5" /> Hoje
+              Lista
             </button>
           </div>
         </div>
-        <div>
-          <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold uppercase text-gray-500 sm:gap-2 sm:text-[11px]">
-            {CALENDAR_WEEKDAYS.map((label) => (
-              <div key={label} className="py-1">{label}</div>
-            ))}
-          </div>
-          <div className="grid grid-cols-7 gap-1 sm:gap-2">
-            {cells.map((date) => {
-              const key = toDateKey(date);
-              const dayVisits = visitsByDate.get(key) || [];
-              const inMonth = key.startsWith(month);
-              const isToday = key === todayKey;
-              return (
-                <div
-                  key={key}
-                  className={`flex min-h-[40px] flex-col rounded-md border p-1 sm:min-h-[104px] sm:p-2 ${
-                    dayVisits.length > 0
-                      ? 'border-primary-200 bg-primary-50/60'
-                      : inMonth
-                        ? 'border-gray-100 bg-white'
-                        : 'border-transparent bg-transparent'
-                  } ${isToday ? 'ring-2 ring-primary-300' : ''}`}
-                >
-                  <p className={`text-xs font-bold leading-none sm:text-base sm:font-black ${inMonth ? 'text-gray-900' : 'text-gray-300'}`}>
-                    {date.getDate()}
-                  </p>
 
-                  {dayVisits.length > 0 && (
-                    <div className="mt-auto flex flex-wrap gap-0.5 pt-1 sm:hidden">
-                      {dayVisits.slice(0, 4).map((v) => (
-                        <span key={v.public_token} className="h-1.5 w-1.5 rounded-full bg-primary-500" />
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="mt-2 hidden space-y-1 sm:block">
-                    {dayVisits.slice(0, 2).map((visit) => (
-                      <Link
-                        key={visit.public_token}
-                        to={`/cliente/visita/${visit.public_token}`}
-                        className="block truncate rounded bg-white/80 px-1.5 py-1 text-[10px] font-semibold text-primary-900 shadow-sm"
-                        title={`${visit.unitName} - ${visitDisplayStatus(visit.status, schedulingSuspended).label}`}
-                      >
-                        {visit.requested_time ? `${visit.requested_time} ` : ''}{visit.unitName}
-                      </Link>
-                    ))}
-                    {dayVisits.length > 2 && (
-                      <p className="text-[10px] font-semibold text-primary-700">+{dayVisits.length - 2}</p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        {agendaView === 'semana' && (
+          <WeekCalendar
+            week={currentWeek}
+            onPrevWeek={() => setWeekStart((d) => addDays(d, -7))}
+            onNextWeek={() => setWeekStart((d) => addDays(d, 7))}
+            emptyMessage="Sem compromisso."
+          />
+        )}
       </section>
 
       <section className="mb-5 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">

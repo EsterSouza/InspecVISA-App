@@ -11,8 +11,12 @@ import { getLocalActor } from '../utils/localActor';
 import { AppointmentRequestsPanel } from '../components/schedules/AppointmentRequestsPanel';
 import { AppointmentAdminService } from '../services/appointmentAdminService';
 import { toDateInputValue } from '../utils/appointmentLeadTime';
+import { WeekCalendar, type WeekCalendarEvent, type WeekCalendarEventState, type WeekCalendarWeek } from '../components/ui/WeekCalendar';
+import { APPOINTMENT_TYPE_RULES } from '../utils/appointmentType';
+import { addDays, formatWeekPeriod, mondayOf } from '../utils/weekCalendarDates';
 
 type SchedulesTab = 'agenda' | 'solicitacoes';
+type AgendaView = 'semana' | 'lista';
 
 const WEEKDAY_LABELS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'];
 
@@ -50,16 +54,17 @@ function addMonthsClamped(date: Date, months: number): Date {
   );
 }
 
-function buildMonthDays(month: Date): Date[] {
-  const first = new Date(month.getFullYear(), month.getMonth(), 1);
-  const start = new Date(first);
-  const offset = (first.getDay() + 6) % 7;
-  start.setDate(first.getDate() - offset);
-  return Array.from({ length: 42 }, (_, index) => {
-    const day = new Date(start);
-    day.setDate(start.getDate() + index);
-    return day;
-  });
+function scheduleCalendarState(status: Schedule['status']): WeekCalendarEventState {
+  switch (status) {
+    case 'in_progress':
+    case 'completed':
+      return 'confirmado';
+    case 'cancelled':
+      return 'atencao';
+    case 'pending':
+    default:
+      return 'a-confirmar';
+  }
 }
 
 export function Schedules() {
@@ -75,10 +80,8 @@ export function Schedules() {
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
-  const [calendarMonth, setCalendarMonth] = useState(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1);
-  });
+  const [agendaView, setAgendaView] = useState<AgendaView>('semana');
+  const [weekStart, setWeekStart] = useState(() => mondayOf(new Date()));
 
   // Form State
   const [selectedClientId, setSelectedClientId] = useState('');
@@ -332,15 +335,37 @@ export function Schedules() {
     if (!focusScheduleId || schedules.length === 0) return;
     document.getElementById(`schedule-${focusScheduleId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [focusScheduleId, schedules]);
-  const monthDays = buildMonthDays(calendarMonth);
   const todayKey = dateKey(new Date());
-  const schedulesByDay = schedules.reduce<Record<string, Schedule[]>>((acc, schedule) => {
-    const key = dateKey(schedule.scheduledAt);
-    acc[key] = acc[key] || [];
-    acc[key].push(schedule);
-    acc[key].sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime());
-    return acc;
-  }, {});
+
+  const weekDays = Array.from({ length: 5 }, (_, i) => addDays(weekStart, i));
+  const weekEvents: WeekCalendarEvent[] = schedules
+    .map((schedule) => {
+      const dayIndex = weekDays.findIndex((d) => dateKey(d) === dateKey(schedule.scheduledAt));
+      if (dayIndex === -1) return null;
+      const typeLabel = schedule.appointmentType ? APPOINTMENT_TYPE_RULES[schedule.appointmentType].label : undefined;
+      const time = schedule.scheduledAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      const event: WeekCalendarEvent = {
+        id: schedule.id,
+        dayIndex,
+        startHour: schedule.scheduledAt.getHours(),
+        durationHours: Math.max(1, Math.round((schedule.durationMinutes || 60) / 60)),
+        title: schedule.clientName || 'Cliente',
+        subtitle: [time, typeLabel].filter(Boolean).join(' · '),
+        state: scheduleCalendarState(schedule.status),
+        onClick: () => handleEdit(schedule),
+      };
+      return event;
+    })
+    .filter((e): e is WeekCalendarEvent => e !== null);
+  const currentWeek: WeekCalendarWeek = {
+    periodLabel: formatWeekPeriod(weekStart),
+    days: weekDays.map((d, i) => ({
+      label: WEEKDAY_LABELS[i],
+      dayNumber: d.getDate(),
+      isToday: dateKey(d) === todayKey,
+    })),
+    events: weekEvents,
+  };
 
   if (loading && schedules.length === 0) {
     return (
@@ -424,94 +449,42 @@ export function Schedules() {
       <div className="space-y-8">
         <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="flex items-center text-lg font-semibold text-gray-900">
-                <Calendar className="mr-2 h-5 w-5 text-primary-600" />
-                Calendário do mês
-              </h2>
-              <p className="text-sm text-gray-500">
-                {calendarMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
+            <h2 className="flex items-center text-lg font-semibold text-gray-900">
+              <Calendar className="mr-2 h-5 w-5 text-primary-600" />
+              Agenda
+            </h2>
+            <div className="flex gap-1 rounded-lg bg-gray-100 p-1">
+              <button
                 type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setCalendarMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
-                aria-label="Mês anterior"
+                onClick={() => setAgendaView('semana')}
+                aria-pressed={agendaView === 'semana'}
+                className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
+                  agendaView === 'semana' ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                }`}
               >
-                Anterior
-              </Button>
-              <Button
+                Semana
+              </button>
+              <button
                 type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  const now = new Date();
-                  setCalendarMonth(new Date(now.getFullYear(), now.getMonth(), 1));
-                }}
-                aria-label="Voltar ao mês atual"
+                onClick={() => setAgendaView('lista')}
+                aria-pressed={agendaView === 'lista'}
+                className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
+                  agendaView === 'lista' ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                }`}
               >
-                Hoje
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setCalendarMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
-                aria-label="Próximo mês"
-              >
-                Próximo
-              </Button>
+                Lista
+              </button>
             </div>
           </div>
 
-          <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold uppercase text-gray-500">
-            {WEEKDAY_LABELS.map((label) => (
-              <div key={label} className="py-1">{label}</div>
-            ))}
-          </div>
-          <div className="mt-1 grid grid-cols-7 gap-1">
-            {monthDays.map((day) => {
-              const key = dateKey(day);
-              const daySchedules = schedulesByDay[key] || [];
-              const inCurrentMonth = day.getMonth() === calendarMonth.getMonth();
-              const isToday = key === todayKey;
-              return (
-                <div
-                  key={key}
-                  className={`min-h-[150px] rounded-lg border p-2 text-left ${
-                    isToday
-                      ? 'border-primary-500 bg-primary-50'
-                      : inCurrentMonth
-                        ? 'border-gray-200 bg-white'
-                        : 'border-gray-100 bg-gray-50 text-gray-300'
-                  }`}
-                >
-                  <div className={`text-sm font-bold ${isToday ? 'text-primary-800' : 'text-gray-700'}`}>
-                    {day.getDate()}
-                  </div>
-                  <div className="mt-1 space-y-1">
-                    {daySchedules.slice(0, 2).map((schedule) => (
-                      <button
-                        key={schedule.id}
-                        type="button"
-                        onClick={() => handleEdit(schedule)}
-                        className="flex min-h-11 w-full items-center truncate rounded bg-primary-50 px-1.5 text-left text-[11px] font-medium text-primary-800 hover:bg-primary-100"
-                        title={`${schedule.clientName || 'Cliente'} - ${schedule.scheduledAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`}
-                      >
-                        {schedule.scheduledAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} {schedule.clientName || 'Cliente'}
-                      </button>
-                    ))}
-                    {daySchedules.length > 2 && (
-                      <div className="text-[11px] font-semibold text-gray-500">+{daySchedules.length - 2}</div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          {agendaView === 'semana' && (
+            <WeekCalendar
+              week={currentWeek}
+              onPrevWeek={() => setWeekStart((d) => addDays(d, -7))}
+              onNextWeek={() => setWeekStart((d) => addDays(d, 7))}
+              emptyMessage="Sem visita agendada."
+            />
+          )}
         </section>
 
         <section>
