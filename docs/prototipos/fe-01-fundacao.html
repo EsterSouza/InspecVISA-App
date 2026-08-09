@@ -943,6 +943,98 @@ dialog.drawer--left[open] { animation-name: drawer-in-left; }
 .stat__value { font-family: var(--font-title); font-size: var(--text-3xl); font-weight: var(--weight-title-strong); line-height: 1.1; margin-top: var(--space-1); font-variant-numeric: tabular-nums; }
 .stat__foot { margin-top: var(--space-2); font-size: var(--text-xs); color: var(--ink-2); }
 
+/* --- Calendário de semana (seg a sex) --------------------------------------
+   Um componente só, usado por qualquer agenda do produto: a do portal e a do
+   admin. Muda o conteúdo do evento, não a grade.
+
+   A escala é de 07h a 19h, uma linha por hora. O evento se posiciona com
+   --inicio (linha) e --duracao (quantas linhas ocupa), então não há cálculo de
+   pixel espalhado pelo HTML.
+   -------------------------------------------------------------------------- */
+.cal { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); overflow: hidden; }
+
+.cal__bar {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-sunken);
+}
+.cal__periodo { font-family: var(--font-title); font-weight: var(--weight-title-strong); font-size: var(--text-base); letter-spacing: var(--tracking-title); }
+
+.cal__grade { overflow-x: auto; overscroll-behavior-x: contain; }
+.cal__interno { min-width: 660px; }
+
+.cal__cabecalho, .cal__corpo { display: grid; grid-template-columns: 52px repeat(5, minmax(0, 1fr)); }
+.cal__cabecalho { position: sticky; top: 0; z-index: var(--z-sticky); background: var(--surface); border-bottom: 1px solid var(--border); }
+
+.cal__dia-rotulo { padding: var(--space-2) var(--space-2) var(--space-3); text-align: center; border-left: 1px solid var(--border); }
+.cal__dia-nome { font-size: var(--text-2xs); font-weight: var(--weight-semibold); color: var(--ink-2); }
+.cal__dia-num { font-family: var(--font-title); font-size: var(--text-lg); font-weight: var(--weight-title); font-variant-numeric: tabular-nums; margin-top: 2px; }
+/* Hoje: fundo E rótulo. Nunca só a cor. */
+.cal__dia-rotulo[data-hoje='true'] { background: var(--accent-soft); }
+.cal__dia-rotulo[data-hoje='true'] .cal__dia-num { color: var(--accent-soft-ink); }
+.cal__hoje-selo { display: inline-block; margin-top: 2px; font-size: 9px; font-weight: var(--weight-bold); text-transform: uppercase; letter-spacing: .04em; color: var(--accent-soft-ink); }
+
+.cal__horas { display: grid; grid-auto-rows: 46px; }
+/* O rótulo fica no topo da própria faixa, que é onde o evento daquela hora
+   começa. Deslocar para cima cortava o primeiro e desalinhava todos. */
+.cal__hora { font-size: var(--text-2xs); color: var(--ink-3); font-variant-numeric: tabular-nums; text-align: right; padding: 2px var(--space-2) 0 0; }
+
+.cal__coluna { display: grid; grid-auto-rows: 46px; border-left: 1px solid var(--border); position: relative; }
+.cal__coluna[data-hoje='true'] { background: color-mix(in srgb, var(--accent-soft) 45%, transparent); }
+.cal__faixa { border-bottom: 1px solid var(--border); grid-column: 1; }
+
+.cal__evento {
+  grid-column: 1;
+  grid-row: var(--inicio) / span var(--duracao);
+  margin: 2px 3px;
+  padding: var(--space-2);
+  border: 1px solid var(--accent-soft-border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent-soft-ink);
+  text-align: left;
+  font-size: var(--text-2xs);
+  line-height: 1.3;
+  cursor: pointer;
+  overflow: hidden;
+  z-index: 1;
+  transition: box-shadow var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out);
+}
+.cal__evento:hover { box-shadow: var(--shadow-2); }
+.cal__evento-hora { font-weight: var(--weight-bold); font-variant-numeric: tabular-nums; }
+.cal__evento-tit { font-weight: var(--weight-semibold); margin-top: 1px; }
+.cal__evento-sub { opacity: .85; margin-top: 1px; }
+
+/* Estado do compromisso: cor + borda + palavra, os três juntos. */
+.cal__evento[data-estado='confirmado'] { background: var(--success-soft); border-color: var(--success-soft-border); border-left-color: var(--success); color: var(--success-soft-ink); }
+.cal__evento[data-estado='a-confirmar'] { background: var(--surface-sunken); border-color: var(--border); border-left-color: var(--ink-3); border-left-style: dashed; color: var(--ink-2); }
+.cal__evento[data-estado='atencao'] { background: var(--amber-soft); border-color: var(--amber-soft-border); border-left-color: var(--amber); color: var(--amber-soft-ink); }
+
+.cal__vazio { padding: var(--space-8) var(--space-5); text-align: center; color: var(--ink-2); font-size: var(--text-sm); }
+
+.cal__legenda { display: flex; flex-wrap: wrap; gap: var(--space-4); padding: var(--space-3) var(--space-4); border-top: 1px solid var(--border); font-size: var(--text-xs); color: var(--ink-2); }
+.cal__legenda span { display: inline-flex; align-items: center; gap: var(--space-2); }
+.cal__amostra { width: 12px; height: 12px; border-radius: 2px; border: 1px solid; flex: none; }
+
+/* Abaixo de 720px a grade de 5 colunas fica ilegível: a semana passa a ser uma
+   lista por dia, que continua sendo a semana — só empilhada.
+   A regra base vem ANTES da media query: mesma especificidade, quem vem depois
+   ganha, e invertida a ordem o celular ficava sem grade e sem lista. */
+.cal__lista-dias { display: none; }
+
+@media (max-width: 720px) {
+  .cal__grade { display: none; }
+  .cal__lista-dias { display: block; }
+}
+.cal__lista-dia { border-top: 1px solid var(--border); }
+.cal__lista-dia-cab { display: flex; align-items: baseline; gap: var(--space-2); padding: var(--space-3) var(--space-4) var(--space-1); background: var(--surface-sunken); }
+.cal__lista-dia-cab h4 { font-size: var(--text-base); }
+.cal__lista-item { display: flex; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-top: 1px solid var(--border); }
+.cal__lista-hora { flex: none; width: 82px; font-size: var(--text-sm); font-variant-numeric: tabular-nums; color: var(--ink-2); }
+
 /* --- Faixa de alerta ------------------------------------------------------- */
 .notice {
   display: flex; align-items: flex-start; gap: var(--space-3);
@@ -1720,6 +1812,27 @@ dialog.drawer--left[open] { animation-name: drawer-in-left; }
           </div>
         </div>
       </div>
+      <!-- Calendário -->
+      <div class="block">
+        <p class="block__title">Calendário de semana</p>
+        <p class="block__note">
+          Segunda a sexta, das 07h às 19h. <b>Um componente só para qualquer agenda do produto</b> —
+          a do portal do cliente e a de agendamentos do admin usam este mesmo renderizador; muda o
+          conteúdo do evento, nunca a grade. O estado do compromisso aparece em três canais ao mesmo
+          tempo: cor de fundo, estilo da borda esquerda e a palavra na legenda.
+        </p>
+        <div class="demo" style="padding:0;border:0;background:none">
+          <div id="cal-demo"></div>
+        </div>
+        <table class="kv" style="width:100%;margin-top:var(--space-4)">
+          <tbody>
+            <tr><td>Posição</td><td class="muted">O evento se coloca com <span class="token">--inicio</span> (linha da hora) e <span class="token">--duracao</span> (quantas horas ocupa). Nenhum cálculo de pixel espalhado pelo HTML.</td></tr>
+            <tr><td>Leitor de tela</td><td class="muted">Quem não enxerga a grade não deduz a posição, então o nome acessível do evento carrega dia, horário e estado por extenso.</td></tr>
+            <tr><td>Celular</td><td class="muted">Abaixo de 720px a grade de 5 colunas fica ilegível e a semana vira lista por dia — continua sendo a semana, só empilhada.</td></tr>
+            <tr><td>Fora da faixa</td><td class="muted">Compromisso antes das 07h ou depois das 19h não é silenciado: a régua precisa crescer, não cortar.</td></tr>
+          </tbody>
+        </table>
+      </div>
     </section>
 
     <!-- ================= MICROCOPY ================= -->
@@ -2029,6 +2142,252 @@ dialog.drawer--left[open] { animation-name: drawer-in-left; }
     th.setAttribute('aria-sort', current === 'ascending' ? 'descending' : 'ascending');
   });
 
+  /* --- Calendário de semana (seg a sex) -----------------------------------
+     Um renderizador só para qualquer agenda do produto. Recebe as semanas
+     prontas; quem chama decide o que é um evento.
+
+       renderCalendario(alvo, {
+         semanas: [{ rotulo, dias: [{ nome, num, hoje }],
+                     eventos: [{ dia: 0..4, hora: 9, duracao: 2,
+                                 titulo, sub, estado }] }],
+         indice: 0,
+         aoClicar: function (evento) {}
+       })
+
+     `hora` é a hora cheia de início (07 a 19) e `duracao` é em horas.
+     -------------------------------------------------------------------- */
+  var CAL_PRIMEIRA_HORA = 7;
+  var CAL_ULTIMA_HORA = 19;
+
+  var CAL_ESTADO_ROTULO = {
+    confirmado: 'Confirmado',
+    'a-confirmar': 'A confirmar',
+    atencao: 'Precisa de atenção',
+    padrao: 'Agendado'
+  };
+
+  function calHora(h) { return (h < 10 ? '0' : '') + h + 'h'; }
+
+  function calFaixa(evento) {
+    return calHora(evento.hora) + ' às ' + calHora(evento.hora + evento.duracao);
+  }
+
+  window.renderCalendario = function (alvo, cfg) {
+    var indice = cfg.indice || 0;
+
+    function desenhar() {
+      var semana = cfg.semanas[indice];
+      alvo.innerHTML = '';
+
+      var cal = document.createElement('div');
+      cal.className = 'cal';
+
+      /* Barra: período e navegação */
+      var barra = document.createElement('div');
+      barra.className = 'cal__bar';
+      var titulo = document.createElement('p');
+      titulo.className = 'cal__periodo';
+      titulo.textContent = semana.rotulo;
+      barra.appendChild(titulo);
+
+      var nav = document.createElement('div');
+      nav.className = 'row';
+      nav.style.gap = 'var(--space-2)';
+
+      function botao(rotulo, delta, aria) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'btn btn--outline btn--sm';
+        b.textContent = rotulo;
+        b.setAttribute('aria-label', aria);
+        b.disabled = !cfg.semanas[indice + delta];
+        b.addEventListener('click', function () { indice += delta; desenhar(); });
+        return b;
+      }
+      nav.appendChild(botao('‹', -1, 'Semana anterior'));
+      nav.appendChild(botao('›', 1, 'Próxima semana'));
+      barra.appendChild(nav);
+      cal.appendChild(barra);
+
+      /* Grade de segunda a sexta */
+      var grade = document.createElement('div');
+      grade.className = 'cal__grade';
+      var interno = document.createElement('div');
+      interno.className = 'cal__interno';
+
+      var cab = document.createElement('div');
+      cab.className = 'cal__cabecalho';
+      cab.appendChild(document.createElement('div'));
+      semana.dias.forEach(function (d) {
+        var c = document.createElement('div');
+        c.className = 'cal__dia-rotulo';
+        if (d.hoje) c.setAttribute('data-hoje', 'true');
+        var nome = document.createElement('p');
+        nome.className = 'cal__dia-nome';
+        nome.textContent = d.nome;
+        var num = document.createElement('p');
+        num.className = 'cal__dia-num';
+        num.textContent = d.num;
+        c.appendChild(nome);
+        c.appendChild(num);
+        if (d.hoje) {
+          var selo = document.createElement('span');
+          selo.className = 'cal__hoje-selo';
+          selo.textContent = 'Hoje';
+          c.appendChild(selo);
+        }
+        cab.appendChild(c);
+      });
+      interno.appendChild(cab);
+
+      var corpo = document.createElement('div');
+      corpo.className = 'cal__corpo';
+
+      var horas = document.createElement('div');
+      horas.className = 'cal__horas';
+      horas.setAttribute('aria-hidden', 'true');
+      for (var h = CAL_PRIMEIRA_HORA; h <= CAL_ULTIMA_HORA; h++) {
+        var lh = document.createElement('div');
+        lh.className = 'cal__hora';
+        lh.textContent = calHora(h);
+        horas.appendChild(lh);
+      }
+      corpo.appendChild(horas);
+
+      semana.dias.forEach(function (d, i) {
+        var col = document.createElement('div');
+        col.className = 'cal__coluna';
+        col.setAttribute('role', 'group');
+        col.setAttribute('aria-label', d.nome + ', dia ' + d.num);
+        if (d.hoje) col.setAttribute('data-hoje', 'true');
+
+        for (var k = CAL_PRIMEIRA_HORA; k <= CAL_ULTIMA_HORA; k++) {
+          var faixa = document.createElement('div');
+          faixa.className = 'cal__faixa';
+          faixa.style.gridRow = String(k - CAL_PRIMEIRA_HORA + 1);
+          faixa.setAttribute('aria-hidden', 'true');
+          col.appendChild(faixa);
+        }
+
+        semana.eventos.filter(function (e) { return e.dia === i; }).forEach(function (e) {
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'cal__evento';
+          b.setAttribute('data-estado', e.estado || 'padrao');
+          b.style.setProperty('--inicio', String(e.hora - CAL_PRIMEIRA_HORA + 1));
+          b.style.setProperty('--duracao', String(e.duracao));
+          /* O nome acessível carrega dia, hora e estado: quem usa leitor de tela
+             não enxerga a posição na grade. */
+          b.setAttribute('aria-label',
+            e.titulo + ', ' + d.nome + ' dia ' + d.num + ', ' + calFaixa(e) +
+            ', ' + (CAL_ESTADO_ROTULO[e.estado] || CAL_ESTADO_ROTULO.padrao) +
+            (e.sub ? ', ' + e.sub : ''));
+
+          var hora = document.createElement('span');
+          hora.className = 'cal__evento-hora';
+          hora.textContent = calHora(e.hora);
+          var tit = document.createElement('p');
+          tit.className = 'cal__evento-tit';
+          tit.textContent = e.titulo;
+          b.appendChild(hora);
+          b.appendChild(tit);
+          if (e.sub) {
+            var sub = document.createElement('p');
+            sub.className = 'cal__evento-sub';
+            sub.textContent = e.sub;
+            b.appendChild(sub);
+          }
+          if (cfg.aoClicar) b.addEventListener('click', function () { cfg.aoClicar(e, d); });
+          col.appendChild(b);
+        });
+
+        corpo.appendChild(col);
+      });
+
+      interno.appendChild(corpo);
+      grade.appendChild(interno);
+      cal.appendChild(grade);
+
+      /* No celular a semana vira lista por dia — continua sendo a semana. */
+      var lista = document.createElement('div');
+      lista.className = 'cal__lista-dias';
+      semana.dias.forEach(function (d, i) {
+        var doDia = semana.eventos.filter(function (e) { return e.dia === i; })
+          .sort(function (a, b) { return a.hora - b.hora; });
+        var bloco = document.createElement('div');
+        bloco.className = 'cal__lista-dia';
+        var cabD = document.createElement('div');
+        cabD.className = 'cal__lista-dia-cab';
+        var h4 = document.createElement('h4');
+        h4.textContent = d.nome + ' ' + d.num;
+        cabD.appendChild(h4);
+        if (d.hoje) {
+          var sel = document.createElement('span');
+          sel.className = 'badge badge--info';
+          sel.textContent = 'Hoje';
+          cabD.appendChild(sel);
+        }
+        bloco.appendChild(cabD);
+
+        if (doDia.length === 0) {
+          var vazio = document.createElement('p');
+          vazio.className = 'cal__lista-item dim small';
+          vazio.textContent = 'Sem compromisso.';
+          bloco.appendChild(vazio);
+        } else {
+          doDia.forEach(function (e) {
+            var item = document.createElement('div');
+            item.className = 'cal__lista-item';
+            var hora = document.createElement('span');
+            hora.className = 'cal__lista-hora';
+            hora.textContent = calFaixa(e);
+            var txt = document.createElement('div');
+            txt.className = 'grow';
+            var t = document.createElement('p');
+            t.className = 'strong';
+            t.textContent = e.titulo;
+            txt.appendChild(t);
+            if (e.sub) {
+              var s = document.createElement('p');
+              s.className = 'small muted';
+              s.textContent = e.sub;
+              txt.appendChild(s);
+            }
+            var est = document.createElement('span');
+            est.className = 'badge badge--' + (e.estado === 'confirmado' ? 'success' : e.estado === 'atencao' ? 'attention' : 'neutral');
+            est.textContent = CAL_ESTADO_ROTULO[e.estado] || CAL_ESTADO_ROTULO.padrao;
+            item.appendChild(hora);
+            item.appendChild(txt);
+            item.appendChild(est);
+            bloco.appendChild(item);
+          });
+        }
+        lista.appendChild(bloco);
+      });
+      cal.appendChild(lista);
+
+      var legenda = document.createElement('div');
+      legenda.className = 'cal__legenda';
+      [['confirmado', 'var(--success-soft)', 'var(--success)'],
+       ['a-confirmar', 'var(--surface-sunken)', 'var(--ink-3)'],
+       ['atencao', 'var(--amber-soft)', 'var(--amber)']].forEach(function (l) {
+        var s = document.createElement('span');
+        var am = document.createElement('span');
+        am.className = 'cal__amostra';
+        am.style.background = l[1];
+        am.style.borderColor = l[2];
+        s.appendChild(am);
+        s.appendChild(document.createTextNode(CAL_ESTADO_ROTULO[l[0]]));
+        legenda.appendChild(s);
+      });
+      cal.appendChild(legenda);
+
+      alvo.appendChild(cal);
+    }
+
+    desenhar();
+  };
+
   /* --- Contraste medido ao vivo ------------------------------------------- */
   function srgb(c) { return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
 
@@ -2099,6 +2458,22 @@ dialog.drawer--left[open] { animation-name: drawer-in-left; }
   }
   document.addEventListener('DOMContentLoaded', pintarSwatches);
   window.addEventListener('temachange', pintarSwatches);
+
+  renderCalendario(document.getElementById('cal-demo'), {
+    semanas: [
+      { rotulo: '3 a 7 de agosto de 2026', dias: [{ nome: 'Seg', num: 3 }, { nome: 'Ter', num: 4 }, { nome: 'Qua', num: 5 }, { nome: 'Qui', num: 6 }, { nome: 'Sex', num: 7 }], eventos: [] },
+      { rotulo: '10 a 14 de agosto de 2026',
+        dias: [{ nome: 'Seg', num: 10 }, { nome: 'Ter', num: 11 }, { nome: 'Qua', num: 12, hoje: true }, { nome: 'Qui', num: 13 }, { nome: 'Sex', num: 14 }],
+        eventos: [
+          { dia: 0, hora: 10, duracao: 2, titulo: 'Clínica Aurora', sub: 'Inspeção · Ester', estado: 'confirmado' },
+          { dia: 2, hora: 9, duracao: 3, titulo: 'ILPI Recanto · Tijuca', sub: 'Inspeção de rotina', estado: 'confirmado' },
+          { dia: 2, hora: 14, duracao: 2, titulo: 'Residencial Terra Firme', sub: 'Revisita · Ana', estado: 'atencao' },
+          { dia: 4, hora: 14, duracao: 2, titulo: 'ILPI Recanto · Centro', sub: 'Treinamento', estado: 'a-confirmar' }
+        ] }
+    ],
+    indice: 1,
+    aoClicar: function (e) { avisar({ kind: 'info', title: e.titulo, body: e.sub }); }
+  });
   new MutationObserver(pintarSwatches).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
 </script>

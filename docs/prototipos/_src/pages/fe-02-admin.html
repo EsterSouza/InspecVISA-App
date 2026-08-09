@@ -227,7 +227,7 @@
         <div class="page__head">
           <div>
             <h1 class="page__title">Painel</h1>
-            <p class="page__sub">Quarta, 8 de agosto de 2026 · o que precisa de você hoje.</p>
+            <p class="page__sub">Quarta, 12 de agosto de 2026 · o que precisa de você hoje.</p>
           </div>
           <div class="row-wrap">
             <select class="select" aria-label="Período" style="width:auto"><option>Próximos 7 dias</option><option>14 dias</option><option>30 dias</option></select>
@@ -284,7 +284,7 @@
                 <span class="badge badge--attention"><span class="dot"></span>vence hoje</span>
               </div>
               <div class="list-row">
-                <span class="list-row__when">11/08</span>
+                <span class="list-row__when">13/08</span>
                 <div class="grow">
                   <p class="strong">Registro de temperatura da câmara fria</p>
                   <p class="small muted">Panificadora São Jorge · Matriz</p>
@@ -292,7 +292,7 @@
                 <span class="badge badge--danger">crítico</span>
               </div>
               <div class="list-row">
-                <span class="list-row__when">14/08</span>
+                <span class="list-row__when">17/08</span>
                 <div class="grow">
                   <p class="strong">PGRSS sem responsável técnico designado</p>
                   <p class="small muted">Clínica Estética Aurora</p>
@@ -447,7 +447,7 @@
                 <div class="card__head"><h2 class="card__title">Próximo compromisso</h2></div>
                 <div class="card__body">
                   <p class="strong">Inspeção de rotina · unidade Tijuca</p>
-                  <p class="small muted" style="margin-top:var(--space-1)">12/08/2026 · 09h00 · Ester</p>
+                  <p class="small muted" style="margin-top:var(--space-1)">Hoje, 12/08/2026 · 09h00 · Ester</p>
                   <button class="btn btn--outline btn--sm" style="margin-top:var(--space-3)">Ver agendamento</button>
                 </div>
               </div>
@@ -533,7 +533,7 @@
               <table class="table table--dense">
                 <thead><tr><th scope="col">Competência</th><th scope="col">Descrição</th><th scope="col" class="num">Valor</th><th scope="col" class="num">Vencimento</th><th scope="col">Situação</th></tr></thead>
                 <tbody>
-                  <tr><td class="num">07/2026</td><td>Mensalidade de consultoria</td><td class="num">R$ 1.700,00</td><td class="num">05/08/2026</td><td><span class="badge badge--attention"><span class="dot"></span>3 dias em atraso</span></td></tr>
+                  <tr><td class="num">07/2026</td><td>Mensalidade de consultoria</td><td class="num">R$ 1.700,00</td><td class="num">05/08/2026</td><td><span class="badge badge--attention"><span class="dot"></span>7 dias em atraso</span></td></tr>
                   <tr><td class="num">06/2026</td><td>Mensalidade de consultoria</td><td class="num">R$ 1.700,00</td><td class="num">05/07/2026</td><td><span class="badge badge--success">pago</span></td></tr>
                 </tbody>
               </table>
@@ -645,7 +645,7 @@
           <svg width="12" height="12" aria-hidden="true"><use href="#ic-chevron-right"/></svg>
           <a href="#/cliente">ILPI Recanto dos Idosos</a>
           <svg width="12" height="12" aria-hidden="true"><use href="#ic-chevron-right"/></svg>
-          <span>Inspeção de 08/08/2026</span>
+          <span>Inspeção de 12/08/2026</span>
         </div>
         <div class="page__head">
           <div>
@@ -738,11 +738,46 @@
         </div>
       </section>
 
+      <!-- ============ AGENDAMENTOS ============ -->
+      <section class="screen" id="s-agenda" hidden>
+        <div class="page__head">
+          <div>
+            <h1 class="page__title">Agendamentos</h1>
+            <p class="page__sub">Mesma grade de segunda a sexta do portal do cliente — um componente só para as duas agendas.</p>
+          </div>
+          <div class="row-wrap">
+            <div class="segmented" role="group" aria-label="Forma de visualizar a agenda">
+              <button id="adm-semana" aria-pressed="true">Semana</button>
+              <button id="adm-lista" aria-pressed="false">Lista</button>
+            </div>
+            <button class="btn btn--primary"><svg width="16" height="16" aria-hidden="true"><use href="#ic-plus"/></svg>Novo agendamento</button>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <select class="select" id="adm-consultora" aria-label="Consultora"><option value="">Todas as consultoras</option><option>Ester</option><option>Ana</option></select>
+          <select class="select" aria-label="Cliente"><option>Todos os clientes</option><option>ILPI Recanto dos Idosos</option><option>Clínica Estética Aurora</option></select>
+        </div>
+
+        <div id="adm-calendario"></div>
+
+        <div id="adm-listagem" hidden>
+          <div class="table-wrap">
+            <div class="table-scroll">
+              <table class="table table--dense">
+                <thead><tr><th scope="col" class="num">Data</th><th scope="col" class="num">Horário</th><th scope="col">Cliente</th><th scope="col">Unidade</th><th scope="col">Consultora</th><th scope="col">Situação</th><th scope="col" class="table__actions">Ações</th></tr></thead>
+                <tbody id="tb-agenda"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- ============ ROTAS FORA DO ESCOPO DA FASE 1 ============ -->
       <section class="screen" id="s-esboco" hidden>
         <div class="page__head">
           <div>
-            <h1 class="page__title" id="esboco-titulo">Agendamentos</h1>
+            <h1 class="page__title" id="esboco-titulo">Solicitações</h1>
             <p class="page__sub">Herda o mesmo shell, a mesma tabela e os mesmos tokens.</p>
           </div>
         </div>
@@ -751,9 +786,10 @@
             <svg class="empty__icon" aria-hidden="true"><use href="#ic-panel-left"/></svg>
             <p class="empty__title">Tela não desenhada nesta fase</p>
             <p class="empty__body">
-              A Fase 1 desenha as cinco telas que mudam de estrutura: Painel, Clientes, Detalhe do
-              cliente, Plano de ação e Execução da inspeção. <span id="esboco-nome">Agendamentos</span>
-              muda só de largura e de primitivo, então entra direto na Fase 2.
+              A Fase 1 desenha as seis telas que mudam de estrutura: Painel, Clientes, Detalhe do
+              cliente, Plano de ação, Agendamentos e Execução da inspeção.
+              <span id="esboco-nome">Solicitações</span> muda só de largura e de primitivo, então
+              entra direto na Fase 2.
             </p>
             <div class="empty__actions">
               <a class="btn btn--primary" href="#/painel">Voltar ao Painel</a>
@@ -850,7 +886,7 @@
       resp: ['danger', 'Ainda não fiz'],
       sit: 'Não há planilha de controle de temperatura da câmara fria nos últimos 60 dias. O termômetro digital está com o visor apagado.',
       acao: 'Substituir o termômetro e retomar o registro diário de temperatura em planilha assinada pelo responsável do turno.' },
-    { un: 'Centro', tit: 'PGRSS sem responsável técnico designado', prio: ['attention', 'Importante'], prazo: '14/08/2026', venc: false,
+    { un: 'Centro', tit: 'PGRSS sem responsável técnico designado', prio: ['attention', 'Importante'], prazo: '17/08/2026', venc: false,
       resp: ['neutral', 'Sem resposta'],
       sit: 'O Plano de Gerenciamento de Resíduos existe, mas não indica responsável técnico nem data de revisão.',
       acao: 'Designar o responsável técnico no documento e registrar a data da próxima revisão.' },
@@ -1052,13 +1088,93 @@
     });
   })();
 
+  /* ---------- Agenda: a MESMA grade do portal ----------
+     Muda o conteúdo do evento (aqui aparece o cliente e a consultora), não a
+     grade. O renderizador mora no shell compartilhado.
+     "Hoje" do protótipo é quarta, 12/08/2026. */
+  var DIAS = {
+    a: [{ nome: 'Seg', num: 3 }, { nome: 'Ter', num: 4 }, { nome: 'Qua', num: 5 }, { nome: 'Qui', num: 6 }, { nome: 'Sex', num: 7 }],
+    b: [{ nome: 'Seg', num: 10 }, { nome: 'Ter', num: 11 }, { nome: 'Qua', num: 12, hoje: true }, { nome: 'Qui', num: 13 }, { nome: 'Sex', num: 14 }],
+    c: [{ nome: 'Seg', num: 17 }, { nome: 'Ter', num: 18 }, { nome: 'Qua', num: 19 }, { nome: 'Qui', num: 20 }, { nome: 'Sex', num: 21 }]
+  };
+
+  var AGENDA = [
+    { rotulo: '3 a 7 de agosto de 2026', dias: DIAS.a, eventos: [
+      { dia: 1, hora: 9, duracao: 3, titulo: 'ILPI Recanto · Centro', sub: 'Inspeção · Ester', estado: 'confirmado', quem: 'Ester', data: '04/08/2026' },
+      { dia: 3, hora: 14, duracao: 2, titulo: 'Panificadora São Jorge', sub: 'Revisita · Ana', estado: 'confirmado', quem: 'Ana', data: '06/08/2026' }
+    ] },
+    { rotulo: '10 a 14 de agosto de 2026', dias: DIAS.b, eventos: [
+      { dia: 0, hora: 10, duracao: 2, titulo: 'Clínica Estética Aurora', sub: 'Inspeção · Ester', estado: 'confirmado', quem: 'Ester', data: '10/08/2026' },
+      { dia: 2, hora: 9, duracao: 3, titulo: 'ILPI Recanto · Tijuca', sub: 'Inspeção de rotina · Ester', estado: 'confirmado', quem: 'Ester', data: '12/08/2026' },
+      { dia: 2, hora: 14, duracao: 2, titulo: 'Residencial Terra Firme', sub: 'Revisita · Ana', estado: 'atencao', quem: 'Ana', data: '12/08/2026' },
+      { dia: 4, hora: 14, duracao: 2, titulo: 'ILPI Recanto · Centro', sub: 'Treinamento · Ester', estado: 'a-confirmar', quem: 'Ester', data: '14/08/2026' }
+    ] },
+    { rotulo: '17 a 21 de agosto de 2026', dias: DIAS.c, eventos: [
+      { dia: 2, hora: 14, duracao: 3, titulo: 'ILPI Recanto · Méier', sub: 'Inspeção · Ana', estado: 'a-confirmar', quem: 'Ana', data: '19/08/2026' },
+      { dia: 3, hora: 10, duracao: 2, titulo: 'Espaço Beleza Lumiar', sub: 'Inspeção · Ester', estado: 'a-confirmar', quem: 'Ester', data: '20/08/2026' }
+    ] }
+  ];
+
+  var ESTADO_SELO = { confirmado: ['success', 'confirmada'], 'a-confirmar': ['neutral', 'a confirmar'], atencao: ['attention', 'precisa de atenção'] };
+
+  function agendaFiltrada() {
+    var quem = document.getElementById('adm-consultora').value;
+    if (!quem) return AGENDA;
+    return AGENDA.map(function (s) {
+      return { rotulo: s.rotulo, dias: s.dias, eventos: s.eventos.filter(function (e) { return e.quem === quem; }) };
+    });
+  }
+
+  function renderAgendaAdmin() {
+    var semanas = agendaFiltrada();
+    renderCalendario(document.getElementById('adm-calendario'), {
+      semanas: semanas, indice: 1,
+      aoClicar: function (e) { avisar({ kind: 'info', title: e.titulo, body: e.data + ' · ' + e.sub }); }
+    });
+
+    var tb = document.getElementById('tb-agenda');
+    tb.innerHTML = '';
+    semanas.forEach(function (s) {
+      s.eventos.forEach(function (e) {
+        var partes = e.titulo.split(' · ');
+        var tr = el('tr');
+        tr.appendChild(el('td', 'num', e.data));
+        tr.appendChild(el('td', 'num', (e.hora < 10 ? '0' : '') + e.hora + 'h00'));
+        tr.appendChild(el('td', 'table__primary', partes[0]));
+        tr.appendChild(el('td', 'muted', partes[1] || '—'));
+        tr.appendChild(el('td', null, e.quem));
+        var selo = ESTADO_SELO[e.estado] || ['neutral', 'agendada'];
+        tr.appendChild((function () { var t = el('td'); t.appendChild(badge(selo[0], selo[1], selo[0] === 'attention')); return t; })());
+        tr.appendChild((function () { var t = el('td', 'table__actions'); t.appendChild(el('button', 'btn btn--ghost btn--sm', 'Abrir')); return t; })());
+        tb.appendChild(tr);
+      });
+    });
+  }
+
+  (function () {
+    var bS = document.getElementById('adm-semana');
+    var bL = document.getElementById('adm-lista');
+    function ver(modo) {
+      var semana = modo === 'semana';
+      bS.setAttribute('aria-pressed', String(semana));
+      bL.setAttribute('aria-pressed', String(!semana));
+      document.getElementById('adm-calendario').hidden = !semana;
+      document.getElementById('adm-listagem').hidden = semana;
+    }
+    bS.addEventListener('click', function () { ver('semana'); });
+    bL.addEventListener('click', function () { ver('lista'); });
+    document.getElementById('adm-consultora').addEventListener('change', renderAgendaAdmin);
+  })();
+
+  renderAgendaAdmin();
+
   /* ---------- Roteador por hash ---------- */
-  var TELAS = { painel: 's-painel', clientes: 's-clientes', cliente: 's-cliente', plano: 's-plano', inspecao: 's-inspecao' };
+  var TELAS = { painel: 's-painel', clientes: 's-clientes', cliente: 's-cliente', plano: 's-plano', inspecao: 's-inspecao', agendamentos: 's-agenda' };
 
   /* Rotas que existem no app mas não mudam de estrutura nesta fase. Ficam com
      rota própria para o item ativo do rail continuar dizendo a verdade. */
   var ESBOCOS = {
-    inicio: 'Início', agendamentos: 'Agendamentos', solicitacoes: 'Solicitações',
+    inicio: 'Início', solicitacoes: 'Solicitações',
     roteiros: 'Roteiros', biblioteca: 'Biblioteca', sincronizacao: 'Sincronização',
     configuracoes: 'Configurações'
   };

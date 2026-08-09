@@ -721,6 +721,27 @@
           </div>
         </div>
       </div>
+      <!-- Calendário -->
+      <div class="block">
+        <p class="block__title">Calendário de semana</p>
+        <p class="block__note">
+          Segunda a sexta, das 07h às 19h. <b>Um componente só para qualquer agenda do produto</b> —
+          a do portal do cliente e a de agendamentos do admin usam este mesmo renderizador; muda o
+          conteúdo do evento, nunca a grade. O estado do compromisso aparece em três canais ao mesmo
+          tempo: cor de fundo, estilo da borda esquerda e a palavra na legenda.
+        </p>
+        <div class="demo" style="padding:0;border:0;background:none">
+          <div id="cal-demo"></div>
+        </div>
+        <table class="kv" style="width:100%;margin-top:var(--space-4)">
+          <tbody>
+            <tr><td>Posição</td><td class="muted">O evento se coloca com <span class="token">--inicio</span> (linha da hora) e <span class="token">--duracao</span> (quantas horas ocupa). Nenhum cálculo de pixel espalhado pelo HTML.</td></tr>
+            <tr><td>Leitor de tela</td><td class="muted">Quem não enxerga a grade não deduz a posição, então o nome acessível do evento carrega dia, horário e estado por extenso.</td></tr>
+            <tr><td>Celular</td><td class="muted">Abaixo de 720px a grade de 5 colunas fica ilegível e a semana vira lista por dia — continua sendo a semana, só empilhada.</td></tr>
+            <tr><td>Fora da faixa</td><td class="muted">Compromisso antes das 07h ou depois das 19h não é silenciado: a régua precisa crescer, não cortar.</td></tr>
+          </tbody>
+        </table>
+      </div>
     </section>
 
     <!-- ================= MICROCOPY ================= -->
@@ -839,5 +860,21 @@
   }
   document.addEventListener('DOMContentLoaded', pintarSwatches);
   window.addEventListener('temachange', pintarSwatches);
+
+  renderCalendario(document.getElementById('cal-demo'), {
+    semanas: [
+      { rotulo: '3 a 7 de agosto de 2026', dias: [{ nome: 'Seg', num: 3 }, { nome: 'Ter', num: 4 }, { nome: 'Qua', num: 5 }, { nome: 'Qui', num: 6 }, { nome: 'Sex', num: 7 }], eventos: [] },
+      { rotulo: '10 a 14 de agosto de 2026',
+        dias: [{ nome: 'Seg', num: 10 }, { nome: 'Ter', num: 11 }, { nome: 'Qua', num: 12, hoje: true }, { nome: 'Qui', num: 13 }, { nome: 'Sex', num: 14 }],
+        eventos: [
+          { dia: 0, hora: 10, duracao: 2, titulo: 'Clínica Aurora', sub: 'Inspeção · Ester', estado: 'confirmado' },
+          { dia: 2, hora: 9, duracao: 3, titulo: 'ILPI Recanto · Tijuca', sub: 'Inspeção de rotina', estado: 'confirmado' },
+          { dia: 2, hora: 14, duracao: 2, titulo: 'Residencial Terra Firme', sub: 'Revisita · Ana', estado: 'atencao' },
+          { dia: 4, hora: 14, duracao: 2, titulo: 'ILPI Recanto · Centro', sub: 'Treinamento', estado: 'a-confirmar' }
+        ] }
+    ],
+    indice: 1,
+    aoClicar: function (e) { avisar({ kind: 'info', title: e.titulo, body: e.sub }); }
+  });
   new MutationObserver(pintarSwatches).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 </script>

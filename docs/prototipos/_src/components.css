@@ -529,6 +529,98 @@ dialog.drawer--left[open] { animation-name: drawer-in-left; }
 .stat__value { font-family: var(--font-title); font-size: var(--text-3xl); font-weight: var(--weight-title-strong); line-height: 1.1; margin-top: var(--space-1); font-variant-numeric: tabular-nums; }
 .stat__foot { margin-top: var(--space-2); font-size: var(--text-xs); color: var(--ink-2); }
 
+/* --- Calendário de semana (seg a sex) --------------------------------------
+   Um componente só, usado por qualquer agenda do produto: a do portal e a do
+   admin. Muda o conteúdo do evento, não a grade.
+
+   A escala é de 07h a 19h, uma linha por hora. O evento se posiciona com
+   --inicio (linha) e --duracao (quantas linhas ocupa), então não há cálculo de
+   pixel espalhado pelo HTML.
+   -------------------------------------------------------------------------- */
+.cal { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); overflow: hidden; }
+
+.cal__bar {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-sunken);
+}
+.cal__periodo { font-family: var(--font-title); font-weight: var(--weight-title-strong); font-size: var(--text-base); letter-spacing: var(--tracking-title); }
+
+.cal__grade { overflow-x: auto; overscroll-behavior-x: contain; }
+.cal__interno { min-width: 660px; }
+
+.cal__cabecalho, .cal__corpo { display: grid; grid-template-columns: 52px repeat(5, minmax(0, 1fr)); }
+.cal__cabecalho { position: sticky; top: 0; z-index: var(--z-sticky); background: var(--surface); border-bottom: 1px solid var(--border); }
+
+.cal__dia-rotulo { padding: var(--space-2) var(--space-2) var(--space-3); text-align: center; border-left: 1px solid var(--border); }
+.cal__dia-nome { font-size: var(--text-2xs); font-weight: var(--weight-semibold); color: var(--ink-2); }
+.cal__dia-num { font-family: var(--font-title); font-size: var(--text-lg); font-weight: var(--weight-title); font-variant-numeric: tabular-nums; margin-top: 2px; }
+/* Hoje: fundo E rótulo. Nunca só a cor. */
+.cal__dia-rotulo[data-hoje='true'] { background: var(--accent-soft); }
+.cal__dia-rotulo[data-hoje='true'] .cal__dia-num { color: var(--accent-soft-ink); }
+.cal__hoje-selo { display: inline-block; margin-top: 2px; font-size: 9px; font-weight: var(--weight-bold); text-transform: uppercase; letter-spacing: .04em; color: var(--accent-soft-ink); }
+
+.cal__horas { display: grid; grid-auto-rows: 46px; }
+/* O rótulo fica no topo da própria faixa, que é onde o evento daquela hora
+   começa. Deslocar para cima cortava o primeiro e desalinhava todos. */
+.cal__hora { font-size: var(--text-2xs); color: var(--ink-3); font-variant-numeric: tabular-nums; text-align: right; padding: 2px var(--space-2) 0 0; }
+
+.cal__coluna { display: grid; grid-auto-rows: 46px; border-left: 1px solid var(--border); position: relative; }
+.cal__coluna[data-hoje='true'] { background: color-mix(in srgb, var(--accent-soft) 45%, transparent); }
+.cal__faixa { border-bottom: 1px solid var(--border); grid-column: 1; }
+
+.cal__evento {
+  grid-column: 1;
+  grid-row: var(--inicio) / span var(--duracao);
+  margin: 2px 3px;
+  padding: var(--space-2);
+  border: 1px solid var(--accent-soft-border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent-soft-ink);
+  text-align: left;
+  font-size: var(--text-2xs);
+  line-height: 1.3;
+  cursor: pointer;
+  overflow: hidden;
+  z-index: 1;
+  transition: box-shadow var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out);
+}
+.cal__evento:hover { box-shadow: var(--shadow-2); }
+.cal__evento-hora { font-weight: var(--weight-bold); font-variant-numeric: tabular-nums; }
+.cal__evento-tit { font-weight: var(--weight-semibold); margin-top: 1px; }
+.cal__evento-sub { opacity: .85; margin-top: 1px; }
+
+/* Estado do compromisso: cor + borda + palavra, os três juntos. */
+.cal__evento[data-estado='confirmado'] { background: var(--success-soft); border-color: var(--success-soft-border); border-left-color: var(--success); color: var(--success-soft-ink); }
+.cal__evento[data-estado='a-confirmar'] { background: var(--surface-sunken); border-color: var(--border); border-left-color: var(--ink-3); border-left-style: dashed; color: var(--ink-2); }
+.cal__evento[data-estado='atencao'] { background: var(--amber-soft); border-color: var(--amber-soft-border); border-left-color: var(--amber); color: var(--amber-soft-ink); }
+
+.cal__vazio { padding: var(--space-8) var(--space-5); text-align: center; color: var(--ink-2); font-size: var(--text-sm); }
+
+.cal__legenda { display: flex; flex-wrap: wrap; gap: var(--space-4); padding: var(--space-3) var(--space-4); border-top: 1px solid var(--border); font-size: var(--text-xs); color: var(--ink-2); }
+.cal__legenda span { display: inline-flex; align-items: center; gap: var(--space-2); }
+.cal__amostra { width: 12px; height: 12px; border-radius: 2px; border: 1px solid; flex: none; }
+
+/* Abaixo de 720px a grade de 5 colunas fica ilegível: a semana passa a ser uma
+   lista por dia, que continua sendo a semana — só empilhada.
+   A regra base vem ANTES da media query: mesma especificidade, quem vem depois
+   ganha, e invertida a ordem o celular ficava sem grade e sem lista. */
+.cal__lista-dias { display: none; }
+
+@media (max-width: 720px) {
+  .cal__grade { display: none; }
+  .cal__lista-dias { display: block; }
+}
+.cal__lista-dia { border-top: 1px solid var(--border); }
+.cal__lista-dia-cab { display: flex; align-items: baseline; gap: var(--space-2); padding: var(--space-3) var(--space-4) var(--space-1); background: var(--surface-sunken); }
+.cal__lista-dia-cab h4 { font-size: var(--text-base); }
+.cal__lista-item { display: flex; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-top: 1px solid var(--border); }
+.cal__lista-hora { flex: none; width: 82px; font-size: var(--text-sm); font-variant-numeric: tabular-nums; color: var(--ink-2); }
+
 /* --- Faixa de alerta ------------------------------------------------------- */
 .notice {
   display: flex; align-items: flex-start; gap: var(--space-3);

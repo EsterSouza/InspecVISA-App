@@ -1,4 +1,4 @@
-<!-- title: FE-03 · Portal do Cliente — TreinaVISA -->
+﻿<!-- title: FE-03 · Portal do Cliente — TreinaVISA -->
 <style>
   /* O portal lê mais e clica menos: corpo um degrau maior e linha mais alta. */
   body { font-size: var(--text-md); }
@@ -245,7 +245,7 @@
         <div class="card__head"><h2 class="card__title">Próxima visita</h2></div>
         <div class="card__body">
           <p class="strong">Inspeção de rotina · unidade Tijuca</p>
-          <p class="muted small" style="margin-top:var(--space-1)">12/08/2026 · 09h00</p>
+          <p class="muted small" style="margin-top:var(--space-1)">Hoje, 12/08/2026 · 09h00</p>
           <div class="row-wrap" style="margin-top:var(--space-4)">
             <a class="btn btn--outline btn--sm" href="#/agenda">Ver agenda</a>
           </div>
@@ -334,8 +334,18 @@
       <h1>Agenda</h1>
       <p>Visitas marcadas e histórico. Para pedir uma nova data, use o botão abaixo.</p>
     </div>
-    <button class="btn btn--primary btn--lg" style="margin-bottom:var(--space-6)"><svg width="16" height="16" aria-hidden="true"><use href="#ic-calendar"/></svg>Pedir nova visita</button>
 
+    <div class="row-wrap" style="margin-bottom:var(--space-5);justify-content:space-between">
+      <button class="btn btn--primary btn--lg"><svg width="16" height="16" aria-hidden="true"><use href="#ic-calendar"/></svg>Pedir nova visita</button>
+      <div class="segmented" role="group" aria-label="Forma de visualizar a agenda">
+        <button id="ag-semana" aria-pressed="true">Semana</button>
+        <button id="ag-lista" aria-pressed="false">Lista</button>
+      </div>
+    </div>
+
+    <div id="ag-calendario" style="margin-bottom:var(--space-6)"></div>
+
+    <div id="ag-listagem" hidden>
     <div class="card">
       <div class="card__head"><h2 class="card__title">Marcadas</h2></div>
       <div class="card__body card__body--flush">
@@ -345,7 +355,7 @@
           <span class="badge badge--info">confirmada</span>
         </div>
         <div class="timeline__row" style="padding-inline:var(--space-5)">
-          <span class="timeline__when">26/08/2026</span>
+          <span class="timeline__when">19/08/2026</span>
           <div class="grow"><p class="strong">Inspeção de rotina · unidade Méier</p><p class="muted small">14h00 · Ana</p></div>
           <span class="badge badge--neutral">a confirmar</span>
         </div>
@@ -362,6 +372,7 @@
         </div>
       </div>
     </div>
+    </div>
   </section>
 
   <!-- ============ FINANCEIRO ============ -->
@@ -374,7 +385,7 @@
     <div class="notice notice--attention" style="margin-bottom:var(--space-5)">
       <svg class="notice__mark" width="16" height="16" aria-hidden="true"><use href="#ic-alert"/></svg>
       <div>
-        <p><b>A fatura de julho venceu há 3 dias.</b></p>
+        <p><b>A fatura de julho venceu há 7 dias.</b></p>
         <p class="small" style="margin-top:2px">
           Enquanto estiver em atraso não dá para marcar visita nova. Seus relatórios e seu plano de
           ação continuam abertos normalmente — o que já foi entregue nunca é escondido.
@@ -388,7 +399,7 @@
           <caption class="sr-only">Faturas</caption>
           <thead><tr><th scope="col">Competência</th><th scope="col">Descrição</th><th scope="col" class="num">Valor</th><th scope="col" class="num">Vencimento</th><th scope="col">Situação</th><th scope="col" class="table__actions">Ações</th></tr></thead>
           <tbody>
-            <tr><td class="num">07/2026</td><td>Mensalidade de consultoria</td><td class="num">R$ 1.700,00</td><td class="num">05/08/2026</td><td><span class="badge badge--attention"><span class="dot"></span>3 dias em atraso</span></td><td class="table__actions"><button class="btn btn--outline btn--sm">Ver boleto</button></td></tr>
+            <tr><td class="num">07/2026</td><td>Mensalidade de consultoria</td><td class="num">R$ 1.700,00</td><td class="num">05/08/2026</td><td><span class="badge badge--attention"><span class="dot"></span>7 dias em atraso</span></td><td class="table__actions"><button class="btn btn--outline btn--sm">Ver boleto</button></td></tr>
             <tr><td class="num">06/2026</td><td>Mensalidade de consultoria</td><td class="num">R$ 1.700,00</td><td class="num">05/07/2026</td><td><span class="badge badge--success">pago</span></td><td class="table__actions"><button class="btn btn--ghost btn--sm">Recibo</button></td></tr>
             <tr><td class="num">05/2026</td><td>Mensalidade de consultoria</td><td class="num">R$ 1.700,00</td><td class="num">05/06/2026</td><td><span class="badge badge--success">pago</span></td><td class="table__actions"><button class="btn btn--ghost btn--sm">Recibo</button></td></tr>
           </tbody>
@@ -900,7 +911,67 @@
     renderComparativo();
     renderGrupos();
     renderDocs();
+    renderAgenda();
   }
+
+  /* ---------- Agenda: semana de seg a sex ----------
+     "Hoje" do protótipo é quarta, 12/08/2026 — uma quarta de verdade no
+     calendário de 2026, para as datas não se contradizerem. */
+  var DIAS_10_14 = [
+    { nome: 'Seg', num: 10 }, { nome: 'Ter', num: 11 },
+    { nome: 'Qua', num: 12, hoje: true }, { nome: 'Qui', num: 13 }, { nome: 'Sex', num: 14 }
+  ];
+  var DIAS_03_07 = [{ nome: 'Seg', num: 3 }, { nome: 'Ter', num: 4 }, { nome: 'Qua', num: 5 }, { nome: 'Qui', num: 6 }, { nome: 'Sex', num: 7 }];
+  var DIAS_17_21 = [{ nome: 'Seg', num: 17 }, { nome: 'Ter', num: 18 }, { nome: 'Qua', num: 19 }, { nome: 'Qui', num: 20 }, { nome: 'Sex', num: 21 }];
+
+  function semanasAgenda() {
+    if (cenario === 'rede') {
+      return [
+        { rotulo: '3 a 7 de agosto de 2026', dias: DIAS_03_07, eventos: [
+          { dia: 1, hora: 9, duracao: 3, titulo: 'Inspeção · Centro', sub: 'realizada · Ester', estado: 'confirmado' }
+        ] },
+        { rotulo: '10 a 14 de agosto de 2026', dias: DIAS_10_14, eventos: [
+          { dia: 2, hora: 9, duracao: 3, titulo: 'Inspeção de rotina', sub: 'unidade Tijuca · Ester', estado: 'confirmado' },
+          { dia: 4, hora: 14, duracao: 2, titulo: 'Treinamento de boas práticas', sub: 'unidade Centro · 8 pessoas', estado: 'a-confirmar' }
+        ] },
+        { rotulo: '17 a 21 de agosto de 2026', dias: DIAS_17_21, eventos: [
+          { dia: 2, hora: 14, duracao: 3, titulo: 'Inspeção de rotina', sub: 'unidade Méier · Ana', estado: 'a-confirmar' },
+          { dia: 3, hora: 10, duracao: 2, titulo: 'Revisita de pendências', sub: 'unidade Centro', estado: 'atencao' }
+        ] }
+      ];
+    }
+    return [
+      { rotulo: '3 a 7 de agosto de 2026', dias: DIAS_03_07, eventos: [] },
+      { rotulo: '10 a 14 de agosto de 2026', dias: DIAS_10_14, eventos: [
+        { dia: 2, hora: 9, duracao: 3, titulo: 'Inspeção de rotina', sub: 'Ester', estado: 'confirmado' }
+      ] },
+      { rotulo: '17 a 21 de agosto de 2026', dias: DIAS_17_21, eventos: [] }
+    ];
+  }
+
+  function renderAgenda() {
+    renderCalendario(document.getElementById('ag-calendario'), {
+      semanas: semanasAgenda(),
+      indice: 1,
+      aoClicar: function (e, d) {
+        avisar({ kind: 'info', title: e.titulo, body: d.nome + ' ' + d.num + ' · ' + e.sub });
+      }
+    });
+  }
+
+  (function () {
+    var bSemana = document.getElementById('ag-semana');
+    var bLista = document.getElementById('ag-lista');
+    function ver(modo) {
+      var semana = modo === 'semana';
+      bSemana.setAttribute('aria-pressed', String(semana));
+      bLista.setAttribute('aria-pressed', String(!semana));
+      document.getElementById('ag-calendario').hidden = !semana;
+      document.getElementById('ag-listagem').hidden = semana;
+    }
+    bSemana.addEventListener('click', function () { ver('semana'); });
+    bLista.addEventListener('click', function () { ver('lista'); });
+  })();
 
   document.getElementById('cen-rede').addEventListener('click', function () { definirCenario('rede'); });
   document.getElementById('cen-unica').addEventListener('click', function () { definirCenario('unica'); });

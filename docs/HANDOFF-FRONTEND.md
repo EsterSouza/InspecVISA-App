@@ -108,10 +108,10 @@ Tokens da paleta em CSS variables (claro + escuro), escala tipográfica Sora / S
 O contraste **não é uma tabela escrita à mão**: a página mede os 15 pares em tempo real a partir dos tokens vigentes e escreve REPROVA em vermelho se algum cair. Confere sozinha quando você troca o tema.
 
 **FE-02 · Artefato B — Telas admin (navegável).** ✅ [Publicado](https://claude.ai/code/artifact/05a3d5bf-16f7-4b9c-8241-eece1f4147d1)
-Shell com rail colapsável (estado persistido) e nova ordem, drawer no celular com **os mesmos itens** do rail, mais: Painel, Clientes (tabela densa), Detalhe do cliente com abas (Visão geral · Inspeções · **Arquivos** · Portal · Financeiro), **Plano de Ação (tela nova)** e Execução da inspeção.
+Shell com rail colapsável (estado persistido) e nova ordem, drawer no celular com **os mesmos itens** do rail, mais: Painel, Clientes (tabela densa), Detalhe do cliente com abas (Visão geral · Inspeções · **Arquivos** · Portal · Financeiro), **Plano de Ação (tela nova)**, **Agendamentos com o calendário de semana** e Execução da inspeção.
 
 **FE-03 · Artefato C — Portal do cliente (navegável).** ✅ [Publicado](https://claude.ai/code/artifact/e01399ab-5115-43dc-ba31-3352e346130c)
-Navegação com URL por seção: Visão geral · Plano de ação · Solicitações · Documentos · Agenda · Financeiro. Plano de ação agrupado por unidade, com "Todas" e comparativo de cumprimento. O botão no alto troca entre **1 unidade** e **13 unidades** para conferir os dois desenhos no mesmo arquivo.
+Navegação com URL por seção: Visão geral · Plano de ação · Solicitações · Documentos · Agenda · Financeiro. Plano de ação agrupado por unidade, com "Todas" e comparativo de cumprimento. Agenda com **calendário de segunda a sexta** e alternador Semana / Lista. O botão no alto troca entre **1 unidade** e **13 unidades** para conferir os dois desenhos no mesmo arquivo.
 
 ### Decisões de design tomadas nos protótipos
 
@@ -128,6 +128,9 @@ Ficam registradas aqui, não no servidor do DesignMD (regra 2 da seção do MCP)
 9. **"Todas as unidades" mostra amostra, não tudo.** Com 45 pendências em 13 unidades, cada grupo mostra 3 e abre a unidade inteira num clique. Empilhar 45 formulários é a rolagem infinita que este redesenho existe para acabar.
 10. **Plano de ação: lista + detalhe.** A tabela é o índice; `situation` e `recommended_action` aparecem inteiros no painel ao lado, sem abrir relatório e sem abrir inspeção.
 11. **Toda rota tem identidade própria**, inclusive as que não foram desenhadas nesta fase. Sem isso o item ativo do menu mente.
+12. **Um calendário só para todas as agendas.** Portal e admin usam o mesmo renderizador; muda o conteúdo do evento, nunca a grade. Duas implementações parecidas divergem em três meses, e aí o cliente e a consultoria passam a ver a mesma semana de jeitos diferentes.
+13. **Calendário é opção, não substituição.** Toda agenda mantém o alternador Semana / Lista. Lista ganha para conferir data e situação em massa; calendário ganha para enxergar buraco na semana. Cada uma serve a uma pergunta.
+14. **"Hoje" do protótipo é quarta, 12/08/2026** — uma quarta de verdade no calendário de 2026. A data anterior (08/08) era um sábado rotulado como quarta; num protótipo de agenda, data que se contradiz destrói a confiança na tela inteira.
 
 ### Achados de CSS que valem para a Fase 2
 
@@ -139,13 +142,41 @@ Ficam registradas aqui, não no servidor do DesignMD (regra 2 da seção do MCP)
 
 ## FASE 2 — Implementação (após aprovação dos protótipos)
 
-### FE-04 · Fundação do design system
-- `tailwind.config.js:7-27` — ajustar `primary-50/900` para os códigos oficiais, adicionar navy institucional, criar escala `amber` semântica, completar `secondary` (teal). Hoje `Button variant="secondary"` aponta para `secondary-100/700`, **que não existem**: classes inertes.
+> **Prioridade máxima, decidida pela Ester em 09/08/2026: colocar o protótipo no ar no PORTAL DO CLIENTE primeiro. O nosso próprio portal (área admin) vem depois.**
+>
+> A razão é boa: o portal é o que o cliente vê, é onde estão os pontos 6, 7 e 8, e é a superfície menor — dá para entregar inteira antes de encostar nas ~15 páginas do admin. Enquanto o admin não for migrado, ele continua funcionando como está hoje; a fundação nova convive com o CSS antigo sem quebrar.
+
+### Ondas
+
+| Onda | O que entra | Termina quando |
+|---|---|---|
+| **1 — Portal no ar** | FE-04a, FE-13, FE-09, FE-10 | O cliente entra no portal novo, navega por seção, vê o plano de ação por unidade e a agenda em calendário |
+| **2 — Admin** | FE-04b, FE-05, FE-06, FE-07, FE-08 | A consultoria usa o shell novo, a tela de Plano de Ação e a aba de Arquivos |
+| **3 — Fechamento** | FE-11, FE-12, revisão de a11y | Dark mode ligado de verdade e nenhum resto do CSS antigo |
+
+**FE-04 foi partido em dois** para não segurar a onda 1: `FE-04a` é só o que o portal usa; `FE-04b` é o resto (tabela densa, rail, tooltip, paginação), que só o admin precisa.
+
+### FE-04a · Fundação — o que o portal usa (ONDA 1)
+- `tailwind.config.js:7-27` — ajustar `primary-50/900` para os códigos oficiais, adicionar navy institucional, criar escala `amber` semântica, completar `secondary` (teal). Hoje `Button variant="secondary"` aponta para `secondary-100/700`, **que não existem**: classes inertes. Os valores saem de `docs/prototipos/_src/tokens.css`, que já está validado em AA nos dois temas.
 - Trocar Inter por Sora + Source Sans 3 em `index.html:16-18` e no `fontFamily`.
-- Criar primitivos faltantes em `src/components/ui/`, reusando `cn()` de `src/lib/utils.ts` e o padrão CVA de `src/components/ui/Button.tsx`.
-- Criar `PageShell` (`max-w-[1600px]` + padding padrão) e `PageHeader` — hoje o cabeçalho `<h1>` + subtítulo + ações é reescrito à mão em ~15 páginas.
+- Primitivos que o portal usa: `Button` (revisar variantes), `Input`, `Textarea`, `Select`, `Label`, `Badge`, `Card`, `EmptyState`, `Skeleton`, `Toast`, `Modal` acessível.
+- `Modal.tsx` — trocar por `<dialog>` nativo: já dá trap de foco, `Esc` e devolução do foco. Sobra escrever o fechar-no-backdrop e a trava de rolagem. Usado em ~15 lugares.
 - Instalar `tailwindcss-animate`: `Modal.tsx:32` e `LegislationsManager.tsx:183` já usam `animate-in`/`zoom-in-95` sem o plugin → **as animações não rodam hoje**.
-- `Modal.tsx` — trap de foco, `Esc`, `role="dialog"`/`aria-modal`, fechar no backdrop. Usado em ~15 lugares.
+- Trocar `alert()`/`confirm()` do portal pelo `Toast`/`Modal` novos.
+
+### FE-04b · Fundação — o que só o admin usa (ONDA 2)
+- `Table` densa com cabeçalho fixo e ordenação, `Tabs`, `Pagination`, `Tooltip`, `Drawer`.
+- `PageShell` (`max-w-[1600px]` + padding padrão) e `PageHeader` — hoje o cabeçalho `<h1>` + subtítulo + ações é reescrito à mão em ~15 páginas.
+
+### FE-13 · Calendário de semana (ONDA 1) — requisito inegociável
+Pedido da Ester em 09/08/2026: **opção de visualização em calendário de segunda a sexta, e isso vale para qualquer agenda do produto.**
+
+- Um componente só, `WeekCalendar`, em `src/components/ui/`. O portal e os Agendamentos do admin consomem o mesmo — muda o conteúdo do evento, nunca a grade. O renderizador de referência está em `docs/prototipos/_src/shell.js` (`renderCalendario`).
+- Faixa de 07h às 19h, uma linha por hora. O evento se posiciona por `--inicio` e `--duracao`, sem cálculo de pixel espalhado pelo JSX.
+- **Alternador Semana / Lista** em toda agenda. A lista continua existindo; o calendário é opção, não substituição.
+- Abaixo de 720px a grade vira lista por dia — continua sendo a semana, só empilhada.
+- Estado do compromisso em três canais: cor de fundo, estilo da borda esquerda e palavra na legenda. O nome acessível do evento carrega dia, horário e estado por extenso.
+- **A decidir com a Ester:** compromisso fora de 07h–19h (a régua cresce, não corta) e se sábado precisa entrar algum dia.
 
 ### FE-05 · Ponto 1 — larguras
 Trocar `mx-auto max-w-3xl|4xl|5xl|6xl` pelo `PageShell`. Representativos: `src/pages/Clients.tsx:166`, `src/pages/ClientDetails.tsx:415`, `src/pages/Schedules.tsx:354`, `src/pages/Inspections.tsx:145`, `src/pages/OperationalPanel.tsx:348`, `src/pages/Dashboard.tsx:428`. Mesmo padrão nas demais.
@@ -166,9 +197,11 @@ Trocar `mx-auto max-w-3xl|4xl|5xl|6xl` pelo `PageShell`. Representativos: `src/p
 - Card em `ClientDetails.tsx:686-706` linka para a tela nova, em vez de `navigate('/new?...&mode=action-plan')`, que abre uma inspeção nova.
 - Prazo vencido usa **âmbar `#D99721`** + rótulo textual.
 
-### FE-09 · Pontos 6 e 7 — portal do cliente
-- Quebrar `ClientPortal.tsx` (591 linhas, 12 seções empilhadas) em rotas de seção sob `/cliente`.
+### FE-09 · Pontos 6 e 7 — portal do cliente (ONDA 1)
+- Quebrar `ClientPortal.tsx` (591 linhas, 12 seções empilhadas) em rotas de seção sob `/cliente`: Visão geral · Plano de ação · Solicitações · Documentos · Agenda · Financeiro.
 - `PortalActionPlan.tsx` — agrupar por unidade com cabeçalho de grupo e contadores. Hoje o único traço de unidade é um `<span>` cinza de 11px por card.
+- Filtro de unidade com "Todas" e comparativo de cumprimento, ordenado da unidade que mais precisa de atenção para a que menos precisa. Acima de 6 unidades, no celular, os chips viram `<select>`.
+- Em "Todas as unidades", cada grupo mostra **3 pendências** e abre a unidade inteira num clique. Empilhar 45 formulários é a rolagem infinita que este redesenho existe para acabar.
 - Passar `p_client_id` nas RPCs `client_portal_action_items` / `client_portal_service_requests`: **elas já aceitam o parâmetro** e o front sempre manda `null`, filtrando tudo no cliente.
 - `generateFranchisePdf(overview)` (`ClientPortal.tsx:463`) passa a respeitar o filtro de unidade — hoje ignora.
 
@@ -242,20 +275,48 @@ Padrões usados na Fase 1: `data-table`, `sidebar-nav`, `dashboard-layout`, `tab
 
 **Claude** para design, arquitetura e julgamento de UX; **Codex** para refactor mecânico de larga escala e conferência.
 
-### Claude Code
+Regra que decide a coluna **Modelo**: sobe quando a decisão é de design ou de arquitetura; desce quando o padrão já está definido e é só aplicar. Se travar duas vezes num modelo menor, sobe — sai mais barato que três tentativas.
 
-| Tarefa | Modelo | Esforço |
-|---|---|---|
-| FE-01 a FE-03 (protótipos, tokens, decisões visuais) | Opus 5 | alto |
-| FE-08, FE-09 (tela de plano de ação; quebrar o portal em rotas) | Opus 5 | médio-alto |
-| FE-04 parcial (`Table`, `Modal` acessível, `PageShell`) | Opus 5 | médio |
-| FE-04 restante, FE-06 (primitivos, sidebar colapsável) | Sonnet 5 | médio |
-| FE-07 (aba de Arquivos + N+1) | Sonnet 5 | médio |
-| FE-05 (larguras em ~15 páginas) | Sonnet 5 | baixo |
-| FE-10, FE-11 (remover `required`, higiene) | Haiku 4.5 | baixo |
-| Revisão final de acessibilidade e contraste | Sonnet 5 | médio |
+Regra que decide a coluna **Esforço**: o que o protótipo já resolveu não é mais decisão. Boa parte do que era "alto" antes da Fase 1 virou "aplicar o que está em `docs/prototipos/_src`".
 
-Regra prática: **suba o esforço quando a decisão é de design ou arquitetura; desça quando o padrão já está definido e é só aplicar.** Se travar duas vezes num modelo menor, sobe — sai mais barato que três tentativas.
+### ONDA 1 — Portal do cliente no ar (prioridade máxima)
+
+| # | Tarefa | Modelo | Esforço | Depende de |
+|---|---|---|---|---|
+| FE-04a | Tokens no Tailwind + fontes Sora / Source Sans 3 | Sonnet 5 | baixo | — |
+| FE-04a | Primitivos do portal: `Input`, `Textarea`, `Select`, `Label`, `Badge`, `Card`, `EmptyState`, `Skeleton` | Sonnet 5 | médio | tokens |
+| FE-04a | `Modal` com `<dialog>` nativo + `Toast`, e matar `alert()`/`confirm()` | Opus 5 | médio | primitivos |
+| FE-13 | `WeekCalendar` compartilhado + alternador Semana / Lista | Opus 5 | médio-alto | primitivos |
+| FE-09 | Quebrar `ClientPortal.tsx` em rotas de seção | Opus 5 | médio-alto | primitivos |
+| FE-09 | Plano de ação agrupado por unidade + comparativo + amostra de 3 | Opus 5 | médio-alto | rotas |
+| FE-09 | `p_client_id` nas RPCs e PDF respeitando o filtro de unidade | Sonnet 5 | médio | rotas |
+| FE-10 | Tirar o atrito: `required` e as duas guardas de nome/função | Haiku 4.5 | baixo | — |
+| — | Revisão de acessibilidade e contraste do portal | Sonnet 5 | médio | tudo acima |
+
+**Por que `Modal` e `WeekCalendar` são Opus:** foco, teclado e leitor de tela são onde protótipo bonito vira código quebrado, e o calendário ainda tem posicionamento em grade mais um segundo desenho no celular. O resto da onda é aplicar padrão já decidido.
+
+### ONDA 2 — Admin
+
+| # | Tarefa | Modelo | Esforço | Depende de |
+|---|---|---|---|---|
+| FE-04b | `Table` densa, `Tabs`, `Pagination`, `Tooltip`, `Drawer` | Sonnet 5 | médio | onda 1 |
+| FE-04b | `PageShell` + `PageHeader` | Sonnet 5 | baixo | — |
+| FE-08 | Tela nova de Plano de Ação: lista + detalhe com `situation` e `recommended_action` | Opus 5 | médio-alto | `Table` |
+| FE-06 | Rail colapsável persistido + drawer no celular + nova ordem do menu | Sonnet 5 | médio | `Drawer` |
+| FE-13 | Agendamentos do admin reusando o `WeekCalendar` | Sonnet 5 | baixo | FE-13 da onda 1 |
+| FE-07 | Aba de Arquivos + corrigir o N+1 de `listAttachments` | Sonnet 5 | médio | `Table` |
+| FE-05 | Larguras: `max-w-*` → `PageShell` em ~15 páginas | Haiku 4.5 · ou Codex | baixo | `PageShell` |
+| — | Converter listas de cards em tabelas nas telas restantes | Codex (medium) | médio | exemplo aprovado |
+
+### ONDA 3 — Fechamento
+
+| # | Tarefa | Modelo | Esforço | Depende de |
+|---|---|---|---|---|
+| FE-12 | Ligar o dark mode no app inteiro | Sonnet 5 | médio | ondas 1 e 2 |
+| FE-11 | Higiene: `AdminLayout.tsx`, `App.css`, "C&C Consultoria", "HUB TREINAVISA SERVICOS" | Haiku 4.5 | baixo | — |
+| — | Revisão final de acessibilidade em teclado e leitor de tela | Sonnet 5 | médio | tudo |
+
+FE-11 não depende de nada e pode ser puxado a qualquer momento — é o card para quando sobrarem dez minutos.
 
 ### Codex
 
@@ -274,6 +335,7 @@ Nomes de modelo mudam rápido; escolher o mais recente no `/model` e calibrar o 
 
 ## Verificação
 
+0. **Ordem de entrega:** o portal do cliente vai ao ar primeiro. Nada da onda 2 começa antes de o portal estar de pé.
 1. **Protótipos:** publicar os 3 artefatos e enviar os links; contraste AA conferido em cada um, testado em 1280px, 1600px e 375px.
 2. **Código:** `preview_start` do dev server, `read_page` para teclado e rótulos, `resize_window` para mobile/desktop, screenshot antes/depois.
 3. **Build:** `npm run build` completo. `tsc --noEmit` limpo **não basta** — o Vercel já quebrou assim.
@@ -285,10 +347,14 @@ Nomes de modelo mudam rápido; escolher o mais recente no `/model` e calibrar o 
 
 | Card | Estado |
 |---|---|
-| FE-01 a FE-03 | ✅ Entregues em 09/08/2026 — **aguardando aprovação da Ester** |
-| FE-04 a FE-12 | Bloqueados pela aprovação dos protótipos |
+| FE-01 a FE-03 | ✅ Entregues em 09/08/2026 · calendário de semana acrescentado na revisão do mesmo dia |
+| FE-13 (calendário) | ✅ desenhado nos três artefatos — falta implementar, na onda 1 |
+| Onda 1 (portal) | **Próxima a começar** — prioridade máxima |
+| Ondas 2 e 3 | Depois do portal no ar |
 | MCP do DesignMD | ✅ funcionando — URL corrigida para `www` e servidor aprovado em `~/.claude.json` |
 
-Conferido nos três artefatos: 15 pares de contraste medidos em tempo real sem nenhuma reprovação nos dois temas; nenhuma rolagem horizontal em 375px, 1280px e 1440px; menor alvo de toque de 44px; nenhum erro de console; `<dialog>` devolvendo o foco ao botão de origem.
+Conferido nos três artefatos: 15 pares de contraste medidos em tempo real sem nenhuma reprovação nos dois temas; nenhuma rolagem horizontal em 375px, 1280px e 1440px; menor alvo de toque de 44px; nenhum erro de console; `<dialog>` devolvendo o foco ao botão de origem; e o calendário caindo para lista por dia abaixo de 720px.
 
-O que **falta conferir e depende da Ester:** se a ordem do menu bate com o uso real dela, se o nível de densidade da tabela está confortável, e se a voz do portal está do jeito que ela fala com os clientes.
+**Aprovado pela Ester em 09/08/2026**, com um pedido: opção de visualização em calendário de segunda a sexta, para qualquer agenda. Feito — virou o card FE-13 e está nos três artefatos.
+
+O que ainda depende dela: se a ordem do menu bate com o uso real, se a densidade da tabela está confortável, se a voz do portal está do jeito que ela fala com os clientes, e as duas pontas soltas do calendário (compromisso fora de 07h–19h e se sábado precisa entrar).
