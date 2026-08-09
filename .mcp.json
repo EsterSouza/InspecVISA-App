@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "designmd": {
+      "type": "http",
+      "url": "https://www.designmd.co/api/mcp",
+      "headers": {
+        "Authorization": "Bearer 2smLerWSwo9bZRqQZsh+zRkL/Voof7lpWtBPlWTRByQ="
+      }
+    }
+  }
+}

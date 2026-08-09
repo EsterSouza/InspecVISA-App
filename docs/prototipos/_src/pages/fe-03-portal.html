@@ -1,0 +1,925 @@
+<!-- title: FE-03 · Portal do Cliente — TreinaVISA -->
+<style>
+  /* O portal lê mais e clica menos: corpo um degrau maior e linha mais alta. */
+  body { font-size: var(--text-md); }
+
+  .proto-bar {
+    background: var(--ink); color: var(--surface);
+    padding: var(--space-2) var(--space-5);
+    display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap;
+    font-size: var(--text-xs);
+  }
+  .proto-bar .segmented { background: rgba(255,255,255,.10); border-color: rgba(255,255,255,.22); }
+  .proto-bar .segmented button { color: rgba(255,255,255,.72); }
+  .proto-bar .segmented button[aria-pressed='true'] { background: var(--surface); color: var(--accent-ink); }
+
+  .portal-head { background: var(--surface); border-bottom: 1px solid var(--border); }
+  .portal-head__inner { max-width: 1120px; margin: 0 auto; padding: var(--space-6) var(--space-5) 0; }
+  .portal-head__top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
+  .portal-brand { display: flex; align-items: center; gap: var(--space-3); }
+  .portal-brand__mark { width: 34px; height: 34px; border-radius: var(--radius-md); background: var(--accent); color: #FFF; display: grid; place-items: center; font-family: var(--font-title); font-weight: 600; font-size: 14px; }
+  .portal-brand__name { font-family: var(--font-title); font-weight: 600; font-size: var(--text-lg); letter-spacing: var(--tracking-title); line-height: 1.1; }
+  .portal-brand__sub { font-size: var(--text-xs); color: var(--ink-2); }
+
+  .portal-nav { margin-top: var(--space-5); }
+  .portal-nav ul { display: flex; gap: 0; list-style: none; margin: 0; padding: 0; overflow-x: auto; scrollbar-width: none; }
+  .portal-nav ul::-webkit-scrollbar { display: none; }
+  .portal-nav a {
+    position: relative; display: flex; align-items: center; gap: var(--space-2);
+    height: 46px; padding: 0 var(--space-4);
+    color: var(--ink-2); text-decoration: none;
+    font-size: var(--text-base); font-weight: var(--weight-semibold); white-space: nowrap;
+    transition: color var(--dur-1) var(--ease-out);
+  }
+  .portal-nav a:hover { color: var(--ink); }
+  .portal-nav a::after { content: ''; position: absolute; left: var(--space-3); right: var(--space-3); bottom: -1px; height: 2px; background: var(--accent); transform: scaleX(0); transition: transform var(--dur-2) var(--ease-out); }
+  .portal-nav a[aria-current='page'] { color: var(--accent-ink); }
+  .portal-nav a[aria-current='page']::after { transform: scaleX(1); }
+  .portal-nav .pill { font-size: var(--text-2xs); font-weight: var(--weight-bold); border-radius: var(--radius-sm); padding: 0 5px; background: var(--amber-soft); color: var(--amber-soft-ink); border: 1px solid var(--amber-soft-border); }
+
+  .portal-main { max-width: 1120px; margin: 0 auto; padding: var(--space-8) var(--space-5) var(--space-16); }
+  @media (max-width: 640px) { .portal-head__inner, .portal-main { padding-left: var(--space-4); padding-right: var(--space-4); } }
+
+  .sec-head { margin-bottom: var(--space-5); }
+  .sec-head h1 { font-size: var(--text-2xl); }
+  .sec-head p { color: var(--ink-2); margin-top: var(--space-1); max-width: 72ch; }
+
+  .screen[hidden] { display: none; }
+
+  .next-action { border: 1px solid var(--accent-soft-border); background: var(--accent-soft); border-radius: var(--radius-lg); padding: var(--space-5); }
+  .next-action h2 { font-size: var(--text-lg); color: var(--accent-soft-ink); }
+
+  .cards-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: var(--space-4); }
+  .cards-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-4); }
+  /* Item de grid nasce com min-width: auto e não encolhe abaixo do conteúdo. */
+  .cards-3 > *, .cards-2 > * { min-width: 0; }
+
+  /* Comparativo entre unidades — a rede precisa saber qual está atrás. */
+  .unit-bar { display: grid; grid-template-columns: minmax(120px, 1.3fr) minmax(0, 3fr) 92px; gap: var(--space-3); align-items: center; padding: var(--space-2) 0; }
+  .unit-bar + .unit-bar { border-top: 1px solid var(--border); }
+  .unit-bar__name { font-weight: var(--weight-semibold); font-size: var(--text-base); }
+  .unit-bar__num { text-align: right; font-size: var(--text-sm); font-variant-numeric: tabular-nums; color: var(--ink-2); }
+
+  .unit-filter { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-5); }
+  /* Rede grande no celular: 13 chips viram quatro linhas de rolagem antes da
+     primeira pendência. Acima de 6 unidades o filtro passa a ser um seletor. */
+  .unit-select { display: none; margin-bottom: var(--space-5); }
+  @media (max-width: 640px) {
+    body[data-muitas='sim'] .unit-filter { display: none; }
+    body[data-muitas='sim'] .unit-select { display: block; }
+  }
+  .unit-chip {
+    height: 34px; padding: 0 var(--space-3);
+    border: 1px solid var(--border-control); border-radius: var(--radius-md);
+    background: var(--surface); color: var(--ink-2);
+    font-size: var(--text-sm); font-weight: var(--weight-semibold); cursor: pointer;
+    display: inline-flex; align-items: center; gap: var(--space-2);
+    transition: background-color var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out);
+  }
+  .unit-chip:hover { border-color: var(--ink-3); }
+  .unit-chip[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); color: var(--ink-on-accent); }
+  .unit-chip .n { font-variant-numeric: tabular-nums; font-size: var(--text-2xs); background: var(--surface-sunken); color: var(--ink-2); border-radius: var(--radius-sm); padding: 0 5px; }
+  .unit-chip[aria-pressed='true'] .n { background: rgba(255,255,255,.22); color: var(--ink-on-accent); }
+  @media (pointer: coarse) { .unit-chip { height: var(--touch-min); } }
+
+  .group-head {
+    display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+    flex-wrap: wrap;
+    padding: var(--space-3) var(--space-4);
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    position: sticky; top: 0; z-index: var(--z-sticky);
+  }
+  .group-head h3 { font-size: var(--text-base); }
+  .group + .group { margin-top: var(--space-8); }
+  .group__items { border: 1px solid var(--border); border-top: 0; border-radius: 0 0 var(--radius-lg) var(--radius-lg); background: var(--surface); }
+
+  .task { padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--border); }
+  .task:last-child { border-bottom: 0; }
+  .task--overdue { background: var(--amber-soft); }
+  .task__title { font-size: var(--text-md); font-weight: var(--weight-semibold); margin: var(--space-2) 0 var(--space-1); }
+  .task__what { background: var(--accent-soft); border: 1px solid var(--accent-soft-border); border-radius: var(--radius-md); padding: var(--space-3); margin-top: var(--space-3); color: var(--accent-soft-ink); }
+  .task--overdue .task__what { background: var(--surface); border-color: var(--border); color: var(--ink); }
+  .task__meta { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); margin-top: var(--space-3); font-size: var(--text-sm); color: var(--ink-2); }
+  .task__meta span { display: inline-flex; align-items: center; gap: var(--space-2); }
+
+  .answer { margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px dashed var(--border); }
+  .answer__q { font-size: var(--text-base); font-weight: var(--weight-semibold); margin-bottom: var(--space-2); }
+  .choices { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+  .choice {
+    min-height: var(--touch-min); padding: 0 var(--space-4);
+    border: 1px solid var(--border-control); border-radius: var(--radius-md);
+    background: var(--surface); color: var(--ink);
+    font-size: var(--text-base); font-weight: var(--weight-semibold); cursor: pointer;
+    display: inline-flex; align-items: center; gap: var(--space-2);
+    transition: background-color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+  }
+  .choice:hover { border-color: var(--ink-3); }
+  .choice[aria-pressed='true'][data-k='done'] { background: var(--success-soft); border-color: var(--success-soft-border); color: var(--success-soft-ink); }
+  .choice[aria-pressed='true'][data-k='doing'] { background: var(--accent-soft); border-color: var(--accent-soft-border); color: var(--accent-soft-ink); }
+  .choice[aria-pressed='true'][data-k='not'] { background: var(--amber-soft); border-color: var(--amber-soft-border); color: var(--amber-soft-ink); }
+
+  .timeline__row { display: flex; gap: var(--space-4); padding: var(--space-4) 0; border-bottom: 1px solid var(--border); }
+  .timeline__row:last-child { border-bottom: 0; }
+  .timeline__when { flex: none; width: 92px; font-size: var(--text-sm); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+  .only-multi { display: none; }
+  body[data-cenario='rede'] .only-multi { display: block; }
+  body[data-cenario='rede'] .only-multi.is-flex { display: flex; }
+  body[data-cenario='unica'] .only-rede-inline { display: none; }
+</style>
+
+<a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+
+<!-- Faixa que só existe no protótipo. -->
+<div class="proto-bar">
+  <span class="strong">Protótipo FE-03</span>
+  <span style="opacity:.72">Trocar o cenário para conferir os dois desenhos:</span>
+  <div class="segmented" role="group" aria-label="Cenário do protótipo">
+    <button id="cen-unica" aria-pressed="false">1 unidade</button>
+    <button id="cen-rede" aria-pressed="true">13 unidades</button>
+  </div>
+  <div class="grow" style="flex:1 1 auto"></div>
+  <button class="btn btn--ghost btn--sm" data-theme-toggle aria-pressed="false" style="color:inherit">
+    <svg width="15" height="15" aria-hidden="true"><use href="#ic-theme"/></svg>
+    Tema: <span data-theme-label>Claro</span>
+  </button>
+</div>
+
+<header class="portal-head">
+  <div class="portal-head__inner">
+    <div class="portal-head__top">
+      <div class="portal-brand">
+        <span class="portal-brand__mark" aria-hidden="true">TV</span>
+        <div>
+          <p class="portal-brand__name" id="conta-nome">ILPI Recanto dos Idosos</p>
+          <p class="portal-brand__sub">Portal do Cliente · TreinaVISA</p>
+        </div>
+      </div>
+      <div class="row-wrap">
+        <span class="badge badge--success">Contrato ativo</span>
+        <button class="btn btn--ghost btn--sm">Sair</button>
+      </div>
+    </div>
+
+    <nav class="portal-nav" aria-label="Seções do portal">
+      <ul>
+        <li><a href="#/visao-geral">Visão geral</a></li>
+        <li><a href="#/plano-de-acao">Plano de ação <span class="pill num" id="nav-pend">9</span></a></li>
+        <li><a href="#/solicitacoes">Solicitações</a></li>
+        <li><a href="#/documentos">Documentos</a></li>
+        <li><a href="#/agenda">Agenda</a></li>
+        <li><a href="#/financeiro">Financeiro</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main class="portal-main" id="conteudo">
+
+  <!-- ============ VISÃO GERAL ============ -->
+  <section class="screen" id="s-visao-geral">
+    <div class="sec-head">
+      <h1>Olá! Aqui está o que está pendente.</h1>
+      <p id="vg-sub">Sua rede tem 13 unidades. Três delas concentram tudo que está vencido.</p>
+    </div>
+
+    <div class="next-action">
+      <p class="small strong" style="color:var(--accent-soft-ink)">Sua próxima ação</p>
+      <h2 style="margin-top:var(--space-2)" id="vg-acao">Responder 9 pendências com prazo vencido</h2>
+      <p style="margin-top:var(--space-2);color:var(--accent-soft-ink)">
+        Basta dizer em que pé está cada uma. Se já corrigiu, pode anexar a foto ou o documento —
+        e se ainda não deu, contar o motivo já ajuda a consultoria a planejar a próxima visita.
+      </p>
+      <div class="row-wrap" style="margin-top:var(--space-4)">
+        <a class="btn btn--primary btn--lg" href="#/plano-de-acao">Abrir o plano de ação</a>
+        <a class="btn btn--ghost" href="#/agenda">Ver a próxima visita</a>
+      </div>
+    </div>
+
+    <div class="cards-3" style="margin-top:var(--space-6)">
+      <div class="card"><div class="stat">
+        <p class="stat__label">Pendências em aberto</p>
+        <p class="stat__value" id="vg-abertas">31</p>
+        <p class="stat__foot" id="vg-abertas-foot">em 13 unidades</p>
+      </div></div>
+      <div class="card" style="border-color:var(--amber-soft-border);background:var(--amber-soft)"><div class="stat">
+        <p class="stat__label" style="color:var(--amber-soft-ink)">Com prazo vencido</p>
+        <p class="stat__value" style="color:var(--amber-soft-ink)" id="vg-vencidas">9</p>
+        <p class="stat__foot" style="color:var(--amber-soft-ink)" id="vg-vencidas-foot">em 3 unidades</p>
+      </div></div>
+      <div class="card"><div class="stat">
+        <p class="stat__label">Concluídas neste contrato</p>
+        <p class="stat__value" id="vg-feitas">64</p>
+        <p class="stat__foot" id="vg-feitas-foot">as últimas 12 em julho</p>
+      </div></div>
+    </div>
+
+    <div class="card only-multi" style="margin-top:var(--space-6)">
+      <div class="card__head">
+        <h2 class="card__title">Cumprimento por unidade</h2>
+        <a href="#/plano-de-acao" class="small strong">Ver pendências</a>
+      </div>
+      <div class="card__body">
+        <p class="muted small" style="margin-bottom:var(--space-3)">
+          Percentual de pendências já concluídas em cada unidade. Quem está embaixo da lista precisa
+          de você primeiro.
+        </p>
+        <div id="vg-unidades"></div>
+      </div>
+    </div>
+
+    <div class="cards-2" style="margin-top:var(--space-6)">
+      <div class="card">
+        <div class="card__head"><h2 class="card__title">Última entrega</h2></div>
+        <div class="card__body">
+          <p class="strong">Relatório de inspeção · unidade Centro</p>
+          <p class="muted small" style="margin-top:var(--space-1)">28/07/2026 · Ester · 43 itens verificados</p>
+          <div class="row-wrap" style="margin-top:var(--space-4)">
+            <a class="btn btn--outline btn--sm" href="#/documentos"><svg width="15" height="15" aria-hidden="true"><use href="#ic-download"/></svg>Baixar PDF</a>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card__head"><h2 class="card__title">Próxima visita</h2></div>
+        <div class="card__body">
+          <p class="strong">Inspeção de rotina · unidade Tijuca</p>
+          <p class="muted small" style="margin-top:var(--space-1)">12/08/2026 · 09h00</p>
+          <div class="row-wrap" style="margin-top:var(--space-4)">
+            <a class="btn btn--outline btn--sm" href="#/agenda">Ver agenda</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PLANO DE AÇÃO ============ -->
+  <section class="screen" id="s-plano-de-acao" hidden>
+    <div class="sec-head">
+      <h1>Plano de ação</h1>
+      <p id="pa-sub">
+        Tudo que a consultoria apontou, agrupado por unidade. Responda direto aqui — não precisa
+        esperar a próxima visita.
+      </p>
+    </div>
+
+    <div class="field unit-select" id="pa-seletor">
+      <label class="label" for="pa-select">Unidade</label>
+      <select class="select" id="pa-select"></select>
+    </div>
+    <div class="unit-filter" id="pa-filtro" role="group" aria-label="Filtrar por unidade"></div>
+
+    <div class="card only-multi" style="margin-bottom:var(--space-6)">
+      <div class="card__head"><h2 class="card__title">Comparativo de cumprimento</h2></div>
+      <div class="card__body" id="pa-comparativo"></div>
+    </div>
+
+    <div id="pa-grupos"></div>
+  </section>
+
+  <!-- ============ SOLICITAÇÕES ============ -->
+  <section class="screen" id="s-solicitacoes" hidden>
+    <div class="sec-head">
+      <h1>Solicitações</h1>
+      <p>Precisa de alguma coisa da consultoria? Peça por aqui e acompanhe a resposta.</p>
+    </div>
+    <button class="btn btn--primary btn--lg" data-open="dlg-solicitar" style="margin-bottom:var(--space-6)">
+      <svg width="16" height="16" aria-hidden="true"><use href="#ic-plus"/></svg>Nova solicitação
+    </button>
+
+    <div class="card">
+      <div class="card__body card__body--flush">
+        <div class="timeline__row" style="padding-inline:var(--space-5)">
+          <span class="timeline__when">05/08/2026</span>
+          <div class="grow">
+            <p class="strong">Treinamento de boas práticas para a equipe da cozinha</p>
+            <p class="muted small" style="margin-top:var(--space-1)">Unidade Centro · 8 pessoas</p>
+            <p style="margin-top:var(--space-2)">Ester respondeu: proposta enviada por e-mail, aguardando sua confirmação de data.</p>
+          </div>
+          <span class="badge badge--info">respondida</span>
+        </div>
+        <div class="timeline__row" style="padding-inline:var(--space-5)">
+          <span class="timeline__when">01/08/2026</span>
+          <div class="grow">
+            <p class="strong">Segunda via do relatório de junho</p>
+            <p class="muted small" style="margin-top:var(--space-1)">Unidade Tijuca</p>
+          </div>
+          <span class="badge badge--success">concluída</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ DOCUMENTOS ============ -->
+  <section class="screen" id="s-documentos" hidden>
+    <div class="sec-head">
+      <h1>Documentos</h1>
+      <p>Relatórios entregues e documentos do contrato. Ficam disponíveis para sempre.</p>
+    </div>
+    <div class="table-wrap">
+      <div class="table-scroll">
+        <table class="table">
+          <caption class="sr-only">Documentos disponíveis</caption>
+          <thead><tr><th scope="col">Documento</th><th scope="col" class="only-rede-inline">Unidade</th><th scope="col" class="num">Entregue em</th><th scope="col" class="table__actions">Ações</th></tr></thead>
+          <tbody id="tb-docs"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ AGENDA ============ -->
+  <section class="screen" id="s-agenda" hidden>
+    <div class="sec-head">
+      <h1>Agenda</h1>
+      <p>Visitas marcadas e histórico. Para pedir uma nova data, use o botão abaixo.</p>
+    </div>
+    <button class="btn btn--primary btn--lg" style="margin-bottom:var(--space-6)"><svg width="16" height="16" aria-hidden="true"><use href="#ic-calendar"/></svg>Pedir nova visita</button>
+
+    <div class="card">
+      <div class="card__head"><h2 class="card__title">Marcadas</h2></div>
+      <div class="card__body card__body--flush">
+        <div class="timeline__row" style="padding-inline:var(--space-5)">
+          <span class="timeline__when">12/08/2026</span>
+          <div class="grow"><p class="strong">Inspeção de rotina · unidade Tijuca</p><p class="muted small">09h00 · Ester</p></div>
+          <span class="badge badge--info">confirmada</span>
+        </div>
+        <div class="timeline__row" style="padding-inline:var(--space-5)">
+          <span class="timeline__when">26/08/2026</span>
+          <div class="grow"><p class="strong">Inspeção de rotina · unidade Méier</p><p class="muted small">14h00 · Ana</p></div>
+          <span class="badge badge--neutral">a confirmar</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:var(--space-5)">
+      <div class="card__head"><h2 class="card__title">Já realizadas</h2></div>
+      <div class="card__body card__body--flush">
+        <div class="timeline__row" style="padding-inline:var(--space-5)">
+          <span class="timeline__when">28/07/2026</span>
+          <div class="grow"><p class="strong">Inspeção · unidade Centro</p><p class="muted small">relatório entregue em 30/07</p></div>
+          <a class="btn btn--ghost btn--sm" href="#/documentos">Ver relatório</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FINANCEIRO ============ -->
+  <section class="screen" id="s-financeiro" hidden>
+    <div class="sec-head">
+      <h1>Financeiro</h1>
+      <p>Suas faturas e a situação do contrato.</p>
+    </div>
+
+    <div class="notice notice--attention" style="margin-bottom:var(--space-5)">
+      <svg class="notice__mark" width="16" height="16" aria-hidden="true"><use href="#ic-alert"/></svg>
+      <div>
+        <p><b>A fatura de julho venceu há 3 dias.</b></p>
+        <p class="small" style="margin-top:2px">
+          Enquanto estiver em atraso não dá para marcar visita nova. Seus relatórios e seu plano de
+          ação continuam abertos normalmente — o que já foi entregue nunca é escondido.
+        </p>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <div class="table-scroll">
+        <table class="table">
+          <caption class="sr-only">Faturas</caption>
+          <thead><tr><th scope="col">Competência</th><th scope="col">Descrição</th><th scope="col" class="num">Valor</th><th scope="col" class="num">Vencimento</th><th scope="col">Situação</th><th scope="col" class="table__actions">Ações</th></tr></thead>
+          <tbody>
+            <tr><td class="num">07/2026</td><td>Mensalidade de consultoria</td><td class="num">R$ 1.700,00</td><td class="num">05/08/2026</td><td><span class="badge badge--attention"><span class="dot"></span>3 dias em atraso</span></td><td class="table__actions"><button class="btn btn--outline btn--sm">Ver boleto</button></td></tr>
+            <tr><td class="num">06/2026</td><td>Mensalidade de consultoria</td><td class="num">R$ 1.700,00</td><td class="num">05/07/2026</td><td><span class="badge badge--success">pago</span></td><td class="table__actions"><button class="btn btn--ghost btn--sm">Recibo</button></td></tr>
+            <tr><td class="num">05/2026</td><td>Mensalidade de consultoria</td><td class="num">R$ 1.700,00</td><td class="num">05/06/2026</td><td><span class="badge badge--success">pago</span></td><td class="table__actions"><button class="btn btn--ghost btn--sm">Recibo</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<dialog class="modal" id="dlg-solicitar" aria-labelledby="ds-t">
+  <div class="modal__head">
+    <div>
+      <h2 class="card__title" id="ds-t">Nova solicitação</h2>
+      <p class="muted small" style="margin-top:var(--space-1)">A consultoria responde em até 2 dias úteis.</p>
+    </div>
+    <button class="btn btn--ghost btn--icon btn--sm" data-close aria-label="Fechar"><svg width="16" height="16" aria-hidden="true"><use href="#ic-x"/></svg></button>
+  </div>
+  <div class="modal__body stack">
+    <div class="field only-multi">
+      <label class="label" for="sol-un">Unidade</label>
+      <select class="select" id="sol-un" data-autofocus><option>Centro</option><option>Tijuca</option><option>Méier</option></select>
+    </div>
+    <div class="field">
+      <label class="label" for="sol-tipo">Do que você precisa?</label>
+      <select class="select" id="sol-tipo">
+        <option>Treinamento para a equipe</option>
+        <option>Segunda via de relatório</option>
+        <option>Dúvida sobre uma pendência</option>
+        <option>Outro assunto</option>
+      </select>
+    </div>
+    <div class="field">
+      <label class="label" for="sol-txt">Conte com suas palavras</label>
+      <textarea class="textarea" id="sol-txt" rows="4" placeholder="Ex.: a equipe da cozinha trocou e precisamos de treinamento de boas práticas."></textarea>
+    </div>
+  </div>
+  <div class="modal__foot">
+    <button class="btn btn--outline" data-close>Cancelar</button>
+    <button class="btn btn--primary" data-close onclick="avisar({kind:'success',title:'Solicitação enviada',body:'A consultoria responde em até 2 dias úteis.'})">Enviar solicitação</button>
+  </div>
+</dialog>
+
+<script>
+  /* ---------- Dados de exemplo ---------- */
+  var UNIDADES_REDE = [
+    { n: 'Centro',        abertas: 12, vencidas: 5, feito: 58 },
+    { n: 'Tijuca',        abertas: 9,  vencidas: 3, feito: 64 },
+    { n: 'Campo Grande',  abertas: 6,  vencidas: 1, feito: 71 },
+    { n: 'Ilha',          abertas: 4,  vencidas: 0, feito: 80 },
+    { n: 'Méier',         abertas: 4,  vencidas: 0, feito: 86 },
+    { n: 'Botafogo',      abertas: 3,  vencidas: 0, feito: 91 },
+    { n: 'Bangu',         abertas: 2,  vencidas: 0, feito: 95 },
+    { n: 'Madureira',     abertas: 2,  vencidas: 0, feito: 93 },
+    { n: 'Penha',         abertas: 1,  vencidas: 0, feito: 96 },
+    { n: 'Barra',         abertas: 1,  vencidas: 0, feito: 97 },
+    { n: 'Jacarepaguá',   abertas: 1,  vencidas: 0, feito: 94 },
+    { n: 'São Cristóvão', abertas: 0,  vencidas: 0, feito: 100 },
+    { n: 'Santa Cruz',    abertas: 0,  vencidas: 0, feito: 100 }
+  ];
+  var UNIDADE_UNICA = [{ n: 'Unidade principal', abertas: 5, vencidas: 2, feito: 68 }];
+
+  /* Modelos de pendência. A lista real é montada a partir do número de cada
+     unidade — com 13 unidades e 45 itens o agrupamento precisa ser testado no
+     tamanho de verdade, não com meia dúzia de linhas. */
+  var MODELOS = [
+    { un: 'Centro', tit: 'Barreira física entre recebimento e manipulação', prio: ['danger', 'Urgente'], prazo: '08/08/2026', venc: true,
+      sit: 'A cozinha não possui barreira física entre a área de recebimento de gêneros e a área de manipulação de alimentos. O fluxo de entrada cruza a bancada de preparo.',
+      acao: 'Instalar divisória entre as duas áreas ou redefinir o fluxo de entrada de gêneros, de modo que não cruze a área de preparo.',
+      base: 'RDC 216/2004 · item 4.1.7',
+      resposta: { k: 'doing', quando: '06/08/2026', quem: 'Marcos Andrade (RT)', txt: 'Orçamento da divisória aprovado, obra marcada para a semana que vem.' } },
+    { un: 'Centro', tit: 'Registro de temperatura da câmara fria', prio: ['danger', 'Urgente'], prazo: '02/08/2026', venc: true,
+      sit: 'Não há planilha de controle de temperatura da câmara fria nos últimos 60 dias. O termômetro digital está com o visor apagado.',
+      acao: 'Substituir o termômetro e retomar o registro diário de temperatura, em planilha assinada pelo responsável do turno.',
+      base: 'RDC 216/2004 · item 4.8.5', resposta: null },
+    { un: 'Centro', tit: 'PGRSS sem responsável técnico designado', prio: ['attention', 'Importante'], prazo: '14/08/2026', venc: false,
+      sit: 'O Plano de Gerenciamento de Resíduos existe, mas não indica responsável técnico nem data de revisão.',
+      acao: 'Designar o responsável técnico no documento e registrar a data da próxima revisão.',
+      base: 'RDC 222/2018', resposta: null },
+    { un: 'Tijuca', tit: 'Ausência de barreira sanitária no vestiário', prio: ['danger', 'Urgente'], prazo: '05/08/2026', venc: true,
+      sit: 'O vestiário dos funcionários dá acesso direto à área de manipulação, sem antecâmara nem lavatório exclusivo.',
+      acao: 'Instalar lavatório exclusivo na saída do vestiário, com sabonete líquido, papel-toalha e lixeira com pedal.',
+      base: 'RDC 216/2004 · item 4.1.10', resposta: null },
+    { un: 'Tijuca', tit: 'Rótulo de produto manipulado sem data de validade', prio: ['attention', 'Importante'], prazo: '20/08/2026', venc: false,
+      sit: 'Três potes de preparo na câmara fria estavam sem identificação de data de manipulação e validade.',
+      acao: 'Adotar etiqueta padronizada com produto, data de manipulação, validade e responsável, em todo alimento preparado.',
+      base: 'RDC 216/2004 · item 4.11.3',
+      resposta: { k: 'done', quando: '04/08/2026', quem: 'Júlia Prado', txt: 'Etiquetas novas já em uso, foto anexada.' } },
+    { un: 'Campo Grande', tit: 'Caixa d’água sem laudo de limpeza semestral', prio: ['neutral', 'Recomendada'], prazo: '30/09/2026', venc: false,
+      sit: 'O último laudo de limpeza da caixa d’água é de outubro de 2025, fora do intervalo semestral.',
+      acao: 'Contratar a limpeza e arquivar o laudo com data e responsável técnico da empresa executante.',
+      base: 'Portaria GM/MS 888/2021', resposta: null }
+  ];
+
+  var CHOICES = [
+    { k: 'done',  txt: 'Já corrigi' },
+    { k: 'doing', txt: 'Estou providenciando' },
+    { k: 'not',   txt: 'Ainda não fiz' }
+  ];
+  var CHOICE_TXT = { done: 'Já corrigi', doing: 'Estou providenciando', not: 'Ainda não fiz' };
+
+  function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
+  function plural(n, um, muitos) { return n + ' ' + (n === 1 ? um : muitos); }
+  function badge(kind, txt, dot) {
+    var b = el('span', 'badge badge--' + kind);
+    if (dot) b.appendChild(el('span', 'dot'));
+    b.appendChild(document.createTextNode(txt));
+    return b;
+  }
+  function medidor(pct) {
+    var m = el('div', 'meter');
+    var f = el('div', 'meter__fill' + (pct >= 85 ? ' meter__fill--success' : pct < 65 ? ' meter__fill--attention' : ''));
+    f.style.width = pct + '%';
+    m.appendChild(f);
+    return m;
+  }
+
+  /* ---------- Cenário: 1 unidade × rede ---------- */
+  var cenario = 'rede';
+  var unidades = UNIDADES_REDE;
+  var unidadeFiltro = 'todas';
+
+  function unidadesVisiveis() { return cenario === 'rede' ? UNIDADES_REDE : UNIDADE_UNICA; }
+
+  /* Uma pendência por item aberto de cada unidade, marcando como vencidas
+     exatamente quantas a unidade declara. Datas passadas para as vencidas. */
+  function montarPendencias(uns) {
+    var lista = [];
+    uns.forEach(function (u) {
+      for (var i = 0; i < u.abertas; i++) {
+        var m = MODELOS[i % MODELOS.length];
+        var venc = i < u.vencidas;
+        lista.push({
+          un: u.n, tit: m.tit, prio: venc ? ['danger', 'Urgente'] : m.prio,
+          prazo: venc ? ['02/08/2026', '05/08/2026', '08/08/2026', '30/07/2026', '01/08/2026'][i % 5] : m.prazo,
+          venc: venc, sit: m.sit, acao: m.acao, base: m.base,
+          resposta: (i === 0 || i === 4) ? m.resposta : null
+        });
+      }
+    });
+    return lista;
+  }
+
+  var PENDENCIAS = [];
+  function pendenciasVisiveis() { return PENDENCIAS; }
+
+  function definirCenario(novo) {
+    cenario = novo;
+    unidades = unidadesVisiveis();
+    PENDENCIAS = montarPendencias(unidades);
+    unidadeFiltro = 'todas';
+    document.body.setAttribute('data-cenario', novo === 'rede' ? 'rede' : 'unica');
+    document.getElementById('cen-rede').setAttribute('aria-pressed', String(novo === 'rede'));
+    document.getElementById('cen-unica').setAttribute('aria-pressed', String(novo === 'unica'));
+    document.getElementById('conta-nome').textContent = novo === 'rede' ? 'ILPI Recanto dos Idosos' : 'Clínica Estética Aurora';
+    renderTudo();
+  }
+
+  /* ---------- Visão geral ---------- */
+  function renderVisaoGeral() {
+    var uns = unidades;
+    var abertas = uns.reduce(function (s, u) { return s + u.abertas; }, 0);
+    var vencidas = uns.reduce(function (s, u) { return s + u.vencidas; }, 0);
+    var comVenc = uns.filter(function (u) { return u.vencidas > 0; }).length;
+
+    document.getElementById('vg-abertas').textContent = abertas;
+    document.getElementById('vg-vencidas').textContent = vencidas;
+    document.getElementById('nav-pend').textContent = vencidas;
+    document.getElementById('vg-feitas').textContent = cenario === 'rede' ? '64' : '11';
+    document.getElementById('vg-feitas-foot').textContent = cenario === 'rede' ? 'as últimas 12 em julho' : 'as últimas 3 em julho';
+
+    /* O título da próxima ação é a soma real, não um número escrito à mão. */
+    document.getElementById('vg-acao').textContent = vencidas > 0
+      ? 'Responder ' + plural(vencidas, 'pendência com prazo vencido', 'pendências com prazo vencido')
+      : 'Responder ' + plural(abertas, 'pendência em aberto', 'pendências em aberto');
+
+    if (cenario === 'rede') {
+      document.getElementById('vg-sub').textContent =
+        'Sua rede tem ' + plural(uns.length, 'unidade', 'unidades') + '. ' +
+        plural(comVenc, 'unidade concentra', 'unidades concentram') + ' tudo que está vencido.';
+      document.getElementById('vg-abertas-foot').textContent = 'em ' + plural(uns.length, 'unidade', 'unidades');
+      document.getElementById('vg-vencidas-foot').textContent = 'em ' + plural(comVenc, 'unidade', 'unidades');
+    } else {
+      document.getElementById('vg-sub').textContent = 'Cinco pendências continuam abertas, duas delas com prazo vencido.';
+      document.getElementById('vg-abertas-foot').textContent = 'desde a inspeção de 28/07';
+      document.getElementById('vg-vencidas-foot').textContent = 'a mais antiga venceu há 6 dias';
+    }
+
+    var alvo = document.getElementById('vg-unidades');
+    alvo.innerHTML = '';
+    uns.slice().sort(function (a, b) { return a.feito - b.feito; }).forEach(function (u) {
+      var row = el('div', 'unit-bar');
+      var nome = el('div');
+      nome.appendChild(el('p', 'unit-bar__name', u.n));
+      if (u.vencidas > 0) nome.appendChild(badge('attention', plural(u.vencidas, 'vencida', 'vencidas'), true));
+      row.appendChild(nome);
+      row.appendChild(medidor(u.feito));
+      row.appendChild(el('span', 'unit-bar__num', u.feito + '% feito'));
+      alvo.appendChild(row);
+    });
+  }
+
+  /* ---------- Plano de ação ---------- */
+  function renderFiltro() {
+    var alvo = document.getElementById('pa-filtro');
+    var seletor = document.getElementById('pa-seletor');
+    var select = document.getElementById('pa-select');
+    alvo.innerHTML = '';
+    if (cenario !== 'rede') {
+      alvo.hidden = true;
+      seletor.hidden = true;
+      document.body.setAttribute('data-muitas', 'nao');
+      return;
+    }
+    alvo.hidden = false;
+    seletor.hidden = false;
+
+    var pend = pendenciasVisiveis();
+    var comPend = unidades.filter(function (u) {
+      return pend.filter(function (p) { return p.un === u.n; }).length > 0;
+    });
+    document.body.setAttribute('data-muitas', comPend.length > 6 ? 'sim' : 'nao');
+
+    select.innerHTML = '';
+    function opcao(valor, rotulo) {
+      var o = document.createElement('option');
+      o.value = valor; o.textContent = rotulo;
+      o.selected = unidadeFiltro === valor;
+      select.appendChild(o);
+    }
+    opcao('todas', 'Todas as unidades (' + pend.length + ')');
+    comPend.forEach(function (u) {
+      var n = pend.filter(function (p) { return p.un === u.n; }).length;
+      opcao(u.n, u.n + ' (' + n + ')');
+    });
+    select.onchange = function () { unidadeFiltro = select.value; renderFiltro(); renderGrupos(); };
+    function chip(valor, rotulo, n) {
+      var b = el('button', 'unit-chip');
+      b.type = 'button';
+      b.setAttribute('aria-pressed', String(unidadeFiltro === valor));
+      b.appendChild(document.createTextNode(rotulo));
+      if (n != null) b.appendChild(el('span', 'n', String(n)));
+      b.addEventListener('click', function () { unidadeFiltro = valor; renderFiltro(); renderGrupos(); });
+      return b;
+    }
+    alvo.appendChild(chip('todas', 'Todas as unidades', pend.length));
+    unidades.forEach(function (u) {
+      var n = pend.filter(function (p) { return p.un === u.n; }).length;
+      if (n > 0) alvo.appendChild(chip(u.n, u.n, n));
+    });
+  }
+
+  function renderComparativo() {
+    var alvo = document.getElementById('pa-comparativo');
+    alvo.innerHTML = '';
+    if (cenario !== 'rede') return;
+    var comPend = unidades.filter(function (u) { return u.abertas > 0; });
+    var p = el('p', 'muted small');
+    p.textContent = 'Ordenado da unidade que mais precisa de atenção para a que menos precisa. ' +
+      plural(unidades.length - comPend.length, 'unidade já está', 'unidades já estão') + ' sem nenhuma pendência.';
+    p.style.marginBottom = 'var(--space-3)';
+    alvo.appendChild(p);
+    comPend.slice().sort(function (a, b) { return a.feito - b.feito; }).forEach(function (u) {
+      var row = el('div', 'unit-bar');
+      var nome = el('div');
+      nome.appendChild(el('p', 'unit-bar__name', u.n));
+      nome.appendChild(el('p', 'small muted', plural(u.abertas, 'pendência aberta', 'pendências abertas')));
+      row.appendChild(nome);
+      row.appendChild(medidor(u.feito));
+      row.appendChild(el('span', 'unit-bar__num', u.feito + '% feito'));
+      alvo.appendChild(row);
+    });
+  }
+
+  function cartaoPendencia(p) {
+    var box = el('div', 'task' + (p.venc ? ' task--overdue' : ''));
+
+    var topo = el('div', 'row-wrap');
+    topo.appendChild(badge(p.prio[0], p.prio[1]));
+    if (p.venc) topo.appendChild(badge('attention', 'Prazo vencido', true));
+    if (p.resposta && p.resposta.k === 'done') topo.appendChild(badge('success', 'Você respondeu que já corrigiu'));
+    box.appendChild(topo);
+
+    box.appendChild(el('p', 'task__title', p.tit));
+    box.appendChild(el('p', 'muted', p.sit));
+
+    var oque = el('div', 'task__what');
+    var strong = el('span', 'strong', 'O que fazer: ');
+    oque.appendChild(strong);
+    oque.appendChild(document.createTextNode(p.acao));
+    box.appendChild(oque);
+
+    var meta = el('div', 'task__meta');
+    var m1 = el('span');
+    m1.innerHTML = '<svg width="15" height="15" aria-hidden="true"><use href="#ic-clock"/></svg>';
+    m1.appendChild(document.createTextNode('Prazo ' + p.prazo));
+    meta.appendChild(m1);
+    var m2 = el('span');
+    m2.innerHTML = '<svg width="15" height="15" aria-hidden="true"><use href="#ic-book"/></svg>';
+    m2.appendChild(document.createTextNode(p.base));
+    meta.appendChild(m2);
+    box.appendChild(meta);
+
+    if (p.resposta) {
+      var r = el('div', 'notice notice--' + (p.resposta.k === 'done' ? 'success' : 'info'));
+      r.style.marginTop = 'var(--space-3)';
+      var rc = el('div');
+      rc.appendChild(el('p', 'strong', 'Sua resposta: ' + CHOICE_TXT[p.resposta.k] + ' · ' + p.resposta.quando));
+      rc.appendChild(el('p', 'small', '“' + p.resposta.txt + '” — ' + p.resposta.quem));
+      r.appendChild(rc);
+      box.appendChild(r);
+    }
+
+    /* Resposta do cliente: nome e função vêm preenchidos da conta e são OPCIONAIS.
+       Era esse o atrito que fazia a pessoa desistir na segunda pendência. */
+    var ans = el('div', 'answer');
+    ans.appendChild(el('p', 'answer__q', p.resposta ? 'Mudou de situação?' : 'Em que pé está?'));
+    var choices = el('div', 'choices');
+    CHOICES.forEach(function (c) {
+      var b = el('button', 'choice');
+      b.type = 'button';
+      b.setAttribute('data-k', c.k);
+      b.setAttribute('aria-pressed', 'false');
+      b.textContent = c.txt;
+      b.addEventListener('click', function () {
+        choices.querySelectorAll('.choice').forEach(function (o) { o.setAttribute('aria-pressed', 'false'); });
+        b.setAttribute('aria-pressed', 'true');
+        detalhe.hidden = false;
+        campo.placeholder = c.k === 'not'
+          ? 'Por que ainda não foi possível? É isso que a consultoria leva para a próxima visita.'
+          : 'Quer detalhar? (opcional)';
+        rotuloObrig.hidden = c.k !== 'not';
+      });
+      choices.appendChild(b);
+    });
+    ans.appendChild(choices);
+
+    var detalhe = el('div');
+    detalhe.hidden = true;
+    detalhe.style.marginTop = 'var(--space-3)';
+
+    var campoWrap = el('div', 'field');
+    var lab = el('label', 'label');
+    lab.textContent = 'Conte o que aconteceu ';
+    var rotuloObrig = el('span', 'req', '*');
+    rotuloObrig.hidden = true;
+    lab.appendChild(rotuloObrig);
+    var campo = document.createElement('textarea');
+    campo.className = 'textarea';
+    campo.rows = 2;
+    campo.placeholder = 'Quer detalhar? (opcional)';
+    lab.htmlFor = 'txt-' + Math.random().toString(36).slice(2, 8);
+    campo.id = lab.htmlFor;
+    campoWrap.appendChild(lab);
+    campoWrap.appendChild(campo);
+    detalhe.appendChild(campoWrap);
+
+    var quem = el('p', 'small muted');
+    quem.style.marginTop = 'var(--space-2)';
+    quem.textContent = 'Vai registrado como Marcos Andrade (Responsável técnico), da sua conta. ';
+    var trocar = el('button', 'btn btn--ghost btn--sm', 'Usar outro nome');
+    trocar.type = 'button';
+    trocar.addEventListener('click', function () { avisar({ kind: 'info', title: 'Abriria um campo para outro nome', body: 'Opcional — em branco, vale o nome da conta.' }); });
+    quem.appendChild(trocar);
+    detalhe.appendChild(quem);
+
+    var acoes = el('div', 'row-wrap');
+    acoes.style.marginTop = 'var(--space-3)';
+    var enviar = el('button', 'btn btn--primary', 'Registrar resposta');
+    enviar.type = 'button';
+    enviar.addEventListener('click', function () {
+      avisar({ kind: 'success', title: 'Resposta registrada', body: 'A consultoria já consegue ver.' });
+    });
+    var anexar = el('button', 'btn btn--outline', 'Anexar evidência');
+    anexar.type = 'button';
+    anexar.addEventListener('click', function () {
+      avisar({ kind: 'info', title: 'Abriria o seletor de arquivo', body: 'Foto ou PDF, até 10 MB.' });
+    });
+    acoes.appendChild(enviar);
+    acoes.appendChild(anexar);
+    detalhe.appendChild(acoes);
+
+    ans.appendChild(detalhe);
+    box.appendChild(ans);
+    return box;
+  }
+
+  function renderGrupos() {
+    var alvo = document.getElementById('pa-grupos');
+    alvo.innerHTML = '';
+
+    var pend = pendenciasVisiveis().filter(function (p) {
+      return unidadeFiltro === 'todas' || p.un === unidadeFiltro;
+    });
+
+    if (pend.length === 0) {
+      var vazio = el('div', 'card');
+      var e = el('div', 'empty');
+      e.innerHTML = '<svg class="empty__icon" aria-hidden="true"><use href="#ic-check-circle"/></svg>';
+      e.appendChild(el('p', 'empty__title', 'Nenhuma pendência nesta unidade'));
+      e.appendChild(el('p', 'empty__body', 'Tudo que foi apontado aqui já está concluído. Quando a consultoria publicar o plano de ação de uma visita nova, ele aparece nesta tela.'));
+      vazio.appendChild(e);
+      alvo.appendChild(vazio);
+      return;
+    }
+
+    var porUnidade = {};
+    pend.forEach(function (p) { (porUnidade[p.un] = porUnidade[p.un] || []).push(p); });
+
+    /* Em "Todas as unidades" cada grupo mostra uma amostra: 45 formulários
+       empilhados é a rolagem infinita que este redesenho existe para acabar.
+       A unidade inteira abre com um clique. */
+    var AMOSTRA = 3;
+    var resumindo = unidadeFiltro === 'todas' && cenario === 'rede';
+
+    /* Pior primeiro: quem tem prazo vencido sobe. */
+    var ordem = Object.keys(porUnidade).sort(function (a, b) {
+      var va = porUnidade[a].filter(function (p) { return p.venc; }).length;
+      var vb = porUnidade[b].filter(function (p) { return p.venc; }).length;
+      if (va !== vb) return vb - va;
+      return porUnidade[b].length - porUnidade[a].length;
+    });
+
+    ordem.forEach(function (nome) {
+      var itens = porUnidade[nome];
+      var venc = itens.filter(function (p) { return p.venc; }).length;
+      var dados = unidades.filter(function (u) { return u.n === nome; })[0];
+
+      var grupo = el('div', 'group');
+
+      var head = el('div', 'group-head');
+      var esq = el('div');
+      esq.appendChild(el('h3', null, cenario === 'rede' ? 'Unidade ' + nome : nome));
+      var quantas = (resumindo && itens.length > AMOSTRA)
+        ? 'mostrando ' + AMOSTRA + ' de ' + plural(itens.length, 'pendência', 'pendências')
+        : plural(itens.length, 'pendência em aberto', 'pendências em aberto');
+      esq.appendChild(el('p', 'small muted', quantas));
+      head.appendChild(esq);
+
+      var dir = el('div', 'row-wrap');
+      if (venc > 0) dir.appendChild(badge('attention', plural(venc, 'vencida', 'vencidas'), true));
+      if (dados) {
+        var med = el('div', 'row');
+        med.style.gap = 'var(--space-2)';
+        var m = medidor(dados.feito);
+        m.style.width = '90px';
+        med.appendChild(m);
+        med.appendChild(el('span', 'small muted num', dados.feito + '% feito'));
+        dir.appendChild(med);
+      }
+      head.appendChild(dir);
+      grupo.appendChild(head);
+
+      var mostrar = resumindo ? itens.slice(0, AMOSTRA) : itens;
+      var lista = el('div', 'group__items');
+      mostrar.forEach(function (p) { lista.appendChild(cartaoPendencia(p)); });
+
+      if (mostrar.length < itens.length) {
+        var maisWrap = el('div', 'task');
+        maisWrap.style.background = 'var(--surface-sunken)';
+        var mais = el('button', 'btn btn--outline btn--block',
+          'Ver ' + plural(itens.length, 'pendência', 'pendências') + ' da unidade ' + nome);
+        mais.type = 'button';
+        mais.addEventListener('click', function () {
+          unidadeFiltro = nome;
+          renderFiltro();
+          renderGrupos();
+          document.getElementById('pa-grupos').scrollIntoView({ block: 'start' });
+        });
+        maisWrap.appendChild(mais);
+        lista.appendChild(maisWrap);
+      }
+
+      grupo.appendChild(lista);
+      alvo.appendChild(grupo);
+    });
+  }
+
+  /* ---------- Documentos ---------- */
+  function renderDocs() {
+    var tb = document.getElementById('tb-docs');
+    tb.innerHTML = '';
+    var linhas = cenario === 'rede'
+      ? [['Relatório de inspeção', 'Centro', '30/07/2026'], ['Relatório de inspeção', 'Tijuca', '08/07/2026'], ['Plano de ação consolidado', 'Todas', '30/07/2026'], ['Contrato de consultoria', '—', '12/03/2024']]
+      : [['Relatório de inspeção', 'Unidade principal', '30/07/2026'], ['Contrato de consultoria', '—', '02/09/2025']];
+
+    linhas.forEach(function (l) {
+      var tr = el('tr');
+      var td = el('td');
+      var row = el('div', 'row');
+      var th = el('span', 'file-thumb');
+      th.innerHTML = '<svg width="16" height="16" aria-hidden="true"><use href="#ic-file"/></svg>';
+      th.style.cssText = 'width:32px;height:32px;border-radius:var(--radius-sm);background:var(--accent-soft);color:var(--accent-soft-ink);display:grid;place-items:center;flex:none';
+      row.appendChild(th);
+      row.appendChild(el('span', 'strong', l[0]));
+      td.appendChild(row); tr.appendChild(td);
+      var tdU = el('td', 'only-rede-inline muted', l[1]);
+      tr.appendChild(tdU);
+      tr.appendChild(el('td', 'num', l[2]));
+      var acts = el('td', 'table__actions');
+      var b = el('button', 'btn btn--outline btn--sm', 'Baixar PDF');
+      acts.appendChild(b); tr.appendChild(acts);
+      tb.appendChild(tr);
+    });
+  }
+
+  function renderTudo() {
+    renderVisaoGeral();
+    renderFiltro();
+    renderComparativo();
+    renderGrupos();
+    renderDocs();
+  }
+
+  document.getElementById('cen-rede').addEventListener('click', function () { definirCenario('rede'); });
+  document.getElementById('cen-unica').addEventListener('click', function () { definirCenario('unica'); });
+
+  /* ---------- Rotas por seção, com URL própria ---------- */
+  var SECOES = ['visao-geral', 'plano-de-acao', 'solicitacoes', 'documentos', 'agenda', 'financeiro'];
+
+  function rotear() {
+    var rota = (location.hash.replace('#/', '') || 'visao-geral').split('?')[0];
+    if (SECOES.indexOf(rota) < 0) rota = 'visao-geral';
+    SECOES.forEach(function (s) { document.getElementById('s-' + s).hidden = (s !== rota); });
+    document.querySelectorAll('.portal-nav a').forEach(function (a) {
+      var alvo = (a.getAttribute('href') || '').replace('#/', '');
+      if (alvo === rota) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    });
+    window.scrollTo(0, 0);
+  }
+
+  window.addEventListener('hashchange', rotear);
+  definirCenario('rede');
+  rotear();
+</script>

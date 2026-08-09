@@ -1,0 +1,843 @@
+﻿<!-- title: FE-01 · Fundação — Design System InspecVISA -->
+<style>
+  .doc {
+    display: grid;
+    grid-template-columns: 232px minmax(0, 1fr);
+    gap: var(--space-10);
+    max-width: 1360px;
+    margin: 0 auto;
+    padding: 0 var(--space-6) var(--space-16);
+  }
+  @media (max-width: 1000px) { .doc { grid-template-columns: minmax(0, 1fr); gap: var(--space-6); } .doc__nav { position: static !important; } }
+
+  .doc__head {
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    padding: var(--space-8) var(--space-6) var(--space-6);
+    margin-bottom: var(--space-10);
+  }
+  .doc__head-inner { max-width: 1360px; margin: 0 auto; }
+  .doc__kicker { font-size: var(--text-xs); font-weight: var(--weight-semibold); color: var(--teal-soft-ink); background: var(--teal-soft); border: 1px solid var(--teal-soft-border); border-radius: var(--radius-sm); padding: 2px var(--space-2); display: inline-block; }
+  .doc__title { font-size: var(--text-3xl); margin: var(--space-3) 0 var(--space-2); }
+  .doc__lede { max-width: 62ch; color: var(--ink-2); font-size: var(--text-md); }
+
+  .doc__nav { position: sticky; top: var(--space-6); align-self: start; font-size: var(--text-sm); }
+  .doc__nav ol { list-style: none; margin: 0; padding: 0; counter-reset: sec; }
+  .doc__nav a {
+    display: flex; gap: var(--space-3); padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md); color: var(--ink-2); text-decoration: none;
+    font-weight: var(--weight-medium);
+    transition: background-color var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+  }
+  .doc__nav a::before { counter-increment: sec; content: counter(sec); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+  .doc__nav a:hover { background: var(--surface-hover); color: var(--ink); }
+
+  section[id] { scroll-margin-top: var(--space-6); }
+  section[id] + section[id] { margin-top: var(--space-16); }
+  .sec__title { font-size: var(--text-xl); padding-bottom: var(--space-3); border-bottom: 1px solid var(--border); }
+  .sec__note { max-width: 68ch; color: var(--ink-2); margin-top: var(--space-3); }
+
+  .block { margin-top: var(--space-8); }
+  .block__title { font-family: var(--font-title); font-size: var(--text-base); font-weight: var(--weight-title-strong); margin-bottom: var(--space-1); }
+  .block__note { color: var(--ink-2); font-size: var(--text-sm); max-width: 68ch; margin-bottom: var(--space-4); }
+
+  .demo { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-5); }
+  .demo--sunken { background: var(--surface-sunken); }
+  .demo__grid { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; }
+  .demo__label { font-size: var(--text-2xs); color: var(--ink-3); font-weight: var(--weight-semibold); margin-bottom: var(--space-2); }
+  .demo__col { display: flex; flex-direction: column; gap: var(--space-2); }
+
+  .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: var(--space-3); }
+  .swatch { border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; background: var(--surface); }
+  .swatch__chip { height: 54px; border-bottom: 1px solid var(--border); }
+  .swatch__meta { padding: var(--space-2) var(--space-3); }
+  .swatch__name { font-size: var(--text-xs); font-weight: var(--weight-semibold); }
+  .swatch__hex { font-size: var(--text-2xs); color: var(--ink-2); font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+  .swatch__role { font-size: var(--text-2xs); color: var(--ink-2); margin-top: 2px; }
+
+  .type-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-4); padding: var(--space-3) 0; border-bottom: 1px solid var(--border); }
+  .type-row:last-child { border-bottom: 0; }
+  .type-row__spec { flex: none; width: 172px; font-size: var(--text-xs); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+  .scale-bar { background: var(--accent-soft); border: 1px solid var(--accent-soft-border); border-radius: 2px; height: 18px; }
+
+  .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-4); }
+  .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: var(--space-4); }
+
+  .rule { display: flex; gap: var(--space-3); padding: var(--space-3) 0; border-bottom: 1px solid var(--border); align-items: flex-start; }
+  .rule:last-child { border-bottom: 0; }
+  .rule__mark { flex: none; width: 18px; height: 18px; margin-top: 2px; border-radius: var(--radius-sm); display: grid; place-items: center; font-size: 11px; font-weight: 700; }
+  .rule--do .rule__mark { background: var(--success-soft); color: var(--success-soft-ink); }
+  .rule--dont .rule__mark { background: var(--danger-soft); color: var(--danger-soft-ink); }
+  .rule__text { font-size: var(--text-sm); }
+  .rule__text b { font-weight: var(--weight-semibold); }
+  .rule__text .said { color: var(--ink); }
+  .rule__text .instead { color: var(--ink-2); }
+
+  .kv { font-size: var(--text-sm); }
+  .kv td { padding: var(--space-2) var(--space-4) var(--space-2) 0; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .kv tr:last-child td { border-bottom: 0; }
+  .kv td:first-child { font-weight: var(--weight-semibold); white-space: nowrap; }
+  .token { font-family: var(--font-text); font-weight: var(--weight-semibold); font-size: var(--text-xs); background: var(--surface-sunken); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1px 5px; white-space: nowrap; }
+
+  .motion-demo { width: 100%; height: 40px; border-radius: var(--radius-md); background: var(--accent-soft); position: relative; overflow: hidden; }
+  .motion-demo span { position: absolute; top: 6px; left: 6px; width: 28px; height: 28px; border-radius: var(--radius-sm); background: var(--accent); }
+  .motion-demo.run span { animation: slide 1.4s var(--ease-out) infinite alternate; }
+  @keyframes slide { to { transform: translateX(calc(100% + 100px)); } }
+  @media (prefers-reduced-motion: reduce) { .motion-demo.run span { animation: none; } }
+</style>
+
+<a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+
+<header class="doc__head">
+  <div class="doc__head-inner">
+    <div class="between" style="align-items:flex-start">
+      <div>
+        <span class="doc__kicker">FE-01 · Artefato A</span>
+        <h1 class="doc__title">Fundação</h1>
+        <p class="doc__lede">
+          Os tokens, a tipografia e o inventário de componentes do InspecVISA e do Portal do Cliente,
+          derivados do Manual de Marca TreinaVISA 2.0. Um único arquivo-mestre: os artefatos B e C
+          consomem exatamente estes tokens, sem redefinir nada.
+        </p>
+      </div>
+      <button type="button" class="btn btn--outline" data-theme-toggle aria-pressed="false">
+        <svg width="16" height="16" aria-hidden="true"><use href="#ic-theme"/></svg>
+        Tema: <span data-theme-label>Claro</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="doc" id="conteudo">
+  <nav class="doc__nav" aria-label="Seções">
+    <ol>
+      <li><a href="#principios">Princípios</a></li>
+      <li><a href="#cor">Cor e contraste</a></li>
+      <li><a href="#tipografia">Tipografia</a></li>
+      <li><a href="#espaco">Espaço, raio e camada</a></li>
+      <li><a href="#movimento">Movimento</a></li>
+      <li><a href="#componentes">Componentes</a></li>
+      <li><a href="#microcopy">Microcopy</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <!-- ================= PRINCÍPIOS ================= -->
+    <section id="principios">
+      <h2 class="sec__title">Princípios</h2>
+      <p class="sec__note">
+        Sete regras que decidem discussão de design sem precisar reabrir o manual. Quando duas
+        soluções empatam, ganha a que respeita mais destas.
+      </p>
+
+      <div class="grid-2 block">
+        <div class="card"><div class="card__body">
+          <p class="block__title">O app é ferramenta de trabalho</p>
+          <p class="block__note" style="margin:0">
+            Densidade alta de dados com respiro tipográfico. A Ester passa o dia aqui: cada linha a
+            menos de rolagem vale mais que qualquer efeito visual.
+          </p>
+        </div></div>
+        <div class="card"><div class="card__body">
+          <p class="block__title">Nenhuma informação depende só da cor</p>
+          <p class="block__note" style="margin:0">
+            Prazo vencido tem âmbar <em>e</em> a palavra “vencido”. Prioridade tem cor <em>e</em>
+            rótulo. Coluna ordenada tem cor <em>e</em> seta.
+          </p>
+        </div></div>
+        <div class="card"><div class="card__body">
+          <p class="block__title">Âmbar é semântico, nunca ação</p>
+          <p class="block__note" style="margin:0">
+            <span class="token">--amber</span> significa atenção e prazo. O botão que executa
+            continua azul, sempre. Âmbar em botão principal é erro de sistema, não de gosto.
+          </p>
+        </div></div>
+        <div class="card"><div class="card__body">
+          <p class="block__title">Claro e escuro são um sistema só</p>
+          <p class="block__note" style="margin:0">
+            Mesmos nomes de token, mesma hierarquia, mesma voz. O escuro não é um tema alternativo:
+            é a mesma interface com outra iluminação.
+          </p>
+        </div></div>
+        <div class="card"><div class="card__body">
+          <p class="block__title">Teal é operação, azul é negócio</p>
+          <p class="block__note" style="margin:0">
+            <span class="token">--teal</span> marca o que é do sistema — sincronização, publicação,
+            estado de inspeção. Azul marca o que a consultoria faz pelo cliente.
+          </p>
+        </div></div>
+        <div class="card"><div class="card__body">
+          <p class="block__title">Contido, não arredondado</p>
+          <p class="block__note" style="margin:0">
+            Raio máximo de 8px em cartão e modal. Sem glassmorphism, sem ícone decorativo repetido,
+            sem sombra de vitrine.
+          </p>
+        </div></div>
+      </div>
+
+      <div class="notice notice--info block">
+        <svg class="notice__mark" width="16" height="16" aria-hidden="true"><use href="#ic-alert"/></svg>
+        <p>
+          <b>Sétima regra:</b> o que não couber nas seis acima, decide o Manual 2.0. O manual
+          “experimental” v1.0 está abolido — paleta e tipografia dele não valem em lugar nenhum.
+        </p>
+      </div>
+    </section>
+
+    <!-- ================= COR ================= -->
+    <section id="cor">
+      <h2 class="sec__title">Cor e contraste</h2>
+      <p class="sec__note">
+        Os hexadecimais abaixo mudam quando você troca o tema — é o mesmo token respondendo. Passe o
+        tema para escuro e confira: nenhum nome muda, nenhum papel muda.
+      </p>
+
+      <div class="block">
+        <p class="block__title">Superfície e traço</p>
+        <p class="block__note">
+          Três camadas de superfície e duas de traço. <span class="token">--border</span> é
+          divisória decorativa e não precisa de 3:1; <span class="token">--border-control</span>
+          delimita campo e caixa de seleção, então precisa.
+        </p>
+        <div class="swatches">
+          <div class="swatch"><div class="swatch__chip" style="background:var(--bg)"></div><div class="swatch__meta"><p class="swatch__name">--bg</p><p class="swatch__hex" data-swatch="--bg"></p><p class="swatch__role">Fundo da página</p></div></div>
+          <div class="swatch"><div class="swatch__chip" style="background:var(--surface)"></div><div class="swatch__meta"><p class="swatch__name">--surface</p><p class="swatch__hex" data-swatch="--surface"></p><p class="swatch__role">Cartão, tabela, painel</p></div></div>
+          <div class="swatch"><div class="swatch__chip" style="background:var(--surface-sunken)"></div><div class="swatch__meta"><p class="swatch__name">--surface-sunken</p><p class="swatch__hex" data-swatch="--surface-sunken"></p><p class="swatch__role">Sidebar, cabeçalho de tabela</p></div></div>
+          <div class="swatch"><div class="swatch__chip" style="background:var(--border-control)"></div><div class="swatch__meta"><p class="swatch__name">--border-control</p><p class="swatch__hex" data-swatch="--border-control"></p><p class="swatch__role">Borda de campo · exige 3:1</p></div></div>
+        </div>
+      </div>
+
+      <div class="block">
+        <p class="block__title">Texto</p>
+        <div class="swatches">
+          <div class="swatch"><div class="swatch__chip" style="background:var(--ink)"></div><div class="swatch__meta"><p class="swatch__name">--ink</p><p class="swatch__hex" data-swatch="--ink"></p><p class="swatch__role">Navy institucional — texto e títulos</p></div></div>
+          <div class="swatch"><div class="swatch__chip" style="background:var(--ink-2)"></div><div class="swatch__meta"><p class="swatch__name">--ink-2</p><p class="swatch__hex" data-swatch="--ink-2"></p><p class="swatch__role">Apoio, rótulo de coluna</p></div></div>
+          <div class="swatch"><div class="swatch__chip" style="background:var(--ink-3)"></div><div class="swatch__meta"><p class="swatch__name">--ink-3</p><p class="swatch__hex" data-swatch="--ink-3"></p><p class="swatch__role">Placeholder — ainda 4,5:1</p></div></div>
+        </div>
+        <div class="notice notice--attention" style="margin-top:var(--space-4)">
+          <svg class="notice__mark" width="16" height="16" aria-hidden="true"><use href="#ic-alert"/></svg>
+          <p><b>Não existe cinza claro para texto neste sistema.</b> O app usa hoje
+          <span class="token">gray-400</span> em rótulo e placeholder, que dá 2,54:1 e reprova. O
+          menor tom de texto aqui é <span class="token">--ink-3</span>, e ele passa em todas as três
+          superfícies.</p>
+        </div>
+      </div>
+
+      <div class="block">
+        <p class="block__title">Ação e identidade</p>
+        <div class="swatches">
+          <div class="swatch"><div class="swatch__chip" style="background:var(--accent)"></div><div class="swatch__meta"><p class="swatch__name">--accent</p><p class="swatch__hex" data-swatch="--accent"></p><p class="swatch__role">Azul TreinaVISA — ação principal</p></div></div>
+          <div class="swatch"><div class="swatch__chip" style="background:var(--accent-soft)"></div><div class="swatch__meta"><p class="swatch__name">--accent-soft</p><p class="swatch__hex" data-swatch="--accent-soft"></p><p class="swatch__role">Fundo de leitura e seleção</p></div></div>
+          <div class="swatch"><div class="swatch__chip" style="background:var(--teal)"></div><div class="swatch__meta"><p class="swatch__name">--teal</p><p class="swatch__hex" data-swatch="--teal"></p><p class="swatch__role">Teal operacional do InspecVISA</p></div></div>
+        </div>
+      </div>
+
+      <div class="block">
+        <p class="block__title">Semântica</p>
+        <p class="block__note">
+          Quatro papéis, nunca mais. Âmbar tem dois tons porque
+          <span class="token">#D99721</span> puro dá 2,50:1 sobre branco: serve para preenchimento
+          grande, não para ícone de 16px. Aí entra <span class="token">--amber-strong</span>.
+        </p>
+        <div class="swatches">
+          <div class="swatch"><div class="swatch__chip" style="background:var(--amber)"></div><div class="swatch__meta"><p class="swatch__name">--amber</p><p class="swatch__hex" data-swatch="--amber"></p><p class="swatch__role">Atenção · preenchimento grande</p></div></div>
+          <div class="swatch"><div class="swatch__chip" style="background:var(--amber-strong)"></div><div class="swatch__meta"><p class="swatch__name">--amber-strong</p><p class="swatch__hex" data-swatch="--amber-strong"></p><p class="swatch__role">Atenção · ícone e indicador</p></div></div>
+          <div class="swatch"><div class="swatch__chip" style="background:var(--success)"></div><div class="swatch__meta"><p class="swatch__name">--success</p><p class="swatch__hex" data-swatch="--success"></p><p class="swatch__role">Concluído, conforme</p></div></div>
+          <div class="swatch"><div class="swatch__chip" style="background:var(--danger)"></div><div class="swatch__meta"><p class="swatch__name">--danger</p><p class="swatch__hex" data-swatch="--danger"></p><p class="swatch__role">Erro e exclusão</p></div></div>
+        </div>
+      </div>
+
+      <div class="block">
+        <p class="block__title">Contraste medido agora, nesta tela</p>
+        <p class="block__note">
+          A razão abaixo é calculada em tempo real a partir dos tokens vigentes — não é uma tabela
+          escrita à mão. Troque o tema e ela recalcula. Se algum par cair abaixo do mínimo, aparece
+          <b>REPROVA</b> em vermelho.
+        </p>
+        <div class="table-wrap">
+          <div class="table-scroll">
+            <table class="table">
+              <caption class="sr-only">Razão de contraste por par de cores</caption>
+              <thead>
+                <tr><th scope="col">Par</th><th scope="col">Uso</th><th scope="col" class="num">Mínimo</th><th scope="col" class="num">Medido</th><th scope="col">Veredito</th></tr>
+              </thead>
+              <tbody>
+                <tr data-fg="--ink" data-bg="--surface" data-min="4.5"><td class="table__primary">--ink / --surface</td><td class="muted">Texto principal em cartão</td><td class="num">4,5</td><td class="num" data-ratio></td><td><span data-verdict class="badge"></span></td></tr>
+                <tr data-fg="--ink" data-bg="--bg" data-min="4.5"><td class="table__primary">--ink / --bg</td><td class="muted">Texto sobre o fundo da página</td><td class="num">4,5</td><td class="num" data-ratio></td><td><span data-verdict class="badge"></span></td></tr>
+                <tr data-fg="--ink-2" data-bg="--surface" data-min="4.5"><td class="table__primary">--ink-2 / --surface</td><td class="muted">Legenda e rótulo de coluna</td><td class="num">4,5</td><td class="num" data-ratio></td><td><span data-verdict class="badge"></span></td></tr>
+                <tr data-fg="--ink-3" data-bg="--surface-sunken" data-min="4.5"><td class="table__primary">--ink-3 / --surface-sunken</td><td class="muted">Placeholder no cabeçalho de tabela</td><td class="num">4,5</td><td class="num" data-ratio></td><td><span data-verdict class="badge"></span></td></tr>
+                <tr data-fg="--ink-on-accent" data-bg="--accent" data-min="4.5"><td class="table__primary">--ink-on-accent / --accent</td><td class="muted">Texto dentro do botão principal</td><td class="num">4,5</td><td class="num" data-ratio></td><td><span data-verdict class="badge"></span></td></tr>
+                <tr data-fg="--accent-ink" data-bg="--surface" data-min="4.5"><td class="table__primary">--accent-ink / --surface</td><td class="muted">Link e ação em texto</td><td class="num">4,5</td><td class="num" data-ratio></td><td><span data-verdict class="badge"></span></td></tr>
+                <tr data-fg="--accent-soft-ink" data-bg="--accent-soft" data-min="4.5"><td class="table__primary">--accent-soft-ink / --accent-soft</td><td class="muted">Selo azul</td><td class="num">4,5</td><td class="num" data-ratio></td><td><span data-verdict class="badge"></span></td></tr>
+                <tr data-fg="--teal-soft-ink" data-bg="--teal-soft" data-min="4.5"><td class="table__primary">--teal-soft-ink / --teal-soft</td><td class="muted">Selo operacional</td><td class="num">4,5</td><td class="num" data-ratio></td><td><span data-verdict class="badge"></span></td></tr>
+                <tr data-fg="--amber-soft-ink" data-bg="--amber-soft" data-min="4.5"><td class="table__primary">--amber-soft-ink / --amber-soft</td><td class="muted">Selo de prazo vencido</td><td class="num">4,5</td><td class="num" data-ratio></td><td><span data-verdict class="badge"></span></td></tr>
+                <tr data-fg="--success-soft-ink" data-bg="--success-soft" data-min="4.5"><td class="table__primary">--success-soft-ink / --success-soft</td><td class="muted">Selo de concluído</td><td class="num">4,5</td><td class="num" data-ratio></td><td><span data-verdict class="badge"></span></td></tr>
+                <tr data-fg="--danger-soft-ink" data-bg="--danger-soft" data-min="4.5"><td class="table__primary">--danger-soft-ink / --danger-soft</td><td class="muted">Selo de erro</td><td class="num">4,5</td><td class="num" data-ratio></td><td><span data-verdict class="badge"></span></td></tr>
+                <tr data-fg="--border-control" data-bg="--surface" data-min="3"><td class="table__primary">--border-control / --surface</td><td class="muted">Borda de campo (não é texto)</td><td class="num">3,0</td><td class="num" data-ratio></td><td><span data-verdict class="badge"></span></td></tr>
+                <tr data-fg="--accent" data-bg="--surface" data-min="3"><td class="table__primary">--accent / --surface</td><td class="muted">Anel de foco</td><td class="num">3,0</td><td class="num" data-ratio></td><td><span data-verdict class="badge"></span></td></tr>
+                <tr data-fg="--amber-strong" data-bg="--surface" data-min="3"><td class="table__primary">--amber-strong / --surface</td><td class="muted">Ícone de atenção</td><td class="num">3,0</td><td class="num" data-ratio></td><td><span data-verdict class="badge"></span></td></tr>
+                <tr data-fg="--teal" data-bg="--surface" data-min="3"><td class="table__primary">--teal / --surface</td><td class="muted">Ícone operacional</td><td class="num">3,0</td><td class="num" data-ratio></td><td><span data-verdict class="badge"></span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= TIPOGRAFIA ================= -->
+    <section id="tipografia">
+      <h2 class="sec__title">Tipografia</h2>
+      <p class="sec__note">
+        Sora 500 nos títulos, Source Sans 3 no resto. Duas famílias que contrastam por eixo
+        (geométrica larga × humanista estreita), não duas sans parecidas. Sem monoespaçada: o manual
+        proíbe usá-la só para parecer técnica, então RDC e CNPJ vão em Source Sans 3 com
+        <span class="token">tabular-nums</span>.
+      </p>
+
+      <div class="demo block">
+        <p class="demo__label">SORA · TÍTULOS</p>
+        <p style="font-family:var(--font-title);font-size:var(--text-3xl);font-weight:500;letter-spacing:var(--tracking-title)">Plano de ação da unidade</p>
+        <p style="font-family:var(--font-title);font-size:var(--text-xl);font-weight:500;letter-spacing:var(--tracking-title);margin-top:var(--space-3)">Inspeção sanitária · ILPI Recanto</p>
+        <hr>
+        <p class="demo__label">SOURCE SANS 3 · LEITURA E SISTEMAS</p>
+        <p class="prose" style="font-size:var(--text-md)">
+          A cozinha não possui barreira física entre a área de recebimento e a área de manipulação.
+          Instalar divisória ou redefinir o fluxo de entrada de gêneros até 30 dias, conforme a
+          RDC 216/2004. O responsável técnico deve registrar a adequação no livro de ocorrências.
+        </p>
+        <p class="num" style="margin-top:var(--space-3);font-weight:var(--weight-semibold)">CNPJ 12.345.678/0001-90 · 13 unidades · 47 pendências</p>
+      </div>
+
+      <div class="block">
+        <p class="block__title">Escala</p>
+        <p class="block__note">
+          Fixa em <span class="token">rem</span>, razão ~1,15. Produto não usa
+          <span class="token">clamp()</span>: título que encolhe dentro de painel piora a leitura em
+          vez de melhorar.
+        </p>
+        <div class="demo">
+          <div class="type-row"><span class="type-row__spec">--text-3xl · 30px · Sora 600</span><span style="font-family:var(--font-title);font-size:var(--text-3xl);font-weight:600">47</span><span class="dim small">número de indicador</span></div>
+          <div class="type-row"><span class="type-row__spec">--text-2xl · 24px · Sora 500</span><span style="font-family:var(--font-title);font-size:var(--text-2xl)">Título de página</span></div>
+          <div class="type-row"><span class="type-row__spec">--text-xl · 20px · Sora 500</span><span style="font-family:var(--font-title);font-size:var(--text-xl)">Título de seção</span></div>
+          <div class="type-row"><span class="type-row__spec">--text-lg · 17px · Sora 500</span><span style="font-family:var(--font-title);font-size:var(--text-lg)">Título de cartão</span></div>
+          <div class="type-row"><span class="type-row__spec">--text-md · 15px · SS3 400</span><span style="font-size:var(--text-md)">Corpo do Portal do Cliente</span></div>
+          <div class="type-row"><span class="type-row__spec">--text-base · 14px · SS3 400</span><span style="font-size:var(--text-base)">Corpo do app e botão</span></div>
+          <div class="type-row"><span class="type-row__spec">--text-sm · 13px · SS3 400</span><span style="font-size:var(--text-sm)">Célula de tabela densa</span></div>
+          <div class="type-row"><span class="type-row__spec">--text-xs · 12px · SS3 600</span><span style="font-size:var(--text-xs);font-weight:600">RÓTULO DE COLUNA · SELO</span></div>
+          <div class="type-row"><span class="type-row__spec">--text-2xs · 11px · SS3 400</span><span style="font-size:var(--text-2xs)">Metadado denso — nunca texto corrido</span></div>
+        </div>
+      </div>
+
+      <div class="block">
+        <p class="block__title">Limites</p>
+        <table class="kv" style="width:100%">
+          <tbody>
+            <tr><td>Linha de leitura</td><td class="muted">Máximo 68ch no app, 72ch no portal. Tabela pode passar de 120ch — é dado, não prosa.</td></tr>
+            <tr><td>Peso de título</td><td class="muted">Sora 500 padrão, 600 só em número de indicador. Sora 700 não é usada.</td></tr>
+            <tr><td>Entrelinha</td><td class="muted">1,2 título · 1,35 denso · 1,5 corpo · 1,6 leitura longa do portal.</td></tr>
+            <tr><td>Caixa alta</td><td class="muted">Só em rótulo de coluna e selo, no máximo 3 palavras. Nunca em frase.</td></tr>
+            <tr><td>Fallback</td><td class="muted">Segoe UI. É o fallback de escritório previsto no manual — não trocar por Arial nem por system-ui sozinho.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ================= ESPAÇO ================= -->
+    <section id="espaco">
+      <h2 class="sec__title">Espaço, raio e camada</h2>
+
+      <div class="grid-2 block">
+        <div>
+          <p class="block__title">Espaçamento — base 4</p>
+          <p class="block__note">Uma escala só. Se um valor não está aqui, ele não existe.</p>
+          <div class="demo demo--sunken">
+            <div class="demo__col">
+              <div class="row"><span class="type-row__spec" style="width:130px">--space-1 · 4px</span><span class="scale-bar" style="width:4px"></span></div>
+              <div class="row"><span class="type-row__spec" style="width:130px">--space-2 · 8px</span><span class="scale-bar" style="width:8px"></span></div>
+              <div class="row"><span class="type-row__spec" style="width:130px">--space-3 · 12px</span><span class="scale-bar" style="width:12px"></span></div>
+              <div class="row"><span class="type-row__spec" style="width:130px">--space-4 · 16px</span><span class="scale-bar" style="width:16px"></span></div>
+              <div class="row"><span class="type-row__spec" style="width:130px">--space-5 · 20px</span><span class="scale-bar" style="width:20px"></span></div>
+              <div class="row"><span class="type-row__spec" style="width:130px">--space-6 · 24px</span><span class="scale-bar" style="width:24px"></span></div>
+              <div class="row"><span class="type-row__spec" style="width:130px">--space-8 · 32px</span><span class="scale-bar" style="width:32px"></span></div>
+              <div class="row"><span class="type-row__spec" style="width:130px">--space-10 · 40px</span><span class="scale-bar" style="width:40px"></span></div>
+              <div class="row"><span class="type-row__spec" style="width:130px">--space-12 · 48px</span><span class="scale-bar" style="width:48px"></span></div>
+              <div class="row"><span class="type-row__spec" style="width:130px">--space-16 · 64px</span><span class="scale-bar" style="width:64px"></span></div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <p class="block__title">Raio e altura de controle</p>
+          <p class="block__note">Contido. O maior raio do sistema é 8px, e ele só aparece em cartão e modal.</p>
+          <div class="demo">
+            <div class="demo__grid">
+              <div style="text-align:center"><div style="width:64px;height:44px;background:var(--accent-soft);border:1px solid var(--accent-soft-border);border-radius:var(--radius-sm)"></div><p class="tiny dim" style="margin-top:6px">sm · 4px</p></div>
+              <div style="text-align:center"><div style="width:64px;height:44px;background:var(--accent-soft);border:1px solid var(--accent-soft-border);border-radius:var(--radius-md)"></div><p class="tiny dim" style="margin-top:6px">md · 6px</p></div>
+              <div style="text-align:center"><div style="width:64px;height:44px;background:var(--accent-soft);border:1px solid var(--accent-soft-border);border-radius:var(--radius-lg)"></div><p class="tiny dim" style="margin-top:6px">lg · 8px</p></div>
+              <div style="text-align:center"><div style="width:44px;height:44px;background:var(--accent-soft);border:1px solid var(--accent-soft-border);border-radius:var(--radius-full)"></div><p class="tiny dim" style="margin-top:6px">full · avatar e ponto</p></div>
+            </div>
+            <hr>
+            <table class="kv" style="width:100%">
+              <tbody>
+                <tr><td>--control-h-sm</td><td class="muted">30px — botão dentro de linha de tabela</td></tr>
+                <tr><td>--control-h</td><td class="muted">36px — botão e campo padrão</td></tr>
+                <tr><td>--control-h-lg</td><td class="muted">44px — ação principal do portal</td></tr>
+                <tr><td>--row-dense / compact</td><td class="muted">34px / 40px — linha de tabela</td></tr>
+                <tr><td>--touch-min</td><td class="muted">44px — piso de alvo no celular, sem exceção</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2 block">
+        <div>
+          <p class="block__title">Sombra</p>
+          <p class="block__note">Três níveis, tingidos de navy. No escuro a sombra praticamente some e a elevação passa a ser a borda mais clara — de propósito.</p>
+          <div class="demo demo--sunken">
+            <div class="demo__grid" style="gap:var(--space-5)">
+              <div style="text-align:center"><div style="width:88px;height:56px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-1)"></div><p class="tiny dim" style="margin-top:8px">1 · repouso</p></div>
+              <div style="text-align:center"><div style="width:88px;height:56px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-2)"></div><p class="tiny dim" style="margin-top:8px">2 · flutuante</p></div>
+              <div style="text-align:center"><div style="width:88px;height:56px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-3)"></div><p class="tiny dim" style="margin-top:8px">3 · modal</p></div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <p class="block__title">Camadas</p>
+          <p class="block__note">Escala semântica e auditável. Nunca <span class="token">999</span>, nunca <span class="token">9999</span>.</p>
+          <div class="demo">
+            <table class="kv" style="width:100%">
+              <tbody>
+                <tr><td>--z-sticky · 10</td><td class="muted">cabeçalho de tabela, topbar</td></tr>
+                <tr><td>--z-dropdown · 20</td><td class="muted">menu suspenso</td></tr>
+                <tr><td>--z-drawer · 30/31</td><td class="muted">véu e gaveta</td></tr>
+                <tr><td>--z-modal · 40/41</td><td class="muted">véu e modal</td></tr>
+                <tr><td>--z-toast · 50</td><td class="muted">aviso</td></tr>
+                <tr><td>--z-tooltip · 60</td><td class="muted">dica — sempre por cima</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="notice notice--attention block">
+        <svg class="notice__mark" width="16" height="16" aria-hidden="true"><use href="#ic-alert"/></svg>
+        <p><b>Largura de página:</b> uma só, <span class="token">--shell-max: 1600px</span>. O app tem hoje cinco containers diferentes convivendo, de <span class="token">max-w-3xl</span> a <span class="token">max-w-7xl</span> — é a causa do conteúdo espremido no meio de tela grande.</p>
+      </div>
+    </section>
+
+    <!-- ================= MOVIMENTO ================= -->
+    <section id="movimento">
+      <h2 class="sec__title">Movimento</h2>
+      <p class="sec__note">
+        Movimento comunica estado: entrou, saiu, mudou, está carregando. Nada além disso. Sem
+        sequência de entrada na carga da página — a pessoa abriu o app para trabalhar, não para
+        assistir.
+      </p>
+
+      <div class="grid-2 block">
+        <div class="demo">
+          <p class="demo__label">DURAÇÃO</p>
+          <table class="kv" style="width:100%">
+            <tbody>
+              <tr><td>--dur-1 · 120ms</td><td class="muted">hover, foco, cor de linha</td></tr>
+              <tr><td>--dur-2 · 180ms</td><td class="muted">aba, aviso, seleção</td></tr>
+              <tr><td>--dur-3 · 240ms</td><td class="muted">modal, gaveta, rail da sidebar</td></tr>
+            </tbody>
+          </table>
+          <p class="block__note" style="margin:var(--space-4) 0 0">Nada acima de 240ms. Acima disso, numa ferramenta usada o dia inteiro, deixa de ser elegante e vira lentidão.</p>
+        </div>
+        <div class="demo">
+          <p class="demo__label">CURVA</p>
+          <table class="kv" style="width:100%">
+            <tbody>
+              <tr><td>--ease-out</td><td class="muted"><span class="token">cubic-bezier(.22,1,.36,1)</span> — entrada, padrão</td></tr>
+              <tr><td>--ease-in</td><td class="muted">saída</td></tr>
+              <tr><td>--ease-in-out</td><td class="muted">transformação no lugar</td></tr>
+            </tbody>
+          </table>
+          <p class="block__note" style="margin:var(--space-4) 0 var(--space-2)">Sem <em>bounce</em>, sem elástico.</p>
+          <div class="motion-demo run"><span></span></div>
+        </div>
+      </div>
+
+      <div class="notice notice--success block">
+        <svg class="notice__mark" width="16" height="16" aria-hidden="true"><use href="#ic-check"/></svg>
+        <p>
+          <b><span class="token">prefers-reduced-motion</span> não é opcional.</b> Toda animação deste
+          documento tem alternativa: o brilho do esqueleto vira cor sólida, o modal só aparece, o
+          quadrado acima para. Se você tem movimento reduzido ligado no sistema, já está vendo assim.
+        </p>
+      </div>
+    </section>
+
+    <!-- ================= COMPONENTES ================= -->
+    <section id="componentes">
+      <h2 class="sec__title">Componentes</h2>
+      <p class="sec__note">
+        Todo componente interativo aparece aqui com <b>todos</b> os estados: normal, sob o cursor,
+        com foco, pressionado, desabilitado, carregando e com erro. Meio inventário não é inventário
+        — é o que produz o campo copiado à mão dezenas de vezes que o app tem hoje.
+      </p>
+
+      <!-- Botão -->
+      <div class="block">
+        <p class="block__title">Botão</p>
+        <p class="block__note">
+          Cinco variantes. <b>Primária é azul e é uma por tela.</b> Âmbar não vira botão nunca.
+          Teal só em ação de sistema.
+        </p>
+        <div class="demo">
+          <div class="demo__grid">
+            <button class="btn btn--primary">Publicar plano de ação</button>
+            <button class="btn btn--outline">Cancelar</button>
+            <button class="btn btn--ghost">Ver histórico</button>
+            <button class="btn btn--operational"><svg width="15" height="15" aria-hidden="true"><use href="#ic-refresh"/></svg>Sincronizar</button>
+            <button class="btn btn--danger">Excluir cliente</button>
+          </div>
+          <hr>
+          <p class="demo__label">ESTADOS DA PRIMÁRIA</p>
+          <div class="demo__grid">
+            <button class="btn btn--primary">Normal</button>
+            <button class="btn btn--primary" style="background:var(--accent-hover)">Sob o cursor</button>
+            <button class="btn btn--primary" style="background:var(--accent-active)">Pressionado</button>
+            <button class="btn btn--primary" style="outline:2px solid var(--focus-ring);outline-offset:2px">Com foco</button>
+            <button class="btn btn--primary" data-loading="true">Salvando</button>
+            <button class="btn btn--primary" disabled>Desabilitado</button>
+          </div>
+          <hr>
+          <p class="demo__label">TAMANHO</p>
+          <div class="demo__grid">
+            <button class="btn btn--outline btn--sm">Pequeno · 30px</button>
+            <button class="btn btn--outline">Padrão · 36px</button>
+            <button class="btn btn--outline btn--lg">Grande · 44px</button>
+            <button class="btn btn--outline btn--icon" aria-label="Buscar"><svg width="16" height="16" aria-hidden="true"><use href="#ic-search"/></svg></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Formulário -->
+      <div class="block">
+        <p class="block__title">Rótulo, campo, seleção e área de texto</p>
+        <p class="block__note">
+          Rótulo sempre visível e sempre acima — placeholder não é rótulo. O erro nunca depende só da
+          cor: vem com ícone e com texto que diz o que fazer.
+        </p>
+        <div class="demo">
+          <div class="grid-3">
+            <div class="field">
+              <label class="label" for="f1">Nome do estabelecimento <span class="req" aria-hidden="true">*</span></label>
+              <input class="input" id="f1" value="ILPI Recanto dos Idosos">
+              <p class="hint">Como aparece no alvará.</p>
+            </div>
+            <div class="field">
+              <label class="label" for="f2">Buscar</label>
+              <div class="input-group">
+                <svg width="16" height="16" aria-hidden="true"><use href="#ic-search"/></svg>
+                <input class="input" id="f2" placeholder="Nome, CNPJ ou unidade">
+              </div>
+              <p class="hint">Placeholder é exemplo, não instrução.</p>
+            </div>
+            <div class="field">
+              <label class="label" for="f3">Categoria</label>
+              <select class="select" id="f3">
+                <option>Todas as categorias</option>
+                <option selected>ILPI</option>
+                <option>Estética</option>
+                <option>Alimentos</option>
+              </select>
+            </div>
+            <div class="field" data-invalid="true">
+              <label class="label" for="f4">Prazo <span class="req" aria-hidden="true">*</span></label>
+              <input class="input" id="f4" value="assim que possível" aria-describedby="f4e" aria-invalid="true">
+              <p class="error-text" id="f4e">Use uma data ou um prazo em dias. Texto livre não conta como vencido no painel.</p>
+            </div>
+            <div class="field">
+              <label class="label" for="f5">Responsável <span class="opt">(opcional)</span></label>
+              <input class="input" id="f5" value="Gerência / Administração" readonly>
+              <p class="hint">Somente leitura enquanto a inspeção está concluída.</p>
+            </div>
+            <div class="field">
+              <label class="label" for="f6">Consultora</label>
+              <select class="select" id="f6" disabled><option>Definida na inspeção</option></select>
+              <p class="hint">Desabilitado.</p>
+            </div>
+          </div>
+          <div class="field" style="margin-top:var(--space-4)">
+            <label class="label" for="f7">O que precisa ser feito <span class="req" aria-hidden="true">*</span></label>
+            <textarea class="textarea" id="f7" rows="3">Instalar divisória entre a área de recebimento e a de manipulação, ou redefinir o fluxo de entrada de gêneros.</textarea>
+            <p class="hint">Este texto vai inteiro para o portal do cliente e para o PDF.</p>
+          </div>
+          <hr>
+          <div class="demo__grid" style="gap:var(--space-6)">
+            <label class="check"><input type="checkbox" checked> Item crítico</label>
+            <label class="check"><input type="checkbox"> Aceita evidência do cliente</label>
+            <label class="check"><input type="checkbox" disabled> Bloqueado pelo roteiro</label>
+            <label class="switch"><input type="checkbox" checked><span class="track"></span><span>Mostrar relatório no portal</span></label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabela -->
+      <div class="block">
+        <p class="block__title">Tabela densa</p>
+        <p class="block__note">
+          Linha de 40px (34px na densa), cabeçalho fixo ao rolar, ordenação com seta, rolagem
+          horizontal contida na própria tabela — a página nunca rola de lado. Cartão só no celular.
+        </p>
+        <div class="table-wrap">
+          <div class="table-scroll">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th scope="col"><button class="th-sort" aria-sort="ascending">Cliente <svg class="arrow" width="12" height="12" aria-hidden="true"><use href="#ic-arrow-up"/></svg></button></th>
+                  <th scope="col">Categoria</th>
+                  <th scope="col" class="num">Unidades</th>
+                  <th scope="col"><button class="th-sort" aria-sort="none">Última inspeção <svg class="arrow" width="12" height="12" aria-hidden="true"><use href="#ic-arrow-up"/></svg></button></th>
+                  <th scope="col" class="num">Conformidade</th>
+                  <th scope="col">Pendências</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td class="table__primary">ILPI Recanto dos Idosos</td><td><span class="badge badge--neutral">ILPI</span></td><td class="num">13</td><td class="num">28/07/2026</td><td class="num">72%</td><td><span class="badge badge--attention"><span class="dot"></span>9 vencidas</span></td></tr>
+                <tr aria-selected="true"><td class="table__primary">Clínica Estética Aurora</td><td><span class="badge badge--neutral">Estética</span></td><td class="num">1</td><td class="num">02/08/2026</td><td class="num">94%</td><td><span class="badge badge--success">em dia</span></td></tr>
+                <tr><td class="table__primary">Panificadora São Jorge</td><td><span class="badge badge--neutral">Alimentos</span></td><td class="num">2</td><td class="num">14/06/2026</td><td class="num">61%</td><td><span class="badge badge--danger">3 críticas</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="pagination">
+            <span>Mostrando <b class="num">1–3</b> de <b class="num">47</b></span>
+            <div class="pagination__pages">
+              <button class="page-btn" disabled aria-label="Página anterior">‹</button>
+              <button class="page-btn" aria-current="page">1</button>
+              <button class="page-btn">2</button>
+              <button class="page-btn">3</button>
+              <span class="dim">…</span>
+              <button class="page-btn">16</button>
+              <button class="page-btn" aria-label="Próxima página">›</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Selos e abas -->
+      <div class="grid-2 block">
+        <div>
+          <p class="block__title">Selo</p>
+          <p class="block__note">Todo selo carrega texto. Cor é reforço, nunca o recado.</p>
+          <div class="demo">
+            <div class="demo__grid">
+              <span class="badge badge--neutral">Rascunho</span>
+              <span class="badge badge--info">Publicado</span>
+              <span class="badge badge--operational">Sincronizando</span>
+              <span class="badge badge--attention"><span class="dot"></span>Prazo vencido</span>
+              <span class="badge badge--success">Concluído</span>
+              <span class="badge badge--danger">Crítico</span>
+              <span class="badge badge--outline">Reincidente 3×</span>
+            </div>
+          </div>
+        </div>
+        <div>
+          <p class="block__title">Abas</p>
+          <p class="block__note">Setas do teclado navegam, Home e End vão às pontas, e a URL guarda a aba aberta.</p>
+          <div class="demo" style="padding-top:0">
+            <div class="tabs">
+              <div class="tablist" role="tablist" aria-label="Exemplo">
+                <button class="tab" role="tab" id="dt1" aria-controls="dp1" aria-selected="true" data-tab="visao">Visão geral</button>
+                <button class="tab" role="tab" id="dt2" aria-controls="dp2" aria-selected="false" tabindex="-1" data-tab="insp">Inspeções <span class="count num">7</span></button>
+                <button class="tab" role="tab" id="dt3" aria-controls="dp3" aria-selected="false" tabindex="-1" data-tab="arq">Arquivos <span class="count num">128</span></button>
+              </div>
+            </div>
+            <div class="tabpanel" role="tabpanel" id="dp1" aria-labelledby="dt1"><p class="muted small">Painel da primeira aba.</p></div>
+            <div class="tabpanel" role="tabpanel" id="dp2" aria-labelledby="dt2" hidden><p class="muted small">Painel da segunda aba.</p></div>
+            <div class="tabpanel" role="tabpanel" id="dp3" aria-labelledby="dt3" hidden><p class="muted small">Painel da terceira aba.</p></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sobreposições -->
+      <div class="block">
+        <p class="block__title">Modal, gaveta, aviso e dica</p>
+        <p class="block__note">
+          Tudo aqui funciona de verdade — abra, feche com <kbd>Esc</kbd>, clique fora, navegue com
+          <kbd>Tab</kbd>. O modal usa <span class="token">&lt;dialog&gt;</span> nativo, que já dá
+          trap de foco e devolve o foco ao botão de origem. Hoje o app usa
+          <span class="token">confirm()</span> do navegador para excluir anexo.
+        </p>
+        <div class="demo">
+          <div class="demo__grid">
+            <button class="btn btn--outline" data-open="dlg-demo">Abrir modal</button>
+            <button class="btn btn--outline" data-open="dlg-drawer">Abrir gaveta</button>
+            <button class="btn btn--outline" onclick="avisar({kind:'success',title:'Plano de ação publicado',body:'13 pendências foram para o portal.'})">Aviso de sucesso</button>
+            <button class="btn btn--outline" onclick="avisar({kind:'error',title:'Não foi possível publicar',body:'A inspeção não está vinculada a uma solicitação.'})">Aviso de erro</button>
+            <button class="btn btn--outline" onclick="avisar({kind:'attention',title:'3 prazos vencem esta semana'})">Aviso de atenção</button>
+            <span class="tip"><button class="btn btn--ghost btn--icon" aria-label="Ajuda" aria-describedby="tipdemo"><svg width="16" height="16" aria-hidden="true"><use href="#ic-alert"/></svg></button><span class="tip__bubble" role="tooltip" id="tipdemo">Aparece no foco também</span></span>
+          </div>
+          <p class="block__note" style="margin:var(--space-4) 0 0">
+            Aviso de <b>erro não some sozinho</b>: some antes de a pessoa terminar de ler. Sucesso sai
+            em 4s, atenção em 6s, e o cronômetro pausa com o cursor em cima.
+          </p>
+        </div>
+      </div>
+
+      <!-- Vazio e esqueleto -->
+      <div class="grid-2 block">
+        <div>
+          <p class="block__title">Estado vazio</p>
+          <p class="block__note">Ensina a interface. “Nada por aqui” deixa a pessoa parada — e é o que o Painel diz hoje.</p>
+          <div class="demo" style="padding:0">
+            <div class="empty">
+              <svg class="empty__icon" aria-hidden="true"><use href="#ic-clipboard"/></svg>
+              <p class="empty__title">Nenhuma pendência publicada ainda</p>
+              <p class="empty__body">
+                Quando a consultoria publicar o plano de ação desta inspeção, ele aparece aqui — e é
+                por aqui que você responde o que já foi corrigido ou anexa a evidência.
+              </p>
+              <div class="empty__actions">
+                <button class="btn btn--primary">Ver inspeções</button>
+                <button class="btn btn--ghost">Falar com a consultoria</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <p class="block__title">Esqueleto</p>
+          <p class="block__note">Espelha a forma real do conteúdo. Nunca esqueleto e roda ao mesmo tempo na mesma superfície.</p>
+          <div class="demo" aria-busy="true" aria-label="Carregando">
+            <div aria-hidden="true">
+              <div class="row" style="margin-bottom:var(--space-4)">
+                <div class="skel" style="width:30px;height:30px;border-radius:var(--radius-md)"></div>
+                <div class="grow"><div class="skel skel--text" style="width:46%"></div><div class="skel skel--text" style="width:28%"></div></div>
+              </div>
+              <div class="skel skel--text" style="width:100%"></div>
+              <div class="skel skel--text" style="width:92%"></div>
+              <div class="skel skel--text" style="width:64%"></div>
+              <div class="row" style="margin-top:var(--space-4);gap:var(--space-2)">
+                <div class="skel" style="width:96px;height:30px;border-radius:var(--radius-md)"></div>
+                <div class="skel" style="width:72px;height:30px;border-radius:var(--radius-md)"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= MICROCOPY ================= -->
+    <section id="microcopy">
+      <h2 class="sec__title">Microcopy</h2>
+      <p class="sec__note">
+        A voz muda de superfície: no app interno é direta e técnica, no portal é acolhedora e
+        orientada a tarefa. O que não muda é a regra — a interface fala com quem está do outro lado,
+        não sobre si mesma.
+      </p>
+
+      <div class="grid-2 block">
+        <div class="demo">
+          <p class="demo__label">APP INTERNO — DIRETO</p>
+          <div class="rule rule--do"><span class="rule__mark" aria-hidden="true">✓</span><p class="rule__text"><span class="said">“9 pendências vencidas em 3 unidades”</span></p></div>
+          <div class="rule rule--dont"><span class="rule__mark" aria-hidden="true">✕</span><p class="rule__text"><span class="instead">“Existem itens que requerem atenção”</span></p></div>
+          <div class="rule rule--do"><span class="rule__mark" aria-hidden="true">✓</span><p class="rule__text"><span class="said">“Excluir a inspeção de 28/07?”</span></p></div>
+          <div class="rule rule--dont"><span class="rule__mark" aria-hidden="true">✕</span><p class="rule__text"><span class="instead">“Tem certeza que deseja prosseguir?”</span></p></div>
+        </div>
+        <div class="demo">
+          <p class="demo__label">PORTAL — ACOLHEDOR</p>
+          <div class="rule rule--do"><span class="rule__mark" aria-hidden="true">✓</span><p class="rule__text"><span class="said">“Em que pé está?”</span></p></div>
+          <div class="rule rule--dont"><span class="rule__mark" aria-hidden="true">✕</span><p class="rule__text"><span class="instead">“Atualizar status do item”</span></p></div>
+          <div class="rule rule--do"><span class="rule__mark" aria-hidden="true">✓</span><p class="rule__text"><span class="said">“Conte o motivo — é o que a consultoria leva para a próxima visita.”</span></p></div>
+          <div class="rule rule--dont"><span class="rule__mark" aria-hidden="true">✕</span><p class="rule__text"><span class="instead">“Campo obrigatório.”</span></p></div>
+        </div>
+      </div>
+
+      <div class="block">
+        <p class="block__title">Regras fixas</p>
+        <div class="demo">
+          <table class="kv" style="width:100%">
+            <tbody>
+              <tr><td>Grafia</td><td class="muted"><b>TreinaVISA</b>, <b>HUB TreinaVISA</b>, <b>InspecVISA</b>. Nunca “Treina Visa”, “Treinavisa” ou “TREINAVISA SERVICOS” sem acento. Nunca “C&amp;C Consultoria” — é terceira marca e está no <span class="token">index.html</span> hoje.</td></tr>
+              <tr><td>Botão</td><td class="muted">Verbo no infinitivo, dizendo o que acontece: <b>Publicar plano de ação</b>, não <b>Enviar</b>. Nunca “OK”.</td></tr>
+              <tr><td>Erro</td><td class="muted">O que houve + o que fazer, na mesma frase. Sem “Ops”, sem “algo deu errado”, sem código de erro sozinho.</td></tr>
+              <tr><td>Data</td><td class="muted">Sempre <span class="num">dd/mm/aaaa</span>. Prazo relativo só como complemento: <span class="num">30/08/2026</span> · vence em 3 dias.</td></tr>
+              <tr><td>Vazio</td><td class="muted">Diz o que é aquilo, por que está vazio e qual o próximo passo. Três frases no máximo.</td></tr>
+              <tr><td>Contagem</td><td class="muted">Número primeiro, substantivo concordando: <b>1 pendência</b>, <b>9 pendências</b>. Nunca “pendência(s)”.</td></tr>
+              <tr><td>Obrigatoriedade</td><td class="muted">Marca-se o que é obrigatório com <span class="req">*</span> e legenda; o opcional leva “(opcional)”. No portal, só o que a lei ou o processo exige é obrigatório.</td></tr>
+              <tr><td>Pessoa</td><td class="muted">App: impessoal (“Publicar”). Portal: segunda pessoa (“você”), nunca “o usuário”.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="notice notice--info block">
+        <svg class="notice__mark" width="16" height="16" aria-hidden="true"><use href="#ic-alert"/></svg>
+        <p>
+          Frases do portal que já existem no código e servem de referência de voz: <em>“Em que pé
+          está?”</em>, <em>“Já corrigi / Estou providenciando / Ainda não fiz”</em>, <em>“A pendência
+          continua aberta até lá.”</em> Foram escritas com a voz certa — o redesenho preserva.
+        </p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<dialog class="modal" id="dlg-demo" aria-labelledby="dlg-demo-t">
+  <div class="modal__head">
+    <div>
+      <h2 class="card__title" id="dlg-demo-t">Excluir a inspeção de 28/07/2026?</h2>
+      <p class="muted small" style="margin-top:var(--space-1)">ILPI Recanto dos Idosos · unidade Centro</p>
+    </div>
+    <button class="btn btn--ghost btn--icon btn--sm" data-close aria-label="Fechar"><svg width="16" height="16" aria-hidden="true"><use href="#ic-x"/></svg></button>
+  </div>
+  <div class="modal__body">
+    <p>A inspeção some do histórico do cliente. As 9 pendências já publicadas <b>continuam no portal</b> — elas pertencem ao plano de ação, não à inspeção.</p>
+    <div class="notice notice--danger" style="margin-top:var(--space-4)">
+      <svg class="notice__mark" width="16" height="16" aria-hidden="true"><use href="#ic-alert"/></svg>
+      <p>Não dá para desfazer.</p>
+    </div>
+  </div>
+  <div class="modal__foot">
+    <button class="btn btn--outline" data-close>Cancelar</button>
+    <button class="btn btn--danger" data-close data-autofocus>Excluir inspeção</button>
+  </div>
+</dialog>
+
+<dialog class="drawer" id="dlg-drawer" aria-labelledby="dlg-drawer-t">
+  <div class="drawer__head">
+    <h2 class="card__title" id="dlg-drawer-t">Filtros</h2>
+    <button class="btn btn--ghost btn--icon btn--sm" data-close aria-label="Fechar"><svg width="16" height="16" aria-hidden="true"><use href="#ic-x"/></svg></button>
+  </div>
+  <div class="drawer__body stack">
+    <div class="field">
+      <label class="label" for="dr1">Categoria</label>
+      <select class="select" id="dr1" data-autofocus><option>Todas</option><option>ILPI</option><option>Estética</option><option>Alimentos</option></select>
+    </div>
+    <div class="field">
+      <label class="label" for="dr2">Unidade</label>
+      <select class="select" id="dr2"><option>Todas as unidades</option></select>
+    </div>
+    <fieldset style="border:0;padding:0;margin:0">
+      <legend class="label" style="padding:0 0 var(--space-2)">Situação</legend>
+      <div class="stack" style="--gap:var(--space-2)">
+        <label class="check"><input type="checkbox" checked> Com prazo vencido</label>
+        <label class="check"><input type="checkbox"> Aguardando evidência</label>
+        <label class="check"><input type="checkbox"> Concluídas</label>
+      </div>
+    </fieldset>
+  </div>
+  <div class="drawer__foot row" style="justify-content:flex-end">
+    <button class="btn btn--ghost" data-close>Limpar</button>
+    <button class="btn btn--primary" data-close>Aplicar</button>
+  </div>
+</dialog>
+
+<script>
+  /* Mostra o valor real de cada token, para o hexadecimal acompanhar o tema. */
+  function pintarSwatches() {
+    var s = getComputedStyle(document.documentElement);
+    document.querySelectorAll('[data-swatch]').forEach(function (el) {
+      el.textContent = s.getPropertyValue(el.getAttribute('data-swatch')).trim().toUpperCase();
+    });
+  }
+  document.addEventListener('DOMContentLoaded', pintarSwatches);
+  window.addEventListener('temachange', pintarSwatches);
+  new MutationObserver(pintarSwatches).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+</script>

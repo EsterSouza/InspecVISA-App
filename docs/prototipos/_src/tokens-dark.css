@@ -1,0 +1,56 @@
+  /* Escuro não é um tema alternativo: é o mesmo sistema com outra iluminação.
+     Mesmos nomes de token, mesma hierarquia, mesmos papéis semânticos. */
+  --bg:            #07182E;  /* navy profundo */
+  --surface:       #0E2440;
+  --surface-sunken:#050F1F;
+  --surface-hover: #14294A;
+  --surface-active:#152F52;
+
+  --border:         #20395B;
+  --border-control: #5A7796;
+  --border-strong:  #2C486E;
+
+  --ink:   #E8F0FA;
+  --ink-2: #A7BDD8;
+  --ink-3: #92AAC8;
+  --ink-on-accent: #07182E;
+
+  --accent:       #6F95F6;  /* azul claro — ação e foco em fundo escuro */
+  --accent-hover: #8CABF9;
+  --accent-active:#A5BEFB;
+  --accent-ink:   #9DBAFB;
+  --accent-soft:  #152F52;
+  --accent-soft-ink: #B7CDFC;
+  --accent-soft-border: #2B4D7E;
+
+  --teal:      #3FA6B4;
+  --teal-soft: #0D2E36;
+  --teal-soft-ink: #7FCBD6;
+  --teal-soft-border: #1C4A54;
+
+  --amber:        #E8AC46;
+  --amber-strong: #E8AC46;
+  --amber-soft:   #3A2A0E;
+  --amber-soft-ink: #F0C173;
+  --amber-soft-border: #5C441A;
+
+  --success:      #3FBF83;
+  --success-soft: #0C2D1E;
+  --success-soft-ink: #79D9AC;
+  --success-soft-border: #17472F;
+
+  --danger:       #F0837A;
+  --danger-hover: #F5A49D;
+  --danger-soft:  #3A1614;
+  --danger-soft-ink: #F5A49D;
+  --danger-soft-border: #5E2723;
+
+  --focus-ring: var(--accent);
+  --focus-halo: rgba(111, 149, 246, 0.28);
+
+  /* No escuro a sombra some. A elevação passa a ser a borda mais clara. */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 2px 4px rgba(0, 0, 0, 0.4), 0 6px 16px rgba(0, 0, 0, 0.34);
+  --shadow-3: 0 8px 24px rgba(0, 0, 0, 0.5), 0 24px 48px rgba(0, 0, 0, 0.4);
+
+  color-scheme: dark;

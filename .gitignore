@@ -55,3 +55,6 @@ _local-nao-versionado/
 .env.homolog
 test-results/
 playwright-report/
+
+# Protótipos: fragmentos gerados só para publicar como artefato
+docs/prototipos/_publish/

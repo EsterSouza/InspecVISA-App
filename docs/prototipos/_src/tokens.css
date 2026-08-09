@@ -1,0 +1,155 @@
+/* ==========================================================================
+   TreinaVISA / InspecVISA — Fundação de tokens
+   Manual de Marca TreinaVISA 2.0. Claro e escuro são UM sistema: mesma
+   tipografia, mesmo espaçamento, mesmos componentes, mesma voz.
+   Todo par texto/fundo aqui foi medido em WCAG AA antes de entrar.
+   ========================================================================== */
+
+:root {
+  /* --- Cor: superfícies ------------------------------------------------- */
+  --bg:            #EEF3F9;  /* fundo da página */
+  --surface:       #FFFFFF;  /* cartão, tabela, painel */
+  --surface-sunken:#E4ECF6;  /* chrome: sidebar, cabeçalho de tabela, rodapé */
+  --surface-hover: #F4F8FC;  /* linha sob o cursor */
+  --surface-active:#E9F1FB;  /* linha selecionada */
+
+  /* --- Cor: traço ------------------------------------------------------- */
+  --border:         #CBD9EA; /* divisória decorativa — não delimita controle */
+  --border-control: #7688A2; /* borda de input/select/checkbox — 3:1 obrigatório */
+  --border-strong:  #A8BBD3;
+
+  /* --- Cor: texto ------------------------------------------------------- */
+  --ink:       #0B1F3A;  /* navy institucional — texto, títulos, estrutura */
+  --ink-2:     #41556F;  /* apoio, legenda de coluna */
+  --ink-3:     #54657B;  /* placeholder e metadado — ainda 4,5:1, não é cinza claro */
+  --ink-on-accent: #FFFFFF;
+
+  /* --- Cor: ação (azul TreinaVISA) -------------------------------------- */
+  --accent:       #244A9B;
+  --accent-hover: #1B3A7D;
+  --accent-active:#142C60;
+  --accent-ink:   #1D3D80;  /* texto/link azul sobre superfície clara */
+  --accent-soft:  #EAF3FC;  /* azul muito claro — fundo de leitura */
+  --accent-soft-ink: #143270;
+  --accent-soft-border: #C3DBF5;
+
+  /* --- Cor: teal operacional (identidade do InspecVISA interno) --------- */
+  --teal:      #0F6B78;
+  --teal-soft: #E3F1F3;
+  --teal-soft-ink: #0A4A53;
+  --teal-soft-border: #BCDDE1;
+
+  /* --- Cor: semântica --------------------------------------------------- */
+  /* Âmbar = atenção e prazo. NUNCA ação principal. */
+  --amber:        #D99721;  /* preenchimento grande (barra, faixa) */
+  --amber-strong: #AE7714;  /* ícone e indicador pequeno — precisa de 3:1 */
+  --amber-soft:   #FBF0DC;
+  --amber-soft-ink: #7A5210;
+  --amber-soft-border: #EFD9AC;
+
+  --success:      #0E7A4A;
+  --success-soft: #E4F3EB;
+  --success-soft-ink: #0A5734;
+  --success-soft-border: #B9DFCA;
+
+  --danger:       #B3261E;
+  --danger-hover: #8C1D17;
+  --danger-soft:  #FBE9E7;
+  --danger-soft-ink: #8C1D17;
+  --danger-soft-border: #F0C7C2;
+
+  --info-soft: var(--accent-soft);
+  --info-soft-ink: var(--accent-soft-ink);
+
+  /* --- Cor: foco -------------------------------------------------------- */
+  --focus-ring: var(--accent);
+  --focus-halo: rgba(36, 74, 155, 0.20);
+
+  /* --- Sombra ----------------------------------------------------------- */
+  --shadow-1: 0 1px 2px rgba(11, 31, 58, 0.07);
+  --shadow-2: 0 2px 4px rgba(11, 31, 58, 0.06), 0 6px 16px rgba(11, 31, 58, 0.08);
+  --shadow-3: 0 8px 24px rgba(11, 31, 58, 0.12), 0 24px 48px rgba(11, 31, 58, 0.14);
+
+  /* --- Tipografia ------------------------------------------------------- */
+  --font-title: 'Sora', 'Segoe UI', system-ui, sans-serif;
+  --font-text:  'Source Sans 3', 'Segoe UI', system-ui, sans-serif;
+
+  /* Escala fixa em rem (razão ~1,15). Produto não usa clamp: o usuário fica
+     horas na mesma tela, e título que encolhe dentro de painel piora a leitura. */
+  --text-2xs:  0.6875rem; /* 11px — metadado denso, nunca texto corrido */
+  --text-xs:   0.75rem;   /* 12px — rótulo de coluna, badge */
+  --text-sm:   0.8125rem; /* 13px — tabela densa */
+  --text-base: 0.875rem;  /* 14px — corpo do app */
+  --text-md:   0.9375rem; /* 15px — corpo do portal (leitura mais longa) */
+  --text-lg:   1.0625rem; /* 17px — título de cartão */
+  --text-xl:   1.25rem;   /* 20px — título de seção */
+  --text-2xl:  1.5rem;    /* 24px — título de página */
+  --text-3xl:  1.875rem;  /* 30px — número de indicador */
+
+  --leading-tight: 1.2;
+  --leading-snug:  1.35;
+  --leading-normal:1.5;
+  --leading-loose: 1.6;
+
+  --tracking-title: -0.011em;  /* Sora já é larga; piso do manual é -0.04em */
+  --weight-title: 500;         /* Sora 500 nos títulos */
+  --weight-title-strong: 600;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* --- Espaçamento (base 4) --------------------------------------------- */
+  --space-1: 0.25rem;  /*  4px */
+  --space-2: 0.5rem;   /*  8px */
+  --space-3: 0.75rem;  /* 12px */
+  --space-4: 1rem;     /* 16px */
+  --space-5: 1.25rem;  /* 20px */
+  --space-6: 1.5rem;   /* 24px */
+  --space-8: 2rem;     /* 32px */
+  --space-10: 2.5rem;  /* 40px */
+  --space-12: 3rem;    /* 48px */
+  --space-16: 4rem;    /* 64px */
+
+  /* --- Densidade de linha ----------------------------------------------- */
+  --row-comfortable: 52px;
+  --row-compact: 40px;
+  --row-dense: 34px;
+  --control-h: 36px;
+  --control-h-sm: 30px;
+  --control-h-lg: 44px;
+  --touch-min: 44px;     /* alvo mínimo no celular */
+
+  /* --- Raio (contido — o manual proíbe arredondamento excessivo) -------- */
+  --radius-sm: 4px;   /* input, botão pequeno, badge */
+  --radius-md: 6px;   /* botão, campo, item de menu */
+  --radius-lg: 8px;   /* cartão, modal, painel */
+  --radius-full: 999px; /* só ponto de status e avatar */
+
+  /* --- Camadas (escala semântica, sem 9999) ----------------------------- */
+  --z-base: 0;
+  --z-sticky: 10;
+  --z-dropdown: 20;
+  --z-drawer-scrim: 30;
+  --z-drawer: 31;
+  --z-modal-scrim: 40;
+  --z-modal: 41;
+  --z-toast: 50;
+  --z-tooltip: 60;
+
+  /* --- Movimento -------------------------------------------------------- */
+  --dur-1: 120ms;  /* hover, foco */
+  --dur-2: 180ms;  /* mudança de estado, aba */
+  --dur-3: 240ms;  /* modal, gaveta, rail */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in:  cubic-bezier(0.55, 0, 1, 0.45);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* --- Layout ----------------------------------------------------------- */
+  --shell-max: 1600px;
+  --rail-open: 248px;
+  --rail-closed: 60px;
+  --topbar-h: 56px;
+
+  color-scheme: light;
+}
