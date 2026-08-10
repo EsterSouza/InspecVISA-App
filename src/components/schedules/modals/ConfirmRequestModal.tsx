@@ -14,6 +14,8 @@ import { Button } from '../../ui/Button';
 import { Card, CardContent } from '../../ui/Card';
 import { TEXT_INPUT, defaultScheduleConsultants, errorMessage, requestTimeValue } from '../appointmentRequestsShared';
 import { ConsultantPicker } from '../ConsultantPicker';
+import { APPOINTMENT_TYPE_RULES, type AppointmentType } from '../../../utils/appointmentType';
+import { PORTAL_APPOINTMENT_TYPE_OPTIONS, publicAppointmentDurations, formatDuration } from '../../../utils/publicAppointmentForm';
 
 interface ConfirmRequestModalProps {
   request: AppointmentRequest;
@@ -25,6 +27,17 @@ interface ConfirmRequestModalProps {
 export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: ConfirmRequestModalProps) {
   const [confirmedDate, setConfirmedDate] = useState(request.requested_date?.split('T')[0] || '');
   const [confirmedTime, setConfirmedTime] = useState(requestTimeValue(request));
+  const [appointmentType, setAppointmentType] = useState<AppointmentType>(request.appointment_type);
+  const [durationMinutes, setDurationMinutes] = useState<number>(
+    request.duration_minutes && publicAppointmentDurations(request.appointment_type).includes(request.duration_minutes)
+      ? request.duration_minutes
+      : publicAppointmentDurations(request.appointment_type)[0]
+  );
+  const handleAppointmentTypeChange = (type: AppointmentType) => {
+    setAppointmentType(type);
+    const allowed = publicAppointmentDurations(type);
+    if (!allowed.includes(durationMinutes)) setDurationMinutes(allowed[0]);
+  };
   const [clientMode, setClientMode] = useState<'existing' | 'new'>('existing');
   const [clientSearch, setClientSearch] = useState('');
   const [selectedClientId, setSelectedClientId] = useState('');
@@ -95,9 +108,9 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
         clientId,
         scheduledAt: new Date(`${confirmedDate}T${confirmedTime || '09:00'}`),
         status: 'pending',
-        appointmentType: request.appointment_type,
+        appointmentType,
         subject: request.subject || undefined,
-        durationMinutes: request.duration_minutes || undefined,
+        durationMinutes,
         meetingUrl: request.meeting_url || undefined,
         participantNames: request.participant_names || undefined,
         cancellationReason: request.cancellation_reason || undefined,
@@ -117,6 +130,8 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
         scheduleId: schedule.id,
         consultantNames: selectedConsultants,
         manualDueDate: manualDueDate || undefined,
+        appointmentType,
+        durationMinutes,
       });
       await ScheduleService.saveSchedule(schedule);
 
@@ -139,11 +154,51 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
       >
         <CardContent className="p-6">
           <h3 id="confirm-request-title" className="mb-1 text-xl font-bold text-gray-900">Confirmar solicitação</h3>
-          <p className="mb-6 text-sm text-gray-500">
+          <p className="mb-3 text-sm text-gray-500">
             {request.unit_name} — {request.district}
           </p>
 
+          {request.subject && (
+            <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+              <span className="font-semibold text-gray-900">Motivo informado pelo cliente: </span>
+              “{request.subject}”
+            </div>
+          )}
+
           <form onSubmit={handleConfirm} className="space-y-4">
+            <div className="space-y-1.5">
+              <label htmlFor="confirm-request-type" className="text-sm font-medium text-gray-700">
+                Tipo de compromisso
+              </label>
+              <select
+                id="confirm-request-type"
+                value={appointmentType}
+                onChange={(e) => handleAppointmentTypeChange(e.target.value as AppointmentType)}
+                className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm"
+              >
+                {PORTAL_APPOINTMENT_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {APPOINTMENT_TYPE_RULES[option.value].label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500">
+                O cliente solicitou como “{APPOINTMENT_TYPE_RULES[request.appointment_type].label}”. Troque para
+                “Inspeção” se for o caso — só assim é possível iniciar a inspeção, publicar relatório e fotos.
+              </p>
+              <label htmlFor="confirm-request-duration" className="sr-only">Duração</label>
+              <select
+                id="confirm-request-duration"
+                value={durationMinutes}
+                onChange={(e) => setDurationMinutes(Number(e.target.value))}
+                className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm"
+              >
+                {publicAppointmentDurations(appointmentType).map((duration) => (
+                  <option key={duration} value={duration}>{formatDuration(duration)}</option>
+                ))}
+              </select>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label htmlFor="confirm-request-date" className="text-sm font-medium text-gray-700">Data confirmada *</label>

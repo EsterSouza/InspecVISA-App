@@ -48,8 +48,15 @@ export const STATUS_BADGES: Record<AppointmentRequest['status'], string> = {
 // text-gray-400 padrão do Tailwind, que fica abaixo de 4.5:1 em fundo branco).
 export const TEXT_INPUT = 'w-full rounded-xl border border-gray-300 p-3 text-sm placeholder:text-gray-500';
 
+// Erros do Supabase (PostgrestError, FunctionsHttpError etc.) não são `instanceof Error`,
+// mas trazem `.message` — sem isso a UI mostrava "operação falhou." sem o motivo real
+// (ex.: "horario indisponivel" do trigger de conflito).
 export function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : 'operação falhou.';
+  if (err instanceof Error) return err.message;
+  if (err && typeof err === 'object' && 'message' in err && typeof (err as { message: unknown }).message === 'string') {
+    return (err as { message: string }).message;
+  }
+  return 'operação falhou.';
 }
 
 // Quantos cartões cada seção mostra por vez (evita a rolagem sem fim).

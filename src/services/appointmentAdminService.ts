@@ -20,7 +20,7 @@ import type {
 import type { ClientActionItemPayload } from '../utils/clientActionPlan';
 import { getActiveTenantId } from '../utils/localScope';
 import { getLocalActor } from '../utils/localActor';
-import { assertInspectionAppointment, normalizeAppointmentType } from '../utils/appointmentType';
+import { assertInspectionAppointment, normalizeAppointmentType, type AppointmentType } from '../utils/appointmentType';
 
 const PORTAL_BUCKET = 'client-portal-files';
 const INSPECTION_PHOTO_BUCKET = 'inspection-photos';
@@ -252,6 +252,8 @@ export const AppointmentAdminService = {
       scheduleId: string;
       consultantNames?: string[];
       manualDueDate?: string;
+      appointmentType?: AppointmentType;
+      durationMinutes?: number;
     }
   ): Promise<AppointmentEventNotificationResult | null> {
     // Mantém data, hora e janela de bloqueio do calendário público
@@ -259,7 +261,7 @@ export const AppointmentAdminService = {
     // A equipe (consultoras) pode agendar a qualquer momento — a antecedência
     // mínima de 24h vale apenas para o cliente (portal público e portal do cliente).
     const startsAt = new Date(`${params.confirmedDate}T${params.confirmedTime || '09:00'}`);
-    const durationMinutes = request.duration_minutes ?? 60;
+    const durationMinutes = params.durationMinutes ?? request.duration_minutes ?? 60;
     const endsAt = new Date(startsAt.getTime() + durationMinutes * 60 * 1000);
     const updates: Partial<AppointmentRequest> = {
       status: 'confirmed',
@@ -273,8 +275,13 @@ export const AppointmentAdminService = {
       duration_minutes: durationMinutes,
       consultant_names: params.consultantNames?.length ? params.consultantNames : null,
     };
+    // Admin pode reclassificar o tipo (ex.: cliente pediu "reunião" mas é uma inspeção).
+    const effectiveType = params.appointmentType ?? request.appointment_type;
+    if (params.appointmentType && params.appointmentType !== request.appointment_type) {
+      updates.appointment_type = params.appointmentType;
+    }
     if (params.manualDueDate) {
-      assertInspectionRequest(request, 'definir prazo de relatório');
+      assertInspectionRequest({ appointment_type: effectiveType }, 'definir prazo de relatório');
       updates.report_due_at = params.manualDueDate;
       updates.report_due_source = 'manual';
     }
