@@ -2,7 +2,7 @@ import { Download, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { ClientPortalActionItem, ClientPortalOverview } from '../../services/clientPortalService';
 import type { PortalAppointmentVisit } from './PortalAppointments';
-import { computeUnitActionStats, formatDateBR, sortUnitStatsByAttention } from '../../utils/clientPortalFormat';
+import { computeUnitActionStats, formatDateBR, sortUnitStatsByAttention, unitShareUrl } from '../../utils/clientPortalFormat';
 import {
   PortalNextAction,
   type NextActionOverdueItem,
@@ -27,6 +27,8 @@ interface PortalOverviewProps {
   nextActionReturnedEvidence: NextActionReturnedEvidence | null;
   nextActionOverdueItem: NextActionOverdueItem | null;
   audit: (eventType: ClientPortalAuditEventType, payload?: Record<string, unknown>) => void;
+  /** Vai pro plano de ação já filtrado nesta unidade — clique no nome em "Cumprimento por unidade". */
+  onSelectUnit: (clientId: string) => void;
 }
 
 function plural(n: number, one: string, many: string) {
@@ -59,9 +61,11 @@ export function PortalOverview({
   nextActionReturnedEvidence,
   nextActionOverdueItem,
   audit,
+  onSelectUnit,
 }: PortalOverviewProps) {
   const isMulti = overview.units.length > 1;
   const stats = computeUnitActionStats(actionItems);
+  const shareUrlByUnit = Object.fromEntries(overview.units.map((u) => [u.client_id, unitShareUrl(u)]));
   const openCount = stats.reduce((sum, s) => sum + s.open, 0);
   const overdueCount = stats.reduce((sum, s) => sum + s.overdue, 0);
   const resolvedCount = stats.reduce((sum, s) => sum + s.resolved, 0);
@@ -161,7 +165,7 @@ export function PortalOverview({
               Percentual de pendências já concluídas em cada unidade. Quem está embaixo da lista
               precisa de você primeiro.
             </p>
-            <UnitCompletionList stats={sortedStats} />
+            <UnitCompletionList stats={sortedStats} onSelect={onSelectUnit} shareUrlByUnit={shareUrlByUnit} />
           </div>
         </div>
       )}

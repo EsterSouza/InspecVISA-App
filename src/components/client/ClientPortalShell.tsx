@@ -1,5 +1,5 @@
 import { Download, LogOut } from 'lucide-react';
-import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
+import { NavLink, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import type { ClientPortalAuditEventType } from '../../types';
 import type {
   ClientPortalActionItem,
@@ -113,7 +113,15 @@ export function ClientPortalShell({
   onRetryServiceRequests,
   onRetryInvoices,
 }: ClientPortalShellProps) {
+  const navigate = useNavigate();
   const overdueCount = computeUnitActionStats(actionItems).reduce((sum, s) => sum + s.overdue, 0);
+
+  // Clique no nome da unidade em "Cumprimento por unidade", na Visão geral: filtra o plano de
+  // ação nela E navega pra lá — a página só existe se `action_plan_enabled`.
+  const handleSelectUnitFromOverview = (clientId: string) => {
+    onUnitFilterChange(clientId);
+    if (overview.action_plan_enabled) navigate('plano-de-acao');
+  };
 
   const tabs: { to: string; label: string; end?: boolean; pill?: number }[] = [
     { to: '/cliente', label: 'Visão geral', end: true },
@@ -219,6 +227,7 @@ export function ClientPortalShell({
                 nextActionReturnedEvidence={nextActionReturnedEvidence}
                 nextActionOverdueItem={nextActionOverdueItem}
                 audit={audit}
+                onSelectUnit={handleSelectUnitFromOverview}
               />
             }
           />

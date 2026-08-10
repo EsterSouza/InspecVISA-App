@@ -3,6 +3,7 @@ import type { ClientPortalActionItem, ClientPortalOverview } from '../../service
 import {
   computeUnitActionStats,
   sortUnitStatsByAttention,
+  unitShareUrl,
   type UnitActionStats,
 } from '../../utils/clientPortalFormat';
 import { PortalUnitFilter, type PortalUnitFilterEntry } from './PortalUnitFilter';
@@ -49,6 +50,10 @@ export function PortalActionPlanPage({
   const isMulti = overview.units.length > 1;
   const stats = useMemo(() => computeUnitActionStats(actionItems), [actionItems]);
   const sortedStats = useMemo(() => sortUnitStatsByAttention(stats), [stats]);
+  const shareUrlByUnit = useMemo(
+    () => Object.fromEntries(overview.units.map((u) => [u.client_id, unitShareUrl(u)])),
+    [overview.units]
+  );
 
   const filterEntries: PortalUnitFilterEntry[] = useMemo(() => {
     const byId = new Map(stats.map((s) => [s.clientId, s]));
@@ -90,7 +95,7 @@ export function PortalActionPlanPage({
             <p className="mb-3 text-xs text-navy-2">
               Ordenado da unidade que mais precisa de atenção para a que menos precisa.
             </p>
-            <UnitCompletionList stats={sortedStats} />
+            <UnitCompletionList stats={sortedStats} onSelect={onUnitFilterChange} shareUrlByUnit={shareUrlByUnit} />
           </div>
         </div>
       )}

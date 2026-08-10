@@ -1,3 +1,5 @@
+import type { ClientPortalUnit } from '../services/clientPortalService';
+
 export function toDateKey(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -93,6 +95,24 @@ export function computeUnitActionStats(
  * Empate no % (comum logo no início do contrato, quando ninguém corrigiu nada ainda) desempata
  * por quem tem mais vencidas, depois por nome.
  */
+/**
+ * Link público (sem login) da unidade — PORT-02. Reusa o token da visita mais recente que
+ * tiver um: a RPC do link filtra o plano de ação pelo `client_id` da visita, não pelo
+ * relatório específico, então qualquer token da unidade abre o plano de ação atual dela.
+ * `null` só quando a unidade nunca teve nenhuma visita.
+ */
+export function latestUnitVisitToken(unit: Pick<ClientPortalUnit, 'visits'>): string | null {
+  const sorted = [...unit.visits].sort((a, b) =>
+    `${b.requested_date || ''}${b.requested_time || ''}`.localeCompare(`${a.requested_date || ''}${a.requested_time || ''}`)
+  );
+  return sorted[0]?.public_token || null;
+}
+
+export function unitShareUrl(unit: Pick<ClientPortalUnit, 'visits'>): string | null {
+  const token = latestUnitVisitToken(unit);
+  return token ? `${window.location.origin}/cliente/visita/${token}` : null;
+}
+
 export function sortUnitStatsByAttention(stats: UnitActionStats[]): UnitActionStats[] {
   return [...stats].sort((a, b) => {
     if (a.pctDone == null && b.pctDone == null) return a.unitName.localeCompare(b.unitName);
