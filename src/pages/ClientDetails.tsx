@@ -597,6 +597,30 @@ export function ClientDetails() {
             </Card>
           )}
 
+          {client.hasPersonalizedSanitaryFolder && !client.personalizedSanitaryFolderUrl && (
+            <Card>
+              <CardContent className="p-5">
+                <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-900">
+                  Pasta personalizada
+                </h3>
+                <div className="flex items-start gap-2 rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+                  <Calendar className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>
+                    Ainda não entregue.
+                    {client.personalizedSanitaryFolderExpectedDeliveryDate && (
+                      <>
+                        {' '}Previsão: {(() => {
+                          const [y, m, d] = client.personalizedSanitaryFolderExpectedDeliveryDate!.split('T')[0].split('-');
+                          return `${d}/${m}/${y}`;
+                        })()}
+                      </>
+                    )}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {clientRequests.some((request) => (publishedAssets[request.id] || []).length > 0) && (
             <Card>
               <CardContent className="p-5">
