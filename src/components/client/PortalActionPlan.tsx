@@ -34,8 +34,8 @@ const priorityLabel: Record<ClientActionItemPriority, string> = {
 
 const priorityTheme: Record<ClientActionItemPriority, string> = {
   urgent: 'bg-red-100 text-red-700',
-  important: 'bg-amber-100 text-amber-700',
-  recommended: 'bg-sky-100 text-sky-700',
+  important: 'bg-amber-soft text-amber-soft-ink',
+  recommended: 'bg-gray-100 text-navy-2',
 };
 
 const evidenceLabel: Record<ClientActionEvidenceStatus, string> = {
@@ -496,7 +496,7 @@ function ActionItemCard({
   return (
     <li
       className={`rounded-lg border p-3 ${
-        resolved ? 'border-gray-100 bg-gray-50' : item.is_overdue ? 'border-red-200 bg-red-50/60' : 'border-gray-200 bg-white'
+        resolved ? 'border-gray-100 bg-gray-50' : item.is_overdue ? 'border-amber-soft-border bg-amber-soft/60' : 'border-gray-200 bg-white'
       }`}
     >
       <div className="mb-1.5 flex flex-wrap items-center gap-2">
@@ -510,7 +510,7 @@ function ActionItemCard({
           </span>
         ) : (
           item.is_overdue && (
-            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-700">
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-soft px-2 py-0.5 text-[11px] font-bold text-amber-soft-ink">
               <AlertTriangle className="h-3.5 w-3.5" /> Prazo vencido
             </span>
           )
@@ -520,12 +520,12 @@ function ActionItemCard({
             Reincidente ({item.occurrence_count}x)
           </span>
         )}
-        {showUnitName && <span className="text-[11px] font-medium text-gray-500">{item.unit_name}</span>}
+        {showUnitName && <span className="text-[11px] font-medium text-navy-2">{item.unit_name}</span>}
       </div>
 
-      <p className="text-sm font-semibold text-gray-900">{item.title}</p>
-      <p className="mt-1 text-xs text-gray-600">{item.situation}</p>
-      <p className="mt-1.5 text-xs text-gray-800">
+      <p className="text-sm font-semibold text-navy">{item.title}</p>
+      <p className="mt-1 text-xs text-navy-2">{item.situation}</p>
+      <p className="mt-1.5 rounded-md border border-primary-100 bg-primary-50 p-2 text-xs text-navy">
         <span className="font-semibold">O que fazer: </span>
         {item.recommended_action}
       </p>
@@ -647,7 +647,7 @@ export function PortalActionPlan({
       <section aria-labelledby="portal-action-plan" className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <h3
           id="portal-action-plan"
-          className="mb-2 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-gray-700"
+          className="mb-2 flex items-center gap-2 font-title text-base font-semibold text-navy"
         >
           <ClipboardList className="h-4 w-4 text-primary-700" /> Plano de ação
         </h3>
@@ -673,13 +673,13 @@ export function PortalActionPlan({
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h3
           id="portal-action-plan"
-          className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-gray-700"
+          className="flex items-center gap-2 font-title text-base font-semibold text-navy"
         >
           <ClipboardList className="h-4 w-4 text-primary-700" /> Plano de ação
         </h3>
-        <span className="text-xs font-medium text-gray-500">
+        <span className="text-xs font-medium text-navy-2">
           {open.length} pendente{open.length === 1 ? '' : 's'}
-          {overdue > 0 && <span className="ml-1 font-bold text-red-700">· {overdue} vencida(s)</span>}
+          {overdue > 0 && <span className="ml-1 font-bold text-amber-strong">· {overdue} vencida(s)</span>}
           {resolved.length > 0 && <span className="ml-1">· {resolved.length} concluída(s)</span>}
         </span>
       </div>
@@ -692,12 +692,12 @@ export function PortalActionPlan({
         <div className="space-y-4">
           {groups.map((group) => (
             <div key={group.clientId}>
-              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <h4 className="text-xs font-bold uppercase tracking-wide text-gray-600">{group.unitName}</h4>
-                <span className="text-[11px] font-medium text-gray-500">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-t-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                <h4 className="font-title text-sm font-semibold text-navy">{group.unitName}</h4>
+                <span className="text-[11px] font-medium text-navy-2">
                   {group.items.length} pendente{group.items.length === 1 ? '' : 's'}
                   {group.overdueCount > 0 && (
-                    <span className="ml-1 font-bold text-red-700">· {group.overdueCount} vencida(s)</span>
+                    <span className="ml-1 font-bold text-amber-strong">· {group.overdueCount} vencida(s)</span>
                   )}
                 </span>
               </div>

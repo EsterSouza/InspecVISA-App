@@ -46,7 +46,7 @@ export function PortalCompliance({ units }: PortalComplianceProps) {
   return (
     <section className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-gray-700">
+        <h3 className="flex items-center gap-2 font-title text-base font-semibold text-navy">
           <TrendingUp className="h-4 w-4 text-primary-700" /> Conformidade da rede
         </h3>
         <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${scoreColor(avg)}`}>

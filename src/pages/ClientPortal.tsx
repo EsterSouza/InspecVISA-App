@@ -24,7 +24,7 @@ import {
   type ClientPortalOverview,
   type ClientPortalServiceRequest,
 } from '../services/clientPortalService';
-import { filterUnitsBySelection, paymentLinks, toDateKey } from '../utils/clientPortalFormat';
+import { paymentLinks, toDateKey } from '../utils/clientPortalFormat';
 
 const ACTIVE_VISIT_STATUSES = new Set(['requested', 'confirmed', 'in_progress', 'rescheduled', 'completed']);
 
@@ -37,8 +37,15 @@ export function ClientPortal() {
   const [overview, setOverview] = useState<ClientPortalOverview | null>(null);
   const [invoices, setInvoices] = useState<ClientPortalInvoice[]>([]);
   const [invoicesError, setInvoicesError] = useState(false);
+  // Sempre TODAS as unidades: Visão geral, o selo de vencidas do menu e o comparativo de
+  // cumprimento precisam do total da conta, não de um recorte por unidade.
   const [actionItems, setActionItems] = useState<ClientPortalActionItem[]>([]);
   const [actionItemsError, setActionItemsError] = useState(false);
+  // Só existe quando o cliente filtra uma unidade específica DENTRO do Plano de ação — é aí
+  // que `p_client_id` é usado de verdade, buscando de novo no servidor em vez de confiar num
+  // recorte feito em memória do payload completo.
+  const [unitActionItems, setUnitActionItems] = useState<ClientPortalActionItem[]>([]);
+  const [unitActionItemsLoading, setUnitActionItemsLoading] = useState(false);
   const [serviceRequests, setServiceRequests] = useState<ClientPortalServiceRequest[]>([]);
   const [serviceRequestsError, setServiceRequestsError] = useState(false);
   const [loading, setLoading] = useState(!!clientPortalService.getStoredToken());
@@ -51,25 +58,34 @@ export function ClientPortal() {
   const [paymentAckSent, setPaymentAckSent] = useState(false);
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
 
-  const loadActionItems = useCallback(
-    async (portalToken: string, clientId: string | null, options: { audit?: boolean } = {}) => {
-      try {
-        const items = await clientPortalService.actionItems(portalToken, clientId);
-        setActionItems(items);
-        setActionItemsError(false);
-        if (options.audit && items.length > 0) {
-          void clientPortalService.audit(portalToken, 'action_plan_viewed', {
-            open: items.filter((item) => item.status !== 'resolved').length,
-            overdue: items.filter((item) => item.is_overdue).length,
-          });
-        }
-      } catch (err) {
-        console.warn('[ClientPortal] Falha ao carregar o plano de acao:', err);
-        setActionItemsError(true);
+  const loadActionItems = useCallback(async (portalToken: string, options: { audit?: boolean } = {}) => {
+    try {
+      const items = await clientPortalService.actionItems(portalToken, null);
+      setActionItems(items);
+      setActionItemsError(false);
+      if (options.audit && items.length > 0) {
+        void clientPortalService.audit(portalToken, 'action_plan_viewed', {
+          open: items.filter((item) => item.status !== 'resolved').length,
+          overdue: items.filter((item) => item.is_overdue).length,
+        });
       }
-    },
-    []
-  );
+    } catch (err) {
+      console.warn('[ClientPortal] Falha ao carregar o plano de acao:', err);
+      setActionItemsError(true);
+    }
+  }, []);
+
+  const loadUnitActionItems = useCallback(async (portalToken: string, clientId: string) => {
+    setUnitActionItemsLoading(true);
+    try {
+      setUnitActionItems(await clientPortalService.actionItems(portalToken, clientId));
+      void clientPortalService.audit(portalToken, 'unit_filter_changed', { client_id: clientId });
+    } catch (err) {
+      console.warn('[ClientPortal] Falha ao carregar o plano de acao da unidade:', err);
+    } finally {
+      setUnitActionItemsLoading(false);
+    }
+  }, []);
 
   const loadInvoices = useCallback(async (portalToken: string) => {
     try {
@@ -82,9 +98,9 @@ export function ClientPortal() {
     }
   }, []);
 
-  const loadServiceRequests = useCallback(async (portalToken: string, clientId: string | null) => {
+  const loadServiceRequests = useCallback(async (portalToken: string) => {
     try {
-      setServiceRequests(await clientPortalService.serviceRequests(portalToken, clientId));
+      setServiceRequests(await clientPortalService.serviceRequests(portalToken, null));
       setServiceRequestsError(false);
     } catch (err) {
       console.warn('[ClientPortal] Falha ao carregar as solicitacoes:', err);
@@ -108,26 +124,28 @@ export function ClientPortal() {
       } finally {
         setLoading(false);
       }
-      await loadInvoices(portalToken);
+      // Notas fiscais, plano de ação e solicitações em paralelo: cada uma falha sozinha.
+      await Promise.all([loadInvoices(portalToken), loadActionItems(portalToken, { audit: true })]);
     },
-    [loadInvoices]
+    [loadInvoices, loadActionItems]
   );
 
   useEffect(() => {
     if (token) void loadOverview(token);
   }, [token, loadOverview]);
 
-  // Plano de ação e solicitações são buscados por unidade: a RPC já filtra no servidor
-  // (`p_client_id`), então trocar o filtro global refaz a busca em vez de filtrar em memória.
-  useEffect(() => {
-    if (!token) return;
-    void loadActionItems(token, selectedUnitId, { audit: true });
-  }, [token, selectedUnitId, loadActionItems]);
-
   useEffect(() => {
     if (!token || !overview?.service_requests_enabled) return;
-    void loadServiceRequests(token, selectedUnitId);
-  }, [token, selectedUnitId, overview?.service_requests_enabled, loadServiceRequests]);
+    void loadServiceRequests(token);
+  }, [token, overview?.service_requests_enabled, loadServiceRequests]);
+
+  // Filtro de unidade só existe dentro do Plano de ação: quando o cliente escolhe uma
+  // unidade, busca de novo no servidor (RPC com `p_client_id`) em vez de confiar num recorte
+  // do payload completo já em memória.
+  useEffect(() => {
+    if (!token || !selectedUnitId) return;
+    void loadUnitActionItems(token, selectedUnitId);
+  }, [token, selectedUnitId, loadUnitActionItems]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -156,6 +174,7 @@ export function ClientPortal() {
     setInvoicesError(false);
     setActionItems([]);
     setActionItemsError(false);
+    setUnitActionItems([]);
     setServiceRequests([]);
     setServiceRequestsError(false);
     setSelectedUnitId(null);
@@ -177,6 +196,13 @@ export function ClientPortal() {
     }
   };
 
+  const refreshActionItems = useCallback(async () => {
+    if (!token) return;
+    const tasks = [loadActionItems(token)];
+    if (selectedUnitId) tasks.push(loadUnitActionItems(token, selectedUnitId));
+    await Promise.all(tasks);
+  }, [token, selectedUnitId, loadActionItems, loadUnitActionItems]);
+
   // P360-011 — o envio da evidência não muda o item: ele volta do servidor com o estado novo
   // (`pending`) e a pendência continua aberta até a consultora decidir.
   const handleSubmitEvidence: SubmitEvidenceHandler = useCallback(
@@ -190,9 +216,9 @@ export function ClientPortal() {
         byName,
         byRole,
       });
-      await loadActionItems(token, selectedUnitId);
+      await refreshActionItems();
     },
-    [token, selectedUnitId, loadActionItems]
+    [token, refreshActionItems]
   );
 
   const handleDeclareStatus: DeclareStatusHandler = useCallback(
@@ -202,9 +228,9 @@ export function ClientPortal() {
         { accountToken: token },
         { actionItemId: item.id, status, note, byName, byRole }
       );
-      await loadActionItems(token, selectedUnitId);
+      await refreshActionItems();
     },
-    [token, selectedUnitId, loadActionItems]
+    [token, refreshActionItems]
   );
 
   // P360-012 — abrir a solicitação não muda mais nada na tela: ela volta do servidor com
@@ -213,10 +239,10 @@ export function ClientPortal() {
     async (input) => {
       if (!token) throw new Error('Sessão expirada. Entre de novo para registrar sua solicitação.');
       const result = await clientPortalService.createServiceRequest(token, input);
-      await loadServiceRequests(token, selectedUnitId);
+      await loadServiceRequests(token);
       return { requestNumber: result.requestNumber, attachmentError: result.attachmentError };
     },
-    [token, selectedUnitId, loadServiceRequests]
+    [token, loadServiceRequests]
   );
 
   const handleReplyServiceRequest: ReplyServiceRequestHandler = useCallback(
@@ -228,15 +254,14 @@ export function ClientPortal() {
         byName,
         byRole,
       });
-      await loadServiceRequests(token, selectedUnitId);
+      await loadServiceRequests(token);
     },
-    [token, selectedUnitId, loadServiceRequests]
+    [token, loadServiceRequests]
   );
 
-  const handleUnitFilterChange = (unitId: string | null) => {
+  const handleUnitFilterChange = useCallback((unitId: string | null) => {
     setSelectedUnitId(unitId);
-    if (token) void clientPortalService.audit(token, 'unit_filter_changed', { client_id: unitId });
-  };
+  }, []);
 
   const audit = useCallback(
     (eventType: Parameters<typeof clientPortalService.audit>[1], payload?: Record<string, unknown>) => {
@@ -246,16 +271,15 @@ export function ClientPortal() {
   );
 
   // ─── Dados derivados (dependem de overview, então ficam antes dos returns condicionais) ──
-  const filteredUnits = useMemo(
-    () => filterUnitsBySelection(overview?.units || [], selectedUnitId),
-    [overview, selectedUnitId]
-  );
-  const filteredVisits: PortalAppointmentVisit[] = useMemo(
+  // Fora do Plano de ação não existe mais filtro de unidade (decisão do protótipo FE-03):
+  // agenda, documentos e financeiro sempre mostram a conta inteira, com a unidade como
+  // metadado de cada linha.
+  const allVisits: PortalAppointmentVisit[] = useMemo(
     () =>
-      filteredUnits.flatMap((unit) =>
+      (overview?.units || []).flatMap((unit) =>
         unit.visits.map((visit) => ({ ...visit, unitName: unit.client_name, city: unit.city }))
       ),
-    [filteredUnits]
+    [overview]
   );
 
   const nextActionPayment: NextActionPaymentOverdue | null = useMemo(() => {
@@ -274,7 +298,7 @@ export function ClientPortal() {
     const limitDate = new Date();
     limitDate.setDate(limitDate.getDate() + UPCOMING_APPOINTMENT_WINDOW_DAYS);
     const limitKey = toDateKey(limitDate);
-    const candidates = filteredVisits
+    const candidates = allVisits
       .filter(
         (v) =>
           v.requested_date &&
@@ -292,7 +316,7 @@ export function ClientPortal() {
       time: next.requested_time,
       publicToken: next.public_token,
     };
-  }, [filteredVisits]);
+  }, [allVisits]);
 
   // Devolução vem ANTES de prazo vencido: o item vencido o cliente já sabe que está atrasado,
   // enquanto a devolução é informação nova, dele para nós, que só ele pode destravar. Se os dois
@@ -430,12 +454,13 @@ export function ClientPortal() {
         invoicesError={invoicesError}
         actionItems={actionItems}
         actionItemsError={actionItemsError}
+        unitActionItems={unitActionItems}
+        unitActionItemsLoading={unitActionItemsLoading}
         serviceRequests={serviceRequests}
         serviceRequestsError={serviceRequestsError}
         selectedUnitId={selectedUnitId}
         onUnitFilterChange={handleUnitFilterChange}
-        filteredUnits={filteredUnits}
-        filteredVisits={filteredVisits}
+        allVisits={allVisits}
         nextActionPayment={nextActionPayment}
         nextActionAppointment={nextActionAppointment}
         nextActionReturnedEvidence={nextActionReturnedEvidence}
@@ -452,8 +477,8 @@ export function ClientPortal() {
         paymentAckSent={paymentAckSent}
         onAcknowledgePayment={() => void handlePaymentAcknowledgement()}
         onLogout={handleLogout}
-        onRetryActionItems={() => void loadActionItems(token, selectedUnitId, { audit: true })}
-        onRetryServiceRequests={() => void loadServiceRequests(token, selectedUnitId)}
+        onRetryActionItems={() => void loadActionItems(token, { audit: true })}
+        onRetryServiceRequests={() => void loadServiceRequests(token)}
         onRetryInvoices={() => void loadInvoices(token)}
       />
     </div>

@@ -51,7 +51,7 @@ export function PortalQuickActions({
 
   return (
     <section aria-labelledby="portal-quick-actions" className="mb-6 rounded-xl border border-primary-100 bg-primary-50/60 p-4 shadow-sm sm:p-5">
-      <h3 id="portal-quick-actions" className="mb-3 text-sm font-bold uppercase tracking-wide text-primary-900">
+      <h3 id="portal-quick-actions" className="mb-3 font-title text-base font-semibold text-primary-900">
         Acessos rápidos
       </h3>
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">

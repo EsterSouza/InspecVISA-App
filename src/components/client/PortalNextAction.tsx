@@ -71,8 +71,10 @@ function resolveSignal(props: PortalNextActionProps): NextActionSignal | null {
   );
 }
 
-const cardTheme = 'border-amber-200 bg-amber-50/70';
-const iconTheme = 'text-amber-600';
+// Tom âmbar fica pra selo/indicador pontual (item vencido, atraso) — o próprio painel de
+// "próxima ação" é orientação calma, não alarme, mesmo quando o conteúdo é urgente.
+const cardTheme = 'border-primary-200 bg-primary-50';
+const iconTheme = 'text-primary-700';
 
 export function PortalNextAction(props: PortalNextActionProps) {
   const signal = resolveSignal(props);
@@ -134,10 +136,10 @@ export function PortalNextAction(props: PortalNextActionProps) {
       <div className="flex items-center gap-3">
         {icon}
         <div>
-          <h3 id="portal-next-action" className="text-sm font-bold text-gray-900">
+          <h3 id="portal-next-action" className="font-title text-base font-semibold text-navy">
             {title}
           </h3>
-          <p className="text-xs text-gray-600">{description}</p>
+          <p className="text-sm text-navy-2">{description}</p>
         </div>
       </div>
       {cta &&
@@ -147,7 +149,7 @@ export function PortalNextAction(props: PortalNextActionProps) {
             target="_blank"
             rel="noopener noreferrer"
             onClick={audit}
-            className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-amber-700"
+            className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md bg-primary-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-800"
           >
             {cta.label} <ChevronRight className="h-4 w-4" />
           </a>
@@ -155,7 +157,7 @@ export function PortalNextAction(props: PortalNextActionProps) {
           <Link
             to={cta.href}
             onClick={audit}
-            className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-amber-700"
+            className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md bg-primary-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-800"
           >
             {cta.label} <ChevronRight className="h-4 w-4" />
           </Link>
