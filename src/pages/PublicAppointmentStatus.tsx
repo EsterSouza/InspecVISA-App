@@ -357,6 +357,7 @@ export function PublicAppointmentStatus() {
           onSubmitEvidence={handleSubmitEvidence}
           onDeclareStatus={handleDeclareStatus}
           alwaysShow
+          defaultAuthorName={status.unit_name}
         />
 
         {/* Protocolo */}

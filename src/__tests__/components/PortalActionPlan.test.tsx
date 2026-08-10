@@ -145,7 +145,8 @@ describe('P360-011 - evidência no plano de ação do cliente', () => {
 
   const pdf = () => new File(['%PDF-1.4 conteudo'], 'Protocolo Vigilância.pdf', { type: 'application/pdf' });
 
-  // A assinatura e obrigatoria desde o PORT-02: sem ela o envio nem sai.
+  // FE-10: a assinatura deixou de ser obrigatória — o campo só pré-preenche pra não forçar
+  // digitação, mas o envio sai mesmo em branco.
   async function signAs(name = 'Joana Prado', role = 'Gestora da unidade') {
     await userEvent.type(screen.getByLabelText('Seu nome'), name);
     await userEvent.type(screen.getByLabelText('Sua função'), role);
@@ -262,18 +263,27 @@ describe('P360-011 - evidência no plano de ação do cliente', () => {
     expect(screen.getByRole('button', { name: /Enviar outra evidência/ })).toBeInTheDocument();
   });
 
-  test('sem nome e função o envio não sai, e o arquivo escolhido continua ali', async () => {
-    const onSubmitEvidence = vi.fn();
+  test('sem nome e função o envio sai mesmo assim (FE-10: assinatura deixou de ser obrigatória)', async () => {
+    const onSubmitEvidence = vi.fn().mockResolvedValue(undefined);
     const item = actionItem();
     render(<PortalActionPlan items={[item]} onSubmitEvidence={onSubmitEvidence} />);
 
     await pickFile(item, pdf());
-    await userEvent.type(screen.getByLabelText('Seu nome'), 'Joana Prado');
     await userEvent.click(screen.getByRole('button', { name: /Enviar para a consultoria/ }));
 
-    expect(onSubmitEvidence).not.toHaveBeenCalled();
-    expect(screen.getByText(/Preencha seu nome e sua função/)).toBeInTheDocument();
-    expect(screen.getByText('Protocolo Vigilância.pdf')).toBeInTheDocument();
+    expect(onSubmitEvidence).toHaveBeenCalledTimes(1);
+    const call = onSubmitEvidence.mock.calls[0][0];
+    expect(call.byName).toBe('');
+    expect(call.byRole).toBe('');
+  });
+
+  test('pré-preenche "Seu nome" com o nome padrão quando não há assinatura salva', async () => {
+    const item = actionItem();
+    render(
+      <PortalActionPlan items={[item]} onSubmitEvidence={vi.fn()} defaultAuthorName="Rede Sênior" />
+    );
+    await pickFile(item, pdf());
+    expect(screen.getByLabelText('Seu nome')).toHaveValue('Rede Sênior');
   });
 
   test('a assinatura volta preenchida no envio seguinte', async () => {

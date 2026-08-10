@@ -113,6 +113,8 @@ interface PortalActionPlanProps {
    */
   alwaysShow?: boolean;
   onRetry?: () => void;
+  /** FE-10: pré-preenche "Seu nome" quando não há assinatura salva ainda, pra tirar o campo em branco. */
+  defaultAuthorName?: string;
 }
 
 /**
@@ -163,10 +165,6 @@ function EvidenceUpload({
 
   const handleSend = async () => {
     if (!file || busy) return;
-    if (!author.byName.trim() || !author.byRole.trim()) {
-      setError('Preencha seu nome e sua função antes de enviar.');
-      return;
-    }
     setBusy(true);
     setError(null);
     try {
@@ -228,21 +226,19 @@ function EvidenceUpload({
           <div className="grid gap-2 sm:grid-cols-2">
             <input
               type="text"
-              required
               value={author.byName}
               onChange={(e) => onAuthorChange({ ...author, byName: e.target.value })}
               maxLength={120}
-              placeholder="Seu nome *"
+              placeholder="Seu nome"
               aria-label="Seu nome"
               className="w-full rounded-md border border-gray-200 p-2 text-xs placeholder:text-gray-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
             />
             <input
               type="text"
-              required
               value={author.byRole}
               onChange={(e) => onAuthorChange({ ...author, byRole: e.target.value })}
               maxLength={120}
-              placeholder="Sua função *"
+              placeholder="Sua função"
               aria-label="Sua função"
               className="w-full rounded-md border border-gray-200 p-2 text-xs placeholder:text-gray-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
             />
@@ -315,10 +311,6 @@ function DeclareStatus({
 
   const send = async () => {
     if (!choice || busy) return;
-    if (!author.byName.trim() || !author.byRole.trim()) {
-      setError('Preencha seu nome e sua função antes de responder.');
-      return;
-    }
     if (choice === 'not_done' && !note.trim()) {
       setError('Conte o motivo — é o que a consultoria leva para a próxima visita.');
       return;
@@ -379,7 +371,7 @@ function DeclareStatus({
               value={author.byName}
               onChange={(e) => onAuthorChange({ ...author, byName: e.target.value })}
               maxLength={120}
-              placeholder="Seu nome *"
+              placeholder="Seu nome"
               aria-label="Seu nome na resposta"
               className="w-full rounded-md border border-gray-200 p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
             />
@@ -388,7 +380,7 @@ function DeclareStatus({
               value={author.byRole}
               onChange={(e) => onAuthorChange({ ...author, byRole: e.target.value })}
               maxLength={120}
-              placeholder="Sua função *"
+              placeholder="Sua função"
               aria-label="Sua função na resposta"
               className="w-full rounded-md border border-gray-200 p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
             />
@@ -609,9 +601,13 @@ export function PortalActionPlan({
   onDeclareStatus,
   alwaysShow,
   onRetry,
+  defaultAuthorName,
 }: PortalActionPlanProps) {
   const [expanded, setExpanded] = useState(false);
-  const [author, setAuthor] = useState(readStoredAuthor);
+  const [author, setAuthor] = useState(() => {
+    const stored = readStoredAuthor();
+    return stored.byName ? stored : { ...stored, byName: defaultAuthorName || '' };
+  });
 
   const handleAuthorChange = (next: { byName: string; byRole: string }) => {
     setAuthor(next);

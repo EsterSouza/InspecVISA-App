@@ -118,6 +118,7 @@ export function PortalActionPlanPage({
         onDeclareStatus={onDeclareStatus}
         onRetry={onRetry}
         alwaysShow
+        defaultAuthorName={overview.account_name}
       />
     </div>
   );

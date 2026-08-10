@@ -34,21 +34,27 @@ function renderActions(overrides: Partial<ComponentProps<typeof PortalQuickActio
 }
 
 describe('P360-003 - PortalQuickActions', () => {
-  test('mostra as ações na ordem definida e mantém as pastas por unidade', () => {
+  test('mostra as ações na ordem definida e leva as pastas por unidade para a página dedicada', () => {
     renderActions();
     const labels = screen.getAllByRole('link').map((link) => link.textContent);
     expect(labels).toEqual([
       expect.stringContaining('Abrir pasta principal completa'),
-      expect.stringContaining('Abrir Pasta Sanitária Personalizada — Unidade A'),
-      expect.stringContaining('Abrir Pasta Sanitária Personalizada — Unidade B'),
+      expect.stringContaining('Pastas sanitárias personalizadas (2 unidades)'),
       expect.stringContaining('Abrir tutorial do portal (PDF)'),
       expect.stringContaining('Agendar horário com as consultoras'),
       expect.stringContaining('Falar com a consultoria'),
     ]);
-    expect(screen.getAllByText(/Pasta Sanitária Personalizada/)).toHaveLength(2);
+    const pastasLink = screen.getByText(/Pastas sanitárias personalizadas/).closest('a');
+    expect(pastasLink).toHaveAttribute('href', '/cliente/pastas');
     for (const link of screen.getAllByRole('link').filter((link) => link.getAttribute('target') === '_blank')) {
       expect(link).toHaveAttribute('rel', 'noopener noreferrer');
     }
+  });
+
+  test('unidade única leva direto ao nome da unidade, sem a página de lista', () => {
+    renderActions({ units: [unit('unit-a', 'Unidade A', 'https://drive.google.com/unit-a')] });
+    const pastasLink = screen.getByText(/Abrir Pasta Sanitária Personalizada — Unidade A/).closest('a');
+    expect(pastasLink).toHaveAttribute('href', '/cliente/pastas');
   });
 
   test('oculta configurações inválidas sem criar auditoria negativa', () => {
@@ -74,13 +80,13 @@ describe('P360-003 - PortalQuickActions', () => {
   test('audita cliques sem incluir URLs completas', () => {
     const onAudit = renderActions();
     fireEvent.click(screen.getByText(/Abrir pasta principal completa/));
-    fireEvent.click(screen.getByText(/Unidade A/));
+    fireEvent.click(screen.getByText(/Pastas sanitárias personalizadas/));
     fireEvent.click(screen.getByText(/tutorial do portal/));
     fireEvent.click(screen.getByText('Agendar horário com as consultoras'));
     fireEvent.click(screen.getByText('Falar com a consultoria'));
 
     expect(onAudit).toHaveBeenNthCalledWith(1, 'main_drive_folder_opened');
-    expect(onAudit).toHaveBeenNthCalledWith(2, 'sanitary_folder_opened', { client_id: 'unit-a', unit_name: 'Unidade A' });
+    expect(onAudit).toHaveBeenNthCalledWith(2, 'sanitary_folders_page_opened', { unit_count: 2 });
     expect(onAudit).toHaveBeenNthCalledWith(3, 'portal_tutorial_opened');
     expect(onAudit).toHaveBeenNthCalledWith(4, 'schedule_cta_clicked', { source: 'quick_actions' });
     expect(onAudit).toHaveBeenNthCalledWith(5, 'support_whatsapp_clicked');

@@ -351,7 +351,8 @@ Nomes de modelo mudam rápido; escolher o mais recente no `/model` e calibrar o 
 | FE-13 (calendário) | ✅ protótipo aprovado (commit `fb37e7f`) e componente React entregue — `WeekCalendar` em `src/components/ui/`, consumido pelo Portal (`PortalAppointments.tsx`) e pelos Agendamentos do admin (`Schedules.tsx`). Régua 07h–19h cresce (não corta) se algum compromisso ficar fora da faixa; sábado ainda não entra na grade — seguem em aberto com a Ester. |
 | FE-04a (tokens/fontes/primitivos/Modal) | ✅ Entregue em 09/08/2026 (commit `b16a9ae`) — ver detalhe abaixo |
 | FE-09 (rotas de seção + plano de ação por unidade) | ✅ Entregue em 09/08/2026 (commits `659b332`, `9de54b1`) — ver detalhe abaixo |
-| Onda 1 (portal) | **Em andamento** — falta FE-10 |
+| FE-10 (tirar o atrito do portal) | ✅ Entregue em 10/08/2026 — ver detalhe abaixo |
+| Onda 1 (portal) | **Fechada** — FE-04a, FE-09, FE-13 e FE-10 entregues |
 | Ondas 2 e 3 | Depois do portal no ar |
 | MCP do DesignMD | ✅ funcionando — URL corrigida para `www` e servidor aprovado em `~/.claude.json` |
 
@@ -406,5 +407,17 @@ O MCP do DesignMD não estava conectado nesta sessão (só carrega na abertura, 
 2. O botão de copiar link era só um ícone, sem nenhuma palavra — "não vai conseguir adivinhar que aquele link é compartilhável e é público". `CopyLinkButton` ganhou variant `compact` (ícone + texto "Link", em vez de mudo) e `UnitCompletionList` passou a abrir com uma frase fixa acima da lista explicando as duas ações: "Clique no nome pra ver as pendências aqui embaixo" + "Link copia um endereço público e sem senha... pode mandar pro gestor da unidade".
 
 Achado à parte, sem relação com código: ao adicionar `PortalFolders.tsx` com o servidor Vite já rodando, apareceu `ReferenceError: PortalFolders is not defined` mesmo após full reload — sumiu com um restart do servidor dev. Grafo de módulo do Vite ficando stale ao hot-adicionar um arquivo novo referenciado por um import já carregado; não é bug de código, mas vale lembrar antes de gastar tempo debugando um "is not defined" que só aparece em dev.
+
+### 10/08/2026 (3) — FE-10 (fecha a Onda 1) + 2 testes quebrados na leva anterior
+
+DesignMD conectado e funcionando nesta sessão (URL `www`, aprovado em `~/.claude.json`) — consultado via `search_patterns`/`get_skill` antes de mexer; nenhum padrão do catálogo cobria bem "campo opcional pré-preenchido" (é ajuste pequeno, não tela nova), então a decisão ficou por conta do fundamento de acessibilidade (rótulo sempre presente, ausência de obrigatoriedade não pode depender só de remover o HTML `required`) — registrada aqui, não no servidor deles.
+
+**FE-10 — tirar o atrito do portal.** Em `PortalActionPlan.tsx`: removidos os dois `required` e as duas guardas (`EvidenceUpload.handleSend` e `DeclareStatus.send`) que bloqueavam o envio sem nome/função; tirado o `*` dos 4 placeholders (2 em cada formulário — o segundo, em `DeclareStatus`, ficou pra trás numa primeira passada e só apareceu testando ao vivo no navegador, corrigido antes do commit). Backend já aceitava vazio (`nullif(btrim(coalesce(...)))` na RPC), então não precisou de migration. Novo prop `defaultAuthorName` pré-preenche "Seu nome" quando não há assinatura salva no `localStorage`: `PortalActionPlanPage.tsx` passa `overview.account_name` (nome da conta/rede); `PublicAppointmentStatus.tsx` (link público `/cliente/visita/:token`, sem conta logada) passa `status.unit_name`. Testado ao vivo contra produção (token real da "REDE SÊNIOR BOTAFOGO", `pfjacmawaigndqclgvpn`): campo nasce preenchido com o nome, sem asterisco nos dois formulários — não cheguei a clicar em enviar/registrar pra não gravar um status falso numa conta real.
+
+**2 testes que já estavam quebrados na CI antes desta leva** (achados ao investigar a run #22 do commit `5962653`, não causados por ele — eram débito da leva anterior que nunca rodou `npm run test` com o script certo): `PortalQuickActions.test.tsx` ainda esperava um botão por unidade (`sanitary_folder_opened`), mas o componente já tinha virado o link único pra `/cliente/pastas` (`sanitary_folders_page_opened`) na leva "pastas viraram página própria" — teste reescrito pra bater com o comportamento atual. `PortalAppointments.test.tsx` ainda esperava botões "Mês anterior"/"Próximo mês"/"Voltar ao mês atual" de um calendário mensal que não existe mais desde o FE-13 (virou `WeekCalendar` com "Semana anterior"/"Próxima semana") — teste reescrito, e os dois props mortos (`calendarMonth`/`onCalendarMonthChange`, que o componente nem aceita mais) tirados do teste.
+
+**Achado de ambiente, não de código:** `npx vitest run` direto (sem passar pelo script `npm run test`) reporta falso-positivo em 2 arquivos (`settingsStore.test.ts`, `sync.test.ts`) com `localStorage.clear is not a function` — o script `test` do `package.json` roda com `NODE_OPTIONS=--no-experimental-webstorage`, que o `npx vitest` direto não herda. Rodar sempre `npm run test`, nunca `npx vitest run` cru, senão o diagnóstico local diverge do que a CI realmente reporta.
+
+Onda 1 (portal) **fechada** — FE-04a, FE-09, FE-13 e agora FE-10 entregues.
 
 Testado de novo contra "Rede Sênior" em produção (mesmo `portal_token`, sem senha): build completo limpo.

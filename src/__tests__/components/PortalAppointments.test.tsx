@@ -24,13 +24,7 @@ function visit(overrides: Partial<PortalAppointmentVisit> = {}): PortalAppointme
 function renderAppointments(overrides: Partial<ComponentProps<typeof PortalAppointments>> = {}) {
   render(
     <MemoryRouter>
-      <PortalAppointments
-        visits={[]}
-        schedulingSuspended={false}
-        calendarMonth={new Date(2026, 7, 1)}
-        onCalendarMonthChange={() => {}}
-        {...overrides}
-      />
+      <PortalAppointments visits={[]} schedulingSuspended={false} {...overrides} />
     </MemoryRouter>
   );
 }
@@ -84,18 +78,15 @@ describe('P360-014 — acessibilidade da agenda', () => {
         <PortalAppointments
           visits={[visit(), visit({ public_token: 'b', unitName: 'Unidade B', requested_date: '2026-08-20' })]}
           schedulingSuspended={false}
-          calendarMonth={new Date(2026, 7, 1)}
-          onCalendarMonthChange={() => {}}
         />
       </MemoryRouter>
     );
     expect(await axe(container)).toHaveNoViolations();
   });
 
-  test('botões de navegação do mês têm nome acessível', () => {
+  test('botões de navegação da semana têm nome acessível', () => {
     renderAppointments();
-    expect(screen.getByRole('button', { name: 'Mês anterior' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Próximo mês' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Voltar ao mês atual' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Semana anterior' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Próxima semana' })).toBeInTheDocument();
   });
 });
