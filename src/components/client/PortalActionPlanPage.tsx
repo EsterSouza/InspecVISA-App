@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { ClientPortalActionItem, ClientPortalOverview } from '../../services/clientPortalService';
 import {
   computeUnitActionStats,
@@ -46,6 +46,13 @@ export function PortalActionPlanPage({
     return () => onUnitFilterChange(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Clicar num nome em "Comparativo de cumprimento" só troca o filtro — a URL não muda e a
+  // lista filtrada pode ficar fora da tela, então sem isso parece que o clique não fez nada.
+  const resultsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (selectedUnitId) resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [selectedUnitId]);
 
   const isMulti = overview.units.length > 1;
   const stats = useMemo(() => computeUnitActionStats(actionItems), [actionItems]);
@@ -100,6 +107,7 @@ export function PortalActionPlanPage({
         </div>
       )}
 
+      <div ref={resultsRef} />
       <PortalActionPlan
         items={displayedItems}
         loading={displayedLoading}

@@ -411,6 +411,7 @@ export type ClientPortalAuditEventType =
   | 'payment_link_clicked'
   | 'payment_acknowledged'
   | 'sanitary_folder_opened'
+  | 'sanitary_folders_page_opened'
   | 'invoice_download_clicked'
   | 'main_drive_folder_opened'
   | 'portal_tutorial_opened'

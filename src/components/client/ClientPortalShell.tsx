@@ -27,6 +27,7 @@ import {
 } from './PortalServiceRequests';
 import { PortalAppointments, type PortalAppointmentVisit } from './PortalAppointments';
 import { PortalDocuments } from './PortalDocuments';
+import { PortalFolders } from './PortalFolders';
 import { PortalBilling } from './PortalBilling';
 
 interface ClientPortalShellProps {
@@ -270,6 +271,20 @@ export function ClientPortalShell({
             }
           />
           <Route path="documentos" element={<PortalDocuments visits={allVisits} />} />
+          <Route
+            path="pastas"
+            element={
+              <PortalFolders
+                mainDriveFolderUrl={overview.main_drive_folder_url}
+                units={overview.units}
+                onOpen={(unitName) =>
+                  unitName
+                    ? audit('sanitary_folder_opened', { unit_name: unitName })
+                    : audit('main_drive_folder_opened')
+                }
+              />
+            }
+          />
           <Route
             path="agenda"
             element={

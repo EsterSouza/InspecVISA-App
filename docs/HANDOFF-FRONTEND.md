@@ -394,3 +394,17 @@ Testado direto na conta real "Rede Sênior" (fui até o banco de produção pega
 Verificado também no banco (SQL direto, `pfjacmawaigndqclgvpn`): o antiduplicado do plano de ação (`admin_publish_client_action_items`, upsert por `source_item_id`) está funcionando — nenhuma unidade real tem pendência repetida; buckets `inspection-photos`/`client-portal-files` são privados e **sem TTL/cron de expiração** (arquivo fica até alguém apagar manualmente); nenhuma evidência de gestor foi enviada ainda em produção (`client_action_evidence` vazia) — o fluxo de envio nunca foi testado por um usuário real.
 
 Ficou pra depois, a pedido dela: "Acessos rápidos" (`PortalQuickActions.tsx`) gera um botão por unidade com pasta sanitária personalizada — em uma conta de 13 unidades vira uma parede de 13 links. Não estava em nenhum card do plano. Proposta: virar um botão único abrindo uma página/drawer "Pastas personalizadas" com abrir+copiar por unidade — redesenho de UX, não entrou nesta leva.
+
+### 10/08/2026 (2) — pastas viraram página própria; correções de UX no clique de unidade
+
+O MCP do DesignMD não estava conectado nesta sessão (só carrega na abertura, e a aprovação em `~/.claude.json` não pegou desta vez) — segui com a skill `impeccable` e os tokens já adotados em FE-04a/FE-09 em vez de esperar reconexão.
+
+**"Acessos rápidos" sem parede de botões.** `PortalQuickActions.tsx` gerava um botão por unidade com pasta sanitária personalizada — numa conta de 13 unidades, 13 links empilhados. Virou 1 botão só ("Pastas sanitárias personalizadas (N unidades)"), levando pra rota nova `/cliente/pastas` (`PortalFolders.tsx`): pasta principal completa + lista por unidade, cada uma com **Abrir** e **Copiar link**. Componente `CopyLinkButton.tsx` novo, compartilhado — reusado também em `UnitCompletionList`, tirando a duplicação de estado "copiado" que cada tela reimplementava.
+
+**Dois problemas reais que a Ester achou testando ao vivo, e a correção de cada um:**
+1. Clicar no nome da unidade em "Comparativo de cumprimento" **dentro da própria página de Plano de ação** troca o filtro sem trocar de URL — sem nenhum sinal visual, parecia que o clique não tinha feito nada (ela precisou testar pra descobrir onde o resultado tinha ido parar). `PortalActionPlanPage.tsx` ganhou um `ref` na lista de resultados com `scrollIntoView({behavior:'smooth'})` sempre que `selectedUnitId` muda — confirmado: `scrollY` sai de 0 e vai a 347px no clique, e o resumo no topo troca de "252 pendentes" pra "31 pendentes" (só da unidade).
+2. O botão de copiar link era só um ícone, sem nenhuma palavra — "não vai conseguir adivinhar que aquele link é compartilhável e é público". `CopyLinkButton` ganhou variant `compact` (ícone + texto "Link", em vez de mudo) e `UnitCompletionList` passou a abrir com uma frase fixa acima da lista explicando as duas ações: "Clique no nome pra ver as pendências aqui embaixo" + "Link copia um endereço público e sem senha... pode mandar pro gestor da unidade".
+
+Achado à parte, sem relação com código: ao adicionar `PortalFolders.tsx` com o servidor Vite já rodando, apareceu `ReferenceError: PortalFolders is not defined` mesmo após full reload — sumiu com um restart do servidor dev. Grafo de módulo do Vite ficando stale ao hot-adicionar um arquivo novo referenciado por um import já carregado; não é bug de código, mas vale lembrar antes de gastar tempo debugando um "is not defined" que só aparece em dev.
+
+Testado de novo contra "Rede Sênior" em produção (mesmo `portal_token`, sem senha): build completo limpo.

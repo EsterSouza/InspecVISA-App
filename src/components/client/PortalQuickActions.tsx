@@ -66,18 +66,18 @@ export function PortalQuickActions({
             <FolderOpen className="h-4 w-4" /> Abrir pasta principal completa <ExternalLink className="h-3.5 w-3.5" />
           </a>
         )}
-        {folderUnits.map(({ unit, url }) => (
-          <a
-            key={unit.client_id}
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => onAudit('sanitary_folder_opened', { client_id: unit.client_id, unit_name: unit.client_name })}
+        {folderUnits.length > 0 && (
+          <Link
+            to="/cliente/pastas"
+            onClick={() => onAudit('sanitary_folders_page_opened', { unit_count: folderUnits.length })}
             className={`${actionClassName} border-emerald-200 bg-white text-emerald-800 hover:bg-emerald-50`}
           >
-            <FolderOpen className="h-4 w-4" /> Abrir Pasta Sanitária Personalizada — {unit.client_name} <ExternalLink className="h-3.5 w-3.5" />
-          </a>
-        ))}
+            <FolderOpen className="h-4 w-4" />
+            {folderUnits.length === 1
+              ? `Abrir Pasta Sanitária Personalizada — ${folderUnits[0].unit.client_name}`
+              : `Pastas sanitárias personalizadas (${folderUnits.length} unidades)`}
+          </Link>
+        )}
         {tutorialUrl && (
           <a
             href={tutorialUrl}
