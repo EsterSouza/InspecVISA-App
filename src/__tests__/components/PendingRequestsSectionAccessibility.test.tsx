@@ -32,6 +32,7 @@ function pendingRequest(overrides: Partial<AppointmentRequest> = {}): Appointmen
     status: 'requested',
     report_due_at: null,
     report_due_source: null,
+    report_delivered_at: null,
     report_pdf_path: null,
     notes: null,
     internal_notes: null,

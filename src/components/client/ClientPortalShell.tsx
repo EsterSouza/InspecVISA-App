@@ -292,7 +292,7 @@ export function ClientPortalShell({
                 emptyState('Nenhuma unidade vinculada ao seu acesso ainda. Fale com a equipe da consultoria.')
               ) : (
                 <>
-                  <PortalAppointments visits={allVisits} schedulingSuspended={schedulingSuspended} />
+                  <PortalAppointments visits={allVisits} units={overview.units} schedulingSuspended={schedulingSuspended} />
                   <p className="mt-4 text-center text-xs text-navy-2">
                     Toque em um compromisso para ver seus detalhes e os materiais aplicáveis.
                   </p>

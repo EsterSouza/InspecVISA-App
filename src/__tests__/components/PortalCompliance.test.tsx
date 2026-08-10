@@ -17,6 +17,7 @@ function unit(id: string, name: string, scores: number[]): ClientPortalUnit {
       requested_date: `2026-0${index + 1}-01`,
       requested_time: null,
       report_due_at: null,
+      report_delivered_at: null,
       compliance_score: score,
       created_at: '2026-01-01T00:00:00Z',
     })),

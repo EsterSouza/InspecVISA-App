@@ -935,6 +935,14 @@ export function ClientDetails() {
                 className="mt-1 h-10 w-full rounded-md border border-gray-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
             </div>
+            <div className="mt-3">
+              <label className="block text-sm font-medium text-gray-700">Previsão de entrega da pasta</label>
+              <input
+                {...register('personalizedSanitaryFolderExpectedDeliveryDate')}
+                type="date"
+                className="mt-1 h-10 w-full rounded-md border border-gray-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
           </div>
 
           <div className="rounded-md border border-emerald-100 bg-emerald-50/60 p-4 space-y-3">

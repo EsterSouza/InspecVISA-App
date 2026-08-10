@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { CalendarDays, CalendarOff, FileText, Image, Paperclip } from 'lucide-react';
+import { CalendarCheck, CalendarClock, CalendarDays, CalendarOff, FileText, FolderOpen, Image, Paperclip } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import type { ClientPortalVisit } from '../../services/clientPortalService';
+import type { ClientPortalUnit, ClientPortalVisit } from '../../services/clientPortalService';
 import { formatDateBR, parseDateParts, toDateKey } from '../../utils/clientPortalFormat';
 import { WeekCalendar, type WeekCalendarEvent, type WeekCalendarEventState, type WeekCalendarWeek } from '../ui/WeekCalendar';
 import { addDays, formatWeekPeriod, mondayOf } from '../../utils/weekCalendarDates';
@@ -10,8 +10,66 @@ export type PortalAppointmentVisit = ClientPortalVisit & { unitName: string; cit
 
 interface PortalAppointmentsProps {
   visits: PortalAppointmentVisit[];
+  units?: ClientPortalUnit[];
   schedulingSuspended: boolean;
   loading?: boolean;
+}
+
+// Prazos e entregas que não são visitas agendadas (sem hora): prazo/entrega do relatório e
+// previsão de entrega da pasta sanitária personalizada. Aparecem misturados às visitas na lista
+// da agenda (não no calendário semanal, que é por hora).
+interface ServiceDateItem {
+  key: string;
+  date: string;
+  label: string;
+  unitName: string;
+  city: string | null;
+  icon: 'due' | 'delivered' | 'folder';
+  publicToken?: string;
+}
+
+function buildServiceDateItems(visits: PortalAppointmentVisit[], units: ClientPortalUnit[]): ServiceDateItem[] {
+  const items: ServiceDateItem[] = [];
+
+  for (const visit of visits) {
+    if (visit.appointment_type !== 'inspection') continue;
+    if (visit.report_delivered_at) {
+      items.push({
+        key: `${visit.public_token}-delivered`,
+        date: visit.report_delivered_at.split('T')[0],
+        label: 'Relatório entregue',
+        unitName: visit.unitName,
+        city: visit.city,
+        icon: 'delivered',
+        publicToken: visit.public_token,
+      });
+    } else if (visit.report_due_at) {
+      items.push({
+        key: `${visit.public_token}-due`,
+        date: visit.report_due_at.split('T')[0],
+        label: 'Prazo de entrega do relatório',
+        unitName: visit.unitName,
+        city: visit.city,
+        icon: 'due',
+        publicToken: visit.public_token,
+      });
+    }
+  }
+
+  for (const unit of units) {
+    if (unit.personalized_sanitary_folder_expected_delivery_date && !unit.personalized_sanitary_folder_url) {
+      items.push({
+        key: `${unit.client_id}-sanitary-folder`,
+        date: unit.personalized_sanitary_folder_expected_delivery_date.split('T')[0],
+        label: 'Pasta sanitária personalizada — previsão de entrega',
+        unitName: unit.client_name,
+        city: unit.city,
+        icon: 'folder',
+      });
+    }
+  }
+
+  return items;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -57,8 +115,13 @@ function visitCalendarState(status: string, suspended: boolean): WeekCalendarEve
 
 const CALENDAR_WEEKDAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'];
 
+type AgendaRow =
+  | { kind: 'visit'; sortDate: string; sortTime: string; visit: PortalAppointmentVisit }
+  | { kind: 'milestone'; sortDate: string; sortTime: string; item: ServiceDateItem };
+
 export function PortalAppointments({
   visits,
+  units = [],
   schedulingSuspended,
   loading,
 }: PortalAppointmentsProps) {
@@ -73,12 +136,21 @@ export function PortalAppointments({
   }
 
   const todayKeyTop = toDateKey(new Date());
-  const sortedVisits = [...visits].sort((a, b) => {
-    const ka = `${a.requested_date || '9999-12-31'}${a.requested_time || ''}`;
-    const kb = `${b.requested_date || '9999-12-31'}${b.requested_time || ''}`;
-    const aUpcoming = (a.requested_date || '') >= todayKeyTop;
-    const bUpcoming = (b.requested_date || '') >= todayKeyTop;
+  const serviceDateItems = buildServiceDateItems(visits, units);
+  const agendaRows: AgendaRow[] = [
+    ...visits.map((visit) => ({
+      kind: 'visit' as const,
+      sortDate: visit.requested_date || '9999-12-31',
+      sortTime: visit.requested_time || '',
+      visit,
+    })),
+    ...serviceDateItems.map((item) => ({ kind: 'milestone' as const, sortDate: item.date, sortTime: '', item })),
+  ].sort((a, b) => {
+    const aUpcoming = a.sortDate >= todayKeyTop;
+    const bUpcoming = b.sortDate >= todayKeyTop;
     if (aUpcoming !== bUpcoming) return aUpcoming ? -1 : 1;
+    const ka = `${a.sortDate}${a.sortTime}`;
+    const kb = `${b.sortDate}${b.sortTime}`;
     return aUpcoming ? ka.localeCompare(kb) : kb.localeCompare(ka);
   });
 
@@ -176,14 +248,48 @@ export function PortalAppointments({
           <CalendarDays className="h-4 w-4 shrink-0 text-primary-700" />
           <h3 className="text-sm font-bold text-gray-900">Agendamentos e arquivos</h3>
           <span className="ml-auto text-xs text-gray-500">
-            {sortedVisits.length} visita{sortedVisits.length === 1 ? '' : 's'}
+            {visits.length} visita{visits.length === 1 ? '' : 's'}
           </span>
         </header>
-        {sortedVisits.length === 0 ? (
+        {agendaRows.length === 0 ? (
           <p className="px-5 py-6 text-center text-sm text-gray-500">Nenhum compromisso registrado ainda.</p>
         ) : (
           <ul className="divide-y divide-gray-50">
-            {sortedVisits.map((visit) => {
+            {agendaRows.map((row) => {
+              if (row.kind === 'milestone') {
+                const item = row.item;
+                const Icon = item.icon === 'delivered' ? CalendarCheck : item.icon === 'folder' ? FolderOpen : CalendarClock;
+                const content = (
+                  <div className="flex items-center gap-3 px-4 py-3 sm:px-5">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-gray-50 text-gray-500">
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-gray-900">{item.label}</p>
+                      <p className="truncate text-xs text-gray-500">
+                        {formatDateBR(item.date)} · {item.unitName}
+                        {item.city ? ` · ${item.city}` : ''}
+                      </p>
+                    </div>
+                  </div>
+                );
+                return (
+                  <li key={item.key}>
+                    {item.publicToken ? (
+                      <Link
+                        to={`/cliente/visita/${item.publicToken}`}
+                        className="block transition-colors hover:bg-primary-50/40"
+                      >
+                        {content}
+                      </Link>
+                    ) : (
+                      content
+                    )}
+                  </li>
+                );
+              }
+
+              const visit = row.visit;
               const d = visit.requested_date ? parseDateParts(visit.requested_date) : null;
               const st = visitDisplayStatus(visit.status, schedulingSuspended);
               return (

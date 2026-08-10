@@ -12,6 +12,7 @@ function visit(overrides: Partial<ClientPortalVisit> = {}): ClientPortalVisit {
     requested_date: '2026-08-01',
     requested_time: null,
     report_due_at: null,
+    report_delivered_at: null,
     report_count: 0,
     photo_count: 0,
     attachment_count: 0,

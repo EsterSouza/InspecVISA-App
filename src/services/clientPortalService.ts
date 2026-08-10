@@ -71,6 +71,7 @@ export interface ClientPortalVisit {
   requested_date: string | null;
   requested_time: string | null;
   report_due_at: string | null;
+  report_delivered_at: string | null;
   compliance_score?: number | null;
   sanitary_score?: number | null;
   nutrition_score?: number | null;
@@ -93,6 +94,7 @@ export interface ClientPortalUnit {
   state: string | null;
   has_personalized_sanitary_folder?: boolean;
   personalized_sanitary_folder_url?: string | null;
+  personalized_sanitary_folder_expected_delivery_date?: string | null;
   has_audit_service?: boolean;
   has_online_followup?: boolean;
   visits: ClientPortalVisit[];

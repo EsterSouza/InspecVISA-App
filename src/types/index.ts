@@ -47,6 +47,7 @@ export interface Client {
   contacts?: ClientContact[];
   hasPersonalizedSanitaryFolder?: boolean;
   personalizedSanitaryFolderUrl?: string;
+  personalizedSanitaryFolderExpectedDeliveryDate?: string;
   hasAuditService?: boolean;
   hasOnlineFollowup?: boolean;
   createdAt: Date;
@@ -475,6 +476,7 @@ export interface AppointmentRequest {
   status: AppointmentStatus;
   report_due_at: string | null;
   report_due_source: ReportDueSource | null;
+  report_delivered_at: string | null;
   report_pdf_path: string | null;
   report_hidden?: boolean;
   compliance_score?: number | null;

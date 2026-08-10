@@ -531,6 +531,7 @@ export const AppointmentAdminService = {
     await this.updateRequest(request.id, {
       status: 'report_available',
       report_pdf_path: path,
+      report_delivered_at: new Date().toISOString(),
     });
 
     try {
