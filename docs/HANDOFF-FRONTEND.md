@@ -350,7 +350,8 @@ Nomes de modelo mudam rápido; escolher o mais recente no `/model` e calibrar o 
 | FE-01 a FE-03 | ✅ Entregues em 09/08/2026 · calendário de semana acrescentado na revisão do mesmo dia |
 | FE-13 (calendário) | ✅ protótipo aprovado (commit `fb37e7f`) e componente React entregue — `WeekCalendar` em `src/components/ui/`, consumido pelo Portal (`PortalAppointments.tsx`) e pelos Agendamentos do admin (`Schedules.tsx`). Régua 07h–19h cresce (não corta) se algum compromisso ficar fora da faixa; sábado ainda não entra na grade — seguem em aberto com a Ester. |
 | FE-04a (tokens/fontes/primitivos/Modal) | ✅ Entregue em 09/08/2026 (commit `b16a9ae`) — ver detalhe abaixo |
-| Onda 1 (portal) | **Em andamento** — falta FE-09 e FE-10 |
+| FE-09 (rotas de seção + plano de ação por unidade) | ✅ Entregue em 09/08/2026 (commits `659b332`, `9de54b1`) — ver detalhe abaixo |
+| Onda 1 (portal) | **Em andamento** — falta FE-10 |
 | Ondas 2 e 3 | Depois do portal no ar |
 | MCP do DesignMD | ✅ funcionando — URL corrigida para `www` e servidor aprovado em `~/.claude.json` |
 
@@ -367,3 +368,13 @@ Conferido nos três artefatos: 15 pares de contraste medidos em tempo real sem n
 **Aprovado pela Ester em 09/08/2026**, com um pedido: opção de visualização em calendário de segunda a sexta, para qualquer agenda. Feito — virou o card FE-13 e está nos três artefatos.
 
 O que ainda depende dela: se a ordem do menu bate com o uso real, se a densidade da tabela está confortável, se a voz do portal está do jeito que ela fala com os clientes, e as duas pontas soltas do calendário (compromisso fora de 07h–19h e se sábado precisa entrar).
+
+### FE-09 — o que foi feito
+
+`ClientPortal.tsx` virou rota `/cliente/*` com seções próprias (`ClientPortalShell`), seguindo a estrutura do protótipo `fe-03-portal.html`, não o Tailwind cru que uma primeira leva (commit `659b332`) tinha usado por engano — essa leva foi refeita no commit `9de54b1` depois de eu apontar que não tinha ido buscar o protótipo nem os tokens do FE-04a.
+
+Feito: cabeçalho com marca (iniciais + Sora), nav sublinhado com selo de vencidas em "Plano de ação"; Visão geral nova (`PortalOverview`) com saudação calculada, painel de próxima ação, estatísticas e comparativo; filtro de unidade (`PortalUnitFilter`, API genérica) saiu do shell global e vive só dentro do Plano de ação (`PortalActionPlanPage`), como no protótipo — reseta ao trocar de seção; "cumprimento por unidade" (`UnitCompletionList`) é % de pendências resolvidas por unidade (`computeUnitActionStats`), não nota de inspeção; `client_portal_action_items` usa `p_client_id` de verdade quando o cliente filtra uma unidade dentro do Plano de ação (RPC separada, `unitActionItems`), mas a Visão geral e o selo do menu sempre leem a conta inteira (`actionItems`, `p_client_id: null`) — só assim o agregado não fica preso ao recorte de uma unidade só; plano de ação agrupado por unidade em "Todas", 3 pendências por grupo, abre a unidade inteira num clique; badges de vencido/importante usam os tokens reais (`amber-soft`/`amber-soft-ink`), não `red-100`/`amber-100` genéricos do Tailwind.
+
+Testado na conta real "Rede Sênior" (13 unidades, `pfjacmawaigndqclgvpn`): agrupamento, filtro trocando de RPC, reset ao sair da página, chips→select no celular acima de 6 unidades, PDF, e a rota irmã `/cliente/visita/:token` sem quebrar.
+
+Ficou pra depois: `client_portal_service_requests` não usa `p_client_id` — o protótipo não desenha filtro de unidade pra Solicitações (lista única, unidade só como metadado), então não fazia sentido forçar um filtro artificial só pra usar o parâmetro; Documentos/Agenda/Financeiro mostram a conta inteira sem filtro, também seguindo o protótipo — se algum dia precisar filtrar essas seções por unidade, é decisão nova, não retomada do que já existia antes desta leva. `PortalServiceRequests`, `PortalDocuments`, `PortalBilling` e `PortalAppointments` não foram restilizados a fundo (só herdam os tokens onde já usavam `primary-*`) — a adoção completa dos primitivos nessas telas fica pro FE-04b/onda 2.
