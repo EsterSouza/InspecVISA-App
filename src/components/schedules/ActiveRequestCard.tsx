@@ -13,6 +13,7 @@ import {
   Paperclip,
   Phone,
   Play,
+  RefreshCw,
   Trash2,
   Video,
   XCircle,
@@ -39,6 +40,7 @@ interface ActiveRequestCardProps {
   onMarkNotCompleted?: () => void;
   onShareWhatsapp?: () => void;
   onReschedule?: () => void;
+  onRetryNotification?: () => void;
   onSetCompliance: (score: number | null) => void;
   onSetAreaScores?: (sanitary: number | null, nutrition: number | null) => void;
   onToggleReportHidden: () => void;
@@ -59,6 +61,7 @@ export function ActiveRequestCard({
   onMarkNotCompleted,
   onShareWhatsapp,
   onReschedule,
+  onRetryNotification,
   onSetCompliance,
   onSetAreaScores,
   onToggleReportHidden,
@@ -289,6 +292,17 @@ export function ActiveRequestCard({
             {onReschedule && (request.status === 'confirmed' || request.status === 'rescheduled') && (
               <Button variant="outline" size="sm" disabled={busy} onClick={onReschedule}>
                 <CalendarDays className="mr-1.5 h-4 w-4" /> Remarcar
+              </Button>
+            )}
+            {onRetryNotification && (request.status === 'confirmed' || request.status === 'rescheduled') && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={busy}
+                onClick={onRetryNotification}
+                className="min-h-11 border-blue-200 text-blue-700 hover:bg-blue-50"
+              >
+                <RefreshCw className="mr-1.5 h-4 w-4" /> Tentar enviar confirmação
               </Button>
             )}
             {request.status === 'in_progress' && onMarkCompleted && (

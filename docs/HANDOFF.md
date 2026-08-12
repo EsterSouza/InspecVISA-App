@@ -5,6 +5,24 @@ itens extras persistentes (migration `20260812112448`) ·
 **Branch:** `main`, sincronizada com `origin/main` · O estado da seção 2 foi verificado em 03/08/2026,
 com as correções de 04/08 e 05/08 anotadas nas tabelas.
 
+### Resultado local — 12/08/2026 — EMAIL-01, confirmação de agendamento
+
+- Implementado localmente, ainda sem commit, push, migration remota, deploy ou envio real.
+- Em compromisso vinculado, `public.clients.email` passou a ser a única fonte de destinatário;
+  e-mail da solicitação, da conta do portal e payload do navegador não são fallback. Solicitação
+  sem `client_id` mantém `appointment_requests.email` apenas como contato provisório.
+- A entrega agora tem estados `pending/sending/sent/missing_recipient/failed`, aquisição atômica,
+  retry e deduplicação. Logs antigos com `email_sent = false` voltam a `pending` pela migration
+  `20260812184947_canonical_appointment_email_delivery.sql`.
+- A Edge Function valida a sessão e o acesso ao tenant, monta o link pelo domínio canônico no
+  servidor e não devolve erro SMTP bruto. O painel diferencia falha, ausência de e-mail, envio em
+  andamento e envio já realizado, com ação acessível de nova tentativa.
+- Todos os dez caminhos SMTP usam assunto ASCII curto e sanitizado para evitar o MIME bruto visto
+  no Hostinger. Testes: 48 arquivos/358 testes, build e `git diff --check` aprovados; as suítes SQL
+  `appointment_notifications_and_timeline` e `appointment_availability` passaram em Postgres 16.
+- Pendente de autorização separada: aplicar migration, implantar as Edge Functions e o frontend,
+  fazer smoke em caixas controladas e só então reenviar a confirmação da Eliana.
+
 ### Correção urgente — 12/08/2026 — separação Saúde/Nutrição nas pendências
 
 - Commit funcional: `c07c48d`. O compositor não cria mais a seção artificial
@@ -285,6 +303,7 @@ a página de referências do PDF.
 | **REF-06** | Ligação resposta ↔ item quebrada | Opus 5 | alto | — | ✅ **concluído 06/08** · aplicado em produção (2 cargas) |
 | **REL-01** | Mostrar no relatório o que o cliente já cumpre | Opus 5 | baixo | — | ✅ **concluído 06/08** |
 | **AGD-01** | Visita retroativa + ordem/paginação do painel de solicitações | Opus 5 | baixo | — | ✅ **concluído 06/08** · 1 linha recriada em produção |
+| **EMAIL-01** | Destinatário canônico e entrega confiável dos e-mails de agendamento | Opus 5 | alto | — | 🟡 **implementado/testado localmente 12/08** · aguardando publicação autorizada |
 | **P360-008** | Detalhe, notificações e calendário | Sonnet 5 | alto | — | ✅ **concluído 06/08** · aplicado em produção; achada e corrigida edge function `client-appointment-assets` desatualizada (v4→v5, sem os campos do P360-004) |
 | **P360-009** | Início do portal por próximas ações | Sonnet 5 | alto | P360-008 | ✅ **concluído 07/08/2026** |
 | **P360-010** | Projeção segura do plano de ação | Opus 5 | alto | — | ✅ **concluído 07/08/2026** · aplicado em produção; prova de ponta a ponta feita no app com conta de teste, depois apagada |
@@ -3493,6 +3512,28 @@ não é regressão deste card. O primeiro laço foi removido; o segundo já cobr
   `REINCIDENTE` do plano de ação — trocar a semântica mudaria os dois.
 - **Fora de escopo:** a tela `InspectionSummary` não ganhou a relação nem a etiqueta; a mudança é só
   no PDF.
+
+---
+
+## EMAIL-01 — Destinatário canônico e entrega confiável dos e-mails de agendamento 🟡 local
+
+### Objetivo
+
+Corrigir o e-mail MIME quebrado e impedir que confirmações de clientes vinculados usem um contato
+antigo da solicitação. `public.clients.email` é canônico; sem endereço válido no cadastro, nada é
+enviado e a interface orienta a atualização do cliente.
+
+### Resultado — 12/08/2026
+
+- Migration aditiva pronta e provada em Postgres 16, sem aplicação remota.
+- `notify-appointment-event` resolve o cliente por `client_id + tenant_id + deleted_at is null`,
+  autentica o staff sob RLS, controla concorrência/retry e constrói a URL canônica no servidor.
+- O portal autenticado não envia e-mail editável; a RPC ignora o payload e grava o e-mail atual de
+  `clients` apenas como snapshot. Cliente novo é persistido remotamente antes do vínculo.
+- Assunto seguro compartilhado aplicado no limite SMTP de todas as dez funções afetadas, sem nova
+  dependência nem troca de provedor.
+- Verificação local: 48 arquivos/358 testes Vitest, build, `git diff --check` e duas suítes SQL.
+- Fora desta execução: commit, push, produção, smoke SMTP real e reenvio para a Eliana.
 
 ---
 

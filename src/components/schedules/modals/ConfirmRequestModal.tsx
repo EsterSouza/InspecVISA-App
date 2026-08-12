@@ -44,6 +44,7 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
   const [selectedClientId, setSelectedClientId] = useState('');
   const [newClientName, setNewClientName] = useState(request.unit_name);
   const [newClientCategory, setNewClientCategory] = useState<Client['category']>('estetica');
+  const [newClientEmail, setNewClientEmail] = useState(request.email || '');
   const [manualDueDate, setManualDueDate] = useState('');
   const [selectedConsultants, setSelectedConsultants] = useState<string[]>(defaultScheduleConsultants);
   const toggleConsultant = (name: string) =>
@@ -92,15 +93,15 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
           category: newClientCategory,
           responsibleName: request.responsible_name || undefined,
           phone: request.phone || undefined,
-          email: request.email || undefined,
+          email: newClientEmail.trim() || undefined,
           createdAt: now,
           updatedAt: now,
           tenantId,
           localActorId: actor.id,
           syncStatus: 'pending',
         };
-        await ClientService.saveClient(newClient);
-        clientId = newClient.id;
+        const savedClient = await ClientService.saveClientForAppointment(newClient);
+        clientId = savedClient.id;
       }
 
       // 2. Agendamento interno
@@ -305,8 +306,17 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
                     )}
                   </div>
                   {selectedClient && (
-                    <div className="rounded-xl border border-green-100 bg-green-50 px-3 py-2 text-sm text-green-800">
-                      Vinculado a: <strong>{selectedClient.name}</strong>
+                    <div className={`rounded-xl border px-3 py-2 text-sm ${
+                      selectedClient.email
+                        ? 'border-green-100 bg-green-50 text-green-800'
+                        : 'border-amber-200 bg-amber-50 text-amber-900'
+                    }`}>
+                      <p>Vinculado a: <strong>{selectedClient.name}</strong></p>
+                      {selectedClient.email ? (
+                        <p className="mt-1">A confirmação será enviada exclusivamente para <strong>{selectedClient.email}</strong>.</p>
+                      ) : (
+                        <p className="mt-1 font-medium">Este cadastro está sem e-mail. O agendamento será confirmado, mas o e-mail não será enviado até o cadastro ser atualizado.</p>
+                      )}
                     </div>
                   )}
                   <label htmlFor="confirm-request-client-select" className="sr-only">Selecionar cliente</label>
@@ -350,6 +360,20 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
                     <option value="ilpi">ILPI</option>
                     <option value="alimentos">Alimentos</option>
                   </select>
+                  <div className="sm:col-span-2">
+                    <label htmlFor="confirm-request-new-client-email" className="text-sm font-medium text-gray-700">
+                      E-mail oficial do cliente
+                    </label>
+                    <input
+                      id="confirm-request-new-client-email"
+                      type="email"
+                      value={newClientEmail}
+                      onChange={(e) => setNewClientEmail(e.target.value)}
+                      placeholder="cliente@empresa.com.br"
+                      className={`${TEXT_INPUT} mt-1.5`}
+                    />
+                    <p className="mt-1 text-xs text-gray-500">Depois de criar o cliente, este cadastro será a única fonte usada nas confirmações.</p>
+                  </div>
                 </div>
               )}
             </div>

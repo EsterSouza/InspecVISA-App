@@ -21,6 +21,7 @@ interface ActiveRequestsSectionProps {
   onMarkCompleted: (request: AppointmentRequest) => void;
   onMarkNotCompleted: (request: AppointmentRequest) => void;
   onReschedule: (request: AppointmentRequest) => void;
+  onRetryNotification: (request: AppointmentRequest) => void;
   onSetCompliance: (request: AppointmentRequest, score: number | null) => void;
   onSetAreaScores: (request: AppointmentRequest, sanitary: number | null, nutrition: number | null) => void;
   onToggleReportHidden: (request: AppointmentRequest) => void;
@@ -42,6 +43,7 @@ export function ActiveRequestsSection({
   onMarkCompleted,
   onMarkNotCompleted,
   onReschedule,
+  onRetryNotification,
   onSetCompliance,
   onSetAreaScores,
   onToggleReportHidden,
@@ -91,6 +93,7 @@ export function ActiveRequestsSection({
                   onMarkCompleted={() => onMarkCompleted(request)}
                   onMarkNotCompleted={() => onMarkNotCompleted(request)}
                   onReschedule={() => onReschedule(request)}
+                  onRetryNotification={() => onRetryNotification(request)}
                   onSetCompliance={(score) => onSetCompliance(request, score)}
                   onSetAreaScores={(sanitary, nutrition) => onSetAreaScores(request, sanitary, nutrition)}
                   onToggleReportHidden={() => onToggleReportHidden(request)}

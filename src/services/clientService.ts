@@ -146,6 +146,25 @@ export const ClientService = {
     );
   },
 
+  /** Confirmacao de agenda precisa do cliente no servidor antes de vincular e notificar. */
+  async saveClientForAppointment(client: Client): Promise<Client> {
+    const prepared = withLocalActor({
+      ...client,
+      updatedAt: new Date(),
+      syncStatus: 'pending' as const,
+    });
+    const { data, error } = await supabase
+      .from('clients')
+      .upsert(mapToPostgres(prepared))
+      .select('*')
+      .single();
+    if (error) throw error;
+
+    const synced = mapFromPostgres(data);
+    await db.clients.put(synced);
+    return synced;
+  },
+
   /**
    * Soft delete a client.
    */

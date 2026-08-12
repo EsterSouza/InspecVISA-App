@@ -46,6 +46,7 @@ create table public.clients (
   id uuid primary key,
   tenant_id uuid not null,
   name text not null,
+  email text,
   state text,
   deleted_at timestamptz
 );
@@ -100,6 +101,17 @@ create table public.appointment_requests (
   created_at timestamptz not null default now()
 );
 
+create table public.appointment_notification_log (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid not null,
+  appointment_request_id uuid not null references public.appointment_requests(id) on delete cascade,
+  event_type text not null check (event_type in ('confirmed', 'rescheduled', 'cancelled')),
+  dedupe_key text not null,
+  email_sent boolean not null default false,
+  created_at timestamptz not null default now(),
+  unique (appointment_request_id, event_type, dedupe_key)
+);
+
 create table public.schedules (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid,
@@ -115,12 +127,13 @@ create table public.schedules (
 insert into public.tenants (id)
 values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
 
-insert into public.clients (id, tenant_id, name, state)
+insert into public.clients (id, tenant_id, name, state, email)
 values (
   '20000000-0000-4000-8000-000000000001',
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
   'Unidade teste',
-  'RJ'
+  'RJ',
+  'cadastro@cliente.example'
 );
 
 insert into public.client_portal_accounts (
@@ -391,6 +404,7 @@ end;
 $$;
 
 \ir ../migrations/20260802115342_portal_public_request_purpose.sql
+\ir ../migrations/20260812184947_canonical_appointment_email_delivery.sql
 
 do $$
 declare
@@ -424,18 +438,29 @@ end;
 $$;
 
 do $$
+declare
+  v_result jsonb;
+  v_saved_email text;
 begin
-  perform public.client_portal_create_appointment(jsonb_build_object(
+  select public.client_portal_create_appointment(jsonb_build_object(
     'portal_token', '20000000-0000-4000-8000-000000000003',
     'client_id', '20000000-0000-4000-8000-000000000001',
     'district', 'Centro',
     'municipality', 'Rio de Janeiro',
     'attendance_mode', 'presencial',
     'appointment_type', 'inspection',
+    'email', 'payload-nao-canonico@example.com',
     'duration_minutes', 60,
     'requested_starts_at', '2027-04-12T12:30:00Z',
     'requested_ends_at', '2027-04-12T13:30:00Z'
-  ));
+  )) into v_result;
+
+  select email into v_saved_email
+  from public.appointment_requests
+  where public_token = (v_result->>'public_token')::uuid;
+  if v_saved_email <> 'cadastro@cliente.example' then
+    raise exception 'portal nao usou clients.email como fonte canonica; gravou %', v_saved_email;
+  end if;
 
   begin
     perform public.client_portal_create_appointment(jsonb_build_object(

@@ -1,4 +1,5 @@
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
+import { safeMailSubject } from '../_shared/mailSubject.ts';
 
 function esc(value: unknown): string {
   return String(value ?? '-')
@@ -36,7 +37,7 @@ async function sendMail(params: {
     await client.send({
       from: user,
       to: params.to,
-      subject: params.subject,
+      subject: safeMailSubject(params.subject),
       content: params.plain,
       html: params.html,
     });

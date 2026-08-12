@@ -124,8 +124,22 @@ export interface ReportAvailableNotificationResult {
 
 export type AppointmentEventType = 'confirmed' | 'rescheduled' | 'cancelled';
 
-/** Mesmo formato de ReportAvailableNotificationResult — reusa a UI existente. */
-export type AppointmentEventNotificationResult = ReportAvailableNotificationResult;
+export type AppointmentDeliveryStatus =
+  | 'sent'
+  | 'already_sent'
+  | 'missing_client_email'
+  | 'failed'
+  | 'in_progress';
+
+export interface AppointmentEventNotificationResult {
+  ok: boolean;
+  deliveryStatus: AppointmentDeliveryStatus;
+  emailSent: boolean;
+  recipientMasked?: string;
+  emailErrorCode?: string;
+  whatsappSent: boolean;
+  whatsappLink?: string | null;
+}
 
 export interface BlockedDateRow {
   id: string;
@@ -314,7 +328,7 @@ export const AppointmentAdminService = {
       updates.report_due_source = 'manual';
     }
     await this.updateRequest(request.id, updates);
-    return this.notifyAppointmentEvent(request.id, 'confirmed', request.public_token);
+    return this.notifyAppointmentEvent(request.id, 'confirmed');
   },
 
   async markInProgress(request: AppointmentRequest): Promise<void> {
@@ -442,7 +456,7 @@ export const AppointmentAdminService = {
         console.warn('[AppointmentAdmin] Falha ao mover o agendamento interno vinculado:', err);
       }
     }
-    return this.notifyAppointmentEvent(request.id, 'rescheduled', request.public_token);
+    return this.notifyAppointmentEvent(request.id, 'rescheduled');
   },
 
   async cancelRequest(request: AppointmentRequest): Promise<AppointmentEventNotificationResult | null> {
@@ -456,7 +470,7 @@ export const AppointmentAdminService = {
         console.warn('[AppointmentAdmin] Falha ao remover o agendamento interno vinculado:', err);
       }
     }
-    return this.notifyAppointmentEvent(request.id, 'cancelled', request.public_token);
+    return this.notifyAppointmentEvent(request.id, 'cancelled');
   },
 
   async markCompleted(id: string): Promise<void> {
@@ -1239,15 +1253,13 @@ export const AppointmentAdminService = {
   // uma falha aqui não pode impedir a solicitação de ser confirmada/remarcada/cancelada.
   async notifyAppointmentEvent(
     appointmentRequestId: string,
-    eventType: AppointmentEventType,
-    publicToken: string
+    eventType: AppointmentEventType
   ): Promise<AppointmentEventNotificationResult | null> {
     try {
       const tenantId = requireTenantId();
-      const portalUrl = `${window.location.origin}/cliente/visita/${publicToken}`;
       const { data, error } = await withTimeout(
         supabase.functions.invoke('notify-appointment-event', {
-          body: { appointmentRequestId, tenantId, eventType, portalUrl },
+          body: { appointmentRequestId, tenantId, eventType },
         }),
         'NotificarCompromissoCliente',
         30000
@@ -1258,6 +1270,11 @@ export const AppointmentAdminService = {
       console.warn('[AppointmentAdmin] Falha ao notificar compromisso:', err);
       return null;
     }
+  },
+
+  async retryAppointmentConfirmation(request: AppointmentRequest): Promise<AppointmentEventNotificationResult | null> {
+    const eventType: AppointmentEventType = request.status === 'rescheduled' ? 'rescheduled' : 'confirmed';
+    return this.notifyAppointmentEvent(request.id, eventType);
   },
 
   async setPortalAccountClients(accountId: string, clientIds: string[]): Promise<void> {

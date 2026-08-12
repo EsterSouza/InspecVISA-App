@@ -63,6 +63,7 @@ create table public.clients (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null,
   name text not null,
+  email text,
   city text,
   state text,
   has_personalized_sanitary_folder boolean not null default false,
@@ -76,6 +77,7 @@ create table public.appointment_requests (
   client_id uuid,
   public_token uuid not null default gen_random_uuid(),
   unit_name text,
+  email text,
   appointment_type text not null default 'inspection',
   duration_minutes integer,
   status text not null default 'requested',
@@ -150,6 +152,28 @@ insert into public.appointment_requests (
 \ir ../migrations/20260801161550_appointment_domain.sql
 
 \ir ../migrations/20260806235257_appointment_notifications_and_timeline.sql
+
+-- Linhas legadas provam o backfill: falha antiga volta a pending; envio confirmado vira sent.
+insert into public.appointment_notification_log (
+  tenant_id, appointment_request_id, event_type, dedupe_key, email_sent
+) values
+  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '20000000-0000-4000-8000-000000000001', 'confirmed', 'legacy-failed', false),
+  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '20000000-0000-4000-8000-000000000001', 'rescheduled', 'legacy-sent', true);
+
+\ir ../migrations/20260812184947_canonical_appointment_email_delivery.sql
+
+do $$
+begin
+  if (select delivery_status from public.appointment_notification_log where dedupe_key = 'legacy-failed') <> 'pending' then
+    raise exception 'falha legada nao voltou a pending para permitir retry';
+  end if;
+  if (select delivery_status from public.appointment_notification_log where dedupe_key = 'legacy-sent') <> 'sent' then
+    raise exception 'envio legado confirmado nao foi preservado como sent';
+  end if;
+end;
+$$;
+
+delete from public.appointment_notification_log where dedupe_key like 'legacy-%';
 
 -- 1. Novos tipos aceitos, mesmo bucket de duracao das reunioes (30/60/90).
 do $$
@@ -228,6 +252,24 @@ begin
   if v_count <> 2 then
     raise exception 'esperava 2 linhas no log (confirmed + rescheduled), achou %', v_count;
   end if;
+
+  update public.appointment_notification_log
+  set delivery_status = 'sending', attempt_count = attempt_count + 1, last_attempt_at = now()
+  where appointment_request_id = '20000000-0000-4000-8000-000000000001'
+    and event_type = 'confirmed'
+    and dedupe_key = '2026-08-15T10:00'
+    and delivery_status = 'pending';
+  get diagnostics v_count = row_count;
+  if v_count <> 1 then raise exception 'primeira aquisicao deveria obter o envio'; end if;
+
+  update public.appointment_notification_log
+  set delivery_status = 'sending'
+  where appointment_request_id = '20000000-0000-4000-8000-000000000001'
+    and event_type = 'confirmed'
+    and dedupe_key = '2026-08-15T10:00'
+    and delivery_status = 'pending';
+  get diagnostics v_count = row_count;
+  if v_count <> 0 then raise exception 'segunda aquisicao concorrente nao deveria obter o envio'; end if;
 end;
 $$;
 

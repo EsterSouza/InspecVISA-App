@@ -1,5 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
+import { resolveAppointmentRecipient } from '../_shared/appointmentRecipient.ts';
+import { safeMailSubject } from '../_shared/mailSubject.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,6 +16,7 @@ const PROFESSIONAL_WHATSAPP_NUMBER = '5521993397315';
 
 const EVENT_TYPES = ['confirmed', 'rescheduled', 'cancelled'] as const;
 type EventType = typeof EVENT_TYPES[number];
+type DeliveryStatus = 'sent' | 'already_sent' | 'missing_client_email' | 'failed' | 'in_progress';
 
 const TYPE_LABELS: Record<string, string> = {
   inspection: 'Inspeção',
@@ -56,6 +59,41 @@ function whatsappUrl(message: string): string {
   return `https://wa.me/${PROFESSIONAL_WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
 }
 
+function maskEmail(value: string | null): string | undefined {
+  if (!value) return undefined;
+  const [local, domain] = value.split('@');
+  return `${local.slice(0, 1)}${'•'.repeat(Math.min(5, Math.max(2, local.length - 1)))}@${domain}`;
+}
+
+function canonicalPortalUrl(publicToken: string): string {
+  const configured = Deno.env.get('APP_BASE_URL') || 'https://inspecvisa.consultorasanitaria.com.br';
+  const base = new URL(configured);
+  if (base.protocol !== 'https:') throw new Error('APP_BASE_URL invalida');
+  return new URL(`/cliente/visita/${encodeURIComponent(publicToken)}`, base.origin).toString();
+}
+
+function mailErrorCode(error: unknown): string {
+  const message = error instanceof Error ? error.message.toLowerCase() : '';
+  return message.includes('smtp nao configurado') ? 'smtp_not_configured' : 'smtp_delivery_failed';
+}
+
+function notificationResponse(params: {
+  status: DeliveryStatus;
+  whatsappLink: string;
+  recipient?: string | null;
+  errorCode?: string;
+}) {
+  return {
+    ok: params.status === 'sent' || params.status === 'already_sent',
+    deliveryStatus: params.status,
+    emailSent: params.status === 'sent' || params.status === 'already_sent',
+    recipientMasked: maskEmail(params.recipient ?? null),
+    emailErrorCode: params.errorCode,
+    whatsappSent: false,
+    whatsappLink: params.whatsappLink,
+  };
+}
+
 async function sendMail(params: { to: string; subject: string; plain: string; html: string }) {
   const user = Deno.env.get('SMTP_USER');
   const pass = Deno.env.get('SMTP_PASS');
@@ -71,7 +109,7 @@ async function sendMail(params: { to: string; subject: string; plain: string; ht
     },
   });
   try {
-    await client.send({ from: user, to: params.to, subject: params.subject, content: params.plain, html: params.html });
+    await client.send({ from: user, to: params.to, subject: safeMailSubject(params.subject), content: params.plain, html: params.html });
   } finally {
     await client.close();
   }
@@ -186,21 +224,22 @@ Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders });
     }
-    if (!req.headers.get('authorization')) {
+    const authorization = req.headers.get('authorization');
+    if (!authorization) {
       return new Response('unauthorized', { status: 401, headers: corsHeaders });
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    if (!supabaseUrl || !serviceKey) {
-      return jsonResponse({ error: 'Supabase service role nao configurado' }, { status: 500 });
+    if (!supabaseUrl || !anonKey || !serviceKey) {
+      return jsonResponse({ error: 'Supabase nao configurado' }, { status: 500 });
     }
 
     const payload = await req.json().catch(() => ({}));
     const appointmentRequestId = String(payload.appointmentRequestId ?? '').trim();
     const tenantId = String(payload.tenantId ?? '').trim();
     const eventType = String(payload.eventType ?? '') as EventType;
-    const portalUrl = String(payload.portalUrl ?? '').trim();
 
     if (!appointmentRequestId || !tenantId) {
       return jsonResponse({ error: 'appointmentRequestId e tenantId sao obrigatorios' }, { status: 400 });
@@ -208,20 +247,54 @@ Deno.serve(async (req) => {
     if (!EVENT_TYPES.includes(eventType)) {
       return jsonResponse({ error: 'eventType invalido' }, { status: 400 });
     }
-    if (!portalUrl) {
-      return jsonResponse({ error: 'portalUrl e obrigatorio' }, { status: 400 });
+    const caller = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authorization } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: userData, error: userError } = await caller.auth.getUser();
+    if (userError || !userData.user) {
+      return new Response('unauthorized', { status: 401, headers: corsHeaders });
+    }
+    const { data: authorizedRequest, error: authorizationError } = await caller
+      .from('appointment_requests')
+      .select('id')
+      .eq('id', appointmentRequestId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+    if (authorizationError || !authorizedRequest) {
+      return new Response('forbidden', { status: 403, headers: corsHeaders });
     }
 
     const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
     const { data: request, error: requestError } = await admin
       .from('appointment_requests')
-      .select('id, tenant_id, unit_name, appointment_type, email, responsible_name, requested_date, requested_time, updated_at')
+      .select('id, tenant_id, client_id, public_token, unit_name, appointment_type, email, responsible_name, requested_date, requested_time, updated_at')
       .eq('id', appointmentRequestId)
       .eq('tenant_id', tenantId)
       .maybeSingle();
     if (requestError) throw requestError;
     if (!request) return jsonResponse({ error: 'compromisso nao encontrado' }, { status: 404 });
+
+    let clientEmail: unknown = null;
+    if (request.client_id) {
+      const { data: client, error: clientError } = await admin
+        .from('clients')
+        .select('email')
+        .eq('id', request.client_id)
+        .eq('tenant_id', tenantId)
+        .is('deleted_at', null)
+        .maybeSingle();
+      if (clientError) throw clientError;
+      clientEmail = client?.email;
+    }
+    const { email: recipient, source: recipientSource } = resolveAppointmentRecipient({
+      clientId: request.client_id,
+      clientEmail,
+      requestEmail: request.email,
+    });
+
+    const portalUrl = canonicalPortalUrl(request.public_token);
 
     // Chave de dedupe por evento: confirmed/rescheduled usam o horario alvo (um novo horario e
     // uma notificacao logicamente nova); cancelled e fixa (so um e-mail de cancelamento).
@@ -229,15 +302,28 @@ Deno.serve(async (req) => {
       ? 'cancelled'
       : `${request.requested_date ?? ''}T${request.requested_time ?? ''}`;
 
-    const { data: insertedRows, error: insertError } = await admin
+    const { error: insertError } = await admin
       .from('appointment_notification_log')
       .upsert(
-        { tenant_id: tenantId, appointment_request_id: appointmentRequestId, event_type: eventType, dedupe_key: dedupeKey },
+        {
+          tenant_id: tenantId,
+          appointment_request_id: appointmentRequestId,
+          event_type: eventType,
+          dedupe_key: dedupeKey,
+          delivery_status: 'pending',
+        },
         { onConflict: 'appointment_request_id,event_type,dedupe_key', ignoreDuplicates: true }
-      )
-      .select('id');
+      );
     if (insertError) throw insertError;
-    const shouldSend = (insertedRows || []).length > 0;
+
+    const { data: existingLog, error: logError } = await admin
+      .from('appointment_notification_log')
+      .select('id, delivery_status, recipient_email, attempt_count, last_attempt_at')
+      .eq('appointment_request_id', appointmentRequestId)
+      .eq('event_type', eventType)
+      .eq('dedupe_key', dedupeKey)
+      .single();
+    if (logError) throw logError;
 
     const typeLabel = TYPE_LABELS[request.appointment_type] || 'Compromisso';
     const whenLabel = formatDateTimeBR(request.requested_date, request.requested_time);
@@ -245,36 +331,87 @@ Deno.serve(async (req) => {
     const html = buildHtml(content, portalUrl);
     const plain = `${content.heading}\n\n${content.intro.replace(/<[^>]+>/g, '')}\n\n${portalUrl}`;
 
-    let emailSent = false;
-    let emailError: string | undefined;
-    if (shouldSend && request.email) {
-      try {
-        await sendMail({ to: request.email, subject: content.subject, plain, html });
-        emailSent = true;
-        await admin.from('appointment_notification_log')
-          .update({ email_sent: true })
-          .eq('appointment_request_id', appointmentRequestId)
-          .eq('event_type', eventType)
-          .eq('dedupe_key', dedupeKey);
-      } catch (err) {
-        emailError = String(err);
-      }
-    }
-
     // WhatsApp continua manual: o link sempre aponta para o numero profissional da consultora,
     // nunca para o telefone do cliente — ela encaminha do celular pra cliente.
     const whatsappMessage = `${content.heading} ${request.unit_name} — ${typeLabel} em ${whenLabel}. ${portalUrl}`;
     const whatsappLink = whatsappUrl(whatsappMessage);
 
-    return jsonResponse({
-      ok: true,
-      emailSent,
-      emailError,
-      whatsappSent: false,
-      whatsappLink,
-    });
+    if (existingLog.delivery_status === 'sent') {
+      return jsonResponse(notificationResponse({
+        status: 'already_sent',
+        whatsappLink,
+        recipient: existingLog.recipient_email || recipient,
+      }));
+    }
+
+    if (existingLog.delivery_status === 'sending') {
+      const lastAttempt = existingLog.last_attempt_at ? new Date(existingLog.last_attempt_at).getTime() : Date.now();
+      if (Date.now() - lastAttempt < 5 * 60 * 1000) {
+        return jsonResponse(notificationResponse({ status: 'in_progress', whatsappLink, recipient }));
+      }
+      const { error: staleError } = await admin.from('appointment_notification_log')
+        .update({ delivery_status: 'failed', last_error_code: 'stale_sending_recovered' })
+        .eq('id', existingLog.id)
+        .eq('delivery_status', 'sending');
+      if (staleError) throw staleError;
+    }
+
+    if (!recipient) {
+      const { error: missingError } = await admin.from('appointment_notification_log')
+        .update({
+          delivery_status: 'missing_recipient',
+          email_sent: false,
+          recipient_email: null,
+          recipient_source: recipientSource,
+          last_error_code: request.client_id ? 'missing_client_email' : 'missing_request_email',
+        })
+        .eq('id', existingLog.id)
+        .neq('delivery_status', 'sent');
+      if (missingError) throw missingError;
+      return jsonResponse(notificationResponse({
+        status: 'missing_client_email',
+        whatsappLink,
+        errorCode: request.client_id ? 'missing_client_email' : 'missing_request_email',
+      }));
+    }
+
+    const { data: claimedRows, error: claimError } = await admin
+      .from('appointment_notification_log')
+      .update({
+        delivery_status: 'sending',
+        email_sent: false,
+        recipient_email: recipient,
+        recipient_source: recipientSource,
+        attempt_count: Number(existingLog.attempt_count || 0) + 1,
+        last_attempt_at: new Date().toISOString(),
+        last_error_code: null,
+      })
+      .eq('id', existingLog.id)
+      .in('delivery_status', ['pending', 'failed', 'missing_recipient'])
+      .select('id');
+    if (claimError) throw claimError;
+    if (!claimedRows?.length) {
+      return jsonResponse(notificationResponse({ status: 'in_progress', whatsappLink, recipient }));
+    }
+
+    try {
+      await sendMail({ to: recipient, subject: content.subject, plain, html });
+      const { error: sentError } = await admin.from('appointment_notification_log')
+        .update({ delivery_status: 'sent', email_sent: true, sent_at: new Date().toISOString(), last_error_code: null })
+        .eq('id', existingLog.id)
+        .eq('delivery_status', 'sending');
+      if (sentError) throw sentError;
+      return jsonResponse(notificationResponse({ status: 'sent', whatsappLink, recipient }));
+    } catch (error) {
+      const errorCode = mailErrorCode(error);
+      await admin.from('appointment_notification_log')
+        .update({ delivery_status: 'failed', email_sent: false, last_error_code: errorCode })
+        .eq('id', existingLog.id)
+        .eq('delivery_status', 'sending');
+      return jsonResponse(notificationResponse({ status: 'failed', whatsappLink, recipient, errorCode }));
+    }
   } catch (err) {
-    console.error('[notify-appointment-event] erro:', err);
-    return jsonResponse({ error: String(err) }, { status: 500 });
+    console.error('[notify-appointment-event] erro inesperado:', err instanceof Error ? err.message : 'unknown');
+    return jsonResponse({ error: 'notification_failed' }, { status: 500 });
   }
 });

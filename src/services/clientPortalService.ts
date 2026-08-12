@@ -108,7 +108,6 @@ export interface ClientPortalAppointmentPayload {
   district?: string;
   responsible_name?: string;
   phone?: string;
-  email?: string;
   requested_starts_at: string;
   requested_ends_at: string;
   appointment_type?: AppointmentType;

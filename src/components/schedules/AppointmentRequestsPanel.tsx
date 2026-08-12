@@ -48,6 +48,23 @@ function LoadingSkeleton() {
   );
 }
 
+function deliveryMessage(kind: EventNotifyKind, notify: AppointmentEventNotificationResult): string {
+  switch (notify.deliveryStatus) {
+    case 'sent':
+      return `E-mail enviado${notify.recipientMasked ? ` para ${notify.recipientMasked}` : ' ao cliente'}.`;
+    case 'already_sent':
+      return 'A confirmação já havia sido enviada; não reenviamos.';
+    case 'missing_client_email':
+      return 'O cadastro do cliente está sem um e-mail válido. Atualize o cliente e tente novamente.';
+    case 'in_progress':
+      return 'O envio da confirmação já está em processamento.';
+    case 'failed':
+      return kind === 'report_available'
+        ? 'O relatório foi publicado, mas o envio do e-mail falhou.'
+        : 'O compromisso foi salvo, mas o envio do e-mail falhou. Tente novamente.';
+  }
+}
+
 export function AppointmentRequestsPanel() {
   const [requests, setRequests] = useState<AppointmentRequest[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -77,7 +94,11 @@ export function AppointmentRequestsPanel() {
   const [showNewVisit, setShowNewVisit] = useState(false);
   // Aviso pós-ação (relatório publicado / confirmação / remarcação / cancelamento):
   // e-mail (deduplicado) + link de WhatsApp pronto para a consultora encaminhar.
-  const [eventNotify, setEventNotify] = useState<{ unitName: string; kind: EventNotifyKind; emailSent: boolean; whatsappLink?: string | null } | null>(null);
+  const [eventNotify, setEventNotify] = useState<{
+    unitName: string;
+    kind: EventNotifyKind;
+    result: AppointmentEventNotificationResult;
+  } | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -132,8 +153,23 @@ export function AppointmentRequestsPanel() {
   };
 
   const showEventNotify = (unitName: string, kind: EventNotifyKind, notify: AppointmentEventNotificationResult | null) => {
-    if (!notify) return;
-    setEventNotify({ unitName, kind, emailSent: notify.emailSent, whatsappLink: notify.whatsappLink });
+    setEventNotify({
+      unitName,
+      kind,
+      result: notify ?? {
+        ok: false,
+        deliveryStatus: 'failed',
+        emailSent: false,
+        emailErrorCode: 'notification_unavailable',
+        whatsappSent: false,
+      },
+    });
+  };
+
+  const handleRetryNotification = (request: AppointmentRequest) => {
+    const kind: EventNotifyKind = request.status === 'rescheduled' ? 'rescheduled' : 'confirmed';
+    void withBusy(request.id, () => AppointmentAdminService.retryAppointmentConfirmation(request))
+      .then((result) => showEventNotify(request.unit_name, kind, result ?? null));
   };
 
   const handleReschedule = (request: AppointmentRequest) => {
@@ -194,7 +230,18 @@ export function AppointmentRequestsPanel() {
     setBusy(request.id);
     AppointmentAdminService.publishReport(request, file)
       .then((res) => {
-        setEventNotify({ unitName: request.unit_name, kind: 'report_available', emailSent: res.emailSent, whatsappLink: res.whatsappLink });
+        setEventNotify({
+          unitName: request.unit_name,
+          kind: 'report_available',
+          result: {
+            ok: res.emailSent,
+            deliveryStatus: res.emailSent ? 'sent' : 'failed',
+            emailSent: res.emailSent,
+            emailErrorCode: res.emailSent ? undefined : 'report_email_failed',
+            whatsappSent: false,
+            whatsappLink: res.whatsappLink,
+          },
+        });
         return loadData();
       })
       .catch((err) => {
@@ -304,6 +351,7 @@ export function AppointmentRequestsPanel() {
         onMarkCompleted={handleMarkCompleted}
         onMarkNotCompleted={handleMarkNotCompleted}
         onReschedule={handleReschedule}
+        onRetryNotification={handleRetryNotification}
         onSetCompliance={handleSetCompliance}
         onSetAreaScores={handleSetAreaScores}
         onToggleReportHidden={handleToggleReportHidden}
@@ -414,13 +462,11 @@ export function AppointmentRequestsPanel() {
               </h3>
               <p className="mt-1 text-sm text-gray-500">{eventNotify.unitName}</p>
               <p className="mt-3 rounded-lg bg-gray-50 p-3 text-sm text-gray-700" aria-live="polite">
-                {eventNotify.emailSent
-                  ? 'E-mail enviado ao cliente automaticamente.'
-                  : 'Sem e-mail cadastrado do cliente — avise pelo WhatsApp abaixo.'}
+                {deliveryMessage(eventNotify.kind, eventNotify.result)}
               </p>
-              {eventNotify.whatsappLink ? (
+              {eventNotify.result.whatsappLink ? (
                 <a
-                  href={eventNotify.whatsappLink}
+                  href={eventNotify.result.whatsappLink}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-green-200 bg-green-50 px-4 py-2.5 text-sm font-semibold text-green-700 hover:bg-green-100"

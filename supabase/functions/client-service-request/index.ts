@@ -16,6 +16,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
+import { safeMailSubject } from '../_shared/mailSubject.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -85,7 +86,7 @@ async function sendMail(params: { to: string; subject: string; plain: string; ht
     },
   });
   try {
-    await client.send({ from: user, to: params.to, subject: params.subject, content: params.plain, html: params.html });
+    await client.send({ from: user, to: params.to, subject: safeMailSubject(params.subject), content: params.plain, html: params.html });
   } finally {
     await client.close();
   }
