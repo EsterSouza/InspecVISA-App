@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'vitest';
 import type { Inspection, InspectionResponse } from '../../types';
-import { deriveOpenPendingItems, filterMissingPendingItems } from '../../utils/actionPlanState';
+import {
+  deriveOpenPendingItems,
+  filterMissingPendingItems,
+  filterPendingItemsForTemplate,
+} from '../../utils/actionPlanState';
 
 function inspection(id: string, day: number): Inspection {
   const at = new Date(`2026-08-${String(day).padStart(2, '0')}T12:00:00.000Z`);
@@ -49,6 +53,34 @@ describe('deriveOpenPendingItems', () => {
     expect(missing).toEqual([{ itemId: 'missing', description: 'inserir' }]);
     expect(existing.situationDescription).toBe('não sobrescrever');
     expect(existing.photos).toHaveLength(1);
+  });
+
+  test('seeds only pending items that belong to the current professional template', () => {
+    const visible = filterPendingItemsForTemplate([
+      { itemId: 'health-item' },
+      { itemId: 'nutrition-item' },
+      { itemId: 'extra|health-section|1', customItemMeta: { sectionId: 'health-section' } },
+      { itemId: 'extra|nutrition-section|1', customItemMeta: { sectionId: 'nutrition-section' } },
+    ], {
+      sections: [{
+        id: 'health-section',
+        title: 'Saúde',
+        order: 1,
+        items: [{
+          id: 'health-item',
+          sectionId: 'health-section',
+          order: 1,
+          description: 'Item sanitário',
+          weight: 1,
+          isCritical: false,
+        }],
+      }],
+    });
+
+    expect(visible.map(item => item.itemId)).toEqual([
+      'health-item',
+      'extra|health-section|1',
+    ]);
   });
 
   test('opens on NC and closes only on a later complies result', () => {

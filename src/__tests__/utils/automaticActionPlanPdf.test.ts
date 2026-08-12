@@ -64,9 +64,9 @@ describe('PDF do plano automático e itens extras', () => {
     expect(generated.blob.size).toBeGreaterThan(1000);
     expect(pdf.numPages).toBeGreaterThan(1);
     expect(renderedText.join(' ')).toContain('Item extra crítico persistente');
-    expect(renderedText.join(' ')).toContain('Pendência de inspeção anterior');
+    expect(renderedText.join(' ')).not.toContain('Pendência de inspeção anterior');
     expect(template.sections.flatMap(section => section.items.map(item => item.id))).toEqual([
-      'original', 'extra|s1|persistente', 'item-de-roteiro-anterior',
+      'original', 'extra|s1|persistente',
     ]);
 
     if (process.env.CARD_PDF_OUTPUT) {

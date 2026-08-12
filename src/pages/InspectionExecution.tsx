@@ -20,7 +20,7 @@ import { belongsToActiveTenant, filterByActiveTenant } from '../utils/localScope
 import { buildRecoveryTemplate } from '../utils/templateRecovery';
 import { withClientLocation } from '../utils/inspectionLocation';
 import { getOpenPendingHistory, type PreviousNCContext } from '../utils/actionPlanContext';
-import { filterMissingPendingItems } from '../utils/actionPlanState';
+import { filterMissingPendingItems, filterPendingItemsForTemplate } from '../utils/actionPlanState';
 import {
   composeChecklistTemplate,
   customItemMeta,
@@ -293,11 +293,20 @@ export function InspectionExecution() {
             workingResponses = normalizedResponses.filter(response => !response.deletedAt);
 
             const history = await getOpenPendingHistory(enrichedInsp.clientId, enrichedInsp.id);
-            setPreviousNCs(history.items);
+            const role = useSettingsStore.getState().settings.consultantRole || 'saude';
+            const roleContext = enrichedInsp as unknown as Parameters<typeof getEffectiveTemplate>[1];
+            const roleTemplate = tpl
+              ? getEffectiveTemplate(tpl, roleContext, role, false)
+              : null;
+            const visiblePendingItems = roleTemplate
+              ? filterPendingItemsForTemplate(history.items.values(), roleTemplate)
+              : [];
+            const visibleHistory = new Map(visiblePendingItems.map(item => [item.itemId, item]));
+            setPreviousNCs(visibleHistory);
             setHistoryComplete(history.historyComplete);
             const seeded = await seedPendingResponses(
               id,
-              history.items,
+              visibleHistory,
               new Set(workingResponses.map(response => response.itemId)),
               enrichedInsp.tenantId,
             );

@@ -7,14 +7,13 @@ import type {
 } from '../types';
 
 export const CUSTOM_ITEM_WEIGHTS = [1, 2, 5, 10] as const;
-export const PREVIOUS_PENDING_SECTION_ID = 'sec-previous-pendencies';
 
 export function isCustomItem(response: Pick<InspectionResponse, 'itemId'>) {
   return response.itemId.startsWith('extra|');
 }
 
 function legacySectionId(itemId: string) {
-  return itemId.split('|')[1] || PREVIOUS_PENDING_SECTION_ID;
+  return itemId.split('|')[1] || '';
 }
 
 export function normalizeCustomItems(
@@ -85,7 +84,6 @@ export function composeChecklistTemplate(
   const responses = normalizeCustomItems(sourceResponses, template.sections);
   const sections = template.sections.map(section => ({ ...section, items: [...section.items] }));
   const represented = new Set(sections.flatMap(section => section.items.map(item => item.id)));
-  const recovered: ChecklistItem[] = [];
 
   for (const response of responses) {
     if (response.deletedAt || represented.has(response.itemId)) continue;
@@ -93,36 +91,13 @@ export function composeChecklistTemplate(
       const item = itemFromResponse(response);
       const section = sections.find(candidate => candidate.id === item.sectionId);
       if (section) section.items.push(item);
-      else recovered.push({ ...item, sectionId: PREVIOUS_PENDING_SECTION_ID });
       represented.add(item.id);
-      continue;
-    }
-
-    if (!isCustomItem(response)) {
-      recovered.push({
-        id: response.itemId,
-        sectionId: PREVIOUS_PENDING_SECTION_ID,
-        order: recovered.length + 1,
-        description: response.customDescription || response.situationDescription || `Item ${response.itemId}`,
-        weight: 1,
-        isCritical: false,
-      });
-      represented.add(response.itemId);
     }
   }
 
   for (const section of sections) {
     section.items.sort((a, b) => a.order - b.order);
   }
-  if (recovered.length > 0) {
-    sections.push({
-      id: PREVIOUS_PENDING_SECTION_ID,
-      title: 'Pendências de inspeções anteriores',
-      order: Math.max(0, ...sections.map(section => section.order)) + 1,
-      items: recovered,
-    });
-  }
-
   return { ...template, sections };
 }
 

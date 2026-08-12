@@ -5,7 +5,6 @@ import {
   customItemMeta,
   nextCustomItemOrder,
   normalizeCustomItems,
-  PREVIOUS_PENDING_SECTION_ID,
 } from '../../utils/customItems';
 
 const template: ChecklistTemplate = {
@@ -58,15 +57,28 @@ describe('persistent custom checklist items', () => {
     expect(nextCustomItemOrder('s1', template, normalized)).toBe(4);
   });
 
-  test('composes active custom items once and keeps missing historical originals in a recovery section', () => {
+  test('composes active custom items once and does not reintroduce items outside the effective template', () => {
     const custom = response('extra|s1|new', {
       customDescription: 'Extra persistente',
       customItemMeta: { sectionId: 's1', order: 2, weight: 5, isCritical: false, state: 'active' },
     });
-    const composed = composeChecklistTemplate(template, [custom, response('old-template-item', { customDescription: 'Pendência antiga' })]);
+    const composed = composeChecklistTemplate(template, [
+      custom,
+      response('nutrition-item', { customDescription: 'Item de outro recorte profissional' }),
+      response('untitled-item', { result: 'complies' }),
+    ]);
 
     expect(composed.sections[0].items.map(item => item.id)).toEqual(['original', 'extra|s1|new']);
-    expect(composed.sections.find(section => section.id === PREVIOUS_PENDING_SECTION_ID)?.items[0].description).toBe('Pendência antiga');
+    expect(composed.sections.map(section => section.title)).not.toContain('Pendências de inspeções anteriores');
+  });
+
+  test('keeps a previous pending response in its normal section when the item belongs to the effective template', () => {
+    const composed = composeChecklistTemplate(template, [
+      response('original', { customDescription: 'Texto copiado da inspeção anterior' }),
+    ]);
+
+    expect(composed.sections).toHaveLength(1);
+    expect(composed.sections[0].items).toEqual(template.sections[0].items);
   });
 
   test('does not render soft-deleted or discontinued extras', () => {

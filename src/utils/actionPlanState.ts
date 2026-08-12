@@ -1,4 +1,4 @@
-import type { Inspection, InspectionResponse } from '../types';
+import type { ChecklistTemplate, Inspection, InspectionResponse } from '../types';
 
 export interface OpenPendingItem {
   response: InspectionResponse;
@@ -11,6 +11,20 @@ export function filterMissingPendingItems<T extends { itemId: string }>(
   existingItemIds: Set<string>,
 ): T[] {
   return [...pendingItems].filter(item => !existingItemIds.has(item.itemId));
+}
+
+export function filterPendingItemsForTemplate<
+  T extends { itemId: string; customItemMeta?: { sectionId: string } },
+>(
+  pendingItems: Iterable<T>,
+  template: Pick<ChecklistTemplate, 'sections'>,
+): T[] {
+  const sectionIds = new Set(template.sections.map(section => section.id));
+  const itemIds = new Set(template.sections.flatMap(section => section.items.map(item => item.id)));
+  return [...pendingItems].filter(item =>
+    itemIds.has(item.itemId)
+    || Boolean(item.customItemMeta && sectionIds.has(item.customItemMeta.sectionId))
+  );
 }
 
 function time(value?: Date) {
