@@ -7,24 +7,36 @@ com as correções de 04/08 e 05/08 anotadas nas tabelas.
 
 ### Resultado — 12/08/2026 — plano de ação automático e itens extras persistentes
 
-- Commit da implementação: `e93962a` (`Automate recurring action plans and custom items`).
+- Commits: `e93962a` (implementação), `9adde97` (rollout inicial) e `1e91d27`
+  (edição posterior de descrição, criticidade e peso dos itens extras).
 - Toda abertura/reabertura de inspeção em andamento deriva pendências de todo o histórico
   concluído da unidade; NC abre/atualiza, conforme fecha, N/A/NO/sem resposta não fecha.
   A semeadura é somente dos itens ausentes e preserva respostas, textos e fotos em andamento.
 - Itens extras têm ID, seção, ordem, criticidade, peso e estado persistentes; exclusão é lógica.
-  Somente extras legados de inspeções em andamento são normalizados. Relatórios concluídos e
+  Enquanto a inspeção está em andamento, o botão acessível de edição reabre o formulário completo
+  e permite alterar descrição, criticidade e peso sem trocar ID nem renumerar o item. Somente
+  extras legados de inspeções em andamento são normalizados. Relatórios concluídos e
   versões congeladas não recebem backfill nem reescrita.
 - Finalização sincroniza o rascunho, reconcilia evidências confirmadas e pendências em uma RPC
   transacional/idempotente e só então marca a inspeção concluída e congela o relatório.
 - Produção: migration `20260812112448_automatic_action_plan_custom_items` aplicada no projeto
   `pfjacmawaigndqclgvpn`. Pós-check: 3 inspeções e 349 respostas ativas preservadas; nenhum dos
   extras concluídos recebeu metadata; `anon` não executa as RPCs novas/de bundle.
-- Validação local: `npm test` — 44 arquivos/342 testes; `npm run build` — passou. PDF sintético
+- Recheck final de produção: 3 inspeções em andamento, agora com 359 respostas e 2 metadata de
+  extras; o aumento ocorreu durante o uso externo/teste da nova versão e foi preservado. Continuam
+  zero respostas concluídas com metadata nova: nenhum relatório histórico foi reescrito.
+- Validação local final: `npm test` — 45 arquivos/344 testes; `npm run build` — passou. PDF sintético
   real — 4 páginas A4, com extra crítico e pendência de roteiro anterior confirmados por leitura
   de todas as páginas. O lint global segue falhando pela dívida anterior (504 erros, inclusive
   binários em `_local-nao-versionado`); nenhum erro novo bloqueou TypeScript/build.
-- Teste SQL novo: `supabase/tests/automatic_action_plan_custom_items.test.sql`; será executado na
-  CI em Postgres 16 após o push, pois Docker/Postgres local não estava disponível neste host.
+- CI do SHA final: build, 344 testes e todas as suítes SQL em Postgres 16 passaram no run
+  `31594340026`. A Vercel publicou `1e91d27` em produção e o `build-info.json` do domínio canônico
+  confirma esse SHA.
+- Smoke autenticado do SHA final: `e2e/staff.spec.ts` passou 10/10 tanto localmente quanto no
+  Actions, cobrindo Chrome desktop e Pixel 5, login válido/inválido e isolamento por tenant.
+  O workflow completo `31594487292` ficou 32/50 porque os 18 testes dependentes do Portal usam
+  códigos secretos do Actions divergentes do fixture local; os testes de build/PWA e todos os de
+  staff passaram. Os códigos não foram copiados entre sistemas sem autorização específica.
 
 Este documento substitui e torna obsoletos:
 
