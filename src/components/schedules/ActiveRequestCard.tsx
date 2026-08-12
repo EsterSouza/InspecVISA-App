@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   CalendarDays,
   CheckCircle,
@@ -14,9 +14,11 @@ import {
   Phone,
   Play,
   Trash2,
+  Video,
   XCircle,
 } from 'lucide-react';
 import type { AppointmentRequest } from '../../types';
+import { AppointmentAdminService } from '../../services/appointmentAdminService';
 import { Button } from '../ui/Button';
 import { Card, CardContent } from '../ui/Card';
 import { STATUS_BADGES, STATUS_LABELS, formatDateBR } from './appointmentRequestsShared';
@@ -73,7 +75,25 @@ export function ActiveRequestCard({
   const [nutritionInput, setNutritionInput] = useState<string>(
     request.nutrition_score != null ? String(request.nutrition_score) : ''
   );
+  const [meetingUrl, setMeetingUrl] = useState(request.meeting_url || '');
+  const [meetingBusy, setMeetingBusy] = useState(false);
+  const [meetingSaved, setMeetingSaved] = useState(false);
+  useEffect(() => setMeetingUrl(request.meeting_url || ''), [request.meeting_url]);
   const isClosed = request.status === 'report_available' || request.status === 'cancelled';
+
+  const saveMeetingUrl = async () => {
+    setMeetingBusy(true);
+    setMeetingSaved(false);
+    try {
+      await AppointmentAdminService.setMeetingUrl(request, meetingUrl);
+      setMeetingUrl(meetingUrl.trim());
+      setMeetingSaved(true);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Não foi possível salvar o link da videoconferência.');
+    } finally {
+      setMeetingBusy(false);
+    }
+  };
 
   return (
     <Card className="shadow-sm">
@@ -198,6 +218,38 @@ export function ActiveRequestCard({
             </div>
             {busy && <Loader2 className="h-5 w-5 shrink-0 animate-spin text-primary-600" aria-hidden="true" />}
           </div>
+
+          {request.attendance_mode === 'online' && (
+            <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3">
+              <label htmlFor={`meeting-url-${request.id}`} className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+                <Video className="h-4 w-4 text-blue-700" /> Link da videoconferência
+              </label>
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                <input
+                  id={`meeting-url-${request.id}`}
+                  type="url"
+                  inputMode="url"
+                  value={meetingUrl}
+                  onChange={(event) => {
+                    setMeetingUrl(event.target.value);
+                    setMeetingSaved(false);
+                  }}
+                  placeholder="https://meet.google.com/..."
+                  className="h-11 min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+                />
+                <Button type="button" variant="outline" size="sm" className="min-h-11" disabled={meetingBusy} onClick={() => void saveMeetingUrl()}>
+                  {meetingBusy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Video className="mr-1.5 h-4 w-4" />}
+                  Salvar link
+                </Button>
+                {meetingUrl.trim().startsWith('https://') && (
+                  <a href={meetingUrl.trim()} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center justify-center rounded-md px-3 text-sm font-semibold text-blue-700 hover:bg-blue-100">
+                    Abrir
+                  </a>
+                )}
+              </div>
+              {meetingSaved && <p role="status" className="mt-1 text-xs font-medium text-emerald-700">Link salvo e disponível no portal do cliente.</p>}
+            </div>
+          )}
 
           <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-3">
             <input

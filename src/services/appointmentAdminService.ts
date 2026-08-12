@@ -209,6 +209,30 @@ export const AppointmentAdminService = {
     if (error) throw error;
   },
 
+  async setMeetingUrl(request: AppointmentRequest, value: string): Promise<void> {
+    const meetingUrl = normalizeOptionalHttpsUrl(value, 'O link da videoconferência');
+    await this.updateRequest(request.id, { meeting_url: meetingUrl });
+
+    if (!request.schedule_id) return;
+    try {
+      const [{ ScheduleService }, { db }] = await Promise.all([
+        import('./scheduleService'),
+        import('../db/database'),
+      ]);
+      const schedule = await db.schedules.get(request.schedule_id);
+      if (schedule) {
+        await ScheduleService.saveSchedule({
+          ...schedule,
+          meetingUrl: meetingUrl || undefined,
+          updatedAt: new Date(),
+          syncStatus: 'pending',
+        });
+      }
+    } catch (err) {
+      console.warn('[AppointmentAdmin] Link salvo no portal, mas a agenda local não foi atualizada:', err);
+    }
+  },
+
   async getRequestByInspectionId(inspectionId: string): Promise<AppointmentRequest | null> {
     const tenantId = requireTenantId();
     const { data, error } = await withTimeout(
