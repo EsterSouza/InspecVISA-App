@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import type { ChecklistTemplate, InspectionResponse } from '../../types';
 import {
   composeChecklistTemplate,
+  customItemMeta,
   nextCustomItemOrder,
   normalizeCustomItems,
   PREVIOUS_PENDING_SECTION_ID,
@@ -35,6 +36,15 @@ function response(itemId: string, overrides: Partial<InspectionResponse> = {}): 
 }
 
 describe('persistent custom checklist items', () => {
+  test('keeps the stable position when editing and forces critical items to weight ten', () => {
+    expect(customItemMeta('s1', 7, true, 2)).toEqual({
+      sectionId: 's1', order: 7, weight: 10, isCritical: true, state: 'active',
+    });
+    expect(customItemMeta('s1', 7, false, 5)).toEqual({
+      sectionId: 's1', order: 7, weight: 5, isCritical: false, state: 'active',
+    });
+  });
+
   test('normalizes only legacy extras with stable sequential order and default weight one', () => {
     const normalized = normalizeCustomItems([
       response('extra|s1|old-1'),

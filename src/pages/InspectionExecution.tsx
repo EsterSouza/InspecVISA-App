@@ -122,6 +122,7 @@ export function InspectionExecution() {
   const [showTeamResponses, setShowTeamResponses] = useState(false);
   const [historyComplete, setHistoryComplete] = useState(navigator.onLine);
   const [extraItemSectionId, setExtraItemSectionId] = useState<string | null>(null);
+  const [editingExtraItemId, setEditingExtraItemId] = useState<string | null>(null);
   const [extraDescription, setExtraDescription] = useState('');
   const [extraCritical, setExtraCritical] = useState(false);
   const [extraWeight, setExtraWeight] = useState<1 | 2 | 5 | 10>(1);
@@ -517,25 +518,25 @@ export function InspectionExecution() {
     }
   }, []);
 
-  const handleEditDescription = useCallback(async (itemId: string, customDescription: string) => {
+  const closeExtraItemModal = useCallback(() => {
+    setExtraItemSectionId(null);
+    setEditingExtraItemId(null);
+  }, []);
+
+  const handleEditExtraItem = useCallback((itemId: string) => {
     const state = useInspectionStore.getState();
     const existing = state.responses.find(r => r.itemId === itemId);
-    if (existing) {
-      const actor = getLocalActor();
-      const updated = { ...existing, customDescription, updatedAt: new Date(), localActorId: actor.id, lastEditedBy: actor.name };
-      state.updateResponse(existing.id, { customDescription, localActorId: actor.id, lastEditedBy: actor.name });
-      void stampInspectionEditor(actor.name);
-
-      try {
-        await InspectionService.upsertResponse(updated);
-      } catch (err) {
-        console.error('Failed to sync custom description:', err);
-      }
-    }
-  }, [stampInspectionEditor]);
+    if (!existing?.customItemMeta || existing.customItemMeta.state !== 'active') return;
+    setEditingExtraItemId(itemId);
+    setExtraItemSectionId(existing.customItemMeta.sectionId);
+    setExtraDescription(existing.customDescription || '');
+    setExtraCritical(existing.customItemMeta.isCritical);
+    setExtraWeight(existing.customItemMeta.weight);
+  }, []);
 
 
   const handleAddExtraItem = useCallback((sectionId: string) => {
+    setEditingExtraItemId(null);
     setExtraItemSectionId(sectionId);
     setExtraDescription('');
     setExtraCritical(false);
@@ -573,12 +574,13 @@ export function InspectionExecution() {
     void stampInspectionEditor(actor.name);
     try {
       await InspectionService.upsertResponse(newResponse);
-      setExtraItemSectionId(null);
+      closeExtraItemModal();
     } catch (err) {
       console.error('Failed to sync extra item:', err);
     }
   }, [
     collaborationTemplate,
+    closeExtraItemModal,
     effectiveTemplate,
     extraCritical,
     extraDescription,
@@ -586,6 +588,35 @@ export function InspectionExecution() {
     extraWeight,
     stampInspectionEditor,
   ]);
+
+  const handleUpdateExtraItem = useCallback(async () => {
+    const state = useInspectionStore.getState();
+    const existing = state.responses.find(response => response.itemId === editingExtraItemId);
+    if (!existing?.customItemMeta || !extraDescription.trim()) return;
+    const actor = getLocalActor();
+    const updated: InspectionResponse = {
+      ...existing,
+      customDescription: extraDescription.trim(),
+      customItemMeta: customItemMeta(
+        existing.customItemMeta.sectionId,
+        existing.customItemMeta.order,
+        extraCritical,
+        extraWeight,
+      ),
+      updatedAt: new Date(),
+      localActorId: actor.id,
+      lastEditedBy: actor.name,
+      syncStatus: 'pending',
+    };
+    await state.updateResponse(existing.id, updated);
+    void stampInspectionEditor(actor.name);
+    try {
+      await InspectionService.upsertResponse(updated);
+      closeExtraItemModal();
+    } catch (err) {
+      console.error('Failed to sync edited extra item:', err);
+    }
+  }, [closeExtraItemModal, editingExtraItemId, extraCritical, extraDescription, extraWeight, stampInspectionEditor]);
 
   const handleRemoveExtraItem = useCallback(async (itemId: string) => {
     const state = useInspectionStore.getState();
@@ -1144,7 +1175,7 @@ export function InspectionExecution() {
                         clientDeclaration={clientDeclarations.get(item.id)}
                         onChange={handleResponseChange}
                         onUpdateDetails={handleUpdateDetails}
-                        onEditDescription={item.id.startsWith('extra|') ? handleEditDescription : undefined}
+                        onEdit={item.id.startsWith('extra|') ? handleEditExtraItem : undefined}
                         onDelete={item.id.startsWith('extra|') ? handleRemoveExtraItem : undefined}
                         onAddPhoto={handleAddPhoto}
                         onRemovePhoto={handleRemovePhoto}
@@ -1179,12 +1210,17 @@ export function InspectionExecution() {
 
       <Modal
         isOpen={extraItemSectionId !== null}
-        onClose={() => setExtraItemSectionId(null)}
-        title="Adicionar item extra"
+        onClose={closeExtraItemModal}
+        title={editingExtraItemId ? "Editar item extra" : "Adicionar item extra"}
         footer={(
           <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => setExtraItemSectionId(null)}>Cancelar</Button>
-            <Button disabled={!extraDescription.trim()} onClick={handleCreateExtraItem}>Adicionar</Button>
+            <Button variant="outline" onClick={closeExtraItemModal}>Cancelar</Button>
+            <Button
+              disabled={!extraDescription.trim()}
+              onClick={editingExtraItemId ? handleUpdateExtraItem : handleCreateExtraItem}
+            >
+              {editingExtraItemId ? 'Salvar alterações' : 'Adicionar'}
+            </Button>
           </div>
         )}
       >

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, memo } from 'react';
-import { AlertTriangle, ExternalLink, LogIn, FileCheck2, MessageSquare, Trash2 } from 'lucide-react';
+import { AlertTriangle, ExternalLink, LogIn, FileCheck2, MessageSquare, Pencil, Trash2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Badge } from '../ui/Badge';
 import { PhotoCapture } from './PhotoCapture';
@@ -31,7 +31,7 @@ interface ChecklistItemProps {
   onUpdateDetails: (itemId: string, details: Partial<InspectionResponse>) => void;
   onAddPhoto: (itemId: string, photo: Omit<InspectionPhoto, 'id'>) => void | Promise<void>;
   onRemovePhoto: (itemId: string, id: string) => void;
-  onEditDescription?: (itemId: string, description: string) => void;
+  onEdit?: (itemId: string) => void;
   onDelete?: (itemId: string) => void;
 }
 
@@ -175,7 +175,7 @@ export const ChecklistItem = memo(function ChecklistItem({
   onUpdateDetails,
   onAddPhoto,
   onRemovePhoto,
-  onEditDescription,
+  onEdit,
   onDelete,
 }: ChecklistItemProps) {
   const [showObs, setShowObs] = useState(!!response?.situationDescription || !!response?.correctiveAction || (response?.photos?.length ?? 0) > 0 || (response?.links?.length ?? 0) > 0);
@@ -319,6 +319,16 @@ export const ChecklistItem = memo(function ChecklistItem({
                 )}
               </span>
             )}
+            {onEdit && (
+              <button
+                type="button"
+                onClick={() => onEdit(item.id)}
+                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-primary-600 hover:bg-primary-50"
+                aria-label={'Editar item extra ' + item.description}
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+            )}
             {onDelete && (
               <button
                 type="button"
@@ -331,18 +341,7 @@ export const ChecklistItem = memo(function ChecklistItem({
             )}
           </div>
 
-          <p 
-            className={cn(
-              "text-[15px] font-medium leading-relaxed text-gray-900 mt-2",
-              item.id.startsWith('extra|') && "cursor-pointer hover:text-primary-600 border-b border-dashed border-transparent hover:border-primary-300"
-            )}
-            onClick={() => {
-              if (item.id.startsWith('extra|') && onEditDescription) {
-                const newDesc = window.prompt('Editar item:', response?.customDescription || item.description);
-                if (newDesc !== null) onEditDescription(item.id, newDesc);
-              }
-            }}
-          >
+          <p className="mt-2 text-[15px] font-medium leading-relaxed text-gray-900">
             {item.id.startsWith('extra|') ? (response?.customDescription || item.description) : item.description}
           </p>
         </div>
