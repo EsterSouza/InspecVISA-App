@@ -1,9 +1,30 @@
 # Handoff único — InspecVISA
 
-**Última atualização:** 08/08/2026 (BRT), ao concluir o P360-015 (procedimento de liberação;
-sem migration, mas com dados de homologação criados em produção — ver `docs/rollout.md`) ·
+**Última atualização:** 12/08/2026 (BRT), ao concluir o card de plano de ação automático e
+itens extras persistentes (migration `20260812112448`) ·
 **Branch:** `main`, sincronizada com `origin/main` · O estado da seção 2 foi verificado em 03/08/2026,
 com as correções de 04/08 e 05/08 anotadas nas tabelas.
+
+### Resultado — 12/08/2026 — plano de ação automático e itens extras persistentes
+
+- Commit da implementação: `e93962a` (`Automate recurring action plans and custom items`).
+- Toda abertura/reabertura de inspeção em andamento deriva pendências de todo o histórico
+  concluído da unidade; NC abre/atualiza, conforme fecha, N/A/NO/sem resposta não fecha.
+  A semeadura é somente dos itens ausentes e preserva respostas, textos e fotos em andamento.
+- Itens extras têm ID, seção, ordem, criticidade, peso e estado persistentes; exclusão é lógica.
+  Somente extras legados de inspeções em andamento são normalizados. Relatórios concluídos e
+  versões congeladas não recebem backfill nem reescrita.
+- Finalização sincroniza o rascunho, reconcilia evidências confirmadas e pendências em uma RPC
+  transacional/idempotente e só então marca a inspeção concluída e congela o relatório.
+- Produção: migration `20260812112448_automatic_action_plan_custom_items` aplicada no projeto
+  `pfjacmawaigndqclgvpn`. Pós-check: 3 inspeções e 349 respostas ativas preservadas; nenhum dos
+  extras concluídos recebeu metadata; `anon` não executa as RPCs novas/de bundle.
+- Validação local: `npm test` — 44 arquivos/342 testes; `npm run build` — passou. PDF sintético
+  real — 4 páginas A4, com extra crítico e pendência de roteiro anterior confirmados por leitura
+  de todas as páginas. O lint global segue falhando pela dívida anterior (504 erros, inclusive
+  binários em `_local-nao-versionado`); nenhum erro novo bloqueou TypeScript/build.
+- Teste SQL novo: `supabase/tests/automatic_action_plan_custom_items.test.sql`; será executado na
+  CI em Postgres 16 após o push, pois Docker/Postgres local não estava disponível neste host.
 
 Este documento substitui e torna obsoletos:
 
