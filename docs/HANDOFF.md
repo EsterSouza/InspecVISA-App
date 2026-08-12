@@ -5,6 +5,22 @@ itens extras persistentes (migration `20260812112448`) ·
 **Branch:** `main`, sincronizada com `origin/main` · O estado da seção 2 foi verificado em 03/08/2026,
 com as correções de 04/08 e 05/08 anotadas nas tabelas.
 
+### Correção urgente — 12/08/2026 — separação Saúde/Nutrição nas pendências
+
+- Commit funcional: `c07c48d`. O compositor não cria mais a seção artificial
+  “Pendências de inspeções anteriores” nem usa UUID como título. Pendências continuam nos itens e
+  seções normais quando pertencem ao roteiro efetivo.
+- Na abertura de inspeções, a semeadura agora respeita o recorte profissional selecionado. Itens e
+  extras de Nutrição não são pré-carregados na execução de Saúde, e vice-versa.
+- Auditoria somente leitura no Supabase confirmou que o UUID da captura pertence à seção
+  “Serviço de Nutrição” do roteiro ILPI. Nenhum dado, resposta ou relatório histórico foi apagado
+  ou reescrito; não foi necessária nova migration.
+- Validação: 45 arquivos/346 testes e build local aprovados; CI obrigatório
+  `31597671823` aprovado (build, testes e suítes SQL); produção confirmou o SHA `c07c48d`.
+  Smoke autenticado focado da equipe: 10/10 em Chrome desktop e Pixel 5. O workflow E2E completo
+  `31597845420` repetiu a pendência externa já conhecida: 32/50, com os 18 testes do Portal
+  falhando; os testes da equipe passaram.
+
 ### Resultado — 12/08/2026 — plano de ação automático e itens extras persistentes
 
 - Commits: `e93962a` (implementação), `9adde97` (rollout inicial) e `1e91d27`
