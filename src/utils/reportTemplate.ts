@@ -1,23 +1,16 @@
 import { getEffectiveTemplate } from '../data/templates';
-import type { ChecklistItem, ChecklistTemplate, Inspection, InspectionResponse, Section } from '../types';
+import type { ChecklistTemplate, Inspection, InspectionResponse, Section } from '../types';
 
 function cloneTemplate(template: ChecklistTemplate): ChecklistTemplate {
   return JSON.parse(JSON.stringify(template));
 }
 
-function recoveryItem(response: InspectionResponse, order: number): ChecklistItem {
-  const custom = response.customItemMeta;
-  return {
-    id: response.itemId,
-    sectionId: custom?.sectionId || 'sec-report-recovered',
-    order: custom?.order || order,
-    description:
-      response.customDescription ||
-      response.situationDescription ||
-      `Item preservado do relatorio concluido (${response.itemId})`,
-    weight: custom?.weight || 1,
-    isCritical: custom?.isCritical || false,
-  };
+function withoutSyntheticSections(template: ChecklistTemplate): ChecklistTemplate {
+  const sections = template.sections.filter(section =>
+    section.id !== 'sec-report-recovered'
+    && section.id !== 'sec-previous-pendencies'
+  );
+  return sections.length === template.sections.length ? template : { ...template, sections };
 }
 
 /**
@@ -30,14 +23,18 @@ export function buildLegacyCompletedReportTemplate(
   inspection: Inspection,
   responses: InspectionResponse[]
 ): ChecklistTemplate {
-  const effectiveTemplate = getEffectiveTemplate(baseTemplate, inspection as any, undefined, true);
+  const effectiveTemplate = getEffectiveTemplate(
+    baseTemplate,
+    inspection as unknown as Parameters<typeof getEffectiveTemplate>[1],
+    undefined,
+    true,
+  );
   const baseItemIds = new Set(baseTemplate.sections.flatMap(section => section.items.map(item => item.id)));
   const responseIds = new Set(
     responses
       .filter(response => response.itemId && !response.deletedAt)
       .map(response => response.itemId)
   );
-  const representedIds = new Set<string>();
   let retainedSupplementItems = 0;
 
   const sections: Section[] = effectiveTemplate.sections
@@ -46,26 +43,12 @@ export function buildLegacyCompletedReportTemplate(
       items: section.items.filter(item => {
         const shouldKeep = baseItemIds.has(item.id) || responseIds.has(item.id);
         if (shouldKeep) {
-          representedIds.add(item.id);
           if (!baseItemIds.has(item.id)) retainedSupplementItems += 1;
         }
         return shouldKeep;
       }),
     }))
     .filter(section => section.items.length > 0);
-
-  const missingResponses = responses
-    .filter(response => response.itemId && !response.deletedAt && !representedIds.has(response.itemId))
-    .filter((response, index, all) => all.findIndex(candidate => candidate.itemId === response.itemId) === index);
-
-  if (missingResponses.length > 0) {
-    sections.push({
-      id: 'sec-report-recovered',
-      title: 'Itens preservados do roteiro concluido',
-      order: Math.max(0, ...sections.map(section => section.order)) + 1,
-      items: missingResponses.map((response, index) => recoveryItem(response, index + 1)),
-    });
-  }
 
   const template = cloneTemplate(effectiveTemplate);
   template.sections = sections;
@@ -96,9 +79,14 @@ export function resolveReportTemplate(
     // Usa o snapshot apenas quando ele cobre todas as respostas avaliadas. Se
     // estiver incompleto (ex.: congelado sem a nutrição), reconstrói a partir do
     // roteiro completo — assim relatórios já afetados se auto-corrigem ao abrir.
-    if (snapshot && snapshotCoversResponses(snapshot, responses)) return snapshot;
+    if (snapshot && snapshotCoversResponses(snapshot, responses)) return withoutSyntheticSections(snapshot);
     return buildLegacyCompletedReportTemplate(baseTemplate, inspection, responses);
   }
 
-  return getEffectiveTemplate(baseTemplate, inspection as any, undefined, true);
+  return getEffectiveTemplate(
+    baseTemplate,
+    inspection as unknown as Parameters<typeof getEffectiveTemplate>[1],
+    undefined,
+    true,
+  );
 }
