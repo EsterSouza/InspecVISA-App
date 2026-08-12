@@ -1,5 +1,5 @@
 import React, { useState, useEffect, memo } from 'react';
-import { AlertTriangle, ExternalLink, LogIn, FileCheck2, MessageSquare } from 'lucide-react';
+import { AlertTriangle, ExternalLink, LogIn, FileCheck2, MessageSquare, Trash2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Badge } from '../ui/Badge';
 import { PhotoCapture } from './PhotoCapture';
@@ -32,6 +32,7 @@ interface ChecklistItemProps {
   onAddPhoto: (itemId: string, photo: Omit<InspectionPhoto, 'id'>) => void | Promise<void>;
   onRemovePhoto: (itemId: string, id: string) => void;
   onEditDescription?: (itemId: string, description: string) => void;
+  onDelete?: (itemId: string) => void;
 }
 
 const EVIDENCE_LABELS: Record<ClientEvidenceForItem['status'], string> = {
@@ -175,6 +176,7 @@ export const ChecklistItem = memo(function ChecklistItem({
   onAddPhoto,
   onRemovePhoto,
   onEditDescription,
+  onDelete,
 }: ChecklistItemProps) {
   const [showObs, setShowObs] = useState(!!response?.situationDescription || !!response?.correctiveAction || (response?.photos?.length ?? 0) > 0 || (response?.links?.length ?? 0) > 0);
 
@@ -316,6 +318,16 @@ export const ChecklistItem = memo(function ChecklistItem({
                   </a>
                 )}
               </span>
+            )}
+            {onDelete && (
+              <button
+                type="button"
+                onClick={() => onDelete(item.id)}
+                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-red-600 hover:bg-red-50"
+                aria-label={'Excluir item extra ' + item.description}
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
             )}
           </div>
 

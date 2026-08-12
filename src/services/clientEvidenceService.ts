@@ -124,6 +124,20 @@ export const ClientEvidenceService = {
     return { evidence: byItem, declarations: lastDeclarations };
   },
 
+  async reconcileInspection(inspectionId: string, confirmedEvidenceIds: string[]) {
+    const { data, error } = await supabase.rpc('admin_reconcile_inspection_action_plan', {
+      p_inspection_id: inspectionId,
+      p_confirmed_evidence_ids: confirmedEvidenceIds,
+    });
+    if (error) throw error;
+    if (!data?.ok) throw new Error(data?.error || 'Falha ao reconciliar o plano de ação.');
+    return data as {
+      ok: boolean;
+      approvedEvidenceCount: number;
+      resolvedItemCount: number;
+    };
+  },
+
   /** URL temporária para abrir o arquivo na tela. Expira; basta pedir de novo. */
   async signedUrl(evidence: Pick<ClientEvidenceForItem, 'storageBucket' | 'storagePath'>): Promise<string | null> {
     const { data, error } = await supabase.storage

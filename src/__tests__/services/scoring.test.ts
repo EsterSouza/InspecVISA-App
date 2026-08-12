@@ -52,4 +52,32 @@ describe('calculateScore', () => {
 
     expect(result).toEqual([latest]);
   });
+
+  test('keeps original items at one point and applies weight only to custom items', () => {
+    const weightedSections: Section[] = [{
+      ...sections[0],
+      items: [
+        { ...sections[0].items[0], weight: 10 },
+        { id: 'extra|s1|1', sectionId: 's1', order: 2, description: 'Extra', weight: 5, isCritical: false },
+      ],
+    }];
+    const score = calculateScore([
+      response({ itemId: 'item-1', result: 'complies' }),
+      response({
+        itemId: 'extra|s1|1',
+        result: 'not_complies',
+        customItemMeta: { sectionId: 's1', order: 2, weight: 5, isCritical: false, state: 'active' },
+      }),
+    ], weightedSections);
+
+    expect(score.scorePercentage).toBeCloseTo(100 / 6);
+  });
+
+  test('excludes not applicable and not observed from the weighted denominator', () => {
+    const score = calculateScore([
+      response({ itemId: 'item-1', result: 'complies' }),
+      response({ itemId: 'item-2', result: 'not_applicable' }),
+    ], sections);
+    expect(score.scorePercentage).toBe(100);
+  });
 });

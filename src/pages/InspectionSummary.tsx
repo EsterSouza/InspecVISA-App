@@ -23,6 +23,7 @@ import { belongsToActiveTenant, filterByActiveTenant } from '../utils/localScope
 import { buildRecoveryTemplate } from '../utils/templateRecovery';
 import { resolveReportTemplate } from '../utils/reportTemplate';
 import { withClientLocation } from '../utils/inspectionLocation';
+import { composeChecklistTemplate } from '../utils/customItems';
 
 const PDF_PHOTO_HYDRATION_TIMEOUT_MS = 12000;
 
@@ -215,7 +216,8 @@ export function InspectionSummary() {
 
   const displayTemplate = useMemo(() => {
     if (!currentInspection) return null;
-    return template || buildRecoveryTemplate(currentInspection, responses);
+    const baseTemplate = template || buildRecoveryTemplate(currentInspection, responses);
+    return composeChecklistTemplate(baseTemplate, responses);
   }, [currentInspection, responses, template]);
 
   const scoreArea = useMemo(() => {
@@ -350,15 +352,31 @@ export function InspectionSummary() {
        const { getRecurringItemIdsForClient } = await import('../utils/actionPlanContext');
        const recurringItemIds = await getRecurringItemIdsForClient(currentInspection.clientId, currentInspection.id)
          .catch(() => new Set<string>());
-       // REL-03: o que o cliente alegou ter corrigido entra no relatório final. Registro
-       // textual sempre; a imagem é baixada aqui e embutida só para o que foi aprovado. Sem
-       // rede, o PDF sai igual ao de antes — nunca falha por causa disto.
+       // Evidência confirmada pela consultora precisa ser recarregada como aprovada antes
+       // do relatório; assim a finalização nunca omite silenciosamente uma prova aceita.
        const { ClientEvidenceService } = await import('../services/clientEvidenceService');
-       const clientEvidenceByItemId = await ClientEvidenceService.prepareForReport(currentInspection.clientId)
-         .catch((err) => {
-           console.warn('[Summary] Evidencia do cliente indisponivel para o relatorio:', err);
-           return undefined;
-         });
+       const confirmedEvidenceIds = new Set(pdfResponses.flatMap(response => response.confirmedClientEvidenceIds || []));
+       const clientEvidenceByItemId = confirmedEvidenceIds.size > 0
+         ? await ClientEvidenceService.prepareForReport(currentInspection.clientId)
+         : await ClientEvidenceService.prepareForReport(currentInspection.clientId).catch((err) => {
+             console.warn('[Summary] Evidencia do cliente indisponivel para o relatorio:', err);
+             return undefined;
+           });
+       if (confirmedEvidenceIds.size > 0) {
+         const approvedEvidence = new Map(
+           [...(clientEvidenceByItemId?.evidence.values() || [])]
+             .flat()
+             .filter(evidence => evidence.status === 'approved')
+             .map(evidence => [evidence.evidenceId, evidence]),
+         );
+         for (const evidenceId of confirmedEvidenceIds) {
+           const evidence = approvedEvidence.get(evidenceId);
+           if (!evidence) throw new Error('A evidência confirmada ainda não foi aprovada no servidor. Tente finalizar novamente.');
+           if (evidence.mimeType.startsWith('image/') && !evidence.imageDataUrl) {
+             throw new Error('A imagem de evidência aprovada não pôde ser carregada. Tente gerar o PDF novamente com conexão.');
+           }
+         }
+       }
        const generatedPdf = await generatePDF(
          currentInspection,
          pdfResponses,
@@ -389,7 +407,7 @@ export function InspectionSummary() {
            // evitando digitação manual. Em não-ILPI grava só o global. Não bloqueia
            // a publicação se falhar. Ver ilpi-score-por-area-ester-ana.
            try {
-             const areaScores = calculateAreaScores(responses, displayTemplate.sections);
+             const areaScores = calculateAreaScores(pdfResponses, displayTemplate.sections);
              const clamp = (p: number) => Math.max(0, Math.min(100, Math.round(p)));
              const split = displayTemplate.category === 'ilpi' && areaScores.isSplit;
              await AppointmentAdminService.setComplianceScore(linkedRequest, clamp(areaScores.global.scorePercentage));

@@ -137,6 +137,7 @@ export function mapToPostgres(inspection: Inspection): any {
     accompanist_name: inspection.accompanistName || null,
     accompanist_role: inspection.accompanistRole || null,
     signature_data_url: inspection.signatureDataUrl || null,
+    completed_at: inspection.completedAt ? inspection.completedAt.toISOString() : null,
     last_edited_by: inspection.lastEditedBy || null,
     finalized_by: inspection.finalizedBy && inspection.finalizedBy.length > 0 ? inspection.finalizedBy : [],
     deleted_at: inspection.deletedAt ? inspection.deletedAt.toISOString() : null,
@@ -158,6 +159,8 @@ export function mapResponseToPostgres(response: InspectionResponse): any {
     deadline: response.deadline || null,
     custom_description: response.customDescription || null,
     links: response.links && response.links.length > 0 ? response.links : null,
+    custom_item_meta: response.customItemMeta || null,
+    confirmed_client_evidence_ids: response.confirmedClientEvidenceIds || [],
     last_edited_by: response.lastEditedBy || null,
     deleted_at: response.deletedAt ? response.deletedAt.toISOString() : null,
     updated_at: response.updatedAt.toISOString(),
@@ -178,6 +181,10 @@ export function mapResponseFromPostgres(row: any): InspectionResponse {
     deadline: row.deadline,
     customDescription: row.custom_description,
     links: Array.isArray(row.links) && row.links.length > 0 ? row.links : undefined,
+    customItemMeta: row.custom_item_meta || undefined,
+    confirmedClientEvidenceIds: Array.isArray(row.confirmed_client_evidence_ids)
+      ? row.confirmed_client_evidence_ids
+      : [],
     lastEditedBy: row.last_edited_by || undefined,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at || row.created_at),
@@ -725,6 +732,32 @@ export const InspectionService = {
     return local;
   },
 
+  async getResponsesIncludingDeleted(inspectionId: string): Promise<InspectionResponse[]> {
+    if (navigator.onLine) {
+      try {
+        const { data, error } = await RepositoryService.withTimeout(
+          supabase.from('responses').select('*').eq('inspection_id', inspectionId),
+          25000,
+          `ResponsesIncludingDeleted_${inspectionId}`,
+        ) as any;
+        if (error) throw error;
+        for (const row of data || []) {
+          await RepositoryService.mergeRemoteRecord(
+            db.responses,
+            mapResponseFromPostgres(row),
+            { label: 'respostas ativas e descontinuadas' },
+          );
+        }
+      } catch (err) {
+        console.warn('[InspectionService] Respostas descontinuadas indisponiveis; usando cache local:', err);
+      }
+    }
+    return filterByActiveTenant(await db.responses
+      .where('inspectionId')
+      .equals(inspectionId)
+      .toArray());
+  },
+
   async getRemoteInspectionSnapshot(inspectionId: string): Promise<RemoteInspectionSnapshot> {
     if (!navigator.onLine) {
       throw new Error('Conecte-se à internet para consultar o preenchimento sincronizado.');
@@ -1093,6 +1126,60 @@ export const InspectionService = {
    * Resolve o sintoma de "respostas das inspeções antigas não aparecem" em telas
    * que leem apenas o cache local (Dashboard, listas e agregados).
    */
+  async hydrateClientHistory(clientId: string): Promise<boolean> {
+    if (!navigator.onLine) return false;
+    try {
+      const inspectionRows: any[] = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await supabase
+          .from('inspections')
+          .select('*')
+          .eq('client_id', clientId)
+          .eq('status', 'completed')
+          .is('deleted_at', null)
+          .order('inspection_date', { ascending: true })
+          .range(from, from + 999);
+        if (error) throw error;
+        inspectionRows.push(...(data || []));
+        if (!data || data.length < 1000) break;
+      }
+
+      for (const row of inspectionRows) {
+        await RepositoryService.mergeRemoteRecord(
+          db.inspections,
+          mapFromPostgres(row),
+          { label: 'historico completo da unidade' },
+        );
+      }
+
+      const inspectionIds = inspectionRows.map(row => row.id as string);
+      for (let offset = 0; offset < inspectionIds.length; offset += 100) {
+        const chunk = inspectionIds.slice(offset, offset + 100);
+        for (let from = 0; ; from += 1000) {
+          const { data, error } = await supabase
+            .from('responses')
+            .select('*')
+            .in('inspection_id', chunk)
+            .order('updated_at', { ascending: true })
+            .range(from, from + 999);
+          if (error) throw error;
+          for (const row of data || []) {
+            await RepositoryService.mergeRemoteRecord(
+              db.responses,
+              mapResponseFromPostgres(row),
+              { label: 'respostas do historico completo' },
+            );
+          }
+          if (!data || data.length < 1000) break;
+        }
+      }
+      return true;
+    } catch (err) {
+      console.warn('[InspectionService] Historico completo indisponivel; usando cache local:', err);
+      return false;
+    }
+  },
+
   async hydrateTenantResponses(force = false): Promise<number> {
     if (!navigator.onLine) return 0;
     const tenantId = getActiveTenantId() || null;

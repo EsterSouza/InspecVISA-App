@@ -56,6 +56,12 @@ function responseTime(response: InspectionResponse) {
   return response.updatedAt?.getTime?.() || response.createdAt?.getTime?.() || 0;
 }
 
+function scoreWeight(response: InspectionResponse) {
+  return response.customItemMeta?.state === 'active'
+    ? response.customItemMeta.weight
+    : 1;
+}
+
 export function getLatestResponsesByItem(
   responses: InspectionResponse[],
   itemIds?: Set<string>
@@ -112,8 +118,14 @@ export function calculateScore(responses: InspectionResponse[], sections: Sectio
   const notEvaluatedCount = Math.max(0, totalItemsCount - evaluatedCount);
 
   // Bug 2: scorePercentage denominator = only items that ARE C or NC (exclude NA/NO/Unanswered)
-  const scoreDenominator = compliesCount + notCompliesCount;
-  const scorePercentage = scoreDenominator > 0 ? (compliesCount / scoreDenominator) * 100 : 0;
+  const compliesPoints = evaluatedResponses
+    .filter((r: InspectionResponse) => r.result === 'complies')
+    .reduce((sum, response) => sum + scoreWeight(response), 0);
+  const notCompliesPoints = evaluatedResponses
+    .filter((r: InspectionResponse) => r.result === 'not_complies')
+    .reduce((sum, response) => sum + scoreWeight(response), 0);
+  const scoreDenominator = compliesPoints + notCompliesPoints;
+  const scorePercentage = scoreDenominator > 0 ? (compliesPoints / scoreDenominator) * 100 : 0;
 
   // Global MARP calculation
   const globalMarp = calcMARPValues(allItems, responseMap);
@@ -143,7 +155,13 @@ export function calculateScore(responses: InspectionResponse[], sections: Sectio
 
     const sCriticalNC = sUrgent;
     
-    const sDenom = sComplies + sNotComplies;
+    const sCompliesPoints = sEvaluated
+      .filter((r: InspectionResponse) => r.result === 'complies')
+      .reduce((sum, response) => sum + scoreWeight(response), 0);
+    const sNotCompliesPoints = sEvaluated
+      .filter((r: InspectionResponse) => r.result === 'not_complies')
+      .reduce((sum, response) => sum + scoreWeight(response), 0);
+    const sDenom = sCompliesPoints + sNotCompliesPoints;
     
     const sectionMarp = calcMARPValues(sectionItems, responseMap);
 
@@ -159,7 +177,7 @@ export function calculateScore(responses: InspectionResponse[], sections: Sectio
       importantActionsCount: sImportant,
       notApplicableCount: sEvaluated.filter((r: InspectionResponse) => r.result === 'not_applicable').length,
       notObservedCount: sEvaluated.filter((r: InspectionResponse) => r.result === 'not_observed').length,
-      scorePercentage: sDenom > 0 ? (sComplies / sDenom) * 100 : 0,
+      scorePercentage: sDenom > 0 ? (sCompliesPoints / sDenom) * 100 : 0,
       ...sectionMarp
     };
   });

@@ -1,7 +1,8 @@
 import { db } from '../db/database';
 import { getTemplateById, getTemplates } from '../data/templates';
 import { InspectionService } from '../services/inspectionService';
-import type { ChecklistItem, ChecklistTemplate, Inspection, InspectionPhoto, InspectionResponse, Section } from '../types';
+import type { ChecklistItem, ChecklistTemplate, CustomItemMeta, Inspection, InspectionPhoto, InspectionResponse, Section } from '../types';
+import { deriveOpenPendingItems } from './actionPlanState';
 import { filterByActiveTenant } from './localScope';
 
 export interface PreviousNCContext {
@@ -16,6 +17,7 @@ export interface PreviousNCContext {
   correctiveAction?: string;
   responsible?: string;
   deadline?: string;
+  customItemMeta?: CustomItemMeta;
   photos: InspectionPhoto[];
 }
 
@@ -31,11 +33,6 @@ function sortInspectionsNewestFirst(inspections: Inspection[]) {
     const bTime = new Date(b.inspectionDate || b.completedAt || b.createdAt).getTime();
     return bTime - aTime;
   });
-}
-
-function responseTime(response: InspectionResponse, inspectionsById: Map<string, Inspection>) {
-  const inspection = inspectionsById.get(response.inspectionId);
-  return new Date(inspection?.inspectionDate || response.updatedAt || response.createdAt).getTime();
 }
 
 async function templateForInspection(inspection: Inspection): Promise<ChecklistTemplate | undefined> {
@@ -112,8 +109,48 @@ async function buildContextItem(
     correctiveAction: response.correctiveAction,
     responsible: response.responsible,
     deadline: response.deadline,
+    customItemMeta: response.customItemMeta,
     photos,
   };
+}
+
+export interface OpenPendingHistory {
+  items: Map<string, PreviousNCContext>;
+  historyComplete: boolean;
+}
+
+export async function getOpenPendingHistory(
+  clientId: string,
+  excludeInspectionId?: string,
+): Promise<OpenPendingHistory> {
+  const historyComplete = await InspectionService.hydrateClientHistory(clientId);
+  const inspections = filterByActiveTenant(await db.inspections
+    .where('clientId')
+    .equals(clientId)
+    .filter(inspection =>
+      inspection.status === 'completed'
+      && !inspection.deletedAt
+      && inspection.id !== excludeInspectionId
+    )
+    .toArray());
+  if (inspections.length === 0) return { items: new Map(), historyComplete };
+
+  const responses = filterByActiveTenant(await db.responses
+    .where('inspectionId')
+    .anyOf(inspections.map(inspection => inspection.id))
+    .toArray());
+  const open = deriveOpenPendingItems(inspections, responses);
+  const photos = await photosByResponseId([...open.values()].map(item => item.response.id));
+  const items = new Map<string, PreviousNCContext>();
+  for (const [itemId, pending] of open) {
+    items.set(itemId, await buildContextItem(
+      pending.response,
+      pending.inspection,
+      pending.count,
+      photos.get(pending.response.id) || [],
+    ));
+  }
+  return { items, historyComplete };
 }
 
 export async function getPreviousNCContextByInspection(inspectionId: string): Promise<Map<string, PreviousNCContext>> {
@@ -177,11 +214,6 @@ export async function getRecurringItemIdsForClient(
 }
 
 export async function getClientActionPlanContext(clientId: string): Promise<ClientActionPlanContext> {
-  // NC recorrentes / plano aberto dependem de TODO o histórico de respostas estar
-  // no Dexie local. Aguarda a hidratação do tenant para não calcular vazio no
-  // desktop. Ver memória sync-no-full-response-hydration.
-  await InspectionService.hydrateTenantResponses().catch(() => {});
-
   const inspections = sortInspectionsNewestFirst(filterByActiveTenant(await db.inspections
     .where('clientId')
     .equals(clientId)
@@ -191,43 +223,15 @@ export async function getClientActionPlanContext(clientId: string): Promise<Clie
   if (inspections.length === 0) {
     return { latestOpenItems: [], recurringItems: [] };
   }
-
-  const inspectionsById = new Map(inspections.map(inspection => [inspection.id, inspection]));
-  const inspectionIds = inspections.map(inspection => inspection.id);
-  const responses = filterByActiveTenant(await db.responses
-    .where('inspectionId')
-    .anyOf(inspectionIds)
-    .filter(response => response.result === 'not_complies' && !response.deletedAt)
-    .toArray());
-
-  const photos = await photosByResponseId(responses.map(response => response.id));
-  const latestInspection = inspections[0];
-  const latestResponses = responses.filter(response => response.inspectionId === latestInspection.id);
-
-  const latestOpenItems = await Promise.all(latestResponses
-    .sort((a, b) => a.itemId.localeCompare(b.itemId))
-    .map(response => buildContextItem(response, latestInspection, 1, photos.get(response.id) || [])));
-
-  const byItem = new Map<string, InspectionResponse[]>();
-  for (const response of responses) {
-    const current = byItem.get(response.itemId) || [];
-    current.push(response);
-    byItem.set(response.itemId, current);
-  }
-
-  const recurringItems: PreviousNCContext[] = [];
-  for (const group of byItem.values()) {
-    if (group.length < 2) continue;
-    const latest = [...group].sort((a, b) => responseTime(b, inspectionsById) - responseTime(a, inspectionsById))[0];
-    const inspection = inspectionsById.get(latest.inspectionId);
-    if (!inspection) continue;
-    recurringItems.push(await buildContextItem(latest, inspection, group.length, photos.get(latest.id) || []));
-  }
-
-  recurringItems.sort((a, b) => b.count - a.count || b.inspectionDate.getTime() - a.inspectionDate.getTime());
+  const history = await getOpenPendingHistory(clientId);
+  const latestOpenItems = [...history.items.values()]
+    .sort((a, b) => b.inspectionDate.getTime() - a.inspectionDate.getTime() || a.itemId.localeCompare(b.itemId));
+  const recurringItems = latestOpenItems
+    .filter(item => item.count >= 2)
+    .sort((a, b) => b.count - a.count || b.inspectionDate.getTime() - a.inspectionDate.getTime());
 
   return {
-    latestInspection,
+    latestInspection: inspections[0],
     latestOpenItems,
     recurringItems,
   };

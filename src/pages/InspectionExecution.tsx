@@ -19,7 +19,15 @@ import { getLocalActor } from '../utils/localActor';
 import { belongsToActiveTenant, filterByActiveTenant } from '../utils/localScope';
 import { buildRecoveryTemplate } from '../utils/templateRecovery';
 import { withClientLocation } from '../utils/inspectionLocation';
-import { getPreviousNCContextByInspection, type PreviousNCContext } from '../utils/actionPlanContext';
+import { getOpenPendingHistory, type PreviousNCContext } from '../utils/actionPlanContext';
+import { filterMissingPendingItems } from '../utils/actionPlanState';
+import {
+  composeChecklistTemplate,
+  customItemMeta,
+  CUSTOM_ITEM_WEIGHTS,
+  nextCustomItemOrder,
+  normalizeCustomItems,
+} from '../utils/customItems';
 import {
   ClientEvidenceService,
   type ClientDeclarationByItem,
@@ -35,22 +43,27 @@ import { ChecklistItem } from '../components/inspection/ChecklistItem';
 import { ScorePanel } from '../components/inspection/ScorePanel';
 import { TeamResponsesViewer } from '../components/inspection/TeamResponsesViewer';
 import { SignaturePad } from '../components/ui/SignaturePad';
+import { Modal } from '../components/ui/Modal';
+import { Input } from '../components/ui/Input';
+import { Label } from '../components/ui/Label';
+import { Select } from '../components/ui/Select';
 
 // Pré-preenche uma nova inspeção (modo plano de ação) com as NCs da visita
 // anterior já marcadas como não conforme, copiando situação/ação/prazo/responsável.
 // A consultora então só edita o texto ou troca o resultado para "conforme" quando a
 // pendência foi sanada. As fotos antigas seguem visíveis apenas como referência
 // (caixa "Plano de ação anterior"); não são copiadas como evidência nova.
-async function seedActionPlanResponses(
+async function seedPendingResponses(
   inspectionId: string,
   previousNCs: Map<string, PreviousNCContext>,
+  existingItemIds: Set<string>,
   tenantId?: string,
 ): Promise<InspectionResponse[]> {
   const actor = getLocalActor();
   const now = new Date();
   const seeded: InspectionResponse[] = [];
 
-  for (const nc of previousNCs.values()) {
+  for (const nc of filterMissingPendingItems(previousNCs.values(), existingItemIds)) {
     const response: InspectionResponse = {
       id: generateId(),
       inspectionId,
@@ -60,7 +73,9 @@ async function seedActionPlanResponses(
       correctiveAction: nc.correctiveAction,
       responsible: nc.responsible,
       deadline: nc.deadline,
-      customDescription: nc.itemId.startsWith('extra|') ? nc.description : undefined,
+      customDescription: nc.description,
+      customItemMeta: nc.customItemMeta,
+      confirmedClientEvidenceIds: [],
       photos: [],
       createdAt: now,
       updatedAt: now,
@@ -83,7 +98,7 @@ async function seedActionPlanResponses(
 export function InspectionExecution() {
   const location = useLocation();
   const navigate = useNavigate();
-  const state = location.state as { inspectionId: string; previousInspectionId?: string; linkedScheduleId?: string; actionPlanMode?: boolean };
+  const state = location.state as { inspectionId: string; linkedScheduleId?: string };
   const linkedScheduleId = state?.linkedScheduleId;
   const {
     currentInspection,
@@ -105,6 +120,11 @@ export function InspectionExecution() {
   const [hideClientInfo, setHideClientInfo] = useState(false);
   const [photoHydration, setPhotoHydration] = useState<{ total: number; completed: number; failed: number } | null>(null);
   const [showTeamResponses, setShowTeamResponses] = useState(false);
+  const [historyComplete, setHistoryComplete] = useState(navigator.onLine);
+  const [extraItemSectionId, setExtraItemSectionId] = useState<string | null>(null);
+  const [extraDescription, setExtraDescription] = useState('');
+  const [extraCritical, setExtraCritical] = useState(false);
+  const [extraWeight, setExtraWeight] = useState<1 | 2 | 5 | 10>(1);
 
   useEffect(() => {
     const update = () => setIsOnline(navigator.onLine);
@@ -172,7 +192,7 @@ export function InspectionExecution() {
     setLoading(true);
     setLoadError(null);
     try {
-      const { inspectionId, previousInspectionId, actionPlanMode } = location.state || {};
+      const { inspectionId } = location.state || {};
       const id = inspectionId || currentInspection?.id;
 
       if (!id) {
@@ -258,25 +278,44 @@ export function InspectionExecution() {
           setCurrentInspection(enrichedInsp);
 
           // Editing must await cloud reconciliation so a fresh/empty cache cannot show a completed report as blank.
-          const resps = await InspectionService.getResponsesByInspectionId(id, true);
-          const localPhotos = await InspectionService.getPhotosByResponseIds(resps.map(r => r.id), false, { remote: false });
-          setResponses(attachPhotosToResponses(resps, localPhotos));
+          const remoteResponses = await InspectionService.getResponsesByInspectionId(id, true);
+          let workingResponses = remoteResponses;
+          if (enrichedInsp.status === 'in_progress') {
+            const allResponses = await InspectionService.getResponsesIncludingDeleted(id);
+            const normalizedResponses = normalizeCustomItems(allResponses, tpl?.sections || []);
+            for (const normalizedResponse of normalizedResponses) {
+              const original = allResponses.find(response => response.id === normalizedResponse.id);
+              if (!original?.customItemMeta && normalizedResponse.customItemMeta) {
+                await InspectionService.upsertResponse(normalizedResponse);
+              }
+            }
+            workingResponses = normalizedResponses.filter(response => !response.deletedAt);
+
+            const history = await getOpenPendingHistory(enrichedInsp.clientId, enrichedInsp.id);
+            setPreviousNCs(history.items);
+            setHistoryComplete(history.historyComplete);
+            const seeded = await seedPendingResponses(
+              id,
+              history.items,
+              new Set(workingResponses.map(response => response.itemId)),
+              enrichedInsp.tenantId,
+            );
+            workingResponses = [...workingResponses, ...seeded];
+          } else {
+            setPreviousNCs(new Map());
+            setHistoryComplete(true);
+          }
+
+          const localPhotos = await InspectionService.getPhotosByResponseIds(
+            workingResponses.map(response => response.id),
+            false,
+            { remote: false },
+          );
+          setResponses(attachPhotosToResponses(workingResponses, localPhotos));
           setLoading(false);
+          hydratePhotosInBackground(workingResponses.map(response => response.id));
 
-          const photos = await InspectionService.getPhotosByResponseIds(resps.map(r => r.id), true);
-          const respsWithPhotos = attachPhotosToResponses(resps, photos);
-
-          setResponses(respsWithPhotos);
-          hydratePhotosInBackground(resps.map(r => r.id));
-
-          // Load previous inspection NCs if applicable. `previousInspectionId` só chega
-          // via location.state na criação da inspeção; qualquer reabertura depois (lista,
-          // dashboard, ficha do cliente, "voltar a editar") navega só com { inspectionId }
-          // e perde esse dado. Sem isso a REINCIDÊNCIA some assim que a consultora sai e
-          // volta pra continuar a visita — recalcula pelo cliente quando não veio no state.
-          // REL-03: a evidência que o cliente mandou entre uma visita e outra. Fora do
-          // `await` da vistoria de propósito — é rede, e nada aqui pode segurar a abertura
-          // do roteiro dentro da casa.
+          // Evidências são carregadas sem bloquear a abertura do roteiro em campo.
           void ClientEvidenceService.byItemForClient(enrichedInsp.clientId)
             .then((result) => {
               setClientEvidence(result.evidence);
@@ -284,25 +323,6 @@ export function InspectionExecution() {
             })
             .catch((err) => console.warn('[Inspection] Evidencia do cliente indisponivel:', err));
 
-          const effectivePreviousInspectionId = previousInspectionId
-            || await InspectionService.getLastCompletedInspectionId(enrichedInsp.clientId, enrichedInsp.id).catch(() => undefined);
-
-          if (effectivePreviousInspectionId) {
-            const prevNCs = await getPreviousNCContextByInspection(effectivePreviousInspectionId);
-            setPreviousNCs(prevNCs);
-
-            // Modo plano de ação: se a nova inspeção ainda está vazia, semeia as NCs
-            // anteriores já preenchidas para a consultora só revisar/marcar como cumprida.
-            if (actionPlanMode && prevNCs.size > 0 && resps.length === 0) {
-              const seeded = await seedActionPlanResponses(id, prevNCs, enrichedInsp.tenantId);
-              if (seeded.length > 0) {
-                const seededPhotos = await InspectionService.getPhotosByResponseIds(seeded.map(r => r.id), false, { remote: false });
-                setResponses(attachPhotosToResponses(seeded, seededPhotos));
-              }
-            }
-          } else {
-            setPreviousNCs(new Map());
-          }
         } catch (err) {
           console.error('[loadData] Background enrichment error:', err);
           // Don't reset loading here — Phase 1 already showed data
@@ -329,6 +349,9 @@ export function InspectionExecution() {
 
   // Re-run loadData whenever the inspectionId in navigation state changes
   useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    if (isOnline && !historyComplete) void loadData();
+  }, [historyComplete, isOnline, loadData]);
 
   // ─── TEMPLATE RESOLUTION ──────────────────────────────────────────────────
   const effectiveTemplate = useMemo(() => {
@@ -336,8 +359,8 @@ export function InspectionExecution() {
     if (!template) return buildRecoveryTemplate(currentInspection, responses);
     const role = useSettingsStore.getState().settings.consultantRole || 'saude';
     const ctx = { ...currentInspection, category: (currentInspection as any).clientCategory || (currentInspection as any).category };
-    try { return getEffectiveTemplate(template, ctx as any, role, false); }
-    catch (err) { console.error('getEffectiveTemplate error:', err); return template; }
+    try { return composeChecklistTemplate(getEffectiveTemplate(template, ctx as any, role, false), responses); }
+    catch (err) { console.error('getEffectiveTemplate error:', err); return composeChecklistTemplate(template, responses); }
   }, [currentInspection, responses, template]);
 
   const visibleSections = effectiveTemplate?.sections || [];
@@ -348,8 +371,8 @@ export function InspectionExecution() {
     if (!currentInspection) return null;
     if (!template) return buildRecoveryTemplate(currentInspection, responses);
     const ctx = { ...currentInspection, category: (currentInspection as any).clientCategory || (currentInspection as any).category };
-    try { return getEffectiveTemplate(template, ctx as any, 'ambos', true); }
-    catch (err) { console.error('getEffectiveTemplate collaboration error:', err); return template; }
+    try { return composeChecklistTemplate(getEffectiveTemplate(template, ctx as any, 'ambos', true), responses); }
+    catch (err) { console.error('getEffectiveTemplate collaboration error:', err); return composeChecklistTemplate(template, responses); }
   }, [currentInspection, responses, template]);
 
   // ─── REALTIME SYNC: Listen for updates from Supabase ─────────────────────
@@ -395,17 +418,30 @@ export function InspectionExecution() {
     const state = useInspectionStore.getState();
     const existing = state.responses.find(r => r.itemId === itemId);
     const actor = getLocalActor();
+    const alreadyConfirmed = new Set(existing?.confirmedClientEvidenceIds || []);
+    const pendingEvidence = (clientEvidence.get(itemId) || [])
+      .filter(evidence => evidence.status === 'pending' && !alreadyConfirmed.has(evidence.evidenceId));
+    if (result === 'complies' && pendingEvidence.length > 0) {
+      const listed = pendingEvidence.map(evidence => `• ${evidence.fileName}`).join('\n');
+      const confirmed = window.confirm(
+        `Ao confirmar CUMPRE, estas evidências pendentes serão aprovadas na finalização:\n\n${listed}\n\nContinuar?`,
+      );
+      if (!confirmed) return;
+      pendingEvidence.forEach(evidence => alreadyConfirmed.add(evidence.evidenceId));
+    }
+    const confirmedClientEvidenceIds = [...alreadyConfirmed];
     
     let updated: InspectionResponse;
     if (existing) {
-      updated = { ...existing, result, updatedAt: new Date(), localActorId: actor.id, lastEditedBy: actor.name };
-      state.updateResponse(existing.id, { result, updatedAt: new Date(), localActorId: actor.id, lastEditedBy: actor.name });
+      updated = { ...existing, result, confirmedClientEvidenceIds, updatedAt: new Date(), localActorId: actor.id, lastEditedBy: actor.name };
+      state.updateResponse(existing.id, { result, confirmedClientEvidenceIds, updatedAt: new Date(), localActorId: actor.id, lastEditedBy: actor.name });
     } else {
       updated = {
         id: generateId(),
         inspectionId: state.currentInspection!.id,
         itemId,
         result,
+        confirmedClientEvidenceIds,
         photos: [],
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -422,7 +458,7 @@ export function InspectionExecution() {
     } catch (err) {
       console.error('Failed to sync response:', err);
     }
-  }, [stampInspectionEditor]);
+  }, [clientEvidence, stampInspectionEditor]);
 
 
   const handleUpdateDetails = useCallback(async (itemId: string, details: Partial<InspectionResponse>) => {
@@ -499,19 +535,32 @@ export function InspectionExecution() {
   }, [stampInspectionEditor]);
 
 
-  const handleAddExtraItem = useCallback(async (sectionId: string) => {
+  const handleAddExtraItem = useCallback((sectionId: string) => {
+    setExtraItemSectionId(sectionId);
+    setExtraDescription('');
+    setExtraCritical(false);
+    setExtraWeight(1);
+  }, []);
+
+  const handleCreateExtraItem = useCallback(async () => {
     const state = useInspectionStore.getState();
-    if (!state.currentInspection) return;
-    const desc = window.prompt('Descrição do item extra:');
-    if (!desc) return;
+    if (!state.currentInspection || !extraItemSectionId || !extraDescription.trim()) return;
+    const baseTemplate = collaborationTemplate || effectiveTemplate;
+    if (!baseTemplate) return;
     const actor = getLocalActor();
-    
+    const allResponses = await db.responses
+      .where('inspectionId')
+      .equals(state.currentInspection.id)
+      .toArray();
+    const order = nextCustomItemOrder(extraItemSectionId, baseTemplate, allResponses);
     const newResponse: InspectionResponse = {
-      id: generateId(), 
+      id: generateId(),
       inspectionId: state.currentInspection.id,
-      itemId: `extra|${sectionId}|${generateId()}`,
+      itemId: `extra|${extraItemSectionId}|${generateId()}`,
       result: 'not_observed',
-      customDescription: desc,
+      customDescription: extraDescription.trim(),
+      customItemMeta: customItemMeta(extraItemSectionId, order, extraCritical, extraWeight),
+      confirmedClientEvidenceIds: [],
       photos: [],
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -519,16 +568,49 @@ export function InspectionExecution() {
       lastEditedBy: actor.name,
       syncStatus: 'pending',
     };
-    
+
     await state.addResponse(newResponse);
     void stampInspectionEditor(actor.name);
-
     try {
       await InspectionService.upsertResponse(newResponse);
+      setExtraItemSectionId(null);
     } catch (err) {
       console.error('Failed to sync extra item:', err);
     }
-  }, [stampInspectionEditor]);
+  }, [
+    collaborationTemplate,
+    effectiveTemplate,
+    extraCritical,
+    extraDescription,
+    extraItemSectionId,
+    extraWeight,
+    stampInspectionEditor,
+  ]);
+
+  const handleRemoveExtraItem = useCallback(async (itemId: string) => {
+    const state = useInspectionStore.getState();
+    const existing = state.responses.find(response => response.itemId === itemId);
+    if (!existing?.customItemMeta || !window.confirm('Excluir este item extra desta inspeção e interromper sua recorrência futura?')) return;
+    const actor = getLocalActor();
+    const now = new Date();
+    const discontinued: InspectionResponse = {
+      ...existing,
+      customItemMeta: { ...existing.customItemMeta, state: 'discontinued' },
+      deletedAt: now,
+      updatedAt: now,
+      localActorId: actor.id,
+      lastEditedBy: actor.name,
+      syncStatus: 'pending',
+    };
+    await db.responses.put(discontinued);
+    setResponses(state.responses.filter(response => response.id !== existing.id));
+    void stampInspectionEditor(actor.name);
+    try {
+      await InspectionService.upsertResponse(discontinued);
+    } catch (err) {
+      console.error('Failed to discontinue extra item:', err);
+    }
+  }, [setResponses, stampInspectionEditor]);
 
   // Registra (ou atualiza) a não-conformidade de dimensionamento na seção de RH,
   // com situação/ação já preenchidas pela calculadora. Reaproveita o mesmo item
@@ -538,6 +620,14 @@ export function InspectionExecution() {
     if (!state.currentInspection) return;
     const actor = getLocalActor();
     const existing = state.responses.find(r => r.itemId.startsWith(`extra|${sectionId}|staffing`));
+    const baseTemplate = collaborationTemplate || effectiveTemplate;
+    const allResponses = await db.responses.where('inspectionId').equals(state.currentInspection.id).toArray();
+    const meta = existing?.customItemMeta || customItemMeta(
+      sectionId,
+      baseTemplate ? nextCustomItemOrder(sectionId, baseTemplate, allResponses) : 1,
+      false,
+      1,
+    );
 
     if (existing) {
       const updated: InspectionResponse = {
@@ -546,6 +636,7 @@ export function InspectionExecution() {
         situationDescription: finding.situation,
         correctiveAction: finding.action,
         deadline: existing.deadline || 'Imediato',
+        customItemMeta: meta,
         updatedAt: new Date(),
         localActorId: actor.id,
         lastEditedBy: actor.name,
@@ -555,6 +646,7 @@ export function InspectionExecution() {
         situationDescription: finding.situation,
         correctiveAction: finding.action,
         deadline: existing.deadline || 'Imediato',
+        customItemMeta: meta,
         localActorId: actor.id,
         lastEditedBy: actor.name,
       });
@@ -570,6 +662,8 @@ export function InspectionExecution() {
         correctiveAction: finding.action,
         deadline: 'Imediato',
         responsible: 'RT / Gestor',
+        customItemMeta: meta,
+        confirmedClientEvidenceIds: [],
         photos: [],
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -582,7 +676,7 @@ export function InspectionExecution() {
     }
     void stampInspectionEditor(actor.name);
     alert('Não-conformidade de dimensionamento registrada na seção, com situação e ação preenchidas. Revise e ajuste se necessário.');
-  }, [stampInspectionEditor]);
+  }, [collaborationTemplate, effectiveTemplate, stampInspectionEditor]);
 
 
   const updateStaffData = useCallback((field: string, value: number) => {
@@ -660,6 +754,42 @@ export function InspectionExecution() {
         return;
       }
 
+      // Persist the draft first. The transactional reconciliation must succeed
+      // before the inspection is allowed to become completed.
+      const reportTemplateSnapshot = collaborationTemplate || effectiveTemplate || undefined;
+      const draftInspection: Inspection = {
+        ...currentInspection,
+        status: 'in_progress',
+        signatureDataUrl: signature,
+        finalizedBy,
+        lastEditedBy: actor.name,
+        reportTemplateSnapshot,
+        updatedAt: new Date(),
+        syncStatus: 'pending',
+        syncError: undefined,
+      };
+      await db.inspections.put(draftInspection);
+      const draftSync = await InspectionBundleSyncService.syncInspectionBundle(currentInspection.id, {
+        inspectionOverride: draftInspection,
+      });
+      if (draftSync.status !== 'completed') {
+        throw new Error('Rascunho enfileirado no servidor, mas ainda não concluído.');
+      }
+
+      const confirmedEvidenceIds = [...new Set(
+        useInspectionStore.getState().responses.flatMap(response => response.confirmedClientEvidenceIds || []),
+      )];
+      await ClientEvidenceService.reconcileInspection(currentInspection.id, confirmedEvidenceIds);
+      if (confirmedEvidenceIds.length > 0) {
+        const refreshed = await ClientEvidenceService.byItemForClient(currentInspection.clientId);
+        const statuses = new Map(
+          [...refreshed.evidence.values()].flat().map(evidence => [evidence.evidenceId, evidence.status]),
+        );
+        if (confirmedEvidenceIds.some(id => statuses.get(id) !== 'approved')) {
+          throw new Error('A aprovação das evidências não foi confirmada pelo servidor.');
+        }
+      }
+
       // 1. Build final inspection record updates
       const updates: Partial<Inspection> = {
         status: 'completed' as const,
@@ -669,13 +799,13 @@ export function InspectionExecution() {
         lastEditedBy: actor.name,
       };
       const finalizedInspection: Inspection = {
-        ...currentInspection,
+        ...draftInspection,
         ...updates,
         // Snapshot do relatório DEVE ser o roteiro COMPLETO (todas as áreas:
         // sanitária + nutrição), não o filtrado pelo papel da consultora que
         // está finalizando. Senão, ao Ester (role 'saude') finalizar, a parte de
         // nutrição da Ana some do relatório. Ver ilpi-score-por-area-ester-ana.
-        reportTemplateSnapshot: collaborationTemplate || effectiveTemplate || undefined,
+        reportTemplateSnapshot,
         updatedAt: new Date(),
         syncStatus: 'pending',
         syncError: undefined,
@@ -778,7 +908,6 @@ export function InspectionExecution() {
               <h1 className="text-lg font-bold text-gray-900 truncate max-w-xs sm:max-w-sm md:max-w-lg">{displayClientName}</h1>
               <div className="flex items-center space-x-2 text-[10px] font-bold uppercase tracking-wider">
                 {isCompleted && <Badge variant="neutral" className="bg-green-100 text-green-700 border-green-200">Finalizada</Badge>}
-                {state?.actionPlanMode && <Badge variant="warning">Plano de Acao</Badge>}
                 {usingRecoveryTemplate && <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">Modo Recuperação</Badge>}
                 {!isOnline && <span className="text-amber-600 flex items-center bg-amber-50 px-2 py-0.5 rounded-md"><WifiOff className="mr-1 h-3 w-3" /> Offline</span>}
                 {photoHydration && (
@@ -852,6 +981,13 @@ export function InspectionExecution() {
               <p className="mt-1">
                 O app carregou {responses.length} respostas/fotos salvas localmente para recuperação. Não limpe o cache.
               </p>
+            </div>
+          )}
+
+          {!historyComplete && (
+            <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+              <strong>Histórico offline possivelmente incompleto.</strong>
+              <p className="mt-1">As pendências em cache foram preservadas e serão reconciliadas automaticamente quando a conexão voltar.</p>
             </div>
           )}
 
@@ -1008,41 +1144,20 @@ export function InspectionExecution() {
                         clientDeclaration={clientDeclarations.get(item.id)}
                         onChange={handleResponseChange}
                         onUpdateDetails={handleUpdateDetails}
+                        onEditDescription={item.id.startsWith('extra|') ? handleEditDescription : undefined}
+                        onDelete={item.id.startsWith('extra|') ? handleRemoveExtraItem : undefined}
                         onAddPhoto={handleAddPhoto}
                         onRemovePhoto={handleRemovePhoto}
                       />
                     );
                   })}
 
-                  {/* Extra Items */}
-                  {responses
-                    .filter(r => r.itemId?.startsWith(`extra|${section.id}|`))
-                    .map((resp) => (
-                      <ChecklistItem
-                        key={resp.id}
-                        item={{
-                          id: resp.itemId,
-                          description: resp.customDescription || 'Item Extra',
-                          sectionId: section.id,
-                          weight: 1,
-                          isCritical: false,
-                          order: 999,
-                        }}
-                        response={resp}
-                        onChange={handleResponseChange}
-                        onUpdateDetails={handleUpdateDetails}
-                        onEditDescription={handleEditDescription}
-                        onAddPhoto={handleAddPhoto}
-                        onRemovePhoto={handleRemovePhoto}
-                      />
-                    ))}
-
                   <Button
                     variant="ghost"
                     className="w-full border-2 border-dashed border-gray-100 text-gray-400 hover:text-primary-600 hover:bg-white"
                     onClick={() => handleAddExtraItem(section.id)}
                   >
-                    <PlusCircle className="mr-2 h-4 w-4" /> Observação Extra
+                    <PlusCircle className="mr-2 h-4 w-4" /> Adicionar item extra
                   </Button>
                 </div>
               </SectionAccordion>
@@ -1061,6 +1176,55 @@ export function InspectionExecution() {
         onClose={() => setShowTeamResponses(false)}
         template={collaborationTemplate as ChecklistTemplate | null}
       />
+
+      <Modal
+        isOpen={extraItemSectionId !== null}
+        onClose={() => setExtraItemSectionId(null)}
+        title="Adicionar item extra"
+        footer={(
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setExtraItemSectionId(null)}>Cancelar</Button>
+            <Button disabled={!extraDescription.trim()} onClick={handleCreateExtraItem}>Adicionar</Button>
+          </div>
+        )}
+      >
+        <div className="space-y-5">
+          <div>
+            <Label htmlFor="extra-description" required>Descrição</Label>
+            <Input
+              id="extra-description"
+              className="mt-2"
+              value={extraDescription}
+              onChange={event => setExtraDescription(event.target.value)}
+              autoFocus
+            />
+          </div>
+          <label className="flex min-h-11 items-center gap-3 rounded-lg border border-gray-200 px-3">
+            <input
+              type="checkbox"
+              checked={extraCritical}
+              onChange={event => {
+                setExtraCritical(event.target.checked);
+                if (event.target.checked) setExtraWeight(10);
+              }}
+            />
+            <span className="text-sm font-medium text-gray-800">Item crítico</span>
+          </label>
+          <div>
+            <Label htmlFor="extra-weight">Peso na pontuação</Label>
+            <Select
+              id="extra-weight"
+              className="mt-2"
+              value={extraCritical ? 10 : extraWeight}
+              disabled={extraCritical}
+              onChange={event => setExtraWeight(Number(event.target.value) as 1 | 2 | 5 | 10)}
+            >
+              {CUSTOM_ITEM_WEIGHTS.map(weight => <option key={weight} value={weight}>{weight}</option>)}
+            </Select>
+            <p className="mt-2 text-xs text-gray-500">Itens críticos usam peso 10. Itens originais do roteiro continuam valendo 1 ponto.</p>
+          </div>
+        </div>
+      </Modal>
 
       {showSignatureModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">

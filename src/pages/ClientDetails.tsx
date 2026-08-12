@@ -405,8 +405,6 @@ export function ClientDetails() {
     if (!client || !latestActionInspection || openActionItems.length === 0) return;
     const params = new URLSearchParams({
       clientId: client.id,
-      previousInspectionId: latestActionInspection.id,
-      mode: 'action-plan',
     });
     navigate(`/new?${params.toString()}`);
   };

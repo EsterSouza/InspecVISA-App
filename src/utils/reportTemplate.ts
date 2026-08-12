@@ -6,16 +6,17 @@ function cloneTemplate(template: ChecklistTemplate): ChecklistTemplate {
 }
 
 function recoveryItem(response: InspectionResponse, order: number): ChecklistItem {
+  const custom = response.customItemMeta;
   return {
     id: response.itemId,
-    sectionId: 'sec-report-recovered',
-    order,
+    sectionId: custom?.sectionId || 'sec-report-recovered',
+    order: custom?.order || order,
     description:
       response.customDescription ||
       response.situationDescription ||
       `Item preservado do relatorio concluido (${response.itemId})`,
-    weight: 1,
-    isCritical: false,
+    weight: custom?.weight || 1,
+    isCritical: custom?.isCritical || false,
   };
 }
 

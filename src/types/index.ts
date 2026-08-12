@@ -204,6 +204,14 @@ export interface Inspection {
 
 export type ResponseResult = 'complies' | 'not_complies' | 'not_applicable' | 'not_observed' | 'not_evaluated';
 
+export interface CustomItemMeta {
+  sectionId: string;
+  order: number;
+  weight: 1 | 2 | 5 | 10;
+  isCritical: boolean;
+  state: 'active' | 'discontinued';
+}
+
 export interface InspectionResponse {
   id: string;
   inspectionId: string;
@@ -217,6 +225,8 @@ export interface InspectionResponse {
   photos?: InspectionPhoto[];
   // Links/fontes anexados pela consultora enquanto responde este item específico.
   links?: string[];
+  customItemMeta?: CustomItemMeta;
+  confirmedClientEvidenceIds?: string[];
   // Rastreabilidade: nome de quem fez a última modificação nesta resposta.
   lastEditedBy?: string;
   createdAt: Date;
