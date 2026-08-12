@@ -11,7 +11,6 @@ import { generateFranchisePdf } from '../../utils/franchiseReport';
 import { computeUnitActionStats } from '../../utils/clientPortalFormat';
 import { Badge } from '../ui/Badge';
 import {
-  PortalNextAction,
   type NextActionOverdueItem,
   type NextActionPaymentOverdue,
   type NextActionReturnedEvidence,
