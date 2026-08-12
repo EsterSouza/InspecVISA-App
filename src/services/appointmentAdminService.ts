@@ -278,6 +278,7 @@ export const AppointmentAdminService = {
       manualDueDate?: string;
       appointmentType?: AppointmentType;
       durationMinutes?: number;
+      meetingUrl?: string;
     }
   ): Promise<AppointmentEventNotificationResult | null> {
     // Mantém data, hora e janela de bloqueio do calendário público
@@ -298,6 +299,9 @@ export const AppointmentAdminService = {
       requested_ends_at: endsAt.toISOString(),
       duration_minutes: durationMinutes,
       consultant_names: params.consultantNames?.length ? params.consultantNames : null,
+      meeting_url: request.attendance_mode === 'online'
+        ? normalizeOptionalHttpsUrl(params.meetingUrl ?? request.meeting_url ?? '', 'O link da videoconferência')
+        : null,
     };
     // Admin pode reclassificar o tipo (ex.: cliente pediu "reunião" mas é uma inspeção).
     const effectiveType = params.appointmentType ?? request.appointment_type;
@@ -366,6 +370,7 @@ export const AppointmentAdminService = {
     phone?: string;
     email?: string;
     consultantNames?: string[];
+    meetingUrl?: string;
   }): Promise<void> {
     const tenantId = requireTenantId();
     // Admin agenda a qualquer momento (sem a trava de 24h, que é só do cliente).
@@ -390,6 +395,9 @@ export const AppointmentAdminService = {
       appointment_type: 'inspection',
       duration_minutes: 60,
       consultant_names: params.consultantNames?.length ? params.consultantNames : null,
+      meeting_url: params.attendanceMode === 'online'
+        ? normalizeOptionalHttpsUrl(params.meetingUrl ?? '', 'O link da videoconferência')
+        : null,
       status: 'confirmed',
     });
     if (error) throw error;

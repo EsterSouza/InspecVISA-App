@@ -55,6 +55,16 @@ describe('P360-009 - PortalAppointments', () => {
     expect(screen.getByText('Unidade A')).toBeInTheDocument();
   });
 
+  test('mostra o link da videoconferência no agendamento online', () => {
+    renderAppointments({
+      visits: [visit({ attendance_mode: 'online', meeting_url: 'https://meet.example.com/sala' })],
+    });
+    expect(screen.getByRole('link', { name: /Entrar na reunião/i })).toHaveAttribute(
+      'href',
+      'https://meet.example.com/sala'
+    );
+  });
+
   test('lista muitas visitas de unidades diferentes', () => {
     renderAppointments({
       visits: [visit({ public_token: 'a' }), visit({ public_token: 'b', unitName: 'Unidade B', requested_date: '2026-08-20' })],

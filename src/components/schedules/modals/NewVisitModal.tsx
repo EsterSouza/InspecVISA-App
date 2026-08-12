@@ -23,6 +23,7 @@ export function NewVisitModal({ clients, onClose, onCreated }: NewVisitModalProp
   const [date, setDate] = useState('');
   const [time, setTime] = useState('09:00');
   const [attendanceMode, setAttendanceMode] = useState<'presencial' | 'online'>('presencial');
+  const [meetingUrl, setMeetingUrl] = useState('');
   const [municipality, setMunicipality] = useState('');
   const [district, setDistrict] = useState('');
   const [selectedConsultants, setSelectedConsultants] = useState<string[]>(defaultScheduleConsultants);
@@ -64,6 +65,7 @@ export function NewVisitModal({ clients, onClose, onCreated }: NewVisitModalProp
         status: 'pending',
         notes: `Visita agendada pela equipe — ${selectedClient?.name ?? ''}`,
         consultantNames: selectedConsultants,
+        meetingUrl: attendanceMode === 'online' ? meetingUrl.trim() || undefined : undefined,
         updatedAt: now,
         tenantId,
         localActorId: actor.id,
@@ -84,6 +86,7 @@ export function NewVisitModal({ clients, onClose, onCreated }: NewVisitModalProp
         municipality: municipality.trim() || selectedClient?.city || undefined,
         district: district.trim() || undefined,
         consultantNames: selectedConsultants,
+        meetingUrl: attendanceMode === 'online' ? meetingUrl.trim() || undefined : undefined,
       });
       await ScheduleService.saveSchedule(schedule);
       onCreated();
@@ -204,6 +207,23 @@ export function NewVisitModal({ clients, onClose, onCreated }: NewVisitModalProp
                 <input id="new-visit-municipality" type="text" value={municipality} onChange={(e) => setMunicipality(e.target.value)} placeholder="Município" className={TEXT_INPUT} />
                 <label htmlFor="new-visit-district" className="sr-only">Bairro</label>
                 <input id="new-visit-district" type="text" value={district} onChange={(e) => setDistrict(e.target.value)} placeholder="Bairro" className={TEXT_INPUT} />
+              </div>
+            )}
+
+            {attendanceMode === 'online' && (
+              <div className="space-y-1.5">
+                <label htmlFor="new-visit-meeting-url" className="text-sm font-medium text-gray-700">
+                  Link da videoconferência
+                </label>
+                <input
+                  id="new-visit-meeting-url"
+                  type="url"
+                  inputMode="url"
+                  value={meetingUrl}
+                  onChange={(e) => setMeetingUrl(e.target.value)}
+                  placeholder="https://meet.google.com/..."
+                  className={TEXT_INPUT}
+                />
               </div>
             )}
 

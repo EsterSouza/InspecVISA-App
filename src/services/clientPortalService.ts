@@ -65,6 +65,7 @@ export interface ClientPortalVisit {
   subject?: string | null;
   duration_minutes?: number | null;
   consultant_names?: string[] | null;
+  attendance_mode?: 'presencial' | 'online' | null;
   meeting_url?: string | null;
   participant_names?: string[] | null;
   cancellation_reason?: string | null;

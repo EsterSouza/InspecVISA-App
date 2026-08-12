@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CalendarCheck, CalendarClock, CalendarDays, CalendarOff, FileText, FolderOpen, Image, Paperclip } from 'lucide-react';
+import { CalendarCheck, CalendarClock, CalendarDays, CalendarOff, FileText, FolderOpen, Image, Paperclip, Video } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { ClientPortalUnit, ClientPortalVisit } from '../../services/clientPortalService';
 import { formatDateBR, parseDateParts, toDateKey } from '../../utils/clientPortalFormat';
@@ -169,7 +169,7 @@ export function PortalAppointments({
         startHour,
         durationHours: 1,
         title: visit.unitName,
-        subtitle: [visit.requested_time, visit.city].filter(Boolean).join(' · '),
+        subtitle: [visit.requested_time, visit.attendance_mode === 'online' ? 'Online' : visit.city].filter(Boolean).join(' · '),
         state: visitCalendarState(visit.status, schedulingSuspended),
         onClick: () => navigate(`/cliente/visita/${visit.public_token}`),
       };
@@ -293,10 +293,10 @@ export function PortalAppointments({
               const d = visit.requested_date ? parseDateParts(visit.requested_date) : null;
               const st = visitDisplayStatus(visit.status, schedulingSuspended);
               return (
-                <li key={visit.public_token}>
+                <li key={visit.public_token} className="flex items-stretch">
                   <Link
                     to={`/cliente/visita/${visit.public_token}`}
-                    className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-primary-50/40 sm:px-5"
+                    className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 transition-colors hover:bg-primary-50/40 sm:px-5"
                   >
                     <div className="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-lg bg-primary-50 text-primary-800">
                       <span className="text-[9px] font-bold uppercase leading-none">
@@ -309,7 +309,7 @@ export function PortalAppointments({
                       <p className="truncate text-xs text-gray-500">
                         {formatDateBR(visit.requested_date)}
                         {visit.requested_time ? ` às ${visit.requested_time}` : ''}
-                        {visit.city ? ` · ${visit.city}` : ''}
+                        {visit.attendance_mode === 'online' ? ' · Online' : visit.city ? ` · ${visit.city}` : ''}
                       </p>
                       {((visit.report_count || 0) > 0 || (visit.photo_count || 0) > 0 || (visit.attachment_count || 0) > 0) && (
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-gray-500">
@@ -338,6 +338,18 @@ export function PortalAppointments({
                       <span className="hidden text-xs font-semibold text-primary-700 sm:inline">Abrir detalhes</span>
                     </div>
                   </Link>
+                  {visit.attendance_mode === 'online' && visit.meeting_url?.startsWith('https://') && (
+                    <a
+                      href={visit.meeting_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="m-2 inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-blue-700 px-3 text-sm font-semibold text-white hover:bg-blue-800"
+                    >
+                      <Video className="h-4 w-4" aria-hidden="true" />
+                      <span className="hidden sm:inline">Entrar na reunião</span>
+                      <span className="sm:hidden">Entrar</span>
+                    </a>
+                  )}
                 </li>
               );
             })}

@@ -33,6 +33,7 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
       ? request.duration_minutes
       : publicAppointmentDurations(request.appointment_type)[0]
   );
+  const [meetingUrl, setMeetingUrl] = useState(request.meeting_url || '');
   const handleAppointmentTypeChange = (type: AppointmentType) => {
     setAppointmentType(type);
     const allowed = publicAppointmentDurations(type);
@@ -111,7 +112,7 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
         appointmentType,
         subject: request.subject || undefined,
         durationMinutes,
-        meetingUrl: request.meeting_url || undefined,
+        meetingUrl: request.attendance_mode === 'online' ? meetingUrl.trim() || undefined : undefined,
         participantNames: request.participant_names || undefined,
         cancellationReason: request.cancellation_reason || undefined,
         notes: `Portal público — ${request.unit_name} (${request.district})`,
@@ -132,6 +133,7 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
         manualDueDate: manualDueDate || undefined,
         appointmentType,
         durationMinutes,
+        meetingUrl: request.attendance_mode === 'online' ? meetingUrl.trim() || undefined : undefined,
       });
       await ScheduleService.saveSchedule(schedule);
 
@@ -222,6 +224,23 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
                 />
               </div>
             </div>
+
+            {request.attendance_mode === 'online' && (
+              <div className="space-y-1.5">
+                <label htmlFor="confirm-request-meeting-url" className="text-sm font-medium text-gray-700">
+                  Link da videoconferência
+                </label>
+                <input
+                  id="confirm-request-meeting-url"
+                  type="url"
+                  inputMode="url"
+                  value={meetingUrl}
+                  onChange={(e) => setMeetingUrl(e.target.value)}
+                  placeholder="https://meet.google.com/..."
+                  className={TEXT_INPUT}
+                />
+              </div>
+            )}
 
             <div className="space-y-2">
               <span id="confirm-request-client-label" className="text-sm font-medium text-gray-700">Cliente</span>
