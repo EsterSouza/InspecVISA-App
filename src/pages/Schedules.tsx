@@ -72,7 +72,12 @@ export function Schedules() {
   const [searchParams] = useSearchParams();
   // Deep link do painel operacional (P360-013): abre a agenda já rolada até o compromisso.
   const focusScheduleId = searchParams.get('scheduleId');
-  const [activeTab, setActiveTab] = useState<SchedulesTab>('agenda');
+  // Deep link do painel operacional para um pedido de agendamento pendente: abre direto na
+  // aba Solicitações, já com o card em foco.
+  const focusRequestId = searchParams.get('requestId');
+  const [activeTab, setActiveTab] = useState<SchedulesTab>(
+    searchParams.get('tab') === 'solicitacoes' ? 'solicitacoes' : 'agenda'
+  );
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -444,7 +449,7 @@ export function Schedules() {
       </div>
 
       {activeTab === 'solicitacoes' ? (
-        <AppointmentRequestsPanel />
+        <AppointmentRequestsPanel focusRequestId={focusRequestId} />
       ) : (
       <div className="space-y-8">
         <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   CalendarDays,
   CheckCircle,
+  ClipboardList,
   Clock,
   Eye,
   EyeOff,
@@ -24,7 +25,7 @@ import { Button } from '../ui/Button';
 import { Card, CardContent } from '../ui/Card';
 import { STATUS_BADGES, STATUS_LABELS, formatDateBR } from './appointmentRequestsShared';
 import { PublishedFilesPanel } from './PublishedFilesPanel';
-import { ActionPlanPanel } from './ActionPlanPanel';
+import { ActionPlanModal } from './modals/ActionPlanModal';
 
 interface ActiveRequestCardProps {
   request: AppointmentRequest;
@@ -81,6 +82,7 @@ export function ActiveRequestCard({
   const [meetingUrl, setMeetingUrl] = useState(request.meeting_url || '');
   const [meetingBusy, setMeetingBusy] = useState(false);
   const [meetingSaved, setMeetingSaved] = useState(false);
+  const [showActionPlan, setShowActionPlan] = useState(false);
   useEffect(() => setMeetingUrl(request.meeting_url || ''), [request.meeting_url]);
   const isClosed = request.status === 'report_available' || request.status === 'cancelled';
 
@@ -350,6 +352,9 @@ export function ActiveRequestCard({
             <Button variant="outline" size="sm" disabled={busy} onClick={onSetDueDate}>
               <Clock className="mr-1.5 h-4 w-4" /> Prazo manual
             </Button>
+            <Button variant="outline" size="sm" disabled={busy} onClick={() => setShowActionPlan(true)}>
+              <ClipboardList className="mr-1.5 h-4 w-4" /> Plano de ação
+            </Button>
             {request.status === 'report_available' && onShareWhatsapp && (
               <Button variant="outline" size="sm" disabled={busy} onClick={onShareWhatsapp}>
                 <Phone className="mr-1.5 h-4 w-4" /> WhatsApp
@@ -395,10 +400,16 @@ export function ActiveRequestCard({
           </div>
 
           <PublishedFilesPanel requestId={request.id} busy={busy} />
-
-          <ActionPlanPanel requestId={request.id} busy={busy} />
         </div>
       </CardContent>
+
+      {showActionPlan && (
+        <ActionPlanModal
+          requestId={request.id}
+          title={request.unit_name}
+          onClose={() => setShowActionPlan(false)}
+        />
+      )}
     </Card>
   );
 }

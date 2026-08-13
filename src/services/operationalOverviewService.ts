@@ -12,6 +12,7 @@ import { supabase } from '../lib/supabase';
 
 export type OperationalBlock =
   | 'appointments'
+  | 'appointment_requests_pending'
   | 'requests_new'
   | 'awaiting_client'
   | 'evidence_pending'

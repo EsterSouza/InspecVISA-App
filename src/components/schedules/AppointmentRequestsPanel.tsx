@@ -65,7 +65,7 @@ function deliveryMessage(kind: EventNotifyKind, notify: AppointmentEventNotifica
   }
 }
 
-export function AppointmentRequestsPanel() {
+export function AppointmentRequestsPanel({ focusRequestId }: { focusRequestId?: string | null } = {}) {
   const [requests, setRequests] = useState<AppointmentRequest[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [blockedDates, setBlockedDates] = useState<BlockedDateRow[]>([]);
@@ -329,6 +329,7 @@ export function AppointmentRequestsPanel() {
       <PendingRequestsSection
         pending={pending}
         busy={busy}
+        focusRequestId={focusRequestId}
         onRefresh={() => void loadData()}
         onConfirm={setConfirmTarget}
         onReschedule={handleReschedule}

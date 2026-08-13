@@ -9,6 +9,7 @@ import {
   FileWarning,
   Gauge,
   Headset,
+  Inbox,
   Loader2,
   MessageCircleQuestion,
   RefreshCw,
@@ -18,9 +19,15 @@ import { ClientService } from '../services/clientService';
 import {
   OperationalOverviewService,
   type OperationalBlock,
+  type OperationalBlockCount,
   type OperationalCounts,
   type OperationalItem,
+  type OperationalItemFilters,
+  type OperationalItemsResult,
 } from '../services/operationalOverviewService';
+import { AppointmentAdminService } from '../services/appointmentAdminService';
+import { requestDateTimeValue } from '../components/schedules/appointmentRequestsShared';
+import { ActionPlanModal } from '../components/schedules/modals/ActionPlanModal';
 
 /**
  * P360-013 — painel operacional das consultoras.
@@ -60,6 +67,14 @@ const TECHNICAL_BLOCKS: BlockConfig[] = [
     icon: CalendarClock,
     accent: 'text-sky-700 bg-sky-50 border-sky-200',
     link: (item) => `/schedules?scheduleId=${item.id}`,
+  },
+  {
+    key: 'appointment_requests_pending',
+    label: 'Pedidos de agendamento',
+    description: 'Visitas pedidas pelo portal público, ainda sem confirmação.',
+    icon: Inbox,
+    accent: 'text-amber-700 bg-amber-50 border-amber-200',
+    link: (item) => `/schedules?tab=solicitacoes&requestId=${item.id}`,
   },
   {
     key: 'requests_new',
@@ -122,6 +137,40 @@ function formatDateTime(value?: string | null): string {
   return date.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
+/**
+ * "Pedidos de agendamento" não tem RPC própria — `appointment_requests` já é de leitura direta
+ * para staff (mesma tabela que `AppointmentAdminService.listRequests()` usa em Agendamentos), e
+ * criar uma sétima entrada nas duas funções `admin_operational_*` exigiria migration só pra isso.
+ * Filtra e pagina no cliente; volume esperado (solicitações pendentes) é baixo.
+ */
+async function pendingAppointmentRequestItems(filters: OperationalItemFilters): Promise<OperationalItemsResult> {
+  const all = await AppointmentAdminService.listRequests();
+  const consultant = filters.consultantName?.trim().toLowerCase() || null;
+  // Mesma ordenação de "Solicitações pendentes" (`AppointmentRequestsPanel`), pra o pedido
+  // aparecer na mesma posição relativa nas duas telas.
+  const filtered = all
+    .filter((r) => r.status === 'requested')
+    .filter((r) => !filters.clientId || r.client_id === filters.clientId)
+    .filter((r) => !consultant || (r.preferred_consultant_name || '').trim().toLowerCase() === consultant)
+    .sort((a, b) => requestDateTimeValue(b) - requestDateTimeValue(a));
+
+  const limit = filters.limit ?? 20;
+  const offset = filters.offset ?? 0;
+  const items: OperationalItem[] = filtered.slice(offset, offset + limit).map((r) => ({
+    id: r.id,
+    client_id: r.client_id || '',
+    client_name: r.unit_name,
+    title: r.unit_name,
+    type: r.appointment_type,
+    // `requestDateTimeValue` já trata o caso sem `requested_starts_at` (data+período sem hora
+    // exata) como horário local — evitar remontar a string aqui de novo, que vira meia-noite UTC
+    // e mostra o dia errado em fuso negativo.
+    due_at: new Date(requestDateTimeValue(r)).toISOString(),
+    responsible: r.preferred_consultant_name,
+  }));
+  return { items, total_count: filtered.length };
+}
+
 interface BlockState {
   items: OperationalItem[];
   totalCount: number;
@@ -132,7 +181,19 @@ interface BlockState {
 
 const EMPTY_BLOCK_STATE: BlockState = { items: [], totalCount: 0, loading: false, error: null, expanded: false };
 
-function ItemRow({ item, block, config }: { item: OperationalItem; block: OperationalBlock; config: BlockConfig }) {
+function ItemRow({
+  item,
+  block,
+  config,
+  onOpenActionPlan,
+  resolvingActionPlanId,
+}: {
+  item: OperationalItem;
+  block: OperationalBlock;
+  config: BlockConfig;
+  onOpenActionPlan?: (item: OperationalItem) => void;
+  resolvingActionPlanId?: string | null;
+}) {
   const content = (
     <>
       <div className="min-w-0 flex-1">
@@ -146,16 +207,36 @@ function ItemRow({ item, block, config }: { item: OperationalItem; block: Operat
       </div>
       <div className="shrink-0 text-right">
         <p className="text-[11px] font-semibold text-gray-600">
-          {block === 'appointments' ? formatDateTime(item.due_at) : formatDate(item.due_at)}
+          {block === 'appointments' || block === 'appointment_requests_pending'
+            ? formatDateTime(item.due_at)
+            : formatDate(item.due_at)}
         </p>
         {(item.responsible || item.assigned_to) && (
           <p className="text-[10px] text-gray-400">{item.responsible || item.assigned_to}</p>
         )}
       </div>
+      {block === 'action_items_overdue' && resolvingActionPlanId === item.id && (
+        <Loader2 className="h-4 w-4 shrink-0 animate-spin text-gray-400" />
+      )}
     </>
   );
 
-  const rowClass = 'flex items-center gap-3 rounded-lg border border-gray-100 bg-white p-2.5 hover:bg-gray-50';
+  const rowClass = 'flex w-full items-center gap-3 rounded-lg border border-gray-100 bg-white p-2.5 text-left hover:bg-gray-50';
+
+  // "Planos de ação vencidos" abre o painel de gestão direto (modal), em vez de navegar —
+  // o alvo real da ação é o plano, não a ficha do cliente.
+  if (block === 'action_items_overdue' && onOpenActionPlan) {
+    return (
+      <button
+        type="button"
+        onClick={() => onOpenActionPlan(item)}
+        disabled={resolvingActionPlanId === item.id}
+        className={rowClass}
+      >
+        {content}
+      </button>
+    );
+  }
 
   return config.link ? (
     <Link to={config.link(item)} className={rowClass}>
@@ -172,12 +253,16 @@ function BlockCard({
   state,
   onToggle,
   onLoadMore,
+  onOpenActionPlan,
+  resolvingActionPlanId,
 }: {
   config: BlockConfig;
   count: OperationalCounts[OperationalBlock] | undefined;
   state: BlockState;
   onToggle: () => void;
   onLoadMore: () => void;
+  onOpenActionPlan?: (item: OperationalItem) => void;
+  resolvingActionPlanId?: string | null;
 }) {
   const Icon = config.icon;
   const hasError = count?.error;
@@ -233,7 +318,14 @@ function BlockCard({
           ) : (
             <>
               {state.items.map((item) => (
-                <ItemRow key={item.id} item={item} block={config.key} config={config} />
+                <ItemRow
+                  key={item.id}
+                  item={item}
+                  block={config.key}
+                  config={config}
+                  onOpenActionPlan={onOpenActionPlan}
+                  resolvingActionPlanId={resolvingActionPlanId}
+                />
               ))}
               {state.items.length < state.totalCount && (
                 <button
@@ -265,12 +357,34 @@ export function OperationalPanel() {
 
   const [blockStates, setBlockStates] = useState<Record<OperationalBlock, BlockState>>({
     appointments: EMPTY_BLOCK_STATE,
+    appointment_requests_pending: EMPTY_BLOCK_STATE,
     requests_new: EMPTY_BLOCK_STATE,
     awaiting_client: EMPTY_BLOCK_STATE,
     evidence_pending: EMPTY_BLOCK_STATE,
     action_items_overdue: EMPTY_BLOCK_STATE,
     financial_pending: EMPTY_BLOCK_STATE,
   });
+
+  // Plano de ação aberto a partir do bloco "Planos de ação vencidos" — o item só tem o id do
+  // `client_action_items`; resolve o `appointment_request_id` (pai) sob demanda ao clicar.
+  const [actionPlanTarget, setActionPlanTarget] = useState<{ requestId: string; title: string } | null>(null);
+  const [resolvingActionPlanId, setResolvingActionPlanId] = useState<string | null>(null);
+
+  const openActionPlan = async (item: OperationalItem) => {
+    setResolvingActionPlanId(item.id);
+    try {
+      const requestId = await AppointmentAdminService.getActionItemRequestId(item.id);
+      if (!requestId) {
+        alert('Este item não está vinculado a uma visita — abra pela ficha do cliente.');
+        return;
+      }
+      setActionPlanTarget({ requestId, title: item.client_name || item.title || 'Cliente' });
+    } catch (err) {
+      alert(`Erro ao abrir o plano de ação: ${errorMessage(err)}`);
+    } finally {
+      setResolvingActionPlanId(null);
+    }
+  };
 
   useEffect(() => {
     ClientService.getClients()
@@ -286,10 +400,19 @@ export function OperationalPanel() {
   const loadCounts = useCallback(() => {
     setCountsLoading(true);
     setCountsError(null);
-    OperationalOverviewService.counts(filters)
-      .then(setCounts)
-      .catch((err) => setCountsError(errorMessage(err)))
-      .finally(() => setCountsLoading(false));
+    Promise.allSettled([
+      OperationalOverviewService.counts(filters),
+      pendingAppointmentRequestItems({ ...filters, limit: 1 }),
+    ]).then(([baseResult, pendingResult]) => {
+      if (baseResult.status === 'rejected') {
+        setCountsError(errorMessage(baseResult.reason));
+      }
+      const base = baseResult.status === 'fulfilled' ? baseResult.value : ({} as OperationalCounts);
+      const pendingCount: OperationalBlockCount =
+        pendingResult.status === 'fulfilled' ? { count: pendingResult.value.total_count } : { error: true };
+      setCounts({ ...base, appointment_requests_pending: pendingCount });
+      setCountsLoading(false);
+    });
   }, [filters]);
 
   useEffect(() => {
@@ -297,6 +420,7 @@ export function OperationalPanel() {
     // Trocar filtro fecha as listas expandidas: o que estava carregado não reflete mais o filtro novo.
     setBlockStates({
       appointments: EMPTY_BLOCK_STATE,
+      appointment_requests_pending: EMPTY_BLOCK_STATE,
       requests_new: EMPTY_BLOCK_STATE,
       awaiting_client: EMPTY_BLOCK_STATE,
       evidence_pending: EMPTY_BLOCK_STATE,
@@ -310,7 +434,11 @@ export function OperationalPanel() {
     (block: OperationalBlock, append: boolean) => {
       setBlockStates((prev) => ({ ...prev, [block]: { ...prev[block], loading: true, error: null } }));
       const offset = append ? blockStates[block].items.length : 0;
-      OperationalOverviewService.items(block, { ...filters, offset })
+      const request =
+        block === 'appointment_requests_pending'
+          ? pendingAppointmentRequestItems({ ...filters, offset })
+          : OperationalOverviewService.items(block, { ...filters, offset });
+      request
         .then((result) => {
           setBlockStates((prev) => ({
             ...prev,
@@ -414,6 +542,8 @@ export function OperationalPanel() {
             state={blockStates[config.key]}
             onToggle={() => toggleBlock(config.key)}
             onLoadMore={() => loadBlockItems(config.key, true)}
+            onOpenActionPlan={config.key === 'action_items_overdue' ? (item) => void openActionPlan(item) : undefined}
+            resolvingActionPlanId={resolvingActionPlanId}
           />
         ))}
       </div>
@@ -439,6 +569,14 @@ export function OperationalPanel() {
         <div className="flex justify-center py-16">
           <Loader2 className="h-6 w-6 animate-spin text-primary-600" />
         </div>
+      )}
+
+      {actionPlanTarget && (
+        <ActionPlanModal
+          requestId={actionPlanTarget.requestId}
+          title={actionPlanTarget.title}
+          onClose={() => setActionPlanTarget(null)}
+        />
       )}
     </div>
   );

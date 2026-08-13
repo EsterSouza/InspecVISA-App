@@ -1020,6 +1020,18 @@ export const AppointmentAdminService = {
     return (data || []) as ClientActionItem[];
   },
 
+  /** Resolve o `appointment_request_id` de um item a partir do seu próprio id — usado pelo
+   * Painel operacional, que só recebe o id do `client_action_items` (sem o pai). */
+  async getActionItemRequestId(itemId: string): Promise<string | null> {
+    const { data, error } = await supabase
+      .from('client_action_items')
+      .select('appointment_request_id')
+      .eq('id', itemId)
+      .maybeSingle();
+    if (error) throw error;
+    return (data?.appointment_request_id as string | null) ?? null;
+  },
+
   async setActionItemStatus(itemId: string, status: ClientActionItemStatus): Promise<void> {
     const { data, error } = await supabase.rpc('admin_set_client_action_item_status', {
       p_id: itemId,

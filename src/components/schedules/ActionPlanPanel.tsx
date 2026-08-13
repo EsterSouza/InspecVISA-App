@@ -217,7 +217,13 @@ export function ActionPlanPanel({ requestId, busy }: { requestId: string; busy: 
     );
   }
 
-  if (items.length === 0) return null;
+  if (items.length === 0) {
+    return (
+      <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 text-xs text-gray-500">
+        Nenhum item de plano de ação para esta visita.
+      </div>
+    );
+  }
 
   const visible = items.filter((item) => item.status === 'published').length;
   const awaitingReview = evidence.filter((row) => row.status === 'pending').length;

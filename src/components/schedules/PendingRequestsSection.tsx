@@ -1,13 +1,15 @@
+import { useEffect } from 'react';
 import { CalendarDays, CheckCircle, Clock, Inbox, MapPin, Phone, RefreshCw, Trash2, XCircle } from 'lucide-react';
 import type { AppointmentRequest } from '../../types';
 import { Button } from '../ui/Button';
 import { Card, CardContent } from '../ui/Card';
-import { PERIOD_LABELS, formatCreatedAt, formatDateBR, usePagedList } from './appointmentRequestsShared';
+import { PAGE_SIZE, PERIOD_LABELS, formatCreatedAt, formatDateBR, usePagedList } from './appointmentRequestsShared';
 import { Pager } from './Pager';
 
 interface PendingRequestsSectionProps {
   pending: AppointmentRequest[];
   busy: string | null;
+  focusRequestId?: string | null;
   onRefresh: () => void;
   onConfirm: (request: AppointmentRequest) => void;
   onReschedule: (request: AppointmentRequest) => void;
@@ -18,6 +20,7 @@ interface PendingRequestsSectionProps {
 export function PendingRequestsSection({
   pending,
   busy,
+  focusRequestId,
   onRefresh,
   onConfirm,
   onReschedule,
@@ -25,6 +28,16 @@ export function PendingRequestsSection({
   onDelete,
 }: PendingRequestsSectionProps) {
   const pendingPage = usePagedList(pending);
+
+  // Deep link do painel operacional: pula direto para a página que contém o pedido e rola até ele.
+  useEffect(() => {
+    if (!focusRequestId) return;
+    const index = pending.findIndex((r) => r.id === focusRequestId);
+    if (index === -1) return;
+    pendingPage.setPage(Math.floor(index / PAGE_SIZE) + 1);
+    document.getElementById(`pending-request-${focusRequestId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusRequestId, pending]);
 
   return (
     <section>
@@ -50,7 +63,11 @@ export function PendingRequestsSection({
       ) : (
         <div className="grid gap-4">
           {pendingPage.items.map((request) => (
-            <Card key={request.id} className="shadow-sm">
+            <Card
+              key={request.id}
+              id={`pending-request-${request.id}`}
+              className={`shadow-sm ${request.id === focusRequestId ? 'ring-2 ring-primary-400' : ''}`}
+            >
               <CardContent className="p-5">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
