@@ -404,7 +404,7 @@ end;
 $$;
 
 \ir ../migrations/20260802115342_portal_public_request_purpose.sql
-\ir ../migrations/20260812184947_canonical_appointment_email_delivery.sql
+\ir ../migrations/20260812221501_canonical_appointment_email_delivery.sql
 
 do $$
 declare

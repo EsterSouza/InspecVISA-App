@@ -160,7 +160,7 @@ insert into public.appointment_notification_log (
   ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '20000000-0000-4000-8000-000000000001', 'confirmed', 'legacy-failed', false),
   ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '20000000-0000-4000-8000-000000000001', 'rescheduled', 'legacy-sent', true);
 
-\ir ../migrations/20260812184947_canonical_appointment_email_delivery.sql
+\ir ../migrations/20260812221501_canonical_appointment_email_delivery.sql
 
 do $$
 begin
