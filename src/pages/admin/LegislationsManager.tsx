@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { LegislationService, type Legislation, type LegislationSegment } from '../../services/legislationService';
+import { LegislationService, type Legislation, type LegislationSegment, type LegislationStatus } from '../../services/legislationService';
+import { UF_OPTIONS, toUF } from '../../utils/state';
 import { Plus, Trash2, ExternalLink, Search, BookOpen, AlertCircle, Loader2, Edit2, Check, X, Link } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 
@@ -14,19 +15,34 @@ interface LegForm {
   name: string;
   summary: string;
   url: string;
+  authority: string;
   uf: string;
   segments: LegislationSegment[];
+  status: LegislationStatus;
+  replacedBy: string;
 }
 
-const EMPTY_FORM: LegForm = { name: '', summary: '', url: '', uf: '', segments: [] };
+const EMPTY_FORM: LegForm = {
+  name: '', summary: '', url: '', authority: '', uf: '', segments: [],
+  status: 'vigente', replacedBy: '',
+};
+
+const STATUS_OPTIONS: { value: LegislationStatus; label: string }[] = [
+  { value: 'vigente', label: 'Vigente' },
+  { value: 'vigente_com_alteracoes', label: 'Vigente com alterações' },
+  { value: 'revogada', label: 'Revogada' },
+];
 
 function toPayload(form: LegForm): Omit<Legislation, 'id' | 'created_at'> {
   return {
     name: form.name,
     summary: form.summary,
     url: form.url,
-    uf: form.uf.trim() ? form.uf.trim().toUpperCase() : null,
+    authority: form.authority.trim() || null,
+    uf: toUF(form.uf) || null,
     segments: form.segments.length > 0 ? form.segments : null,
+    status: form.status,
+    replaced_by: form.status === 'revogada' ? (form.replacedBy.trim() || null) : null,
   };
 }
 
@@ -103,8 +119,11 @@ export function LegislationsManager() {
       name: leg.name,
       summary: leg.summary || '',
       url: leg.url || '',
+      authority: leg.authority || '',
       uf: leg.uf || '',
       segments: leg.segments || [],
+      status: leg.status || 'vigente',
+      replacedBy: leg.replaced_by || '',
     });
   }
 
@@ -204,16 +223,33 @@ export function LegislationsManager() {
               value={newLeg.summary}
               onChange={(e) => setNewLeg({ ...newLeg, summary: e.target.value })}
             />
+            <div className="md:col-span-2">
+              <label className="block text-xs font-semibold text-gray-500 mb-1">
+                Autoria (entra na citação do relatório)
+              </label>
+              <input
+                placeholder="Ex: BRASIL. Ministério da Saúde — ou RIO DE JANEIRO (Município)"
+                className="w-full p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-primary-400 outline-none"
+                value={newLeg.authority}
+                onChange={(e) => setNewLeg({ ...newLeg, authority: e.target.value })}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Sem autoria a norma é citada só pelo nome. O relatório nunca deduz o órgão.
+              </p>
+            </div>
             <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4 items-start">
               <div>
                 <label className="block text-xs font-semibold text-gray-500 mb-1">UF (estadual/municipal)</label>
-                <input
-                  placeholder="Ex: RJ — vazio = federal"
-                  maxLength={2}
-                  className="w-full p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-primary-400 outline-none uppercase"
-                  value={newLeg.uf}
+                <select
+                  className="w-full p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-primary-400 outline-none bg-white"
+                  value={toUF(newLeg.uf)}
                   onChange={(e) => setNewLeg({ ...newLeg, uf: e.target.value })}
-                />
+                >
+                  <option value="">Federal / nacional</option>
+                  {UF_OPTIONS.map(({ uf, name }) => (
+                    <option key={uf} value={uf}>{uf} — {name}</option>
+                  ))}
+                </select>
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-xs font-semibold text-gray-500 mb-1">Segmentos aplicáveis (vazio = todos)</label>
@@ -234,6 +270,29 @@ export function LegislationsManager() {
                   ))}
                 </div>
               </div>
+            </div>
+            <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">Situação</label>
+                <select
+                  className="w-full p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-primary-400 outline-none bg-white"
+                  value={newLeg.status}
+                  onChange={(e) => setNewLeg({ ...newLeg, status: e.target.value as LegislationStatus })}
+                >
+                  {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+              {newLeg.status === 'revogada' && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1">Substituída por</label>
+                  <input
+                    placeholder="Ex: RDC Anvisa nº 222/2018"
+                    className="w-full p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-primary-400 outline-none"
+                    value={newLeg.replacedBy}
+                    onChange={(e) => setNewLeg({ ...newLeg, replacedBy: e.target.value })}
+                  />
+                </div>
+              )}
             </div>
           </div>
           <div className="flex justify-end gap-3">
@@ -281,14 +340,30 @@ export function LegislationsManager() {
                     onChange={(e) => setEditForm({ ...editForm, url: e.target.value })}
                     placeholder="URL do documento (opcional)"
                   />
+                  <input
+                    className="w-full p-2 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-primary-400 outline-none"
+                    value={editForm.authority}
+                    onChange={(e) => setEditForm({ ...editForm, authority: e.target.value })}
+                    placeholder="Autoria — ex: BRASIL. Ministério da Saúde"
+                  />
                   <div className="flex flex-wrap items-center gap-3">
-                    <input
-                      maxLength={2}
-                      className="w-24 p-2 rounded-lg border border-gray-200 text-sm uppercase focus:ring-2 focus:ring-primary-400 outline-none"
-                      value={editForm.uf}
+                    <select
+                      className="w-40 p-2 rounded-lg border border-gray-200 text-sm bg-white focus:ring-2 focus:ring-primary-400 outline-none"
+                      value={toUF(editForm.uf)}
                       onChange={(e) => setEditForm({ ...editForm, uf: e.target.value })}
-                      placeholder="UF"
-                    />
+                      aria-label="UF de abrangência"
+                    >
+                      <option value="">Federal</option>
+                      {UF_OPTIONS.map(({ uf }) => <option key={uf} value={uf}>{uf}</option>)}
+                    </select>
+                    <select
+                      className="w-44 p-2 rounded-lg border border-gray-200 text-sm bg-white focus:ring-2 focus:ring-primary-400 outline-none"
+                      value={editForm.status}
+                      onChange={(e) => setEditForm({ ...editForm, status: e.target.value as LegislationStatus })}
+                      aria-label="Situação de vigência"
+                    >
+                      {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
                     <div className="flex flex-wrap gap-1.5">
                       {SEGMENT_OPTIONS.map(opt => (
                         <button
@@ -306,6 +381,14 @@ export function LegislationsManager() {
                       ))}
                     </div>
                   </div>
+                  {editForm.status === 'revogada' && (
+                    <input
+                      className="w-full p-2 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-primary-400 outline-none"
+                      value={editForm.replacedBy}
+                      onChange={(e) => setEditForm({ ...editForm, replacedBy: e.target.value })}
+                      placeholder="Substituída por — ex: RDC Anvisa nº 222/2018"
+                    />
+                  )}
                   <div className="flex gap-2 justify-end pt-1">
                     <Button variant="ghost" size="sm" onClick={() => setEditingId(null)}>
                       <X className="h-4 w-4 mr-1" /> Cancelar
@@ -363,8 +446,17 @@ export function LegislationsManager() {
                   <p className="text-sm text-gray-500 line-clamp-3 mb-3">
                     {leg.summary || 'Sem resumo disponível.'}
                   </p>
-                  {(leg.uf || (leg.segments && leg.segments.length > 0)) && (
-                    <div className="flex flex-wrap gap-1.5 mb-3">
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                      {leg.status === 'revogada' && (
+                        <span className="text-[10px] font-bold uppercase tracking-wide bg-red-50 text-red-700 px-2 py-0.5 rounded-full">
+                          Revogada{leg.replaced_by ? ` → ${leg.replaced_by}` : ''}
+                        </span>
+                      )}
+                      {!leg.authority && (
+                        <span className="text-[10px] font-bold uppercase tracking-wide bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full">
+                          Sem autoria
+                        </span>
+                      )}
                       {leg.uf && (
                         <span className="text-[10px] font-bold uppercase tracking-wide bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full">
                           {leg.uf}
@@ -375,8 +467,7 @@ export function LegislationsManager() {
                           {SEGMENT_OPTIONS.find(o => o.value === seg)?.label || seg}
                         </span>
                       ))}
-                    </div>
-                  )}
+                  </div>
                   <div className="flex items-center justify-between">
                     <div className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">
                       {!isDefaultEntry(leg.id) && `Adicionado em: ${new Date(leg.created_at).toLocaleDateString('pt-BR')}`}

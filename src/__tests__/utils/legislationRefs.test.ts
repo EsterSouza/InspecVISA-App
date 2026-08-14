@@ -1,5 +1,41 @@
 import { describe, expect, test } from 'vitest';
-import { canonicalLegislationKey, extractBaseLegislation } from '../../utils/legislationRefs';
+import { canonicalLegislationKey, citedLegislations, extractBaseLegislation } from '../../utils/legislationRefs';
+import type { ChecklistTemplate, InspectionResponse } from '../../types';
+
+describe('citedLegislations — o que fundamenta aquele relatório', () => {
+  const template = {
+    sections: [{
+      id: 's1',
+      items: [
+        { id: 'i1', legislation: 'RDC 63/2011' },
+        { id: 'i2', legislation: 'RDC 222/2018' },
+        { id: 'i3', legislation: 'Lei Municipal 1.812/2014' },
+      ],
+    }],
+  } as unknown as ChecklistTemplate;
+
+  const resposta = (itemId: string, extra: Partial<InspectionResponse> = {}) => ({
+    id: `r-${itemId}`, itemId, result: 'conforme', ...extra,
+  }) as InspectionResponse;
+
+  test('lista apenas as normas dos itens avaliados', () => {
+    // i3 não foi avaliado: a lei municipal não fundamenta este relatório.
+    expect(citedLegislations(template, [resposta('i1'), resposta('i2')]))
+      .toEqual(['RDC 222/2018', 'RDC 63/2011']);
+  });
+
+  test('ignora resposta substituída por reavaliação posterior', () => {
+    // O modal olhava todas as respostas, inclusive as antigas, e por isso listava
+    // norma de item que a consultora já tinha reavaliado como não aplicável.
+    const antiga = resposta('i1', { createdAt: new Date('2026-01-01') } as Partial<InspectionResponse>);
+    const nova = resposta('i1', { id: 'r-i1-nova', createdAt: new Date('2026-02-01') } as Partial<InspectionResponse>);
+    expect(citedLegislations(template, [antiga, nova])).toEqual(['RDC 63/2011']);
+  });
+
+  test('item sem resposta nenhuma não entra', () => {
+    expect(citedLegislations(template, [])).toEqual([]);
+  });
+});
 
 describe('legislationRefs — regressão do bug achado no REF-01', () => {
   test('"Art. N, Lei Municipal ..." gera a mesma base e a mesma chave que a citação limpa', () => {

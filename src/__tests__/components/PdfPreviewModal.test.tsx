@@ -1,126 +1,94 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import type { ComponentProps } from 'react';
-import { describe, expect, test, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { describe, expect, test } from 'vitest';
 import { PdfPreviewModal } from '../../components/inspection/PdfPreviewModal';
+import type { Legislation } from '../../services/legislationService';
 import type { ChecklistTemplate, Inspection, InspectionResponse } from '../../types';
 
-const template: ChecklistTemplate = {
-  id: 'tpl-1',
-  name: 'Roteiro de Teste',
-  category: 'estetica',
-  version: '1',
-  sections: [],
-};
+// REF-07: o passo 1 do modal alimentava a página de referências do PDF com tudo
+// que casasse UF+segmento na biblioteca, pré-marcado, mesmo sem nenhum item citar.
+// O relatório saía citando norma que a inspeção não avaliou.
 
-const inspection: Inspection = {
-  id: 'insp-1',
-  clientId: 'client-1',
-  templateId: 'tpl-1',
-  consultantName: 'Ester Caiafa',
-  inspectionDate: new Date('2026-08-01T00:00:00.000Z'),
-  status: 'in_progress',
-  createdAt: new Date('2026-08-01T00:00:00.000Z'),
-  updatedAt: new Date('2026-08-01T00:00:00.000Z'),
-  syncStatus: 'synced',
-};
+const template = {
+  id: 'tpl',
+  sections: [{
+    id: 's1',
+    items: [
+      { id: 'i1', legislation: 'RDC 63/2011' },
+      { id: 'i2', legislation: 'Critério técnico de higiene das mãos' },
+      { id: 'i3', legislation: 'RDC 222/2018' },
+      { id: 'i4', legislation: 'RDC 15/2012' },
+    ],
+  }],
+} as unknown as ChecklistTemplate;
 
-const responses: InspectionResponse[] = [];
+const library: Legislation[] = [
+  {
+    id: '1', name: 'RDC Anvisa nº 63/2011', authority: 'BRASIL. ANVISA',
+    uf: null, segments: ['estetica'], status: 'vigente', created_at: '2026-01-01',
+  },
+  {
+    id: '2', name: 'Resolução SES/RJ nº 1.822/2019', authority: 'RIO DE JANEIRO (Estado)',
+    uf: 'RJ', segments: ['estetica'], status: 'vigente', created_at: '2026-01-01',
+  },
+  // Casa por substring com "RDC 15/2012"; a chave canônica não deixa confundir.
+  {
+    id: '3', name: 'RDC Anvisa nº 156/2006', authority: 'BRASIL. ANVISA',
+    uf: null, segments: ['estetica'], status: 'vigente', created_at: '2026-01-01',
+  },
+];
 
-function renderModal(overrides: Partial<ComponentProps<typeof PdfPreviewModal>> = {}) {
-  const onGenerate = vi.fn().mockResolvedValue(undefined);
-  const onClose = vi.fn();
-  render(
+const inspection = { id: 'insp', state: 'Rio de Janeiro', clientCategory: 'estetica' } as Inspection;
+
+function renderModal(responses: InspectionResponse[]) {
+  return render(
     <PdfPreviewModal
       open
-      onClose={onClose}
+      onClose={() => {}}
       template={template}
       responses={responses}
       inspection={inspection}
-      onGenerate={onGenerate}
+      legislationLibrary={library}
+      onGenerate={async () => {}}
       isGenerating={false}
-      {...overrides}
     />
   );
-  return { onGenerate, onClose };
 }
 
-function goToSourcesStep() {
-  fireEvent.click(screen.getByText('Próximo')); // passo 1 -> 2
-}
+const resposta = (itemId: string) => ({ id: `r-${itemId}`, itemId, result: 'conforme' }) as InspectionResponse;
 
-describe('REF-03 - PdfPreviewModal, passo Fontes Consultadas', () => {
-  test('adiciona uma fonte com título e nota, e ela some da lista se removida', () => {
-    renderModal();
-    goToSourcesStep();
+const porEstado = (pressed: boolean) =>
+  screen.queryAllByRole('button', { pressed }).map(b => b.textContent?.replace(/(Estadual\/Municipal|Sugestão)$/, '').trim());
+const marcadas = () => porEstado(true);
+const desmarcadas = () => porEstado(false);
 
-    fireEvent.change(screen.getByLabelText('Link *'), { target: { value: 'https://www.gov.br/anvisa/nota-tecnica' } });
-    fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'Nota técnica ANVISA' } });
-    fireEvent.change(screen.getByLabelText('Nota (opcional)'), { target: { value: 'consultado em 05/08/2026' } });
-    fireEvent.click(screen.getByText('Adicionar fonte'));
+describe('REF-07 — passo de referências do PdfPreviewModal', () => {
+  test('só a norma do item avaliado vem marcada; a da UF vem como sugestão', () => {
+    renderModal([resposta('i1')]);
 
-    expect(screen.getByText('Nota técnica ANVISA')).toBeInTheDocument();
-    expect(screen.getByText('https://www.gov.br/anvisa/nota-tecnica')).toBeInTheDocument();
-    expect(screen.getByText('consultado em 05/08/2026')).toBeInTheDocument();
-
-    // o formulário limpa depois de adicionar
-    expect((screen.getByLabelText('Link *') as HTMLInputElement).value).toBe('');
-
-    fireEvent.click(screen.getByLabelText('Remover fonte Nota técnica ANVISA'));
-    expect(screen.queryByText('Nota técnica ANVISA')).not.toBeInTheDocument();
+    expect(screen.getByText('Sugestões para esta UF e segmento')).toBeInTheDocument();
+    expect(marcadas()).toEqual(['RDC Anvisa nº 63/2011']);
+    // As da UF e do segmento continuam ofertadas, mas desmarcadas — nada entra no
+    // PDF sem escolha explícita.
+    expect(desmarcadas()).toEqual(['RDC Anvisa nº 156/2006', 'Resolução SES/RJ nº 1.822/2019']);
   });
 
-  test('usa a URL como rótulo quando não há título', () => {
-    renderModal();
-    goToSourcesStep();
+  test('norma sem verbete é avisada, não citada', () => {
+    renderModal([resposta('i2'), resposta('i3')]);
 
-    fireEvent.change(screen.getByLabelText('Link *'), { target: { value: 'https://example.com/laudo' } });
-    fireEvent.click(screen.getByText('Adicionar fonte'));
-
-    // sem título, a URL aparece duplicada: como rótulo (title) e como subtítulo (url)
-    expect(screen.getAllByText('https://example.com/laudo')).toHaveLength(2);
+    expect(screen.getByText('Sem fonte cadastrada — fora do PDF')).toBeInTheDocument();
+    expect(screen.getByText('• Critério técnico de higiene das mãos')).toBeInTheDocument();
+    expect(screen.getByText('• RDC 222/2018')).toBeInTheDocument();
+    // Nenhuma das duas entra marcada: sem verbete não há autoria nem link.
+    expect(marcadas()).toEqual([]);
   });
 
-  test('rejeita link vazio e link sem http/https, sem adicionar a fonte', () => {
-    renderModal();
-    goToSourcesStep();
+  test('não confunde RDC 15/2012 com RDC 156/2006', () => {
+    // O casamento era por substring nos dois sentidos: "RDC 15/2012" achava o
+    // verbete da "RDC 156/2006" e o relatório citava a norma errada, com o nome
+    // e o link errados. A chave canônica não deixa.
+    renderModal([resposta('i4')]);
 
-    fireEvent.click(screen.getByText('Adicionar fonte'));
-    expect(screen.getByRole('alert')).toHaveTextContent('Informe o link da fonte.');
-
-    fireEvent.change(screen.getByLabelText('Link *'), { target: { value: 'javascript:alert(1)' } });
-    fireEvent.click(screen.getByText('Adicionar fonte'));
-    expect(screen.getByRole('alert')).toHaveTextContent('Link inválido');
-
-    expect(screen.getByText('Nenhuma fonte adicionada. O relatório sai sem essa seção, sem problema.')).toBeInTheDocument();
-  });
-
-  test('pré-carrega fontes já salvas na inspeção ao abrir', () => {
-    renderModal({
-      inspection: {
-        ...inspection,
-        referenceSources: [{ id: 'src-1', url: 'https://example.com/existente', title: 'Fonte existente' }],
-      },
-    });
-    goToSourcesStep();
-
-    expect(screen.getByText('Fonte existente')).toBeInTheDocument();
-  });
-
-  test('gerar PDF repassa as fontes consultadas para onGenerate', async () => {
-    const { onGenerate } = renderModal();
-    goToSourcesStep();
-
-    fireEvent.change(screen.getByLabelText('Link *'), { target: { value: 'https://example.com/fonte' } });
-    fireEvent.click(screen.getByText('Adicionar fonte'));
-
-    fireEvent.click(screen.getByText('Próximo')); // passo 2 -> 3 (assinatura)
-    fireEvent.click(screen.getByLabelText('Pular assinatura'));
-    fireEvent.click(screen.getByText('Gerar PDF'));
-
-    expect(onGenerate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        referenceSources: [expect.objectContaining({ url: 'https://example.com/fonte' })],
-      })
-    );
+    expect(marcadas()).toEqual([]);
+    expect(screen.getByText('• RDC 15/2012')).toBeInTheDocument();
   });
 });

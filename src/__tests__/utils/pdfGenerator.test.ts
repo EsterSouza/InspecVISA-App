@@ -143,15 +143,52 @@ describe('REF-03 - drawConsultedSources (via generatePDF)', () => {
     expect(capturedTexts).toContain('consultado em 05/08/2026');
   });
 
-  test('norma citada sem verbete na biblioteca ainda aparece em REFERÊNCIAS LEGISLATIVAS', async () => {
+  // REF-07: a autoria da citação passou a vir só do verbete curado. Antes, uma
+  // norma sem verbete era citada assim mesmo, com autoria deduzida por regex —
+  // era isso que fazia "Critério técnico de higiene das mãos" virar
+  // "BRASIL. Critério técnico de higiene das mãos." na página de referências.
+  test('norma sem verbete na biblioteca fica fora de REFERÊNCIAS LEGISLATIVAS', async () => {
     const score = calculateScore(responses, sections);
-    // biblioteca de legislações vazia — RDC 63/2011 não tem `summary` nem `url` cadastrados.
     await generatePDF(inspection, responses, template, score, settings, [], {
       selectedLegislations: ['RDC 63/2011'],
     });
 
+    expect(capturedTexts).not.toContain('REFERÊNCIAS LEGISLATIVAS');
+  });
+
+  test('norma com verbete é citada com a autoria curada, não deduzida', async () => {
+    const score = calculateScore(responses, sections);
+    await generatePDF(inspection, responses, template, score, settings, [
+      {
+        name: 'RDC Anvisa nº 63/2011',
+        authority: 'BRASIL. Agência Nacional de Vigilância Sanitária (ANVISA)',
+        summary: 'Boas Práticas de Funcionamento para os Serviços de Saúde',
+        url: 'https://exemplo.gov.br/rdc63',
+        status: 'vigente',
+      },
+    ], { selectedLegislations: ['RDC 63/2011'] });
+
     expect(capturedTexts).toContain('REFERÊNCIAS LEGISLATIVAS');
-    expect(capturedTexts.some(t => t.includes('RDC n. 63'))).toBe(true);
+    expect(capturedTexts.some(t =>
+      t.includes('BRASIL. Agência Nacional de Vigilância Sanitária (ANVISA). RDC Anvisa nº 63/2011.')
+    )).toBe(true);
+  });
+
+  test('norma revogada é citada com a substituta, não como vigente', async () => {
+    const score = calculateScore(responses, sections);
+    await generatePDF(inspection, responses, template, score, settings, [
+      {
+        name: 'RDC Anvisa nº 306/2004',
+        authority: 'BRASIL. Agência Nacional de Vigilância Sanitária (ANVISA)',
+        summary: 'Gerenciamento de resíduos de serviços de saúde',
+        status: 'revogada',
+        replaced_by: 'RDC Anvisa nº 222/2018',
+      },
+    ], { selectedLegislations: ['RDC 306/2004'] });
+
+    expect(capturedTexts.some(t =>
+      t.includes('[REVOGADA — substituída por RDC Anvisa nº 222/2018.]')
+    )).toBe(true);
   });
 });
 
@@ -405,12 +442,19 @@ describe('REF-02 - referências legislativas do relatório', () => {
       { ...template, sections: sectionsMunicipais },
       score,
       settings,
-      []
+      [
+        {
+          name: 'Lei Municipal nº 1.812/2014 - Senador Canedo',
+          authority: 'SENADOR CANEDO (GO)',
+          summary: 'Código de posturas e vigilância sanitária do município',
+          status: 'vigente',
+        },
+      ]
     );
 
-    // Só as entradas da página de referências (formato ABNT, com "n. "). A base
-    // legal também é impressa na relação de itens cumpridos, uma vez por item.
-    const referencias = capturedTexts.filter(t => t.includes('BRASIL') && t.includes('1.812'));
+    // Só as entradas da página de referências. A base legal também é impressa na
+    // relação de itens cumpridos, uma vez por item.
+    const referencias = capturedTexts.filter(t => t.includes('SENADOR CANEDO') && t.includes('1.812'));
     expect(referencias).toHaveLength(1);
     expect(capturedTexts).not.toContain('Art. 276');
   });

@@ -9,7 +9,7 @@ import { isRioState } from './state';
 // REF-02: pdfGenerator mantinha uma cópia própria (e defasada) de
 // extractBaseLegislation — sem os qualificadores do REF-01 nem as correções de
 // número/ano do REF-02. Passa a usar a mesma implementação do resto do app.
-import { extractBaseLegislation, canonicalLegislationKey } from './legislationRefs';
+import { extractBaseLegislation, canonicalLegislationKey, citedLegislations } from './legislationRefs';
 import type { ClientDeclarationForItem, ClientEvidenceForItem } from '../services/clientEvidenceService';
 
 
@@ -1715,8 +1715,8 @@ export async function generatePDF(
 
 /**
  * Gera página de referências legislativas no formato ABNT NBR 6023.
- * Lista apenas as legislações base (sem alíneas/incisos) citadas nos itens avaliados.
- * Se `selectedLegislations` for fornecida (do modal), usa essa lista diretamente.
+ * Lista as normas citadas pelos itens avaliados que tenham verbete curado na
+ * biblioteca. `selectedLegislations` (do modal) restringe ainda mais essa lista.
  */
 function drawReferencesABNT(
   doc: jsPDF,
@@ -1726,34 +1726,17 @@ function drawReferencesABNT(
   _inspection: Inspection,
   selectedLegislations?: string[]
 ) {
-  let uniqueRefs: string[];
+  const candidates = selectedLegislations && selectedLegislations.length > 0
+    ? selectedLegislations
+    : citedLegislations(template, responses);
 
-  if (selectedLegislations && selectedLegislations.length > 0) {
-    // Use the pre-selected list from the modal (already deduplicated and cleaned)
-    uniqueRefs = [...selectedLegislations].sort();
-  } else {
-    // Auto-extract from template items using the smart extractor
-    const allItems = template.sections.flatMap(s => s.items);
-    const itemIds = new Set(allItems.map(item => item.id));
-    const latestResponses = getLatestResponsesByItem(responses, itemIds);
-    const evaluatedItemIds = new Set(latestResponses.map(r => r.itemId));
-    const mentionedSet = new Set<string>();
-
-    allItems.forEach(item => {
-      if (!evaluatedItemIds.has(item.id)) return;
-      if (!item.legislation) return;
-      // Boas práticas não têm base legal vigente — não entram na seção de referências.
-      if (item.requirementType === 'good_practice') return;
-
-      // A norma citada no item entra sempre, mesmo sem verbete na biblioteca —
-      // formatABNT já cobre esse caso com um texto de referência mínimo.
-      // Omitir em silêncio faz o relatório citar uma exigência sem listar sua base legal.
-      const bases = extractBaseLegislation(item.legislation);
-      bases.forEach(b => mentionedSet.add(b));
-    });
-
-    uniqueRefs = Array.from(mentionedSet).sort();
-  }
+  // Só entra na seção quem tem verbete curado: é o verbete que traz autoria, ementa,
+  // link e vigência conferida. Sem ele a citação seria inventada — que é justamente
+  // o que fazia "Critério técnico de higiene das mãos" virar norma no relatório.
+  // O fundamento do item continua visível no corpo, e o modal avisa o que ficou de fora.
+  const uniqueRefs = Array.from(new Set(candidates))
+    .filter(ref => allLegislations.some(leg => canonicalLegislationKey(leg.name) === canonicalLegislationKey(ref)))
+    .sort();
 
   if (uniqueRefs.length === 0) return;
 
@@ -1956,77 +1939,32 @@ function drawConsultedSources(doc: jsPDF, sources?: ReferenceSource[]) {
 
 /**
  * Formata uma citação legislativa no padrão ABNT NBR 6023.
+ *
+ * Autoria, ementa e vigência vêm do verbete curado da biblioteca — nunca são
+ * deduzidas do texto. A versão anterior adivinhava o órgão por regex e carimbava
+ * "BRASIL." em qualquer string, o que produzia citações de normas inexistentes
+ * ("BRASIL. Critério técnico de higiene das mãos.") e atribuía ao Ministério da
+ * Saúde atos municipais como a Portaria IVISA-RIO 002/2020.
+ *
+ * Sem verbete, a referência sai como o item a citou: sem autoria e sem ementa.
+ * Some do relatório seria pior — o item cobra uma exigência e some a base dela.
  */
 function formatABNT(mention: string, libraryEntry?: any): string {
   const m = mention.trim();
-  const summary = libraryEntry?.summary || '';
+  if (!libraryEntry) return m;
 
-  // RDC ANVISA
-  if (/RDC\s*(?:ANVISA\s*)?n?[oº]?\s*(\d+)/i.test(m)) {
-    const match = m.match(/RDC\s*(?:ANVISA\s*)?n?[oº]?\s*(\d+)[\s,/]*(\d{4})?/i);
-    const num = match?.[1] || '';
-    const year = match?.[2] || '';
-    const yearStr = year ? `, de ${year}` : '';
-    const baseText = `BRASIL. Agência Nacional de Vigilância Sanitária (ANVISA). Resolução da Diretoria Colegiada – RDC n. ${num}${yearStr}.`;
-    return summary ? `${baseText} ${summary}.` : `${baseText} Brasília: ANVISA.`;
-  }
+  const name = libraryEntry.name || m;
+  const authority = (libraryEntry.authority || '').trim().replace(/\.$/, '');
+  const summary = (libraryEntry.summary || '').trim().replace(/\.$/, '');
+  const revokedBy = libraryEntry.status === 'revogada'
+    ? (libraryEntry.replaced_by || libraryEntry.replacedBy)
+    : '';
 
-  // Portaria
-  if (/Portaria/i.test(m)) {
-    const match = m.match(/Portaria\s+(?:(?:GM|SVS|MS|CVS)[\s/]*(?:MS|MS)?)?n?[oº]?\s*([\d.]+)[\s,/]*(\d{4})?/i);
-    const num = match?.[1] || '';
-    const year = match?.[2] || '';
-    const yearStr = year ? `, de ${year}` : '';
-    const org = /CVS/i.test(m) ? 'São Paulo. Centro de Vigilância Sanitária (CVS). Portaria CVS'
-      : 'BRASIL. Ministério da Saúde. Portaria';
-    const baseText = `${org} n. ${num}${yearStr}.`;
-    return summary ? `${baseText} ${summary}.` : `${baseText}`;
-  }
-
-  // Lei Federal
-  if (/Lei\s+Federal/i.test(m) || /Lei\s+n[oº.]/i.test(m)) {
-    const match = m.match(/Lei\s+(?:Federal\s+)?n?[oº.]?\s*([\d.]+)[\s,/]*(\d{4})?/i);
-    const num = match?.[1] || '';
-    const year = match?.[2] || '';
-    const yearStr = year ? `, de ${year}` : '';
-    const baseText = `BRASIL. Lei n. ${num}${yearStr}.`;
-    return summary ? `${baseText} ${summary}.` : `${baseText} Brasília: Presidência da República.`;
-  }
-
-  // Lei Estadual (ex: Lei 8.049/2018)
-  if (/Lei\s+[\d.]+[/](\d{4})/i.test(m)) {
-    const match = m.match(/Lei\s+([\d.]+)[/](\d{4})/i);
-    const num = match?.[1] || '';
-    const year = match?.[2] || '';
-    const isRJ = m.includes('8049') || m.includes('8.049');
-    const state = isRJ ? 'RIO DE JANEIRO (Estado)' : 'BRASIL';
-    const baseText = `${state}. Lei n. ${num}, de ${year}.`;
-    return summary ? `${baseText} ${summary}.` : `${baseText}`;
-  }
-
-  // NR (Norma Regulamentadora)
-  if (/^NR[\s-]?(\d+)/i.test(m)) {
-    const match = m.match(/^NR[\s-]?(\d+)/i);
-    const num = match?.[1] || '';
-    const baseText = `BRASIL. Ministério do Trabalho e Emprego. Norma Regulamentadora n. ${num} (NR-${num}).`;
-    return summary ? `${baseText} ${summary}.` : `${baseText}`;
-  }
-
-  // ABNT
-  if (/ABNT|NBR/i.test(m)) {
-    const match = m.match(/(?:ABNT\s*)?NBR\s*([\d]+)/i);
-    const num = match?.[1] || '';
-    const baseText = `ASSOCIAÇÃO BRASILEIRA DE NORMAS TÉCNICAS. ABNT NBR ${num}.`;
-    return summary ? `${baseText} ${summary}.` : `${baseText} Rio de Janeiro: ABNT.`;
-  }
-
-  // Nota Técnica
-  if (/Nota\s+Técnica/i.test(m)) {
-    const baseText = `BRASIL. Agência Nacional de Vigilância Sanitária (ANVISA). ${m}.`;
-    return summary ? `${baseText} ${summary}.` : `${baseText}`;
-  }
-
-  // Generic fallback
-  const baseText = `BRASIL. ${m}.`;
-  return summary ? `${baseText} ${summary}.` : baseText;
+  return [
+    authority ? `${authority}. ${name}.` : `${name}.`,
+    summary ? `${summary}.` : '',
+    libraryEntry.status === 'revogada'
+      ? `[REVOGADA${revokedBy ? ` — substituída por ${revokedBy}` : ''}.]`
+      : '',
+  ].filter(Boolean).join(' ');
 }

@@ -7,6 +7,7 @@ import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { generateId } from '../utils/imageUtils';
+import { UF_OPTIONS, toUF } from '../utils/state';
 import { useNavigate } from 'react-router-dom';
 import { ClientService } from '../services/clientService';
 import { AppointmentAdminService, type ClientPortalAccountRow } from '../services/appointmentAdminService';
@@ -125,7 +126,8 @@ export function Clients() {
   const handleEdit = (client: Client, e: React.MouseEvent) => {
     e.stopPropagation();
     setEditingClient(client);
-    reset(client);
+    // `state` era texto livre; normaliza para a sigla do select sem perder o valor antigo.
+    reset({ ...client, state: toUF(client.state) || client.state });
     setClientContacts(
       client.contacts?.length
         ? client.contacts
@@ -402,7 +404,12 @@ export function Clients() {
             </div>
             <div className="col-span-2 sm:col-span-1">
               <label className="block text-sm font-medium text-gray-700">Estado</label>
-              <input {...register('state')} className="mt-1 h-11 w-full rounded-xl border border-gray-200 px-4 focus:ring-2 focus:ring-primary-500 outline-none" />
+              <select {...register('state')} className="mt-1 h-11 w-full rounded-xl border border-gray-200 px-4 focus:ring-2 focus:ring-primary-500 outline-none bg-white">
+                <option value="">Selecione</option>
+                {UF_OPTIONS.map(({ uf, name }) => (
+                  <option key={uf} value={uf}>{uf} — {name}</option>
+                ))}
+              </select>
             </div>
           </div>
 

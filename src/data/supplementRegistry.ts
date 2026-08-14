@@ -12,7 +12,7 @@ import { templateIlpiGoiasSuplement } from './templates-ilpi-goias-supplement';
 import { templateIlpiBeloHorizonteSupplement } from './Roteiro_ILPI_BH';
 import { templateIlpiRioDeJaneiroSupplement } from './Roteiro_ILPI_RJ';
 import { suplementoEsteticaRj } from './estetica/suplemento-rj';
-import { isRioState } from '../utils/state';
+import { isRioState, toUF } from '../utils/state';
 
 function normalizeLocation(value?: string | null): string {
   return (value || '')
@@ -23,9 +23,7 @@ function normalizeLocation(value?: string | null): string {
 }
 
 function isBeloHorizonteClient(client: Client): boolean {
-  const state = normalizeLocation(client.state);
-  const city = normalizeLocation(client.city);
-  return (state === 'mg' || state === 'minas gerais') && city.includes('belo horizonte');
+  return toUF(client.state) === 'MG' && normalizeLocation(client.city).includes('belo horizonte');
 }
 
 export function isIlpiFederalTemplate(template: ChecklistTemplate): boolean {
@@ -60,7 +58,7 @@ export const supplementRegistry: SupplementRegistryEntry[] = [
   },
   {
     supplement: templateIlpiGoiasSuplement as unknown as ChecklistSupplement,
-    appliesTo: (template, client) => isIlpiFederalTemplate(template) && normalizeLocation(client.state) === 'go',
+    appliesTo: (template, client) => isIlpiFederalTemplate(template) && toUF(client.state) === 'GO',
     nameSuffix: ' (+ Suplemento GO)',
   },
   {

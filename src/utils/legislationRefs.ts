@@ -1,4 +1,6 @@
 import { LEGISLATION_LIBRARY, type LegislationEntry } from '../data/legislationLibrary';
+import { getLatestResponsesByItem } from './scoring';
+import type { ChecklistTemplate, InspectionResponse } from '../types';
 
 /** Segmento que é só referência a artigo/inciso/parágrafo, sem nomear ato algum. */
 const ONLY_SUBREFERENCE = /^(?:art\.?|artigo|inciso|§|par[aá]grafo|item|subitem|cap[íi]tulo|anexo)\b[\s\d.,ºªivxlcIVXLC-]*$/i;
@@ -138,6 +140,29 @@ export function resolveCitedLegislations(raw?: string | null): CitedLegislation[
  */
 export function resolveLegislationUrl(raw?: string | null): string | undefined {
   return resolveCitedLegislations(raw).find(c => c.entry?.url)?.entry?.url;
+}
+
+/**
+ * Normas citadas pelos itens efetivamente avaliados de uma inspeção — a lista que
+ * fundamenta *aquele* relatório. Usada pelo PDF e pelo modal de geração, para que
+ * os dois concordem sobre o que é "item avaliado" (antes o modal olhava todas as
+ * respostas, inclusive as substituídas por uma reavaliação posterior).
+ */
+export function citedLegislations(
+  template: ChecklistTemplate,
+  responses: InspectionResponse[]
+): string[] {
+  const items = template.sections.flatMap(s => s.items);
+  const evaluated = new Set(
+    getLatestResponsesByItem(responses, new Set(items.map(i => i.id))).map(r => r.itemId)
+  );
+
+  const bases = new Set<string>();
+  for (const item of items) {
+    if (!evaluated.has(item.id) || !item.legislation) continue;
+    for (const base of extractBaseLegislation(item.legislation)) bases.add(base);
+  }
+  return Array.from(bases).sort();
 }
 
 /** URL a exibir para um item de roteiro: override do item ou biblioteca. */

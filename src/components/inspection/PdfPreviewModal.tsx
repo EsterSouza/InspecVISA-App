@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { X, ChevronRight, ChevronLeft, Trash2, FileDown, Loader2, CheckSquare, Square, Plus, Link2 } from 'lucide-react';
 import { Button } from '../ui/Button';
-import { extractBaseLegislation, canonicalLegislationKey } from '../../utils/legislationRefs';
+import { canonicalLegislationKey, citedLegislations } from '../../utils/legislationRefs';
 import { isLegislationApplicable, type Legislation } from '../../services/legislationService';
 import type { ChecklistTemplate, InspectionResponse, Inspection, ReferenceSource } from '../../types';
 
@@ -34,6 +34,8 @@ export function PdfPreviewModal({
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [legislations, setLegislations] = useState<string[]>([]);
   const [legTags, setLegTags] = useState<Map<string, LegTag>>(new Map());
+  /** Normas citadas por itens avaliados que ainda não têm verbete na biblioteca. */
+  const [uncatalogued, setUncatalogued] = useState<string[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sources, setSources] = useState<ReferenceSource[]>([]);
   const [sourceUrl, setSourceUrl] = useState('');
@@ -61,58 +63,38 @@ export function PdfPreviewModal({
     setSourceNote('');
     setSourceUrlError(null);
 
-    // 1. Legislações CITADAS nos itens avaliados (comportamento original).
-    const evaluatedIds = new Set(responses.map(r => r.itemId));
-    const citedBases = new Set<string>();
-    template.sections.forEach(sec =>
-      sec.items.forEach(item => {
-        if (!evaluatedIds.has(item.id)) return;
-        if (!item.legislation) return;
-        extractBaseLegislation(item.legislation).forEach(b => citedBases.add(b));
-      })
-    );
-
-    // 2. Legislações APLICÁVEIS da biblioteca (estaduais/municipais da UF + federais
-    //    curadas para o segmento), mesmo que não citadas em nenhum item.
     const library = legislationLibrary || [];
-    const matchLib = (s: string) =>
-      library.find(l =>
-        l.name.toUpperCase().includes(s.toUpperCase()) || s.toUpperCase().includes(l.name.toUpperCase())
-      );
+    // Casamento por chave canônica, não por substring: "RDC 15/2012" casava com
+    // "RDC 156/2006" nos dois sentidos (mesmo bug que o REF-02 corrigiu no PDF).
+    const byCanonKey = new Map(library.map(l => [canonicalLegislationKey(l.name), l]));
+    const matchLib = (s: string) => byCanonKey.get(canonicalLegislationKey(s));
 
-    // Dedup por chave canônica: "RDC 502/2021" e "RDC ANVISA nº 502/2021" viram um só.
-    // Preferimos o nome oficial da biblioteca como rótulo quando disponível.
-    const byKey = new Map<string, { label: string; tag: LegTag; fromLib: boolean }>();
-    const addEntry = (label: string, tag: LegTag, fromLib: boolean) => {
-      const key = canonicalLegislationKey(label);
-      const existing = byKey.get(key);
-      if (!existing) {
-        byKey.set(key, { label, tag, fromLib });
-      } else if (fromLib && !existing.fromLib) {
-        // Substitui o rótulo curto da citação pelo nome oficial da biblioteca.
-        byKey.set(key, { label, tag, fromLib });
-      }
-    };
-
-    // Citadas nos itens (sempre relevantes), canonicalizadas para o nome da biblioteca.
-    citedBases.forEach(base => {
+    // 1. Normas citadas pelos itens avaliados — o que de fato fundamenta este relatório.
+    //    Só entram marcadas as que têm verbete curado; sem verbete não há autoria,
+    //    link nem vigência conferida, e o PDF as deixa de fora.
+    const used = new Map<string, LegTag>();
+    const missing: string[] = [];
+    for (const base of citedLegislations(template, responses)) {
       const lib = matchLib(base);
-      addEntry(lib?.name || base, lib?.uf ? 'uf' : 'roteiro', !!lib);
-    });
+      if (lib) used.set(lib.name, 'roteiro');
+      else missing.push(base);
+    }
 
-    // Aplicáveis da biblioteca (UF + segmento), sem duplicar as já citadas.
-    library.forEach(leg => {
-      if (!isLegislationApplicable(leg, inspection.state, inspection.clientCategory)) return;
-      addEntry(leg.name, leg.uf ? 'uf' : 'segmento', true);
-    });
+    // 2. Sugestões da biblioteca para a UF e o segmento, que nenhum item citou.
+    //    Vêm DESMARCADAS: entram no relatório só por escolha explícita.
+    const suggestions = new Map<string, LegTag>();
+    for (const leg of library) {
+      if (used.has(leg.name)) continue;
+      if (!isLegislationApplicable(leg, inspection.state, inspection.clientCategory)) continue;
+      suggestions.set(leg.name, leg.uf ? 'uf' : 'segmento');
+    }
 
-    const entries = Array.from(byKey.values()).sort((a, b) => a.label.localeCompare(b.label));
-    const tags = new Map<string, LegTag>();
-    entries.forEach(e => tags.set(e.label, e.tag));
-    const sorted = entries.map(e => e.label);
-    setLegislations(sorted);
-    setLegTags(tags);
-    setSelected(new Set(sorted)); // all selected by default
+    const usedNames = [...used.keys()].sort((a, b) => a.localeCompare(b));
+    const suggestionNames = [...suggestions.keys()].sort((a, b) => a.localeCompare(b));
+    setLegislations([...usedNames, ...suggestionNames]);
+    setLegTags(new Map([...used, ...suggestions]));
+    setUncatalogued([...new Set(missing)].sort((a, b) => a.localeCompare(b)));
+    setSelected(new Set(usedNames)); // só o que foi usado vem marcado
   }, [open, template, responses, legislationLibrary, inspection]);
 
   // Canvas drawing helpers
@@ -248,22 +230,40 @@ export function PdfPreviewModal({
           {step === 1 && (
             <div className="space-y-3">
               <p className="text-sm text-gray-500">
-                Selecione as legislações que devem aparecer na última página do PDF. Já incluímos as citadas no roteiro e as estaduais/municipais e federais aplicáveis a este estabelecimento e UF. Todas estão marcadas — desmarque as que não quiser incluir.
+                Vêm marcadas as legislações citadas pelos itens que você avaliou. As demais são sugestões para a UF e o segmento deste estabelecimento — marque só as que usou.
               </p>
+              {uncatalogued.length > 0 && (
+                <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
+                  <p className="font-semibold">Sem fonte cadastrada — fora do PDF</p>
+                  <p className="text-xs mt-1 text-amber-700">
+                    Estas normas aparecem nos itens mas ainda não têm verbete na biblioteca, então não há autoria nem link oficial para citá-las. Cadastre em Admin → Legislações para que entrem nas próximas referências.
+                  </p>
+                  <ul className="mt-2 space-y-0.5 text-xs">
+                    {uncatalogued.map(name => <li key={name}>• {name}</li>)}
+                  </ul>
+                </div>
+              )}
               {legislations.length === 0 ? (
                 <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-700">
-                  Nenhuma legislação encontrada nos itens avaliados. O PDF será gerado sem a seção de referências.
+                  Nenhuma legislação cadastrada entre os itens avaliados. O PDF será gerado sem a seção de referências.
                 </div>
               ) : (
                 <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
-                  {legislations.map(leg => (
+                  {legislations.map((leg, idx) => (
+                    <React.Fragment key={leg}>
+                    {legTags.get(leg) !== 'roteiro' && legTags.get(legislations[idx - 1]) === 'roteiro' && (
+                      <p className="pt-3 pb-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                        Sugestões para esta UF e segmento
+                      </p>
+                    )}
                     <button
-                      key={leg}
+                      type="button"
+                      aria-pressed={selected.has(leg)}
                       onClick={() => toggleLeg(leg)}
                       className={`w-full flex items-start gap-3 text-left rounded-xl px-3 py-2.5 text-sm transition-colors ${
                         selected.has(leg)
                           ? 'bg-primary-50 border border-primary-200 text-primary-900'
-                          : 'bg-gray-50 border border-gray-200 text-gray-400 line-through'
+                          : 'bg-gray-50 border border-gray-200 text-gray-500'
                       }`}
                     >
                       {selected.has(leg)
@@ -276,12 +276,14 @@ export function PdfPreviewModal({
                           Estadual/Municipal
                         </span>
                       )}
+
                       {legTags.get(leg) === 'segmento' && (
                         <span className="shrink-0 mt-0.5 text-[9px] font-bold uppercase tracking-wide bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">
-                          Aplicável
+                          Sugestão
                         </span>
                       )}
                     </button>
+                    </React.Fragment>
                   ))}
                 </div>
               )}

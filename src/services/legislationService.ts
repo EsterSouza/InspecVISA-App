@@ -1,14 +1,20 @@
 import { supabase } from '../lib/supabase';
 import { withTimeout } from '../utils/network';
-import { LEGISLATION_LIBRARY, type LegislationSegment } from '../data/legislationLibrary';
+import { toUF } from '../utils/state';
+import { LEGISLATION_LIBRARY, type LegislationSegment, type LegislationStatus } from '../data/legislationLibrary';
 
-export type { LegislationSegment };
+export type { LegislationSegment, LegislationStatus };
 
 export interface Legislation {
   id: string;
   name: string;
   summary?: string;
   url?: string;
+  /** Autoria ABNT do ato. Sem ela a citação sai sem órgão — nunca deduzida. */
+  authority?: string | null;
+  /** 'revogada' tira o ato das sugestões e faz o PDF apontar `replaced_by`. */
+  status?: LegislationStatus | null;
+  replaced_by?: string | null;
   /** UF de abrangência (ex.: 'RJ', 'MG', 'SP'). Vazio/null = federal/nacional. */
   uf?: string | null;
   /** Segmentos aplicáveis. Vazio/null = aplica a todos os segmentos. */
@@ -23,16 +29,14 @@ export interface Legislation {
  * - Federais (uf vazia) só entram quando o segmento foi curado para a categoria.
  */
 export function isLegislationApplicable(
-  leg: Pick<Legislation, 'uf' | 'segments'>,
+  leg: Pick<Legislation, 'uf' | 'segments' | 'status'>,
   state?: string | null,
   category?: string | null
 ): boolean {
-  const ufNorm = (leg.uf || '').trim().toUpperCase();
-  const stateNorm = (state || '').trim().toUpperCase();
-  const stateAliases = stateNorm === 'RIO DE JANEIRO' ? 'RJ'
-    : stateNorm === 'MINAS GERAIS' ? 'MG'
-    : stateNorm === 'SAO PAULO' || stateNorm === 'SÃO PAULO' ? 'SP'
-    : stateNorm;
+  // Ato revogado nunca é sugerido; se ainda houver item citando, o PDF aponta a substituta.
+  if (leg.status === 'revogada') return false;
+  const ufNorm = toUF(leg.uf);
+  const stateUF = toUF(state);
   const segments = leg.segments || [];
   const segmentMatches = segments.length === 0
     ? false // federais sem segmento curado não inflam a lista; entram via citação no item
@@ -40,7 +44,7 @@ export function isLegislationApplicable(
 
   if (ufNorm) {
     // Estadual/municipal: precisa casar a UF; se tiver segmento curado, respeita-o.
-    if (ufNorm !== stateAliases) return false;
+    if (ufNorm !== stateUF) return false;
     return segments.length === 0 ? true : (!!category && segments.includes(category as LegislationSegment));
   }
   // Federal: sugere apenas as curadas para o segmento da inspeção.
@@ -52,12 +56,15 @@ const LEGISLATION_QUERY_TIMEOUT_MS = 2500;
 // A biblioteca curada vive em src/data/legislationLibrary.ts (REF-02). Aqui ela
 // vira apenas o fallback local usado quando o Supabase não responde.
 const DEFAULT_LEGISLATIONS: Omit<Legislation, 'id' | 'created_at'>[] = LEGISLATION_LIBRARY.map(
-  ({ name, summary, url, uf, segments }) => ({
+  ({ name, summary, url, authority, uf, segments, status, replacedBy }) => ({
     name,
     summary,
     url,
+    authority,
     uf: uf ?? null,
     segments: segments && segments.length ? segments : null,
+    status,
+    replaced_by: replacedBy ?? null,
   })
 );
 

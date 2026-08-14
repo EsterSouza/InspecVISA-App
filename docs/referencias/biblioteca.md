@@ -213,3 +213,111 @@ Sobraram **72 itens sem URL, 48 deles marcados como `legal`**. Nenhum cita ato n
 `requirement_type` só foi curado nos roteiros de estética — em `templateService.ts` o padrão é
 `'legal'`, então ILPI e alimentos nasceram inteiramente legais. Reclassificar esses 48 é decisão
 sanitária, não de código.
+
+---
+
+# REF-07 — a citação passa a vir da curadoria (14/08/2026)
+
+## O que mudou no relatório
+
+1. **A página de referências lista só o que foi usado.** Antes, o passo 1 do
+   `PdfPreviewModal` somava as normas citadas nos itens avaliados **com toda a biblioteca
+   que casasse UF+segmento**, tudo pré-marcado, e essa lista ia crua para o PDF (tinha
+   precedência sobre o extrator filtrado). O relatório citava norma que a inspeção não
+   avaliou. Agora vêm marcadas só as citadas pelos itens avaliados; as da UF/segmento
+   aparecem numa lista separada, **desmarcadas**.
+2. **Autoria e ementa vêm do verbete, nunca de dedução.** `formatABNT` adivinhava o órgão
+   por regex sobre o texto do item e carimbava `BRASIL.` em qualquer string. Resultados
+   reais no PDF: "BRASIL. Critério técnico de higiene das mãos.", "BRASIL. Manuais do
+   Fabricante." e — pior — "BRASIL. Ministério da Saúde. Portaria n. 002", que é a
+   **Portaria IVISA-RIO 002/2020, municipal**, citada por 102 itens. Toda essa dedução
+   saiu. O campo `authority` é agora a única fonte de órgão, e está preenchido nos 79
+   verbetes.
+3. **Norma revogada sai das sugestões** e, se algum item ainda a citar, o relatório imprime
+   `[REVOGADA — substituída por …]` em vez de tratá-la como vigente. `LegislationStatus`
+   ganhou `'revogada'` e o campo `replacedBy`.
+4. **UF em texto livre parou de derrubar a legislação estadual.** `isLegislationApplicable`
+   só conhecia 'RJ', 'MG' e 'SP'; um cliente cadastrado como "Goias" saía com zero norma
+   estadual, sem erro nenhum. Agora usa `toUF()` (`src/utils/state.ts`) com as 27 UFs, e o
+   campo Estado do cadastro de cliente virou `<select>`.
+
+## Achados de vigência
+
+### Decreto Rio nº 45.585/2018 — REVOGADO desde 02/02/2026
+
+Art. 72 do **Decreto Rio nº 57.501/2026**: *"Ficam revogados, a partir de 02 de fevereiro de
+2026: I - o Decreto Rio nº 45.585, de 27 de dezembro de 2018"*. Conferido no texto do próprio
+decreto. Marcado `status: 'revogada'`, `replacedBy: 'Decreto Rio nº 57.501/2026'`.
+
+**Pendência sanitária:** 24 itens de roteiro ainda citam o 45.585. Reapontá-los para o
+57.501/2026 exige conferir a correspondência de artigos — é decisão da consultora, não de
+código, e mexer no campo `legislation` de um item muda o fundamento da pergunta.
+
+### RDC Anvisa nº 751/2022 — ementa era de outra norma
+
+O verbete descrevia *"requisitos sanitários aplicáveis aos serviços de saúde que utilizam
+equipamentos emissores de radiações ionizantes para diagnóstico"* — que é a **RDC 611/2022**.
+A 751/2022 dispõe sobre classificação de risco, notificação/registro e rotulagem de
+**dispositivos médicos** (conferido no texto oficial, anvisalegis.datalegis.net). Os 5 itens
+que a citam falam de regularização de equipamento na Anvisa, então a norma citada estava
+certa e só a ementa estava trocada. Corrigida.
+
+## Links — `npx tsx scripts/ref07-valida-links.ts`
+
+O script percorre a biblioteca, faz GET em cada URL e separa **quebrado** (o servidor
+respondeu e o documento não está lá) de **inacessível** (a conexão nem se estabeleceu —
+costuma ser filtro de saída da rede de quem roda, não link morto). Só o primeiro grupo
+derruba o código de saída.
+
+Rodada de 14/08/2026: 79 verificados · **7 quebrados** · 39 inacessíveis · 0 sem URL.
+
+Corrigidos nesta rodada: as URLs de **NR-6, NR-7, NR-10, NR-24 e NR-32** davam 404 — o portal
+do MTE mudou o slug de `/nr-32` para `/norma-regulamentadora-no-32-nr-32`. E a URL da RDC
+751/2022 (in.gov.br, 404) passou para o texto oficial no datalegis.
+
+**Os 7 que sobraram** precisam de fonte oficial e não foram resolvidos daqui:
+
+| Verbete | Problema |
+|---|---|
+| Lei Ordinária RJ nº 8.049/2018 | aponta para `leisestaduais.com.br` — **site privado**, 403. Fonte oficial é a ALERJ |
+| Lei Municipal nº 1.812/2014 - Senador Canedo | `leismunicipais.com.br`, 403, site privado |
+| Lei Municipal nº 7.031/1996 - Belo Horizonte | idem |
+| Lei Municipal nº 7.930/1999 - Belo Horizonte | idem |
+| Resolução SES/RJ nº 1.568/2017 | aponta para `saude.rj.gov.br/legislacao` — 404, e é **listagem**, não o ato |
+| Portaria 2619/2011 (SP Capital) | 404 em `prefeitura.sp.gov.br` |
+| Decreto Municipal 1.601/1992 (RJ Capital) | 404 em `rio.rj.gov.br` |
+
+Os quatro primeiros violam também a regra 2 do cabeçalho de `legislationLibrary.ts`: a URL
+deve apontar para fonte oficial, e `leismunicipais.com.br`/`leisestaduais.com.br` são
+serviços comerciais que exigem sessão.
+
+Nota: o verbete do **Decreto Rio nº 57.501/2026** aponta para um PDF hospedado no site oficial
+da vigilância sanitária do Rio, mas o PDF em si é uma impressão do `leis.org`. Responde 200 e o
+conteúdo confere; vale trocar pelo D.O.Rio quando houver link estável.
+
+## Lacunas — `npx tsx scripts/ref07-lacunas.ts`
+
+Roda sobre `src/data` (roteiros + suplementos regionais), sem rede nem credencial, e lista o
+que os itens citam mas a biblioteca não tem. Como a página de referências passou a exigir
+verbete, esta lista é exatamente o que falta cadastrar para a norma voltar a ser citada.
+
+Rodada de 14/08/2026: **79 verbetes · 33 citações sem verbete · 46 itens afetados**.
+
+O resultado desmente o `inventario.csv` (05/08), que apontava 40 chaves sem verbete: aquele
+CSV foi gerado antes das correções de chave canônica do REF-02 e nunca foi regerado.
+**Nenhuma das 33 lacunas atuais é ato normativo** — RDCs, leis, portarias e notas técnicas
+estão todas cadastradas. As lacunas são de dois tipos:
+
+**Documentos reais, valem cadastro** (a regra é curadoria, não formato — roteiro e manual
+são fonte legítima desde que verificados):
+
+| Citação | Itens | O que é |
+|---|---|---|
+| ROI ANVISA ILPI | 6 | Roteiro de Inspeção da Anvisa para ILPI |
+| Roteiro MPGO/UTPSS (+ 6 variantes por área) | 12 | Roteiro do Ministério Público de Goiás |
+| Legislação Estadual de Goiás — CBMGO | 1 | precisa virar a norma concreta do Corpo de Bombeiros |
+
+**Paráfrases, não são fonte** — ficam fora da página de referências, e o fundamento continua
+visível no corpo do item: "Critério técnico de …" (14 itens), "Consenso técnico de …",
+"Plano interno de …", "Política interna de …", "manual do fabricante" genérico,
+"legislação estadual" genérico.
