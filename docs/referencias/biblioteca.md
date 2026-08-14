@@ -321,3 +321,39 @@ são fonte legítima desde que verificados):
 visível no corpo do item: "Critério técnico de …" (14 itens), "Consenso técnico de …",
 "Plano interno de …", "Política interna de …", "manual do fabricante" genérico,
 "legislação estadual" genérico.
+
+## Revisão dos itens que citavam o Decreto Rio nº 45.585/2018 (14/08/2026)
+
+Aplicado tanto em `src/data/templates_alimentos*.ts` quanto na tabela `checklist_items`
+de produção — os dois estavam com as mesmas 24 citações, todas no roteiro "Serviços de
+Alimentação (Município RJ)". Só o campo `legislation_name` mudou: pergunta, id e peso
+ficaram iguais, então nenhuma resposta existente foi afetada e nenhum relatório entregue
+mudou (os concluídos já ficam congelados por snapshot, REF-06).
+
+**O 57.501/2026 não serve como substituto de conteúdo.** Ele regulamenta licenciamento,
+infrações, fiscalização e classificação de risco; seus Anexos I e II são tabelas de risco
+por segmento. Os itens citavam a numeração do **roteiro anexo** ao 45.585 (5.5.9, 6.4.1,
+7.1 …), que trata de requisito técnico — higienização, temperatura, EPI, controle de
+pragas. Reapontar mecanicamente para o 57.501 criaria 24 citações falsas, exatamente o
+problema que o REF-07 corrige.
+
+| Situação | Itens | O que foi feito |
+|---|---|---|
+| Citava o 45.585 **junto com** RDC 216/2004 e/ou Portaria IVISA-RIO 002/2020 | 20 | removida a citação ao decreto revogado; a norma vigente que já estava lá passa a ser a base |
+| "Funcionários de caixa não manipulam alimentos" | 1 | passou a citar **Portaria IVISA-RIO 002/2020, Art. 97** — correspondência literal, incluindo o parágrafo único ("Os funcionários responsáveis por essa atividade não devem manipular alimentos preparados") |
+| Sem base vigente encontrada | 3 | mantida a citação ao 45.585; o PDF agora imprime `[REVOGADA — substituída por Decreto Rio nº 57.501/2026]` |
+
+**Os 3 pendentes**, marcados com comentário no código:
+
+- `rj-f-087` — "Não possui exposição de gêneros alimentícios fora da área física do
+  estabelecimento."
+- `rj-exc-010` — "Sistema de recepção de utensílios sujos separado do ponto de distribuição
+  de alimentos." Os arts. 28 e 49 da Portaria IVISA-RIO 002/2020 tratam de fluxo ordenado
+  sem cruzamento e de barreira entre área limpa e suja, mas a correspondência não é literal.
+- `rj-exc-011` — "Identificação ao cliente sobre o franqueamento à visitação da cozinha."
+  O art. 7º da Portaria trata de visitantes na área de manipulação, o que não é o mesmo
+  requisito.
+
+O texto oficial da Portaria IVISA-RIO 002/2020 está em
+`vigilanciasanitaria.prefeitura.rio/wp-content/uploads/sites/84/2023/03/Portaria-N-I-VISA-Rio-002-11.11.2020.pdf`
+— vale trocar a URL do verbete, que hoje aponta para a página de listagem.

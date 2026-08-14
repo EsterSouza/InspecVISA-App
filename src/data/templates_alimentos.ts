@@ -322,8 +322,8 @@ export const alimentosTemplates: ChecklistTemplate[] = [
           { id: 'rj-f-020', sectionId: 'sec-ali-rj-01', order: 20, description: 'Avisos com procedimentos para lavagem das mãos afixados nos lavatórios da área de produção.', legislation: 'RDC 216/2004 item 4.1.12; Portaria IVISA-RIO 002/2020, Art. 6 §2º', weight: 5, isCritical: false },
           { id: 'rj-f-021', sectionId: 'sec-ali-rj-01', order: 21, description: 'Ausência de vetores e pragas urbanas ou seus vestígios.', legislation: 'RDC 216/2004 item 4.1.13; Portaria IVISA-RIO 002/2020, Art. 81', weight: 10, isCritical: true },
           { id: 'rj-f-022', sectionId: 'sec-ali-rj-01', order: 22, description: 'Medidas preventivas e corretivas adotadas para impedir a atração, abrigo, acesso e/ou proliferação de vetores e pragas urbanas.', legislation: 'RDC 216/2004 item 4.1.13; Portaria IVISA-RIO 002/2020, Art. 81', weight: 5, isCritical: false },
-          { id: 'rj-f-023', sectionId: 'sec-ali-rj-01', order: 23, description: 'No caso de controle químico de pragas, comprovante de execução do serviço por empresa credenciada ao INEA (RJ), com produtos utilizados, métodos, registro MS e assinatura do RT.', legislation: 'RDC 216/2004 item 4.1.13; Portaria IVISA-RIO 002/2020, Art. 82; Decreto-Rio 45585/18 item 1.11.3', weight: 5, isCritical: false },
-          { id: 'rj-f-024', sectionId: 'sec-ali-rj-01', order: 24, description: 'Produtos químicos utilizados no controle de roedores ficam protegidos.', legislation: 'RDC 216/2004 item 4.1.13; Decreto-Rio 45585/18 item 1.11.5', weight: 10, isCritical: true },
+          { id: 'rj-f-023', sectionId: 'sec-ali-rj-01', order: 23, description: 'No caso de controle químico de pragas, comprovante de execução do serviço por empresa credenciada ao INEA (RJ), com produtos utilizados, métodos, registro MS e assinatura do RT.', legislation: 'RDC 216/2004 item 4.1.13; Portaria IVISA-RIO 002/2020, Art. 82', weight: 5, isCritical: false },
+          { id: 'rj-f-024', sectionId: 'sec-ali-rj-01', order: 24, description: 'Produtos químicos utilizados no controle de roedores ficam protegidos.', legislation: 'RDC 216/2004 item 4.1.13', weight: 10, isCritical: true },
           { id: 'rj-f-025', sectionId: 'sec-ali-rj-01', order: 25, description: 'Sistema de abastecimento ligado à rede pública, ou fonte alternativa com documentação de potabilidade da água.', legislation: 'RDC 216/2004 item 4.1.14; Portaria IVISA-RIO 002/2020, Arts. 36 e 37', weight: 5, isCritical: false },
           { id: 'rj-f-026', sectionId: 'sec-ali-rj-01', order: 26, description: 'Reservatório de água acessível, dotado de tampas, em satisfatória condição de uso, livre de vazamentos, infiltrações e descascamentos.', legislation: 'RDC 216/2004 item 4.1.14; Portaria IVISA-RIO 002/2020, Art. 37', weight: 10, isCritical: true },
           { id: 'rj-f-027', sectionId: 'sec-ali-rj-01', order: 27, description: 'Gelo produzido com água potável, fabricado, manipulado e estocado sob condições sanitárias satisfatórias. Quando industrializado, embalado e devidamente rotulado. Filtro de água instalado nas áreas de preparo de bebidas, gelo e alimentos de consumo direto.', legislation: 'RDC 216/2004 item 4.1.14; Portaria IVISA-RIO 002/2020, Arts. 38 §3º e 37', weight: 10, isCritical: true },
@@ -361,7 +361,7 @@ export const alimentosTemplates: ChecklistTemplate[] = [
           { id: 'rj-f-041', sectionId: 'sec-ali-rj-03', order: 4, description: 'Possui água corrente em quantidade suficiente para higienização de equipamentos e utensílios.', legislation: 'RDC 216/2004 item 4.3.2; Portaria IVISA-RIO 002/2020, Art. 47', weight: 10, isCritical: true },
           { id: 'rj-f-042', sectionId: 'sec-ali-rj-03', order: 5, description: 'Frequência de higienização das instalações adequada. As operações de higienização são registradas rotineiramente.', legislation: 'RDC 216/2004 item 4.3.2; Portaria IVISA-RIO 002/2020, Art. 47 §2º e §3º', weight: 10, isCritical: true },
           { id: 'rj-f-043', sectionId: 'sec-ali-rj-03', order: 6, description: 'Bancadas, móveis, equipamentos e utensílios higienizados adequadamente, sem acúmulo de sujidades, gordura ou resíduos, antes das atividades e após o término do trabalho.', legislation: 'RDC 216/2004 item 4.3.3; Portaria IVISA-RIO 002/2020, Art. 47 §2º', weight: 10, isCritical: true },
-          { id: 'rj-f-044', sectionId: 'sec-ali-rj-03', order: 7, description: 'Não são utilizadas escovas de metal, lã de aço ou outros materiais abrasivos na limpeza de equipamentos e utensílios.', legislation: 'RDC 216/2004 item 4.3.3; Decreto-Rio 45585/18 item 3.3.4', weight: 5, isCritical: false },
+          { id: 'rj-f-044', sectionId: 'sec-ali-rj-03', order: 7, description: 'Não são utilizadas escovas de metal, lã de aço ou outros materiais abrasivos na limpeza de equipamentos e utensílios.', legislation: 'RDC 216/2004 item 4.3.3', weight: 5, isCritical: false },
         ],
       },
 
@@ -438,7 +438,7 @@ export const alimentosTemplates: ChecklistTemplate[] = [
           { id: 'rj-f-073', sectionId: 'sec-ali-rj-08', order: 1, description: 'Produtos de fabricação própria adequadamente acondicionados e identificados com: designação do produto, data de fabricação e prazo de validade.', legislation: 'RDC 216/2004 item 4.5.4; Portaria IVISA-RIO 002/2020, Art. 71', weight: 10, isCritical: true },
           { id: 'rj-f-074', sectionId: 'sec-ali-rj-08', order: 2, description: 'Após cocção, alimento conservado sob refrigeração a temperaturas inferiores a 5°C, ou congelado à temperatura igual ou inferior a -18°C.', legislation: 'RDC 216/2004 item 4.5.4; Portaria IVISA-RIO 002/2020, Art. 69', weight: 10, isCritical: true },
           { id: 'rj-f-075', sectionId: 'sec-ali-rj-08', order: 3, description: 'Alimentos preparados conservados a 4°C ou inferior possuem prazo máximo de consumo de 5 dias.', legislation: 'RDC 216/2004 item 4.5.4; Portaria IVISA-RIO 002/2020, Art. 67', weight: 5, isCritical: false },
-          { id: 'rj-f-076', sectionId: 'sec-ali-rj-08', order: 4, description: 'Embalagens prontas para uso dispostas em local próprio, protegidas e em número suficiente apenas para o uso diário.', legislation: 'RDC 216/2004 item 4.5.4; Decreto-Rio 45585/18 item 5.4.4', weight: 5, isCritical: false },
+          { id: 'rj-f-076', sectionId: 'sec-ali-rj-08', order: 4, description: 'Embalagens prontas para uso dispostas em local próprio, protegidas e em número suficiente apenas para o uso diário.', legislation: 'RDC 216/2004 item 4.5.4', weight: 5, isCritical: false },
         ],
       },
 
@@ -450,14 +450,18 @@ export const alimentosTemplates: ChecklistTemplate[] = [
         items: [
           { id: 'rj-f-077', sectionId: 'sec-ali-rj-09', order: 1,  description: 'Equipamento de exposição do alimento preparado dispõe de barreiras de proteção que previnam contaminação pelo consumidor.', legislation: 'RDC 216/2004 item 4.5.5; Portaria IVISA-RIO 002/2020, Art. 89', weight: 5, isCritical: false },
           { id: 'rj-f-078', sectionId: 'sec-ali-rj-09', order: 2,  description: 'Equipamentos, móveis e utensílios compatíveis com as atividades, em número suficiente e em adequado estado de conservação e higiene.', legislation: 'RDC 216/2004 item 4.5.5; Portaria IVISA-RIO 002/2020, Art. 89', weight: 10, isCritical: true },
-          { id: 'rj-f-079', sectionId: 'sec-ali-rj-09', order: 3,  description: 'Manipuladores adotam procedimentos que minimizam o risco de contaminação (antissepsia das mãos ou uso de utensílios/luvas descartáveis).', legislation: 'RDC 216/2004 item 4.5.5; Decreto-Rio 45585/18 item 5.5.3', weight: 10, isCritical: true },
-          { id: 'rj-f-080', sectionId: 'sec-ali-rj-09', order: 4,  description: 'Alimentos quentes expostos a temperatura superior a 60°C por no máximo 6 horas, ou abaixo de 60°C por prazo máximo de 1 hora.', legislation: 'RDC 216/2004 item 4.5.5; Portaria IVISA-RIO 002/2020, Art. 66; Decreto-Rio 45585/18 item 5.5.4', weight: 10, isCritical: true },
-          { id: 'rj-f-081', sectionId: 'sec-ali-rj-09', order: 5,  description: 'Alimentos resfriados expostos a temperatura de no máximo 5°C.', legislation: 'RDC 216/2004 item 4.5.5; Decreto-Rio 45585/18 item 5.5.5', weight: 10, isCritical: true },
+          { id: 'rj-f-079', sectionId: 'sec-ali-rj-09', order: 3,  description: 'Manipuladores adotam procedimentos que minimizam o risco de contaminação (antissepsia das mãos ou uso de utensílios/luvas descartáveis).', legislation: 'RDC 216/2004 item 4.5.5', weight: 10, isCritical: true },
+          { id: 'rj-f-080', sectionId: 'sec-ali-rj-09', order: 4,  description: 'Alimentos quentes expostos a temperatura superior a 60°C por no máximo 6 horas, ou abaixo de 60°C por prazo máximo de 1 hora.', legislation: 'RDC 216/2004 item 4.5.5; Portaria IVISA-RIO 002/2020, Art. 66', weight: 10, isCritical: true },
+          { id: 'rj-f-081', sectionId: 'sec-ali-rj-09', order: 5,  description: 'Alimentos resfriados expostos a temperatura de no máximo 5°C.', legislation: 'RDC 216/2004 item 4.5.5', weight: 10, isCritical: true },
           { id: 'rj-f-082', sectionId: 'sec-ali-rj-09', order: 6,  description: 'Utensílios de consumação (pratos, copos, talheres) devidamente higienizados, desinfetados, secos e armazenados em local protegido. Sem imperfeições, rachaduras ou lascas.', legislation: 'RDC 216/2004 item 4.5.5; Portaria IVISA-RIO 002/2020, Art. 90', weight: 10, isCritical: true },
-          { id: 'rj-f-083', sectionId: 'sec-ali-rj-09', order: 7,  description: 'Funcionários responsáveis por recebimento de pagamento NÃO manipulam alimentos preparados. Área de caixa reservada.', legislation: 'Decreto-Rio 45585/18 item 5.5.8', weight: 5, isCritical: false },
-          { id: 'rj-f-084', sectionId: 'sec-ali-rj-09', order: 8,  description: 'NÃO são utilizadas embalagens devassáveis (monodose) de molhos e temperos de mesa. — EXCLUSIVO MUNICÍPIO DO RJ', legislation: 'Decreto-Rio 45585/18 item 5.5.11; Portaria IVISA-RIO 002/2020', weight: 10, isCritical: true },
-          { id: 'rj-f-085', sectionId: 'sec-ali-rj-09', order: 9,  description: 'Possui canudo de papel biodegradável e/ou reciclável embalado individualmente (quando aplicável ao tipo de bebida servida). — EXCLUSIVO MUNICÍPIO DO RJ', legislation: 'Decreto-Rio 45585/18 item 5.5.12; Portaria IVISA-RIO 002/2020', weight: 10, isCritical: true },
-          { id: 'rj-f-086', sectionId: 'sec-ali-rj-09', order: 10, description: 'Possui placas ou qualquer outro dispositivo que informe sobre a presença de GLÚTEN nas preparações e/ou cardápios. — EXCLUSIVO MUNICÍPIO DO RJ', legislation: 'Decreto-Rio 45585/18 item 5.5.13; Portaria IVISA-RIO 002/2020', weight: 10, isCritical: true },
+          { id: 'rj-f-083', sectionId: 'sec-ali-rj-09', order: 7,  description: 'Funcionários responsáveis por recebimento de pagamento NÃO manipulam alimentos preparados. Área de caixa reservada.', legislation: 'Portaria IVISA-RIO 002/2020, Art. 97', weight: 5, isCritical: false },
+          { id: 'rj-f-084', sectionId: 'sec-ali-rj-09', order: 8,  description: 'NÃO são utilizadas embalagens devassáveis (monodose) de molhos e temperos de mesa. — EXCLUSIVO MUNICÍPIO DO RJ', legislation: 'Portaria IVISA-RIO 002/2020', weight: 10, isCritical: true },
+          { id: 'rj-f-085', sectionId: 'sec-ali-rj-09', order: 9,  description: 'Possui canudo de papel biodegradável e/ou reciclável embalado individualmente (quando aplicável ao tipo de bebida servida). — EXCLUSIVO MUNICÍPIO DO RJ', legislation: 'Portaria IVISA-RIO 002/2020', weight: 10, isCritical: true },
+          { id: 'rj-f-086', sectionId: 'sec-ali-rj-09', order: 10, description: 'Possui placas ou qualquer outro dispositivo que informe sobre a presença de GLÚTEN nas preparações e/ou cardápios. — EXCLUSIVO MUNICÍPIO DO RJ', legislation: 'Portaria IVISA-RIO 002/2020', weight: 10, isCritical: true },
+          // PENDÊNCIA SANITÁRIA (REF-07): única base é o Decreto-Rio 45.585/18, revogado em
+          // 02/02/2026. O Decreto 57.501/2026 que o substituiu é regulamento administrativo
+          // (licenciamento, infração, fiscalização) e não traz este requisito técnico; não foi
+          // encontrado equivalente na Portaria IVISA-RIO 002/2020. Precisa de base vigente.
           { id: 'rj-f-087', sectionId: 'sec-ali-rj-09', order: 11, description: 'Não possui exposição de gêneros alimentícios fora da área física do estabelecimento.', legislation: 'Decreto-Rio 45585/18 item 5.5.14', weight: 5, isCritical: false },
         ],
       },
@@ -482,16 +486,16 @@ export const alimentosTemplates: ChecklistTemplate[] = [
           { id: 'rj-f-090', sectionId: 'sec-ali-rj-11', order: 1,  description: 'Possui e cumpre o Manual de Boas Práticas específico para a empresa, aprovado, datado e assinado pelo RT.', legislation: 'RDC 216/2004 item 4.6.1; Portaria IVISA-RIO 002/2020, Art. 83', weight: 5, isCritical: false },
           { id: 'rj-f-091', sectionId: 'sec-ali-rj-11', order: 2,  description: 'Possui e cumpre POPs para: higiene/saúde dos manipuladores; higienização de instalações; controle de vetores e pragas; higienização do reservatório de água; manejo de resíduos; descarte de óleo saturado; controle de temperatura de equipamentos frigorificados; higienização de hortifrutícolas; controle de tempo/temperatura das preparações.', legislation: 'RDC 216/2004 item 4.6.1; Portaria IVISA-RIO 002/2020, Art. 84', weight: 5, isCritical: false },
           { id: 'rj-f-092', sectionId: 'sec-ali-rj-11', order: 3,  description: 'Possui planilhas de controle de temperatura de câmaras, balcões, congeladores e equipamentos térmicos, mantidas por mínimo 30 dias.', legislation: 'RDC 216/2004 item 4.6.1; Portaria IVISA-RIO 002/2020, Art. 84 §9º', weight: 5, isCritical: false },
-          { id: 'rj-f-093', sectionId: 'sec-ali-rj-11', order: 4,  description: 'Possui planilhas de registro da troca periódica dos elementos filtrantes (filtros, bebedouros, máquina de gelo, etc.).', legislation: 'RDC 216/2004 item 4.6.1; Decreto-Rio 45585/18 item 6.1.4', weight: 5, isCritical: false },
-          { id: 'rj-f-094', sectionId: 'sec-ali-rj-11', order: 5,  description: 'Possui planilhas de registro de tempo × temperatura dos balcões expositores.', legislation: 'RDC 216/2004 item 4.6.1; Decreto-Rio 45585/18 item 6.1.5', weight: 5, isCritical: false },
-          { id: 'rj-f-095', sectionId: 'sec-ali-rj-11', order: 6,  description: 'Possui planilhas de registro da recepção dos alimentos (condições do transporte, características sensoriais e temperatura).', legislation: 'RDC 216/2004 item 4.6.1; Decreto-Rio 45585/18 item 6.1.6', weight: 5, isCritical: false },
+          { id: 'rj-f-093', sectionId: 'sec-ali-rj-11', order: 4,  description: 'Possui planilhas de registro da troca periódica dos elementos filtrantes (filtros, bebedouros, máquina de gelo, etc.).', legislation: 'RDC 216/2004 item 4.6.1', weight: 5, isCritical: false },
+          { id: 'rj-f-094', sectionId: 'sec-ali-rj-11', order: 5,  description: 'Possui planilhas de registro de tempo × temperatura dos balcões expositores.', legislation: 'RDC 216/2004 item 4.6.1', weight: 5, isCritical: false },
+          { id: 'rj-f-095', sectionId: 'sec-ali-rj-11', order: 6,  description: 'Possui planilhas de registro da recepção dos alimentos (condições do transporte, características sensoriais e temperatura).', legislation: 'RDC 216/2004 item 4.6.1', weight: 5, isCritical: false },
           { id: 'rj-f-096', sectionId: 'sec-ali-rj-11', order: 7,  description: 'Possui registros de manutenção preventiva dos equipamentos e calibração dos instrumentos de medição.', legislation: 'RDC 216/2004 item 4.6.1; Portaria IVISA-RIO 002/2020, Art. 47 §4º', weight: 5, isCritical: false },
           { id: 'rj-f-097', sectionId: 'sec-ali-rj-11', order: 8,  description: 'Possui registros de capacitação contínua dos manipuladores, com carga horária, conteúdo programático, frequência e participação nominal.', legislation: 'RDC 216/2004 item 4.6.1; Portaria IVISA-RIO 002/2020, Art. 84 §3º', weight: 5, isCritical: false },
-          { id: 'rj-f-098', sectionId: 'sec-ali-rj-11', order: 9,  description: 'Possui comprovante atualizado de higienização semestral do reservatório de água realizado por empresa habilitada pelo INEA, com certificação, ordem de serviço válida e laudo de potabilidade de laboratório certificado.', legislation: 'RDC 216/2004 item 4.6.2; Portaria IVISA-RIO 002/2020, Art. 84 §7º; Decreto-Rio 45585/18 item 6.2.1', weight: 10, isCritical: true },
+          { id: 'rj-f-098', sectionId: 'sec-ali-rj-11', order: 9,  description: 'Possui comprovante atualizado de higienização semestral do reservatório de água realizado por empresa habilitada pelo INEA, com certificação, ordem de serviço válida e laudo de potabilidade de laboratório certificado.', legislation: 'RDC 216/2004 item 4.6.2; Portaria IVISA-RIO 002/2020, Art. 84 §7º', weight: 10, isCritical: true },
           { id: 'rj-f-099', sectionId: 'sec-ali-rj-11', order: 10, description: 'Possui laudo de potabilidade da água, inclusive se de fonte alternativa (poço, mina ou caminhão pipa).', legislation: 'RDC 216/2004 item 4.6.2; Portaria IVISA-RIO 002/2020, Art. 37 §único', weight: 5, isCritical: false },
-          { id: 'rj-f-100', sectionId: 'sec-ali-rj-11', order: 11, description: 'Possui comprovante atualizado de execução do serviço de controle de pragas por empresa credenciada ao INEA.', legislation: 'RDC 216/2004 item 4.6.3; Portaria IVISA-RIO 002/2020, Art. 82; Decreto-Rio 45585/18 item 6.3.1', weight: 5, isCritical: false },
-          { id: 'rj-f-101', sectionId: 'sec-ali-rj-11', order: 12, description: 'Possui contrato com empresa para destinação adequada do lixo comum e Programa de Gerenciamento de Resíduos com manifestos do INEA.', legislation: 'RDC 216/2004 item 4.6.4; Portaria IVISA-RIO 002/2020, Art. 78; Decreto-Rio 45585/18 item 6.4.1', weight: 5, isCritical: false },
-          { id: 'rj-f-102', sectionId: 'sec-ali-rj-11', order: 13, description: 'Possui contrato com empresa terceirizada credenciada no INEA para coleta do óleo vegetal saturado, com apresentação do manifesto de resíduos. — EXCLUSIVO MUNICÍPIO DO RJ', legislation: 'Portaria IVISA-RIO 002/2020, Art. 51; Decreto-Rio 45585/18 item 6.4.2', weight: 5, isCritical: false },
+          { id: 'rj-f-100', sectionId: 'sec-ali-rj-11', order: 11, description: 'Possui comprovante atualizado de execução do serviço de controle de pragas por empresa credenciada ao INEA.', legislation: 'RDC 216/2004 item 4.6.3; Portaria IVISA-RIO 002/2020, Art. 82', weight: 5, isCritical: false },
+          { id: 'rj-f-101', sectionId: 'sec-ali-rj-11', order: 12, description: 'Possui contrato com empresa para destinação adequada do lixo comum e Programa de Gerenciamento de Resíduos com manifestos do INEA.', legislation: 'RDC 216/2004 item 4.6.4; Portaria IVISA-RIO 002/2020, Art. 78', weight: 5, isCritical: false },
+          { id: 'rj-f-102', sectionId: 'sec-ali-rj-11', order: 13, description: 'Possui contrato com empresa terceirizada credenciada no INEA para coleta do óleo vegetal saturado, com apresentação do manifesto de resíduos. — EXCLUSIVO MUNICÍPIO DO RJ', legislation: 'Portaria IVISA-RIO 002/2020, Art. 51', weight: 5, isCritical: false },
         ],
       },
 
@@ -511,7 +515,7 @@ export const alimentosTemplates: ChecklistTemplate[] = [
             sectionId: 'sec-ali-rj-12',
             order: 1,
             description: 'Área de atendimento com acesso e circulação livre e desobstruída, disposição adequada de equipamentos, fiações elétricas protegidas por conduites, interruptores e tomadas instalados adequadamente, sem objetos inservíveis ou alheios à atividade.',
-            legislation: 'Portaria IVISA-RIO 002/2020, Art. 8; Decreto-Rio 45585/18 item 7.1',
+            legislation: 'Portaria IVISA-RIO 002/2020, Art. 8',
             weight: 10,
             isCritical: true,
           },
@@ -520,7 +524,7 @@ export const alimentosTemplates: ChecklistTemplate[] = [
             sectionId: 'sec-ali-rj-12',
             order: 2,
             description: 'EPIs disponíveis em local de fácil acesso, limpos e em bom estado de conservação: calçado antiderrapante para áreas com fritura; luvas e avental para lavagem de utensílios; luvas térmicas para forno; mangote/braçadeira para manuseio na fritadeira; luva de malha de aço para corte de peças de carne; luva própria para manuseio de gelo; luvas e calçados próprios para atividades de limpeza e recolhimento de resíduos.',
-            legislation: 'Portaria IVISA-RIO 002/2020, Art. 8 §1º a §6º; Decreto-Rio 45585/18 item 7.2',
+            legislation: 'Portaria IVISA-RIO 002/2020, Art. 8 §1º a §6º',
             weight: 10,
             isCritical: true,
           },
@@ -529,7 +533,7 @@ export const alimentosTemplates: ChecklistTemplate[] = [
             sectionId: 'sec-ali-rj-12',
             order: 3,
             description: 'Câmaras frias com sistema de abertura pelo interior e oferta de roupa de proteção para exposição ao frio (vestimenta completa, casaco com capuz, luvas e botas térmicas impermeáveis).',
-            legislation: 'Portaria IVISA-RIO 002/2020, Art. 8 §1º; Decreto-Rio 45585/18 item 7.3',
+            legislation: 'Portaria IVISA-RIO 002/2020, Art. 8 §1º',
             weight: 5,
             isCritical: false,
           },
@@ -587,6 +591,12 @@ export const alimentosTemplates: ChecklistTemplate[] = [
             weight: 10,
             isCritical: true,
           },
+          // PENDÊNCIA SANITÁRIA (REF-07): os dois itens abaixo têm como única base o
+          // Decreto-Rio 45.585/18, revogado em 02/02/2026 pelo art. 72, I do Decreto Rio
+          // 57.501/2026 — que é regulamento administrativo e não traz requisito técnico.
+          // Os arts. 28 e 49 da Portaria IVISA-RIO 002/2020 tratam de fluxo ordenado e
+          // barreira entre área limpa e suja, mas a correspondência não é literal e a
+          // escolha é da consultora. Até lá o PDF marca a citação como revogada.
           {
             id: 'rj-exc-010',
             sectionId: 'sec-ali-rj-12',
