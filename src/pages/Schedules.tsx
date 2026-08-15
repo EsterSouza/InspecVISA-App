@@ -151,9 +151,15 @@ export function Schedules() {
     return ScheduleService.subscribeToChanges(loadData);
   }, []);
 
+  // Briefing pode ter sido confirmado sem cliente (lead que ainda não é cliente).
+  // Editando esse agendamento, não força escolher um cliente só para mexer em
+  // data/horário/observações.
+  const editingSchedule = isEditing ? schedules.find((s) => s.id === editingId) : undefined;
+  const clientOptionalForEdit = isEditing && editingSchedule?.appointmentType === 'briefing';
+
   const handleSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedClientId || !scheduledDate || !scheduledTime) return;
+    if ((!clientOptionalForEdit && !selectedClientId) || !scheduledDate || !scheduledTime) return;
 
     try {
       const scheduledAt = new Date(`${scheduledDate}T${scheduledTime}`);
@@ -162,19 +168,19 @@ export function Schedules() {
         alert('Sem conexão com a internet. O agendamento precisa sincronizar com o portal do cliente.');
         return;
       }
-      const selectedClient = clients.find((client) => client.id === selectedClientId);
-      if (!selectedClient) {
+      const selectedClient = selectedClientId ? clients.find((client) => client.id === selectedClientId) : undefined;
+      if (!clientOptionalForEdit && !selectedClient) {
         alert('Cliente selecionado nao encontrado.');
         return;
       }
       const actor = getLocalActor();
-      
+
       if (isEditing && editingId) {
         const existing = schedules.find(s => s.id === editingId);
         if (!existing) return;
         const updated = {
           ...existing,
-          clientId: selectedClientId,
+          clientId: selectedClientId || undefined,
           scheduledAt,
           notes: notes,
           consultantNames: selectedConsultants,
@@ -182,19 +188,22 @@ export function Schedules() {
         };
         await ScheduleService.saveSchedule(updated);
         const linkedRequest = await AppointmentAdminService.getRequestByScheduleId(updated.id);
-        const place = portalPlaceForClient(selectedClient);
+        const startsAt = new Date(`${scheduledDate}T${scheduledTime}`);
+        const endsAt = new Date(startsAt.getTime() + 60 * 60 * 1000);
         if (linkedRequest) {
-          const startsAt = new Date(`${scheduledDate}T${scheduledTime}`);
-          const endsAt = new Date(startsAt.getTime() + 60 * 60 * 1000);
+          const clientFields = selectedClient
+            ? {
+                client_id: selectedClient.id,
+                unit_name: selectedClient.name,
+                responsible_name: selectedClient.responsibleName,
+                phone: selectedClient.phone,
+                email: selectedClient.email,
+                ...portalPlaceForClient(selectedClient),
+              }
+            : {};
           await AppointmentAdminService.updateRequest(linkedRequest.id, {
             status: 'confirmed',
-            client_id: selectedClient.id,
-            unit_name: selectedClient.name,
-            responsible_name: selectedClient.responsibleName,
-            phone: selectedClient.phone,
-            email: selectedClient.email,
-            municipality: place.municipality,
-            district: place.district,
+            ...clientFields,
             requested_date: scheduledDate,
             requested_time: scheduledTime,
             requested_period: startsAt.getHours() < 12 ? 'manha' : 'tarde',
@@ -203,7 +212,8 @@ export function Schedules() {
             duration_minutes: 60,
             consultant_names: selectedConsultants.length ? selectedConsultants : null,
           });
-        } else {
+        } else if (selectedClient) {
+          const place = portalPlaceForClient(selectedClient);
           await AppointmentAdminService.insertConfirmedRequest({
             clientId: selectedClient.id,
             unitName: selectedClient.name,
@@ -220,6 +230,11 @@ export function Schedules() {
           });
         }
       } else {
+        // Criação manual sempre exige cliente (não passa pelo canal de briefing sem cliente).
+        if (!selectedClient) {
+          alert('Cliente selecionado nao encontrado.');
+          return;
+        }
         // Cria uma ocorrência (Schedule + solicitação confirmada no portal) — exatamente
         // o que o fluxo manual já fazia. Repetição mensal só chama isto várias vezes,
         // uma data por vez, cada ocorrência independente (editável/cancelável à parte).
@@ -588,7 +603,15 @@ export function Schedules() {
                 <div className="space-y-2">
                   <label htmlFor="schedule-client-search" className="text-sm font-medium text-gray-700 flex items-center">
                     <User className="mr-2 h-4 w-4 text-gray-400" aria-hidden="true" /> Cliente
+                    {clientOptionalForEdit && (
+                      <span className="ml-1.5 font-normal text-gray-400">(opcional — briefing sem cliente)</span>
+                    )}
                   </label>
+                  {clientOptionalForEdit && !selectedClientId && (
+                    <p className="text-xs text-gray-500">
+                      Este briefing não tem cliente vinculado. Deixe em branco para manter assim, ou busque abaixo para vincular agora.
+                    </p>
+                  )}
                   <input
                     id="schedule-client-search"
                     type="text"
