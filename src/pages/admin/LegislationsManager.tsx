@@ -20,11 +20,12 @@ interface LegForm {
   segments: LegislationSegment[];
   status: LegislationStatus;
   replacedBy: string;
+  researchNotes: string;
 }
 
 const EMPTY_FORM: LegForm = {
   name: '', summary: '', url: '', authority: '', uf: '', segments: [],
-  status: 'vigente', replacedBy: '',
+  status: 'vigente', replacedBy: '', researchNotes: '',
 };
 
 const STATUS_OPTIONS: { value: LegislationStatus; label: string }[] = [
@@ -43,6 +44,7 @@ function toPayload(form: LegForm): Omit<Legislation, 'id' | 'created_at'> {
     segments: form.segments.length > 0 ? form.segments : null,
     status: form.status,
     replaced_by: form.status === 'revogada' ? (form.replacedBy.trim() || null) : null,
+    research_notes: form.researchNotes.trim() || null,
   };
 }
 
@@ -56,6 +58,7 @@ export function LegislationsManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<LegForm>(EMPTY_FORM);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [expandedNotesId, setExpandedNotesId] = useState<string | null>(null);
 
   const toggleSegment = (
     setter: React.Dispatch<React.SetStateAction<LegForm>>,
@@ -124,6 +127,7 @@ export function LegislationsManager() {
       segments: leg.segments || [],
       status: leg.status || 'vigente',
       replacedBy: leg.replaced_by || '',
+      researchNotes: leg.research_notes || '',
     });
   }
 
@@ -235,6 +239,20 @@ export function LegislationsManager() {
               />
               <p className="text-xs text-gray-500 mt-1">
                 Sem autoria a norma é citada só pelo nome. O relatório nunca deduz o órgão.
+              </p>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-xs font-semibold text-gray-500 mb-1">
+                Notas de pesquisa (artigos consultados, trechos, decisões)
+              </label>
+              <textarea
+                placeholder="Ex.: Art. 25 trata de circulações internas — largura mínima 1,00m..."
+                className="w-full p-3 rounded-lg border border-gray-200 h-28 focus:ring-2 focus:ring-primary-400 outline-none resize-y text-sm"
+                value={newLeg.researchNotes}
+                onChange={(e) => setNewLeg({ ...newLeg, researchNotes: e.target.value })}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Cache de pesquisa: guarde aqui o que já foi lido dessa norma para não pesquisar de novo depois.
               </p>
             </div>
             <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4 items-start">
@@ -389,6 +407,12 @@ export function LegislationsManager() {
                       placeholder="Substituída por — ex: RDC Anvisa nº 222/2018"
                     />
                   )}
+                  <textarea
+                    className="w-full p-2 rounded-lg border border-gray-200 text-sm h-24 resize-y focus:ring-2 focus:ring-primary-400 outline-none"
+                    value={editForm.researchNotes}
+                    onChange={(e) => setEditForm({ ...editForm, researchNotes: e.target.value })}
+                    placeholder="Notas de pesquisa — artigos já consultados, trechos, decisões..."
+                  />
                   <div className="flex gap-2 justify-end pt-1">
                     <Button variant="ghost" size="sm" onClick={() => setEditingId(null)}>
                       <X className="h-4 w-4 mr-1" /> Cancelar
@@ -446,6 +470,22 @@ export function LegislationsManager() {
                   <p className="text-sm text-gray-500 line-clamp-3 mb-3">
                     {leg.summary || 'Sem resumo disponível.'}
                   </p>
+                  {leg.research_notes && (
+                    <div className="mb-3">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedNotesId(expandedNotesId === leg.id ? null : leg.id)}
+                        className="text-xs font-semibold text-primary-600 hover:text-primary-700 underline decoration-dotted"
+                      >
+                        {expandedNotesId === leg.id ? 'Ocultar notas de pesquisa' : 'Ver notas de pesquisa'}
+                      </button>
+                      {expandedNotesId === leg.id && (
+                        <p className="text-xs text-gray-600 mt-2 whitespace-pre-wrap bg-gray-50 rounded-lg p-3 border border-gray-100">
+                          {leg.research_notes}
+                        </p>
+                      )}
+                    </div>
+                  )}
                   <div className="flex flex-wrap gap-1.5 mb-3">
                       {leg.status === 'revogada' && (
                         <span className="text-[10px] font-bold uppercase tracking-wide bg-red-50 text-red-700 px-2 py-0.5 rounded-full">

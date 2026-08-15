@@ -7,6 +7,18 @@ Este documento é a evidência da checagem exigida pelo card REF-02 ("verificar 
 cadastrar"). A tabela abaixo é gerada a partir da biblioteca em código; se a biblioteca mudar,
 este arquivo precisa ser regerado junto.
 
+## Cache de pesquisa (15/08/2026)
+
+Cada entrada da biblioteca agora pode ter `researchNotes` (`LegislationEntry.researchNotes` no
+código; coluna `legislations.research_notes` no banco) — o que já foi lido daquela norma, artigo
+por artigo, e em que curadoria (REF-04/05/07) foi usado. Existe para não repetir a mesma leitura
+(e o mesmo gasto de tokens) numa consulta futura. Aparece na Biblioteca de Legislação do app
+(Admin → Legislações, botão "Ver notas de pesquisa" em cada card) — é a "app de legislação" que a
+Ester pediu para consultar a qualquer momento. Ao pesquisar uma norma para qualquer card, primeiro
+olhe se já há nota aqui antes de buscar o texto de novo; ao terminar, grave o achado tanto no
+código (`legislationLibrary.ts`) quanto em produção (`legislations.research_notes`), como foi feito
+para RDC 216/2004, RDC 502/2021 e Portaria IVISA-RIO 002/2020.
+
 ## Como a biblioteca se liga aos roteiros
 
 O item do roteiro cita a norma em texto livre (`legislation`, ex.: `"Art. 8º, RDC 502/2021; Art.

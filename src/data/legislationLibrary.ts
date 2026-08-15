@@ -47,6 +47,13 @@ export interface LegislationEntry {
   replacedBy?: string;
   /** Data da última verificação de vigência (ISO, AAAA-MM-DD). */
   verifiedAt: string;
+  /**
+   * Cache de pesquisa: artigos já lidos, o que dizem e em que curadoria (REF-04/05/07)
+   * foram usados. Existe para não repetir a mesma leitura de norma (e o mesmo gasto de
+   * tokens) numa consulta futura — ver docs/referencias/biblioteca.md para o histórico
+   * completo. Aparece na Biblioteca de Legislação do app (Admin → Legislações).
+   */
+  researchNotes?: string;
 }
 
 const V = '2026-08-05';
@@ -201,6 +208,19 @@ export const LEGISLATION_LIBRARY: LegislationEntry[] = [
     segments: ['ilpi'],
     status: 'vigente',
     verifiedAt: V,
+    researchNotes:
+      'Lido no REF-05 (06/08/2026), roteiro ILPI Base Federal: Art. 25 — circulações internas ' +
+      'principais mín. 1,00m e secundárias mín. 0,80m; corrimão dos dois lados só passa a ser ' +
+      'obrigatório a partir de 1,50m (§1º) — o 1,50m não é largura mínima, é limiar de corrimão. ' +
+      'Art. 29 VI é a sala administrativa/reunião (não o almoxarifado, que é o XII). Banheiro do ' +
+      'dormitório é o Art. 29 I item 5. Art. 16 II a/b/c separa a proporção de cuidadores por grau ' +
+      'de dependência (I 1:20 8h/dia; II 1:10 e III 1:6 por turno) — carga horária diferenciada por ' +
+      'grau, distinção que um item agregado único perde. Infraestrutura (mofo, esquadrias, ' +
+      'hidrossanitário, vestiário, iluminação/ventilação, revestimentos, mobilidade): Art. 21 ' +
+      '(habitabilidade/higiene/salubridade/segurança/acessibilidade), Art. 23 (instalações ' +
+      'prediais), Art. 24 II (pisos), Art. 29 XIII (vestiário/banheiro de funcionários, 3,6m² e ' +
+      '0,5m² exatos), Art. 46 IV, Art. 51. PAIS é Art. 36 (não confundir com PIA, que é Resolução ' +
+      'CNAS 109/2009 + Art. 50 da Lei 10.741/2003).',
   },
   {
     name: 'RDC Anvisa nº 503/2021',
@@ -230,6 +250,20 @@ export const LEGISLATION_LIBRARY: LegislationEntry[] = [
     segments: ['alimentos'],
     status: 'vigente',
     verifiedAt: V,
+    researchNotes:
+      'Curadoria REF-05 (15/08/2026) do roteiro Nacional de Alimentos (97 itens): todos os 97 têm ' +
+      'correspondência de conteúdo em algum subitem de 4.1 a 4.12 do texto oficial — 0 viraram ' +
+      '`good_practice`. Atenção: a numeração usada em src/data/templates_alimentos.ts ("item ' +
+      '4.1.1"…"4.7") NÃO bate com a numeração oficial (que vai até 4.1.17/4.8.20) — o roteiro parece ' +
+      'ter vindo de uma cartilha derivada, não do Regulamento Técnico direto; a correspondência de ' +
+      'conteúdo se mantém, só o número do item diverge. Detalhe item a item (id, citação atual, ' +
+      'artigo lido, decisão) em docs/referencias/ref05-alimentos-nacional-draft.md. 8 itens com ' +
+      'citação suspeita mas mantidos `legal` (a exigência existe, só pode estar na norma errada): ' +
+      'ali-f-006 (escadas/elevadores), ali-f-009/ali-f-011 (conforto térmico/coifa), ali-f-014 ' +
+      '(vaso sanitário com tampa), ali-f-034 (câmara fria com alarme — provável NR de segurança do ' +
+      'trabalho), ali-f-061 (30min/2h entre 12–18°C — parâmetro não está na RDC 216), ali-f-084 ' +
+      '(licenciamento de veículo — provável exigência municipal), ali-f-096 (contrato + PGR de ' +
+      'resíduos).',
   },
   {
     name: 'RDC Anvisa nº 218/2005',
@@ -482,6 +516,17 @@ export const LEGISLATION_LIBRARY: LegislationEntry[] = [
     segments: ['alimentos'],
     status: 'vigente',
     verifiedAt: V,
+    researchNotes:
+      'Texto oficial está no PDF, não na página de listagem que a URL do verbete aponta: ' +
+      'vigilanciasanitaria.prefeitura.rio/wp-content/uploads/sites/84/2023/03/Portaria-N-I-VISA-Rio-' +
+      '002-11.11.2020.pdf (baixar e ler com pdftotext -enc UTF-8). Artigos já lidos e usados no ' +
+      'REF-07 (14–15/08/2026): Art. 90 (utensílios de consumação), Art. 97 (funcionário de caixa não ' +
+      'manipula alimento — inclui parágrafo único, correspondência literal), Art. 39 §2º. Para os 3 ' +
+      'itens sem base no Decreto-Rio 45.585 revogado: Art. 28 e Art. 49 (fluxo sem cruzamento e ' +
+      'barreira entre área limpa/suja — correspondência APROXIMADA aceita para rj-exc-010, não é ' +
+      'match literal); Art. 7º (visitantes na área de manipulação — correspondência APROXIMADA ' +
+      'aceita para rj-exc-011, também não literal). Para rj-f-087 (exposição de gêneros fora da área ' +
+      'física) não foi achado nenhum artigo correspondente nesta Portaria nem em outra norma.',
   },
   {
     name: 'Decreto Rio nº 45.585/2018',

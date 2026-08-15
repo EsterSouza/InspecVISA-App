@@ -19,6 +19,8 @@ export interface Legislation {
   uf?: string | null;
   /** Segmentos aplicáveis. Vazio/null = aplica a todos os segmentos. */
   segments?: LegislationSegment[] | null;
+  /** Cache de pesquisa: artigos já lidos e o que dizem, para não repetir a leitura numa consulta futura. */
+  research_notes?: string | null;
   created_at: string;
 }
 
@@ -56,7 +58,7 @@ const LEGISLATION_QUERY_TIMEOUT_MS = 2500;
 // A biblioteca curada vive em src/data/legislationLibrary.ts (REF-02). Aqui ela
 // vira apenas o fallback local usado quando o Supabase não responde.
 const DEFAULT_LEGISLATIONS: Omit<Legislation, 'id' | 'created_at'>[] = LEGISLATION_LIBRARY.map(
-  ({ name, summary, url, authority, uf, segments, status, replacedBy }) => ({
+  ({ name, summary, url, authority, uf, segments, status, replacedBy, researchNotes }) => ({
     name,
     summary,
     url,
@@ -65,6 +67,7 @@ const DEFAULT_LEGISLATIONS: Omit<Legislation, 'id' | 'created_at'>[] = LEGISLATI
     segments: segments && segments.length ? segments : null,
     status,
     replaced_by: replacedBy ?? null,
+    research_notes: researchNotes ?? null,
   })
 );
 
