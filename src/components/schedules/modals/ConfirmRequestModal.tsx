@@ -52,6 +52,13 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // O cliente pode ter solicitado "Briefing" (canal público anônimo), que não
+  // está entre as opções do portal autenticado. Mantém a opção visível aqui
+  // para não forçar a troca de tipo ao confirmar.
+  const appointmentTypeOptions = PORTAL_APPOINTMENT_TYPE_OPTIONS.some((o) => o.value === request.appointment_type)
+    ? PORTAL_APPOINTMENT_TYPE_OPTIONS
+    : [{ value: request.appointment_type, description: '' }, ...PORTAL_APPOINTMENT_TYPE_OPTIONS];
+
   const filteredClients = clientSearch
     ? clients.filter((c) => c.name.toLowerCase().includes(clientSearch.toLowerCase()))
     : clients;
@@ -179,7 +186,7 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
                 onChange={(e) => handleAppointmentTypeChange(e.target.value as AppointmentType)}
                 className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm"
               >
-                {PORTAL_APPOINTMENT_TYPE_OPTIONS.map((option) => (
+                {appointmentTypeOptions.map((option) => (
                   <option key={option.value} value={option.value}>
                     {APPOINTMENT_TYPE_RULES[option.value].label}
                   </option>
