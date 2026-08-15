@@ -38,9 +38,9 @@ SEC-01). Pendências que restam **não são de engenharia**:
 
 | Item | Estado | Trava |
 |---|---|---|
-| REF-05 (curar `requirement_type` em ILPI/alimentos) | precondição pronta, curadoria pendente | **decisão sanitária sua**, item a item |
-| REF-07 — 3 itens sem base vigente (`rj-f-087`, `rj-exc-010`, `rj-exc-011`) | marcados no código | **decisão sanitária sua** (Decreto Rio 45.585 revogado sem substituto de conteúdo) |
-| EMAIL-01 (destinatário canônico + entrega confiável) | implementado e testado local | **sua autorização** para publicar migration + Edge Functions + smoke |
+| REF-05 (curar `requirement_type` em ILPI/alimentos) | precondição pronta, curadoria em andamento (autorizada 15/08) | curadoria roteiro a roteiro em curso |
+| REF-07 — 3 itens sem base vigente (`rj-f-087`, `rj-exc-010`, `rj-exc-011`) | ✅ **resolvido 15/08** | decisão da Ester aplicada em código e produção |
+| EMAIL-01 (destinatário canônico + entrega confiável) | ✅ migration e Edge Functions **já estavam publicadas** (conferido 15/08 — a auditoria estava desatualizada) | smoke test real autorizado 15/08 |
 | DEBT-02 (dívida de lint, ~500 erros `any`) | nunca iniciado | não bloqueia build/testes; é higiene |
 
 > Nenhum desses quatro é "fazer código e entregar". Três dependem de decisão sua; um (DEBT-02) é

@@ -23,7 +23,7 @@ import type { AppointmentRequest } from '../../types';
 import { AppointmentAdminService } from '../../services/appointmentAdminService';
 import { Button } from '../ui/Button';
 import { Card, CardContent } from '../ui/Card';
-import { STATUS_BADGES, STATUS_LABELS, formatDateBR } from './appointmentRequestsShared';
+import { STATUS_BADGES, STATUS_LABELS, formatCreatedAt, formatDateBR } from './appointmentRequestsShared';
 import { PublishedFilesPanel } from './PublishedFilesPanel';
 import { ActionPlanModal } from './modals/ActionPlanModal';
 
@@ -31,6 +31,7 @@ interface ActiveRequestCardProps {
   request: AppointmentRequest;
   showIlpiAreaScores: boolean;
   busy: boolean;
+  notificationStatus?: { status: string; sentAt: string | null };
   onPublishReport: (file: File | null) => void;
   onAddAttachment: (file: File | null) => void;
   onAddPhotos: () => void;
@@ -52,6 +53,7 @@ export function ActiveRequestCard({
   request,
   showIlpiAreaScores,
   busy,
+  notificationStatus,
   onPublishReport,
   onAddAttachment,
   onAddPhotos,
@@ -297,15 +299,28 @@ export function ActiveRequestCard({
               </Button>
             )}
             {onRetryNotification && (request.status === 'confirmed' || request.status === 'rescheduled') && (
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={busy}
-                onClick={onRetryNotification}
-                className="min-h-11 border-blue-200 text-blue-700 hover:bg-blue-50"
-              >
-                <RefreshCw className="mr-1.5 h-4 w-4" /> Tentar enviar confirmação
-              </Button>
+              notificationStatus?.status === 'sent' ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={busy}
+                  onClick={onRetryNotification}
+                  title={notificationStatus.sentAt ? `Enviado em ${formatCreatedAt(notificationStatus.sentAt)}. Clicar não reenvia — só confirma que já foi entregue.` : undefined}
+                  className="min-h-11 border-green-200 text-green-700 hover:bg-green-50"
+                >
+                  <CheckCircle className="mr-1.5 h-4 w-4" /> E-mail já enviado
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={busy}
+                  onClick={onRetryNotification}
+                  className="min-h-11 border-blue-200 text-blue-700 hover:bg-blue-50"
+                >
+                  <RefreshCw className="mr-1.5 h-4 w-4" /> Tentar enviar confirmação
+                </Button>
+              )
             )}
             {request.status === 'in_progress' && onMarkCompleted && (
               <Button

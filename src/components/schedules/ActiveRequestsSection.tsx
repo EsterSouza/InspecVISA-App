@@ -10,6 +10,7 @@ interface ActiveRequestsSectionProps {
   active: AppointmentRequest[];
   clients: Client[];
   busy: string | null;
+  notificationStatuses: Map<string, { status: string; sentAt: string | null }>;
   show: boolean;
   onToggleShow: () => void;
   onPublishReport: (request: AppointmentRequest, file: File | null) => void;
@@ -32,6 +33,7 @@ export function ActiveRequestsSection({
   active,
   clients,
   busy,
+  notificationStatuses,
   show,
   onToggleShow,
   onPublishReport,
@@ -84,6 +86,7 @@ export function ActiveRequestsSection({
                   request={request}
                   showIlpiAreaScores={shouldShowIlpiAreaScores(request, clients)}
                   busy={busy === request.id}
+                  notificationStatus={notificationStatuses.get(request.id)}
                   onPublishReport={(file) => onPublishReport(request, file)}
                   onAddAttachment={(file) => onAddAttachment(request, file)}
                   onAddPhotos={() => onAddPhotos(request)}

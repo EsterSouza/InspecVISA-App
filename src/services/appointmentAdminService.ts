@@ -1289,6 +1289,36 @@ export const AppointmentAdminService = {
     return this.notifyAppointmentEvent(request.id, eventType);
   },
 
+  // Status de entrega do e-mail de confirmação/remarcação, por solicitação — só leitura (a
+  // escrita é exclusiva da Edge Function via service role). Usa a mesma dedupe_key que o
+  // notify-appointment-event calcula, para achar o log da data/hora atual do compromisso (uma
+  // remarcação muda a chave e "reabre" o status como não enviado, corretamente).
+  async getConfirmationDeliveryStatuses(
+    requests: AppointmentRequest[]
+  ): Promise<Map<string, { status: string; sentAt: string | null }>> {
+    const tenantId = requireTenantId();
+    const relevant = requests.filter((r) => r.status === 'confirmed' || r.status === 'rescheduled');
+    const result = new Map<string, { status: string; sentAt: string | null }>();
+    if (!relevant.length) return result;
+
+    const { data, error } = await supabase
+      .from('appointment_notification_log')
+      .select('appointment_request_id, event_type, dedupe_key, delivery_status, sent_at')
+      .eq('tenant_id', tenantId)
+      .in('appointment_request_id', relevant.map((r) => r.id));
+    if (error) throw error;
+
+    for (const request of relevant) {
+      const eventType = request.status === 'rescheduled' ? 'rescheduled' : 'confirmed';
+      const dedupeKey = `${request.requested_date ?? ''}T${request.requested_time ?? ''}`;
+      const row = (data ?? []).find(
+        (r) => r.appointment_request_id === request.id && r.event_type === eventType && r.dedupe_key === dedupeKey
+      );
+      if (row) result.set(request.id, { status: row.delivery_status, sentAt: row.sent_at });
+    }
+    return result;
+  },
+
   async setPortalAccountClients(accountId: string, clientIds: string[]): Promise<void> {
     // Substitui o conjunto de unidades vinculadas (RLS restringe ao staff do tenant).
     const { error: delError } = await supabase

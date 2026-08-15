@@ -75,6 +75,9 @@ export function AppointmentRequestsPanel({ focusRequestId }: { focusRequestId?: 
   // bloqueante em vez de esconder o painel inteiro (Promise.allSettled abaixo).
   const [partialError, setPartialError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null); // id da request em operação
+  // Status de entrega do e-mail de confirmação/remarcação, por request — evita reenvio às
+  // cegas: o botão mostra se já foi enviado antes de a consultora clicar de novo.
+  const [notificationStatuses, setNotificationStatuses] = useState<Map<string, { status: string; sentAt: string | null }>>(new Map());
 
   // Modal de confirmação
   const [confirmTarget, setConfirmTarget] = useState<AppointmentRequest | null>(null);
@@ -113,6 +116,9 @@ export function AppointmentRequestsPanel({ focusRequestId }: { focusRequestId?: 
 
       if (reqResult.status === 'fulfilled') {
         setRequests(reqResult.value);
+        AppointmentAdminService.getConfirmationDeliveryStatuses(reqResult.value)
+          .then(setNotificationStatuses)
+          .catch((err) => console.error('[AppointmentRequestsPanel] Falha ao carregar status de entrega:', err));
       } else {
         throw reqResult.reason;
       }
@@ -341,6 +347,7 @@ export function AppointmentRequestsPanel({ focusRequestId }: { focusRequestId?: 
         active={active}
         clients={clients}
         busy={busy}
+        notificationStatuses={notificationStatuses}
         show={showActive}
         onToggleShow={() => setShowActive((v) => !v)}
         onPublishReport={handlePublishReport}

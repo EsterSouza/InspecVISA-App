@@ -341,10 +341,10 @@ citavam a numeração do *roteiro anexo* ao 45.585 (5.5.9, 6.4.1, 7.1…), que �
 | **PROD-01** | Aviso de pagamento quebrado no portal | Opus 5 | médio | — | ✅ **concluído 04/08** |
 | **PROD-02** | Auditoria do portal não grava nada | Opus 5 | baixo | — | ✅ **concluído 04/08** |
 | **REF-06** | Ligação resposta ↔ item quebrada | Opus 5 | alto | — | ✅ **concluído 06/08** · aplicado em produção (2 cargas) |
-| **REF-07** | Referências: só o que foi usado, autoria curada, UF das 27 | Opus 5 | alto | REF-02 (concluído) | ✅ **concluído 14/08** · aplicado em produção (migration `20260814185610` + itens do 45.585) · 3 itens sem base vigente pendentes de decisão sanitária (ver 2.7) |
+| **REF-07** | Referências: só o que foi usado, autoria curada, UF das 27 | Opus 5 | alto | REF-02 (concluído) | ✅ **concluído 15/08** · aplicado em produção (migration `20260814185610` + itens do 45.585 + os 3 itens sem base vigente resolvidos com decisão da Ester) |
 | **REL-01** | Mostrar no relatório o que o cliente já cumpre | Opus 5 | baixo | — | ✅ **concluído 06/08** |
 | **AGD-01** | Visita retroativa + ordem/paginação do painel de solicitações | Opus 5 | baixo | — | ✅ **concluído 06/08** · 1 linha recriada em produção |
-| **EMAIL-01** | Destinatário canônico e entrega confiável dos e-mails de agendamento | Opus 5 | alto | — | 🟡 **implementado/testado localmente 12/08** · aguardando publicação autorizada |
+| **EMAIL-01** | Destinatário canônico e entrega confiável dos e-mails de agendamento | Opus 5 | alto | — | ✅ **concluído 15/08** · migration e as 10 Edge Functions já estavam em produção batendo com o código local; smoke test real feito com a Eliana (agendamento `99ac7381…`), `delivery_status = sent` confirmado no banco |
 | **P360-008** | Detalhe, notificações e calendário | Sonnet 5 | alto | — | ✅ **concluído 06/08** · aplicado em produção; achada e corrigida edge function `client-appointment-assets` desatualizada (v4→v5, sem os campos do P360-004) |
 | **P360-009** | Início do portal por próximas ações | Sonnet 5 | alto | P360-008 | ✅ **concluído 07/08/2026** |
 | **P360-010** | Projeção segura do plano de ação | Opus 5 | alto | — | ✅ **concluído 07/08/2026** · aplicado em produção; prova de ponta a ponta feita no app com conta de teste, depois apagada |

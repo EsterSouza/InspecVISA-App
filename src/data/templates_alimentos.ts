@@ -458,11 +458,11 @@ export const alimentosTemplates: ChecklistTemplate[] = [
           { id: 'rj-f-084', sectionId: 'sec-ali-rj-09', order: 8,  description: 'NÃO são utilizadas embalagens devassáveis (monodose) de molhos e temperos de mesa. — EXCLUSIVO MUNICÍPIO DO RJ', legislation: 'Portaria IVISA-RIO 002/2020', weight: 10, isCritical: true },
           { id: 'rj-f-085', sectionId: 'sec-ali-rj-09', order: 9,  description: 'Possui canudo de papel biodegradável e/ou reciclável embalado individualmente (quando aplicável ao tipo de bebida servida). — EXCLUSIVO MUNICÍPIO DO RJ', legislation: 'Portaria IVISA-RIO 002/2020', weight: 10, isCritical: true },
           { id: 'rj-f-086', sectionId: 'sec-ali-rj-09', order: 10, description: 'Possui placas ou qualquer outro dispositivo que informe sobre a presença de GLÚTEN nas preparações e/ou cardápios. — EXCLUSIVO MUNICÍPIO DO RJ', legislation: 'Portaria IVISA-RIO 002/2020', weight: 10, isCritical: true },
-          // PENDÊNCIA SANITÁRIA (REF-07): única base é o Decreto-Rio 45.585/18, revogado em
-          // 02/02/2026. O Decreto 57.501/2026 que o substituiu é regulamento administrativo
-          // (licenciamento, infração, fiscalização) e não traz este requisito técnico; não foi
-          // encontrado equivalente na Portaria IVISA-RIO 002/2020. Precisa de base vigente.
-          { id: 'rj-f-087', sectionId: 'sec-ali-rj-09', order: 11, description: 'Não possui exposição de gêneros alimentícios fora da área física do estabelecimento.', legislation: 'Decreto-Rio 45585/18 item 5.5.14', weight: 5, isCritical: false },
+          // REF-07 (15/08/2026): única base era o Decreto-Rio 45.585/18, revogado em 02/02/2026
+          // sem substituto de conteúdo (o Decreto 57.501/2026 não traz este requisito técnico) e
+          // sem equivalente na Portaria IVISA-RIO 002/2020. Decisão da Ester: sem base legal
+          // vigente, vira boa prática — mantém o item no roteiro, tira a exigência legal.
+          { id: 'rj-f-087', sectionId: 'sec-ali-rj-09', order: 11, description: 'Não possui exposição de gêneros alimentícios fora da área física do estabelecimento.', legislation: 'Critério técnico de controle de exposição de gêneros alimentícios', weight: 2, isCritical: false, requirementType: 'good_practice' },
         ],
       },
 
@@ -591,18 +591,17 @@ export const alimentosTemplates: ChecklistTemplate[] = [
             weight: 10,
             isCritical: true,
           },
-          // PENDÊNCIA SANITÁRIA (REF-07): os dois itens abaixo têm como única base o
-          // Decreto-Rio 45.585/18, revogado em 02/02/2026 pelo art. 72, I do Decreto Rio
-          // 57.501/2026 — que é regulamento administrativo e não traz requisito técnico.
-          // Os arts. 28 e 49 da Portaria IVISA-RIO 002/2020 tratam de fluxo ordenado e
-          // barreira entre área limpa e suja, mas a correspondência não é literal e a
-          // escolha é da consultora. Até lá o PDF marca a citação como revogada.
+          // REF-07 (15/08/2026): os dois itens abaixo tinham como única base o Decreto-Rio
+          // 45.585/18, revogado em 02/02/2026 sem substituto de conteúdo. Decisão da Ester:
+          // citar a correspondência aproximada na Portaria IVISA-RIO 002/2020, mesmo não sendo
+          // match literal — rj-exc-010 nos arts. 28 (fluxo sem cruzamento) e 49 (barreira entre
+          // área limpa e suja); rj-exc-011 no art. 7º (visitantes na área de manipulação).
           {
             id: 'rj-exc-010',
             sectionId: 'sec-ali-rj-12',
             order: 10,
             description: 'Sistema de recepção de utensílios sujos separado do ponto de distribuição de alimentos.',
-            legislation: 'Decreto-Rio 45585/18 item 5.5.9',
+            legislation: 'Portaria IVISA-RIO 002/2020, Arts. 28 e 49',
             weight: 5,
             isCritical: false,
           },
@@ -611,7 +610,7 @@ export const alimentosTemplates: ChecklistTemplate[] = [
             sectionId: 'sec-ali-rj-12',
             order: 11,
             description: 'Os estabelecimentos de serviços de alimentação possuem identificação ao cliente sobre o franqueamento à visitação da cozinha (quando aplicável).',
-            legislation: 'Decreto-Rio 45585/18 item 5.5.10',
+            legislation: 'Portaria IVISA-RIO 002/2020, Art. 7º',
             weight: 5,
             isCritical: false,
           },

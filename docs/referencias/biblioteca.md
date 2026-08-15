@@ -341,18 +341,23 @@ problema que o REF-07 corrige.
 |---|---|---|
 | Citava o 45.585 **junto com** RDC 216/2004 e/ou Portaria IVISA-RIO 002/2020 | 20 | removida a citação ao decreto revogado; a norma vigente que já estava lá passa a ser a base |
 | "Funcionários de caixa não manipulam alimentos" | 1 | passou a citar **Portaria IVISA-RIO 002/2020, Art. 97** — correspondência literal, incluindo o parágrafo único ("Os funcionários responsáveis por essa atividade não devem manipular alimentos preparados") |
-| Sem base vigente encontrada | 3 | mantida a citação ao 45.585; o PDF agora imprime `[REVOGADA — substituída por Decreto Rio nº 57.501/2026]` |
+| Sem base vigente encontrada, decidido pela Ester em 15/08/2026 | 3 | ver abaixo |
 
-**Os 3 pendentes**, marcados com comentário no código:
+**Os 3 pendentes — resolvidos em 15/08/2026, decisão da Ester:**
 
 - `rj-f-087` — "Não possui exposição de gêneros alimentícios fora da área física do
-  estabelecimento."
+  estabelecimento." Nenhuma norma vigente equivalente encontrada. Virou `good_practice`
+  (peso 2, sem citação de lei) — mantém o item no roteiro, tira a exigência legal.
 - `rj-exc-010` — "Sistema de recepção de utensílios sujos separado do ponto de distribuição
-  de alimentos." Os arts. 28 e 49 da Portaria IVISA-RIO 002/2020 tratam de fluxo ordenado
-  sem cruzamento e de barreira entre área limpa e suja, mas a correspondência não é literal.
+  de alimentos." Passa a citar **Portaria IVISA-RIO 002/2020, Arts. 28 e 49** (fluxo ordenado
+  sem cruzamento e barreira entre área limpa e suja) — correspondência aproximada, não
+  literal, aceita pela Ester.
 - `rj-exc-011` — "Identificação ao cliente sobre o franqueamento à visitação da cozinha."
-  O art. 7º da Portaria trata de visitantes na área de manipulação, o que não é o mesmo
-  requisito.
+  Passa a citar **Portaria IVISA-RIO 002/2020, Art. 7º** (visitantes na área de manipulação)
+  — correspondência aproximada, não literal, aceita pela Ester.
+
+Aplicado em `src/data/templates_alimentos.ts` e nos 3 `checklist_items` de produção
+correspondentes (0 inspeções usam esse roteiro hoje, sem impacto em relatório entregue).
 
 O texto oficial da Portaria IVISA-RIO 002/2020 está em
 `vigilanciasanitaria.prefeitura.rio/wp-content/uploads/sites/84/2023/03/Portaria-N-I-VISA-Rio-002-11.11.2020.pdf`
