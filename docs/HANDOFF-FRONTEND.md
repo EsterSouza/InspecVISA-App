@@ -353,7 +353,9 @@ Nomes de modelo mudam rápido; escolher o mais recente no `/model` e calibrar o 
 | FE-09 (rotas de seção + plano de ação por unidade) | ✅ Entregue em 09/08/2026 (commits `659b332`, `9de54b1`) — ver detalhe abaixo |
 | FE-10 (tirar o atrito do portal) | ✅ Entregue em 10/08/2026 — ver detalhe abaixo |
 | Onda 1 (portal) | **Fechada** — FE-04a, FE-09, FE-13 e FE-10 entregues |
-| Ondas 2 e 3 | Depois do portal no ar |
+| FE-04b (Table, Tabs, Pagination, Tooltip, Drawer, PageShell, PageHeader) | ✅ Entregue em 15/08/2026 — ver detalhe abaixo |
+| Onda 2 (admin) | Em andamento — FE-04b entregue; FE-05/06/07/08 seguem, agora desbloqueados |
+| Onda 3 | Depois da onda 2 |
 | MCP do DesignMD | ✅ funcionando — URL corrigida para `www` e servidor aprovado em `~/.claude.json` |
 
 ### FE-04a — o que foi feito e o que ficou pra depois
@@ -421,3 +423,18 @@ DesignMD conectado e funcionando nesta sessão (URL `www`, aprovado em `~/.claud
 Onda 1 (portal) **fechada** — FE-04a, FE-09, FE-13 e agora FE-10 entregues.
 
 Testado de novo contra "Rede Sênior" em produção (mesmo `portal_token`, sem senha): build completo limpo.
+
+### 15/08/2026 — FE-04b (abre a Onda 2): Table, Tabs, Pagination, Tooltip, Drawer, PageShell, PageHeader
+
+Só a fundação — sete primitivos novos em `src/components/ui/`, nenhuma tela do admin foi migrada ainda (isso é FE-05 a FE-08, agora desbloqueados). Portados dos padrões de `docs/prototipos/_src/components.css` (`.table`/`.th-sort`, `.pagination`, `.tabs`, `.tip`, `dialog.drawer`), mas escritos como os primitivos que já existem do FE-04a (`Button`, `Modal`, `EmptyState`) — Tailwind + `cn()`, não CSS custom properties cruas. O MCP do DesignMD não foi consultado: os sete componentes já tinham padrão aprovado no protótipo FE-02, então não havia decisão de design em aberto, só implementação (regra do handoff: "o que o protótipo já resolveu não é mais decisão").
+
+- **`Table` / `TableContainer` / `TableHeader` / `TableBody` / `TableRow` / `TableHead` / `TableCell`** — composição, não data-table genérico (mesma filosofia de `Card`/`CardHeader`/`CardContent`): cada tela monta as próprias colunas. Cabeçalho fixo é `sticky top-0` no `<th>` dentro de um `<div className="overflow-x-auto">` — fica preso ao topo da viewport enquanto a página rola, não um painel de altura fixa. Ordenação em `TableHead` via `sortDirection`/`onSort`: seta (`lucide-react` `ArrowUp`, gira 180° se descendente) sempre presente no DOM, só com `opacity-0` quando a coluna não está ordenada — nunca comunica só por cor, e `aria-sort` fica em `none`/ausente até a coluna ser clicada. `TableRow` tem variante `group` (linha de agrupamento sticky logo abaixo do cabeçalho, para o plano de ação por unidade do FE-08).
+- **`Pagination`** — janela de páginas com reticências (mantém primeira/última + vizinhas da atual), resumo opcional "21–30 de 115" quando `totalItems`/`pageSize` são passados, some sozinha com uma página só.
+- **`Tabs` / `TabPanel`** — ARIA completo (`tablist`/`tab`/`tabpanel`, roving `tabindex`, setas do teclado com `Home`/`End`) que a tela mais citada no handoff como candidata (`ClientDetails.tsx`, abas Visão geral/Inspeções/Arquivos/Portal/Financeiro) não tem hoje — é abas feitas à mão sem nenhum desses três.
+- **`Tooltip`** — hover **e** foco (teclado), 4 lados, sem lib de posicionamento (só CSS, como o protótipo). `aria-describedby` entra via `cloneElement` no filho — o filho precisa ser um elemento único que aceite props (botão/ícone), igual ao uso no protótipo.
+- **`Drawer`** — mesmo padrão do `Modal.tsx` (FE-04a): `<dialog>` nativo, `showModal()`/`close()` num `useEffect` por `isOpen`, fecha no clique do backdrop comparando `event.target === dialogRef.current`. Desliza da direita por padrão (`side="left"` para o caso raro de gaveta à esquerda), header/body/footer com o mesmo scroll-lock do Modal.
+- **`PageShell`** (`max-w-[1600px] p-4 sm:p-6 lg:p-8`) e **`PageHeader`** (`title`/`description`/`actions`) — mesma composição hoje escrita à mão em ~15 páginas (ex.: `Clients.tsx:168`, `Inspections.tsx:145`: `<div className="mx-auto max-w-4xl p-4 sm:p-6 lg:p-8">` + `<h1>` + `<p>` + bloco de ações). `PageHeaderProps` precisou de `Omit<..., 'title'>` — `title` de `HTMLAttributes<HTMLDivElement>` é `string`, e o prop novo é `ReactNode`, conflito de tipo que só aparece no `tsc -b` completo, não em edição isolada.
+
+Verificado num harness temporário (`/dev/ui-kit`, rota pública fora do `ProtectedRoute` + página em `src/pages/dev/`, removidos os dois antes do commit — `git status` confirma que não sobrou rastro em `App.tsx`): os sete no ar ao mesmo tempo, sem erro de console; ordenação alterna `aria-sort` a cada clique; abas trocam de painel e ignoram a aba `disabled`; paginação calcula a reticência certa para página 3 de 12; `Drawer` abre, bloqueia clique atrás do backdrop (comportamento correto de `<dialog>` modal — não é bug) e fecha no `Esc`. `npm run build` (`tsc -b` + `vite build`) limpo, do jeito que o handoff pede — não só `tsc --noEmit`.
+
+Ficou pra depois, por já ter card próprio: adoção nas ~15 páginas (FE-05), migração da sidebar para rail colapsável usando `Drawer` no celular (FE-06), aba de Arquivos usando `Table`/`Pagination` (FE-07), tela de Plano de Ação usando `Table`/`TableRow group` (FE-08).

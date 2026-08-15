@@ -53,7 +53,7 @@ Confirmado por leitura direta do código em 15/08, não pelo handoff:
 | Onda | Cards | Estado real (evidência) |
 |---|---|---|
 | **1 — Portal** | FE-04a, FE-09, FE-13, FE-10 | ✅ **entregue.** Portal em rotas de seção, plano de ação por unidade, `WeekCalendar`, atrito removido. |
-| **2 — Admin** | FE-04b, FE-05, FE-06, FE-07, FE-08 | ❌ **não começou.** Não existem `Table`, `Tabs`, `Pagination`, `Tooltip`, `Drawer`, `PageShell`/`PageHeader` em `src/components/ui/`. Nenhuma rota/página de Plano de Ação do admin (`plano-de-acao` só aparece em arquivos do portal). `Sidebar.tsx:50` ainda é `w-72` fixa e some abaixo de `lg` (sem rail, sem drawer). |
+| **2 — Admin** | FE-04b, FE-05, FE-06, FE-07, FE-08 | 🟡 **começou.** FE-04b entregue em 15/08 (mesmo dia desta auditoria, depois dela): `Table`/`TableContainer`/`TableHeader`/`TableBody`/`TableRow`/`TableHead`/`TableCell`, `Tabs`/`TabPanel`, `Pagination`, `Tooltip`, `Drawer`, `PageShell`, `PageHeader` existem em `src/components/ui/` — ver `docs/HANDOFF-FRONTEND.md` § "FE-04b". Nenhuma tela do admin os usa ainda (isso é FE-05 a FE-08, ainda não começados): nenhuma rota/página de Plano de Ação do admin, `Sidebar.tsx:50` ainda `w-72` fixa sem rail/drawer, as ~15 páginas ainda em `max-w-*` cru. |
 | **3 — Fechamento** | FE-11, FE-12 | ❌ **não começou.** `dark:` aparece **0 vez** em todo `src/**/*.tsx` (dark mode morto). `src/App.css` e `src/components/layout/AdminLayout.tsx` (que o FE-11 manda apagar) ainda no repo. `index.html` ainda descreve o app com marca de terceiro. |
 
 **Consequência prática do meio-caminho:** a fundação nova (tokens, Sora/Source Sans 3, primitivos)
@@ -238,7 +238,7 @@ depois higiene. Nada aqui é funcionalidade nova além do command-palette (opcio
 3. **Teste-guardião de grants** — varre RPCs públicas e falha se faltar papel.
 
 ### Fase B — Fechar a Onda 2 (Admin) — a assimetria
-4. **FE-04b** — `Table`, `Tabs`, `Pagination`, `Tooltip`, `Drawer`, `PageShell`, `PageHeader`.
+4. ~~**FE-04b** — `Table`, `Tabs`, `Pagination`, `Tooltip`, `Drawer`, `PageShell`, `PageHeader`.~~ ✅ Entregue em 15/08.
 5. **FE-08** — tela de Plano de Ação (lista+detalhe). Consumindo `client_action_items` já corrigido.
 6. **FE-06** — rail colapsável + drawer mobile + nova ordem do menu.
 7. **FE-07** — aba de Arquivos + corrigir o N+1 de `listAttachments`.
