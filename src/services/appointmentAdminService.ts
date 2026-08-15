@@ -172,6 +172,22 @@ function sanitizeFileName(name: string): string {
     .replace(/[^a-zA-Z0-9._-]/g, '_');
 }
 
+async function signAttachmentUrls(rows: AppointmentAttachment[]): Promise<AppointmentAttachment[]> {
+  await Promise.all(
+    rows.map(async (attachment) => {
+      try {
+        const { data: urlData } = await supabase.storage
+          .from(attachment.storage_bucket)
+          .createSignedUrl(attachment.storage_path, 3600);
+        attachment.signed_url = urlData?.signedUrl;
+      } catch {
+        // Mantem o anexo listado mesmo se o link temporario falhar.
+      }
+    })
+  );
+  return rows;
+}
+
 function withTimeout<T>(promise: PromiseLike<T>, label: string, timeoutMs = ADMIN_TIMEOUT_MS): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
@@ -645,20 +661,22 @@ export const AppointmentAdminService = {
       .eq('appointment_request_id', requestId)
       .order('created_at', { ascending: false });
     if (error) throw error;
-    const rows = (data ?? []) as AppointmentAttachment[];
-    await Promise.all(
-      rows.map(async (attachment) => {
-        try {
-          const { data: urlData } = await supabase.storage
-            .from(attachment.storage_bucket)
-            .createSignedUrl(attachment.storage_path, 3600);
-          attachment.signed_url = urlData?.signedUrl;
-        } catch {
-          // Mantem o anexo listado mesmo se o link temporario falhar.
-        }
-      })
-    );
-    return rows;
+    return signAttachmentUrls((data ?? []) as AppointmentAttachment[]);
+  },
+
+  /** FE-07 — corrige o N+1 de `ClientDetails.tsx`: uma consulta só para todas as visitas do
+   * cliente, em vez de um `listAttachments` por visita dentro de um loop. */
+  async listAttachmentsForRequests(requestIds: string[]): Promise<AppointmentAttachment[]> {
+    if (requestIds.length === 0) return [];
+    const tenantId = requireTenantId();
+    const { data, error } = await supabase
+      .from('appointment_attachments')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .in('appointment_request_id', requestIds)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return signAttachmentUrls((data ?? []) as AppointmentAttachment[]);
   },
 
   // ─── Fotos de inspeções vinculadas ─────────────────────────

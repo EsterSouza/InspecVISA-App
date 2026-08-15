@@ -1,18 +1,20 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft, 
-  Calendar, 
+import {
+  ArrowLeft,
+  Calendar,
   CalendarPlus,
   Copy,
-  FileText, 
-  TrendingUp, 
-  AlertCircle, 
+  FileText,
+  TrendingUp,
+  AlertCircle,
   AlertTriangle,
   ChevronRight,
   ExternalLink,
   Image as ImageIcon,
   Edit2,
+  Loader2,
+  Paperclip,
   Trash2
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
@@ -30,6 +32,8 @@ import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
+import { Pagination } from '../components/ui/Pagination';
+import { TableContainer, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
 
 const ComplianceTrendChart = lazy(() =>
   import('../components/client/ComplianceTrendChart').then(m => ({ default: m.ComplianceTrendChart }))
@@ -46,6 +50,8 @@ export function ClientDetails() {
   const [portalAuditError, setPortalAuditError] = useState<string | null>(null);
   const [clientRequests, setClientRequests] = useState<AppointmentRequest[]>([]);
   const [publishedAssets, setPublishedAssets] = useState<Record<string, AppointmentAttachment[]>>({});
+  const [filesPage, setFilesPage] = useState(1);
+  const [removingAssetId, setRemovingAssetId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -135,13 +141,17 @@ export function ClientDetails() {
               setPortalAuditEvents([]);
               setPortalAuditError(err instanceof Error ? err.message : String(err));
             });
-          const assets: Record<string, AppointmentAttachment[]> = {};
-          await Promise.allSettled(
-            mine.map(async (request) => {
-              assets[request.id] = await AppointmentAdminService.listAttachments(request.id);
-            })
-          );
-          setPublishedAssets(assets);
+          try {
+            const allAssets = await AppointmentAdminService.listAttachmentsForRequests(mine.map((r) => r.id));
+            const assets: Record<string, AppointmentAttachment[]> = {};
+            for (const asset of allAssets) {
+              (assets[asset.appointment_request_id] ||= []).push(asset);
+            }
+            setPublishedAssets(assets);
+          } catch (err) {
+            console.warn('[ClientDetails] Falha ao carregar arquivos publicados:', err);
+            setPublishedAssets({});
+          }
         }
 
       } catch (err) {
@@ -311,12 +321,37 @@ export function ClientDetails() {
 
   const removePublishedAsset = async (asset: AppointmentAttachment) => {
     if (!confirm('Remover este arquivo do portal do cliente? O arquivo original nao sera apagado.')) return;
-    await AppointmentAdminService.removePublishedAttachment(asset.id);
-    setPublishedAssets((current) => ({
-      ...current,
-      [asset.appointment_request_id]: (current[asset.appointment_request_id] || []).filter((item) => item.id !== asset.id),
-    }));
+    setRemovingAssetId(asset.id);
+    try {
+      await AppointmentAdminService.removePublishedAttachment(asset.id);
+      setPublishedAssets((current) => ({
+        ...current,
+        [asset.appointment_request_id]: (current[asset.appointment_request_id] || []).filter((item) => item.id !== asset.id),
+      }));
+    } catch (err: any) {
+      alert(err.message || 'Falha ao remover o arquivo.');
+    } finally {
+      setRemovingAssetId(null);
+    }
   };
+
+  const ASSET_KIND_LABELS: Record<AppointmentAttachment['kind'], string> = {
+    report_pdf: 'Relatório',
+    photo: 'Foto',
+    attachment: 'Anexo',
+  };
+
+  const FILES_PAGE_SIZE = 5;
+  const visitFileGroups = clientRequests
+    .map((request) => ({ request, assets: publishedAssets[request.id] || [] }))
+    .filter((group) => group.assets.length > 0)
+    .sort((a, b) => new Date(b.request.requested_date || b.request.created_at).getTime() - new Date(a.request.requested_date || a.request.created_at).getTime());
+  const filesPageCount = Math.max(1, Math.ceil(visitFileGroups.length / FILES_PAGE_SIZE));
+  const filesCurrentPage = Math.min(filesPage, filesPageCount);
+  const pagedFileGroups = visitFileGroups.slice(
+    (filesCurrentPage - 1) * FILES_PAGE_SIZE,
+    filesCurrentPage * FILES_PAGE_SIZE
+  );
 
   const createConfirmedVisit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -616,40 +651,101 @@ export function ClientDetails() {
             </Card>
           )}
 
-          {clientRequests.some((request) => (publishedAssets[request.id] || []).length > 0) && (
+          {visitFileGroups.length > 0 && (
             <Card>
               <CardContent className="p-5">
                 <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-900">
-                  Publicado no portal
+                  Arquivos publicados no portal
                 </h3>
-                <div className="space-y-3">
-                  {clientRequests.map((request) => {
-                    const assets = publishedAssets[request.id] || [];
-                    return assets.length > 0 ? (
-                      <div key={request.id} className="rounded-md border border-gray-100 p-3">
-                        <p className="mb-2 text-xs font-bold text-gray-500">
-                          {request.requested_date || 'Sem data'} - {assets.length} arquivo(s)
-                        </p>
-                        <div className="space-y-1.5">
+                <TableContainer>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Arquivo</TableHead>
+                        <TableHead align="right">
+                          <span className="sr-only">Ações</span>
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {pagedFileGroups.map(({ request, assets }) => (
+                        <React.Fragment key={request.id}>
+                          <TableRow group>
+                            <TableCell colSpan={2}>
+                              Visita {request.requested_date ? new Date(`${request.requested_date}T00:00:00`).toLocaleDateString('pt-BR') : 'sem data'} ·{' '}
+                              {assets.length} arquivo(s)
+                            </TableCell>
+                          </TableRow>
                           {assets.map((asset) => (
-                            <div key={asset.id} className="flex items-center gap-2 text-xs">
-                              <span className="min-w-0 flex-1 truncate">
-                                {asset.kind === 'photo' ? 'Foto' : asset.file_name || asset.kind}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => void removePublishedAsset(asset)}
-                                className="rounded border border-red-100 px-2 py-1 font-bold text-red-600 hover:bg-red-50"
-                              >
-                                Remover
-                              </button>
-                            </div>
+                            <TableRow key={asset.id}>
+                              <TableCell primary>
+                                <span className="flex items-center gap-2">
+                                  {asset.kind === 'photo' && asset.signed_url ? (
+                                    <img
+                                      src={asset.signed_url}
+                                      alt=""
+                                      className="h-9 w-9 shrink-0 rounded object-cover"
+                                    />
+                                  ) : (
+                                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-primary-50 text-primary-700">
+                                      {asset.kind === 'report_pdf' ? (
+                                        <FileText className="h-4 w-4" />
+                                      ) : asset.kind === 'photo' ? (
+                                        <ImageIcon className="h-4 w-4" />
+                                      ) : (
+                                        <Paperclip className="h-4 w-4" />
+                                      )}
+                                    </span>
+                                  )}
+                                  <span className="min-w-0 truncate font-normal text-gray-700">
+                                    {asset.file_name || ASSET_KIND_LABELS[asset.kind]}
+                                  </span>
+                                </span>
+                              </TableCell>
+                              <TableCell align="right">
+                                <span className="inline-flex items-center gap-1">
+                                  {asset.signed_url && (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => window.open(asset.signed_url, '_blank', 'noopener,noreferrer')}
+                                      aria-label={`Abrir ${asset.file_name || ASSET_KIND_LABELS[asset.kind]}`}
+                                    >
+                                      Abrir
+                                    </Button>
+                                  )}
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    disabled={removingAssetId === asset.id}
+                                    onClick={() => void removePublishedAsset(asset)}
+                                    className="text-red-600 hover:bg-red-50"
+                                    aria-label={`Remover ${asset.file_name || ASSET_KIND_LABELS[asset.kind]} do portal`}
+                                  >
+                                    {removingAssetId === asset.id ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                </span>
+                              </TableCell>
+                            </TableRow>
                           ))}
-                        </div>
-                      </div>
-                    ) : null;
-                  })}
-                </div>
+                        </React.Fragment>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  <Pagination
+                    page={filesCurrentPage}
+                    pageCount={filesPageCount}
+                    onPageChange={setFilesPage}
+                    totalItems={visitFileGroups.length}
+                    pageSize={FILES_PAGE_SIZE}
+                  />
+                </TableContainer>
               </CardContent>
             </Card>
           )}
