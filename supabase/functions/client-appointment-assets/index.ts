@@ -119,11 +119,17 @@ Deno.serve(async (req) => {
 
     // Três filtros somados: tipo do compromisso, relatório oculto naquela visita e as travas
     // por conta. Relatórios e anexos andam juntos na trava `reports`; fotos têm a sua.
+    //
+    // `kind = 'attachment'` nunca sai sem `account`: são arquivos soltos (não o relatório, não
+    // fotos de inspeção) e o nome do arquivo já revela conteúdo confidencial. O link aberto do
+    // PORT-02 continua servindo relatório e fotos sem login (é o caso da Rede Sênior), mas
+    // anexo passou a exigir a conta do portal — sem isso a linha nem entra em `rows` filtrados,
+    // então quem só tem o link não sabe nem que um anexo existe.
     const appointmentType = requestRow.appointment_type || 'inspection';
     const visibleRows = (rows || []).filter((asset) => {
-      if (appointmentType !== 'inspection') return asset.kind === 'attachment' && reportsReleased;
+      if (appointmentType !== 'inspection') return asset.kind === 'attachment' && reportsReleased && !!account;
       if (asset.kind === 'report_pdf') return reportsReleased && !requestRow.report_hidden;
-      if (asset.kind === 'attachment') return reportsReleased;
+      if (asset.kind === 'attachment') return reportsReleased && !!account;
       if (asset.kind === 'photo') return photosReleased;
       return true;
     });
