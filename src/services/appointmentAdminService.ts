@@ -1024,6 +1024,17 @@ export const AppointmentAdminService = {
     return (data || []) as ClientActionItem[];
   },
 
+  /** FE-08 — tela `/plano-de-acao`: todo o plano do tenant, sem escopo por visita. A RLS
+   * ("staff reads action items") já restringe ao tenant de quem está logado. */
+  async listAllActionItems(): Promise<ClientActionItem[]> {
+    const { data, error } = await supabase
+      .from('client_action_items')
+      .select('*')
+      .order('due_date', { ascending: true, nullsFirst: false });
+    if (error) throw error;
+    return (data || []) as ClientActionItem[];
+  },
+
   /** Resolve o `appointment_request_id` de um item a partir do seu próprio id — usado pelo
    * Painel operacional, que só recebe o id do `client_action_items` (sem o pai). */
   async getActionItemRequestId(itemId: string): Promise<string | null> {

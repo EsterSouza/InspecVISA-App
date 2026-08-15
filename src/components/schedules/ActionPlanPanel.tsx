@@ -41,7 +41,7 @@ const EVIDENCE_STATUS_THEME: Record<ClientActionEvidence['status'], string> = {
  * arquivo e dar a pendência sanitária por encerrada são decisões diferentes, e a segunda é
  * sempre explícita. Devolver exige orientação — o cliente precisa saber o que refazer.
  */
-function EvidenceReview({
+export function EvidenceReview({
   evidence,
   onReviewed,
 }: {
@@ -271,7 +271,17 @@ export function ActionPlanPanel({ requestId, busy }: { requestId: string; busy: 
                 {item.responsible ? ` · ${item.responsible}` : ''}
               </span>
             </div>
-            <p className="mt-1 break-words text-sm text-gray-800">{item.title}</p>
+            <p className="mt-1 break-words text-sm font-semibold text-gray-800">{item.title}</p>
+            <dl className="mt-1.5 space-y-1 text-[11px] text-gray-600">
+              <div>
+                <dt className="inline font-semibold text-gray-700">Situação encontrada: </dt>
+                <dd className="inline break-words">{item.situation}</dd>
+              </div>
+              <div>
+                <dt className="inline font-semibold text-gray-700">O que fazer: </dt>
+                <dd className="inline break-words">{item.recommended_action}</dd>
+              </div>
+            </dl>
             {item.client_status && (
               <p
                 className={`mt-1.5 rounded-md px-2 py-1 text-[11px] ${

@@ -28,7 +28,7 @@ HANDOFF.md dizia "não publicado" quando já estava no ar).
 
 Rotas que existem mas não têm item próprio na sidebar (chegam por navegação interna, não pelo
 menu): `/clients/:id`, `/new`, `/execute`, `/summary`, `/templates/new`, `/templates/:id`,
-`/templates/:id/edit`, `/templates/import`, `/access-denied`.
+`/templates/:id/edit`, `/templates/import`, `/access-denied`, `/plano-de-acao`.
 
 ## As três telas que mais se confundem entre si
 
@@ -55,6 +55,7 @@ mesma coisa por nome, mas são domínios diferentes.
 |---|---|---|---|---|
 | `/` | `src/pages/Dashboard.tsx` | Home do staff: estatísticas de inspeções (ativas, concluídas, nota média), atenção do dia (prazos, sync pendente), não conformidades recorrentes. | Toda consultora, ao abrir o app. | Lê `inspections`, `schedules`, `responses` do Dexie local (`db`), agregando client-side. |
 | `/painel` | `src/pages/OperationalPanel.tsx` | Painel operacional agregador (ver seção acima). Seis blocos independentes (um falhar não derruba os outros). | Consultora que quer ver "o que precisa da minha atenção" sem entrar em cada tela. | `OperationalOverviewService` — agrega `appointment_requests`, `service_requests`, financeiro; cada bloco carrega e falha isolado. |
+| `/plano-de-acao` | `src/pages/ActionPlan.tsx` | Plano de ação do admin (FE-08): lista + detalhe de todas as pendências publicadas no portal, lendo `client_action_items` direto (não a RPC do Painel). Detalhe mostra `situation`/`recommended_action` inteiros, permite publicar/ocultar/resolver e revisar evidência do cliente — sem abrir relatório nem inspeção. | Consultora que clica num item vencido do Painel (`?item=`) ou no card "Plano de Ação" da ficha do cliente (`?client=`), ou navega direto para revisar tudo. | `AppointmentAdminService.listAllActionItems/listActionItemEvidence/setActionItemStatus`, `ClientService.getClients()` (nome do cliente). |
 | `/clients` | `src/pages/Clients.tsx` | Cadastro de clientes (CRUD) + aba "portal" com contas de acesso do portal do cliente. | Consultora, ao cadastrar/editar cliente ou gerenciar acesso do portal. | `ClientService` (`clients`), `AppointmentAdminService.listPortalAccounts` (`client_portal_accounts`). |
 | `/clients/:id` | `src/pages/ClientDetails.tsx` | Ficha completa do cliente: histórico de inspeções, plano de ação, acesso do portal, trilha de auditoria, solicitações vinculadas, anexos publicados, agendar visita retroativa. Tela grande (1163 linhas) — é o hub de tudo daquele cliente. | Consultora, ao investigar ou preparar visita de um cliente específico. | `ClientService`, `InspectionService`, `AppointmentAdminService`, `ScheduleService` — lê e escreve em vários domínios ao mesmo tempo. |
 | `/schedules` | `src/pages/Schedules.tsx` | Ver seção "as três telas" acima. Agenda semanal + pedidos de visita. | Consultora, todo dia, para ver/confirmar compromissos. | `ScheduleService` (`schedules`), `AppointmentAdminService` (`appointment_requests`, `appointment_notification_log`). |

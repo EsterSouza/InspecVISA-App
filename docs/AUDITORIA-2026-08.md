@@ -53,7 +53,7 @@ Confirmado por leitura direta do código em 15/08, não pelo handoff:
 | Onda | Cards | Estado real (evidência) |
 |---|---|---|
 | **1 — Portal** | FE-04a, FE-09, FE-13, FE-10 | ✅ **entregue.** Portal em rotas de seção, plano de ação por unidade, `WeekCalendar`, atrito removido. |
-| **2 — Admin** | FE-04b, FE-05, FE-06, FE-07, FE-08 | 🟡 **começou.** FE-04b entregue em 15/08 (mesmo dia desta auditoria, depois dela): `Table`/`TableContainer`/`TableHeader`/`TableBody`/`TableRow`/`TableHead`/`TableCell`, `Tabs`/`TabPanel`, `Pagination`, `Tooltip`, `Drawer`, `PageShell`, `PageHeader` existem em `src/components/ui/` — ver `docs/HANDOFF-FRONTEND.md` § "FE-04b". Nenhuma tela do admin os usa ainda (isso é FE-05 a FE-08, ainda não começados): nenhuma rota/página de Plano de Ação do admin, `Sidebar.tsx:50` ainda `w-72` fixa sem rail/drawer, as ~15 páginas ainda em `max-w-*` cru. |
+| **2 — Admin** | FE-04b, FE-05, FE-06, FE-07, FE-08 | 🟡 **em andamento.** FE-04b e FE-08 entregues em 15/08 (mesmo dia desta auditoria, depois dela) — ver `docs/HANDOFF-FRONTEND.md` § "FE-04b" e § "FE-08". `Table`/`Tabs`/`Pagination`/`Tooltip`/`Drawer`/`PageShell`/`PageHeader` existem em `src/components/ui/`; rota `/plano-de-acao` (`src/pages/ActionPlan.tsx`) lê `client_action_items` direto, lista+detalhe. Ainda faltam: `Sidebar.tsx:50` continua `w-72` fixa sem rail/drawer (FE-06), aba de Arquivos (FE-07), as ~15 páginas ainda em `max-w-*` cru (FE-05). |
 | **3 — Fechamento** | FE-11, FE-12 | ❌ **não começou.** `dark:` aparece **0 vez** em todo `src/**/*.tsx` (dark mode morto). `src/App.css` e `src/components/layout/AdminLayout.tsx` (que o FE-11 manda apagar) ainda no repo. `index.html` ainda descreve o app com marca de terceiro. |
 
 **Consequência prática do meio-caminho:** a fundação nova (tokens, Sora/Source Sans 3, primitivos)
@@ -208,7 +208,7 @@ genéricas de layout foram enviadas — nunca dado de cliente, conforme parecer 
 
 | Melhoria | Padrão DesignMD |
 |---|---|
-| **Tela de Plano de Ação do admin** (situação + ação recomendada legíveis, sem abrir relatório) | `data-table` (índice) + painel de detalhe lateral |
+| ~~**Tela de Plano de Ação do admin** (situação + ação recomendada legíveis, sem abrir relatório)~~ ✅ Entregue em 15/08 (`/plano-de-acao`) | `data-table` (índice) + painel de detalhe lateral |
 | **Aba de Arquivos do cliente** com miniatura, data pt-BR, paginação e "Abrir" (corrige o N+1 e a rolagem infinita) | `data-table` + `empty-state` |
 | **Estados vazios e de erro reais** (hoje: `alert()`/`confirm()` nativos no admin) | `empty-state`, `error-state`, `confirmation-dialog`, `toast-notification` |
 | **Densidade com respiro** nas listas grandes (tabela no desktop, card no mobile) | `data-table` responsiva |
@@ -239,7 +239,7 @@ depois higiene. Nada aqui é funcionalidade nova além do command-palette (opcio
 
 ### Fase B — Fechar a Onda 2 (Admin) — a assimetria
 4. ~~**FE-04b** — `Table`, `Tabs`, `Pagination`, `Tooltip`, `Drawer`, `PageShell`, `PageHeader`.~~ ✅ Entregue em 15/08.
-5. **FE-08** — tela de Plano de Ação (lista+detalhe). Consumindo `client_action_items` já corrigido.
+5. ~~**FE-08** — tela de Plano de Ação (lista+detalhe).~~ ✅ Entregue em 15/08 (`/plano-de-acao`). Falta um teste de tela ao vivo, logada.
 6. **FE-06** — rail colapsável + drawer mobile + nova ordem do menu.
 7. **FE-07** — aba de Arquivos + corrigir o N+1 de `listAttachments`.
 8. **FE-05** — larguras `max-w-*` → `PageShell` (~15 páginas; candidato a Codex/varredura).

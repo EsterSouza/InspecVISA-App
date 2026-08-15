@@ -27,7 +27,6 @@ import {
 } from '../services/operationalOverviewService';
 import { AppointmentAdminService } from '../services/appointmentAdminService';
 import { requestDateTimeValue } from '../components/schedules/appointmentRequestsShared';
-import { ActionPlanModal } from '../components/schedules/modals/ActionPlanModal';
 
 /**
  * P360-013 — painel operacional das consultoras.
@@ -106,7 +105,7 @@ const TECHNICAL_BLOCKS: BlockConfig[] = [
     description: 'Prazo publicado no portal já passou.',
     icon: AlertTriangle,
     accent: 'text-red-700 bg-red-50 border-red-200',
-    link: (item) => `/clients/${item.client_id}`,
+    link: (item) => `/plano-de-acao?item=${item.id}`,
   },
 ];
 
@@ -185,14 +184,10 @@ function ItemRow({
   item,
   block,
   config,
-  onOpenActionPlan,
-  resolvingActionPlanId,
 }: {
   item: OperationalItem;
   block: OperationalBlock;
   config: BlockConfig;
-  onOpenActionPlan?: (item: OperationalItem) => void;
-  resolvingActionPlanId?: string | null;
 }) {
   const content = (
     <>
@@ -215,28 +210,10 @@ function ItemRow({
           <p className="text-[10px] text-gray-400">{item.responsible || item.assigned_to}</p>
         )}
       </div>
-      {block === 'action_items_overdue' && resolvingActionPlanId === item.id && (
-        <Loader2 className="h-4 w-4 shrink-0 animate-spin text-gray-400" />
-      )}
     </>
   );
 
   const rowClass = 'flex w-full items-center gap-3 rounded-lg border border-gray-100 bg-white p-2.5 text-left hover:bg-gray-50';
-
-  // "Planos de ação vencidos" abre o painel de gestão direto (modal), em vez de navegar —
-  // o alvo real da ação é o plano, não a ficha do cliente.
-  if (block === 'action_items_overdue' && onOpenActionPlan) {
-    return (
-      <button
-        type="button"
-        onClick={() => onOpenActionPlan(item)}
-        disabled={resolvingActionPlanId === item.id}
-        className={rowClass}
-      >
-        {content}
-      </button>
-    );
-  }
 
   return config.link ? (
     <Link to={config.link(item)} className={rowClass}>
@@ -253,16 +230,12 @@ function BlockCard({
   state,
   onToggle,
   onLoadMore,
-  onOpenActionPlan,
-  resolvingActionPlanId,
 }: {
   config: BlockConfig;
   count: OperationalCounts[OperationalBlock] | undefined;
   state: BlockState;
   onToggle: () => void;
   onLoadMore: () => void;
-  onOpenActionPlan?: (item: OperationalItem) => void;
-  resolvingActionPlanId?: string | null;
 }) {
   const Icon = config.icon;
   const hasError = count?.error;
@@ -318,14 +291,7 @@ function BlockCard({
           ) : (
             <>
               {state.items.map((item) => (
-                <ItemRow
-                  key={item.id}
-                  item={item}
-                  block={config.key}
-                  config={config}
-                  onOpenActionPlan={onOpenActionPlan}
-                  resolvingActionPlanId={resolvingActionPlanId}
-                />
+                <ItemRow key={item.id} item={item} block={config.key} config={config} />
               ))}
               {state.items.length < state.totalCount && (
                 <button
@@ -364,27 +330,6 @@ export function OperationalPanel() {
     action_items_overdue: EMPTY_BLOCK_STATE,
     financial_pending: EMPTY_BLOCK_STATE,
   });
-
-  // Plano de ação aberto a partir do bloco "Planos de ação vencidos" — o item só tem o id do
-  // `client_action_items`; resolve o `appointment_request_id` (pai) sob demanda ao clicar.
-  const [actionPlanTarget, setActionPlanTarget] = useState<{ requestId: string; title: string } | null>(null);
-  const [resolvingActionPlanId, setResolvingActionPlanId] = useState<string | null>(null);
-
-  const openActionPlan = async (item: OperationalItem) => {
-    setResolvingActionPlanId(item.id);
-    try {
-      const requestId = await AppointmentAdminService.getActionItemRequestId(item.id);
-      if (!requestId) {
-        alert('Este item não está vinculado a uma visita — abra pela ficha do cliente.');
-        return;
-      }
-      setActionPlanTarget({ requestId, title: item.client_name || item.title || 'Cliente' });
-    } catch (err) {
-      alert(`Erro ao abrir o plano de ação: ${errorMessage(err)}`);
-    } finally {
-      setResolvingActionPlanId(null);
-    }
-  };
 
   useEffect(() => {
     ClientService.getClients()
@@ -542,8 +487,6 @@ export function OperationalPanel() {
             state={blockStates[config.key]}
             onToggle={() => toggleBlock(config.key)}
             onLoadMore={() => loadBlockItems(config.key, true)}
-            onOpenActionPlan={config.key === 'action_items_overdue' ? (item) => void openActionPlan(item) : undefined}
-            resolvingActionPlanId={resolvingActionPlanId}
           />
         ))}
       </div>
@@ -569,14 +512,6 @@ export function OperationalPanel() {
         <div className="flex justify-center py-16">
           <Loader2 className="h-6 w-6 animate-spin text-primary-600" />
         </div>
-      )}
-
-      {actionPlanTarget && (
-        <ActionPlanModal
-          requestId={actionPlanTarget.requestId}
-          title={actionPlanTarget.title}
-          onClose={() => setActionPlanTarget(null)}
-        />
       )}
     </div>
   );

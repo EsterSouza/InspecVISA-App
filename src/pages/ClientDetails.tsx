@@ -403,10 +403,7 @@ export function ClientDetails() {
   const recurringActionItems = actionPlan.recurringItems;
   const openActionPlan = () => {
     if (!client || !latestActionInspection || openActionItems.length === 0) return;
-    const params = new URLSearchParams({
-      clientId: client.id,
-    });
-    navigate(`/new?${params.toString()}`);
+    navigate(`/plano-de-acao?client=${client.id}`);
   };
 
   return (
