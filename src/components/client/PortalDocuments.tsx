@@ -64,7 +64,7 @@ export function PortalDocuments({ visits, loading }: PortalDocumentsProps) {
 
   const reports = visits
     .filter((visit) => (visit.report_count || 0) > 0 && visit.public_token)
-    .sort((a, b) => reportDate(b) - reportDate(a));
+    .sort((a, b) => reportDateValue(b) - reportDateValue(a));
 
   const pageCount = Math.max(1, Math.ceil(reports.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
@@ -102,7 +102,7 @@ export function PortalDocuments({ visits, loading }: PortalDocumentsProps) {
                 <TableRow>
                   <TableHead>Documento</TableHead>
                   <TableHead>Unidade</TableHead>
-                  <TableHead align="right">Entregue em</TableHead>
+                  <TableHead align="right">Visita</TableHead>
                   <TableHead align="right">
                     <span className="sr-only">Ações</span>
                   </TableHead>
@@ -118,7 +118,7 @@ export function PortalDocuments({ visits, loading }: PortalDocumentsProps) {
                       </span>
                     </TableCell>
                     <TableCell>{visit.unit_name}</TableCell>
-                    <TableCell align="right">{formatDateBR(visit.report_delivered_at)}</TableCell>
+                    <TableCell align="right">{formatDateBR(visitReportDate(visit))}</TableCell>
                     <TableCell align="right">
                       <Link
                         to={`/cliente/visita/${visit.public_token}`}
