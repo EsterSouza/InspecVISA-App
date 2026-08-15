@@ -14,6 +14,8 @@ import { PendingRequestsSection } from './PendingRequestsSection';
 import { ActiveRequestsSection } from './ActiveRequestsSection';
 import { ClosedRequestsSection } from './ClosedRequestsSection';
 import { BlockedDatesSection } from './BlockedDatesSection';
+import { ConsultantAvailabilitySection } from './ConsultantAvailabilitySection';
+import { PartialBlocksSection } from './PartialBlocksSection';
 import { ConfirmRequestModal } from './modals/ConfirmRequestModal';
 import { AddPhotosModal } from './modals/AddPhotosModal';
 import { DueDateModal } from './modals/DueDateModal';
@@ -385,8 +387,14 @@ export function AppointmentRequestsPanel({ focusRequestId }: { focusRequestId?: 
         onDelete={handleDelete}
       />
 
+      {/* ─── Disponibilidade por consultora ─────────────────── */}
+      <ConsultantAvailabilitySection />
+
       {/* ─── Datas bloqueadas ───────────────────────────────── */}
       <BlockedDatesSection blockedDates={blockedDates} onChanged={() => void loadData()} />
+
+      {/* ─── Bloqueios parciais (horário/turno) por consultora ── */}
+      <PartialBlocksSection />
 
       {/* ─── Modais ─────────────────────────────────────────── */}
       {confirmTarget && (

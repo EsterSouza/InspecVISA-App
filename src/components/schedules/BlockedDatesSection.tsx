@@ -3,16 +3,19 @@ import { CalendarOff, Loader2, Trash2 } from 'lucide-react';
 import { AppointmentAdminService, type BlockedDateRow } from '../../services/appointmentAdminService';
 import { Button } from '../ui/Button';
 import { Card, CardContent } from '../ui/Card';
-import { TEXT_INPUT, errorMessage, formatDateBR } from './appointmentRequestsShared';
+import { SCHEDULE_CONSULTANTS, TEXT_INPUT, errorMessage, formatDateBR } from './appointmentRequestsShared';
 
 interface BlockedDatesSectionProps {
   blockedDates: BlockedDateRow[];
   onChanged: () => void;
 }
 
+const WHO_ALL = 'Todas';
+
 export function BlockedDatesSection({ blockedDates, onChanged }: BlockedDatesSectionProps) {
   const [day, setDay] = useState('');
   const [reason, setReason] = useState('');
+  const [who, setWho] = useState(WHO_ALL);
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -21,9 +24,10 @@ export function BlockedDatesSection({ blockedDates, onChanged }: BlockedDatesSec
     if (!day) return;
     setSaving(true);
     try {
-      await AppointmentAdminService.addBlockedDate(day, reason);
+      await AppointmentAdminService.addBlockedDate(day, reason, who === WHO_ALL ? undefined : who);
       setDay('');
       setReason('');
+      setWho(WHO_ALL);
       onChanged();
     } catch (err) {
       alert(`Erro: ${errorMessage(err)}`);
@@ -69,6 +73,20 @@ export function BlockedDatesSection({ blockedDates, onChanged }: BlockedDatesSec
                 className="rounded-xl border border-gray-300 p-2.5 text-sm"
               />
             </div>
+            <div className="space-y-1.5">
+              <label htmlFor="blocked-date-who" className="block text-xs font-medium text-gray-600">Quem</label>
+              <select
+                id="blocked-date-who"
+                value={who}
+                onChange={(e) => setWho(e.target.value)}
+                className="rounded-xl border border-gray-300 bg-white p-2.5 text-sm"
+              >
+                <option value={WHO_ALL}>Todas (feriado)</option>
+                {SCHEDULE_CONSULTANTS.map((name) => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
+              </select>
+            </div>
             <div className="min-w-[180px] flex-1 space-y-1.5">
               <label htmlFor="blocked-date-reason" className="block text-xs font-medium text-gray-600">Motivo (opcional)</label>
               <input
@@ -100,6 +118,9 @@ export function BlockedDatesSection({ blockedDates, onChanged }: BlockedDatesSec
               <div className="flex items-center gap-3 text-sm">
                 <CalendarOff className="h-4 w-4 text-gray-400" />
                 <span className="font-medium text-gray-800">{formatDateBR(row.day)}</span>
+                <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${row.consultant_name ? 'bg-primary-50 text-primary-700' : 'bg-gray-100 text-gray-600'}`}>
+                  {row.consultant_name || WHO_ALL}
+                </span>
                 {row.reason && <span className="text-gray-500">{row.reason}</span>}
               </div>
               <Button

@@ -6,6 +6,7 @@ import type {
   AppointmentRequest,
   AppointmentSlot,
   AttachmentKind,
+  ConsultantAvailabilityRow,
   ClientActionEvidence,
   ClientActionEvidenceStatus,
   ClientActionItem,
@@ -145,6 +146,8 @@ export interface BlockedDateRow {
   id: string;
   day: string;
   reason: string | null;
+  /** null bloqueia todo mundo; preenchido bloqueia só essa consultora. */
+  consultant_name: string | null;
 }
 
 export interface InspectionOption {
@@ -1348,7 +1351,7 @@ export const AppointmentAdminService = {
     const { data, error } = await withTimeout(
       supabase
         .from('appointment_blocked_dates')
-        .select('id, day, reason')
+        .select('id, day, reason, consultant_name')
         .eq('tenant_id', tenantId)
         .gte('day', new Date().toISOString().split('T')[0])
         .order('day', { ascending: true }),
@@ -1358,12 +1361,13 @@ export const AppointmentAdminService = {
     return (data ?? []) as BlockedDateRow[];
   },
 
-  async addBlockedDate(day: string, reason: string): Promise<void> {
+  async addBlockedDate(day: string, reason: string, consultantName?: string): Promise<void> {
     const tenantId = requireTenantId();
     const { error } = await supabase.from('appointment_blocked_dates').insert({
       tenant_id: tenantId,
       day,
       reason: reason.trim() || null,
+      consultant_name: consultantName?.trim() || null,
     });
     if (error) throw error;
   },
@@ -1380,7 +1384,7 @@ export const AppointmentAdminService = {
     const { data, error } = await withTimeout(
       supabase
         .from('appointment_blocks')
-        .select('id, tenant_id, starts_at, ends_at, reason, recurrence_group_id, recurrence, occurrence_index, occurrence_count, cancelled_at, created_at, updated_at')
+        .select('id, tenant_id, starts_at, ends_at, reason, recurrence_group_id, recurrence, occurrence_index, occurrence_count, cancelled_at, created_at, updated_at, consultant_name')
         .eq('tenant_id', tenantId)
         .is('cancelled_at', null)
         .gte('ends_at', new Date().toISOString())
@@ -1397,6 +1401,7 @@ export const AppointmentAdminService = {
     reason?: string;
     recurrence?: AppointmentBlockRecurrence;
     occurrences?: number;
+    consultantName?: string;
   }): Promise<AppointmentBlock[]> {
     const tenantId = requireTenantId();
     const { data, error } = await withTimeout(
@@ -1407,6 +1412,7 @@ export const AppointmentAdminService = {
         p_reason: params.reason?.trim() || null,
         p_recurrence: params.recurrence ?? 'none',
         p_occurrences: params.occurrences ?? 1,
+        p_consultant_name: params.consultantName?.trim() || null,
       }),
       'CriarBloqueiosParciais'
     );
@@ -1422,6 +1428,48 @@ export const AppointmentAdminService = {
       .eq('id', id)
       .eq('tenant_id', tenantId);
     if (error) throw error;
+  },
+
+  // ─── Disponibilidade semanal por consultora ────────────────
+
+  async listConsultantAvailability(): Promise<ConsultantAvailabilityRow[]> {
+    const tenantId = requireTenantId();
+    const { data, error } = await withTimeout(
+      supabase
+        .from('consultant_weekly_availability')
+        .select('tenant_id, consultant_name, weekday, period')
+        .eq('tenant_id', tenantId),
+      'DisponibilidadeConsultoras'
+    );
+    if (error) throw error;
+    return (data ?? []) as ConsultantAvailabilityRow[];
+  },
+
+  async setConsultantAvailability(
+    consultantName: string,
+    weekday: number,
+    period: 'manha' | 'tarde',
+    available: boolean
+  ): Promise<void> {
+    const tenantId = requireTenantId();
+    if (available) {
+      const { error } = await supabase
+        .from('consultant_weekly_availability')
+        .upsert(
+          { tenant_id: tenantId, consultant_name: consultantName, weekday, period },
+          { onConflict: 'tenant_id,consultant_name,weekday,period', ignoreDuplicates: true }
+        );
+      if (error) throw error;
+    } else {
+      const { error } = await supabase
+        .from('consultant_weekly_availability')
+        .delete()
+        .eq('tenant_id', tenantId)
+        .eq('consultant_name', consultantName)
+        .eq('weekday', weekday)
+        .eq('period', period);
+      if (error) throw error;
+    }
   },
 
   // ─── Disponibilidade pública (slots) ───────────────────────

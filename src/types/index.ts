@@ -729,6 +729,16 @@ export interface AppointmentBlock {
   cancelled_at: string | null;
   created_at: string;
   updated_at: string;
+  /** null bloqueia todo mundo; preenchido bloqueia só essa consultora. */
+  consultant_name?: string | null;
+}
+
+/** Grade semanal fixa (09:30-17:00, seg-sex): em quais dias/turnos cada consultora participa. */
+export interface ConsultantAvailabilityRow {
+  tenant_id: string;
+  consultant_name: string;
+  weekday: number;
+  period: 'manha' | 'tarde';
 }
 
 export interface ClientPortalSettings {
@@ -769,6 +779,7 @@ export interface PublicAppointmentPayload {
   existing_client_id?: string;
   matched_client_name?: string;
   notes?: string;
+  consultant_names?: string[];
 }
 
 export interface PublicAppointmentStatusResult {

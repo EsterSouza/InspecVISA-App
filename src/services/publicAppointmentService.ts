@@ -40,7 +40,8 @@ export const publicAppointmentService = {
     startDate?: string,
     days = 45,
     appointmentType = 'inspection',
-    durationMinutes?: number
+    durationMinutes?: number,
+    consultantNames?: string[]
   ): Promise<PublicCalendarDay[]> {
     const { data, error } = await withTimeout(
       supabase.rpc('public_list_calendar_days', {
@@ -49,6 +50,7 @@ export const publicAppointmentService = {
         p_days: days,
         p_appointment_type: appointmentType,
         p_duration_minutes: durationMinutes ?? null,
+        p_consultant_names: consultantNames?.length ? consultantNames : null,
       }),
       'CalendarioPublico'
     );
@@ -59,7 +61,8 @@ export const publicAppointmentService = {
   async listAvailableTimes(
     day: string,
     appointmentType = 'inspection',
-    durationMinutes?: number
+    durationMinutes?: number,
+    consultantNames?: string[]
   ): Promise<PublicAvailableTime[]> {
     const { data, error } = await withTimeout(
       supabase.rpc('public_list_available_times', {
@@ -67,6 +70,7 @@ export const publicAppointmentService = {
         p_day: day,
         p_appointment_type: appointmentType,
         p_duration_minutes: durationMinutes ?? null,
+        p_consultant_names: consultantNames?.length ? consultantNames : null,
       }),
       'HorariosPublicos'
     );

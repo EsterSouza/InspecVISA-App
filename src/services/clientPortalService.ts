@@ -114,6 +114,7 @@ export interface ClientPortalAppointmentPayload {
   duration_minutes?: number;
   subject?: string;
   participant_names?: string[];
+  consultant_names?: string[];
   notes?: string;
 }
 

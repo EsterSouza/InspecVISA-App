@@ -34,6 +34,7 @@ import {
   publicAppointmentDurations,
 } from '../utils/publicAppointmentForm';
 import { isRioState } from '../utils/state';
+import { SCHEDULE_CONSULTANTS } from '../components/schedules/appointmentRequestsShared';
 
 const RIO_MUNICIPALITIES = [
   'Rio de Janeiro', 'Niteroi', 'Sao Goncalo', 'Duque de Caxias', 'Nova Iguacu',
@@ -59,6 +60,7 @@ type Draft = {
   objective?: string;
   participants?: string;
   notes?: string;
+  consultantNames?: string[];
 };
 
 function readDraft(): Draft {
@@ -153,6 +155,9 @@ export function PublicSchedule() {
   const [objective, setObjective] = useState(initialDraft.objective || '');
   const [participants, setParticipants] = useState(initialDraft.participants || '');
   const [notes, setNotes] = useState(initialDraft.notes || '');
+  const [consultantNames, setConsultantNames] = useState<string[]>(initialDraft.consultantNames || []);
+  const toggleConsultant = (name: string) =>
+    setConsultantNames((prev) => prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]);
 
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -234,13 +239,14 @@ export function PublicSchedule() {
       sessionStorage.setItem(PUBLIC_APPOINTMENT_DRAFT_KEY, JSON.stringify({
         step, appointmentType, durationMinutes, selectedDay, unitName, selectedClientId, attendanceMode,
         municipality, district, responsibleName, phone, email, subject, objective, participants, notes,
+        consultantNames,
       } satisfies Draft));
     } catch {
       // armazenamento indisponível
     }
   }, [
     token, step, appointmentType, durationMinutes, selectedDay, unitName, selectedClientId, attendanceMode,
-    municipality, district, responsibleName, phone, email, subject, objective, participants, notes,
+    municipality, district, responsibleName, phone, email, subject, objective, participants, notes, consultantNames,
   ]);
 
   useEffect(() => {
@@ -248,7 +254,7 @@ export function PublicSchedule() {
     setCalendarLoading(true);
     setCalendarError(null);
     const startDate = monthStartKey(calendarMonth);
-    publicAppointmentService.listCalendarDays(startDate, daysToLoadForMonth(calendarMonth), appointmentType, durationMinutes)
+    publicAppointmentService.listCalendarDays(startDate, daysToLoadForMonth(calendarMonth), appointmentType, durationMinutes, consultantNames)
       .then((data) => {
         if (!cancelled) {
           setDays(data);
@@ -264,7 +270,7 @@ export function PublicSchedule() {
       })
       .finally(() => { if (!cancelled) setCalendarLoading(false); });
     return () => { cancelled = true; };
-  }, [calendarMonth, appointmentType, durationMinutes, calendarReloadKey]);
+  }, [calendarMonth, appointmentType, durationMinutes, calendarReloadKey, consultantNames]);
 
   useEffect(() => {
     if (!selectedDay) {
@@ -276,7 +282,7 @@ export function PublicSchedule() {
     setTimesLoading(true);
     setTimesError(null);
     setSelectedTime(null);
-    publicAppointmentService.listAvailableTimes(selectedDay, appointmentType, durationMinutes)
+    publicAppointmentService.listAvailableTimes(selectedDay, appointmentType, durationMinutes, consultantNames)
       .then((data) => { if (!cancelled) setTimes(data); })
       .catch((error) => {
         console.warn('[PublicSchedule] Falha ao carregar horarios:', error);
@@ -287,7 +293,7 @@ export function PublicSchedule() {
       })
       .finally(() => { if (!cancelled) setTimesLoading(false); });
     return () => { cancelled = true; };
-  }, [selectedDay, appointmentType, durationMinutes, timesReloadKey]);
+  }, [selectedDay, appointmentType, durationMinutes, timesReloadKey, consultantNames]);
 
   useEffect(() => {
     stepTitleRef.current?.focus();
@@ -334,6 +340,7 @@ export function PublicSchedule() {
   };
 
   const validateScheduling = (): string | null => {
+    if (!consultantNames.length) return 'Escolha ao menos uma consultora.';
     if (!selectedTime) return 'Escolha um horário disponível.';
     if (portalMode) {
       if (!selectedClientId) return 'Selecione a unidade.';
@@ -408,6 +415,7 @@ export function PublicSchedule() {
       duration_minutes: durationMinutes,
       subject: subject.trim() || undefined,
       participant_names: participantNames.length ? participantNames : undefined,
+      consultant_names: consultantNames.length ? consultantNames : undefined,
       notes: buildAppointmentNotes(objective, notes),
     };
 
@@ -552,6 +560,17 @@ export function PublicSchedule() {
           <section className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.8fr)]">
             <div className="space-y-4">
               <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                <span className="block text-sm font-bold text-gray-900">Consultora <span className="text-red-600">*</span></span>
+                <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="Consultora">
+                  {SCHEDULE_CONSULTANTS.map((name) => {
+                    const active = consultantNames.includes(name);
+                    return <button key={name} type="button" onClick={() => toggleConsultant(name)} aria-pressed={active} className={'min-h-11 rounded-md border px-3.5 text-sm font-semibold ' + (active ? 'border-primary-700 bg-primary-700 text-white' : 'border-gray-200 bg-white text-gray-700 hover:bg-primary-50')}>{name.split(' ')[0]}</button>;
+                  })}
+                </div>
+                <p className="mt-2 text-xs text-gray-500">Para ILPI, geralmente é preciso marcar com as duas — a agenda mostra só os horários livres para todas as escolhidas.</p>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
                 <label htmlFor="duration" className="block text-sm font-bold text-gray-900">Duração</label>
                 <select id="duration" value={durationMinutes} onChange={(event) => { setDurationMinutes(Number(event.target.value)); setSelectedTime(null); }} className="mt-2 min-h-11 w-full rounded-md border border-gray-300 bg-white px-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100">
                   {publicAppointmentDurations(appointmentType).map((duration) => <option key={duration} value={duration}>{formatDuration(duration)}</option>)}
@@ -616,7 +635,7 @@ export function PublicSchedule() {
 
         {step === 3 && <section className="mx-auto max-w-2xl rounded-xl border border-gray-200 bg-white p-5 shadow-sm">{errorBanner}<div className="space-y-4"><div><label htmlFor="subject" className="text-sm font-medium text-gray-700">Assunto</label><input id="subject" value={subject} onChange={(event) => setSubject(event.target.value)} placeholder="Ex.: Revisão de pendências" className="mt-1.5 min-h-11 w-full rounded-md border border-gray-300 px-3 text-sm" /></div><div><label htmlFor="objective" className="text-sm font-medium text-gray-700">Objetivo</label><textarea id="objective" value={objective} onChange={(event) => setObjective(event.target.value)} rows={3} className="mt-1.5 w-full rounded-md border border-gray-300 p-3 text-sm" /></div><div><label htmlFor="participants" className="flex items-center gap-1.5 text-sm font-medium text-gray-700"><Users className="h-4 w-4 text-gray-400" />Participantes</label><input id="participants" value={participants} onChange={(event) => setParticipants(event.target.value)} placeholder="Separe os nomes por vírgula" className="mt-1.5 min-h-11 w-full rounded-md border border-gray-300 px-3 text-sm" /></div><div><label htmlFor="responsible" className="text-sm font-medium text-gray-700">Responsável {!portalMode && <span className="text-red-600">*</span>}</label><input id="responsible" value={responsibleName} onChange={(event) => setResponsibleName(event.target.value)} className="mt-1.5 min-h-11 w-full rounded-md border border-gray-300 px-3 text-sm" /></div><div className="grid gap-3 sm:grid-cols-2"><div><label htmlFor="phone" className="flex items-center gap-1.5 text-sm font-medium text-gray-700"><Phone className="h-4 w-4 text-gray-400" />WhatsApp {!portalMode && <span className="text-red-600">*</span>}</label><input id="phone" type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} className="mt-1.5 min-h-11 w-full rounded-md border border-gray-300 px-3 text-sm" /></div>{portalMode ? <div className="rounded-md border border-primary-100 bg-primary-50 p-3 text-xs text-primary-900"><strong>E-mail de confirmação</strong><p className="mt-1">Será usado exclusivamente o e-mail cadastrado da unidade selecionada.</p></div> : <div><label htmlFor="email" className="text-sm font-medium text-gray-700">E-mail</label><input id="email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="mt-1.5 min-h-11 w-full rounded-md border border-gray-300 px-3 text-sm" /></div>}</div><div><label htmlFor="notes" className="flex items-center gap-1.5 text-sm font-medium text-gray-700"><FileText className="h-4 w-4 text-gray-400" />Observações</label><textarea id="notes" value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} className="mt-1.5 w-full rounded-md border border-gray-300 p-3 text-sm" /></div></div><div className="mt-6 flex flex-wrap gap-3"><button type="button" onClick={() => setStep(2)} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-gray-200 px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50"><ChevronLeft className="h-4 w-4" />Voltar</button><button type="button" onClick={nextFromDetails} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-primary-700 px-4 text-sm font-semibold text-white hover:bg-primary-800">Revisar solicitação <ChevronRight className="h-4 w-4" /></button></div></section>}
 
-        {step === 4 && <section className="mx-auto max-w-2xl rounded-xl border border-gray-200 bg-white p-5 shadow-sm"><h2 className="text-lg font-bold text-gray-900">Resumo da solicitação</h2>{errorBanner}<dl className="mt-5 divide-y divide-gray-100"><div className="flex items-center justify-between gap-4 py-3"><dt className="text-sm text-gray-500">Tipo</dt><dd className="flex items-center gap-2 text-right text-sm font-semibold text-gray-900">{APPOINTMENT_TYPE_RULES[appointmentType].label}<button type="button" onClick={() => goToStep(1)} className="text-xs font-semibold text-primary-700 underline underline-offset-2 hover:no-underline">Alterar</button></dd></div><div className="flex items-center justify-between gap-4 py-3"><dt className="text-sm text-gray-500">Unidade</dt><dd className="flex items-center gap-2 text-right text-sm font-semibold text-gray-900">{portalMode ? selectedUnit?.client_name || '—' : unitName || '—'}<button type="button" onClick={() => goToStep(2)} className="text-xs font-semibold text-primary-700 underline underline-offset-2 hover:no-underline">Alterar</button></dd></div><div className="flex items-center justify-between gap-4 py-3"><dt className="text-sm text-gray-500">Modalidade</dt><dd className="flex items-center gap-2 text-right text-sm font-semibold text-gray-900">{attendanceMode === 'online' ? 'Online' : 'Presencial'}<button type="button" onClick={() => goToStep(2)} className="text-xs font-semibold text-primary-700 underline underline-offset-2 hover:no-underline">Alterar</button></dd></div><div className="flex items-center justify-between gap-4 py-3"><dt className="text-sm text-gray-500">Duração</dt><dd className="flex items-center gap-2 text-right text-sm font-semibold text-gray-900">{formatDuration(durationMinutes)}<button type="button" onClick={() => goToStep(2)} className="text-xs font-semibold text-primary-700 underline underline-offset-2 hover:no-underline">Alterar</button></dd></div><div className="flex items-center justify-between gap-4 py-3"><dt className="text-sm text-gray-500">Data e horário</dt><dd className="flex items-center gap-2 text-right text-sm font-semibold text-gray-900">{selectedDay ? formatFullDay(selectedDay) : '—'}{selectedTime ? ' · ' + selectedTime.label : ''}<button type="button" onClick={() => goToStep(2)} className="text-xs font-semibold text-primary-700 underline underline-offset-2 hover:no-underline">Alterar</button></dd></div></dl><div className="mt-6 flex flex-wrap gap-3"><button type="button" onClick={() => setStep(3)} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-gray-200 px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50"><ChevronLeft className="h-4 w-4" />Voltar</button><button type="button" disabled={submitting} onClick={() => void handleSubmit()} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-primary-700 px-4 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60">{submitting ? <><Loader2 className="h-4 w-4 animate-spin" />Enviando...</> : <><Send className="h-4 w-4" />Enviar solicitação</>}</button></div></section>}
+        {step === 4 && <section className="mx-auto max-w-2xl rounded-xl border border-gray-200 bg-white p-5 shadow-sm"><h2 className="text-lg font-bold text-gray-900">Resumo da solicitação</h2>{errorBanner}<dl className="mt-5 divide-y divide-gray-100"><div className="flex items-center justify-between gap-4 py-3"><dt className="text-sm text-gray-500">Tipo</dt><dd className="flex items-center gap-2 text-right text-sm font-semibold text-gray-900">{APPOINTMENT_TYPE_RULES[appointmentType].label}<button type="button" onClick={() => goToStep(1)} className="text-xs font-semibold text-primary-700 underline underline-offset-2 hover:no-underline">Alterar</button></dd></div><div className="flex items-center justify-between gap-4 py-3"><dt className="text-sm text-gray-500">Unidade</dt><dd className="flex items-center gap-2 text-right text-sm font-semibold text-gray-900">{portalMode ? selectedUnit?.client_name || '—' : unitName || '—'}<button type="button" onClick={() => goToStep(2)} className="text-xs font-semibold text-primary-700 underline underline-offset-2 hover:no-underline">Alterar</button></dd></div><div className="flex items-center justify-between gap-4 py-3"><dt className="text-sm text-gray-500">Consultora</dt><dd className="flex items-center gap-2 text-right text-sm font-semibold text-gray-900">{consultantNames.length ? consultantNames.map((n) => n.split(' ')[0]).join(' + ') : '—'}<button type="button" onClick={() => goToStep(2)} className="text-xs font-semibold text-primary-700 underline underline-offset-2 hover:no-underline">Alterar</button></dd></div><div className="flex items-center justify-between gap-4 py-3"><dt className="text-sm text-gray-500">Modalidade</dt><dd className="flex items-center gap-2 text-right text-sm font-semibold text-gray-900">{attendanceMode === 'online' ? 'Online' : 'Presencial'}<button type="button" onClick={() => goToStep(2)} className="text-xs font-semibold text-primary-700 underline underline-offset-2 hover:no-underline">Alterar</button></dd></div><div className="flex items-center justify-between gap-4 py-3"><dt className="text-sm text-gray-500">Duração</dt><dd className="flex items-center gap-2 text-right text-sm font-semibold text-gray-900">{formatDuration(durationMinutes)}<button type="button" onClick={() => goToStep(2)} className="text-xs font-semibold text-primary-700 underline underline-offset-2 hover:no-underline">Alterar</button></dd></div><div className="flex items-center justify-between gap-4 py-3"><dt className="text-sm text-gray-500">Data e horário</dt><dd className="flex items-center gap-2 text-right text-sm font-semibold text-gray-900">{selectedDay ? formatFullDay(selectedDay) : '—'}{selectedTime ? ' · ' + selectedTime.label : ''}<button type="button" onClick={() => goToStep(2)} className="text-xs font-semibold text-primary-700 underline underline-offset-2 hover:no-underline">Alterar</button></dd></div></dl><div className="mt-6 flex flex-wrap gap-3"><button type="button" onClick={() => setStep(3)} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-gray-200 px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50"><ChevronLeft className="h-4 w-4" />Voltar</button><button type="button" disabled={submitting} onClick={() => void handleSubmit()} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-primary-700 px-4 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60">{submitting ? <><Loader2 className="h-4 w-4 animate-spin" />Enviando...</> : <><Send className="h-4 w-4" />Enviar solicitação</>}</button></div></section>}
       </main>
     </div>
   );
