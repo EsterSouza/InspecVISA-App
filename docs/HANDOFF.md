@@ -245,11 +245,18 @@ O item do roteiro não carrega mais a URL — ela é resolvida pela chave canôn
 continua existindo como override manual. A evidência de vigência de cada ato está em
 [`docs/referencias/biblioteca.md`](referencias/biblioteca.md).
 
-**A omissão silenciosa do relatório foi corrigida no REF-03** (05/08): `drawReferencesABNT` não
-descarta mais a norma que não tem verbete na biblioteca. O REF-02 removeu, além disso, uma cópia
-defasada de `extractBaseLegislation` que vivia dentro de `pdfGenerator.ts` e nunca recebeu as
-correções do REF-01 — era ela que fazia a página de referências listar a mesma lei municipal cinco
-vezes, uma por artigo citado.
+O REF-02 removeu uma cópia defasada de `extractBaseLegislation` que vivia dentro de
+`pdfGenerator.ts` e nunca recebeu as correções do REF-01 — era ela que fazia a página de
+referências listar a mesma lei municipal cinco vezes, uma por artigo citado.
+
+> **Atenção — o REF-07 (14/08) inverteu a regra do REF-03.** O REF-03 fazia
+> `drawReferencesABNT` citar também a norma **sem** verbete na biblioteca, para não omitir a base
+> de uma exigência. Na prática isso produzia citação inventada: `formatABNT` deduzia o órgão por
+> regex e carimbava `BRASIL.` em qualquer texto, então "Critério técnico de higiene das mãos"
+> saía como norma federal e a Portaria IVISA-RIO 002/2020 (municipal, citada por 102 itens)
+> virava ato do Ministério da Saúde. **Hoje só entra na seção quem tem verbete curado**; quem não
+> tem é listado no modal de geração como "sem fonte cadastrada", para virar trabalho de curadoria
+> em vez de texto errado. Ver 2.7.
 
 **O que o REF-02 deixou aberto, e o REF-04 fechou** (06/08): os 48 itens `legal` que continuavam sem
 URL não tinham problema de resolução — a citação simplesmente não nomeava ato ("Boas Práticas",
@@ -257,6 +264,39 @@ URL não tinham problema de resolução — a citação simplesmente não nomeav
 REF-04 para a tabela de decisões. Registre-se, porque é fácil confundir: **`requirement_type` não
 entra no cálculo do score** — `scoring.ts` usa só `weight` e `isCritical`; o campo só muda o rótulo e
 a página de referências do PDF.
+
+### 2.7 Referências — o que o REF-07 mudou (14/08/2026)
+
+Três queixas da consultora: o relatório citava norma que a inspeção não avaliou, citava norma
+inexistente, e fora do RJ não trazia legislação estadual nenhuma.
+
+| Onde | Antes | Agora |
+|---|---|---|
+| `PdfPreviewModal` | injetava **toda** a biblioteca que casasse UF+segmento, pré-marcada, mesmo sem item citar | marcadas só as citadas por item avaliado (`citedLegislations`); o resto vira sugestão **desmarcada** |
+| `formatABNT` | deduzia autoria por regex; fallback `BRASIL. <texto>` | autoria vem de `legislations.authority`; sem verbete, não é citada |
+| `LegislationStatus` | `vigente \| vigente_com_alteracoes` | ganhou `revogada` + `replaced_by`; revogada sai das sugestões e o PDF marca a substituta |
+| `isLegislationApplicable` | 3 apelidos de estado, sem normalizar acento | `toUF()` com as 27 UFs (`src/utils/state.ts`); `Clients.tsx` virou `<select>` |
+| casamento com a biblioteca | substring nos dois sentidos — "RDC 15/2012" achava "RDC 156/2006" | chave canônica, igual ao PDF desde o REF-02 |
+
+**A causa da queixa "inventado pela IA" não era IA** — não há nenhuma no repo. Eram os fallbacks
+determinísticos acima. Vale repetir isso a quem retomar o assunto.
+
+Dois scripts novos, ambos sem Supabase: `scripts/ref07-lacunas.ts` (o que os roteiros citam e a
+biblioteca não tem) e `scripts/ref07-valida-links.ts` (URLs quebradas — ele separa "quebrado" de
+"inacessível", porque bvsms/planalto derrubam a conexão em rede com filtro de saída, e tratar os
+dois como link morto daria mais falso positivo que achado).
+
+**Decreto Rio nº 45.585/2018 — revogado, e sem substituto de conteúdo.** Caiu em 02/02/2026 pelo
+art. 72, I do Decreto Rio nº 57.501/2026, e era citado por 24 itens do roteiro de Serviços de
+Alimentação (Município RJ). O 57.501 **não serve para reapontar**: ele regulamenta licenciamento,
+infrações e fiscalização, e seus anexos são tabelas de risco por segmento — enquanto os itens
+citavam a numeração do *roteiro anexo* ao 45.585 (5.5.9, 6.4.1, 7.1…), que é requisito técnico.
+20 itens ficaram com a norma vigente que já citavam junto, 1 passou para a Portaria IVISA-RIO
+002/2020 Art. 97, e **3 seguem sem base vigente**, marcados com comentário no código
+(`rj-f-087`, `rj-exc-010`, `rj-exc-011`). Detalhe e evidência em
+[`docs/referencias/biblioteca.md`](referencias/biblioteca.md).
+
+`docs/referencias/inventario.csv` é de 05/08 e **está desatualizado** — não use como fonte.
 
 ---
 
@@ -301,6 +341,7 @@ a página de referências do PDF.
 | **PROD-01** | Aviso de pagamento quebrado no portal | Opus 5 | médio | — | ✅ **concluído 04/08** |
 | **PROD-02** | Auditoria do portal não grava nada | Opus 5 | baixo | — | ✅ **concluído 04/08** |
 | **REF-06** | Ligação resposta ↔ item quebrada | Opus 5 | alto | — | ✅ **concluído 06/08** · aplicado em produção (2 cargas) |
+| **REF-07** | Referências: só o que foi usado, autoria curada, UF das 27 | Opus 5 | alto | REF-02 (concluído) | ✅ **concluído 14/08** · aplicado em produção (migration `20260814185610` + itens do 45.585) · 3 itens sem base vigente pendentes de decisão sanitária (ver 2.7) |
 | **REL-01** | Mostrar no relatório o que o cliente já cumpre | Opus 5 | baixo | — | ✅ **concluído 06/08** |
 | **AGD-01** | Visita retroativa + ordem/paginação do painel de solicitações | Opus 5 | baixo | — | ✅ **concluído 06/08** · 1 linha recriada em produção |
 | **EMAIL-01** | Destinatário canônico e entrega confiável dos e-mails de agendamento | Opus 5 | alto | — | 🟡 **implementado/testado localmente 12/08** · aguardando publicação autorizada |
