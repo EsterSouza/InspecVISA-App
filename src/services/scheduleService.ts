@@ -9,7 +9,7 @@ import { assertInspectionAppointment, normalizeAppointmentType } from '../utils/
 export function mapFromPostgres(row: any): Schedule {
   return {
     id: row.id,
-    clientId: row.client_id,
+    clientId: row.client_id ?? undefined,
     scheduledAt: new Date(row.scheduled_at),
     status: row.status,
     notes: row.notes || undefined,
@@ -37,7 +37,7 @@ export function mapFromPostgres(row: any): Schedule {
 export function mapToPostgres(schedule: Schedule): any {
   return {
     id: schedule.id,
-    client_id: schedule.clientId,
+    client_id: schedule.clientId ?? null,
     scheduled_at: schedule.scheduledAt.toISOString(),
     status: schedule.status,
     notes: schedule.notes || null,

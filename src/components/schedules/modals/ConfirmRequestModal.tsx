@@ -38,8 +38,12 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
     setAppointmentType(type);
     const allowed = publicAppointmentDurations(type);
     if (!allowed.includes(durationMinutes)) setDurationMinutes(allowed[0]);
+    // Fora do briefing, o compromisso é sempre de quem já é cliente.
+    if (type !== 'briefing' && clientMode === 'none') setClientMode('existing');
   };
-  const [clientMode, setClientMode] = useState<'existing' | 'new'>('existing');
+  const [clientMode, setClientMode] = useState<'existing' | 'new' | 'none'>(
+    request.appointment_type === 'briefing' ? 'none' : 'existing'
+  );
   const [clientSearch, setClientSearch] = useState('');
   const [selectedClientId, setSelectedClientId] = useState('');
   const [newClientName, setNewClientName] = useState(request.unit_name);
@@ -91,8 +95,8 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
       const tenantId = getActiveTenantId();
       const now = new Date();
 
-      // 1. Cliente: existente ou novo
-      let clientId = selectedClientId;
+      // 1. Cliente: existente, novo, ou nenhum (briefing com quem ainda não é cliente)
+      let clientId: string | undefined = clientMode === 'existing' ? selectedClientId : undefined;
       if (clientMode === 'new') {
         const newClient: Client = {
           id: generateId(),
@@ -115,6 +119,7 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
       const schedule: Schedule = {
         id: generateId(),
         clientId,
+        clientName: clientMode === 'none' ? (request.responsible_name || request.unit_name) : undefined,
         scheduledAt: new Date(`${confirmedDate}T${confirmedTime || '09:00'}`),
         status: 'pending',
         appointmentType,
@@ -277,7 +282,33 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
                 >
                   Criar novo
                 </button>
+                {appointmentType === 'briefing' && (
+                  <button
+                    type="button"
+                    onClick={() => setClientMode('none')}
+                    aria-pressed={clientMode === 'none'}
+                    className={`flex-1 rounded-xl border p-2.5 text-sm font-medium ${
+                      clientMode === 'none'
+                        ? 'border-primary-600 bg-primary-50 text-primary-700'
+                        : 'border-gray-200 text-gray-600'
+                    }`}
+                  >
+                    Sem cliente (lead)
+                  </button>
+                )}
               </div>
+
+              {clientMode === 'none' && (
+                <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                  <p>Este compromisso fica sem cliente vinculado, com os dados que a pessoa informou:</p>
+                  <p className="mt-1"><strong>{request.responsible_name || request.unit_name}</strong>{request.phone ? ` — ${request.phone}` : ''}</p>
+                  {request.email ? (
+                    <p className="mt-1">A confirmação será enviada para <strong>{request.email}</strong>.</p>
+                  ) : (
+                    <p className="mt-1 font-medium text-amber-700">Sem e-mail informado: a confirmação não será enviada por e-mail.</p>
+                  )}
+                </div>
+              )}
 
               {clientMode === 'existing' ? (
                 <div className="space-y-2">
@@ -345,7 +376,7 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
                     ))}
                   </select>
                 </div>
-              ) : (
+              ) : clientMode === 'new' ? (
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <label htmlFor="confirm-request-new-client-name" className="sr-only">Nome do cliente</label>
                   <input
@@ -382,7 +413,7 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
                     <p className="mt-1 text-xs text-gray-500">Depois de criar o cliente, este cadastro será a única fonte usada nas confirmações.</p>
                   </div>
                 </div>
-              )}
+              ) : null}
             </div>
 
             <ConsultantPicker selected={selectedConsultants} onToggle={toggleConsultant} />

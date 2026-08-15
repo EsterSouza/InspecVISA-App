@@ -281,7 +281,7 @@ export function Schedules() {
     const date = schedule.scheduledAt.toISOString().split('T')[0];
     const time = schedule.scheduledAt.toTimeString().split(' ')[0].substring(0, 5);
     
-    setSelectedClientId(schedule.clientId);
+    setSelectedClientId(schedule.clientId ?? '');
     setClientSearch(schedule.clientName || clients.find(c => c.id === schedule.clientId)?.name || '');
     setScheduledDate(date);
     setScheduledTime(time);
@@ -533,10 +533,12 @@ export function Schedules() {
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
-                       <Button variant="outline" size="sm" onClick={() => navigate(`/new?clientId=${schedule.clientId}&scheduleId=${schedule.id}`)} className="text-primary-600 border-primary-100 hover:bg-primary-50">
-                         <Play className="mr-2 h-4 w-4 fill-current" />
-                         Iniciar
-                       </Button>
+                       {schedule.clientId && (
+                         <Button variant="outline" size="sm" onClick={() => navigate(`/new?clientId=${schedule.clientId}&scheduleId=${schedule.id}`)} className="text-primary-600 border-primary-100 hover:bg-primary-50">
+                           <Play className="mr-2 h-4 w-4 fill-current" />
+                           Iniciar
+                         </Button>
+                       )}
                        <Button variant="ghost" size="sm" onClick={() => handleEdit(schedule)} className="text-gray-500 hover:bg-gray-50">
                          <Edit2 className="h-4 w-4" />
                        </Button>

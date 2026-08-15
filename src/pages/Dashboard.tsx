@@ -213,7 +213,7 @@ export function Dashboard() {
 
         const schedules = allSchedules.map((schedule) => ({
           ...schedule,
-          clientName: clientsById.get(schedule.clientId) || schedule.clientName || 'Cliente',
+          clientName: (schedule.clientId ? clientsById.get(schedule.clientId) : undefined) || schedule.clientName || 'Cliente',
         }));
 
         setRaw({

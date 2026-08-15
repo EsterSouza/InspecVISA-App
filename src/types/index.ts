@@ -359,7 +359,8 @@ export interface ConsultantSettings {
 
 export interface Schedule {
   id: string;
-  clientId: string;
+  /** Ausente quando o compromisso é um briefing com quem ainda não é cliente. */
+  clientId?: string;
   clientName?: string;
   scheduledAt: Date;
   status: 'pending' | 'completed' | 'cancelled' | 'in_progress';

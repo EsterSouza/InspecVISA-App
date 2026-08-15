@@ -286,7 +286,8 @@ export const AppointmentAdminService = {
     params: {
       confirmedDate: string;
       confirmedTime: string;
-      clientId: string;
+      /** Ausente quando o compromisso é um briefing com quem ainda não é cliente. */
+      clientId?: string;
       scheduleId: string;
       consultantNames?: string[];
       manualDueDate?: string;
@@ -304,7 +305,7 @@ export const AppointmentAdminService = {
     const endsAt = new Date(startsAt.getTime() + durationMinutes * 60 * 1000);
     const updates: Partial<AppointmentRequest> = {
       status: 'confirmed',
-      client_id: params.clientId,
+      client_id: params.clientId ?? null,
       schedule_id: params.scheduleId,
       requested_date: params.confirmedDate,
       requested_time: params.confirmedTime || '09:00',
