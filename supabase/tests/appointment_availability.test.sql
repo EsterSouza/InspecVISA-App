@@ -566,4 +566,149 @@ begin
 end;
 $$;
 
+\ir ../migrations/20260815203122_consultant_scoped_availability.sql
+\ir ../migrations/20260815203226_fix_admin_create_appointment_blocks_grants.sql
+\ir ../migrations/20260815220000_appointment_buffer_por_modalidade.sql
+
+-- Margem de conflito por modalidade: presencial reserva deslocamento (1h antes / 3h depois do
+-- horario do evento); online so precisa de troca entre chamadas (30min antes / 2h depois). Uma
+-- inspecao online a tarde nao pode mais varrer a manha inteira so por existir no mesmo dia.
+do $$
+declare
+  v_starts timestamptz := '2027-05-03T13:00:00-03:00';
+begin
+  insert into public.schedules (
+    tenant_id, client_id, scheduled_at, status, appointment_type, attendance_mode,
+    duration_minutes, consultant_names
+  ) values (
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    '20000000-0000-4000-8000-000000000001',
+    v_starts,
+    'pending',
+    'inspection',
+    'presencial',
+    30,
+    array['Consultora A']
+  );
+
+  -- Blocked window esperado: [12:00, 16:30).
+  if private.appointment_has_conflict(
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    v_starts - interval '1.5 hours', v_starts - interval '1 hour',
+    array['Consultora A'], null, null, null, interval '4 hours'
+  ) then
+    raise exception 'presencial bloqueou candidato que termina as 11:30, 1h antes do inicio da margem';
+  end if;
+  if private.appointment_has_conflict(
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    v_starts - interval '1.25 hours', v_starts - interval '1 hour',
+    array['Consultora A'], null, null, null, interval '4 hours'
+  ) then
+    raise exception 'presencial bloqueou candidato que termina exatamente as 12:00 (limite da margem de 1h antes)';
+  end if;
+  if not private.appointment_has_conflict(
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    v_starts - interval '1.25 hours', v_starts - interval '45 minutes',
+    array['Consultora A'], null, null, null, interval '4 hours'
+  ) then
+    raise exception 'presencial nao bloqueou candidato que cruza a margem de 1h antes do inicio';
+  end if;
+  if private.appointment_has_conflict(
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    v_starts + interval '3.5 hours', v_starts + interval '4 hours',
+    array['Consultora A'], null, null, null, interval '4 hours'
+  ) then
+    raise exception 'presencial bloqueou candidato que comeca exatamente as 16:30 (limite da margem de 3h depois do fim)';
+  end if;
+
+  delete from public.schedules where tenant_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    and scheduled_at = v_starts;
+end;
+$$;
+
+do $$
+declare
+  v_starts timestamptz := '2027-05-03T13:00:00-03:00';
+begin
+  insert into public.schedules (
+    tenant_id, client_id, scheduled_at, status, appointment_type, attendance_mode,
+    duration_minutes, consultant_names
+  ) values (
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    '20000000-0000-4000-8000-000000000001',
+    v_starts,
+    'pending',
+    'inspection',
+    'online',
+    30,
+    array['Consultora A']
+  );
+
+  -- Blocked window esperado: [12:30, 15:30).
+  if private.appointment_has_conflict(
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    v_starts - interval '1 hour', v_starts - interval '30 minutes',
+    array['Consultora A'], null, null, null, interval '4 hours'
+  ) then
+    raise exception 'online bloqueou candidato que termina exatamente as 12:30 (limite da margem de 30min antes)';
+  end if;
+  if not private.appointment_has_conflict(
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    v_starts - interval '1 hour', v_starts - interval '15 minutes',
+    array['Consultora A'], null, null, null, interval '4 hours'
+  ) then
+    raise exception 'online nao bloqueou candidato que cruza a margem de 30min antes do inicio';
+  end if;
+  if private.appointment_has_conflict(
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    v_starts + interval '2.5 hours', v_starts + interval '3 hours',
+    array['Consultora A'], null, null, null, interval '4 hours'
+  ) then
+    raise exception 'online bloqueou candidato que comeca exatamente as 15:30 (limite da margem de 2h depois do fim)';
+  end if;
+  if not private.appointment_has_conflict(
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    v_starts + interval '2 hours', v_starts + interval '2.5 hours',
+    array['Consultora A'], null, null, null, interval '4 hours'
+  ) then
+    raise exception 'online nao bloqueou candidato dentro da margem de 2h depois do fim';
+  end if;
+
+  delete from public.schedules where tenant_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    and scheduled_at = v_starts;
+end;
+$$;
+
+-- Agenda criada direto (sem solicitacao vinculada, attendance_mode nulo) cai no default
+-- presencial -- o lado mais conservador, preservando o comportamento de antes da coluna existir.
+do $$
+declare
+  v_starts timestamptz := '2027-05-10T13:00:00-03:00';
+begin
+  insert into public.schedules (
+    tenant_id, client_id, scheduled_at, status, appointment_type,
+    duration_minutes, consultant_names
+  ) values (
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    '20000000-0000-4000-8000-000000000001',
+    v_starts,
+    'pending',
+    'inspection',
+    30,
+    array['Consultora A']
+  );
+
+  if not private.appointment_has_conflict(
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    v_starts - interval '45 minutes', v_starts - interval '15 minutes',
+    array['Consultora A'], null, null, null, interval '4 hours'
+  ) then
+    raise exception 'agenda sem attendance_mode nao usou o default presencial (1h antes)';
+  end if;
+
+  delete from public.schedules where tenant_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    and scheduled_at = v_starts;
+end;
+$$;
+
 select 'P360-005 and P360-006 availability tests passed' as result;
