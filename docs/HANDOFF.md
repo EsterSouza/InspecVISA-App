@@ -1,13 +1,14 @@
 # Handoff único — InspecVISA
 
-**Última atualização:** 15/08/2026 (BRT), com o roteiro local de estética e terapias integrativas
+**Última atualização:** 15/08/2026 (BRT), com o roteiro publicado de estética e terapias integrativas
 para São Paulo capital ·
 **Branch:** `main`, sincronizada com `origin/main` · O estado da seção 2 foi verificado em 03/08/2026,
 com as correções de 04/08 e 05/08 anotadas nas tabelas.
 
-### Resultado local — 15/08/2026 — roteiro de estética e terapias integrativas · São Paulo capital
+### Resultado publicado — 15/08/2026 — roteiro de estética e terapias integrativas · São Paulo capital
 
-- Implementado localmente, ainda sem commit, push, seed, migration remota ou deploy.
+- Commit funcional `1721047` publicado em `main`; a Vercel confirmou o mesmo SHA em produção no
+  domínio canônico. Não houve seed, migration remota nem reescrita de roteiros ou inspeções.
 - O roteiro-base federal `tpl-estetica-clinica-v1` permanece inalterado com 114 itens. O suplemento
   SP/SP substitui oito itens federais por versões locais mais específicas, acrescenta três
   condicionais locais e uma seção de cinco boas práticas sem equivalente, total efetivo de 122 itens.
@@ -20,8 +21,9 @@ com as correções de 04/08 e 05/08 anotadas nas tabelas.
 - A relação real de terapias, equipamentos e formação dos executantes não consta do cadastro; o
   roteiro mantém acupuntura, invasividade e estética médica como itens condicionais, sem presumir
   escopo profissional.
-- Validação focada: 3 arquivos/88 testes aprovados. Build e suíte completa ainda devem ser
-  executados antes de uma eventual publicação.
+- Validação final: build aprovado, suíte completa serial com 49 arquivos/379 testes e smoke de
+  produção HTTP 200. O bundle publicado contém o marcador exclusivo
+  `sup-estetica-sp-capital-v1`.
 
 ### Resultado local — 12/08/2026 — EMAIL-01, confirmação de agendamento
 
