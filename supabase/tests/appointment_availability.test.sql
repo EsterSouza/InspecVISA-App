@@ -568,7 +568,7 @@ $$;
 
 \ir ../migrations/20260815203122_consultant_scoped_availability.sql
 \ir ../migrations/20260815203226_fix_admin_create_appointment_blocks_grants.sql
-\ir ../migrations/20260815220000_appointment_buffer_por_modalidade.sql
+\ir ../migrations/20260815215721_appointment_buffer_por_modalidade.sql
 
 -- Margem de conflito por modalidade: presencial reserva deslocamento (1h antes / 3h depois do
 -- horario do evento); online so precisa de troca entre chamadas (30min antes / 2h depois). Uma
