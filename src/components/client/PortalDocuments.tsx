@@ -24,20 +24,52 @@ function sum(visits: ClientPortalVisit[], field: 'report_count' | 'photo_count' 
  * mesmo já entregues). `requested_date` (a data da visita) é o que sobra de confiável pro
  * histórico inteiro — por isso a coluna chama "Visita", não "Entregue em".
  */
-function visitReportDate(visit: ClientPortalVisit): string | null {
+function visitDocumentDate(visit: ClientPortalVisit): string | null {
   return visit.report_delivered_at || visit.requested_date || visit.created_at || null;
 }
 
-function reportDateValue(visit: ClientPortalVisit): number {
-  const value = visitReportDate(visit);
+function documentDateValue(visit: ClientPortalVisit): number {
+  const value = visitDocumentDate(visit);
   return value ? new Date(value).getTime() : 0;
 }
 
+function hasAnyDocument(visit: ClientPortalVisit): boolean {
+  return (visit.report_count || 0) > 0 || (visit.photo_count || 0) > 0 || (visit.attachment_count || 0) > 0;
+}
+
+/** Um selo por tipo publicado nesta visita — para dar pra achar por unidade/data sem abrir cada uma. */
+function DocumentBadges({ visit }: { visit: ClientPortalVisit }) {
+  const badges: { key: string; label: string; icon: typeof FileText }[] = [];
+  if ((visit.report_count || 0) > 0) badges.push({ key: 'report', label: 'Relatório', icon: FileText });
+  if ((visit.photo_count || 0) > 0) {
+    badges.push({ key: 'photos', label: `${visit.photo_count} foto${visit.photo_count === 1 ? '' : 's'}`, icon: Image });
+  }
+  if ((visit.attachment_count || 0) > 0) {
+    badges.push({
+      key: 'attachments',
+      label: `${visit.attachment_count} anexo${visit.attachment_count === 1 ? '' : 's'}`,
+      icon: Paperclip,
+    });
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      {badges.map(({ key, label, icon: Icon }) => (
+        <span key={key} className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-800">
+          <Icon className="h-4 w-4 shrink-0 text-primary-600" />
+          {label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 /**
- * Antes desta leva a aba só mostrava as três contagens abaixo, sem lista nenhuma — dava pra
- * saber que existiam "15 relatórios" e não dava pra abrir nenhum deles. A tabela reaproveita o
- * visualizador de visita que já funciona (`/cliente/visita/:token`, `PublicAppointmentStatus`,
- * que já mostra PDF + fotos + anexos juntos) em vez de assinar URL de novo aqui — sem RPC nova.
+ * Antes desta leva a aba só mostrava as três contagens do topo, sem lista nenhuma — dava pra
+ * saber que existiam "15 relatórios" e não dava pra abrir nenhum. E a primeira versão da lista só
+ * trazia visita com relatório publicado: unidade com só foto ou só anexo publicado (sem relatório
+ * ainda) ficava de fora, mesmo contando no topo. A tabela reaproveita o visualizador de visita que
+ * já funciona (`/cliente/visita/:token`, `PublicAppointmentStatus`, que já mostra PDF + fotos +
+ * anexos juntos) em vez de assinar URL de novo aqui — sem RPC nova.
  */
 export function PortalDocuments({ visits, loading }: PortalDocumentsProps) {
   const [page, setPage] = useState(1);
@@ -62,13 +94,13 @@ export function PortalDocuments({ visits, loading }: PortalDocumentsProps) {
     );
   }
 
-  const reports = visits
-    .filter((visit) => (visit.report_count || 0) > 0 && visit.public_token)
-    .sort((a, b) => reportDateValue(b) - reportDateValue(a));
+  const documentedVisits = visits
+    .filter((visit) => hasAnyDocument(visit) && visit.public_token)
+    .sort((a, b) => documentDateValue(b) - documentDateValue(a));
 
-  const pageCount = Math.max(1, Math.ceil(reports.length / PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(documentedVisits.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
-  const paged = reports.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const paged = documentedVisits.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   return (
     <div className="space-y-6">
@@ -88,19 +120,19 @@ export function PortalDocuments({ visits, loading }: PortalDocumentsProps) {
       </section>
 
       <section>
-        <h2 className="mb-3 font-title text-base font-semibold text-navy">Relatórios entregues</h2>
-        {reports.length === 0 ? (
+        <h2 className="mb-3 font-title text-base font-semibold text-navy">Documentos por visita</h2>
+        {documentedVisits.length === 0 ? (
           <EmptyState
             icon={<FileText className="h-8 w-8" />}
-            title="Nenhum relatório entregue ainda"
-            description="Fotos e anexos publicados aparecem junto do relatório de cada visita."
+            title="Nenhum documento publicado ainda"
+            description="Relatórios, fotos e anexos publicados por visita aparecem aqui, por unidade e data."
           />
         ) : (
           <TableContainer className="rounded-xl">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Documento</TableHead>
+                  <TableHead>Documentos</TableHead>
                   <TableHead>Unidade</TableHead>
                   <TableHead align="right">Visita</TableHead>
                   <TableHead align="right">
@@ -112,19 +144,16 @@ export function PortalDocuments({ visits, loading }: PortalDocumentsProps) {
                 {paged.map((visit) => (
                   <TableRow key={visit.public_token}>
                     <TableCell primary>
-                      <span className="inline-flex items-center gap-2">
-                        <FileText className="h-4 w-4 shrink-0 text-primary-600" />
-                        Relatório de inspeção
-                      </span>
+                      <DocumentBadges visit={visit} />
                     </TableCell>
                     <TableCell>{visit.unit_name}</TableCell>
-                    <TableCell align="right">{formatDateBR(visitReportDate(visit))}</TableCell>
+                    <TableCell align="right">{formatDateBR(visitDocumentDate(visit))}</TableCell>
                     <TableCell align="right">
                       <Link
                         to={`/cliente/visita/${visit.public_token}`}
                         className="inline-flex items-center gap-1 text-sm font-semibold text-primary-700 hover:text-primary-900"
                       >
-                        Ver relatório <ExternalLink className="h-3.5 w-3.5" />
+                        Ver detalhes <ExternalLink className="h-3.5 w-3.5" />
                       </Link>
                     </TableCell>
                   </TableRow>
@@ -135,7 +164,7 @@ export function PortalDocuments({ visits, loading }: PortalDocumentsProps) {
               page={currentPage}
               pageCount={pageCount}
               onPageChange={setPage}
-              totalItems={reports.length}
+              totalItems={documentedVisits.length}
               pageSize={PAGE_SIZE}
             />
           </TableContainer>

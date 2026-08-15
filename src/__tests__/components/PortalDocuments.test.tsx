@@ -67,7 +67,7 @@ describe('P360-009 - PortalDocuments', () => {
     expect(container.querySelector('[aria-hidden="true"]')).toBeInTheDocument();
   });
 
-  test('lista relatórios entregues com link para a visita, ordenados do mais recente', () => {
+  test('lista visitas com documento publicado, com link para a visita, ordenadas da mais recente', () => {
     render(
       <MemoryRouter>
         <PortalDocuments
@@ -88,7 +88,7 @@ describe('P360-009 - PortalDocuments', () => {
         />
       </MemoryRouter>
     );
-    const links = screen.getAllByRole('link', { name: /Ver relatório/ });
+    const links = screen.getAllByRole('link', { name: /Ver detalhes/ });
     expect(links).toHaveLength(2);
     expect(links[0]).toHaveAttribute('href', '/cliente/visita/tok-recente');
     expect(links[1]).toHaveAttribute('href', '/cliente/visita/tok-antigo');
@@ -96,12 +96,30 @@ describe('P360-009 - PortalDocuments', () => {
     expect(screen.getByText('Tijuca')).toBeInTheDocument();
   });
 
-  test('não lista visita sem relatório entregue', () => {
+  test('lista visita que só tem foto ou só anexo publicado, sem relatório', () => {
     render(
       <MemoryRouter>
-        <PortalDocuments visits={[visit({ report_count: 0, photo_count: 3 })]} />
+        <PortalDocuments
+          visits={[
+            visit({ public_token: 'tok-fotos', unit_name: 'Só fotos', report_count: 0, photo_count: 3 }),
+            visit({ public_token: 'tok-anexo', unit_name: 'Só anexo', report_count: 0, attachment_count: 1 }),
+          ]}
+        />
       </MemoryRouter>
     );
-    expect(screen.queryByRole('link', { name: /Ver relatório/ })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /Ver detalhes/ })).toHaveLength(2);
+    expect(screen.getByText('Só fotos')).toBeInTheDocument();
+    expect(screen.getByText('3 fotos')).toBeInTheDocument();
+    expect(screen.getByText('Só anexo')).toBeInTheDocument();
+    expect(screen.getByText('1 anexo')).toBeInTheDocument();
+  });
+
+  test('não lista visita sem nenhum documento publicado', () => {
+    render(
+      <MemoryRouter>
+        <PortalDocuments visits={[visit({ report_count: 0, photo_count: 0, attachment_count: 0 })]} />
+      </MemoryRouter>
+    );
+    expect(screen.queryByRole('link', { name: /Ver detalhes/ })).not.toBeInTheDocument();
   });
 });
