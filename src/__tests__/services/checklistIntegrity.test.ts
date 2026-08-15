@@ -191,8 +191,10 @@ describe('checklist integrity — todos os roteiros de src/data', () => {
     const clinica = templates.find(t => t.id === 'tpl-estetica-clinica-v1') as ChecklistTemplate;
     const rjClient = { id: 'test-est-rj', name: 'Clínica RJ', category: 'estetica', state: 'Rio de Janeiro' } as Client;
     const otherStateClient = { id: 'test-est-sp', name: 'Clínica SP', category: 'estetica', state: 'SP' } as Client;
+    const saoPauloCapitalClient = { id: 'test-est-sp-capital', name: 'Clínica SP Capital', category: 'estetica', state: 'São Paulo', city: 'São Paulo' } as Client;
+    const guarulhosClient = { id: 'test-est-guarulhos', name: 'Clínica Guarulhos', category: 'estetica', state: 'SP', city: 'Guarulhos' } as Client;
 
-    test('mantém somente os dois roteiros novos e preserva os aliases legados', () => {
+    test('mantém somente os dois roteiros-base de estética e preserva os aliases legados', () => {
       expect(templates.filter(t => t.category === 'estetica').map(t => t.id)).toEqual([
         'tpl-estetica-clinica-v1',
         'tpl-estetica-embelezamento-v1',
@@ -200,6 +202,43 @@ describe('checklist integrity — todos os roteiros de src/data', () => {
       expect(getTemplateById('tpl-estetica-v1')?.id).toBe('tpl-estetica-clinica-v1');
       expect(getTemplateById('tpl-estetica')?.id).toBe('tpl-estetica-clinica-v1');
       expect(getTemplateById('tpl-estetica-federal')?.id).toBe('tpl-estetica-clinica-v1');
+    });
+
+    test('aplica somente o suplemento SP/SP ao roteiro federal da capital paulista', () => {
+      const effectiveCapital = getEffectiveTemplate(clinica, saoPauloCapitalClient, undefined, true);
+      const effectiveGuarulhos = getEffectiveTemplate(clinica, guarulhosClient, undefined, true);
+      const capitalItems = allItems(effectiveCapital);
+
+      expect(capitalItems.find(item => item.id === 'est-001')).toBeUndefined();
+      expect(capitalItems.find(item => item.id === 'est-002')).toBeUndefined();
+      expect(capitalItems.find(item => item.id === 'est-008')).toBeUndefined();
+      expect(capitalItems.find(item => item.id === 'est-011')).toBeUndefined();
+      expect(capitalItems.find(item => item.id === 'est-012')).toBeUndefined();
+      expect(capitalItems.find(item => item.id === 'est-045')).toBeUndefined();
+      expect(capitalItems.find(item => item.id === 'est-051')).toBeUndefined();
+      expect(capitalItems.find(item => item.id === 'est-056')).toBeUndefined();
+      expect(capitalItems.filter(item => item.id === 'sp-est-001')).toHaveLength(1);
+      expect(capitalItems.filter(item => item.id === 'sp-est-002')).toHaveLength(1);
+      expect(capitalItems.find(item => item.id === 'sp-est-003')).toBeTruthy();
+      expect(capitalItems.find(item => item.id === 'sp-est-004')).toBeTruthy();
+      expect(capitalItems.find(item => item.id === 'sp-est-005')).toBeTruthy();
+      expect(effectiveCapital.sections.find(section => section.id === 'sec-int-13')?.items).toHaveLength(5);
+      expect(capitalItems).toHaveLength(122);
+      capitalItems.forEach(item => {
+        expect(item.description.endsWith('?'), `item ${item.id} não está em forma de pergunta`).toBe(true);
+      });
+      assertNoNearDuplicates(effectiveCapital);
+      expect(allItems(effectiveGuarulhos).find(item => item.id === 'est-001')).toBeTruthy();
+      expect(allItems(effectiveGuarulhos).find(item => item.id === 'sp-est-001')).toBeUndefined();
+      expect(effectiveGuarulhos.sections.find(section => section.id === 'sec-int-13')).toBeUndefined();
+    });
+
+    test('aplica o suplemento paulista ao roteiro federal seedado com UUID do Supabase', () => {
+      const remoteClinica = { ...clinica, id: '00000000-0000-4000-8000-000000000002' };
+      const effective = getEffectiveTemplate(remoteClinica, saoPauloCapitalClient, undefined, true);
+
+      expect(allItems(effective).find(item => item.id === 'sp-est-001')).toBeTruthy();
+      expect(allItems(effective).find(item => item.id === 'est-001')).toBeUndefined();
     });
 
     test('substitui a licença federal uma única vez para cliente do RJ', () => {

@@ -13,7 +13,7 @@ function allItems(template: ChecklistTemplate): ChecklistItem[] {
   return template.sections.flatMap(s => s.items);
 }
 
-// Cobre tudo que a consultora pode aplicar em campo: os 6 roteiros base e os 4
+// Cobre tudo que a consultora pode aplicar em campo: os 6 roteiros base e os 5
 // suplementos regionais. Um ato citado só pelo suplemento de BH ou do RJ entra
 // no relatório de uma inspeção real igual a um da base.
 const allTemplateItems: { item: ChecklistItem; origem: string }[] = [

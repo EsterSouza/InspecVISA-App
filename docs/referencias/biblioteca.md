@@ -1,6 +1,6 @@
 # Biblioteca de legislações — REF-02
 
-**Última verificação de vigência:** 05/08/2026 · **Fonte de verdade:**
+**Última verificação de vigência:** 15/08/2026 · **Fonte de verdade:**
 [`src/data/legislationLibrary.ts`](../../src/data/legislationLibrary.ts)
 
 Este documento é a evidência da checagem exigida pelo card REF-02 ("verificar vigência antes de
@@ -39,7 +39,7 @@ Consequências práticas:
   puderam ser removidos.
 - Corrigir uma URL na biblioteca corrige todos os itens que citam aquela norma, de uma vez.
 - O teste `src/__tests__/data/legislationLibrary.test.ts` trava o invariante: **todo item legal,
-  nos 6 roteiros e nos 4 suplementos regionais, resolve uma URL**.
+  nos 6 roteiros-base e nos 5 suplementos regionais, resolve uma URL**.
 
 ## Método da verificação
 
@@ -56,7 +56,7 @@ Dois achados de vigência mudaram o conteúdo dos roteiros, e não só da biblio
 
 ## Atos catalogados
 
-| Ato | Ementa | Vigência (05/08/2026) | Abrangência | Segmentos | Fonte |
+| Ato | Ementa | Vigência (15/08/2026) | Abrangência | Segmentos | Fonte |
 |---|---|---|---|---|---|
 | ABNT NBR 13534 | Instalações elétricas de baixa tensão — requisitos específicos para estabelecimentos assistenciais de saúde. Versão vigente: 2008. | Vigente | Federal | saude, estetica | [texto oficial](https://www.abntcatalogo.com.br/pnm.aspx?Q=czJRSjEzNTM0) |
 | ABNT NBR 9050 | Acessibilidade a edificações, mobiliário, espaços e equipamentos urbanos. Versão vigente: NBR 9050:2020, versão corrigida de 25/01/2021. | Vigente | Federal | ilpi, saude, estetica | [texto oficial](https://www.abntcatalogo.com.br/pnm.aspx?Q=czJRSjkwNTA=) |
@@ -69,6 +69,7 @@ Dois achados de vigência mudaram o conteúdo dos roteiros, e não só da biblio
 | Decreto Rio nº 57.501/2026 | Código Sanitário do município do Rio de Janeiro. | Vigente | RJ | — | [texto oficial](https://vigilanciasanitaria.prefeitura.rio/wp-content/uploads/sites/84/2026/04/Decreto-N%C2%B0-57501_2026.pdf) |
 | Lei Complementar nº 123/2006 | Estatuto Nacional da Microempresa e da Empresa de Pequeno Porte; base do tratamento diferenciado em obrigações acessórias. | Vigente com alterações | Federal | — | [texto oficial](https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp123.htm) |
 | Lei Estadual nº 16.140/2007 - Goiás | Dispõe sobre o SUS no Estado de Goiás e sobre a organização, fiscalização e controle das ações e serviços de saúde nas esferas estadual e municipal. | Vigente com alterações | GO | ilpi, saude, estetica, alimentos | [texto oficial](https://legisla.casacivil.go.gov.br/pesquisa_legislacao/86552/lei-16140) |
+| Lei Estadual nº 10.083/1998 - São Paulo | Institui o Código Sanitário do Estado de São Paulo. | Vigente com alterações | SP | saude, estetica, ilpi, alimentos | [texto oficial](https://www.al.sp.gov.br/repositorio/legislacao/lei/1998/compilacao-lei-10083-23.09.1998.html) |
 | Lei Federal nº 10.741/2003 | Estatuto da Pessoa Idosa; direitos da pessoa idosa e deveres das instituições de atendimento. | Vigente com alterações | Federal | ilpi | [texto oficial](https://www.planalto.gov.br/ccivil_03/leis/2003/l10.741compilado.htm) |
 | Lei Federal nº 13.589/2018 | Obriga edifícios de uso público e coletivo com climatização artificial a manter Plano de Manutenção, Operação e Controle (PMOC). | Vigente | Federal | saude, estetica, ilpi, alimentos | [texto oficial](https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13589.htm) |
 | Lei Federal nº 13.709/2018 | Lei Geral de Proteção de Dados Pessoais (LGPD); disciplina o tratamento de dados de saúde e o acesso ao prontuário. | Vigente com alterações | Federal | saude, estetica, ilpi | [texto oficial](https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709.htm) |
@@ -82,6 +83,7 @@ Dois achados de vigência mudaram o conteúdo dos roteiros, e não só da biblio
 | Lei Federal nº 8.842/1994 | Institui a Política Nacional do Idoso e orienta ações de autonomia, integração e participação social. | Vigente com alterações | Federal | ilpi | [texto oficial](https://www.planalto.gov.br/ccivil_03/leis/l8842.htm) |
 | Lei Federal nº 9.294/1996 | Restringe o uso de produtos fumígenos; com a redação da Lei 12.546/2011, proíbe fumar em recinto coletivo fechado. | Vigente com alterações | Federal | saude, estetica, ilpi, alimentos | [texto oficial](https://www.planalto.gov.br/ccivil_03/leis/l9294.htm) |
 | Lei Municipal nº 1.812/2014 - Senador Canedo | Institui o Código Sanitário do Município de Senador Canedo (GO); base municipal do licenciamento e da fiscalização sanitária local. | Vigente | GO | ilpi, saude, estetica, alimentos | [texto oficial](https://leismunicipais.com.br/a/go/s/senador-canedo/lei-ordinaria/2014/182/1812/lei-ordinaria-n-1812-2014-institui-o-codigo-sanitario-do-municipio-de-senador-canedo-e-da-outras-providencias) |
+| Lei Municipal nº 13.725/2004 - São Paulo | Institui o Código Sanitário do Município de São Paulo. | Vigente com alterações | SP | saude, estetica, ilpi, alimentos | [texto oficial](https://legislacao.prefeitura.sp.gov.br/lei-13725-de-09-de-janeiro-de-2004) |
 | Lei Municipal nº 7.031/1996 - Belo Horizonte | Institui o Código Sanitário Municipal de Belo Horizonte. | Vigente com alterações | MG | — | [texto oficial](https://leismunicipais.com.br/a/mg/b/belo-horizonte/lei-ordinaria/1996/704/7031/lei-ordinaria-n-7031-1996-dispoe-sobre-a-normatizacao-complementar-dos-procedimentos-relativos-a-saude-pelo-codigo-sanitario-municipal-e-da-outras-providencias) |
 | Lei Municipal nº 7.930/1999 - Belo Horizonte | Institui a Política Municipal do Idoso em Belo Horizonte. | Vigente | MG | ilpi | [texto oficial](https://leismunicipais.com.br/a/mg/b/belo-horizonte/lei-ordinaria/1999/793/7930/lei-ordinaria-n-7930-1999-institui-a-politica-municipal-do-idoso) |
 | Lei Municipal RJ nº 8.618/2024 | Obriga sala ou local de descanso para a equipe de enfermagem em estabelecimentos de saúde do município do Rio de Janeiro. | Vigente | RJ | ilpi, saude | [texto oficial](https://www.cofen.gov.br/prefeitura-do-rio-de-janeiro-sanciona-lei-de-descanso-digno-para-a-categoria/) |
@@ -96,10 +98,16 @@ Dois achados de vigência mudaram o conteúdo dos roteiros, e não só da biblio
 | Parecer COFEN nº 022/2022 | Trata da capacitação de cuidador leigo pelo enfermeiro em assistência específica no domicílio. | Vigente | Federal | ilpi | [texto oficial](https://www.cofen.gov.br/parecer-de-camara-tecnica-no-0081-2021-ctln-cofen/) |
 | Portaria 2619/2011 (SP Capital) | Regulamento Técnico de Boas Práticas para alimentos no município de São Paulo. | Vigente | SP | alimentos | [texto oficial](https://www.prefeitura.sp.gov.br/cidade/secretarias/upload/chamadas/portaria_2619_2011_1323348123.pdf) |
 | Portaria CVS 5/2013 | Boas práticas para estabelecimentos comerciais de alimentos e serviços de alimentação no Estado de São Paulo. | Vigente | SP | alimentos | [texto oficial](https://www.cvs.saude.sp.gov.br/zip/A_Portaria%20CVS%205_2013.pdf) |
+| Portaria CVS nº 1/2024 | Licenciamento sanitário e classificação de risco dos estabelecimentos de interesse da saúde no Estado de São Paulo. | Vigente | SP | saude, estetica, ilpi, alimentos | [texto oficial](https://cvs.saude.sp.gov.br/zip/E_PT-CVS-1_050124.pdf) |
+| Portaria CVS nº 5/2025 | Atividades de risco I isentas de licenciamento; inclui o CNAE 8690-9/01 de PICS. | Vigente | SP | saude, estetica | [texto oficial](https://www.facilitasp.sp.gov.br/wp-content/uploads/2025/06/PORTARIA-CVS-No-5-DE-23-DE-MAIO-DE-2025.pdf) |
+| Portaria CVS nº 15/1999 | Norma técnica para procedimentos em estética, emagrecimento e prática ortomolecular. O Apêndice I foi revogado pela CVS 4/2011. | Vigente com alterações | SP | saude, estetica | [portal oficial](https://cvs.saude.sp.gov.br/legis.asp?lg_dat=&lg_numero=15) |
+| Portaria de Consolidação GM/MS nº 2/2017 | Consolida políticas nacionais do SUS; Anexo XXV reúne a PNPIC. | Vigente com alterações | Federal | saude, estetica | [texto oficial](https://bvsms.saude.gov.br/bvs/saudelegis/gm/2017/prc0002_03_10_2017_comp.html) |
 | Portaria de Consolidação GM/MS nº 4/2017 | Consolida as normas sobre os sistemas e subsistemas do SUS; o Anexo V traz a Lista Nacional de Notificação Compulsória, atualizada em 2026. | Vigente com alterações | Federal | saude, estetica, ilpi | [texto oficial](https://bvsms.saude.gov.br/bvs/saudelegis/gm/2017/prc0004_03_10_2017.html) |
 | Portaria GM/MS nº 888/2021 | Padrão de potabilidade e procedimentos de controle e vigilância da qualidade da água para consumo humano (Anexo XX da PRC 5/2017). | Vigente | Federal | saude, estetica, ilpi, alimentos | [texto oficial](https://bvsms.saude.gov.br/bvs/saudelegis/gm/2021/prt0888_07_05_2021.html) |
 | Portaria IVISA-RIO nº 002/2020 | Regulamento técnico de Boas Práticas para estabelecimentos de alimentos no município do Rio de Janeiro; complementa a RDC 216/2004. | Vigente | RJ | alimentos | [texto oficial](https://vigilanciasanitaria.prefeitura.rio/licenciamento-sanitario/licenciamento-sanitario-legislacao/) |
 | Portaria SMS nº 12/2015 - Belo Horizonte | Padrão mínimo de funcionamento das ILPI no município de Belo Horizonte. | Vigente | MG | ilpi | [texto oficial](https://www.legisweb.com.br/legislacao/?id=283029) |
+| Portaria SMS nº 266/2025 | Licenciamento sanitário no Município de São Paulo; CLI, DCA e documentos por atividade. | Vigente com alterações | SP | saude, estetica, ilpi, alimentos | [texto consolidado](https://legislacao.prefeitura.sp.gov.br/portaria-secretaria-municipal-da-saude-sms-266-de-6-de-maio-de-2025/consolidado) |
+| Portaria SMS/COVISA nº 404/2024 | Institui a DCFF para as atividades listadas no Anexo I municipal. | Vigente | SP | saude, estetica | [texto oficial](https://legislacao.prefeitura.sp.gov.br/portaria-secretaria-municipal-da-saude-sms-covisa-404-de-20-de-junho-de-2024) |
 | Portaria SMSA/SUS-BH nº 0221/2022 | Procedimentos do licenciamento sanitário e classificação de risco em Belo Horizonte. | Vigente | MG | — | [texto oficial](https://visabh.webnode.page/portarias-visa-bh-/) |
 | Portaria SVS/MS nº 344/1998 | Regulamento Técnico sobre substâncias e medicamentos sujeitos a controle especial. | Vigente com alterações | Federal | saude, estetica, ilpi | [texto oficial](https://bvsms.saude.gov.br/bvs/saudelegis/svs/1998/prt0344_12_05_1998_rep.html) |
 | RDC Anvisa nº 15/2012 | Requisitos de boas práticas para o processamento de produtos para saúde. | Vigente | Federal | saude, estetica | [texto oficial](https://bvsms.saude.gov.br/bvs/saudelegis/anvisa/2012/rdc0015_15_03_2012.html) |

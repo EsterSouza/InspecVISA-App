@@ -12,6 +12,7 @@ import { templateIlpiGoiasSuplement } from './templates-ilpi-goias-supplement';
 import { templateIlpiBeloHorizonteSupplement } from './Roteiro_ILPI_BH';
 import { templateIlpiRioDeJaneiroSupplement } from './Roteiro_ILPI_RJ';
 import { suplementoEsteticaRj } from './estetica/suplemento-rj';
+import { suplementoEsteticaSpCapital } from './estetica/suplemento-sp-capital';
 import { isRioState, toUF } from '../utils/state';
 
 function normalizeLocation(value?: string | null): string {
@@ -24,6 +25,10 @@ function normalizeLocation(value?: string | null): string {
 
 function isBeloHorizonteClient(client: Client): boolean {
   return toUF(client.state) === 'MG' && normalizeLocation(client.city).includes('belo horizonte');
+}
+
+function isSaoPauloCapitalClient(client: Client): boolean {
+  return toUF(client.state) === 'SP' && normalizeLocation(client.city) === 'sao paulo';
 }
 
 export function isIlpiFederalTemplate(template: ChecklistTemplate): boolean {
@@ -51,6 +56,11 @@ export interface SupplementRegistryEntry {
 }
 
 export const supplementRegistry: SupplementRegistryEntry[] = [
+  {
+    supplement: suplementoEsteticaSpCapital,
+    appliesTo: (template, client) => isEsteticaClinicaTemplate(template) && isSaoPauloCapitalClient(client),
+    nameSuffix: ' (+ Suplemento São Paulo Capital)',
+  },
   {
     supplement: suplementoEsteticaRj,
     appliesTo: (template, client) => isEsteticaClinicaTemplate(template) && isRioState(client.state),

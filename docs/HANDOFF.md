@@ -1,9 +1,27 @@
 # Handoff único — InspecVISA
 
-**Última atualização:** 12/08/2026 (BRT), ao concluir o card de plano de ação automático e
-itens extras persistentes (migration `20260812112448`) ·
+**Última atualização:** 15/08/2026 (BRT), com o roteiro local de estética e terapias integrativas
+para São Paulo capital ·
 **Branch:** `main`, sincronizada com `origin/main` · O estado da seção 2 foi verificado em 03/08/2026,
 com as correções de 04/08 e 05/08 anotadas nas tabelas.
+
+### Resultado local — 15/08/2026 — roteiro de estética e terapias integrativas · São Paulo capital
+
+- Implementado localmente, ainda sem commit, push, seed, migration remota ou deploy.
+- O roteiro-base federal `tpl-estetica-clinica-v1` permanece inalterado com 114 itens. O suplemento
+  SP/SP substitui oito itens federais por versões locais mais específicas, acrescenta três
+  condicionais locais e uma seção de cinco boas práticas sem equivalente, total efetivo de 122 itens.
+- O suplemento só se aplica quando UF = SP e município = São Paulo, inclusive no roteiro seedado
+  com UUID. Outros municípios paulistas não recebem legislação da capital.
+- Enquadramento verificado: CVS 1/2024 (licenciamento), CVS 15/1999 (norma técnica, com Apêndice I
+  revogado), CVS 5/2025 (PICS 8690-9/01, risco I), SMS 266/2025 com Anexo I rev. 39/2026 e
+  SMS/COVISA 404/2024 (DCFF). Matriz e ressalvas em
+  `docs/roteiros/estetica/legislacao-sp-integrativas.md`.
+- A relação real de terapias, equipamentos e formação dos executantes não consta do cadastro; o
+  roteiro mantém acupuntura, invasividade e estética médica como itens condicionais, sem presumir
+  escopo profissional.
+- Validação focada: 3 arquivos/88 testes aprovados. Build e suíte completa ainda devem ser
+  executados antes de uma eventual publicação.
 
 ### Resultado local — 12/08/2026 — EMAIL-01, confirmação de agendamento
 
