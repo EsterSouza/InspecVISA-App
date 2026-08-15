@@ -24,6 +24,7 @@ import { buildRecoveryTemplate } from '../utils/templateRecovery';
 import { resolveReportTemplate } from '../utils/reportTemplate';
 import { withClientLocation } from '../utils/inspectionLocation';
 import { composeChecklistTemplate } from '../utils/customItems';
+import { toast } from '../store/useToastStore';
 
 const PDF_PHOTO_HYDRATION_TIMEOUT_MS = 12000;
 
@@ -454,7 +455,13 @@ export function InspectionSummary() {
              console.warn('[Summary] Falha ao gravar scores/plano de acao do portal automaticamente:', scoreErr);
            }
          } else {
+           // Bug #4: sem vínculo, a publicação ao portal falha em silêncio — a consultora
+           // achava que tinha entregado. Torna a falha visível em vez de só logar.
            console.warn('[Summary] PDF final gerado, mas nao ha solicitacao/agendamento vinculado para publicar no portal.');
+           toast.warning(
+             'PDF gerado, mas não publicado no portal',
+             'Esta inspeção não está vinculada a um agendamento/solicitação, então o relatório, os scores e o plano de ação não foram enviados ao portal do cliente. Vincule a inspeção a um agendamento para publicar.'
+           );
          }
        }
     } catch (err) {

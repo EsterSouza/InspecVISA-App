@@ -39,8 +39,16 @@ describe('P360-010 - prazo em texto livre', () => {
     expect(deadlineToDays('3 meses')).toBe(90);
   });
 
+  test('reconhece frases claramente imediatas como prazo 0', () => {
+    expect(deadlineToDays('Imediatamente')).toBe(0);
+    expect(deadlineToDays('URGENTE')).toBe(0);
+    expect(deadlineToDays('imediata')).toBe(0);
+  });
+
   test('devolve null para texto que não dá para datar, em vez de inventar prazo', () => {
+    // "assim que possível" e "o quanto antes" são urgentes mas indatáveis: não se inventa data.
     expect(deadlineToDays('assim que possível')).toBeNull();
+    expect(deadlineToDays('o quanto antes')).toBeNull();
     expect(deadlineToDays('')).toBeNull();
     expect(deadlineToDays(undefined)).toBeNull();
     expect(deadlineToDays('próxima visita')).toBeNull();

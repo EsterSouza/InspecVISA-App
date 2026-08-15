@@ -26,7 +26,10 @@ export interface ClientActionItemPayload {
 export function deadlineToDays(deadline: string | undefined): number | null {
   const text = (deadline || '').trim().toLowerCase();
   if (!text) return null;
-  if (text === 'imediato' || text === 'imediata') return 0;
+  // Bug #3: frases claramente imediatas viram prazo 0 em vez de virar item que nunca vence.
+  // As genuinamente indatáveis ("assim que possível", "o quanto antes") seguem null de
+  // propósito — não se inventa data num laudo; a visibilidade delas é papel do Painel/plano.
+  if (['imediato', 'imediata', 'imediatamente', 'urgente'].includes(text)) return 0;
 
   const match = text.match(/^(\d+)\s*(hora|horas|dia|dias|semana|semanas|m[êe]s|meses)$/);
   if (!match) return null;

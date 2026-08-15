@@ -6,6 +6,9 @@
 
 \ir ../migrations/20260808113928_admin_operational_overview.sql
 
+-- Correção dos bugs #1 (consultora por inspeção, não por setor) e #2 (relatório oculto).
+\ir ../migrations/20260815160715_painel_consultora_e_relatorio_oculto.sql
+
 -- Tokens em jogo (herdados da cadeia de fixtures):
 --   tenant A = aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa (o `private.my_tenant_ids()` do fixture só enxerga este)
 --   client A1 = 20000000-…-000001 (Unidade teste, na conta 20000000-…-000002)
@@ -45,6 +48,33 @@ delete from public.client_service_requests where tenant_id = 'aaaaaaaa-aaaa-4aaa
 delete from public.schedules where tenant_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 delete from public.client_action_items where tenant_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 
+-- ─── Atribuição de consultora (bug #1) e visibilidade (bug #2) ──────────────────
+--
+-- Em produção a consultora do plano de ação vive em `inspections.consultant_names` (preenchida em
+-- 100% dos itens), NUNCA em `client_action_items.responsible` (que guarda setor). O fixture de
+-- agenda não cria a tabela `inspections` nem a coluna `consultant_names` em `appointment_requests`
+-- — a migration nova referencia as duas, então aqui elas passam a existir.
+
+create table if not exists public.inspections (
+  id uuid primary key,
+  tenant_id uuid,
+  client_id uuid,
+  consultant_names text[],
+  consultant_name text,
+  status text default 'completed',
+  deleted_at timestamptz
+);
+alter table public.inspections add column if not exists consultant_names text[];
+alter table public.appointment_requests add column if not exists consultant_names text[];
+
+-- Inspeções das visitas já criadas pelo fixture do P360-010: Ester nas visíveis e na oculta, Ana
+-- na unidade A2. É por `consultant_names` que o filtro de consultora tem de casar.
+insert into public.inspections (id, tenant_id, client_id, consultant_names) values
+  ('60000000-0000-4000-8000-000000000001', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '20000000-0000-4000-8000-000000000001', array['Ester Caiafa']),
+  ('60000000-0000-4000-8000-000000000003', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '20000000-0000-4000-8000-000000000001', array['Ester Caiafa']),
+  ('60000000-0000-4000-8000-000000000004', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '20000000-0000-4000-8000-000000000011', array['Ana Roberta Ribeiro'])
+on conflict (id) do nothing;
+
 -- ─── Massa de dados ─────────────────────────────────────────────────────────────
 
 -- Compromissos: dois dentro da janela padrão (14 dias), um fora, um passado, um cancelado,
@@ -70,27 +100,32 @@ insert into public.client_service_requests (
   ('40000000-0000-4000-8000-000000000204', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '20000000-0000-4000-8000-000000000001', 104, 'outro', 'Pedido resolvido', 'Isto ja foi atendido pela consultoria.', 'resolved', 'low', 'Ester Caiafa', gen_random_uuid()),
   ('40000000-0000-4000-8000-000000000205', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', '20000000-0000-4000-8000-000000000021', 101, 'documentacao', 'Solicitacao de outra consultoria', 'Isto pertence a outro tenant e nao pode aparecer aqui.', 'open', 'normal', null, gen_random_uuid());
 
--- Planos de ação: um vencido (urgente), um em dia, um sem prazo, um oculto vencido (não conta),
--- um resolvido vencido (não conta), um de outro tenant (isolamento).
+-- Planos de ação. `responsible` é SETOR de propósito (bug #1): a única forma de o filtro de
+-- consultora casar é pela inspeção de origem, nunca por este campo. `appointment_request_id`
+-- aponta a visibilidade (bug #2): a visita ...0005 tem report_hidden=true.
 insert into public.client_action_items (
   id, tenant_id, client_id, source_item_id, title, situation, recommended_action, priority,
-  responsible, due_date, status
+  responsible, due_date, status, appointment_request_id, inspection_id
 ) values
-  ('50000000-0000-4000-8000-000000000301', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '20000000-0000-4000-8000-000000000001', 'op-item-1', 'Item vencido', 'Achado', 'Corrigir', 'urgent', 'Ester Caiafa', current_date - 5, 'published'),
-  ('50000000-0000-4000-8000-000000000302', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '20000000-0000-4000-8000-000000000011', 'op-item-2', 'Item em dia', 'Achado', 'Corrigir', 'important', 'Ana Roberta Ribeiro', current_date + 5, 'published'),
-  ('50000000-0000-4000-8000-000000000303', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '20000000-0000-4000-8000-000000000001', 'op-item-3', 'Item sem prazo', 'Achado', 'Corrigir', 'recommended', null, null, 'published'),
-  ('50000000-0000-4000-8000-000000000304', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '20000000-0000-4000-8000-000000000001', 'op-item-4', 'Item oculto vencido', 'Achado', 'Corrigir', 'urgent', 'Ester Caiafa', current_date - 10, 'hidden'),
-  ('50000000-0000-4000-8000-000000000305', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '20000000-0000-4000-8000-000000000001', 'op-item-5', 'Item resolvido vencido', 'Achado', 'Corrigir', 'urgent', 'Ester Caiafa', current_date - 10, 'resolved'),
-  ('50000000-0000-4000-8000-000000000306', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', '20000000-0000-4000-8000-000000000021', 'op-item-6', 'Item de outro tenant', 'Achado', 'Corrigir', 'urgent', 'Ester Caiafa', current_date - 5, 'published');
+  ('50000000-0000-4000-8000-000000000301', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '20000000-0000-4000-8000-000000000001', 'op-item-1', 'Item vencido', 'Achado', 'Corrigir', 'urgent', 'Gerência / Administração', current_date - 5, 'published', '50000000-0000-4000-8000-000000000001', '60000000-0000-4000-8000-000000000001'),
+  ('50000000-0000-4000-8000-000000000302', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '20000000-0000-4000-8000-000000000011', 'op-item-2', 'Item em dia', 'Achado', 'Corrigir', 'important', 'Responsável Técnico (RT)', current_date + 5, 'published', '50000000-0000-4000-8000-000000000007', '60000000-0000-4000-8000-000000000004'),
+  ('50000000-0000-4000-8000-000000000303', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '20000000-0000-4000-8000-000000000001', 'op-item-3', 'Item sem prazo', 'Achado', 'Corrigir', 'recommended', null, null, 'published', '50000000-0000-4000-8000-000000000001', '60000000-0000-4000-8000-000000000001'),
+  ('50000000-0000-4000-8000-000000000304', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '20000000-0000-4000-8000-000000000001', 'op-item-4', 'Item oculto vencido', 'Achado', 'Corrigir', 'urgent', 'Gerência / Administração', current_date - 10, 'hidden', '50000000-0000-4000-8000-000000000001', '60000000-0000-4000-8000-000000000001'),
+  ('50000000-0000-4000-8000-000000000305', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '20000000-0000-4000-8000-000000000001', 'op-item-5', 'Item resolvido vencido', 'Achado', 'Corrigir', 'urgent', 'Gerência / Administração', current_date - 10, 'resolved', '50000000-0000-4000-8000-000000000001', '60000000-0000-4000-8000-000000000001'),
+  ('50000000-0000-4000-8000-000000000306', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', '20000000-0000-4000-8000-000000000021', 'op-item-6', 'Item de outro tenant', 'Achado', 'Corrigir', 'urgent', 'Gerência / Administração', current_date - 5, 'published', '50000000-0000-4000-8000-000000000009', null),
+  -- bug #2: vencido e publicado, MAS a visita ...0005 está com relatório oculto → não pode contar.
+  ('50000000-0000-4000-8000-000000000307', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '20000000-0000-4000-8000-000000000001', 'op-item-7', 'Item vencido de relatorio oculto', 'Achado', 'Corrigir', 'urgent', 'Gerência / Administração', current_date - 10, 'published', '50000000-0000-4000-8000-000000000005', '60000000-0000-4000-8000-000000000003');
 
--- Evidências: uma pendente ligada ao item em dia (sem consultora vencida no meio), uma pendente
--- ligada ao item vencido do Ester (para o filtro de consultora), uma já aprovada (não conta).
+-- Evidências: uma pendente ligada ao item em dia (unidade da Ana), uma pendente ligada ao item
+-- vencido da visita da Ester (para o filtro de consultora, agora via inspeção), uma já aprovada
+-- (não conta) e uma pendente de item com relatório oculto (bug #2: não pode contar).
 insert into public.client_action_evidence (
   id, tenant_id, client_id, action_item_id, upload_key, storage_path, file_name, mime_type, file_size, status
 ) values
   ('60000000-0000-4000-8000-000000000401', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '20000000-0000-4000-8000-000000000011', '50000000-0000-4000-8000-000000000302', gen_random_uuid(), 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/unidade/item/a.pdf', 'a.pdf', 'application/pdf', 1000, 'pending'),
   ('60000000-0000-4000-8000-000000000402', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '20000000-0000-4000-8000-000000000001', '50000000-0000-4000-8000-000000000301', gen_random_uuid(), 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/unidade/item/b.pdf', 'b.pdf', 'application/pdf', 1000, 'pending'),
-  ('60000000-0000-4000-8000-000000000403', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '20000000-0000-4000-8000-000000000001', '50000000-0000-4000-8000-000000000303', gen_random_uuid(), 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/unidade/item/c.pdf', 'c.pdf', 'application/pdf', 1000, 'approved');
+  ('60000000-0000-4000-8000-000000000403', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '20000000-0000-4000-8000-000000000001', '50000000-0000-4000-8000-000000000303', gen_random_uuid(), 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/unidade/item/c.pdf', 'c.pdf', 'application/pdf', 1000, 'approved'),
+  ('60000000-0000-4000-8000-000000000404', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '20000000-0000-4000-8000-000000000001', '50000000-0000-4000-8000-000000000307', gen_random_uuid(), 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/unidade/item/d.pdf', 'd.pdf', 'application/pdf', 1000, 'pending');
 
 -- Financeiro: a conta existente (20000000-…-000002, unidade A1) fica em atraso; uma conta nova
 -- para a unidade A2 fica em dia (controle negativo); uma conta de outro tenant fica em atraso
@@ -162,9 +197,10 @@ begin
     raise exception 'filtro de consultora nao bateu com aguardando cliente: %', v_counts -> 'awaiting_client';
   end if;
 
-  -- Evidencia pendente filtra pelo responsavel do item pai: so a do item vencido do Ester.
+  -- Evidencia pendente filtra pela consultora da INSPECAO do item pai (bug #1), nunca pelo setor
+  -- em `responsible`: so a do item da visita da Ester, e nao a do item de relatorio oculto (bug #2).
   if (v_counts -> 'evidence_pending' ->> 'count')::int <> 1 then
-    raise exception 'filtro de consultora nao restringiu evidencia por item pai: %', v_counts -> 'evidence_pending';
+    raise exception 'filtro de consultora nao restringiu evidencia pela inspecao: %', v_counts -> 'evidence_pending';
   end if;
 
   if (v_counts -> 'action_items_overdue' ->> 'count')::int <> 1 then
