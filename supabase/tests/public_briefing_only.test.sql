@@ -8,6 +8,31 @@ create or replace function public.client_portal_overview(p_token uuid)
 returns jsonb language sql security definer as $$ select '{}'::jsonb $$;
 grant execute on function public.client_portal_overview(uuid) to anon;
 
+-- O fixture de disponibilidade já trocou public_list_calendar_days e public_list_available_times
+-- pela versão com p_consultant_names (20260815203122_consultant_scoped_availability.sql derruba
+-- as assinaturas antigas e cria as novas). Esta migration é anterior a essa troca e só faz um
+-- `grant` nas assinaturas antigas, que não existem mais no fixture. Repovoa as duas, igual ao
+-- shim de client_portal_overview acima: sobrecarga por contagem de parâmetro no Postgres,
+-- convive sem conflito com as versões reais.
+create or replace function public.public_list_calendar_days(
+  p_tenant_id uuid,
+  p_start_date date default ((now() at time zone 'America/Sao_Paulo')::date),
+  p_days integer default 45,
+  p_appointment_type text default 'inspection',
+  p_duration_minutes integer default null
+)
+returns table (day date, weekday integer, available_count integer)
+language sql security definer as $$ select null::date, null::integer, null::integer where false $$;
+
+create or replace function public.public_list_available_times(
+  p_tenant_id uuid,
+  p_day date,
+  p_appointment_type text default 'inspection',
+  p_duration_minutes integer default null
+)
+returns table (starts_at timestamptz, ends_at timestamptz, label text)
+language sql security definer as $$ select null::timestamptz, null::timestamptz, null::text where false $$;
+
 \ir ../migrations/20260803190000_public_briefing_only.sql
 
 -- Acesso: quem esta logado na plataforma usa o mesmo cliente Supabase e chega como `authenticated`.
