@@ -490,6 +490,8 @@ hr {
 /* Alvo de toque: no celular nenhum botão fica abaixo de 44px — inclusive o
    pequeno, que existe para caber na linha da tabela, não para ser difícil de
    acertar com o dedo. */
+/* A regra completa de alvo de toque está no FIM deste arquivo — precisa vir
+   depois de todas as alturas que ela sobrescreve. */
 @media (pointer: coarse) {
   .btn, .btn--sm { min-height: var(--touch-min); }
 }
@@ -1050,6 +1052,22 @@ dialog.drawer--left[open] { animation-name: drawer-in-left; }
 .notice--info { background: var(--accent-soft); border-color: var(--accent-soft-border); color: var(--accent-soft-ink); }
 .notice__mark { flex: none; margin-top: 1px; }
 
+/* --- Alvo de toque: a última palavra --------------------------------------
+   Fica no fim do arquivo de propósito. `.input`/`.select`/`.textarea` (36px),
+   `.tab` (42px), `.page-btn` (30px) e `.th-sort` (18px, era o menor alvo de
+   todos) declaram altura mais acima com a MESMA especificidade — e quem vem
+   depois ganha. Escrita lá em cima, junto do botão, esta regra era descartada
+   em silêncio e o `select` continuava com 36px no dedo.
+   A decisão é a mesma desde o FE-01: no toque, nada abaixo de 44px. */
+@media (pointer: coarse) {
+  .input, .select, .textarea,
+  .page-btn, .tab, .th-sort,
+  .segmented button { min-height: var(--touch-min); }
+  /* O botão de ordenar mora dentro do <th>: sem esticar a célula junto, ele
+     ganha altura e vaza para fora do cabeçalho. */
+  .table thead th { height: auto; padding-block: var(--space-1); }
+}
+
 
   body { overflow-x: hidden; }
 
@@ -1260,6 +1278,44 @@ dialog.drawer--left[open] { animation-name: drawer-in-left; }
 
   .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); gap: var(--space-4); }
 
+  /* ---------- Editor do roteiro: índice + editor do item ---------- */
+  .split { display: grid; grid-template-columns: minmax(0, 380px) minmax(0, 1fr); gap: var(--space-5); align-items: start; }
+  @media (max-width: 1100px) { .split { grid-template-columns: minmax(0, 1fr); } }
+  .split > * { min-width: 0; }
+
+  .tree { max-height: 620px; overflow-y: auto; }
+  .tree__sec { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-4); background: var(--surface-sunken); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 2; }
+  .tree__sec-nome { font-family: var(--font-title); font-weight: var(--weight-title-strong); font-size: var(--text-xs); letter-spacing: var(--tracking-title); }
+  .tree__item {
+    display: flex; align-items: center; gap: var(--space-2); width: 100%;
+    padding: var(--space-2) var(--space-4);
+    border: 0; border-bottom: 1px solid var(--border);
+    background: none; text-align: left; cursor: pointer;
+    font-size: var(--text-sm); color: var(--ink);
+    min-height: var(--row-comfortable);
+  }
+  .tree__item:hover { background: var(--surface-hover); }
+  .tree__item[aria-current='true'] { background: var(--surface-active); font-weight: var(--weight-semibold); box-shadow: inset 3px 0 0 var(--accent); }
+  .tree__num { flex: none; width: 34px; font-size: var(--text-2xs); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .tree__peso { flex: none; font-size: var(--text-2xs); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  /* Crítico não é só a cor do selo: é um triângulo com rótulo no leitor de tela. */
+  .tree__critico { flex: none; color: var(--danger-soft-ink); }
+
+  .conform { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: var(--space-2); }
+  .conform button {
+    height: 40px; border: 1px solid var(--border-control); border-radius: var(--radius-md);
+    background: var(--surface); color: var(--ink-2);
+    font-size: var(--text-sm); font-weight: var(--weight-semibold); cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: var(--space-2);
+    transition: background-color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+  }
+  .conform button:hover { border-color: var(--ink-3); }
+  .conform button[aria-pressed='true'][data-kind='ok'] { background: var(--success-soft); border-color: var(--success-soft-border); color: var(--success-soft-ink); }
+  .conform button[aria-pressed='true'][data-kind='no'] { background: var(--danger-soft); border-color: var(--danger-soft-border); color: var(--danger-soft-ink); }
+  .conform button[aria-pressed='true'][data-kind='na'] { background: var(--surface-active); border-color: var(--accent-soft-border); color: var(--accent-soft-ink); }
+  .conform button[aria-pressed='true'][data-kind='part'] { background: var(--amber-soft); border-color: var(--amber-soft-border); color: var(--amber-soft-ink); }
+  @media (pointer: coarse) { .conform button { min-height: var(--touch-min); } }
+
   .file-thumb { width: 34px; height: 34px; border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--accent-soft-ink); display: grid; place-items: center; flex: none; }
   .prog { display: flex; align-items: center; gap: var(--space-3); font-size: var(--text-sm); }
   .prog .meter { flex: 1 1 auto; }
@@ -1336,6 +1392,7 @@ dialog.drawer--left[open] { animation-name: drawer-in-left; }
       <a class="rail__link" href="#/cliente"><svg width="18" height="18" aria-hidden="true"><use href="#ic-users"/></svg><span class="rail__label">Ficha do cliente</span></a>
       <a class="rail__link" href="#/solicitacoes"><svg width="18" height="18" aria-hidden="true"><use href="#ic-headset"/></svg><span class="rail__label">Solicitações</span></a>
       <a class="rail__link" href="#/roteiros"><svg width="18" height="18" aria-hidden="true"><use href="#ic-file"/></svg><span class="rail__label">Roteiros</span></a>
+      <a class="rail__link" href="#/roteiro"><svg width="18" height="18" aria-hidden="true"><use href="#ic-clipboard"/></svg><span class="rail__label">Roteiro — editor</span></a>
       <a class="rail__link" href="#/biblioteca"><svg width="18" height="18" aria-hidden="true"><use href="#ic-book"/></svg><span class="rail__label">Biblioteca</span></a>
       <a class="rail__link" href="#/sincronizacao"><svg width="18" height="18" aria-hidden="true"><use href="#ic-activity"/></svg><span class="rail__label">Sincronização</span></a>
       <a class="rail__link" href="#/configuracoes"><svg width="18" height="18" aria-hidden="true"><use href="#ic-settings"/></svg><span class="rail__label">Configurações</span></a>
@@ -1999,7 +2056,7 @@ dialog.drawer--left[open] { animation-name: drawer-in-left; }
                 </tr>
               </thead>
               <tbody>
-                <tr><td class="table__primary">ILPI — RDC 502/2021</td><td>ILPI</td><td class="num">148</td><td class="num">22</td><td class="num">31</td><td class="num">02/08/2026</td><td><span class="badge badge--success">ativo</span></td><td class="table__actions"><button class="btn btn--ghost btn--sm">Editar</button></td></tr>
+                <tr><td class="table__primary">ILPI — RDC 502/2021</td><td>ILPI</td><td class="num">148</td><td class="num">22</td><td class="num">31</td><td class="num">02/08/2026</td><td><span class="badge badge--success">ativo</span></td><td class="table__actions"><a class="btn btn--outline btn--sm" href="#/roteiro">Editar</a></td></tr>
                 <tr><td class="table__primary">Clínica — RDC 63/2011</td><td>Clínica</td><td class="num">96</td><td class="num">14</td><td class="num">18</td><td class="num">28/07/2026</td><td><span class="badge badge--success">ativo</span></td><td class="table__actions"><button class="btn btn--ghost btn--sm">Editar</button></td></tr>
                 <tr><td class="table__primary">Serviços de alimentação — RDC 216/2004</td><td>Alimentos</td><td class="num">72</td><td class="num">11</td><td class="num">24</td><td class="num">14/07/2026</td><td><span class="badge badge--success">ativo</span></td><td class="table__actions"><button class="btn btn--ghost btn--sm">Editar</button></td></tr>
                 <tr><td class="table__primary">Estética — RDC 197/2017 <span class="badge badge--attention" style="margin-left:6px"><span class="dot"></span>rascunho</span></td><td>Estética</td><td class="num">54</td><td class="num">8</td><td class="num">0</td><td class="num">16/08/2026</td><td><span class="badge badge--neutral">rascunho</span></td><td class="table__actions"><button class="btn btn--ghost btn--sm">Editar</button></td></tr>
@@ -2013,6 +2070,201 @@ dialog.drawer--left[open] { animation-name: drawer-in-left; }
           <div>
             <p class="strong">Editar um item em uso não é uma edição qualquer.</p>
             <p class="small">As respostas não têm chave estrangeira para o item do roteiro: reescrever a pergunta no lugar troca o enunciado de respostas antigas e apagar o item deixa resposta órfã num relatório já entregue. A coluna “Em uso” existe para esse aviso aparecer antes do clique, e o editor confirma com o número de inspeções afetadas.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== ROTEIRO — EDITOR ====================
+           O catálogo do DesignMD não tem padrão de montador de formulário. A
+           estrutura sai do master-detail (dashboard-shell, variante 4): índice
+           à esquerda, o item inteiro à direita. -->
+      <section class="screen" id="s-roteiro">
+        <nav class="crumbs" aria-label="Trilha">
+          <a href="#/inicio">Início</a>
+          <svg width="12" height="12" aria-hidden="true"><use href="#ic-chevron-right"/></svg>
+          <a href="#/roteiros">Roteiros</a>
+          <svg width="12" height="12" aria-hidden="true"><use href="#ic-chevron-right"/></svg>
+          <span class="strong">ILPI — RDC 502/2021</span>
+        </nav>
+
+        <div class="page__head">
+          <div>
+            <h1 class="page__title">ILPI — RDC 502/2021</h1>
+            <div class="row-wrap" style="margin-top:var(--space-3)">
+              <span class="badge badge--success"><span class="dot"></span>publicado</span>
+              <span class="badge badge--neutral num">148 itens · 12 seções</span>
+              <span class="badge badge--neutral num">22 críticos</span>
+              <span class="badge badge--attention"><span class="dot"></span>em uso em 31 inspeções</span>
+            </div>
+          </div>
+          <div class="row-wrap">
+            <button class="btn btn--outline">Pré-visualizar</button>
+            <button class="btn btn--outline">Duplicar</button>
+            <button class="btn btn--primary">Publicar alterações</button>
+          </div>
+        </div>
+
+        <div class="notice notice--attention" style="margin-bottom:var(--space-5)">
+          <svg class="notice__mark" width="16" height="16" aria-hidden="true"><use href="#ic-alert"/></svg>
+          <div>
+            <p class="strong">Três regras deste roteiro que hoje são invisíveis na tela e mordem depois.</p>
+            <ol class="small" style="margin:var(--space-2) 0 0;padding-left:var(--space-5)">
+              <li><span class="strong">Relatório concluído congela o roteiro.</span> Cada inspeção guarda a versão que valia quando foi aberta. Publicar alteração aqui <span class="strong">não</span> reescreve relatório entregue — e é por isso que a mudança é segura para o passado.</li>
+              <li><span class="strong">A resposta não tem vínculo firme com o item.</span> Reescrever a pergunta no lugar troca o enunciado de respostas antigas ainda abertas, e apagar o item deixa resposta órfã. Por isso “Alterar a pergunta” abre confirmação com o número de respostas afetadas, e “Excluir” é substituído por “Aposentar”.</li>
+              <li><span class="strong">Tipo de requisito não entra na nota.</span> Só peso e “é crítico” entram no cálculo. O tipo muda o rótulo e a página da ABNT no PDF — está escrito no campo, para ninguém mexer nele achando que está ajustando o resultado.</li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="split">
+          <!-- ÍNDICE -->
+          <div class="card">
+            <div class="card__head">
+              <h2 class="card__title">Itens</h2>
+              <button class="btn btn--outline btn--sm">
+                <svg width="14" height="14" aria-hidden="true"><use href="#ic-plus"/></svg>
+                Novo item
+              </button>
+            </div>
+            <div class="card__body" style="padding:var(--space-3) var(--space-4)">
+              <div class="input-group">
+                <svg width="15" height="15" aria-hidden="true"><use href="#ic-search"/></svg>
+                <input class="input" type="search" placeholder="Buscar no roteiro" aria-label="Buscar item do roteiro">
+              </div>
+            </div>
+            <div class="card__body card__body--flush">
+              <nav class="tree" aria-label="Seções e itens do roteiro">
+                <div class="tree__sec">
+                  <svg width="12" height="12" aria-hidden="true"><use href="#ic-chevron-down"/></svg>
+                  <span class="tree__sec-nome grow">1 · Estrutura física</span>
+                  <span class="tiny muted num">18</span>
+                </div>
+                <button class="tree__item" aria-current="true">
+                  <span class="tree__num">1.1</span>
+                  <span class="grow">Barreira física entre recebimento e manipulação</span>
+                  <svg class="tree__critico" width="14" height="14" aria-hidden="true"><use href="#ic-alert"/></svg>
+                  <span class="sr-only">item crítico</span>
+                  <span class="tree__peso">peso 5</span>
+                </button>
+                <button class="tree__item">
+                  <span class="tree__num">1.2</span>
+                  <span class="grow">Piso lavável, impermeável e em bom estado de conservação</span>
+                  <span class="tree__peso">peso 3</span>
+                </button>
+                <button class="tree__item">
+                  <span class="tree__num">1.3</span>
+                  <span class="grow">Iluminação e ventilação adequadas nos dormitórios</span>
+                  <span class="tree__peso">peso 3</span>
+                </button>
+                <div class="tree__sec">
+                  <svg width="12" height="12" aria-hidden="true"><use href="#ic-chevron-down"/></svg>
+                  <span class="tree__sec-nome grow">2 · Alimentação e nutrição</span>
+                  <span class="tiny muted num">24</span>
+                </div>
+                <button class="tree__item">
+                  <span class="tree__num">2.1</span>
+                  <span class="grow">Registro diário de temperatura da câmara fria</span>
+                  <svg class="tree__critico" width="14" height="14" aria-hidden="true"><use href="#ic-alert"/></svg>
+                  <span class="sr-only">item crítico</span>
+                  <span class="tree__peso">peso 5</span>
+                </button>
+                <button class="tree__item">
+                  <span class="tree__num">2.2</span>
+                  <span class="grow">POP de higienização de superfícies assinado pelo RT</span>
+                  <svg class="tree__critico" width="14" height="14" aria-hidden="true"><use href="#ic-alert"/></svg>
+                  <span class="sr-only">item crítico</span>
+                  <span class="tree__peso">peso 5</span>
+                </button>
+                <button class="tree__item">
+                  <span class="tree__num">2.3</span>
+                  <span class="grow">Cardápio elaborado por nutricionista responsável</span>
+                  <span class="tree__peso">peso 4</span>
+                </button>
+                <div class="tree__sec">
+                  <svg width="12" height="12" aria-hidden="true"><use href="#ic-chevron-down"/></svg>
+                  <span class="tree__sec-nome grow">3 · Resíduos</span>
+                  <span class="tiny muted num">9</span>
+                </div>
+                <button class="tree__item">
+                  <span class="tree__num">3.1</span>
+                  <span class="grow">Contrato vigente de coleta de resíduos do grupo A</span>
+                  <span class="tree__peso">peso 4</span>
+                </button>
+              </nav>
+            </div>
+            <div class="card__foot small muted">Arrastar reordena dentro da seção. A numeração é calculada — não é digitada.</div>
+          </div>
+
+          <!-- EDITOR DO ITEM -->
+          <div class="card">
+            <div class="card__head">
+              <div>
+                <p class="tiny muted strong">Item 1.1 · Estrutura física</p>
+                <h2 class="card__title" style="margin-top:2px">Editar item</h2>
+              </div>
+              <span class="badge badge--attention"><span class="dot"></span>18 respostas abertas</span>
+            </div>
+            <div class="card__body stack" style="--gap:var(--space-5)">
+              <div class="field">
+                <label class="label" for="rt-perg">Pergunta <span class="req" aria-hidden="true">*</span></label>
+                <textarea class="textarea" id="rt-perg" aria-describedby="rt-perg-hint">Existe barreira física entre a área de recebimento e a área de manipulação de alimentos?</textarea>
+                <p class="hint" id="rt-perg-hint">Escrita de forma que “sim” signifique conforme. É o texto que a consultora lê em campo e o que sai no relatório do cliente.</p>
+              </div>
+
+              <div class="field">
+                <label class="label" for="rt-orient">Orientação ao inspetor <span class="opt">(opcional)</span></label>
+                <textarea class="textarea" id="rt-orient">Conferir se há separação construída, não apenas demarcação no piso. Fotografar o ponto de passagem.</textarea>
+                <p class="hint">Aparece só para quem está inspecionando. Não vai para o relatório do cliente.</p>
+              </div>
+
+              <div class="cols3">
+                <div class="field">
+                  <label class="label" for="rt-peso">Peso</label>
+                  <select class="select" id="rt-peso" aria-describedby="rt-nota"><option>5 — máximo</option><option>4</option><option>3</option><option>2</option><option>1 — mínimo</option></select>
+                </div>
+                <div class="field">
+                  <label class="label" for="rt-tipo">Tipo de requisito</label>
+                  <select class="select" id="rt-tipo" aria-describedby="rt-tipo-hint"><option>Imprescindível</option><option>Necessário</option><option>Recomendável</option><option>Informativo</option></select>
+                  <p class="hint" id="rt-tipo-hint"><span class="strong">Não entra no cálculo da nota.</span> Muda o rótulo e a página da ABNT no PDF.</p>
+                </div>
+              </div>
+
+              <div>
+                <label class="switch"><input type="checkbox" checked><span class="track"></span><span class="strong">Item crítico</span></label>
+                <p class="hint" id="rt-nota" style="margin-top:var(--space-2)">Peso e “item crítico” são <span class="strong">os dois únicos campos que mexem no resultado</span>. Um crítico não conforme derruba a nota da seção inteira, independentemente do peso.</p>
+              </div>
+
+              <hr>
+
+              <div class="field">
+                <label class="label" for="rt-norma">Norma citada</label>
+                <select class="select" id="rt-norma" aria-describedby="rt-norma-hint">
+                  <option>RDC 502/2021 · art. 27</option>
+                  <option>RDC 216/2004 · item 4.1</option>
+                  <option>Sem norma vinculada</option>
+                </select>
+                <p class="hint" id="rt-norma-hint">Vem da <a href="#/biblioteca">Biblioteca</a>. <span class="strong">Sem verbete lá, a norma não é citada em lugar nenhum do relatório</span> — nem aqui, nem no PDF, nem no portal.</p>
+              </div>
+
+              <div class="field">
+                <label class="label">Respostas possíveis</label>
+                <div class="conform" role="group" aria-label="Respostas possíveis para este item">
+                  <button type="button" data-kind="ok" aria-pressed="true">Conforme</button>
+                  <button type="button" data-kind="no" aria-pressed="true">Não conforme</button>
+                  <button type="button" data-kind="part" aria-pressed="true">Parcial</button>
+                  <button type="button" data-kind="na" aria-pressed="false">Não se aplica</button>
+                </div>
+                <p class="hint">“Não se aplica” tira o item do denominador da nota. Desligue quando o item valer para toda instituição do segmento.</p>
+              </div>
+            </div>
+
+            <div class="card__foot" style="display:flex;justify-content:space-between;gap:var(--space-3);flex-wrap:wrap">
+              <button class="btn btn--ghost btn--sm" data-open="dlg-aposentar">Aposentar item…</button>
+              <div class="row-wrap">
+                <button class="btn btn--ghost btn--sm">Descartar</button>
+                <button class="btn btn--primary btn--sm" data-open="dlg-alterar">Salvar item</button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -2504,6 +2756,7 @@ dialog.drawer--left[open] { animation-name: drawer-in-left; }
                 <tr><td class="table__primary">FE-15</td><td>Primitivo <code>ConfirmDialog</code> + migração dos 114 <code>alert()</code>/<code>confirm()</code></td><td>Opus 5 · lote no Codex</td><td><span class="badge badge--attention">médio</span></td><td class="muted"><code>Modal</code> (FE-04a ✅)</td></tr>
                 <tr><td class="table__primary">FE-16</td><td>Ficha do cliente com abas — os 7 achados do diagnóstico, com a aba na URL (<code>?aba=</code>)</td><td>Opus 5</td><td><span class="badge badge--danger">alto</span></td><td class="muted"><code>Tabs</code> (FE-04b ✅) · FE-15</td></tr>
                 <tr><td class="table__primary">FE-17</td><td>Rotas nunca desenhadas: Solicitações, Roteiros, Biblioteca</td><td>Sonnet 5</td><td><span class="badge badge--attention">médio</span></td><td class="muted"><code>Table</code> (FE-04b ✅)</td></tr>
+                <tr><td class="table__primary">FE-17b</td><td><span class="strong">Editor do roteiro</span> — índice + item, aposentar em vez de excluir, e as 3 regras invisíveis na tela</td><td>Opus 5</td><td><span class="badge badge--danger">alto</span></td><td class="muted">FE-15 · FE-17</td></tr>
                 <tr><td class="table__primary">FE-18</td><td>Sincronização — linha do tempo, estados e a fila que falhou</td><td>Sonnet 5</td><td><span class="badge badge--attention">médio</span></td><td class="muted">FE-15 (descartar exige confirmação)</td></tr>
                 <tr><td class="table__primary">FE-19</td><td>Configurações — nav de seção, salvar por seção, zona de risco</td><td>Sonnet 5</td><td><span class="badge badge--attention">médio</span></td><td class="muted">FE-15</td></tr>
                 <tr><td class="table__primary">FE-20</td><td>Estados vazio/carregando/erro padronizados + <code>PageHeader</code> nas 23 páginas restantes</td><td>Sonnet 5</td><td><span class="badge badge--attention">médio</span></td><td class="muted">—</td></tr>
@@ -2566,6 +2819,7 @@ dialog.drawer--left[open] { animation-name: drawer-in-left; }
     <a class="rail__link" href="#/cliente" data-close><svg width="18" height="18" aria-hidden="true"><use href="#ic-users"/></svg><span>Ficha do cliente</span></a>
     <a class="rail__link" href="#/solicitacoes" data-close><svg width="18" height="18" aria-hidden="true"><use href="#ic-headset"/></svg><span>Solicitações</span></a>
     <a class="rail__link" href="#/roteiros" data-close><svg width="18" height="18" aria-hidden="true"><use href="#ic-file"/></svg><span>Roteiros</span></a>
+    <a class="rail__link" href="#/roteiro" data-close><svg width="18" height="18" aria-hidden="true"><use href="#ic-clipboard"/></svg><span>Roteiro — editor</span></a>
     <a class="rail__link" href="#/biblioteca" data-close><svg width="18" height="18" aria-hidden="true"><use href="#ic-book"/></svg><span>Biblioteca</span></a>
     <a class="rail__link" href="#/sincronizacao" data-close><svg width="18" height="18" aria-hidden="true"><use href="#ic-activity"/></svg><span>Sincronização</span></a>
     <a class="rail__link" href="#/configuracoes" data-close><svg width="18" height="18" aria-hidden="true"><use href="#ic-settings"/></svg><span>Configurações</span></a>
@@ -2613,6 +2867,48 @@ dialog.drawer--left[open] { animation-name: drawer-in-left; }
   <div class="modal__foot">
     <button class="btn btn--outline" data-close data-autofocus>Cancelar</button>
     <button class="btn btn--danger" data-close data-toast="Envio descartado." data-toast-tipo="attention">Descartar envio</button>
+  </div>
+</dialog>
+
+<dialog class="modal" id="dlg-alterar" role="alertdialog" aria-labelledby="al-t" aria-describedby="al-d" data-guard="true" style="width:min(460px,92vw)">
+  <div class="modal__body" style="padding:var(--space-6)">
+    <div class="row" style="align-items:flex-start;gap:var(--space-3)">
+      <span class="toast__mark" style="width:32px;height:32px;background:var(--amber-soft);color:var(--amber-soft-ink);font-size:16px" aria-hidden="true">!</span>
+      <div>
+        <h2 id="al-t" style="font-size:var(--text-lg)">Alterar a pergunta de um item em uso?</h2>
+        <p id="al-d" class="small muted" style="margin-top:var(--space-2)">Este item tem <span class="strong">18 respostas abertas</span> em 4 inspeções ainda não concluídas. A resposta não guarda o texto da pergunta — ela aponta para o item. Então:</p>
+        <ul class="small muted" style="margin:var(--space-2) 0 0;padding-left:var(--space-5)">
+          <li>as 18 respostas passam a mostrar a <span class="strong">pergunta nova</span>, mesmo tendo sido dadas para a antiga;</li>
+          <li>as 31 inspeções já <span class="strong">concluídas</span> não mudam — cada uma congelou a versão que valia na abertura.</li>
+        </ul>
+        <p class="small" style="margin-top:var(--space-3)">Se a mudança de sentido é grande, o certo é <span class="strong">aposentar este item e criar outro</span> — aí cada resposta continua ligada à pergunta que foi realmente feita.</p>
+      </div>
+    </div>
+  </div>
+  <div class="modal__foot">
+    <button class="btn btn--outline" data-close data-autofocus>Cancelar</button>
+    <button class="btn btn--danger" data-close data-toast="Pergunta alterada em 18 respostas abertas." data-toast-tipo="attention">Alterar mesmo assim</button>
+  </div>
+</dialog>
+
+<dialog class="modal" id="dlg-aposentar" role="alertdialog" aria-labelledby="ap2-t" aria-describedby="ap2-d" data-guard="true" style="width:min(440px,92vw)">
+  <div class="modal__body" style="padding:var(--space-6)">
+    <div class="row" style="align-items:flex-start;gap:var(--space-3)">
+      <span class="toast__mark" style="width:32px;height:32px;background:var(--accent-soft);color:var(--accent-soft-ink);font-size:16px" aria-hidden="true">i</span>
+      <div>
+        <h2 id="ap2-t" style="font-size:var(--text-lg)">Aposentar este item?</h2>
+        <p id="ap2-d" class="small muted" style="margin-top:var(--space-2)">Aposentar não apaga — é por isso que aqui não existe “Excluir”. Apagar o item deixaria as 18 respostas órfãs e degradaria relatório já entregue.</p>
+        <ul class="small muted" style="margin:var(--space-2) 0 0;padding-left:var(--space-5)">
+          <li>o item some das <span class="strong">próximas</span> inspeções;</li>
+          <li>as 4 inspeções em andamento seguem com ele até serem concluídas;</li>
+          <li>os relatórios entregues continuam idênticos.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="modal__foot">
+    <button class="btn btn--outline" data-close data-autofocus>Cancelar</button>
+    <button class="btn btn--primary" data-close data-toast="Item aposentado. Sai das próximas inspeções." data-toast-tipo="success">Aposentar item</button>
   </div>
 </dialog>
 
@@ -3228,10 +3524,18 @@ dialog.drawer--left[open] { animation-name: drawer-in-left; }
     });
   })();
 
+  /* ---------- Índice do roteiro: selecionar item ---------- */
+  document.addEventListener('click', function (ev) {
+    var item = ev.target.closest('.tree__item');
+    if (!item) return;
+    item.closest('.tree').querySelectorAll('.tree__item').forEach(function (b) { b.removeAttribute('aria-current'); });
+    item.setAttribute('aria-current', 'true');
+  });
+
   /* ---------- Roteador por hash ---------- */
   var TELAS = {
     diagnostico: 's-diagnostico', inicio: 's-inicio', cliente: 's-cliente',
-    solicitacoes: 's-solicitacoes', roteiros: 's-roteiros', biblioteca: 's-biblioteca',
+    solicitacoes: 's-solicitacoes', roteiros: 's-roteiros', roteiro: 's-roteiro', biblioteca: 's-biblioteca',
     sincronizacao: 's-sincronizacao', configuracoes: 's-configuracoes',
     padroes: 's-padroes', cores: 's-cores', plano: 's-plano'
   };

@@ -29,7 +29,12 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
-.claude/
+# Configuração local do Claude Code fica de fora (settings.local.json, launch.json,
+# locks). As skills do projeto, não: são documentação do nosso sistema de design e
+# precisam sobreviver a troca de máquina. Git exige `.claude/*` em vez de `.claude/`
+# — não dá para re-incluir arquivo cujo diretório pai está excluído.
+.claude/*
+!.claude/skills/
 supabase/.temp/
 
 # Local backup exports
@@ -56,7 +61,7 @@ _local-nao-versionado/
 test-results/
 playwright-report/
 
-# Prot�tipos: fragmentos gerados s� para publicar como artefato
+# Prot�tipos: fragmentos gerados s� para publicar como artefato
 docs/prototipos/_publish/
 
 # MCP com token pessoal/pago — nao versionar (regra do HANDOFF-FRONTEND)

@@ -490,6 +490,8 @@ hr {
 /* Alvo de toque: no celular nenhum botão fica abaixo de 44px — inclusive o
    pequeno, que existe para caber na linha da tabela, não para ser difícil de
    acertar com o dedo. */
+/* A regra completa de alvo de toque está no FIM deste arquivo — precisa vir
+   depois de todas as alturas que ela sobrescreve. */
 @media (pointer: coarse) {
   .btn, .btn--sm { min-height: var(--touch-min); }
 }
@@ -1049,6 +1051,22 @@ dialog.drawer--left[open] { animation-name: drawer-in-left; }
 .notice--success { background: var(--success-soft); border-color: var(--success-soft-border); color: var(--success-soft-ink); }
 .notice--info { background: var(--accent-soft); border-color: var(--accent-soft-border); color: var(--accent-soft-ink); }
 .notice__mark { flex: none; margin-top: 1px; }
+
+/* --- Alvo de toque: a última palavra --------------------------------------
+   Fica no fim do arquivo de propósito. `.input`/`.select`/`.textarea` (36px),
+   `.tab` (42px), `.page-btn` (30px) e `.th-sort` (18px, era o menor alvo de
+   todos) declaram altura mais acima com a MESMA especificidade — e quem vem
+   depois ganha. Escrita lá em cima, junto do botão, esta regra era descartada
+   em silêncio e o `select` continuava com 36px no dedo.
+   A decisão é a mesma desde o FE-01: no toque, nada abaixo de 44px. */
+@media (pointer: coarse) {
+  .input, .select, .textarea,
+  .page-btn, .tab, .th-sort,
+  .segmented button { min-height: var(--touch-min); }
+  /* O botão de ordenar mora dentro do <th>: sem esticar a célula junto, ele
+     ganha altura e vaza para fora do cabeçalho. */
+  .table thead th { height: auto; padding-block: var(--space-1); }
+}
 
 
   body { overflow-x: hidden; }
