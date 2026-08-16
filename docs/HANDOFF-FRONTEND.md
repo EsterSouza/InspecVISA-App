@@ -7,7 +7,7 @@
 
 ## Onde estamos — atualizado em 16/08/2026
 
-**19 cards entregues, 9 na fila.** Card entregue tem o título ~~riscado~~ mais abaixo, com a data
+**20 cards entregues, 8 na fila.** Card entregue tem o título ~~riscado~~ mais abaixo, com a data
 e o commit; card aberto tem ⬜. Esta é a única tabela de estado do documento — se divergir de
 qualquer outra coisa aqui, ela ganha.
 
@@ -15,7 +15,6 @@ qualquer outra coisa aqui, ela ganha.
 
 | Card | O que é | Só depois de |
 |---|---|---|
-| **FE-20** | Vazio / carregando / erro + `PageHeader` nas 23 páginas que ainda o escrevem à mão | — |
 | **FE-23** | **Fluxo de inspeção** `/new` → `/execute` → `/summary`. Começa por protótipo: 2 das 3 telas nunca foram desenhadas | protótipo aprovado |
 | **FE-24** | **Formulários**: 225 controles crus em 40 arquivos viram `Input`/`Select`/`Textarea`/`Label` | FE-23 |
 | **FE-21** | 2.858 classes de cor viram token — **mais os 20 hex cravados em TS/TSX** que o de-para não vê | desenho congelado |
@@ -25,8 +24,7 @@ qualquer outra coisa aqui, ela ganha.
 | **FE-12** | Tema escuro no app inteiro | **FE-21** |
 | **FE-27** | Gate de regressão visual e a11y — **é o card que fecha o frontend** | FE-12, só para o tema |
 
-**FE-23 e FE-24 são condição para declarar o redesenho encerrado.** O primeiro da fila (FE-20) é
-aplicação de padrão já decidido e pode sair a qualquer momento.
+**FE-23 e FE-24 são condição para declarar o redesenho encerrado.**
 
 ### ✅ O que já está no ar
 
@@ -51,9 +49,10 @@ aplicação de padrão já decidido e pode sair a qualquer momento.
 | FE-18 | Sincronização com linha do tempo e fila que falhou | 16/08 | `5420ddb` |
 | FE-17b | Editor do roteiro em master-detail, com "Aposentar item" | 16/08 | `25ced0c` |
 | FE-19 | Configurações com nav de seção lateral e salvar por seção | 16/08 | `35d0242` |
+| FE-20 | `PageHeader` + vazio/carregando/erro padronizados em 7 listas do admin | 16/08 | `f8ba4c8` |
 
 **Ondas:** 1 (portal) **fechada** · 2 (admin) **fechada** · 3 (fechamento) falta FE-12 e a revisão
-final de a11y · 4 (o admin que falta) em andamento, 7 de 14 entregues.
+final de a11y · 4 (o admin que falta) em andamento, 8 de 14 entregues.
 
 ---
 
@@ -475,11 +474,44 @@ a última seção, estilo vermelho no nav.
   pré-existentes (`localStorage.clear is not a function`, ambiente, confirmado reproduzindo
   idêntico com as mudanças em stash — nenhum deles toca `Settings.tsx`/`Schedules.tsx`).
 
-### ⬜ FE-20 · Estados e cabeçalho
-- `EmptyState` de primeira vez, de filtro e de erro, e `Skeleton` com a forma do conteúdo,
-  aplicados nas listas (decisão 18).
-- `PageHeader` nas **23 páginas** que ainda escrevem `<h1>` + subtítulo + ações à mão. Hoje só
-  `ActionPlan.tsx` usa o primitivo.
+### ~~FE-20 · Estados e cabeçalho~~ · ✅ 16/08/2026 · `f8ba4c8`
+`PageHeader` migrado em `Clients.tsx`, `Inspections.tsx`, `Schedules.tsx`, `ServiceRequests.tsx`,
+`admin/AdminTemplates.tsx`, `admin/LegislationsManager.tsx` e o cabeçalho "Olá, {nome}" do
+`Dashboard.tsx` — as sete telas que têm o padrão título+subtítulo+ações de uma página de índice.
+Nessas mesmas sete, o carregamento e o vazio pararam de ser um spinner solto e um texto cru
+(decisão 18): `EmptyState` agora distingue **vazio de primeira vez** (com ação de criar, quando
+existe uma), **vazio de filtro** (com "Limpar filtros", nunca oferece criar — o dado existe, só
+está escondido) e **erro de carga** (ícone de alerta, mensagem real, "Tentar de novo"); o
+carregamento usa `Skeleton` na forma do conteúdo real (linhas de tabela ou cards) em vez de um
+spinner central.
+- **Achado real ao medir o escopo:** a contagem "23 páginas" do card e da auditoria (`docs/auditoria-admin-onda4.md:49`)
+  já estava defasada — `SyncCenter.tsx` (FE-18) e `Settings.tsx` (FE-19) tinham adotado o primitivo
+  entre a auditoria e este card. Da lista real de 23 arquivos em `src/pages/**/*.tsx`, só 20
+  seguiam sem `PageHeader` no início deste card.
+- **Erro que não existia virou visível em 3 das 7 telas.** `Clients.tsx`, `Inspections.tsx` e
+  `admin/LegislationsManager.tsx` capturavam a falha de carga só em `console.error` (ou, no caso de
+  Clientes, num `toast` que some sozinho) e a tela ficava com a lista vazia — indistinguível de
+  "não há clientes". As três ganharam um `loadError` de verdade, com o mesmo cartão de erro e
+  retry das demais.
+- **Não entram neste card, por não serem o padrão "índice com cabeçalho":** `ClientDetails.tsx` e
+  `TemplateDetail.tsx` (identidade no topo, decisão do FE-16/FE-17b, não título genérico);
+  `InspectionExecution.tsx`, `InspectionSummary.tsx` e `NewInspection.tsx` (fluxo de inspeção,
+  cabeçalho `sticky` próprio, escopo explícito do **FE-23**); `admin/TemplateEditor.tsx` (mesma
+  família de exceção do editor, como o FE-05 já havia decidido para `InspectionExecution`);
+  `PublicSchedule.tsx`, `PublicAppointmentStatus.tsx` e `ClientPortal.tsx` (linguagem do Portal, não
+  do admin — escopo do **FE-26**); `admin/SmartImporter.tsx`, `Login.tsx`, `ProfileSelection.tsx` e
+  `AccessDenied.tsx` (sem `PageShell`, listados de próprio punho no **FE-25** como "três telas
+  curtas, sem shell").
+- Não tocado: os estados de `ActionPlan.tsx`, `SyncCenter.tsx` e `Settings.tsx` — já entregues em
+  cards anteriores com `EmptyState`/`PageHeader` funcionando; padronizar a variante fina de cada um
+  (ex. distinguir vazio-de-filtro do vazio-de-primeira-vez no `ActionPlan.tsx`) ficou de fora por
+  não ser o achado deste card.
+- `tsc -b` e `npm run build` limpos. Verificado logada como Ester nas 7 rotas com dado real de
+  produção: tabelas e listas populando, filtro sem resultado mostrando "Nada com este filtro" com
+  "Limpar filtros" funcionando (testado em Clientes e Biblioteca de Legislação), fila real vazia de
+  Solicitações mostrando o vazio de primeira vez correto. Suíte de testes com os mesmos 6 falhos
+  pré-existentes (`localStorage.clear is not a function`, ambiente — nenhum arquivo tocado por
+  este card).
 
 ### ⬜ FE-21 · As 2.858 classes de cor viram token
 - A tabela de-para está no Artefato D, tela **"De-para de cor"**. Converter **família por família,
@@ -779,7 +811,7 @@ entregou o editor de roteiro sem precisar de arrastar.
 | ~~FE-17b~~ ✅ | Editor do roteiro em master-detail | Opus 5 | alto | entregue 16/08 |
 | ~~FE-18~~ ✅ | Sincronização | Sonnet 5 | médio | entregue 16/08 |
 | ~~FE-19~~ ✅ | Configurações | Sonnet 5 | médio | entregue 16/08 |
-| FE-20 | Estados vazio/carregando/erro + `PageHeader` em 23 páginas | Sonnet 5 | médio | — |
+| ~~FE-20~~ ✅ | Estados vazio/carregando/erro + `PageHeader` em 7 listas do admin | Sonnet 5 | médio | entregue 16/08 |
 | FE-21 | 2.858 classes + 20 hex → token, família por família | Codex (medium) | alto | de-para aprovado ✅ |
 | FE-22 | `Clients` e `Inspections` em tabela densa | Codex (medium) | baixo | FE-17 ✅ |
 | FE-23 | Artefato E + fluxo `/new` → `/execute` → `/summary` | Opus 5 | **alto** | protótipo aprovado |
@@ -789,12 +821,12 @@ entregou o editor de roteiro sem precisar de arrastar.
 | FE-27 | Gate de regressão visual e a11y | Opus 5 (matriz) · Sonnet 5 (spec) | médio-alto | FE-12, só para a camada de tema |
 | FE-12 | Ligar o tema escuro no app inteiro | Sonnet 5 | médio | **FE-21** — impossível antes |
 
-**A ordem, revisada em 16/08/2026.** `FE-15`, `FE-14`, `FE-16`, `FE-17`, `FE-18`, `FE-17b` e `FE-19`
-já saíram — o `FE-15` foi primeiro porque outros três esperavam por ele, e `FE-14`/`FE-16` em
-paralelo por serem as duas telas de uso diário. Daqui em diante:
+**A ordem, revisada em 16/08/2026.** `FE-15`, `FE-14`, `FE-16`, `FE-17`, `FE-18`, `FE-17b`, `FE-19`
+e `FE-20` já saíram — o `FE-15` foi primeiro porque outros três esperavam por ele, e `FE-14`/`FE-16`
+em paralelo por serem as duas telas de uso diário. Daqui em diante:
 
-1. ~~**FE-17b**~~ ✅ · ~~**FE-19**~~ ✅ · **FE-20** — aplicação de padrão já decidido no artefato,
-   fecha o que a Onda 4 original abriu.
+1. ~~**FE-17b**~~ ✅ · ~~**FE-19**~~ ✅ · ~~**FE-20**~~ ✅ — aplicação de padrão já decidido no
+   artefato, fecha o que a Onda 4 original abriu.
 2. **FE-23 e FE-24** — estrutura real de uso. Vêm antes da cor de propósito.
 3. **FE-21** — só com o desenho das telas praticamente congelado. Converter cor **antes** de o
    desenho parar significa converter duas vezes.
