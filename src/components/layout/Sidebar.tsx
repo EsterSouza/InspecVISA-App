@@ -1,135 +1,189 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import {
-  Activity,
-  BookOpen,
-  Calendar,
-  ClipboardCheck,
-  FileText,
-  Gauge,
-  Headset,
-  Home,
-  LogOut,
-  Plus,
-  Settings,
-  User,
-  Users,
-} from 'lucide-react';
+import { LogOut, PanelLeftClose, PanelLeftOpen, Plus } from 'lucide-react';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { SyncIndicator } from '../ui/SyncIndicator';
-
-const staffNavItems = [
-  { to: '/', icon: Home, label: 'Início' },
-  { to: '/painel', icon: Gauge, label: 'Painel' },
-  { to: '/clients', icon: Users, label: 'Clientes' },
-  { to: '/templates', icon: FileText, label: 'Roteiros' },
-  { to: '/legislations', icon: BookOpen, label: 'Biblioteca' },
-  { to: '/schedules', icon: Calendar, label: 'Agendamentos' },
-  { to: '/requests', icon: Headset, label: 'Solicitações' },
-  { to: '/inspections', icon: ClipboardCheck, label: 'Inspeções' },
-  { to: '/sync', icon: Activity, label: 'Sincronização' },
-  { to: '/settings', icon: Settings, label: 'Configurações' },
-];
-
-const clientNavItems = [
-  { to: '/inspections', icon: ClipboardCheck, label: 'Minhas inspeções' },
-  { to: '/profile', icon: User, label: 'Meu perfil' },
-];
+import { Tooltip } from '../ui/Tooltip';
+import { STAFF_NAV_GROUPS, CLIENT_NAV_ITEMS } from './navConfig';
 
 export function Sidebar() {
   const settings = useSettingsStore((s) => s.settings);
+  const collapsed = useSettingsStore((s) => s.sidebarCollapsed);
+  const toggleCollapsed = useSettingsStore((s) => s.toggleSidebarCollapsed);
   const { signOut, tenantInfo } = useAuthStore();
 
   const isClient = tenantInfo?.role === 'client';
-  const navItems = isClient ? clientNavItems : staffNavItems;
+  const groups = isClient ? [{ label: null, items: CLIENT_NAV_ITEMS }] : STAFF_NAV_GROUPS;
   const displayName = isClient ? tenantInfo?.email : settings.name || 'Consultora';
   const initials = (displayName || 'C').trim().charAt(0).toUpperCase();
 
   return (
-    <aside className="sticky top-0 hidden h-screen w-72 shrink-0 flex-col border-r border-gray-200 bg-white lg:flex">
-      <div className="px-5 pb-4 pt-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <img
-              src="/logo-claro-192.png"
-              alt="TreinaVISA"
-              className="h-10 w-10 shrink-0 rounded-xl shadow-sm"
-            />
+    <aside
+      className={`sticky top-0 hidden h-screen shrink-0 flex-col border-r border-gray-200 bg-white transition-[width] duration-200 lg:flex ${
+        collapsed ? 'w-16' : 'w-72'
+      }`}
+    >
+      <div className={`flex items-start pb-4 pt-5 ${collapsed ? 'justify-center px-2' : 'justify-between gap-3 px-5'}`}>
+        <div className={`flex min-w-0 items-center gap-3 ${collapsed ? 'justify-center' : ''}`}>
+          <img
+            src="/logo-claro-192.png"
+            alt="TreinaVISA"
+            className="h-10 w-10 shrink-0 rounded-xl shadow-sm"
+          />
+          {!collapsed && (
             <div className="min-w-0">
               <p className="truncate text-lg font-black tracking-tight text-gray-950">InspecVISA</p>
               <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-gray-400">
                 Gestão sanitária
               </p>
             </div>
-          </div>
-          <SyncIndicator compact />
+          )}
         </div>
+        {!collapsed && <SyncIndicator compact />}
       </div>
 
-      <div className="px-4 pb-4">
-        <NavLink
-          to="/new"
-          className={({ isActive }) =>
-            `flex h-11 w-full items-center justify-center gap-2 rounded-md text-sm font-bold text-white shadow-sm transition-colors ${
-              isActive ? 'bg-primary-800' : 'bg-primary-700 hover:bg-primary-800'
-            }`
-          }
-        >
-          <Plus className="h-4 w-4" />
-          Nova inspeção
-        </NavLink>
-      </div>
-
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-4" aria-label="Navegação principal">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          return (
+      <div className={collapsed ? 'px-2 pb-4' : 'px-4 pb-4'}>
+        {(() => {
+          const newInspectionLink = (
             <NavLink
-              key={item.to}
-              to={item.to}
+              to="/new"
+              aria-label="Nova inspeção"
               className={({ isActive }) =>
-                `group flex h-10 w-full items-center gap-3 rounded-md px-3 text-sm font-semibold transition-colors ${
-                  isActive
-                    ? 'bg-primary-50 text-primary-800'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-950'
+                `flex h-11 w-full items-center justify-center gap-2 rounded-md text-sm font-bold text-white shadow-sm transition-colors ${
+                  isActive ? 'bg-primary-800' : 'bg-primary-700 hover:bg-primary-800'
                 }`
               }
             >
-              {({ isActive }) => (
-                <>
-                  <Icon
-                    className={`h-4 w-4 shrink-0 ${
-                      isActive ? 'text-primary-700' : 'text-gray-400 group-hover:text-gray-600'
-                    }`}
-                  />
-                  <span className="truncate">{item.label}</span>
-                </>
-              )}
+              <Plus className="h-4 w-4 shrink-0" />
+              {!collapsed && 'Nova inspeção'}
             </NavLink>
           );
-        })}
+          return collapsed ? (
+            <Tooltip content="Nova inspeção" side="right" className="block w-full">
+              {newInspectionLink}
+            </Tooltip>
+          ) : (
+            newInspectionLink
+          );
+        })()}
+      </div>
+
+      <nav
+        className={`flex-1 space-y-1 overflow-y-auto pb-4 ${collapsed ? 'px-2' : 'px-3'}`}
+        aria-label="Navegação principal"
+      >
+        {groups.map((group, groupIndex) => (
+          <div key={group.label ?? `group-${groupIndex}`} className={groupIndex > 0 ? 'pt-3' : undefined}>
+            {group.label && !collapsed && (
+              <p className="mb-1 px-3 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                {group.label}
+              </p>
+            )}
+            {group.label && collapsed && <div className="mx-2 mb-2 border-t border-gray-100" />}
+            <div className="space-y-1">
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const link = (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    aria-label={item.label}
+                    className={({ isActive }) =>
+                      `group flex h-10 w-full items-center gap-3 rounded-md text-sm font-semibold transition-colors ${
+                        collapsed ? 'justify-center px-0' : 'px-3'
+                      } ${
+                        isActive
+                          ? 'bg-primary-50 text-primary-800'
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-950'
+                      }`
+                    }
+                  >
+                    {({ isActive }) => (
+                      <>
+                        <Icon
+                          className={`h-4 w-4 shrink-0 ${
+                            isActive ? 'text-primary-700' : 'text-gray-400 group-hover:text-gray-600'
+                          }`}
+                        />
+                        {!collapsed && <span className="truncate">{item.label}</span>}
+                      </>
+                    )}
+                  </NavLink>
+                );
+                return collapsed ? (
+                  <Tooltip key={item.to} content={item.label} side="right" className="block w-full">
+                    {link}
+                  </Tooltip>
+                ) : (
+                  link
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
-      <div className="border-t border-gray-100 p-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-gray-100 text-sm font-bold text-gray-700">
-            {initials}
+      <div className={`border-t border-gray-100 ${collapsed ? 'p-2' : 'p-4'}`}>
+        {collapsed ? (
+          <div className="mb-2 flex flex-col items-center gap-2">
+            <Tooltip content={`${displayName} · ${tenantInfo?.role ?? 'staff'}`} side="right" className="block">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-gray-100 text-sm font-bold text-gray-700">
+                {initials}
+              </div>
+            </Tooltip>
+            <Tooltip content="Sair" side="right" className="block w-full">
+              <button
+                type="button"
+                onClick={signOut}
+                className="flex h-9 w-full items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                aria-label="Sair"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </Tooltip>
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-bold text-gray-950">{displayName}</p>
-            <p className="truncate text-xs font-medium capitalize text-gray-500">{tenantInfo?.role ?? 'staff'}</p>
+        ) : (
+          <div className="mb-2 flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-gray-100 text-sm font-bold text-gray-700">
+              {initials}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-bold text-gray-950">{displayName}</p>
+              <p className="truncate text-xs font-medium capitalize text-gray-500">{tenantInfo?.role ?? 'staff'}</p>
+            </div>
+            <button
+              type="button"
+              onClick={signOut}
+              className="rounded-md p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+              title="Sair"
+              aria-label="Sair"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={signOut}
-            className="rounded-md p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
-            title="Sair"
-            aria-label="Sair"
-          >
-            <LogOut className="h-4 w-4" />
-          </button>
-        </div>
+        )}
+        {(() => {
+          const toggleButton = (
+            <button
+              type="button"
+              onClick={toggleCollapsed}
+              className="flex h-9 w-full items-center justify-center gap-2 rounded-md text-xs font-semibold text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-700"
+              aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
+              aria-pressed={collapsed}
+            >
+              {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+              {!collapsed && 'Recolher menu'}
+            </button>
+          );
+          return collapsed ? (
+            <Tooltip content="Expandir menu" side="right" className="mt-1 block w-full">
+              {toggleButton}
+            </Tooltip>
+          ) : (
+            <div className="mt-2">{toggleButton}</div>
+          );
+        })()}
       </div>
     </aside>
   );

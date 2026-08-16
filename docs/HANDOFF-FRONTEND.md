@@ -302,7 +302,7 @@ Regra que decide a coluna **Esforço**: o que o protótipo já resolveu não é 
 | FE-04b | `Table` densa, `Tabs`, `Pagination`, `Tooltip`, `Drawer` | Sonnet 5 | médio | onda 1 |
 | FE-04b | `PageShell` + `PageHeader` | Sonnet 5 | baixo | — |
 | FE-08 | Tela nova de Plano de Ação: lista + detalhe com `situation` e `recommended_action` | Opus 5 | médio-alto | `Table` |
-| FE-06 | Rail colapsável persistido + drawer no celular + nova ordem do menu | Sonnet 5 | médio | `Drawer` |
+| FE-06 | Rail colapsável persistido + drawer no celular + nova ordem do menu ✅ | Sonnet 5 | médio | `Drawer` |
 | FE-13 | Agendamentos do admin reusando o `WeekCalendar` ✅ | Sonnet 5 | baixo | FE-13 da onda 1 |
 | FE-07 | Aba de Arquivos + corrigir o N+1 de `listAttachments` ✅ | Sonnet 5 | médio | `Table` |
 | FE-05 · Ponto 1 | Larguras: `max-w-*` → `PageShell` em ~15 páginas ✅ | Sonnet 5 | baixo | `PageShell` |
@@ -357,7 +357,8 @@ Nomes de modelo mudam rápido; escolher o mais recente no `/model` e calibrar o 
 | FE-08 (tela de Plano de Ação do admin) | ✅ Entregue em 15/08/2026 — ver detalhe abaixo |
 | FE-07 (aba de Arquivos do cliente) | ✅ Entregue em 15/08/2026 — corrige o N+1 de `listAttachments` |
 | FE-05 · Ponto 1 (larguras: `max-w-*` → `PageShell`) | ✅ Entregue em 16/08/2026 — ver detalhe abaixo |
-| Onda 2 (admin) | Em andamento — FE-04b, FE-05 (ponto 1), FE-07 e FE-08 entregues; FE-06 segue |
+| FE-06 (rail colapsável + drawer mobile + nova ordem do menu) | ✅ Entregue em 16/08/2026 — ver detalhe abaixo |
+| Onda 2 (admin) | Todos os cards `FE-*` entregues (FE-04b, FE-05 ponto 1, FE-06, FE-07, FE-08). Resta só o item de backlog sem card ("converter listas de cards em tabelas nas telas restantes") |
 | Onda 3 | Depois da onda 2 |
 | MCP do DesignMD | ✅ funcionando — URL corrigida para `www` e servidor aprovado em `~/.claude.json` |
 
@@ -381,6 +382,7 @@ Tabela de acompanhamento rápido — quem fez o quê e quando. O detalhe de cada
 | 15/08/2026 | **PORT-02 (emenda)** — anexo genérico sai do link aberto, exige conta | Sonnet 5 | `daada5c` | Achado ao testar a aba de Documentos: `kind='attachment'` carrega nome de arquivo confidencial, não pode vazar pro link sem login. Edge Function `client-appointment-assets` redeployada em produção (v9). |
 | 15/08/2026 | Documentos do portal: cobre visita com só foto/anexo | Sonnet 5 | `a819e5e`, `37282b8` | Lista de "Documentos por visita" ficava incompleta (só entrava quem tinha relatório); passou a valer para foto/anexo isolados. |
 | 16/08/2026 | **FE-05 · Ponto 1** — larguras: `max-w-*` → `PageShell` | Sonnet 5 | — | 11 páginas do admin migradas (todas as que tinham o padrão, incluindo além das 6 representativas citadas no card: `NewInspection`, `ServiceRequests`, `Settings`, `SyncCenter` e os 2 wrappers de `InspectionSummary`). As 2 páginas públicas sem login (`PublicSchedule`, `PublicAppointmentStatus`) ficaram de fora por decisão de escopo: `PageShell` é documentado como largura do admin, não do portal/link público. `tsc -b` e `npm run build` limpos, 382 testes passando, 11 rotas conferidas logada no navegador (Clientes, Início, Agendamentos, Inspeções, Painel, Solicitações, Configurações, Sincronização, detalhe de cliente, Nova Inspeção, relatório concluído). |
+| 16/08/2026 | **FE-06** — rail colapsável + drawer mobile + nova ordem do menu | Sonnet 5 | — | `Sidebar.tsx` ganhou `w-72 ↔ w-16` persistido (`useSettingsStore.sidebarCollapsed`), ícone + `Tooltip` quando colapsado. `navConfig.ts` novo — fonte única dos itens de navegação da equipe, consumida por `Sidebar` e pelo drawer "Mais" do `BottomNav` (antes cada um mantinha a própria lista e elas haviam divergido: Painel, Roteiros, Biblioteca e Solicitações não tinham nenhum acesso no celular). `clientNavItems` perdeu o item "Meu perfil" → `/profile`, rota que não existe, nos dois componentes. `tsc -b` e `npm run build` limpos, 382 testes passando. Achado ao testar: os links viravam ícone puro sem `aria-label` quando colapsados — `lucide-react` marca o SVG como `aria-hidden`, então o link ficava sem nome acessível nenhum (só o `Tooltip`, que é `aria-describedby`, não substitui o nome). Corrigido com `aria-label={item.label}` em cada `NavLink`. Verificado via DOM/`localStorage` no navegador (não por screenshot — o painel do navegador não estava compositando frames nesta sessão): grupos e ordem corretos no `aside`, toggle muda `64px ↔ 288px` de fato (confirmado após reload, que é quando o layout recalcula nesta ferramenta), estado sobrevive a reload via `localStorage['inspec-visa-settings']`, e o drawer "Mais" no mobile (375px) abre com exatamente os itens fora da barra rápida (Agendamentos, Inspeções, Solicitações, Roteiros, Biblioteca, Sincronização, Configurações), agrupados como no Sidebar. |
 
 ### FE-04a — o que foi feito e o que ficou pra depois
 

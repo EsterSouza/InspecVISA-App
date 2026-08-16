@@ -20,11 +20,13 @@ interface SettingsState {
   settings: Settings;
   currentProfile: ConsultantProfile | null;
   profileSettings: Partial<Record<ConsultantProfile, Settings>>;
+  sidebarCollapsed: boolean;
   updateSettings: (settings: Partial<Settings>) => void;
   replaceSettings: (settings: Settings) => void;
   replaceProfileSettings: (profile: ConsultantProfile, settings: Settings) => void;
   setConsultant: (consultant: 'ana' | 'ester') => void;
   clearData: () => Promise<void>;
+  toggleSidebarCollapsed: () => void;
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -91,6 +93,7 @@ export const useSettingsStore = create<SettingsState>()(
       settings: DEFAULT_SETTINGS,
       currentProfile: null,
       profileSettings: {},
+      sidebarCollapsed: false,
       updateSettings: (newSettings) =>
         set((state) => ({
           settings: { ...state.settings, ...newSettings },
@@ -122,6 +125,7 @@ export const useSettingsStore = create<SettingsState>()(
       clearData: async () => {
         set({ settings: { ...DEFAULT_SETTINGS, consultantRole: 'ambos' }, currentProfile: null, profileSettings: {} });
       },
+      toggleSidebarCollapsed: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
       setConsultant: (consultant) => {
         set((state) => {
           const previousProfile = state.currentProfile;
