@@ -289,6 +289,22 @@ export const TemplateService = {
     return template;
   },
 
+  /** Quantas inspeções (não excluídas) usam cada roteiro — para o aviso da coluna "Em uso" antes do clique de editar. */
+  async getUsageCounts(): Promise<Record<string, number>> {
+    const { data, error } = await supabase
+      .from('inspections')
+      .select('template_id')
+      .is('deleted_at', null);
+
+    if (error) throw error;
+    const counts: Record<string, number> = {};
+    for (const row of data || []) {
+      if (!row.template_id) continue;
+      counts[row.template_id] = (counts[row.template_id] || 0) + 1;
+    }
+    return counts;
+  },
+
   async checkTemplateUsage(templateId: string): Promise<boolean> {
     const { count, error } = await supabase
       .from('inspections')

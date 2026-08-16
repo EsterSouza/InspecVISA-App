@@ -31,7 +31,13 @@ import {
   SERVICE_REQUEST_STATUS_LABELS,
   serviceRequestWaitingOn,
 } from '../utils/serviceRequests';
+import { usePagedList } from '../components/schedules/appointmentRequestsShared';
 import { PageShell } from '../components/ui/PageShell';
+import { Button } from '../components/ui/Button';
+import { Drawer } from '../components/ui/Drawer';
+import { EmptyState } from '../components/ui/EmptyState';
+import { Pagination } from '../components/ui/Pagination';
+import { TableContainer, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
 
 /**
  * P360-012 — painel interno das solicitações.
@@ -43,6 +49,10 @@ import { PageShell } from '../components/ui/PageShell';
  * Esta página fica FORA de Agendamentos de propósito (critério de aceite do card): solicitação
  * não é compromisso, não tem data nem duração, e misturar as duas listas foi exatamente o que
  * fez o WhatsApp virar o canal padrão.
+ *
+ * FE-17 — a lista de cards virou tabela densa (Table/Pagination do FE-04b). Histórico, nota e
+ * as ações menos usadas (perguntar ao cliente, reatribuir, mudar prioridade) saíram do card
+ * expansível e foram para um Drawer por linha, mesmo padrão do ActionPlan.tsx (FE-08).
  */
 
 const CONSULTANTS = ['Ester Caiafa', 'Ana Roberta Ribeiro'];
@@ -89,26 +99,29 @@ function formatDateTimeBR(value: string | null): string {
   return date.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
+function formatDateBR(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
+
 /** Há quantos dias parada — é o número que decide o que a consultora abre primeiro. */
 function daysSince(value: string): number {
   const diff = Date.now() - new Date(value).getTime();
   return Math.max(0, Math.floor(diff / 86400000));
 }
 
-// ─── Card de uma solicitação ──────────────────────────────────────────────────
+// ─── Detalhe de uma solicitação (Drawer) ──────────────────────────────────────
 
-function RequestCard({
+function RequestDetail({
   request,
   unitName,
   onChanged,
-  initialOpen,
 }: {
   request: ServiceRequest;
   unitName: string;
   onChanged: () => void;
-  initialOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(!!initialOpen);
   const [events, setEvents] = useState<ServiceRequestEvent[]>([]);
   const [note, setNote] = useState('');
   const [noteVisible, setNoteVisible] = useState(false);
@@ -126,8 +139,8 @@ function RequestCard({
   }, [request.id]);
 
   useEffect(() => {
-    if (open) loadEvents();
-  }, [open, loadEvents]);
+    loadEvents();
+  }, [loadEvents]);
 
   const apply = async (changes: Parameters<typeof ServiceRequestService.update>[1], notify = false) => {
     setBusy(true);
@@ -143,7 +156,7 @@ function RequestCard({
       }
       setNote('');
       setNoteVisible(false);
-      if (open) loadEvents();
+      loadEvents();
       onChanged();
     } catch (err) {
       setError(errorMessage(err));
@@ -170,12 +183,7 @@ function RequestCard({
   };
 
   return (
-    <li
-      id={`request-${request.id}`}
-      className={`rounded-xl border bg-white p-3 shadow-sm ${
-        waitingOn === 'team' ? 'border-primary-200' : 'border-gray-200'
-      } ${initialOpen ? 'ring-2 ring-primary-400' : ''}`}
-    >
+    <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-600">
           Nº {request.request_number}
@@ -190,19 +198,11 @@ function RequestCard({
           {SERVICE_REQUEST_CATEGORY_LABELS[request.category]}
         </span>
         <span className="text-[11px] text-gray-400">· {unitName}</span>
-        {request.assigned_to ? (
-          <span className="inline-flex items-center gap-1 text-[11px] text-gray-500">
-            <UserRound className="h-3 w-3" /> {request.assigned_to}
-          </span>
-        ) : (
-          <span className="text-[11px] font-semibold text-amber-700">sem responsável</span>
-        )}
       </div>
 
-      <p className="mt-1.5 text-sm font-bold text-gray-900">{request.subject}</p>
-      <p className="mt-1 whitespace-pre-wrap text-xs text-gray-600">{request.description}</p>
+      <p className="whitespace-pre-wrap text-sm text-gray-700">{request.description}</p>
 
-      <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-gray-400">
+      <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-gray-400">
         <span>Aberta em {formatDateTimeBR(request.created_at)}</span>
         <span>· Última movimentação {formatDateTimeBR(request.last_event_at)}</span>
         {waitingOn !== 'none' && stalled >= 3 && (
@@ -222,7 +222,7 @@ function RequestCard({
         <button
           type="button"
           onClick={() => void openAttachment()}
-          className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-gray-200 px-2 py-1 text-[11px] font-semibold text-gray-700 hover:bg-gray-50"
+          className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 px-2 py-1 text-[11px] font-semibold text-gray-700 hover:bg-gray-50"
         >
           <Paperclip className="h-3 w-3" /> {request.attachment_name}
           <ExternalLink className="h-3 w-3 text-gray-400" />
@@ -230,7 +230,7 @@ function RequestCard({
       )}
 
       {/* ─── Ações ─── */}
-      <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-dashed border-gray-200 pt-2.5">
+      <div className="flex flex-wrap items-center gap-1.5 border-t border-dashed border-gray-200 pt-3">
         <select
           value={request.assigned_to || ''}
           onChange={(e) => void apply({ assignedTo: e.target.value || null })}
@@ -288,97 +288,88 @@ function RequestCard({
             Reabrir
           </button>
         )}
-
-        <button
-          type="button"
-          onClick={() => setOpen((value) => !value)}
-          className="ml-auto text-[11px] font-semibold text-primary-700 hover:text-primary-900"
-        >
-          {open ? 'Fechar histórico' : 'Histórico e resposta'}
-        </button>
       </div>
 
-      {open && (
-        <div className="mt-2.5 space-y-2.5 rounded-lg border border-gray-100 bg-gray-50 p-2.5">
-          <ul className="space-y-1.5">
-            {events.length === 0 && <li className="text-[11px] text-gray-400">Sem registros ainda.</li>}
-            {events.map((event) => (
-              <li key={event.id} className="text-[11px] text-gray-600">
-                <span className="font-semibold text-gray-700">
-                  {event.actor_kind === 'client' ? 'Cliente' : event.actor_name || 'Equipe'}
+      <div className="space-y-2.5 rounded-lg border border-gray-100 bg-gray-50 p-2.5">
+        <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Histórico</p>
+        <ul className="space-y-1.5">
+          {events.length === 0 && <li className="text-[11px] text-gray-400">Sem registros ainda.</li>}
+          {events.map((event) => (
+            <li key={event.id} className="text-[11px] text-gray-600">
+              <span className="font-semibold text-gray-700">
+                {event.actor_kind === 'client' ? 'Cliente' : event.actor_name || 'Equipe'}
+              </span>
+              <span className="text-gray-400"> · {formatDateTimeBR(event.created_at)}</span>
+              {event.to_status && (
+                <span className="ml-1 rounded bg-white px-1 text-[10px] font-semibold text-gray-500">
+                  {SERVICE_REQUEST_STATUS_LABELS[event.to_status]}
                 </span>
-                <span className="text-gray-400"> · {formatDateTimeBR(event.created_at)}</span>
-                {event.to_status && (
-                  <span className="ml-1 rounded bg-white px-1 text-[10px] font-semibold text-gray-500">
-                    {SERVICE_REQUEST_STATUS_LABELS[event.to_status]}
-                  </span>
-                )}
-                {!event.visible_to_client && event.actor_kind === 'staff' && (
-                  <span className="ml-1 text-[10px] font-semibold uppercase text-gray-400">interna</span>
-                )}
-                {event.note && <p className="whitespace-pre-wrap text-gray-700">{event.note}</p>}
-              </li>
-            ))}
-          </ul>
+              )}
+              {!event.visible_to_client && event.actor_kind === 'staff' && (
+                <span className="ml-1 text-[10px] font-semibold uppercase text-gray-400">interna</span>
+              )}
+              {event.note && <p className="whitespace-pre-wrap text-gray-700">{event.note}</p>}
+            </li>
+          ))}
+        </ul>
 
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            rows={3}
-            maxLength={2000}
-            placeholder="Escreva para o cliente ou registre uma nota interna"
-            aria-label="Nota da solicitação"
-            className="w-full rounded-md border border-gray-200 p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          rows={3}
+          maxLength={2000}
+          placeholder="Escreva para o cliente ou registre uma nota interna"
+          aria-label="Nota da solicitação"
+          className="w-full rounded-md border border-gray-200 p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+        />
+        <label className="flex items-center gap-1.5 text-[11px] font-medium text-gray-600">
+          <input
+            type="checkbox"
+            checked={noteVisible}
+            onChange={(e) => setNoteVisible(e.target.checked)}
+            className="h-3.5 w-3.5"
           />
-          <label className="flex items-center gap-1.5 text-[11px] font-medium text-gray-600">
-            <input
-              type="checkbox"
-              checked={noteVisible}
-              onChange={(e) => setNoteVisible(e.target.checked)}
-              className="h-3.5 w-3.5"
-            />
-            O cliente pode ler esta nota
-          </label>
+          O cliente pode ler esta nota
+        </label>
 
-          <div className="flex flex-wrap gap-1.5">
-            <button
-              type="button"
-              onClick={() => void apply({ note: note.trim(), noteVisibleToClient: noteVisible })}
-              disabled={busy || !note.trim()}
-              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-gray-700 hover:bg-gray-100 disabled:opacity-60"
-            >
-              <MessageSquare className="h-3 w-3" /> Registrar nota
-            </button>
-            <button
-              type="button"
-              onClick={askClient}
-              disabled={busy}
-              className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800 hover:bg-amber-100 disabled:opacity-60"
-            >
-              <Send className="h-3 w-3" /> Perguntar ao cliente
-            </button>
-          </div>
-          <p className="text-[11px] text-gray-400">
-            "Perguntar ao cliente" passa a solicitação para a fila dele e envia o aviso. A nota
-            vai junto — sem ela, ele vê que está esperando e não sabe o quê.
-          </p>
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            onClick={() => void apply({ note: note.trim(), noteVisibleToClient: noteVisible })}
+            disabled={busy || !note.trim()}
+            className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-gray-700 hover:bg-gray-100 disabled:opacity-60"
+          >
+            <MessageSquare className="h-3 w-3" /> Registrar nota
+          </button>
+          <button
+            type="button"
+            onClick={askClient}
+            disabled={busy}
+            className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800 hover:bg-amber-100 disabled:opacity-60"
+          >
+            <Send className="h-3 w-3" /> Perguntar ao cliente
+          </button>
         </div>
-      )}
+        <p className="text-[11px] text-gray-400">
+          "Perguntar ao cliente" passa a solicitação para a fila dele e envia o aviso. A nota
+          vai junto — sem ela, ele vê que está esperando e não sabe o quê.
+        </p>
+      </div>
 
       {whatsappLink && (
         <a
           href={whatsappLink}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-900"
+          className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-900"
         >
           <ExternalLink className="h-3 w-3" /> Avisar também pelo WhatsApp
         </a>
       )}
 
-      {busy && <p className="mt-2 flex items-center gap-1 text-[11px] text-gray-400"><Loader2 className="h-3 w-3 animate-spin" /> salvando…</p>}
-      {error && <p className="mt-2 text-[11px] font-medium text-red-700">{error}</p>}
-    </li>
+      {busy && <p className="flex items-center gap-1 text-[11px] text-gray-400"><Loader2 className="h-3 w-3 animate-spin" /> salvando…</p>}
+      {error && <p className="text-[11px] font-medium text-red-700">{error}</p>}
+    </div>
   );
 }
 
@@ -487,7 +478,7 @@ function SlaPanel({
 
 export function ServiceRequests() {
   const [searchParams] = useSearchParams();
-  // Deep link do painel operacional (P360-013): abre a fila certa já com a solicitação em foco.
+  // Deep link do painel operacional (P360-013): abre a solicitação já em foco no Drawer.
   const focusRequestId = searchParams.get('id');
 
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
@@ -502,6 +493,7 @@ export function ServiceRequests() {
   const [search, setSearch] = useState('');
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [sla, setSla] = useState<Record<string, number>>({});
+  const [selectedId, setSelectedId] = useState<string | null>(focusRequestId);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -546,17 +538,16 @@ export function ServiceRequests() {
     [clients]
   );
 
-  useEffect(() => {
-    if (!focusRequestId || requests.length === 0) return;
-    document.getElementById(`request-${focusRequestId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }, [focusRequestId, requests]);
-
   const counts = useMemo(() => {
     const waitingTeam = requests.filter((r) => serviceRequestWaitingOn(r.status) === 'team').length;
     const waitingClient = requests.filter((r) => serviceRequestWaitingOn(r.status) === 'client').length;
     const unassigned = requests.filter((r) => !r.assigned_to && serviceRequestWaitingOn(r.status) !== 'none').length;
     return { waitingTeam, waitingClient, unassigned };
   }, [requests]);
+
+  const { page, totalPages, items: pagedRequests, setPage } = usePagedList(requests);
+
+  const selectedRequest = selectedId ? requests.find((r) => r.id === selectedId) || null : null;
 
   return (
     <PageShell>
@@ -665,23 +656,122 @@ export function ServiceRequests() {
         <div className="flex justify-center py-16">
           <Loader2 className="h-6 w-6 animate-spin text-primary-600" />
         </div>
-      ) : requests.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-gray-200 bg-white p-8 text-center text-sm text-gray-500">
-          Nenhuma solicitação nesta fila.
-        </p>
       ) : (
-        <ul className="space-y-2.5">
-          {requests.map((request) => (
-            <RequestCard
-              key={request.id}
-              request={request}
-              unitName={clientNames.get(request.client_id) || 'Unidade'}
-              onChanged={load}
-              initialOpen={request.id === focusRequestId}
-            />
-          ))}
-        </ul>
+        <TableContainer>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Aberta em</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Assunto</TableHead>
+                <TableHead>Responsável</TableHead>
+                <TableHead>Prioridade</TableHead>
+                <TableHead>Situação</TableHead>
+                <TableHead align="right">Espera</TableHead>
+                <TableHead><span className="sr-only">Ações</span></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {pagedRequests.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="h-auto py-0">
+                    <EmptyState
+                      icon={<Headset className="h-8 w-8" />}
+                      title="Nenhuma solicitação nesta fila"
+                      description={search || clientId || assignedTo || priority ? 'Nenhum resultado para os filtros atuais.' : undefined}
+                    />
+                  </TableCell>
+                </TableRow>
+              ) : (
+                pagedRequests.map((request) => {
+                  const waitingOn = serviceRequestWaitingOn(request.status);
+                  const stalled = daysSince(request.last_event_at);
+                  return (
+                    <TableRow
+                      key={request.id}
+                      id={`request-${request.id}`}
+                      selected={request.id === selectedId}
+                      onClick={() => setSelectedId(request.id)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setSelectedId(request.id);
+                        }
+                      }}
+                      className="cursor-pointer"
+                    >
+                      <TableCell align="right">{formatDateBR(request.created_at)}</TableCell>
+                      <TableCell primary className="max-w-[200px]">
+                        <p className="truncate">{clientNames.get(request.client_id) || 'Unidade'}</p>
+                        <p className="truncate text-xs font-normal text-gray-500">Nº {request.request_number}</p>
+                      </TableCell>
+                      <TableCell className="max-w-[280px]">
+                        <p className="truncate font-medium text-gray-900">{request.subject}</p>
+                        <p className="truncate text-xs text-gray-500">{SERVICE_REQUEST_CATEGORY_LABELS[request.category]}</p>
+                      </TableCell>
+                      <TableCell>
+                        {request.assigned_to ? (
+                          <span className="inline-flex items-center gap-1 text-xs text-gray-700">
+                            <UserRound className="h-3 w-3 text-gray-400" /> {request.assigned_to}
+                          </span>
+                        ) : (
+                          <span className="text-xs font-semibold text-amber-700">sem responsável</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${priorityTheme[request.priority]}`}>
+                          {SERVICE_REQUEST_PRIORITY_LABELS[request.priority]}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${statusTheme[request.status]}`}>
+                          {SERVICE_REQUEST_STATUS_LABELS[request.status]}
+                        </span>
+                      </TableCell>
+                      <TableCell align="right">
+                        {waitingOn === 'none' ? (
+                          <span className="text-gray-400">—</span>
+                        ) : (
+                          <span className={stalled >= 3 ? 'font-bold text-amber-700' : 'text-gray-700'}>
+                            {stalled === 0 ? 'hoje' : `${stalled} dia${stalled > 1 ? 's' : ''}`}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell align="right">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => { e.stopPropagation(); setSelectedId(request.id); }}
+                        >
+                          Responder
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+          <Pagination page={page} pageCount={totalPages} onPageChange={setPage} totalItems={requests.length} pageSize={10} />
+        </TableContainer>
       )}
+
+      <Drawer
+        isOpen={!!selectedRequest}
+        onClose={() => setSelectedId(null)}
+        title={selectedRequest?.subject}
+      >
+        {selectedRequest && (
+          <RequestDetail
+            request={selectedRequest}
+            unitName={clientNames.get(selectedRequest.client_id) || 'Unidade'}
+            onChanged={load}
+          />
+        )}
+      </Drawer>
     </PageShell>
   );
 }

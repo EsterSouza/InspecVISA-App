@@ -1,8 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { LegislationService, type Legislation, type LegislationSegment, type LegislationStatus } from '../../services/legislationService';
 import { UF_OPTIONS, toUF } from '../../utils/state';
-import { Plus, Trash2, ExternalLink, Search, BookOpen, AlertCircle, Loader2, Edit2, Check, X, Link } from 'lucide-react';
+import { canonicalLegislationKey, extractBaseLegislation } from '../../utils/legislationRefs';
+import { getTemplates } from '../../data/templates';
+import { supplementRegistry } from '../../data/supplementRegistry';
+import { Plus, Trash2, ExternalLink, Search, BookOpen, Loader2, Edit2, Link as LinkIcon } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
+import { Badge } from '../../components/ui/Badge';
+import { Drawer } from '../../components/ui/Drawer';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { PageShell } from '../../components/ui/PageShell';
+import { Pagination } from '../../components/ui/Pagination';
+import { TableContainer, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/Table';
+import { usePagedList } from '../../components/schedules/appointmentRequestsShared';
 import { useConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { toast } from '../../store/useToastStore';
 
@@ -50,30 +60,79 @@ function toPayload(form: LegForm): Omit<Legislation, 'id' | 'created_at'> {
   };
 }
 
+function isDefaultEntry(id: string): boolean {
+  return id.startsWith('default-');
+}
+
+// REF-07 (scripts/ref07-lacunas.ts) faz a mesma varredura para achar lacunas em CI; aqui é a
+// versão ao vivo, cruzada contra a biblioteca carregada (não só o LEGISLATION_LIBRARY estático),
+// porque a curadoria pode ter cadastrado verbete novo que o arquivo estático ainda não tem.
+interface Citation { label: string; count: number; templates: Set<string>; }
+
+function buildCitationMap(): Map<string, Citation> {
+  const sources = [
+    ...getTemplates().map(t => ({
+      name: t.name,
+      items: t.sections.flatMap(s => s.items),
+    })),
+    // Suplementos regionais anexam item em seção existente (sectionAdditions) ou trazem
+    // seção nova inteira (newSections) — não têm `.sections` como um roteiro comum.
+    ...supplementRegistry.map(entry => ({
+      name: `${entry.supplement.name}${entry.nameSuffix}`,
+      items: [
+        ...entry.supplement.sectionAdditions.flatMap(sa => sa.items),
+        ...(entry.supplement.newSections ?? []).flatMap(s => s.items),
+      ],
+    })),
+  ];
+  const map = new Map<string, Citation>();
+  for (const source of sources) {
+    for (const item of source.items) {
+      if (!item.legislation) continue;
+      for (const base of extractBaseLegislation(item.legislation)) {
+        const key = canonicalLegislationKey(base);
+        const entry = map.get(key) || { label: base, count: 0, templates: new Set<string>() };
+        entry.count++;
+        entry.templates.add(source.name);
+        map.set(key, entry);
+      }
+    }
+  }
+  return map;
+}
+
+type Segment = 'vigentes' | 'revogadas' | 'sem_verbete';
+
+const SEGMENT_LABELS: Record<Segment, string> = {
+  vigentes: 'Vigentes',
+  revogadas: 'Revogadas',
+  sem_verbete: 'Sem verbete',
+};
+
+interface GapRow {
+  key: string;
+  name: string;
+  count: number;
+  templateNames: string[];
+}
+
 export function LegislationsManager() {
   const [legislations, setLegislations] = useState<Legislation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isAdding, setIsAdding] = useState(false);
-  const [newLeg, setNewLeg] = useState<LegForm>(EMPTY_FORM);
+  const [search, setSearch] = useState('');
+  const [esfera, setEsfera] = useState('');
+  const [orgao, setOrgao] = useState('');
+  const [segment, setSegment] = useState<Segment>('vigentes');
   const [isSeeding, setIsSeeding] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<LegForm>(EMPTY_FORM);
-  const [savingId, setSavingId] = useState<string | null>(null);
-  const [expandedNotesId, setExpandedNotesId] = useState<string | null>(null);
-  const { confirm, confirmDialog } = useConfirmDialog();
 
-  const toggleSegment = (
-    setter: React.Dispatch<React.SetStateAction<LegForm>>,
-    segment: LegislationSegment
-  ) => {
-    setter(prev => ({
-      ...prev,
-      segments: prev.segments.includes(segment)
-        ? prev.segments.filter(s => s !== segment)
-        : [...prev.segments, segment],
-    }));
-  };
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<LegForm>(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
+
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   useEffect(() => {
     loadLegislations();
@@ -89,6 +148,103 @@ export function LegislationsManager() {
     } finally {
       setLoading(false);
     }
+  }
+
+  const citationMap = useMemo(() => buildCitationMap(), []);
+
+  const validEntries = useMemo(
+    () => legislations.filter(l => l.name && l.summary),
+    [legislations]
+  );
+
+  const cataloguedKeys = useMemo(
+    () => new Set(validEntries.map(l => canonicalLegislationKey(l.name))),
+    [validEntries]
+  );
+
+  const linkedCount = (leg: Legislation) => citationMap.get(canonicalLegislationKey(leg.name))?.count || 0;
+
+  const gaps: GapRow[] = useMemo(() => {
+    const rows: GapRow[] = [];
+    for (const [key, info] of citationMap.entries()) {
+      if (cataloguedKeys.has(key)) continue;
+      rows.push({ key, name: info.label, count: info.count, templateNames: [...info.templates] });
+    }
+    return rows.sort((a, b) => b.count - a.count);
+  }, [citationMap, cataloguedKeys]);
+
+  const ufOptions = useMemo(
+    () => Array.from(new Set(validEntries.map(l => l.uf).filter((v): v is string => !!v))).sort(),
+    [validEntries]
+  );
+  const authorityOptions = useMemo(
+    () => Array.from(new Set(validEntries.map(l => l.authority).filter((v): v is string => !!v))).sort(),
+    [validEntries]
+  );
+
+  const counts = useMemo(() => ({
+    vigentes: validEntries.filter(l => l.status !== 'revogada').length,
+    revogadas: validEntries.filter(l => l.status === 'revogada').length,
+    sem_verbete: gaps.length,
+  }), [validEntries, gaps]);
+
+  const query = search.trim().toLowerCase();
+
+  const filteredEntries = useMemo(() => {
+    return validEntries.filter(l => {
+      if (segment === 'vigentes' && l.status === 'revogada') return false;
+      if (segment === 'revogadas' && l.status !== 'revogada') return false;
+      if (esfera === 'federal' && l.uf) return false;
+      if (esfera && esfera !== 'federal' && l.uf !== esfera) return false;
+      if (orgao && l.authority !== orgao) return false;
+      if (!query) return true;
+      return l.name.toLowerCase().includes(query) || (l.summary || '').toLowerCase().includes(query);
+    });
+  }, [validEntries, segment, esfera, orgao, query]);
+
+  const filteredGaps = useMemo(() => {
+    if (segment !== 'sem_verbete') return [];
+    if (!query) return gaps;
+    return gaps.filter(g => g.name.toLowerCase().includes(query));
+  }, [gaps, segment, query]);
+
+  const { page, totalPages, items: pagedEntries, setPage } = usePagedList(filteredEntries);
+  const { page: gapPage, totalPages: gapTotalPages, items: pagedGaps, setPage: setGapPage } = usePagedList(filteredGaps);
+
+  const detailEntry = detailId ? legislations.find(l => l.id === detailId) || null : null;
+
+  function openCreate(prefillName?: string) {
+    setForm({ ...EMPTY_FORM, name: prefillName || '' });
+    setFormMode('create');
+    setEditingId(null);
+    setFormOpen(true);
+  }
+
+  function openEdit(leg: Legislation) {
+    setForm({
+      name: leg.name,
+      summary: leg.summary || '',
+      url: leg.url || '',
+      authority: leg.authority || '',
+      uf: leg.uf || '',
+      segments: leg.segments || [],
+      status: leg.status || 'vigente',
+      replacedBy: leg.replaced_by || '',
+      researchNotes: leg.research_notes || '',
+    });
+    setFormMode('edit');
+    setEditingId(leg.id);
+    setDetailId(null);
+    setFormOpen(true);
+  }
+
+  function toggleSegment(segmentValue: LegislationSegment) {
+    setForm(prev => ({
+      ...prev,
+      segments: prev.segments.includes(segmentValue)
+        ? prev.segments.filter(s => s !== segmentValue)
+        : [...prev.segments, segmentValue],
+    }));
   }
 
   async function handleSeed() {
@@ -110,436 +266,466 @@ export function LegislationsManager() {
     }
   }
 
-  async function handleAdd() {
-    if (!newLeg.name || !newLeg.summary) {
+  async function handleSave() {
+    if (!form.name || !form.summary) {
       toast.error('Nome e Resumo são obrigatórios para registrar uma norma técnica.');
       return;
     }
+    setSaving(true);
     try {
-      await LegislationService.saveLegislation(toPayload(newLeg));
-      setNewLeg(EMPTY_FORM);
-      setIsAdding(false);
+      if (formMode === 'edit' && editingId) {
+        await LegislationService.updateLegislation(editingId, toPayload(form));
+      } else {
+        await LegislationService.saveLegislation(toPayload(form));
+      }
+      setFormOpen(false);
+      setForm(EMPTY_FORM);
       loadLegislations();
     } catch {
-      toast.error('Erro ao salvar legislação');
-    }
-  }
-
-  function startEdit(leg: Legislation) {
-    setEditingId(leg.id);
-    setEditForm({
-      name: leg.name,
-      summary: leg.summary || '',
-      url: leg.url || '',
-      authority: leg.authority || '',
-      uf: leg.uf || '',
-      segments: leg.segments || [],
-      status: leg.status || 'vigente',
-      replacedBy: leg.replaced_by || '',
-      researchNotes: leg.research_notes || '',
-    });
-  }
-
-  async function handleSaveEdit(id: string) {
-    if (!editForm.name || !editForm.summary) {
-      toast.error('A legislação deve possuir nome e resumo preenchidos.');
-      return;
-    }
-    try {
-      setSavingId(id);
-      await LegislationService.updateLegislation(id, toPayload(editForm));
-      setEditingId(null);
-      loadLegislations();
-    } catch {
-      toast.error('Erro ao salvar alterações');
+      toast.error(formMode === 'edit' ? 'Erro ao salvar alterações' : 'Erro ao salvar legislação');
     } finally {
-      setSavingId(null);
+      setSaving(false);
     }
   }
 
-  async function handleDelete(id: string) {
+  async function handleDelete(leg: Legislation) {
     const ok = await confirm({
-      title: 'Excluir esta legislação?',
+      title: `Excluir "${leg.name}"?`,
       confirmLabel: 'Excluir legislação',
     });
     if (!ok) return;
     try {
-      await LegislationService.deleteLegislation(id);
+      await LegislationService.deleteLegislation(leg.id);
+      setDetailId(null);
       loadLegislations();
     } catch {
       toast.error('Erro ao excluir');
     }
   }
 
-  const isDefaultEntry = (id: string) => id.startsWith('default-');
-
-  const filtered = legislations.filter(l => {
-    const hasRequiredFields = l.name && l.summary;
-    if (!hasRequiredFields) return false;
-
-    const matchesSearch = l.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          l.summary?.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
-  });
+  const rowsAreGaps = segment === 'sem_verbete';
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <div className="flex justify-between items-center mb-8">
+    <PageShell>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Biblioteca de Legislação</h1>
-          <p className="text-gray-500 text-sm mt-1">Gerencie as leis vinculadas aos itens de inspeção nos relatórios.</p>
+          <p className="mt-1 text-sm text-gray-500">A curadoria daqui é o que o relatório consegue citar. Sem verbete, a norma não é citada em lugar nenhum.</p>
         </div>
-        <div className="flex gap-3">
-          <Button 
-            variant="outline" 
-            onClick={handleSeed} 
+        <div className="flex flex-wrap gap-3">
+          <Button
+            variant="outline"
+            onClick={handleSeed}
             disabled={isSeeding}
-            className="gap-2 border-primary-200 text-primary-700 hover:bg-primary-50"
           >
-            {isSeeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <BookOpen className="h-4 w-4" />}
+            {isSeeding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BookOpen className="mr-2 h-4 w-4" />}
             Importar Base Padrão
           </Button>
-          <Button onClick={() => setIsAdding(true)} className="gap-2 shadow-lg shadow-primary-100">
-            <Plus className="h-4 w-4" /> Nova Legislação
+          <Button onClick={() => openCreate()}>
+            <Plus className="mr-2 h-4 w-4" /> Novo verbete
           </Button>
         </div>
       </div>
 
-      <div className="relative mb-6">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-        <input
-          type="text"
-          placeholder="Buscar legislação..."
-          className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="relative flex-1 sm:max-w-xs">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por número, órgão ou assunto"
+            aria-label="Buscar legislação"
+            className="h-10 w-full rounded-md border border-gray-300 pl-9 pr-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          />
+        </div>
+        <select
+          value={esfera}
+          onChange={(e) => setEsfera(e.target.value)}
+          aria-label="Esfera"
+          disabled={rowsAreGaps}
+          className="h-10 rounded-md border border-gray-300 bg-white px-3 text-sm disabled:opacity-50"
+        >
+          <option value="">Todas as esferas</option>
+          <option value="federal">Federal</option>
+          {ufOptions.map((uf) => (
+            <option key={uf} value={uf}>Estadual — {uf}</option>
+          ))}
+        </select>
+        <select
+          value={orgao}
+          onChange={(e) => setOrgao(e.target.value)}
+          aria-label="Órgão"
+          disabled={rowsAreGaps}
+          className="h-10 rounded-md border border-gray-300 bg-white px-3 text-sm disabled:opacity-50"
+        >
+          <option value="">Todos os órgãos</option>
+          {authorityOptions.map((a) => (
+            <option key={a} value={a}>{a}</option>
+          ))}
+        </select>
+        <div className="inline-flex gap-0.5 rounded-md border border-gray-200 bg-gray-50 p-0.5">
+          {(Object.keys(SEGMENT_LABELS) as Segment[]).map((key) => (
+            <button
+              key={key}
+              type="button"
+              aria-pressed={segment === key}
+              onClick={() => setSegment(key)}
+              className={`rounded px-3 py-1.5 text-sm font-semibold transition-colors ${
+                segment === key ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500 hover:text-gray-900'
+              }`}
+            >
+              {SEGMENT_LABELS[key]} <span className="tabular-nums">{counts[key]}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
-      {isAdding && (
-        <div className="mb-8 p-6 bg-white rounded-2xl border border-primary-100 shadow-sm animate-in fade-in slide-in-from-top-4">
-          <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-            <BookOpen className="h-5 w-5 text-primary-600" /> Adicionar Nova Legislação
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <input
-              placeholder="Nome (Ex: RDC nº 63/2011)*"
-              className="p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-primary-400 outline-none"
-              value={newLeg.name}
-              onChange={(e) => setNewLeg({ ...newLeg, name: e.target.value })}
-            />
-            <input
-              placeholder="URL do documento oficial (opcional)"
-              className="p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-primary-400 outline-none"
-              value={newLeg.url}
-              onChange={(e) => setNewLeg({ ...newLeg, url: e.target.value })}
-            />
-            <textarea
-              placeholder="Resumo ou ementa da legislação"
-              className="p-3 rounded-lg border border-gray-200 md:col-span-2 h-24 focus:ring-2 focus:ring-primary-400 outline-none resize-none"
-              value={newLeg.summary}
-              onChange={(e) => setNewLeg({ ...newLeg, summary: e.target.value })}
-            />
-            <div className="md:col-span-2">
-              <label className="block text-xs font-semibold text-gray-500 mb-1">
-                Autoria (entra na citação do relatório)
-              </label>
-              <input
-                placeholder="Ex: BRASIL. Ministério da Saúde — ou RIO DE JANEIRO (Município)"
-                className="w-full p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-primary-400 outline-none"
-                value={newLeg.authority}
-                onChange={(e) => setNewLeg({ ...newLeg, authority: e.target.value })}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Sem autoria a norma é citada só pelo nome. O relatório nunca deduz o órgão.
-              </p>
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-xs font-semibold text-gray-500 mb-1">
-                Notas de pesquisa (artigos consultados, trechos, decisões)
-              </label>
-              <textarea
-                placeholder="Ex.: Art. 25 trata de circulações internas — largura mínima 1,00m..."
-                className="w-full p-3 rounded-lg border border-gray-200 h-28 focus:ring-2 focus:ring-primary-400 outline-none resize-y text-sm"
-                value={newLeg.researchNotes}
-                onChange={(e) => setNewLeg({ ...newLeg, researchNotes: e.target.value })}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Cache de pesquisa: guarde aqui o que já foi lido dessa norma para não pesquisar de novo depois.
-              </p>
-            </div>
-            <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4 items-start">
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1">UF (estadual/municipal)</label>
-                <select
-                  className="w-full p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-primary-400 outline-none bg-white"
-                  value={toUF(newLeg.uf)}
-                  onChange={(e) => setNewLeg({ ...newLeg, uf: e.target.value })}
-                >
-                  <option value="">Federal / nacional</option>
-                  {UF_OPTIONS.map(({ uf, name }) => (
-                    <option key={uf} value={uf}>{uf} — {name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-gray-500 mb-1">Segmentos aplicáveis (vazio = todos)</label>
-                <div className="flex flex-wrap gap-2">
-                  {SEGMENT_OPTIONS.map(opt => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => toggleSegment(setNewLeg, opt.value)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                        newLeg.segments.includes(opt.value)
-                          ? 'bg-primary-50 border-primary-300 text-primary-700'
-                          : 'bg-gray-50 border-gray-200 text-gray-400'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1">Situação</label>
-                <select
-                  className="w-full p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-primary-400 outline-none bg-white"
-                  value={newLeg.status}
-                  onChange={(e) => setNewLeg({ ...newLeg, status: e.target.value as LegislationStatus })}
-                >
-                  {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
-              </div>
-              {newLeg.status === 'revogada' && (
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Substituída por</label>
-                  <input
-                    placeholder="Ex: RDC Anvisa nº 222/2018"
-                    className="w-full p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-primary-400 outline-none"
-                    value={newLeg.replacedBy}
-                    onChange={(e) => setNewLeg({ ...newLeg, replacedBy: e.target.value })}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => { setIsAdding(false); setNewLeg(EMPTY_FORM); }}>
-              Cancelar
-            </Button>
-            <Button onClick={handleAdd} disabled={!newLeg.name}>
-              <Check className="h-4 w-4 mr-2" /> Salvar Legislação
-            </Button>
-          </div>
-        </div>
+      {segment === 'sem_verbete' && (
+        <p className="mb-4 rounded-md border border-amber-soft-border bg-amber-soft p-3 text-sm text-amber-soft-ink">
+          São {gaps.length} normas citadas por item de roteiro que ainda não têm verbete na biblioteca — nenhuma delas é citada no relatório do cliente. Esta é a fila de trabalho da curadoria.
+        </p>
       )}
 
       {loading ? (
         <div className="flex justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
         </div>
-      ) : filtered.length === 0 ? (
-        <div className="text-center py-20 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
-          <AlertCircle className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500 font-medium">Nenhuma legislação encontrada.</p>
-          <p className="text-gray-400 text-sm mt-1">Use o botão "Importar Base Padrão" para começar.</p>
-        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filtered.map((leg) => (
-            <div key={leg.id} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all group">
-              {editingId === leg.id ? (
-                /* Edit mode */
-                <div className="space-y-3">
-                  <input
-                    className="w-full p-2 rounded-lg border border-primary-200 text-sm font-semibold focus:ring-2 focus:ring-primary-400 outline-none"
-                    value={editForm.name}
-                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  />
-                  <textarea
-                    className="w-full p-2 rounded-lg border border-gray-200 text-sm h-20 resize-none focus:ring-2 focus:ring-primary-400 outline-none"
-                    value={editForm.summary}
-                    onChange={(e) => setEditForm({ ...editForm, summary: e.target.value })}
-                    placeholder="Resumo ou ementa..."
-                  />
-                  <input
-                    className="w-full p-2 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-primary-400 outline-none"
-                    value={editForm.url}
-                    onChange={(e) => setEditForm({ ...editForm, url: e.target.value })}
-                    placeholder="URL do documento (opcional)"
-                  />
-                  <input
-                    className="w-full p-2 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-primary-400 outline-none"
-                    value={editForm.authority}
-                    onChange={(e) => setEditForm({ ...editForm, authority: e.target.value })}
-                    placeholder="Autoria — ex: BRASIL. Ministério da Saúde"
-                  />
-                  <div className="flex flex-wrap items-center gap-3">
-                    <select
-                      className="w-40 p-2 rounded-lg border border-gray-200 text-sm bg-white focus:ring-2 focus:ring-primary-400 outline-none"
-                      value={toUF(editForm.uf)}
-                      onChange={(e) => setEditForm({ ...editForm, uf: e.target.value })}
-                      aria-label="UF de abrangência"
-                    >
-                      <option value="">Federal</option>
-                      {UF_OPTIONS.map(({ uf }) => <option key={uf} value={uf}>{uf}</option>)}
-                    </select>
-                    <select
-                      className="w-44 p-2 rounded-lg border border-gray-200 text-sm bg-white focus:ring-2 focus:ring-primary-400 outline-none"
-                      value={editForm.status}
-                      onChange={(e) => setEditForm({ ...editForm, status: e.target.value as LegislationStatus })}
-                      aria-label="Situação de vigência"
-                    >
-                      {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
-                    <div className="flex flex-wrap gap-1.5">
-                      {SEGMENT_OPTIONS.map(opt => (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() => toggleSegment(setEditForm, opt.value)}
-                          className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors ${
-                            editForm.segments.includes(opt.value)
-                              ? 'bg-primary-50 border-primary-300 text-primary-700'
-                              : 'bg-gray-50 border-gray-200 text-gray-400'
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  {editForm.status === 'revogada' && (
-                    <input
-                      className="w-full p-2 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-primary-400 outline-none"
-                      value={editForm.replacedBy}
-                      onChange={(e) => setEditForm({ ...editForm, replacedBy: e.target.value })}
-                      placeholder="Substituída por — ex: RDC Anvisa nº 222/2018"
+        <TableContainer>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Norma</TableHead>
+                <TableHead>Órgão</TableHead>
+                <TableHead>Esfera</TableHead>
+                <TableHead>Assunto</TableHead>
+                <TableHead align="right">Itens ligados</TableHead>
+                <TableHead>Vigência</TableHead>
+                <TableHead><span className="sr-only">Ações</span></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rowsAreGaps ? (
+                pagedGaps.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="h-auto py-0">
+                      <EmptyState
+                        icon={<BookOpen className="h-8 w-8" />}
+                        title="Nenhuma lacuna encontrada"
+                        description={query ? 'Nenhum resultado para essa busca.' : 'Toda norma citada pelos roteiros já tem verbete na biblioteca.'}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  pagedGaps.map((gap) => (
+                    <TableRow key={gap.key}>
+                      <TableCell primary>{gap.name}</TableCell>
+                      <TableCell><span className="text-gray-400">—</span></TableCell>
+                      <TableCell><span className="text-gray-400">—</span></TableCell>
+                      <TableCell className="max-w-[320px]">
+                        <p className="truncate text-xs text-gray-500">{gap.templateNames.join(' · ')}</p>
+                      </TableCell>
+                      <TableCell align="right">{gap.count}</TableCell>
+                      <TableCell>
+                        <Badge variant="warning">sem verbete</Badge>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Button variant="outline" size="sm" onClick={() => openCreate(gap.name)}>
+                          Escrever verbete
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )
+              ) : pagedEntries.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="h-auto py-0">
+                    <EmptyState
+                      icon={<BookOpen className="h-8 w-8" />}
+                      title={`Nenhuma legislação ${SEGMENT_LABELS[segment].toLowerCase()}`}
+                      description={query || esfera || orgao ? 'Nenhum resultado para os filtros atuais.' : 'Use "Importar Base Padrão" para começar.'}
                     />
-                  )}
-                  <textarea
-                    className="w-full p-2 rounded-lg border border-gray-200 text-sm h-24 resize-y focus:ring-2 focus:ring-primary-400 outline-none"
-                    value={editForm.researchNotes}
-                    onChange={(e) => setEditForm({ ...editForm, researchNotes: e.target.value })}
-                    placeholder="Notas de pesquisa — artigos já consultados, trechos, decisões..."
-                  />
-                  <div className="flex gap-2 justify-end pt-1">
-                    <Button variant="ghost" size="sm" onClick={() => setEditingId(null)}>
-                      <X className="h-4 w-4 mr-1" /> Cancelar
-                    </Button>
-                    <Button size="sm" disabled={savingId === leg.id} onClick={() => handleSaveEdit(leg.id)}>
-                      {savingId === leg.id ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Check className="h-4 w-4 mr-1" />}
-                      Salvar
-                    </Button>
-                  </div>
-                </div>
+                  </TableCell>
+                </TableRow>
               ) : (
-                /* View mode */
-                <>
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-bold text-base text-gray-900 truncate">{leg.name}</h4>
+                pagedEntries.map((leg) => (
+                  <TableRow
+                    key={leg.id}
+                    onClick={() => setDetailId(leg.id)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setDetailId(leg.id);
+                      }
+                    }}
+                    className="cursor-pointer"
+                  >
+                    <TableCell primary className="max-w-[280px]">
+                      <p className="truncate">{leg.name}</p>
                       {isDefaultEntry(leg.id) && (
-                        <span className="text-[10px] text-amber-600 font-bold bg-amber-50 px-1.5 py-0.5 rounded">
-                          PADRÃO (não persistido)
-                        </span>
+                        <p className="text-[10px] font-bold text-amber-strong">PADRÃO (não persistido)</p>
                       )}
-                    </div>
-                    <div className="flex gap-1 ml-2 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {leg.url && (
-                        <a 
-                          href={leg.url} 
-                          target="_blank" 
-                          rel="noopener noreferrer" 
-                          className="p-1.5 hover:bg-blue-50 text-blue-500 rounded-lg transition-colors"
-                          title="Abrir documento"
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
+                    </TableCell>
+                    <TableCell>
+                      {leg.authority ? leg.authority : <span className="text-xs font-semibold text-amber-strong">sem autoria</span>}
+                    </TableCell>
+                    <TableCell>{leg.uf ? `Estadual — ${leg.uf}` : 'Federal'}</TableCell>
+                    <TableCell className="max-w-[320px]">
+                      <p className="truncate text-gray-700">{leg.summary || '—'}</p>
+                    </TableCell>
+                    <TableCell align="right">{linkedCount(leg)}</TableCell>
+                    <TableCell>
+                      {leg.status === 'revogada' ? (
+                        <Badge variant="danger">revogado{leg.replaced_by ? ` → ${leg.replaced_by}` : ''}</Badge>
+                      ) : (
+                        <Badge variant="success">vigente</Badge>
                       )}
-                      {!isDefaultEntry(leg.id) && (
-                        <>
-                          <button 
-                            onClick={() => startEdit(leg)} 
-                            className="p-1.5 hover:bg-primary-50 text-primary-500 rounded-lg transition-colors"
-                            title="Editar"
+                    </TableCell>
+                    <TableCell align="right">
+                      <span className="inline-flex items-center gap-1">
+                        {leg.url && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => { e.stopPropagation(); window.open(leg.url, '_blank', 'noopener,noreferrer'); }}
+                            aria-label={`Abrir ${leg.name}`}
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {!isDefaultEntry(leg.id) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => { e.stopPropagation(); openEdit(leg); }}
+                            aria-label={`Editar ${leg.name}`}
                           >
                             <Edit2 className="h-4 w-4" />
-                          </button>
-                          <button 
-                            onClick={() => handleDelete(leg.id)} 
-                            className="p-1.5 hover:bg-red-50 text-red-400 rounded-lg transition-colors"
-                            title="Excluir"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  <p className="text-sm text-gray-500 line-clamp-3 mb-3">
-                    {leg.summary || 'Sem resumo disponível.'}
-                  </p>
-                  {leg.research_notes && (
-                    <div className="mb-3">
-                      <button
-                        type="button"
-                        onClick={() => setExpandedNotesId(expandedNotesId === leg.id ? null : leg.id)}
-                        className="text-xs font-semibold text-primary-600 hover:text-primary-700 underline decoration-dotted"
-                      >
-                        {expandedNotesId === leg.id ? 'Ocultar notas de pesquisa' : 'Ver notas de pesquisa'}
-                      </button>
-                      {expandedNotesId === leg.id && (
-                        <p className="text-xs text-gray-600 mt-2 whitespace-pre-wrap bg-gray-50 rounded-lg p-3 border border-gray-100">
-                          {leg.research_notes}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                  <div className="flex flex-wrap gap-1.5 mb-3">
-                      {leg.status === 'revogada' && (
-                        <span className="text-[10px] font-bold uppercase tracking-wide bg-red-50 text-red-700 px-2 py-0.5 rounded-full">
-                          Revogada{leg.replaced_by ? ` → ${leg.replaced_by}` : ''}
-                        </span>
-                      )}
-                      {!leg.authority && (
-                        <span className="text-[10px] font-bold uppercase tracking-wide bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full">
-                          Sem autoria
-                        </span>
-                      )}
-                      {leg.uf && (
-                        <span className="text-[10px] font-bold uppercase tracking-wide bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full">
-                          {leg.uf}
-                        </span>
-                      )}
-                      {(leg.segments || []).map(seg => (
-                        <span key={seg} className="text-[10px] font-bold uppercase tracking-wide bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">
-                          {SEGMENT_OPTIONS.find(o => o.value === seg)?.label || seg}
-                        </span>
-                      ))}
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">
-                      {!isDefaultEntry(leg.id) && `Adicionado em: ${new Date(leg.created_at).toLocaleDateString('pt-BR')}`}
-                    </div>
-                    {leg.url ? (
-                      <div className="flex items-center gap-1 text-[10px] text-green-600 font-semibold">
-                        <Link className="h-3 w-3" /> Link disponível
-                      </div>
-                    ) : (
-                      <div className="text-[10px] text-gray-300 font-semibold">Sem link</div>
-                    )}
-                  </div>
-                </>
+                          </Button>
+                        )}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                ))
               )}
-            </div>
-          ))}
-        </div>
+            </TableBody>
+          </Table>
+          {rowsAreGaps ? (
+            <Pagination page={gapPage} pageCount={gapTotalPages} onPageChange={setGapPage} totalItems={filteredGaps.length} pageSize={10} />
+          ) : (
+            <Pagination page={page} pageCount={totalPages} onPageChange={setPage} totalItems={filteredEntries.length} pageSize={10} />
+          )}
+        </TableContainer>
       )}
+
+      {/* ─── Detalhe ─── */}
+      <Drawer
+        isOpen={!!detailEntry}
+        onClose={() => setDetailId(null)}
+        title={detailEntry?.name}
+        footer={
+          detailEntry && !isDefaultEntry(detailEntry.id) && (
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => void handleDelete(detailEntry)} className="text-red-600 hover:bg-red-50">
+                <Trash2 className="mr-2 h-4 w-4" /> Excluir
+              </Button>
+              <Button size="sm" onClick={() => openEdit(detailEntry)}>
+                <Edit2 className="mr-2 h-4 w-4" /> Editar
+              </Button>
+            </div>
+          )
+        }
+      >
+        {detailEntry && (
+          <div className="space-y-4 text-sm">
+            {isDefaultEntry(detailEntry.id) && (
+              <p className="rounded-md bg-amber-soft p-2 text-xs font-bold text-amber-soft-ink">PADRÃO (não persistido)</p>
+            )}
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Resumo</p>
+              <p className="mt-1 text-gray-800">{detailEntry.summary || 'Sem resumo disponível.'}</p>
+            </div>
+            <div className="flex flex-wrap gap-x-6 gap-y-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Autoria</p>
+                <p className="mt-1 text-gray-800">{detailEntry.authority || '—'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Esfera</p>
+                <p className="mt-1 text-gray-800">{detailEntry.uf ? `Estadual — ${detailEntry.uf}` : 'Federal'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Vigência</p>
+                <p className="mt-1 text-gray-800">
+                  {detailEntry.status === 'revogada' ? 'Revogada' : detailEntry.status === 'vigente_com_alteracoes' ? 'Vigente com alterações' : 'Vigente'}
+                </p>
+              </div>
+            </div>
+            {detailEntry.status === 'revogada' && (
+              <p className="rounded-md border border-red-100 bg-red-50 p-2.5 text-xs text-red-800">
+                {detailEntry.replaced_by
+                  ? <>Substituída por <span className="font-semibold">{detailEntry.replaced_by}</span>.</>
+                  : 'Revogada sem substituto — reapontar mecanicamente produz citação errada em relatório assinado.'}
+              </p>
+            )}
+            {detailEntry.segments && detailEntry.segments.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Segmentos</p>
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {detailEntry.segments.map(seg => (
+                    <Badge key={seg} variant="neutral">{SEGMENT_OPTIONS.find(o => o.value === seg)?.label || seg}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Itens ligados</p>
+              <p className="mt-1 text-gray-800">{linkedCount(detailEntry)} item(ns) de roteiro citam esta norma.</p>
+            </div>
+            {detailEntry.url && (
+              <a
+                href={detailEntry.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary-700 hover:text-primary-900"
+              >
+                <LinkIcon className="h-3.5 w-3.5" /> Abrir documento oficial
+              </a>
+            )}
+            {detailEntry.research_notes && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Notas de pesquisa</p>
+                <p className="mt-1 whitespace-pre-wrap rounded-md border border-gray-100 bg-gray-50 p-3 text-xs text-gray-700">
+                  {detailEntry.research_notes}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </Drawer>
+
+      {/* ─── Formulário (novo / editar) ─── */}
+      <Drawer
+        isOpen={formOpen}
+        onClose={() => setFormOpen(false)}
+        title={formMode === 'edit' ? 'Editar legislação' : 'Nova legislação'}
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setFormOpen(false)}>Cancelar</Button>
+            <Button onClick={() => void handleSave()} disabled={saving || !form.name || !form.summary}>
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Salvar
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-gray-600">Nome (Ex: RDC nº 63/2011) *</label>
+            <input
+              className="w-full rounded-lg border border-gray-200 p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-gray-600">Resumo ou ementa *</label>
+            <textarea
+              className="h-24 w-full resize-none rounded-lg border border-gray-200 p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+              value={form.summary}
+              onChange={(e) => setForm({ ...form, summary: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-gray-600">URL do documento oficial</label>
+            <input
+              className="w-full rounded-lg border border-gray-200 p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+              value={form.url}
+              onChange={(e) => setForm({ ...form, url: e.target.value })}
+              placeholder="https://..."
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-gray-600">Autoria (entra na citação do relatório)</label>
+            <input
+              className="w-full rounded-lg border border-gray-200 p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+              value={form.authority}
+              onChange={(e) => setForm({ ...form, authority: e.target.value })}
+              placeholder="Ex: BRASIL. Ministério da Saúde"
+            />
+            <p className="mt-1 text-xs text-gray-500">Sem autoria a norma é citada só pelo nome. O relatório nunca deduz o órgão.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-gray-600">UF (estadual/municipal)</label>
+              <select
+                className="w-full rounded-lg border border-gray-200 bg-white p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+                value={toUF(form.uf)}
+                onChange={(e) => setForm({ ...form, uf: e.target.value })}
+              >
+                <option value="">Federal / nacional</option>
+                {UF_OPTIONS.map(({ uf, name }) => (
+                  <option key={uf} value={uf}>{uf} — {name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-gray-600">Situação</label>
+              <select
+                className="w-full rounded-lg border border-gray-200 bg-white p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+                value={form.status}
+                onChange={(e) => setForm({ ...form, status: e.target.value as LegislationStatus })}
+              >
+                {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+          </div>
+          {form.status === 'revogada' && (
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-gray-600">Substituída por</label>
+              <input
+                className="w-full rounded-lg border border-gray-200 p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+                value={form.replacedBy}
+                onChange={(e) => setForm({ ...form, replacedBy: e.target.value })}
+                placeholder="Ex: RDC Anvisa nº 222/2018 — deixe em branco se não houver substituto"
+              />
+            </div>
+          )}
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-gray-600">Segmentos aplicáveis (vazio = todos)</label>
+            <div className="flex flex-wrap gap-2">
+              {SEGMENT_OPTIONS.map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => toggleSegment(opt.value)}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    form.segments.includes(opt.value)
+                      ? 'border-primary-300 bg-primary-50 text-primary-700'
+                      : 'border-gray-200 bg-gray-50 text-gray-400'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-gray-600">Notas de pesquisa (artigos consultados, trechos, decisões)</label>
+            <textarea
+              className="h-28 w-full resize-y rounded-lg border border-gray-200 p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+              value={form.researchNotes}
+              onChange={(e) => setForm({ ...form, researchNotes: e.target.value })}
+              placeholder="Ex.: Art. 25 trata de circulações internas — largura mínima 1,00m..."
+            />
+            <p className="mt-1 text-xs text-gray-500">Cache de pesquisa: guarde aqui o que já foi lido dessa norma para não pesquisar de novo depois.</p>
+          </div>
+        </div>
+      </Drawer>
+
       {confirmDialog}
-    </div>
+    </PageShell>
   );
 }

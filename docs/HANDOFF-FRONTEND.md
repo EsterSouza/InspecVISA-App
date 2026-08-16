@@ -266,6 +266,47 @@ Os tokens de FE-04 já nascem nos dois modos. Ligar o dark no app inteiro é tra
   `alert()` de erro vira `Toast` de erro (que não some sozinho); `confirm()` vira `ConfirmDialog`.
 - **É o card que outros três esperam** (FE-16, FE-18, FE-19). Fazer primeiro.
 
+### FE-17 · As rotas que nunca foram desenhadas — entregue em 16/08/2026
+`ServiceRequests.tsx`, `admin/AdminTemplates.tsx` e `admin/LegislationsManager.tsx` viraram
+tabela densa com `Table`/`Pagination` do FE-04b. As duas telas não tinham `PageShell` — ganharam,
+já que eu estava reescrevendo o layout inteiro de qualquer forma (largura única, decisão 5).
+- **Solicitações** — colunas Aberta em/Cliente/Assunto/Responsável/Prioridade/Situação/Espera.
+  As 4 filas (equipe/cliente/encerradas/todas) já existentes no código foram mantidas — o
+  protótipo tinha só 3 segmentos, mas o domínio real (`ServiceRequestStatus` com 5 estados) não
+  mapeia 1:1 pra isso, e mudar a fila não era o pedido do card. Histórico, nota e "perguntar ao
+  cliente" saíram do card expansível e foram para um `Drawer` por linha (clique na linha ou
+  "Responder"), mesmo padrão do `ActionPlan.tsx` (FE-08). Ação rápida "Assumir" continua na
+  própria linha.
+- **Roteiros** — colunas Itens/Críticos/Em uso. **Achado real ao testar**: `TemplateService.listTemplates()`
+  traz só metadados do Supabase (sem `sections`/`items`), e o código antigo sobrescrevia o
+  `templates` state — que tinha vindo completo do Dexie no primeiro paint — com esses metadados
+  incompletos. Toda linha real mostrava "0 itens, 0 críticos" mesmo em roteiros com mais de cem
+  itens. Corrigido com um `sectionsById` separado, alimentado pelo snapshot do Dexie (antes e
+  depois do `syncAllTemplatesToDexie()`), usado como fallback quando `template.sections` vem
+  vazio — sem tocar na lógica de merge remoto+estático, que já é frágil. "Em uso" é uma contagem
+  nova (`TemplateService.getUsageCounts()`, uma query só em `inspections`, agrupada em JS) — não
+  existia antes nenhum jeito de saber quantas inspeções usam um roteiro sem abrir cada uma.
+  Sem segmentado Ativos/Rascunhos/Arquivados do protótipo: não existe campo de rascunho no
+  modelo (`ChecklistTemplate` não tem `status`), e arquivado é só o prefixo `[ARQUIVADO]` no
+  nome, já filtrado da lista — inventar um segmentado ali seria fabricar estado que não existe.
+- **Biblioteca** — colunas Norma/Órgão/Esfera/Assunto/Itens ligados/Vigência. "Sem verbete" deixa
+  de ser só um script de terminal (`scripts/ref07-lacunas.ts`): a mesma varredura
+  (`canonicalLegislationKey`/`extractBaseLegislation` de `src/utils/legislationRefs.ts`) roda ao
+  vivo na tela, cruzada contra a biblioteca **carregada** (não só o `LEGISLATION_LIBRARY`
+  estático — a curadoria pode ter cadastrado verbete novo que o arquivo ainda não tem). "Escrever
+  verbete" abre o formulário com o nome já preenchido. O formulário de adicionar/editar, que
+  antes expandia dentro do próprio card da lista, virou `Drawer` — e o clique na linha abre um
+  Drawer de detalhe somente-leitura primeiro (resumo, autoria, segmentos, notas de pesquisa,
+  itens ligados), com "Editar"/"Excluir" no rodapé, mesmo padrão do `ActionPlan.tsx`. Revogada
+  sem substituto continua mostrando o campo em branco (não reaponta mecanicamente).
+- Esfera hoje só distingue Federal de Estadual — a UF na tabela não separa estadual de
+  municipal (o dado não guarda essa distinção), diferença do protótipo que é do modelo, não
+  um corte de escopo.
+- `tsc -b`, `npm run build` e os 382 testes limpos. Verificado logada no navegador nas 3 rotas:
+  tabelas populando com dado real (roteiro com 106 itens/64 críticos/23 em uso; 77 vigências,
+  6 lacunas reais de citação), Drawers abrindo/fechando, segmentado e prefill de "Escrever
+  verbete" funcionando, sem rolagem horizontal em 375/1280/1600px.
+
 ### FE-16 · Ficha do cliente com abas
 Fecha os 7 achados do diagnóstico em `ClientDetails.tsx` (1.257 linhas):
 1. Aba **Arquivos** com a largura inteira, no lugar da tabela do FE-07 espremida no trilho de ~380px.
@@ -501,7 +542,7 @@ Nomes de modelo mudam rápido; escolher o mais recente no `/model` e calibrar o 
 | Onda 3 | Em andamento — FE-11 entregue; falta FE-12 (dark mode) e a revisão final de a11y. **FE-12 depende do FE-21** |
 | MCP do DesignMD | ✅ funcionando — plano **Builder** (600 chamadas / 10 min, sem limite diário). URL **com `www`** e servidor aprovado em `~/.claude.json` |
 | **Artefato D** | ✅ [publicado](https://claude.ai/code/artifact/2001223c-6df9-4464-8e7f-3c299ad61832) e **aprovado pela Ester em 16/08/2026** |
-| **Onda 4** | Aberta em 16/08/2026 — FE-14, FE-15 e FE-16 entregues; FE-17 a FE-22 escritos, não iniciados. FE-18/FE-19 desbloqueados (esperavam o FE-15) |
+| **Onda 4** | Aberta em 16/08/2026 — FE-14, FE-15, FE-16 e FE-17 entregues; FE-17b a FE-22 escritos, não iniciados. FE-18/FE-19 desbloqueados (esperavam o FE-15) |
 
 ## Registro de execução
 
