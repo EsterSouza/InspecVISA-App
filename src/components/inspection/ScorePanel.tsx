@@ -1,5 +1,5 @@
 import React from 'react';
-import { calculateScore, calculateAreaScores, classificationLabel, classificationColor } from '../../utils/scoring';
+import { calculateScore, calculateAreaScores, classificationLabel, classificationColor, SCORE_COLORS } from '../../utils/scoring';
 import type { AreaScore } from '../../utils/scoring';
 import { useInspectionStore } from '../../store/useInspectionStore';
 import { getTemplateById } from '../../data/templates';
@@ -31,7 +31,7 @@ function AreaScoreCard({ area }: { area: AreaScore }) {
       <div className="mt-2 flex items-baseline gap-1.5">
         <span className="text-3xl font-black text-gray-900">{pct}%</span>
         {area.score.criticalNotCompliesCount > 0 && (
-          <span className="text-[10px] font-bold text-red-600">
+          <span className="text-[10px] font-bold text-danger">
             {area.score.criticalNotCompliesCount} NC crítica(s)
           </span>
         )}
@@ -63,15 +63,10 @@ export function ScorePanel({ inspection, responses: propResponses, template: pro
   const score = calculateScore(responses, template.sections);
   const areaScores = calculateAreaScores(responses, template.sections);
 
-  // Dynamic color based on score percentage
-  const getScoreColor = (percent: number) => {
-    if (percent >= 85) return '#22C55E'; // Success
-    if (percent >= 70) return '#F59E0B'; // Warning
-    return '#EF4444'; // Danger
-  };
-
-  const scoreColor = getScoreColor(score.scorePercentage);
-  const riskColor = classificationColor(score.classification);
+  // Número, barra e selo saem da MESMA classificação. Antes o número tinha
+  // faixas próprias (85 / 70) e podia sair verde ao lado de um selo "TOLERÁVEL".
+  const scoreColor = classificationColor(score.classification);
+  const riskColor = scoreColor;
   const riskLabel = classificationLabel(score.classification);
 
   return (
@@ -134,7 +129,7 @@ export function ScorePanel({ inspection, responses: propResponses, template: pro
         <div className="grid grid-cols-3 gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-red-500" />
+              <div className="w-2 h-2 rounded-full bg-danger" />
               <span className="text-xl font-black text-gray-900">{score.urgentActionsCount}</span>
             </div>
             <p className="text-[9px] font-bold text-gray-500 uppercase leading-none">Ações<br/>Urgentes</p>
@@ -142,7 +137,7 @@ export function ScorePanel({ inspection, responses: propResponses, template: pro
           
           <div className="space-y-1">
             <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-amber-500" />
+              <div className="w-2 h-2 rounded-full bg-amber" />
               <span className="text-xl font-black text-gray-900">{score.importantActionsCount}</span>
             </div>
             <p className="text-[9px] font-bold text-gray-500 uppercase leading-none">Ações<br/>Importantes</p>
@@ -167,7 +162,7 @@ export function ScorePanel({ inspection, responses: propResponses, template: pro
           {score.scoreBySection.map((section) => {
             const hasUrgent = section.urgentActionsCount > 0;
             const hasImportant = section.importantActionsCount > 0;
-            const dotColor = hasUrgent ? '#EF4444' : hasImportant ? '#F59E0B' : '#22C55E';
+            const dotColor = hasUrgent ? SCORE_COLORS.danger : hasImportant ? SCORE_COLORS.attention : SCORE_COLORS.success;
             
             return (
               <div 
@@ -193,15 +188,15 @@ export function ScorePanel({ inspection, responses: propResponses, template: pro
         {/* Compact Legend */}
         <div className="mt-8 flex items-center gap-6 text-[8px] font-black uppercase tracking-widest text-gray-400">
           <div className="flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-[#EF4444]" />
+            <div className="w-1.5 h-1.5 rounded-full bg-danger" />
             <span>Crítico / Urgente</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]" />
+            <div className="w-1.5 h-1.5 rounded-full bg-amber" />
             <span>Atenção</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-[#22C55E]" />
+            <div className="w-1.5 h-1.5 rounded-full bg-success" />
             <span>Conforme</span>
           </div>
         </div>

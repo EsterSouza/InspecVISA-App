@@ -49,6 +49,21 @@ export default {
           'soft-border': '#EFD9AC',
           strong: '#AE7714',
         },
+        // Verde de sucesso/conformidade — --success*
+        success: {
+          DEFAULT: '#0E7A4A',
+          soft: '#E4F3EB',
+          'soft-ink': '#0A5734',
+          'soft-border': '#B9DFCA',
+        },
+        // Vermelho de erro/não conformidade — --danger*
+        danger: {
+          DEFAULT: '#B3261E',
+          hover: '#8C1D17',
+          soft: '#FBE9E7',
+          'soft-ink': '#8C1D17',
+          'soft-border': '#F0C7C2',
+        },
       },
       fontFamily: {
         sans: ['"Source Sans 3"', 'system-ui', 'sans-serif'],

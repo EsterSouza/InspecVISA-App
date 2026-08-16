@@ -374,11 +374,29 @@ export function classificationLabel(c: ScoreClassification): string {
   }[c];
 }
 
+/**
+ * Paleta da nota. Decisão 27 do FE-23 (Artefato E): **quatro classificações,
+ * três cores**. Os valores são os tokens da marca (`--danger` / `--amber` /
+ * `--success` em docs/prototipos/_src/tokens.css), não a paleta padrão do
+ * Tailwind que estava escrita aqui em hexadecimal.
+ */
+export const SCORE_COLORS = {
+  danger: '#B3261E',
+  attention: '#D99721',
+  success: '#0E7A4A',
+} as const;
+
+/**
+ * "Bom" e "excelente" compartilham o verde e se separam pela palavra e pelo
+ * número — a faixa lima `#84CC16` não tinha equivalente na marca e some.
+ * Nenhuma informação passa a depender só da cor (regra 2 do Manual 2.0): o
+ * selo de classificação sempre acompanha o tom.
+ */
 export function classificationColor(c: ScoreClassification): string {
   return {
-    critical: '#EF4444', // Red
-    regular: '#F59E0B',  // Amber
-    good: '#84CC16',     // Lime
-    excellent: '#22C55E', // Green
+    critical: SCORE_COLORS.danger,
+    regular: SCORE_COLORS.attention,
+    good: SCORE_COLORS.success,
+    excellent: SCORE_COLORS.success,
   }[c];
 }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { calculateScore } from '../../utils/scoring';
+import { calculateScore, classificationColor } from '../../utils/scoring';
 import { useInspectionStore } from '../../store/useInspectionStore';
 import { getTemplateById } from '../../data/templates';
 
@@ -17,13 +17,16 @@ export function MobileScoreBar({ template: propTemplate }: MobileScoreBarProps) 
 
   const score = calculateScore(responses, template.sections);
 
-  const getColor = (pct: number) => {
-    if (pct >= 85) return { bar: '#22C55E', text: 'text-green-600', bg: 'bg-green-50' };
-    if (pct >= 70) return { bar: '#F59E0B', text: 'text-amber-600', bg: 'bg-amber-50' };
-    return { bar: '#EF4444', text: 'text-red-600', bg: 'bg-red-50' };
-  };
+  // Mesma classificação do `ScorePanel` — a barra do celular não pode discordar
+  // do painel do desktop. Tons da marca; faixa lima descontinuada (decisão 27).
+  const TONS = {
+    critical: { text: 'text-danger-soft-ink', bg: 'bg-danger-soft' },
+    regular: { text: 'text-amber-soft-ink', bg: 'bg-amber-soft' },
+    good: { text: 'text-success-soft-ink', bg: 'bg-success-soft' },
+    excellent: { text: 'text-success-soft-ink', bg: 'bg-success-soft' },
+  } as const;
 
-  const colors = getColor(score.scorePercentage);
+  const colors = { bar: classificationColor(score.classification), ...TONS[score.classification] };
 
   return (
     <div className={`lg:hidden border-b border-gray-100 px-4 py-2 ${colors.bg}`}>
@@ -33,7 +36,7 @@ export function MobileScoreBar({ template: propTemplate }: MobileScoreBarProps) 
           <span className={`text-2xl font-black ${colors.text}`}>
             {Math.round(score.scorePercentage)}%
           </span>
-          <span className="text-[10px] font-bold text-gray-400 uppercase">Adequação</span>
+          <span className="text-[10px] font-bold text-navy-3 uppercase">Adequação</span>
         </div>
 
         {/* Progress bar */}
@@ -46,10 +49,10 @@ export function MobileScoreBar({ template: propTemplate }: MobileScoreBarProps) 
 
         {/* Quick stats */}
         <div className="flex items-center gap-3 shrink-0 text-xs font-bold">
-          <span className="text-red-500">
-            {score.urgentActionsCount} <span className="text-gray-400 font-normal">NC</span>
+          <span className="text-danger">
+            {score.urgentActionsCount} <span className="text-navy-3 font-normal">NC</span>
           </span>
-          <span className="text-gray-400">
+          <span className="text-navy-3">
             {score.evaluatedItems}/{score.totalItems}
           </span>
         </div>
