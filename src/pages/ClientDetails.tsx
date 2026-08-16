@@ -1,10 +1,13 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
   Calendar,
   CalendarPlus,
   Copy,
+  Check,
+  Eye,
+  EyeOff,
   FileText,
   TrendingUp,
   AlertCircle,
@@ -32,9 +35,12 @@ import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
+import { Drawer } from '../components/ui/Drawer';
 import { PageShell } from '../components/ui/PageShell';
 import { Pagination } from '../components/ui/Pagination';
 import { TableContainer, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
+import { Tabs, TabPanel, type TabItem } from '../components/ui/Tabs';
+import { EmptyState } from '../components/ui/EmptyState';
 import { useConfirmDialog } from '../components/ui/ConfirmDialog';
 import { toast } from '../store/useToastStore';
 
@@ -45,6 +51,14 @@ const ComplianceTrendChart = lazy(() =>
 export function ClientDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('aba') || 'visao-geral';
+  const setActiveTab = (value: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (value === 'visao-geral') next.delete('aba');
+    else next.set('aba', value);
+    setSearchParams(next);
+  };
   const [client, setClient] = useState<Client | null>(null);
   const [inspections, setInspections] = useState<(Inspection & { score: InspectionScore; areaScores: InspectionAreaScores })[]>([]);
   const [actionPlan, setActionPlan] = useState<ClientActionPlanContext>({ latestOpenItems: [], recurringItems: [] });
@@ -60,6 +74,9 @@ export function ClientDetails() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [accessBusy, setAccessBusy] = useState(false);
   const [copiedAccess, setCopiedAccess] = useState(false);
+  const [showCredentials, setShowCredentials] = useState(false);
+  const [copiedField, setCopiedField] = useState<'username' | 'password' | 'token' | null>(null);
+  const [auditDrawerOpen, setAuditDrawerOpen] = useState(false);
   const [newAccessCode, setNewAccessCode] = useState<string | null>(null);
   const [isVisitModalOpen, setIsVisitModalOpen] = useState(false);
   const { confirm, confirmDialog } = useConfirmDialog();
@@ -133,7 +150,7 @@ export function ClientDetails() {
           const mine = requests.filter((request) => request.client_id === id);
           setClientRequests(mine);
           const auditAccount = accounts.find((account) => account.client_ids.includes(id));
-          AppointmentAdminService.listPortalAuditEvents(auditAccount ? { accountId: auditAccount.id, limit: 20 } : { clientId: id, limit: 20 })
+          AppointmentAdminService.listPortalAuditEvents(auditAccount ? { accountId: auditAccount.id, limit: 50 } : { clientId: id, limit: 50 })
             .then((events) => {
               setPortalAuditEvents(events);
               setPortalAuditError(null);
@@ -252,6 +269,30 @@ export function ClientDetails() {
     return fileName || label || unitName || '';
   };
 
+  const renderAuditEvent = (event: ClientPortalAuditEvent) => {
+    const detail = formatAuditPayload(event);
+    return (
+      <li key={event.id} className="rounded-md border border-gray-100 p-3 text-xs">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="font-bold text-gray-800">
+              {portalAuditLabels[event.event_type] || event.event_type}
+            </p>
+            {detail && <p className="mt-0.5 truncate text-gray-500">{detail}</p>}
+          </div>
+          <span className="shrink-0 text-right text-[10px] font-medium text-gray-400">
+            {new Date(event.created_at).toLocaleString('pt-BR', {
+              day: '2-digit',
+              month: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+          </span>
+        </div>
+      </li>
+    );
+  };
+
   const copyPortalAccess = async () => {
     if (!portalAccount) return;
     await navigator.clipboard.writeText([
@@ -263,6 +304,12 @@ export function ClientDetails() {
     ].filter(Boolean).join('\n'));
     setCopiedAccess(true);
     window.setTimeout(() => setCopiedAccess(false), 2500);
+  };
+
+  const copyCredentialField = async (field: 'username' | 'password' | 'token', value: string) => {
+    await navigator.clipboard.writeText(value);
+    setCopiedField(field);
+    window.setTimeout(() => setCopiedField((current) => (current === field ? null : current)), 2000);
   };
 
   const refreshPortalAccounts = async () => {
@@ -460,6 +507,14 @@ export function ClientDetails() {
     navigate(`/plano-de-acao?client=${client.id}`);
   };
 
+  const totalFiles = visitFileGroups.reduce((sum, group) => sum + group.assets.length, 0);
+  const tabItems: TabItem[] = [
+    { value: 'visao-geral', label: 'Visão geral' },
+    { value: 'arquivos', label: 'Arquivos', count: totalFiles > 0 ? totalFiles : undefined },
+    { value: 'portal', label: 'Portal' },
+  ];
+  const auditPreview = portalAuditEvents.slice(0, 5);
+
   return (
     <PageShell>
       {/* Header */}
@@ -467,13 +522,44 @@ export function ClientDetails() {
         <Button variant="ghost" size="sm" onClick={() => navigate('/clients')} className="-ml-3 mb-2">
           <ArrowLeft className="mr-2 h-4 w-4" /> Voltar para Clientes
         </Button>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
+        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+          <div className="min-w-0">
             <h1 className="text-2xl font-bold text-gray-900">{client.name}</h1>
-            <div className="mt-1 flex items-center gap-2">
+            <div className="mt-1 flex flex-wrap items-center gap-2">
               <Badge variant="default">{client.category?.toUpperCase() || 'SEM CATEGORIA'}</Badge>
+              {client.category === 'alimentos' && client.foodTypes?.map(ft => (
+                <Badge key={ft} variant="outline" className="text-[10px]">
+                  {FOOD_SEGMENT_LABELS[ft] || ft}
+                </Badge>
+              ))}
               <span className="text-sm text-gray-500">Cód: {client.id.substring(0, 8)}</span>
+              {portalAccount ? (
+                <Badge variant="success">Portal ativo</Badge>
+              ) : (
+                <Badge variant="neutral">Sem acesso ao portal</Badge>
+              )}
+              {latestActionInspection && (
+                openActionItems.length > 0 ? (
+                  <Badge variant="warning">{openActionItems.length} pendência(s) aberta(s)</Badge>
+                ) : (
+                  <Badge variant="success">Sem pendências abertas</Badge>
+                )
+              )}
             </div>
+            <dl className="mt-4 grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-3">
+              <div>
+                <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500">Responsável</dt>
+                <dd className="mt-0.5 text-sm text-gray-900">{client.responsibleName || 'Não informado'}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500">Telefone</dt>
+                <dd className="mt-0.5 text-sm text-gray-900">{client.phone || '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500">Endereço</dt>
+                <dd className="mt-0.5 text-sm text-gray-900">{client.address || '—'}</dd>
+              </div>
+            </dl>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => { reset(client); setIsModalOpen(true); }}>
@@ -492,6 +578,9 @@ export function ClientDetails() {
         </div>
       </div>
 
+      <Tabs items={tabItems} value={activeTab} onChange={setActiveTab} aria-label="Seções do cliente" />
+
+      <TabPanel value="visao-geral" activeValue={activeTab}>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Statistics & Evolution */}
         <div className="lg:col-span-2 space-y-6">
@@ -503,7 +592,7 @@ export function ClientDetails() {
                   Evolução da Conformidade
                 </h2>
               </div>
-              
+
               {chartData.length > 1 ? (
                 <div className="h-64 w-full">
                   <Suspense fallback={<div className="h-full animate-pulse rounded-xl bg-gray-50" />}>
@@ -511,10 +600,9 @@ export function ClientDetails() {
                   </Suspense>
                 </div>
               ) : (
-                <div className="h-64 flex flex-col items-center justify-center text-gray-400 border-2 border-dashed border-gray-100 rounded-xl">
-                  <Activity className="h-10 w-10 mb-2 opacity-20" />
-                  <p>Dados insuficientes para gerar gráfico.</p>
-                  <p className="text-xs">Realize pelo menos 2 inspeções concluídas.</p>
+                <div className="flex items-center gap-2 rounded-xl border border-dashed border-gray-200 px-4 py-3 text-sm text-gray-500">
+                  <Activity className="h-4 w-4 shrink-0 text-gray-400" />
+                  <p>Dados insuficientes para gerar gráfico — realize pelo menos 2 inspeções concluídas.</p>
                 </div>
               )}
             </CardContent>
@@ -580,245 +668,6 @@ export function ClientDetails() {
         <div className="space-y-6">
           <Card>
             <CardContent className="p-5">
-              <h3 className="mb-4 flex items-center text-sm font-bold uppercase tracking-wider text-gray-900">
-                Portal do Cliente
-              </h3>
-              {portalAccount ? (
-                <div className="space-y-3 text-sm">
-                  <div className="rounded-md bg-gray-50 p-3">
-                    <p className="text-xs font-bold uppercase text-gray-400">Link direto</p>
-                    <p className="mt-1 break-all font-mono text-xs text-gray-700">{portalDirectUrl}</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="rounded-md border border-gray-100 p-2">
-                      <p className="font-bold text-gray-400">Usuario</p>
-                      <p className="mt-1 truncate font-mono">{portalAccount.username || '-'}</p>
-                    </div>
-                    <div className="rounded-md border border-gray-100 p-2">
-                      <p className="font-bold text-gray-400">Senha</p>
-                      <p className="mt-1 truncate font-mono">{portalAccount.access_code_plain || newAccessCode || '-'}</p>
-                    </div>
-                  </div>
-                  <div className="rounded-md border border-gray-100 p-2">
-                    <p className="text-xs font-bold text-gray-400">Token</p>
-                    <p className="mt-1 break-all font-mono text-xs">{portalAccount.portal_token}</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button variant="outline" size="sm" className="text-xs" onClick={copyPortalAccess}>
-                      <Copy className="mr-1.5 h-3.5 w-3.5" /> {copiedAccess ? 'Copiado' : 'Copiar'}
-                    </Button>
-                    <Button variant="outline" size="sm" className="text-xs" disabled={accessBusy} onClick={regenerateAccessCode}>
-                      Nova senha
-                    </Button>
-                    <Button variant="outline" size="sm" className="col-span-2 text-xs" disabled={accessBusy} onClick={regeneratePortalToken}>
-                      Gerar novo token/link
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <p className="rounded-md bg-gray-50 p-3 text-sm text-gray-500">
-                    Este cliente ainda nao tem acesso ao painel.
-                  </p>
-                  <Button size="sm" className="w-full text-xs" disabled={accessBusy} onClick={createPortalAccess}>
-                    Criar acesso e link
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {client.hasPersonalizedSanitaryFolder && client.personalizedSanitaryFolderUrl && (
-            <Card>
-              <CardContent className="p-5">
-                <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-900">
-                  Pasta personalizada
-                </h3>
-                <a
-                  href={client.personalizedSanitaryFolderUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700"
-                >
-                  Abrir Drive <ExternalLink className="h-3.5 w-3.5" />
-                </a>
-              </CardContent>
-            </Card>
-          )}
-
-          {client.hasPersonalizedSanitaryFolder && !client.personalizedSanitaryFolderUrl && (
-            <Card>
-              <CardContent className="p-5">
-                <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-900">
-                  Pasta personalizada
-                </h3>
-                <div className="flex items-start gap-2 rounded-md bg-amber-50 p-3 text-sm text-amber-800">
-                  <Calendar className="mt-0.5 h-4 w-4 shrink-0" />
-                  <span>
-                    Ainda não entregue.
-                    {client.personalizedSanitaryFolderExpectedDeliveryDate && (
-                      <>
-                        {' '}Previsão: {(() => {
-                          const [y, m, d] = client.personalizedSanitaryFolderExpectedDeliveryDate!.split('T')[0].split('-');
-                          return `${d}/${m}/${y}`;
-                        })()}
-                      </>
-                    )}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {visitFileGroups.length > 0 && (
-            <Card>
-              <CardContent className="p-5">
-                <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-900">
-                  Arquivos publicados no portal
-                </h3>
-                <TableContainer>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Arquivo</TableHead>
-                        <TableHead align="right">
-                          <span className="sr-only">Ações</span>
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {pagedFileGroups.map(({ request, assets }) => (
-                        <React.Fragment key={request.id}>
-                          <TableRow group>
-                            <TableCell colSpan={2}>
-                              Visita {request.requested_date ? new Date(`${request.requested_date}T00:00:00`).toLocaleDateString('pt-BR') : 'sem data'} ·{' '}
-                              {assets.length} arquivo(s)
-                            </TableCell>
-                          </TableRow>
-                          {assets.map((asset) => (
-                            <TableRow key={asset.id}>
-                              <TableCell primary>
-                                <span className="flex items-center gap-2">
-                                  {asset.kind === 'photo' && asset.signed_url ? (
-                                    <img
-                                      src={asset.signed_url}
-                                      alt=""
-                                      className="h-9 w-9 shrink-0 rounded object-cover"
-                                    />
-                                  ) : (
-                                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-primary-50 text-primary-700">
-                                      {asset.kind === 'report_pdf' ? (
-                                        <FileText className="h-4 w-4" />
-                                      ) : asset.kind === 'photo' ? (
-                                        <ImageIcon className="h-4 w-4" />
-                                      ) : (
-                                        <Paperclip className="h-4 w-4" />
-                                      )}
-                                    </span>
-                                  )}
-                                  <span className="min-w-0 truncate font-normal text-gray-700">
-                                    {asset.file_name || ASSET_KIND_LABELS[asset.kind]}
-                                  </span>
-                                </span>
-                              </TableCell>
-                              <TableCell align="right">
-                                <span className="inline-flex items-center gap-1">
-                                  {asset.signed_url && (
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => window.open(asset.signed_url, '_blank', 'noopener,noreferrer')}
-                                      aria-label={`Abrir ${asset.file_name || ASSET_KIND_LABELS[asset.kind]}`}
-                                    >
-                                      Abrir
-                                    </Button>
-                                  )}
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    disabled={removingAssetId === asset.id}
-                                    onClick={() => void removePublishedAsset(asset)}
-                                    className="text-red-600 hover:bg-red-50"
-                                    aria-label={`Remover ${asset.file_name || ASSET_KIND_LABELS[asset.kind]} do portal`}
-                                  >
-                                    {removingAssetId === asset.id ? (
-                                      <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                      <Trash2 className="h-4 w-4" />
-                                    )}
-                                  </Button>
-                                </span>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </React.Fragment>
-                      ))}
-                    </TableBody>
-                  </Table>
-                  <Pagination
-                    page={filesCurrentPage}
-                    pageCount={filesPageCount}
-                    onPageChange={setFilesPage}
-                    totalItems={visitFileGroups.length}
-                    pageSize={FILES_PAGE_SIZE}
-                  />
-                </TableContainer>
-              </CardContent>
-            </Card>
-          )}
-
-          <Card>
-            <CardContent className="p-5">
-              <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-900">
-                Auditoria do portal
-              </h3>
-              {portalAuditError ? (
-                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                  <p className="font-bold">Nao foi possivel ler a trilha de auditoria.</p>
-                  <p className="mt-1">
-                    Isto nao significa que o cliente nao usou o portal — significa que a leitura
-                    falhou. Se persistir, avise no suporte.
-                  </p>
-                  <p className="mt-1 break-words text-xs text-amber-700">{portalAuditError}</p>
-                </div>
-              ) : portalAuditEvents.length === 0 ? (
-                <p className="rounded-md bg-gray-50 p-3 text-sm text-gray-500">
-                  Nenhuma atividade registrada ainda.
-                </p>
-              ) : (
-                <ol className="space-y-2">
-                  {portalAuditEvents.map((event) => {
-                    const detail = formatAuditPayload(event);
-                    return (
-                      <li key={event.id} className="rounded-md border border-gray-100 p-3 text-xs">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="font-bold text-gray-800">
-                              {portalAuditLabels[event.event_type] || event.event_type}
-                            </p>
-                            {detail && <p className="mt-0.5 truncate text-gray-500">{detail}</p>}
-                          </div>
-                          <span className="shrink-0 text-right text-[10px] font-medium text-gray-400">
-                            {new Date(event.created_at).toLocaleString('pt-BR', {
-                              day: '2-digit',
-                              month: '2-digit',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </span>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ol>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-5">
               <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center uppercase tracking-wider">
                 <AlertCircle className="mr-2 h-4 w-4 text-amber-500" />
                 Plano de Ação Aberto
@@ -862,48 +711,280 @@ export function ClientDetails() {
               )}
             </CardContent>
           </Card>
-
-          <Card className="bg-primary-900 text-white border-none">
-            <CardContent className="p-5">
-              <h3 className="text-sm font-bold mb-4 opacity-80 flex items-center uppercase tracking-wider text-primary-200">
-                Resumo do Cliente
-              </h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-xs opacity-60 block text-primary-200">Categoria Principal</label>
-                  <p className="font-medium">{client.category?.toUpperCase() || 'SEM CATEGORIA'}</p>
-                </div>
-                {client.category === 'alimentos' && client.foodTypes && client.foodTypes.length > 0 && (
-                  <div>
-                    <label className="text-xs opacity-60 block text-primary-200">Segmentos</label>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {client.foodTypes.map(ft => (
-                        <Badge key={ft} variant="outline" className="bg-white/10 text-white border-white/20 text-[10px] py-0">
-                          {FOOD_SEGMENT_LABELS[ft] || ft}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                <div>
-                  <label className="text-xs opacity-60 block text-primary-200">Responsável</label>
-                  <p className="font-medium">{client.responsibleName || 'Não informado'}</p>
-                </div>
-                <div>
-                  <label className="text-xs opacity-60 block">Telefone</label>
-                  <p className="font-medium">{client.phone || '—'}</p>
-                </div>
-                <div>
-                  <label className="text-xs opacity-60 block">Endereço</label>
-                  <p className="text-sm opacity-90">{client.address || '—'}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </div>
+      </TabPanel>
 
-      <Modal 
+      <TabPanel value="arquivos" activeValue={activeTab}>
+        {visitFileGroups.length === 0 ? (
+          <Card>
+            <EmptyState
+              icon={<Paperclip className="h-8 w-8" />}
+              title="Nenhum arquivo publicado no portal"
+              description="Fotos, relatórios e anexos publicados numa visita aparecem aqui."
+            />
+          </Card>
+        ) : (
+          <TableContainer>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Arquivo</TableHead>
+                  <TableHead align="right">
+                    <span className="sr-only">Ações</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pagedFileGroups.map(({ request, assets }) => (
+                  <React.Fragment key={request.id}>
+                    <TableRow group>
+                      <TableCell colSpan={2}>
+                        Visita {request.requested_date ? new Date(`${request.requested_date}T00:00:00`).toLocaleDateString('pt-BR') : 'sem data'} ·{' '}
+                        {assets.length} arquivo(s)
+                      </TableCell>
+                    </TableRow>
+                    {assets.map((asset) => (
+                      <TableRow key={asset.id}>
+                        <TableCell primary>
+                          <span className="flex items-center gap-2">
+                            {asset.kind === 'photo' && asset.signed_url ? (
+                              <img
+                                src={asset.signed_url}
+                                alt=""
+                                className="h-9 w-9 shrink-0 rounded object-cover"
+                              />
+                            ) : (
+                              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-primary-50 text-primary-700">
+                                {asset.kind === 'report_pdf' ? (
+                                  <FileText className="h-4 w-4" />
+                                ) : asset.kind === 'photo' ? (
+                                  <ImageIcon className="h-4 w-4" />
+                                ) : (
+                                  <Paperclip className="h-4 w-4" />
+                                )}
+                              </span>
+                            )}
+                            <span className="min-w-0 truncate font-normal text-gray-700">
+                              {asset.file_name || ASSET_KIND_LABELS[asset.kind]}
+                            </span>
+                          </span>
+                        </TableCell>
+                        <TableCell align="right">
+                          <span className="inline-flex items-center gap-1">
+                            {asset.signed_url && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => window.open(asset.signed_url, '_blank', 'noopener,noreferrer')}
+                                aria-label={`Abrir ${asset.file_name || ASSET_KIND_LABELS[asset.kind]}`}
+                              >
+                                Abrir
+                              </Button>
+                            )}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              disabled={removingAssetId === asset.id}
+                              onClick={() => void removePublishedAsset(asset)}
+                              className="text-red-600 hover:bg-red-50"
+                              aria-label={`Remover ${asset.file_name || ASSET_KIND_LABELS[asset.kind]} do portal`}
+                            >
+                              {removingAssetId === asset.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </React.Fragment>
+                ))}
+              </TableBody>
+            </Table>
+            <Pagination
+              page={filesCurrentPage}
+              pageCount={filesPageCount}
+              onPageChange={setFilesPage}
+              totalItems={visitFileGroups.length}
+              pageSize={FILES_PAGE_SIZE}
+            />
+          </TableContainer>
+        )}
+      </TabPanel>
+
+      <TabPanel value="portal" activeValue={activeTab}>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="space-y-6">
+            <Card>
+              <CardContent className="p-5">
+                <div className="mb-4 flex items-center justify-between gap-2">
+                  <h3 className="flex items-center text-sm font-bold uppercase tracking-wider text-gray-900">
+                    Portal do Cliente
+                  </h3>
+                  {portalAccount && (
+                    <Button variant="ghost" size="sm" className="text-xs" onClick={() => setShowCredentials((v) => !v)}>
+                      {showCredentials ? <EyeOff className="mr-1.5 h-3.5 w-3.5" /> : <Eye className="mr-1.5 h-3.5 w-3.5" />}
+                      {showCredentials ? 'Ocultar' : 'Mostrar'}
+                    </Button>
+                  )}
+                </div>
+                {portalAccount ? (
+                  <div className="space-y-3 text-sm">
+                    <div className="rounded-md bg-gray-50 p-3">
+                      <p className="text-xs font-bold uppercase text-gray-400">Link direto</p>
+                      <p className="mt-1 break-all font-mono text-xs text-gray-700">{portalDirectUrl}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="rounded-md border border-gray-100 p-2">
+                        <p className="font-bold text-gray-400">Usuário</p>
+                        <p className="mt-1 truncate font-mono">{portalAccount.username || '-'}</p>
+                      </div>
+                      <div className="rounded-md border border-gray-100 p-2">
+                        <div className="flex items-center justify-between gap-1">
+                          <p className="font-bold text-gray-400">Senha</p>
+                          {(portalAccount.access_code_plain || newAccessCode) && (
+                            <button
+                              type="button"
+                              onClick={() => copyCredentialField('password', portalAccount.access_code_plain || newAccessCode || '')}
+                              className="text-gray-400 hover:text-gray-700"
+                              aria-label="Copiar senha"
+                            >
+                              {copiedField === 'password' ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                            </button>
+                          )}
+                        </div>
+                        <p className="mt-1 truncate font-mono">
+                          {showCredentials ? (portalAccount.access_code_plain || newAccessCode || '-') : '••••••••'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="rounded-md border border-gray-100 p-2">
+                      <div className="flex items-center justify-between gap-1">
+                        <p className="text-xs font-bold text-gray-400">Token</p>
+                        <button
+                          type="button"
+                          onClick={() => copyCredentialField('token', portalAccount.portal_token)}
+                          className="text-gray-400 hover:text-gray-700"
+                          aria-label="Copiar token"
+                        >
+                          {copiedField === 'token' ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                        </button>
+                      </div>
+                      <p className="mt-1 break-all font-mono text-xs">
+                        {showCredentials ? portalAccount.portal_token : '••••••••••••••••'}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button variant="outline" size="sm" className="text-xs" onClick={copyPortalAccess}>
+                        <Copy className="mr-1.5 h-3.5 w-3.5" /> {copiedAccess ? 'Copiado' : 'Copiar tudo'}
+                      </Button>
+                      <Button variant="outline" size="sm" className="text-xs" disabled={accessBusy} onClick={regenerateAccessCode}>
+                        Nova senha
+                      </Button>
+                      <Button variant="outline" size="sm" className="col-span-2 text-xs" disabled={accessBusy} onClick={regeneratePortalToken}>
+                        Gerar novo token/link
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="rounded-md bg-gray-50 p-3 text-sm text-gray-500">
+                      Este cliente ainda nao tem acesso ao painel.
+                    </p>
+                    <Button size="sm" className="w-full text-xs" disabled={accessBusy} onClick={createPortalAccess}>
+                      Criar acesso e link
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {client.hasPersonalizedSanitaryFolder && client.personalizedSanitaryFolderUrl && (
+              <Card>
+                <CardContent className="p-5">
+                  <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-900">
+                    Pasta personalizada
+                  </h3>
+                  <a
+                    href={client.personalizedSanitaryFolderUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700"
+                  >
+                    Abrir Drive <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                </CardContent>
+              </Card>
+            )}
+
+            {client.hasPersonalizedSanitaryFolder && !client.personalizedSanitaryFolderUrl && (
+              <Card>
+                <CardContent className="p-5">
+                  <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-900">
+                    Pasta personalizada
+                  </h3>
+                  <div className="flex items-start gap-2 rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+                    <Calendar className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>
+                      Ainda não entregue.
+                      {client.personalizedSanitaryFolderExpectedDeliveryDate && (
+                        <>
+                          {' '}Previsão: {(() => {
+                            const [y, m, d] = client.personalizedSanitaryFolderExpectedDeliveryDate!.split('T')[0].split('-');
+                            return `${d}/${m}/${y}`;
+                          })()}
+                        </>
+                      )}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          <div className="space-y-6">
+            <Card>
+              <CardContent className="p-5">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <h3 className="flex items-center text-sm font-bold uppercase tracking-wider text-gray-900">
+                    Auditoria do portal
+                  </h3>
+                  {portalAuditEvents.length > 5 && (
+                    <Button variant="ghost" size="sm" className="text-xs" onClick={() => setAuditDrawerOpen(true)}>
+                      Ver tudo
+                    </Button>
+                  )}
+                </div>
+                {portalAuditError ? (
+                  <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                    <p className="font-bold">Nao foi possivel ler a trilha de auditoria.</p>
+                    <p className="mt-1">
+                      Isto nao significa que o cliente nao usou o portal — significa que a leitura
+                      falhou. Se persistir, avise no suporte.
+                    </p>
+                    <p className="mt-1 break-words text-xs text-amber-700">{portalAuditError}</p>
+                  </div>
+                ) : portalAuditEvents.length === 0 ? (
+                  <p className="rounded-md bg-gray-50 p-3 text-sm text-gray-500">
+                    Nenhuma atividade registrada ainda.
+                  </p>
+                ) : (
+                  <ol className="space-y-2">
+                    {auditPreview.map((event) => renderAuditEvent(event))}
+                  </ol>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </TabPanel>
+
+      <Modal
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
         title="Editar Cliente"
@@ -1193,6 +1274,17 @@ export function ClientDetails() {
           </div>
         </form>
       </Modal>
+
+      <Drawer
+        isOpen={auditDrawerOpen}
+        onClose={() => setAuditDrawerOpen(false)}
+        title="Auditoria do portal"
+      >
+        <ol className="space-y-2">
+          {portalAuditEvents.map((event) => renderAuditEvent(event))}
+        </ol>
+      </Drawer>
+
       {confirmDialog}
     </PageShell>
   );
