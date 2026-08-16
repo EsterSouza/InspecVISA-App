@@ -58,3 +58,6 @@ playwright-report/
 
 # Protótipos: fragmentos gerados só para publicar como artefato
 docs/prototipos/_publish/
+
+# MCP com token pessoal/pago â€” nao versionar (regra do HANDOFF-FRONTEND)
+.mcp.json
