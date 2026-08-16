@@ -104,6 +104,11 @@ Do Artefato E, ainda **aguardando aprovação da Ester** (não citar como fechad
 26. **A entrega tem recibo permanente** no relatório — aviso passageiro não conta.
 27. **Quatro classificações, três cores.** Sem lima; bom e excelente compartilham o verde.
 28. **Controle fixo no celular é rodapé, nunca sobreposição.**
+29. **A nota compara com a visita anterior** — em **pontos**, não em %; área contra a mesma área;
+    a linha some quando não há visita anterior ou o roteiro mudou.
+30. **"Falta escrever" é lista clicável**, não contagem: qual item e qual campo falta.
+31. **Sem assinatura do acompanhante no encerramento** — o relatório é fechado em casa. Fica nome
+    e função; a assinatura da consultora no `PdfPreviewModal` **não muda**.
 
 ## Armadilhas de CSS que já custaram tempo
 

@@ -220,6 +220,35 @@
   }
   .cond__selo { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--text-2xs); font-weight: var(--weight-bold); text-transform: uppercase; letter-spacing: .04em; margin-bottom: var(--space-2); }
 
+  /* Comparação com a visita anterior — três canais: seta (forma), cor e palavra.
+     A unidade é "ponto", não "%": de 63% para 71% são 8 pontos percentuais. */
+  .delta { display: inline-flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; justify-content: center; }
+  .delta__seta { display: grid; place-items: center; width: 20px; height: 20px; border-radius: var(--radius-full); flex: none; }
+  .delta__valor { font-weight: var(--weight-bold); font-size: var(--text-base); }
+  .delta__txt { font-size: var(--text-xs); color: var(--ink-2); }
+  .delta[data-dir='sobe'] .delta__seta { background: var(--success-soft); color: var(--success-soft-ink); }
+  .delta[data-dir='sobe'] .delta__valor { color: var(--success-soft-ink); }
+  .delta[data-dir='desce'] .delta__seta { background: var(--danger-soft); color: var(--danger-soft-ink); transform: rotate(180deg); }
+  .delta[data-dir='desce'] .delta__valor { color: var(--danger-soft-ink); }
+  .delta[data-dir='igual'] .delta__seta { background: var(--surface-sunken); color: var(--ink-2); }
+  .delta[data-dir='igual'] .delta__valor { color: var(--ink-2); }
+  .delta--linha { justify-content: flex-start; margin-top: var(--space-2); }
+  .delta--linha .delta__valor { font-size: var(--text-sm); }
+
+  /* Pendência de texto: item de lista clicável que leva ao item do roteiro. */
+  .pend {
+    display: flex; align-items: center; gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--border);
+    color: inherit; text-decoration: none;
+    min-height: var(--touch-min);
+  }
+  .pend:last-child { border-bottom: 0; }
+  .pend:hover { background: var(--surface-hover); }
+  .pend__num { flex: none; width: 30px; height: 24px; display: grid; place-items: center; border-radius: var(--radius-sm); background: var(--danger-soft); color: var(--danger-soft-ink); border: 1px solid var(--danger-soft-border); font-size: var(--text-2xs); font-weight: var(--weight-bold); }
+  .pend__txt { display: block; font-size: var(--text-sm); line-height: var(--leading-snug); }
+  .pend__falta { display: block; font-size: var(--text-2xs); color: var(--danger-soft-ink); margin-top: 2px; }
+
   /* Barra de nota fixa no celular */
   .notabar {
     display: flex; align-items: center; gap: var(--space-3);
@@ -439,6 +468,9 @@
                 <li><span class="n" aria-hidden="true">5</span><span><span class="strong">A largura é a única exceção do app.</span> <code>max-w-7xl</code> aqui, <code>--shell-max</code> em todo o resto — e o cabeçalho <code>sticky</code> tem largura própria, diferente do conteúdo.</span></li>
                 <li><span class="n" aria-hidden="true">6</span><span><span class="strong">30 controles crus</span> nos quatro arquivos, nenhum usando <code>Input</code>/<code>Select</code>/<code>Textarea</code>/<code>Label</code>. A tela de dimensionamento ILPI tem seis <code>&lt;input type="number"&gt;</code> com rótulo em <code>&lt;span&gt;</code>, sem <code>&lt;label for&gt;</code>.</span></li>
                 <li><span class="n" aria-hidden="true">7</span><span><span class="strong">A escolha do cliente é uma parede de cartões.</span> <code>/new</code> abre com um cartão por cliente, sem busca. Com 20 clientes já é rolagem; a rede Sênior sozinha tem 13 unidades.</span></li>
+                <li><span class="n" aria-hidden="true">8</span><span><span class="strong">A assinatura do acompanhante impede terminar o relatório em casa.</span> Em <code>InspectionExecution.tsx:1311</code> o botão de finalizar é <code>disabled={!signature}</code>, e <code>handleConfirmFinish</code> abre com <code>if (!currentInspection || !signature) return;</code>. Como sempre há muito a descrever, o relatório é escrito depois da visita — e aí não há mais acompanhante para assinar. O app exige uma assinatura presencial numa etapa que, na prática, nunca é presencial.</span></li>
+                <li><span class="n" aria-hidden="true">9</span><span><span class="strong">A nota aparece sem referência.</span> 71% é bom ou ruim para esta casa? O dado da visita anterior <span class="strong">já está guardado</span> (<code>inspection.score.scorePercentage</code>, o mesmo que alimenta o gráfico da ficha do cliente), e nenhuma das três telas o usa.</span></li>
+                <li><span class="n" aria-hidden="true">10</span><span><span class="strong">Não conformidade sem texto só é percebida no fim.</span> <code>ChecklistItem.tsx:252</code> já calcula <code>hasError</code> e pinta a borda do campo de vermelho — mas só dentro do item, que pode estar recolhido cem posições acima. Não há em lugar nenhum uma lista de “quais faltam”.</span></li>
               </ol>
             </div>
           </div>
@@ -758,6 +790,13 @@
               <span class="badge badge--neutral">20 itens · 12 respondidos</span>
             </div>
 
+            <div class="segmented" role="group" aria-label="Filtrar itens do roteiro">
+              <button aria-pressed="true">Todos <span class="num">106</span></button>
+              <button aria-pressed="false">Sem resposta <span class="num">42</span></button>
+              <button aria-pressed="false">Não cumpre <span class="num">18</span></button>
+              <button aria-pressed="false">Falta escrever <span class="num">3</span></button>
+            </div>
+
             <!-- item respondido, não cumpre, com todo o contexto -->
             <article class="item" data-res="no">
               <div class="row-wrap">
@@ -908,7 +947,15 @@
               <div class="card__body" style="text-align:center;padding-bottom:var(--space-4)">
                 <p style="font-family:var(--font-title);font-weight:600;font-size:2.75rem;line-height:1;font-variant-numeric:tabular-nums;color:var(--amber-soft-ink)">71<span style="font-size:var(--text-xl)">%</span></p>
                 <p class="badge badge--attention" style="margin-top:var(--space-2)">Regular</p>
-                <p class="small muted" style="margin-top:var(--space-3)">Calculado sobre os 64 itens já respondidos. Muda até o fim da visita.</p>
+
+                <div class="delta" data-dir="sobe" style="margin-top:var(--space-4)">
+                  <span class="delta__seta" aria-hidden="true"><svg width="14" height="14"><use href="#ic-arrow-up"/></svg></span>
+                  <span class="delta__valor num">+8 pontos</span>
+                  <span class="delta__txt">melhor que a visita anterior</span>
+                </div>
+                <p class="small muted" style="margin-top:var(--space-2)">Visita de <span class="num">04/07/2026</span>: <span class="strong num">63%</span> — Regular</p>
+
+                <p class="tiny muted" style="margin-top:var(--space-3)">A comparação usa a nota <span class="strong">final</span> da visita anterior. Esta ainda é parcial: 64 dos 106 itens respondidos, e o número muda até o fim.</p>
               </div>
               <div class="card__body card__body--flush">
                 <div class="list-row"><span class="grow small">Cumpre</span><span class="strong num">41</span></div>
@@ -920,27 +967,72 @@
 
             <div class="card">
               <div class="card__head"><h2 class="card__title">Por área</h2></div>
-              <div class="card__body stack" style="--gap:var(--space-3)">
+              <div class="card__body stack" style="--gap:var(--space-4)">
                 <div>
-                  <div class="between"><span class="small">Sanitária</span><span class="strong num">68%</span></div>
+                  <div class="between"><span class="small">Sanitária <span class="muted">· Ester</span></span><span class="strong num">68%</span></div>
                   <div class="meter" style="margin-top:5px"><div class="meter__fill meter__fill--attention" style="width:68%"></div></div>
+                  <div class="delta delta--linha" data-dir="sobe">
+                    <span class="delta__seta" aria-hidden="true"><svg width="12" height="12"><use href="#ic-arrow-up"/></svg></span>
+                    <span class="delta__valor num">+5</span>
+                    <span class="delta__txt">era 63% em 04/07</span>
+                  </div>
                 </div>
                 <div>
-                  <div class="between"><span class="small">Nutrição</span><span class="strong num">79%</span></div>
+                  <div class="between"><span class="small">Nutrição <span class="muted">· Ana</span></span><span class="strong num">79%</span></div>
                   <div class="meter" style="margin-top:5px"><div class="meter__fill meter__fill--attention" style="width:79%"></div></div>
+                  <div class="delta delta--linha" data-dir="desce">
+                    <span class="delta__seta" aria-hidden="true"><svg width="12" height="12"><use href="#ic-arrow-up"/></svg></span>
+                    <span class="delta__valor num">−2</span>
+                    <span class="delta__txt">era 81% em 04/07</span>
+                  </div>
                 </div>
-                <p class="tiny muted">Ester responde a sanitária, Ana responde a nutrição. Cada uma vê a nota da sua área e a global.</p>
+                <p class="tiny muted">Cada área compara com a mesma área da visita anterior. Comparar a sanitária com a nota global daria uma diferença que não existe.</p>
               </div>
             </div>
 
             <div class="card">
-              <div class="card__head"><h2 class="card__title">Falta resolver</h2></div>
+              <div class="card__head">
+                <h2 class="card__title">Falta escrever</h2>
+                <span class="badge badge--danger num">3</span>
+              </div>
               <div class="card__body card__body--flush">
-                <div class="list-row"><span class="grow small">3 não conformidades sem situação ou ação escrita</span></div>
+                <a class="pend" href="#/execucao">
+                  <span class="pend__num num">12</span>
+                  <span class="grow">
+                    <span class="pend__txt">Barreira física entre recebimento e manipulação</span>
+                    <span class="pend__falta">falta a <span class="strong">ação</span></span>
+                  </span>
+                  <svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-right"/></svg>
+                </a>
+                <a class="pend" href="#/execucao">
+                  <span class="pend__num num">31</span>
+                  <span class="grow">
+                    <span class="pend__txt">Registro de temperatura da câmara fria</span>
+                    <span class="pend__falta">faltam <span class="strong">situação e ação</span></span>
+                  </span>
+                  <svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-right"/></svg>
+                </a>
+                <a class="pend" href="#/execucao">
+                  <span class="pend__num num">58</span>
+                  <span class="grow">
+                    <span class="pend__txt">Identificação dos produtos de higienização</span>
+                    <span class="pend__falta">falta a <span class="strong">situação</span></span>
+                  </span>
+                  <svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-right"/></svg>
+                </a>
+              </div>
+              <div class="card__foot">
+                <p class="tiny muted">Não conformidade sem texto entra no plano de ação do cliente em branco: ele recebe a pendência sem saber o que foi encontrado nem o que fazer.</p>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card__head"><h2 class="card__title">Falta responder</h2></div>
+              <div class="card__body card__body--flush">
                 <div class="list-row"><span class="grow small">42 itens ainda sem resposta</span></div>
                 <div class="list-row"><span class="grow small">1 foto na fila de envio</span></div>
               </div>
-              <div class="card__foot"><button class="btn btn--outline btn--sm btn--block">Ir para a primeira pendência</button></div>
+              <div class="card__foot"><button class="btn btn--outline btn--sm btn--block">Ir para o primeiro sem resposta</button></div>
             </div>
           </aside>
         </div>
@@ -998,8 +1090,15 @@
                   <li><span class="mk mk--ok" aria-hidden="true"><svg width="11" height="11"><use href="#ic-check"/></svg></span>
                     <span><span class="strong">106 de 106 itens respondidos.</span></span></li>
                   <li><span class="mk mk--no" aria-hidden="true"><svg width="11" height="11"><use href="#ic-x"/></svg></span>
-                    <span><span class="strong">3 não conformidades sem situação ou ação escrita.</span> Elas entram no plano de ação do cliente em branco.
-                      <a href="#/execucao">Ver as três</a></span></li>
+                    <span>
+                      <span class="strong">3 não conformidades sem situação ou ação escrita.</span>
+                      Elas entram no plano de ação do cliente em branco — ele recebe a pendência sem saber o que foi encontrado nem o que fazer.
+                      <span style="display:block;margin-top:var(--space-2);border:1px solid var(--danger-soft-border);border-radius:var(--radius-md);overflow:hidden">
+                        <a class="pend" href="#/execucao"><span class="pend__num num">12</span><span class="grow"><span class="pend__txt">Barreira física entre recebimento e manipulação</span><span class="pend__falta">falta a <span class="strong">ação</span></span></span><svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-right"/></svg></a>
+                        <a class="pend" href="#/execucao"><span class="pend__num num">31</span><span class="grow"><span class="pend__txt">Registro de temperatura da câmara fria</span><span class="pend__falta">faltam <span class="strong">situação e ação</span></span></span><svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-right"/></svg></a>
+                        <a class="pend" href="#/execucao"><span class="pend__num num">58</span><span class="grow"><span class="pend__txt">Identificação dos produtos de higienização</span><span class="pend__falta">falta a <span class="strong">situação</span></span></span><svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-right"/></svg></a>
+                      </span>
+                    </span></li>
                   <li><span class="mk mk--at" aria-hidden="true"><svg width="11" height="11"><use href="#ic-alert"/></svg></span>
                     <span><span class="strong">1 foto ainda na fila de envio.</span> Se encerrar agora, o PDF sai sem ela. <a href="#/estados">Tentar enviar</a></span></li>
                   <li><span class="mk mk--ok" aria-hidden="true"><svg width="11" height="11"><use href="#ic-check"/></svg></span>
@@ -1032,16 +1131,22 @@
             </div>
 
             <div class="card">
-              <div class="card__head"><h2 class="card__title">Assinatura de quem acompanhou</h2></div>
+              <div class="card__head"><h2 class="card__title">Quem acompanhou a visita</h2></div>
               <div class="card__body stack" style="--gap:var(--space-4)">
-                <div class="row-wrap">
-                  <span class="small muted">Acompanhante:</span>
-                  <span class="strong">Marina Alves — responsável técnica</span>
+                <div class="row-wrap" style="gap:var(--space-4);align-items:flex-start">
+                  <div class="field" style="flex:1 1 220px">
+                    <label class="label" for="f-acomp">Nome</label>
+                    <input class="input" id="f-acomp" value="Marina Alves">
+                  </div>
+                  <div class="field" style="flex:1 1 200px">
+                    <label class="label" for="f-cargo">Função</label>
+                    <input class="input" id="f-cargo" value="Responsável técnica">
+                  </div>
                 </div>
-                <div style="border:1px dashed var(--border-control);border-radius:var(--radius-md);height:130px;display:grid;place-items:center;background:var(--surface-hover)">
-                  <p class="small muted">Assine com o dedo ou com o mouse</p>
+                <div class="notice notice--info">
+                  <svg class="notice__mark" width="15" height="15" aria-hidden="true"><use href="#ic-check"/></svg>
+                  <p class="small"><span class="strong">Sem assinatura no aparelho.</span> O relatório é escrito depois da visita, em casa — pedir a assinatura do acompanhante na hora de encerrar tornava impossível terminar fora do local. O PDF continua trazendo o nome e a função acima de uma linha em branco, para assinatura no papel se alguém pedir. A sua assinatura, de consultora, continua sendo capturada na hora de gerar o PDF.</p>
                 </div>
-                <div class="row-wrap"><button class="btn btn--ghost btn--sm">Limpar</button></div>
               </div>
             </div>
           </div>
@@ -1138,12 +1243,28 @@
             <div class="card__body" style="text-align:center">
               <p style="font-family:var(--font-title);font-weight:600;font-size:3.25rem;line-height:1;font-variant-numeric:tabular-nums;color:var(--amber-soft-ink)">71<span style="font-size:var(--text-2xl)">%</span></p>
               <p class="badge badge--attention" style="margin-top:var(--space-3)">Regular</p>
+              <div class="delta" data-dir="sobe" style="margin-top:var(--space-4)">
+                <span class="delta__seta" aria-hidden="true"><svg width="14" height="14"><use href="#ic-arrow-up"/></svg></span>
+                <span class="delta__valor num">+8 pontos</span>
+                <span class="delta__txt">melhor que 04/07/2026, que fechou em 63%</span>
+              </div>
             </div>
             <div class="card__body card__body--flush">
-              <div class="list-row"><span class="grow small">Sanitária <span class="muted">· Ester</span></span><span class="strong num">68%</span></div>
-              <div class="list-row"><span class="grow small">Nutrição <span class="muted">· Ana Paula</span></span><span class="strong num">79%</span></div>
+              <div class="list-row">
+                <span class="grow small">Sanitária <span class="muted">· Ester</span></span>
+                <span class="strong num">68%</span>
+                <span class="delta" data-dir="sobe" style="flex:none"><span class="delta__valor num" style="font-size:var(--text-sm)">+5</span></span>
+              </div>
+              <div class="list-row">
+                <span class="grow small">Nutrição <span class="muted">· Ana Paula</span></span>
+                <span class="strong num">79%</span>
+                <span class="delta" data-dir="desce" style="flex:none"><span class="delta__valor num" style="font-size:var(--text-sm)">−2</span></span>
+              </div>
               <div class="list-row"><span class="grow small">Não conformidades críticas</span><span class="strong num" style="color:var(--danger-soft-ink)">7</span></div>
               <div class="list-row"><span class="grow small">Reincidentes da visita anterior</span><span class="strong num">6</span></div>
+            </div>
+            <div class="card__foot">
+              <p class="tiny muted">Aqui a comparação é final contra final — as duas visitas terminaram. Se o roteiro tiver mudado entre elas, a linha some em vez de mostrar uma diferença que não significa nada.</p>
             </div>
           </div>
         </div>
@@ -1371,10 +1492,16 @@
                 </div>
                 <div class="card">
                   <div class="card__body" style="padding:var(--space-4)">
-                    <p class="strong small" style="margin-bottom:var(--space-2)">Assinatura</p>
-                    <div style="border:1px dashed var(--border-control);border-radius:var(--radius-md);height:100px;display:grid;place-items:center;background:var(--surface-hover)">
-                      <p class="tiny muted">Assine com o dedo</p>
+                    <p class="strong small" style="margin-bottom:var(--space-3)">Quem acompanhou</p>
+                    <div class="field" style="margin-bottom:var(--space-3)">
+                      <label class="label" for="mf-acomp">Nome</label>
+                      <input class="input" id="mf-acomp" value="Marina Alves">
                     </div>
+                    <div class="field">
+                      <label class="label" for="mf-cargo">Função</label>
+                      <input class="input" id="mf-cargo" value="Responsável técnica">
+                    </div>
+                    <p class="tiny muted" style="margin-top:var(--space-3)">Sem assinatura no aparelho — o relatório é escrito depois da visita.</p>
                   </div>
                 </div>
                 <div style="height:4px"></div>
@@ -1505,6 +1632,9 @@
               <li><span class="n" aria-hidden="true">26</span><span><span class="strong">A entrega tem recibo permanente.</span> O relatório mostra, item a item, o que chegou ao portal e o que não chegou. Aviso passageiro não serve para informação que a consultora vai precisar amanhã.</span></li>
               <li><span class="n" aria-hidden="true">27</span><span><span class="strong">Quatro classificações, três cores.</span> A faixa lima perde a cor própria; bom e excelente compartilham o verde e se separam pela palavra.</span></li>
               <li><span class="n" aria-hidden="true">28</span><span><span class="strong">Controle fixo no celular é rodapé, nunca sobreposição.</span> A área de rolagem termina onde a barra começa. Nenhuma pergunta do roteiro fica atrás de um botão.</span></li>
+              <li><span class="n" aria-hidden="true">29</span><span><span class="strong">A nota anda acompanhada da visita anterior.</span> Diferença em <span class="strong">pontos</span>, não em por cento — de 63% para 71% são 8 pontos percentuais, e chamar isso de “+8%” está errado. Três canais: seta, cor e a palavra. Cada área compara com a mesma área; comparar sanitária com a nota global daria uma diferença que não existe. Durante a visita a comparação é declaradamente parcial contra final, e a tela diz isso. Sem visita anterior concluída, ou com o roteiro trocado entre as duas, a linha <span class="strong">some</span> — número comparado com o que não é comparável é pior que número sozinho.</span></li>
+              <li><span class="n" aria-hidden="true">30</span><span><span class="strong">“Falta escrever” é uma lista, não uma contagem.</span> Cada não conformidade sem situação e/ou ação vira uma linha clicável que leva ao item, dizendo qual dos dois campos falta. Aparece no painel da execução, no filtro do roteiro e no encerramento. O <code>hasError</code> que o <code>ChecklistItem</code> já calcula deixa de morar só dentro do item.</span></li>
+              <li><span class="n" aria-hidden="true">31</span><span><span class="strong">A assinatura do acompanhante sai do encerramento.</span> O relatório é escrito depois da visita, quando não há mais ninguém para assinar — exigir a assinatura era travar o único momento em que o relatório de fato é fechado. Fica o <span class="strong">nome e a função</span> de quem acompanhou, editáveis aqui, e o PDF passa a imprimir os dois acima de uma linha em branco, para assinatura no papel se alguém pedir. <span class="strong">A sua assinatura de consultora não muda</span>: continua sendo capturada na hora de gerar o PDF, no <code>PdfPreviewModal</code>.</span></li>
             </ol>
           </div>
         </div>
@@ -1538,16 +1668,27 @@
               <tbody>
                 <tr><td class="num">1</td><td class="table__primary">Cor da nota: os 16 hex viram token, com as quatro faixas em três tons</td><td class="muted">Não depende de layout, dá para conferir isolado e desbloqueia a leitura das outras telas no tema certo.</td></tr>
                 <tr><td class="num">2</td><td class="table__primary"><code>NewInspection</code>: lista com busca, resumo fixo, <code>PageHeader</code>, 9 controles migrados</td><td class="muted">É a tela menor e a única sem dependência das outras duas.</td></tr>
-                <tr><td class="num">3</td><td class="table__primary"><code>InspectionExecution</code>: três colunas, largura única, cabeçalho, estado em três canais</td><td class="muted">O maior arquivo. Layout primeiro, sem mexer no <code>ChecklistItem</code>.</td></tr>
-                <tr><td class="num">4</td><td class="table__primary"><code>ChecklistItem</code>: contexto acima da decisão, detalhes, 4 controles migrados</td><td class="muted">Commit separado — é o componente que 106 instâncias renderizam por tela.</td></tr>
-                <tr><td class="num">5</td><td class="table__primary">Encerramento: tela nova, com a lista de consequências e o cartão de entrega</td><td class="muted">Depende de saber o que a execução calculou (pendências, fotos na fila, co-finalização).</td></tr>
-                <tr><td class="num">6</td><td class="table__primary"><code>InspectionSummary</code>: recibo de entrega, tabela densa de NCs, 11 controles</td><td class="muted">Último porque consome o que o encerramento gravou.</td></tr>
+                <tr><td class="num">3</td><td class="table__primary"><code>InspectionExecution</code>: três colunas, largura única, cabeçalho, estado em três canais, <span class="strong">comparação com a visita anterior</span> e o painel <span class="strong">“Falta escrever”</span></td><td class="muted">O maior arquivo. Layout primeiro, sem mexer no <code>ChecklistItem</code>. A nota anterior sai da última inspeção <code>completed</code> do mesmo cliente, que <code>getOpenPendingHistory</code> já consulta — sem query nova.</td></tr>
+                <tr><td class="num">4</td><td class="table__primary"><code>ChecklistItem</code>: contexto acima da decisão, detalhes, 4 controles migrados</td><td class="muted">Commit separado — é o componente que 106 instâncias renderizam por tela. O <code>hasError</code> de <code>:252</code> passa a ser exposto para fora do item, alimentando o painel e o filtro.</td></tr>
+                <tr><td class="num">5</td><td class="table__primary">Encerramento: tela nova, lista de consequências, cartão de entrega e <span class="strong">o fim da assinatura obrigatória</span></td><td class="muted">Depende de saber o que a execução calculou. Aqui saem o <code>SignaturePad</code> de <code>InspectionExecution.tsx:1310</code>, o <code>disabled={!signature}</code> de <code>:1311</code> e a guarda de <code>handleConfirmFinish</code>. O campo <code>signatureDataUrl</code> continua no tipo e no banco — relatório antigo que já tem assinatura continua imprimindo a dele.</td></tr>
+                <tr><td class="num">6</td><td class="table__primary"><code>InspectionSummary</code>: recibo de entrega, comparação final contra final, tabela densa de NCs, 11 controles</td><td class="muted">Último porque consome o que o encerramento gravou.</td></tr>
               </tbody>
             </table>
           </div>
         </div>
 
-        <div class="notice notice--info" style="margin-top:var(--space-6)">
+        <div class="notice notice--attention" style="margin-top:var(--space-6)">
+          <svg class="notice__mark" width="16" height="16" aria-hidden="true"><use href="#ic-alert"/></svg>
+          <p><span class="strong">O que se perde ao tirar a assinatura, dito por inteiro.</span>
+             Hoje o PDF traz a assinatura desenhada do acompanhante como prova de que ele presenciou a visita
+             (<code>pdfGenerator.ts:1594</code>). Sem ela, o documento fica com o nome, a função e uma linha em branco —
+             prova de presença passa a depender do que está escrito no relatório, não de um traço na tela.
+             Na prática isso já era assim: a assinatura só existia quando o relatório era fechado no local, o que não acontece.
+             Se um dia for preciso ter a assinatura de volta em algum caso, o caminho é pedi-la <span class="strong">no papel</span>,
+             sobre a linha impressa — não travar o encerramento.</p>
+        </div>
+
+        <div class="notice notice--info" style="margin-top:var(--space-4)">
           <svg class="notice__mark" width="16" height="16" aria-hidden="true"><use href="#ic-check"/></svg>
           <p><span class="strong">As 30 ocorrências de controle cru destes quatro arquivos saem junto com cada tela</span> — não ficam para o FE-24. É a regra que o próprio card escreveu: migrar formulário de tela que ainda vai ser redesenhada é o mesmo erro de converter cor antes de o desenho parar.</p>
         </div>
