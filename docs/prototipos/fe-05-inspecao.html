@@ -1580,6 +1580,8 @@ dialog.drawer--left[open] { animation-name: drawer-in-left; }
                 <li><span class="n" aria-hidden="true">8</span><span><span class="strong">A assinatura do acompanhante impede terminar o relatório em casa.</span> Em <code>InspectionExecution.tsx:1311</code> o botão de finalizar é <code>disabled={!signature}</code>, e <code>handleConfirmFinish</code> abre com <code>if (!currentInspection || !signature) return;</code>. Como sempre há muito a descrever, o relatório é escrito depois da visita — e aí não há mais acompanhante para assinar. O app exige uma assinatura presencial numa etapa que, na prática, nunca é presencial.</span></li>
                 <li><span class="n" aria-hidden="true">9</span><span><span class="strong">A nota aparece sem referência.</span> 71% é bom ou ruim para esta casa? O dado da visita anterior <span class="strong">já está guardado</span> (<code>inspection.score.scorePercentage</code>, o mesmo que alimenta o gráfico da ficha do cliente), e nenhuma das três telas o usa.</span></li>
                 <li><span class="n" aria-hidden="true">10</span><span><span class="strong">Não conformidade sem texto só é percebida no fim.</span> <code>ChecklistItem.tsx:252</code> já calcula <code>hasError</code> e pinta a borda do campo de vermelho — mas só dentro do item, que pode estar recolhido cem posições acima. Não há em lugar nenhum uma lista de “quais faltam”.</span></li>
+                <li><span class="n" aria-hidden="true">11</span><span><span class="strong">Há um jeito de a inspeção parecer vinculada e mesmo assim não entregar nada.</span> Quem publica é a <em>solicitação</em> (<code>appointment_requests</code>) que aponta para a inspeção, não o agendamento da agenda. Quem escreve esse apontamento é <code>syncLinkedAppointmentRequest</code>, que atualiza só as solicitações <code>confirmed</code>/<code>rescheduled</code>/<code>in_progress</code> daquele agendamento, <span class="strong">volta cedo quando está offline</span> (<code>if (!navigator.onLine) return;</code>), roda solta com <code>void</code> e engole zero-linhas em silêncio. Vincular durante a visita, sem sinal, não escreve nada — e a tela de Agendamentos mostra tudo certo. Por isso o bloqueio testa a solicitação, não o agendamento.</span></li>
+                <li><span class="n" aria-hidden="true">12</span><span><span class="strong">Prazo em texto livre vira pendência que nunca vence.</span> <code>deadlineToDays</code> aceita “imediato/urgente” (→ 0) e <code>N hora|dia|semana|mês</code>; qualquer outra coisa vira <code>null</code> e a pendência chega ao portal <span class="strong">sem data</span>, fora de toda contagem de vencidas. Os oito valores do <code>&lt;datalist&gt;</code> de hoje mapeiam certo — o buraco é só o texto digitado fora deles.</span></li>
               </ol>
             </div>
           </div>
@@ -1588,10 +1590,10 @@ dialog.drawer--left[open] { animation-name: drawer-in-left; }
             <div class="card__head"><h3 class="card__title">O que fica de fora, de propósito</h3></div>
             <div class="card__body">
               <ul class="checklist">
-                <li><span class="mk mk--at" aria-hidden="true"><svg width="11" height="11"><use href="#ic-alert"/></svg></span>
-                  <span><span class="strong">Corrigir a causa da publicação sem vínculo.</span> Este artefato torna a falha <em>visível e permanente</em> na tela. Fazer a inspeção se vincular sozinha a um agendamento é decisão de produto — fora de escopo até a Ester autorizar.</span></li>
-                <li><span class="mk mk--at" aria-hidden="true"><svg width="11" height="11"><use href="#ic-alert"/></svg></span>
-                  <span><span class="strong">Prazo em texto livre.</span> “assim que possível” vira item sem prazo, que nunca vence. É o achado 3 de “Fora de escopo” do handoff e continua lá — o desenho novo só passa a <em>avisar</em> quando o prazo digitado não é reconhecido.</span></li>
+                <li><span class="mk mk--ok" aria-hidden="true"><svg width="11" height="11"><use href="#ic-check"/></svg></span>
+                  <span><span class="strong">Publicação sem vínculo: entrou no escopo</span> em 16/08, por decisão da Ester. O encerramento passa a ser <em>bloqueado</em>, não só avisado (decisão 32). O que continua fora: fazer a inspeção se vincular sozinha, e consertar o <code>syncLinkedAppointmentRequest</code> que volta cedo quando está offline (achado 11) — o desenho contorna com o botão “Refazer o vínculo”.</span></li>
+                <li><span class="mk mk--ok" aria-hidden="true"><svg width="11" height="11"><use href="#ic-check"/></svg></span>
+                  <span><span class="strong">Prazo em texto livre: fecha por consequência.</span> Com a lista fechada e “Sem prazo definido” dentro dela (decisão 33), some o caminho que produzia pendência sem data por engano — o achado 3 de “Fora de escopo” do handoff deixa de existir sem precisar de card próprio.</span></li>
                 <li><span class="mk mk--ok" aria-hidden="true"><svg width="11" height="11"><use href="#ic-check"/></svg></span>
                   <span><span class="strong">O motor de condicionais.</span> Não se implementa aqui — mas os dois lugares onde ele vai morar já aparecem no desenho, marcados. Ver <code>HANDOFF-CONDICIONAIS.md</code>.</span></li>
               </ul>
@@ -1984,9 +1986,11 @@ dialog.drawer--left[open] { animation-name: drawer-in-left; }
                     <label class="label" for="e-prazo">Prazo</label>
                     <select class="select" id="e-prazo">
                       <option>Imediato</option><option>24 horas</option><option>7 dias</option>
-                      <option>15 dias</option><option selected>30 dias</option><option>60 dias</option><option>90 dias</option>
+                      <option>15 dias</option><option selected>30 dias</option><option>45 dias</option>
+                      <option>60 dias</option><option>90 dias</option>
+                      <option>Sem prazo definido</option>
                     </select>
-                    <p class="hint">Vira data no portal. Prazo que o sistema não entende nunca vence.</p>
+                    <p class="hint">Vira data no plano de ação do cliente, contada a partir da visita. <span class="strong">Sem prazo definido</span> é uma escolha legítima — a pendência aparece no portal, mas nunca fica vencida.</p>
                   </div>
                 </div>
 
@@ -2210,6 +2214,8 @@ dialog.drawer--left[open] { animation-name: drawer-in-left; }
                     </span></li>
                   <li><span class="mk mk--at" aria-hidden="true"><svg width="11" height="11"><use href="#ic-alert"/></svg></span>
                     <span><span class="strong">1 foto ainda na fila de envio.</span> Se encerrar agora, o PDF sai sem ela. <a href="#/estados">Tentar enviar</a></span></li>
+                  <li><span class="mk mk--at" aria-hidden="true"><svg width="11" height="11"><use href="#ic-alert"/></svg></span>
+                    <span><span class="strong">2 pendências ficaram sem prazo definido.</span> Elas aparecem no portal, mas nunca contam como vencidas — nem para o cliente, nem na sua fila do Início. Confira se é isso mesmo. <a href="#/execucao">Ver as duas</a></span></li>
                   <li><span class="mk mk--ok" aria-hidden="true"><svg width="11" height="11"><use href="#ic-check"/></svg></span>
                     <span>Nenhum conflito de sincronização em aberto.</span></li>
                   <li><span class="mk mk--ok" aria-hidden="true"><svg width="11" height="11"><use href="#ic-check"/></svg></span>
@@ -2266,32 +2272,53 @@ dialog.drawer--left[open] { animation-name: drawer-in-left; }
               <div class="card__body stack" style="--gap:var(--space-3)">
                 <div class="notice notice--success">
                   <svg class="notice__mark" width="15" height="15" aria-hidden="true"><use href="#ic-check-circle"/></svg>
-                  <p class="small"><span class="strong">Vinculada ao agendamento de 17/08.</span> O relatório, a nota e o plano de ação vão chegar ao portal da REDE SÊNIOR.</p>
+                  <p class="small"><span class="strong">Pronta para entregar.</span> A solicitação de 17/08 está apontando para esta inspeção — é esse apontamento, e não o agendamento na agenda, que faz o relatório chegar ao portal.</p>
                 </div>
                 <p class="small muted">Quem recebe: 1 conta de rede (13 unidades) e o link público desta unidade.</p>
               </div>
               <div class="card__foot" style="display:flex;flex-direction:column;gap:var(--space-2)">
                 <button class="btn btn--primary btn--lg btn--block" data-toast="Relatório encerrado e entregue ao portal.">Encerrar e entregar</button>
                 <button class="btn btn--outline btn--block">Só gerar o PDF, sem entregar</button>
-                <p class="hint">A segunda opção gera o arquivo para conferência e <span class="strong">não</span> publica nada.</p>
+                <p class="hint">A segunda opção gera o arquivo para conferência e <span class="strong">não</span> publica nada. Ela continua disponível nos três estados abaixo.</p>
               </div>
             </div>
 
-            <div class="card" style="border-color:var(--amber-soft-border)">
-              <div class="card__head" style="background:var(--amber-soft)">
-                <h2 class="card__title" style="color:var(--amber-soft-ink)">O mesmo cartão, quando não há vínculo</h2>
-              </div>
-              <div class="card__body stack" style="--gap:var(--space-3)">
-                <div class="notice notice--attention">
-                  <svg class="notice__mark" width="15" height="15" aria-hidden="true"><use href="#ic-alert"/></svg>
-                  <p class="small"><span class="strong">Esta inspeção não está vinculada a nenhum agendamento.</span> O PDF será gerado, mas o relatório, a nota e as 18 pendências <span class="strong">não chegam ao portal do cliente</span>.</p>
+            <div class="card">
+              <div class="card__head"><h2 class="card__title">Os outros dois estados</h2></div>
+              <div class="card__body stack" style="--gap:var(--space-5)">
+
+                <div>
+                  <p class="strong small" style="margin-bottom:var(--space-2)">B · Sem agendamento nenhum</p>
+                  <div class="notice notice--danger" style="margin-bottom:var(--space-3)">
+                    <svg class="notice__mark" width="15" height="15" aria-hidden="true"><use href="#ic-x"/></svg>
+                    <p class="small"><span class="strong">Não dá para encerrar.</span> Sem agendamento, o relatório, a nota e as 18 pendências não têm como chegar ao cliente.</p>
+                  </div>
+                  <div class="field" style="margin-bottom:var(--space-2)">
+                    <label class="label" for="v-ag">Agendamentos desta unidade sem inspeção</label>
+                    <select class="select" id="v-ag">
+                      <option>Escolha um…</option>
+                      <option>17/08/2026 09:00 — visita técnica</option>
+                      <option>04/07/2026 14:00 — visita técnica</option>
+                    </select>
+                  </div>
+                  <button class="btn btn--outline btn--sm btn--block" style="margin-bottom:var(--space-2)">Criar um agendamento para esta visita</button>
+                  <button class="btn btn--primary btn--lg btn--block" disabled aria-disabled="true">Encerrar e entregar</button>
+                  <p class="hint">Fica desabilitado até haver vínculo. A saída, se a visita nunca teve agendamento, é criar um retroativo aqui mesmo — bloquear sem oferecer caminho seria prender o relatório.</p>
                 </div>
-                <button class="btn btn--outline btn--sm btn--block">Vincular a um agendamento</button>
-                <label class="check">
-                  <input type="checkbox">
-                  <span class="small">Encerrar mesmo assim, sem entregar ao portal.</span>
-                </label>
-                <p class="tiny muted">O botão de encerrar fica desabilitado até um dos dois caminhos ser escolhido. Este é o achado 4 de “Fora de escopo”: o desenho novo <span class="strong">mostra</span> a falha; corrigir a causa continua fora de escopo.</p>
+
+                <div>
+                  <p class="strong small" style="margin-bottom:var(--space-2)">C · Agendamento vinculado, mas a solicitação não sabe disso</p>
+                  <div class="notice notice--attention" style="margin-bottom:var(--space-3)">
+                    <svg class="notice__mark" width="15" height="15" aria-hidden="true"><use href="#ic-alert"/></svg>
+                    <p class="small"><span class="strong">O vínculo não chegou ao portal.</span> Esta inspeção está ligada ao agendamento de 17/08, mas a solicitação correspondente ainda não aponta para ela. Encerrar agora entregaria o PDF e <span class="strong">nada mais</span>.</p>
+                  </div>
+                  <button class="btn btn--outline btn--sm btn--block" style="margin-bottom:var(--space-2)"><svg width="14" height="14" aria-hidden="true"><use href="#ic-refresh"/></svg>Refazer o vínculo</button>
+                  <button class="btn btn--primary btn--lg btn--block" disabled aria-disabled="true">Encerrar e entregar</button>
+                  <p class="hint">Este é o estado que um cartão ingênuo pintaria de verde: a agenda mostra tudo certo. Ver o achado 11 no diagnóstico.</p>
+                </div>
+              </div>
+              <div class="card__foot">
+                <p class="tiny muted">O cartão testa <span class="strong">a solicitação que aponta para esta inspeção</span> — é o que <code>AppointmentAdminService.getRequestByInspectionId</code> procura na hora de publicar. Testar “existe agendamento?” daria falso verde no estado C.</p>
               </div>
             </div>
           </div>
@@ -2435,7 +2462,7 @@ dialog.drawer--left[open] { animation-name: drawer-in-left; }
                     <p class="small" style="margin-top:2px"><span class="strong">Fazer:</span> identificar todos os frascos e guardar fora da área de manipulação.</p>
                   </td>
                   <td>Equipe de Limpeza</td>
-                  <td><span class="badge badge--neutral">15 dias</span></td>
+                  <td><span class="badge badge--outline">sem prazo</span></td>
                   <td><span class="badge badge--neutral">1 foto</span></td>
                 </tr>
               </tbody>
@@ -2744,24 +2771,34 @@ dialog.drawer--left[open] { animation-name: drawer-in-left; }
               <li><span class="n" aria-hidden="true">29</span><span><span class="strong">A nota anda acompanhada da visita anterior.</span> Diferença em <span class="strong">pontos</span>, não em por cento — de 63% para 71% são 8 pontos percentuais, e chamar isso de “+8%” está errado. Três canais: seta, cor e a palavra. Cada área compara com a mesma área; comparar sanitária com a nota global daria uma diferença que não existe. Durante a visita a comparação é declaradamente parcial contra final, e a tela diz isso. Sem visita anterior concluída, ou com o roteiro trocado entre as duas, a linha <span class="strong">some</span> — número comparado com o que não é comparável é pior que número sozinho.</span></li>
               <li><span class="n" aria-hidden="true">30</span><span><span class="strong">“Falta escrever” é uma lista, não uma contagem.</span> Cada não conformidade sem situação e/ou ação vira uma linha clicável que leva ao item, dizendo qual dos dois campos falta. Aparece no painel da execução, no filtro do roteiro e no encerramento. O <code>hasError</code> que o <code>ChecklistItem</code> já calcula deixa de morar só dentro do item.</span></li>
               <li><span class="n" aria-hidden="true">31</span><span><span class="strong">A assinatura do acompanhante sai do encerramento.</span> O relatório é escrito depois da visita, quando não há mais ninguém para assinar — exigir a assinatura era travar o único momento em que o relatório de fato é fechado. Fica o <span class="strong">nome e a função</span> de quem acompanhou, editáveis aqui, e o PDF passa a imprimir os dois acima de uma linha em branco, para assinatura no papel se alguém pedir. <span class="strong">A sua assinatura de consultora não muda</span>: continua sendo capturada na hora de gerar o PDF, no <code>PdfPreviewModal</code>.</span></li>
+              <li><span class="n" aria-hidden="true">32</span><span><span class="strong">Sem vínculo não se encerra</span> — e o vínculo que conta é a <span class="strong">solicitação apontando para a inspeção</span>, não o agendamento na agenda. Três estados no cartão de entrega: pronta, sem agendamento, e vinculada mas com a solicitação desatualizada (o caso que um cartão ingênuo pintaria de verde). Nos dois últimos o botão fica desabilitado, sempre com a saída ao lado: escolher agendamento, criar um retroativo, ou refazer o vínculo. <span class="strong">“Só gerar o PDF, sem entregar” nunca é bloqueado</span> — não publica nada.</span></li>
+              <li><span class="n" aria-hidden="true">33</span><span><span class="strong">Prazo é só a lista, e “Sem prazo definido” está nela.</span> Os oito valores atuais já mapeiam certo em <code>deadlineToDays</code>; o buraco era o texto digitado fora deles. “Sem prazo definido” produz o mesmo <code>null</code>, mas por escolha — e ganha estado próprio: selo <span class="badge badge--outline">sem prazo</span> no relatório e no portal, e uma contagem no encerramento antes de entregar. Ausência de data não pode se parecer com esquecimento.</span></li>
             </ol>
           </div>
         </div>
 
-        <h2 style="margin-bottom:var(--space-4)">O que depende de decisão da Ester</h2>
+        <h2 style="margin-bottom:var(--space-4)">As duas perguntas em aberto — respondidas pela Ester em 16/08/2026</h2>
         <div class="cols" style="margin-bottom:var(--space-8)">
           <div class="card">
-            <div class="card__head"><h3 class="card__title">1 · Publicação sem vínculo</h3></div>
+            <div class="card__head">
+              <h3 class="card__title">1 · Publicação sem vínculo</h3>
+              <span class="badge badge--success">respondido</span>
+            </div>
             <div class="card__body stack" style="--gap:var(--space-3)">
-              <p class="small">Este artefato torna a falha <span class="strong">visível e permanente</span> — no encerramento (antes) e no recibo do relatório (depois), com um caminho para vincular ali mesmo. <span class="strong">Corrigir a causa</span> — fazer a inspeção se vincular sozinha, ou impedir o encerramento sem vínculo — continua fora de escopo.</p>
-              <p class="small strong">Precisa de resposta: o encerramento sem vínculo deve ser possível marcando a caixa, ou deve ser bloqueado?</p>
+              <p class="small"><span class="strong">“Pode bloquear o encerramento sem vínculo.”</span> Vira a decisão 32. O botão fica desabilitado, com a razão escrita e um caminho de saída no mesmo cartão — escolher um agendamento existente ou criar um retroativo.</p>
+              <p class="small"><span class="strong">O que a resposta obrigou a mudar no desenho:</span> o bloqueio não pode testar “existe agendamento?”. Quem entrega ao portal é a <em>solicitação</em> que aponta para a inspeção, e ela pode ficar para trás quando o vínculo é feito sem sinal (achado 11). Testar a coisa errada daria um verde falso justamente no caso em que a entrega falha. Por isso são <span class="strong">três</span> estados, não dois.</p>
+              <p class="small">“Só gerar o PDF, sem entregar” continua disponível nos três — bloquear a entrega não é bloquear a conferência.</p>
             </div>
           </div>
           <div class="card">
-            <div class="card__head"><h3 class="card__title">2 · Prazo em texto livre</h3></div>
+            <div class="card__head">
+              <h3 class="card__title">2 · Prazo em texto livre</h3>
+              <span class="badge badge--success">respondido</span>
+            </div>
             <div class="card__body stack" style="--gap:var(--space-3)">
-              <p class="small">Hoje prazo e responsável são <code>&lt;input list&gt;</code>: aceitam qualquer texto. “Assim que possível” vira pendência sem data, que <span class="strong">nunca conta como vencida</span> no portal nem no Início. O desenho novo usa <code>Select</code> com os valores reconhecidos.</p>
-              <p class="small strong">Precisa de resposta: o campo continua aceitando texto livre (com aviso de que não vira data), ou passa a ser só a lista?</p>
+              <p class="small"><span class="strong">“Prazo só a lista, mas teremos que criar um prazo indefinido.”</span> Vira a decisão 33: a lista ganha <span class="strong">“Sem prazo definido”</span> no fim.</p>
+              <p class="small">Tecnicamente ela produz o mesmo <code>null</code> que “assim que possível” produz hoje — a diferença é que passa a ser <span class="strong">escolha</span>, não acidente de digitação. Com isso o achado 3 de “Fora de escopo” fecha por consequência: sai o único caminho que criava pendência sem data por engano.</p>
+              <p class="small">Em troca, “sem prazo” precisa aparecer como estado próprio, não como ausência: selo <span class="badge badge--outline">sem prazo</span> na lista de ações do relatório e no portal, e uma linha no encerramento contando quantas ficaram assim antes de entregar.</p>
             </div>
           </div>
         </div>

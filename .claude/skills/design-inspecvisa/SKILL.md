@@ -109,6 +109,11 @@ Do Artefato E, ainda **aguardando aprovação da Ester** (não citar como fechad
 30. **"Falta escrever" é lista clicável**, não contagem: qual item e qual campo falta.
 31. **Sem assinatura do acompanhante no encerramento** — o relatório é fechado em casa. Fica nome
     e função; a assinatura da consultora no `PdfPreviewModal` **não muda**.
+32. **Sem vínculo não se encerra** — e o vínculo que conta é a **solicitação apontando para a
+    inspeção** (`appointment_requests.inspection_id`), não o agendamento. Três estados, porque
+    vincular offline não escreve nada e a agenda mostra verde. "Só gerar o PDF" nunca é bloqueado.
+33. **Prazo é só a lista**, com **"Sem prazo definido"** dentro dela — e "sem prazo" é estado
+    próprio (selo), nunca ausência silenciosa.
 
 ## Armadilhas de CSS que já custaram tempo
 
