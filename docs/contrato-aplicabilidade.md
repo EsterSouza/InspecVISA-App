@@ -46,11 +46,14 @@ e ela apareceria no relatório como avaliação da consultora.
 
 ### 2.2 Item sem resposta **não** é item aplicável resolvido
 
-Achado A1 do mapa: `binaryScore` devolve 3 (conforme) para item sem resposta. Portanto:
+Achado A1 do mapa: `binaryScore` devolve 3 (conforme) para item sem resposta. Isso hoje **não**
+contamina o percentual nem a classificação (que só contam item respondido) — chega apenas aos
+índices MARP `ic`/`inc`/`cr`/`rp`, que são calculados e não exibidos. Ainda assim, o contrato é:
 
 - O conjunto avaliado passado ao `calculateScore` é **só o `aplicavel`**.
-- `pendente_de_condicao` **nunca** entra nesse conjunto — se entrasse, viraria nota máxima de
-  graça.
+- `pendente_de_condicao` **nunca** entra nesse conjunto — nem no percentual, nem no MARP.
+- **Quando os índices MARP forem exibidos**, o item sem resposta sai do cálculo em vez de valer 3.
+  Enquanto ninguém os exibe, isso é dívida registrada, não bug no ar.
 - Fechar inspeção com pendência é tratado no item 6.4.
 
 ## 3. Os dois tipos de item
@@ -240,10 +243,12 @@ itens da execução = itens do score = itens do summary = itens do PDF = itens e
 
 ## 9. Decisões de limpeza que este contrato exige
 
-1. **`isRJOnly` (achado do mapa):** hoje mente — 15 ocorrências nos dados, zero leitores. **Decisão:
-   remover do tipo e dos dados** no `COND-04`, e, se algum daqueles itens realmente só valer para o
-   RJ, ele volta como **regra de verdade** no piloto. Antes de remover, listar os 15 para a Ester
-   conferir se algum deveria ter ficado fora de inspeções de outros estados.
+1. **`isRJOnly` (achado do mapa):** funciona, mas só dentro de `getExtraSections` — filtra 2 itens
+   de alimentos (canudo biodegradável e ovo cru), e é **redundante** nos 9 itens do suplemento ILPI
+   RJ, que já só entra para clientes do RJ. **Decisão: não remover.** É a única regra de
+   aplicabilidade **por item** que existe hoje, e por isso é o melhor caso de migração do
+   `COND-03`: vira regra declarativa `contexto.uf pertence a ['RJ']` com alvo no item. Os 9
+   redundantes do ILPI perdem a flag, sem mudar comportamento.
 2. **Casamento por texto (achado A5):** título de seção decidindo suplemento e recorte por papel
    vira regra por id no `COND-03`. Enquanto não migrar, renomear seção continua alterando roteiro
    em silêncio — **fica registrado como risco conhecido**.
@@ -252,16 +257,24 @@ itens da execução = itens do score = itens do summary = itens do PDF = itens e
    card: a canônica é a completa (`'ambos'`, `full=true`); o recorte por papel vira **filtro de
    exibição**, nunca outra árvore.
 
-## 10. O que precisa da palavra da Ester
+## 10. Decisões da Ester
 
-Nada disto bloqueia o `COND-02`, mas todos travam o `COND-05` em diante:
+**Decidido em 16/08/2026:**
 
-1. **"Não foi possível determinar" pode fechar inspeção?** O contrato (6.4) diz que sim, com
-   justificativa e lista própria no relatório. É decisão sanitária: aceitar relatório com escopo
-   declaradamente incompleto.
-2. **Pergunta de roteamento aparece no relatório?** A proposta é sim, como contexto declarado, sem
-   entrar em conformidade. Alternativa é não aparecer.
-3. **Os 15 itens `isRJOnly`** — conferir se algum deveria estar fora de inspeções de outros
-   estados. Se sim, virou achado sanitário, não só dívida técnica.
-4. **Recorte por papel vira filtro de exibição?** (decisão 9.4) Muda o que a Ester vê ao concluir
-   sozinha uma inspeção que a Ana também respondeu.
+1. **"Não foi possível determinar" pode fechar a inspeção.** ✅ Sim — com justificativa, lista
+   própria no relatório ("não avaliados por informação indisponível"), fora do denominador da nota
+   e fora do plano de ação. É o item 6.4 deste contrato, agora normativo.
+2. **Pergunta de roteamento aparece no relatório.** ✅ Sim — como **contexto declarado**
+   ("Processamento de artigos: terceirizado"), nunca na contagem de conformidade, nunca como NC.
+   É o item 3 deste contrato, agora normativo.
+3. **`isRJOnly`** — a pergunta perdeu o objeto: a flag funciona (ver 9.1). Nenhum item deixou de
+   ser avaliado por engano. Fica como caso de migração do `COND-03`.
+
+**Em aberto — trava o `COND-03` (não trava o `COND-02`):**
+
+4. **O recorte por papel vira filtro de exibição?** Hoje a execução monta **duas** árvores ao mesmo
+   tempo: a filtrada pelo papel de quem está logada (Ester vê sanitária, Ana vê nutrição) e a
+   completa. A completa é a que vira snapshot e a que a nota usa. A proposta é: **existe uma árvore
+   só — a completa — e o papel vira apenas um filtro de exibição**, com um botão "ver tudo". Muda o
+   que a Ester enxerga ao concluir sozinha uma inspeção que a Ana também respondeu: hoje ela
+   conclui sem ver a parte de nutrição, mas o relatório sai com ela.

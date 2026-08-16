@@ -63,12 +63,17 @@ Todas dentro de `getEffectiveTemplate` (`src/data/templates.ts:383`), nesta orde
 | 5 | Filtro de aposentados | `:427` | remove item aposentado antes do corte | `item.retiredAt` vs `inspection.createdAt` |
 | 6 | Ordenação final | `:435` | ordena seções | `section.order` |
 
-E uma sétima que **não existe de fato**: `ChecklistItem.isRJOnly` (`types/index.ts:132`) — 15
-ocorrências nos dados, **zero leitores** no `src/`.
+E uma sétima, que vive **fora** do `getEffectiveTemplate`: `ChecklistItem.isRJOnly`
+(`types/index.ts:132`), avaliada dentro de `getExtraSections`
+(`templates_alimentos_segmentos.ts:865` — `if (item.isRJOnly && !isRJ) return false`). Ou seja:
+**funciona, mas só para as seções extras de alimentos.** Nos 9 itens do suplemento ILPI RJ a flag é
+**redundante** — o suplemento inteiro já é liberado só para o RJ pelo `isRioState`. Distribuição
+real: 12 ocorrências nos dados (9 ILPI RJ redundantes · 2 de alimentos que realmente filtram ·
+1 explicitamente `false`).
 
 ## Achados
 
-### A1 · Item sem resposta pontua como **conforme**
+### A1 · Item sem resposta vale "conforme" no MARP — que hoje ninguém mostra
 
 `src/utils/scoring.ts:8-11`:
 
@@ -78,13 +83,29 @@ const binaryScore = (id: string) => {
   if (!res || (res.result as string) === 'not_evaluated') return 3;  // 3 = conforme
 ```
 
-Item que está no roteiro e não foi respondido entra na nota **valendo o máximo**. Hoje isso é
-mitigado porque a consultora responde tudo; com condicionais, um item "pendente de condição" que
-permaneça na lista avaliada **infla a nota em silêncio**. É o achado mais importante para o
-`COND-09`.
+**Onde isso NÃO chega** — conferido linha a linha em 16/08/2026, e é a parte tranquilizadora:
 
-Detalhe agravante: itens críticos entram por **média geométrica** (`:23`), então um único item
-crítico mal classificado move a nota inteira.
+- `scorePercentage` usa denominador `complies + not_complies` **respondidos** (`:120-125`). Item
+  sem resposta **não infla o percentual**.
+- `classification` deriva do `scorePercentage` (`:194`). Também não infla.
+- É esse par que o PDF imprime na capa (`pdfGenerator.ts:794-827`), que o `ScorePanel` mostra e que
+  o portal recebe via `calculateAreaScores` (que reusa o `calculateScore`).
+- A capa do PDF ainda escreve **"X de Y itens avaliados"** — o relatório é honesto sobre o que
+  ficou sem resposta.
+
+**Onde chega:** só nos índices `ic`, `inc`, `cr` e `rp` de `calcMARPValues`, que são calculados
+global e por seção — e **não são exibidos em lugar nenhum hoje** (o rótulo "Classificação de risco
+(MARP)" do `ScorePanel` e do PDF mostra a `classification`, derivada do percentual, não esses
+índices).
+
+**Portanto:** é uma armadilha latente, não um número errado no ar. Vira número errado no minuto em
+que alguém exibir IC/INC/CR/RP — e, para o motor de condicionais, continua sendo a regra que impede
+"pendente de condição" de entrar no conjunto avaliado. Agravante que se mantém: crítico entra por
+**média geométrica** (`:23`), então um item mal classificado move o índice inteiro.
+
+**Dado real (produção, leitura em 16/08/2026):** de 31 inspeções concluídas, **3** têm menos
+respostas que o roteiro tem itens — 80, 24 e 5 itens sem resposta. Nenhuma resposta gravada como
+`not_evaluated`. Ou seja, o cenário existe de verdade; só não contamina o número publicado.
 
 ### A2 · O congelamento tem um fallback que o desliga
 

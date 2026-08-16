@@ -10,8 +10,9 @@
 
 ## Onde estamos
 
-**COND-01 entregue em 16/08/2026.** Os outros nove não começaram — e o `COND-05` em diante depende
-das 4 respostas pedidas em [contrato-aplicabilidade.md § 10](contrato-aplicabilidade.md).
+**COND-01 entregue em 16/08/2026**, com 3 das 4 decisões de produto já tomadas pela Ester
+([contrato § 10](contrato-aplicabilidade.md)). Os outros nove cards não começaram. O `COND-02` está
+liberado; o `COND-03` espera a decisão 4 (recorte por papel).
 
 | Card | O que é | Modelo | Esforço | Depois de |
 |---|---|---|---|---|
@@ -71,7 +72,7 @@ aplicabilidade** — só que cravado em TypeScript, em seis regras, sem nome e s
 | 3 | `section.applicableFoodTypes` | `templates.ts:417` · tipo em `types/index.ts:98` | **já é uma regra declarativa, num campo do dado** — operador "pertence a uma lista", alvo = seção |
 | 4 | `filterSectionsByRole(role, full)` | `templates.ts` | recorte por profissional na ILPI — casa seção **por palavra no título** (`nutri`, `aliment`, `dieta`…) quando o id não bate |
 | 5 | `filterRetiredAsOf` | `templates.ts` (FE-17b, 16/08) | aposentadoria com corte por data de início da inspeção |
-| 6 | `ChecklistItem.isRJOnly` | `types/index.ts:132` | **regra morta**: 15 ocorrências nos dados (`Roteiro_ILPI_RJ.ts`, `templates_alimentos_segmentos.ts`) e **zero leitores** no `src/` |
+| 6 | `ChecklistItem.isRJOnly` | avaliada em `templates_alimentos_segmentos.ts:865` | **funciona, mas só nas seções extras de alimentos** — é a única regra de aplicabilidade **por item** que existe hoje. Nos 9 itens do suplemento ILPI RJ é redundante (o suplemento já é RJ-only) |
 
 **Consequências que valem como decisão de projeto:**
 
@@ -84,9 +85,11 @@ aplicabilidade** — só que cravado em TypeScript, em seis regras, sem nome e s
    mesma função é o modo de falha "árvores divergentes", só que na mesma linha de código.
 5. **A regra 4 é frágil e vira dívida explícita:** casar seção de nutrição por palavra no título
    funciona até alguém renomear uma seção. Sob o motor novo isso passa a ser regra por id.
-6. **`isRJOnly` é decisão pendente no COND-01:** ou vira regra de verdade (e alguém precisa
-   conferir se aqueles 15 itens deveriam ter sumido para não-RJ esse tempo todo), ou é removida do
-   tipo e dos dados. Hoje ela mente: parece que existe filtro e não existe.
+6. **`isRJOnly` é o melhor caso de migração** — corrigido em 16/08 depois de reler o código: ela
+   **funciona** (`templates_alimentos_segmentos.ts:865`) e é a única regra de aplicabilidade **por
+   item** que já existe. Vira regra declarativa `contexto.uf pertence a ['RJ']` no COND-03; os 9
+   usos redundantes do suplemento ILPI RJ perdem a flag sem mudar comportamento. Nenhum item deixou
+   de ser avaliado por engano.
 
 ---
 
@@ -507,8 +510,9 @@ atual).
 **Testes:** nenhum — o card é documental. O `.feature` traz no rodapé o que já existe hoje e vira
 suíte de equivalência do `COND-02`.
 
-**Riscos e achados** (detalhe no mapa): item sem resposta pontua como **conforme**
-(`scoring.ts:8`) e por isso "pendente de condição" jamais pode entrar no conjunto avaliado (A1) ·
+**Riscos e achados** (detalhe no mapa): item sem resposta vale "conforme" **só nos índices MARP**,
+que hoje não são exibidos — o percentual e a classificação do relatório contam apenas item
+respondido; ainda assim, "pendente de condição" jamais pode entrar no conjunto avaliado (A1) ·
 o congelamento tem fallback que reconstrói do roteiro vivo, e com branches esse caso vira o normal
 (A2) · o contexto já é congelado, a regra não (A3) · a execução mantém **duas** árvores
 simultâneas (A4) · duas regras casam seção **por texto do título** (A5) · erro de composição já é
