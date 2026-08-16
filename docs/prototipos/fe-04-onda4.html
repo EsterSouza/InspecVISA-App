@@ -1696,6 +1696,8 @@ dialog.drawer--left[open] { animation-name: drawer-in-left; }
           </div>
         </div>
 
+        <p class="small muted" style="margin-bottom:var(--space-2)">A aba escolhida entra na URL (<code>/clients/:id?aba=arquivos</code>): o link do Início leva direto à aba certa, o botão de voltar funciona e a consultora consegue mandar “olha os arquivos desta visita” para a colega.</p>
+
         <div class="tabs">
           <div class="tablist" role="tablist" aria-label="Seções do cliente">
             <button class="tab" role="tab" id="t-visao" aria-controls="p-visao" aria-selected="true">Visão geral</button>
@@ -2500,7 +2502,7 @@ dialog.drawer--left[open] { animation-name: drawer-in-left; }
               <tbody>
                 <tr><td class="table__primary">FE-14</td><td>Início unificado — absorve o Painel, <code>/painel</code> vira redirect, faixa “Desempenho” recolhida</td><td>Opus 5</td><td><span class="badge badge--attention">médio-alto</span></td><td class="muted">—</td></tr>
                 <tr><td class="table__primary">FE-15</td><td>Primitivo <code>ConfirmDialog</code> + migração dos 114 <code>alert()</code>/<code>confirm()</code></td><td>Opus 5 · lote no Codex</td><td><span class="badge badge--attention">médio</span></td><td class="muted"><code>Modal</code> (FE-04a ✅)</td></tr>
-                <tr><td class="table__primary">FE-16</td><td>Ficha do cliente com abas — os 7 achados do diagnóstico</td><td>Opus 5</td><td><span class="badge badge--danger">alto</span></td><td class="muted"><code>Tabs</code> (FE-04b ✅) · FE-15</td></tr>
+                <tr><td class="table__primary">FE-16</td><td>Ficha do cliente com abas — os 7 achados do diagnóstico, com a aba na URL (<code>?aba=</code>)</td><td>Opus 5</td><td><span class="badge badge--danger">alto</span></td><td class="muted"><code>Tabs</code> (FE-04b ✅) · FE-15</td></tr>
                 <tr><td class="table__primary">FE-17</td><td>Rotas nunca desenhadas: Solicitações, Roteiros, Biblioteca</td><td>Sonnet 5</td><td><span class="badge badge--attention">médio</span></td><td class="muted"><code>Table</code> (FE-04b ✅)</td></tr>
                 <tr><td class="table__primary">FE-18</td><td>Sincronização — linha do tempo, estados e a fila que falhou</td><td>Sonnet 5</td><td><span class="badge badge--attention">médio</span></td><td class="muted">FE-15 (descartar exige confirmação)</td></tr>
                 <tr><td class="table__primary">FE-19</td><td>Configurações — nav de seção, salvar por seção, zona de risco</td><td>Sonnet 5</td><td><span class="badge badge--attention">médio</span></td><td class="muted">FE-15</td></tr>
