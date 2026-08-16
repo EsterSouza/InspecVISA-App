@@ -10,15 +10,17 @@
 
 ## Onde estamos
 
-**COND-01 entregue em 16/08/2026**, com as **4 decisões de produto tomadas** pela Ester
+**COND-01 e COND-02 entregues em 16/08/2026**, com as **4 decisões de produto tomadas** pela Ester
 ([contrato § 10](contrato-aplicabilidade.md)) — inclusive a de que existe **uma árvore só**, com o
-papel virando filtro de exibição. Os outros nove cards não começaram, e **nenhum está travado por
-decisão**: `COND-02` e `COND-03` podem começar.
+papel virando filtro de exibição. O motor declarativo existe e é testado isoladamente em
+`src/domain/applicability/`, mas **nenhuma tela o chama ainda**: nada mudou de comportamento no app.
+Próximo é o `COND-03`, que troca as regras hardcoded pelas declarativas e congela a revisão na
+criação da inspeção.
 
 | Card | O que é | Modelo | Esforço | Depois de |
 |---|---|---|---|---|
 | ~~**COND-01**~~ ✅ | Auditoria + contrato de domínio e invariantes · `docs/mapa-roteiro-inspecao.md`, `docs/contrato-aplicabilidade.md`, `docs/gherkin/aplicabilidade.feature` | Opus 5 | alto | — |
-| **COND-02** | Schema declarativo + motor puro + validador | Opus 5 | alto | COND-01 |
+| ~~**COND-02**~~ ✅ | Schema declarativo + motor puro + validador · `src/domain/applicability/` | Opus 5 | alto | COND-01 |
 | **COND-03** | `EffectiveTemplate` canônico + **congelamento na criação da inspeção** | Opus 5 | alto | COND-02 |
 | **COND-04** | Persistência, revisão, RLS e compatibilidade | Opus 5 | alto | COND-03 |
 | **COND-05** | Perguntas de roteamento e contexto congelado | Opus 5 | médio-alto | COND-04 |
@@ -537,6 +539,86 @@ desde 16/08 (FE-13).
 
 **Desbloqueia:** `COND-02` (motor puro), que pode começar sem depender das respostas da Ester.
 **Continua travado:** `COND-05` em diante, até as 4 decisões do § 10 do contrato.
+
+### COND-02 · 16/08/2026 · Opus 5
+
+**Entregue.** Nenhuma alteração de comportamento: o pacote é novo e **nenhuma tela, serviço ou
+script o importa ainda**. Nenhuma migration, nenhum backfill, nenhuma escrita em produção.
+
+**Arquivos criados** — `src/domain/applicability/`:
+
+| Arquivo | O que é |
+|---|---|
+| `schema.ts` | tipos do schema declarativo, catálogo de campos de contexto, tabela de operadores por tipo, rótulos pt-BR |
+| `values.ts` | comparação de valores (texto normalizado, número, data por `Date.parse`) |
+| `validate.ts` | validador estrutural, com `severity` e `disablesRule` |
+| `evaluate.ts` | o motor: `evaluateApplicability({ template, context, answers, contextFields })` |
+| `index.ts` | superfície pública — é por aqui que COND-03 em diante entra |
+
+**Testes criados** (144 casos, todos passando): `src/__tests__/domain/applicability.test.ts`
+(tabelas verdade, `null`, AND/OR, `else`, herança, erro de regra, explicação, determinismo e um
+guarda de pureza que lê os fontes e reprova `Date.now`, `fetch`, React, Supabase e Dexie) ·
+`applicabilityValidation.test.ts` (os dez erros do card) · `applicabilityEquivalence.test.ts` (as
+regras hardcoded do mapa reproduzidas).
+
+**Testes executados:** `npm test` → **526 passando, 0 falhando** · `npm run build` (tsc -b + vite) →
+limpo · `npx eslint src/domain src/__tests__/domain` → limpo.
+
+**Suíte de equivalência — o que ficou provado.** Para cada regra hardcoded, o motor declarativo
+concorda com o código de hoje em toda a matriz testada:
+
+| Regra de hoje | Tradução declarativa |
+|---|---|
+| 1 · `getExtraSections` | seção com `contexto.tiposDeAlimento pertence a [tipos do segmento]` — 9 tipos × 4 UFs |
+| 2 · `supplementRegistry` | `uf igual X` · `todas[uf, municipio igual/contém]` — 5 suplementos × 11 clientes. A parte que casa o **roteiro-base** continua sendo composição, e é do COND-03 |
+| 3 · `applicableFoodTypes` | `contexto.tiposDeAlimento pertence a [...]`, comparado com o `getEffectiveTemplate` real |
+| 4 · `filterSectionsByRole` | `contexto.papel pertence a [...]` — reproduzido **como prova de expressividade**, não como destino: § 6.6 já decidiu que papel é filtro de exibição, e por isso `papel` **não** entra no catálogo de contexto de produção |
+| 5 · `filterRetiredAsOf` | `contexto.inicioDaInspecao menor que <retiredAt do item>` — sem ler o relógio |
+| 6 · `isRJOnly` | item com `contexto.uf pertence a ['RJ']` |
+
+**Duas divergências deliberadas, testadas como tal** (o COND-03 vai vê-las na migração):
+
+1. **Contexto vazio deixa pendente e visível**, em vez de excluir em silêncio. Hoje
+   `isRJOnly && !isRioState(undefined)` some com o item; pelo contrato (§ 4.1 e § 5.2) dado ausente
+   é indeterminado, nunca "assume não".
+2. **Erro de regra aparece.** O `catch` da execução devolve o roteiro sem filtro e só grava
+   `console.error` (achado A6); aqui o alvo fica `pendente_de_condicao` com o motivo na explicação.
+
+**Decisões de projeto tomadas dentro do card** (não estavam no contrato, e o COND-06 depende delas):
+
+1. **Um alvo tem no máximo uma regra.** Duas regras no mesmo alvo é ambiguidade, não composição —
+   vira `duplicate_rule_target` e nenhuma vale. Quem quer duas condições usa TODAS/QUALQUER.
+2. **`else` é a mesma expressão com `branch: 'else'`** (complemento interno). Negar indeterminado
+   continua indeterminado, que é como "nem A nem B" do § 5.3 sai de graça.
+3. **Grupo de um nível só**, sem aninhamento. Nada no contrato pede `A e (B ou C)`; quando pedir,
+   acrescenta-se `grupos` ao `ConditionGroup` sem mexer no resto.
+4. **Comparação de texto é normalizada** (sem acento, sem caixa, sem espaço nas bordas). É o que os
+   predicados de hoje já fazem, e o cadastro é texto livre. Número, booleano e data comparam estrito.
+5. **`pertence a lista` com fonte que já é lista casa por interseção** — é exatamente o
+   `some(t => foodTypes.includes(t))` do `applicableFoodTypes`.
+6. **O catálogo de campos de contexto é parâmetro** (`contextFields`), não constante fechada: o
+   COND-05 acrescenta campo sem tocar no motor, e o teste da regra 4 usa `papel` sem contaminar
+   produção.
+7. **Erro que impede avaliar ≠ erro que reprova publicação.** `disablesRule` separa os dois. Opção
+   inexistente, condição impossível e pergunta aposentada reprovam a publicação mas **não** travam
+   inspeção em andamento — é o que faz o caso 14 do contrato funcionar.
+8. **Ciclo é grafo entre seções.** Regra de item não cria aresta: a aplicabilidade de um item não
+   decide se a seção aparece, então item que depende de pergunta irmã é legítimo. Seção que depende
+   de pergunta de dentro de si mesma é laço curto e é acusada.
+9. **`date` é tipo de valor de primeira classe**, para reproduzir o corte de aposentadoria sem
+   `Date.now()`.
+
+**Ficou deliberadamente de fora:** persistência do schema (`COND-04` decide o formato físico) ·
+composição e congelamento (`COND-03`) · qualquer UI. `ChecklistTemplate` **não** ganhou campo novo:
+`ConditionalTemplate` é uma forma estrutural que um `ChecklistTemplate` satisfaz, e é o COND-03 que
+decide como regra e pergunta chegam até o motor.
+
+**Achados registrados, não corrigidos** (detalhe em [mapa-roteiro-inspecao.md](mapa-roteiro-inspecao.md)):
+**A11** — as chaves de `segmentSectionMap` não são as de `FoodEstablishmentType`, então 8 dos 9
+segmentos de alimentos nunca carregam seção extra · **A12** — nenhuma seção do repositório declara
+`applicableFoodTypes`, então a regra 3 é um `no-op` hoje.
+
+**Desbloqueia:** `COND-03`.
 
 ## Relacionados
 

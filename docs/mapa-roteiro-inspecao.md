@@ -71,6 +71,15 @@ E uma sétima, que vive **fora** do `getEffectiveTemplate`: `ChecklistItem.isRJO
 real: 12 ocorrências nos dados (9 ILPI RJ redundantes · 2 de alimentos que realmente filtram ·
 1 explicitamente `false`).
 
+> **Duas dessas regras estão inertes hoje** — descoberto pelo `COND-02` ao reproduzi-las: a regra 1
+> nunca casa, porque `segmentSectionMap` usa um vocabulário de segmento que o cadastro abandonou
+> (achado **A11**), e a regra 3 não tem dado nenhum, porque nenhuma seção declara
+> `applicableFoodTypes` (achado **A12**). A regra 6 (`isRJOnly`) roda **dentro** da regra 1: como a
+> única seção que ainda carrega é a artesanal, e ela não tem item `isRJOnly`, a flag não filtra
+> nada hoje — os dois itens que ela filtraria (`sor-003`, `jap-011`) estão em seções que nunca
+> entram. Isso corrige em precisão, não em direção, o que o COND-01 registrou: a lógica está certa,
+> o alcance é zero.
+
 ## Achados
 
 ### A1 · Item sem resposta vale "conforme" no MARP — que hoje ninguém mostra
@@ -188,6 +197,50 @@ aqui.
 `InspectionSummary.tsx:427-428`: sem `linkedRequest`, o bloco inteiro de publicação não roda.
 Já catalogado como achado de dados fora do escopo do frontend
 ([HANDOFF-FRONTEND.md](HANDOFF-FRONTEND.md) § Fora de escopo, item 4) e retomado pelo `FE-23`.
+
+### A11 · As seções extras de alimentos nunca carregam — o vocabulário não bate
+
+Achado do `COND-02` (16/08/2026), ao montar a suíte de equivalência da regra 1.
+
+`segmentSectionMap` (`templates_alimentos_segmentos.ts:60`) é indexado por nomes antigos
+(`restaurante_lanchonete`, `sorveteria`, `padaria_confeitaria`, `mercado_hortifruti`,
+`acougue_peixaria`, `japones_pescado_cru`, `dark_kitchen_delivery`, `buffet_catering`,
+`industria_artesanal`). O que o cadastro grava em `client.foodTypes` é `FoodEstablishmentType`
+(`types/index.ts:12`): `servico_alimentacao`, `panificacao_confeitaria`, `mercado_varejo`,
+`manipulacao_carnes`, `pescados_crus`, `dark_kitchen`, `bebidas_sorvetes`, `catering_eventos`,
+`industria_artesanal`. O formulário de cliente grava exatamente essas chaves (`Clients.tsx:395`),
+com `servico_alimentacao` como padrão (`:119`).
+
+**Interseção: um só** — `industria_artesanal`. Medido:
+
+```
+getExtraSections(todos os 9 tipos do cadastro, 'RJ') → ['sec-extra-artesanal']
+```
+
+Ou seja: padaria, mercado, açougue/peixaria, japonês, delivery, buffet e sorveteria **nunca**
+recebem a seção extra do segmento. Não é o motor escondendo requisito — é o vocabulário de duas
+gerações do cadastro que nunca foi reconciliado. **Direção do erro é a pior possível**: exigência
+sanitária que deixa de ser avaliada, sem aviso.
+
+Efeito colateral: o `isRJOnly` das seções extras (regra 6) deixa de alcançar qualquer item, porque
+os dois itens marcados (`sor-003` na sorveteria, `jap-011` no japonês) estão em seções que nunca
+carregam.
+
+Não corrigido aqui (o `COND-02` não escreve fora do pacote de domínio). Corrigir é trocar as chaves
+do mapa pelas de `FoodEstablishmentType` — e conferir antes, com a Ester, se as seções extras
+deveriam mesmo estar aparecendo nas inspeções de alimentos já feitas.
+
+### A12 · `applicableFoodTypes` não tem nenhum dado
+
+Também do `COND-02`. O campo existe no tipo (`types/index.ts:98`) e é lido em `templates.ts:417`,
+mas **nenhuma seção do repositório o declara** — nem os roteiros estáticos, nem o carregador dos
+roteiros do banco (que nunca preenche o campo). A regra 3 da tabela acima é, hoje, um `no-op`:
+`!section.applicableFoodTypes` é sempre verdadeiro e a seção passa.
+
+Isso não muda o que o handoff diz dela: continua sendo **o protótipo declarado do schema**
+(alvo + operador "pertence a uma lista" + valor), e foi assim que o `COND-02` a generalizou. Só não
+existe comportamento em produção dependendo dela — o que torna a migração do `COND-03` mais barata
+do que parecia.
 
 ## Como manter isto vivo
 

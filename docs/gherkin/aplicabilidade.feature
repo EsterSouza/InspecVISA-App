@@ -205,9 +205,23 @@ Funcionalidade: Aplicabilidade condicional do roteiro
     E nenhuma delas gera item no plano de ação
 
   # ── Onde o comportamento é garantido hoje ──────────────────────────────────
-  # Em lugar nenhum: nada deste arquivo está implementado. É o alvo dos cards COND-02 a COND-10.
-  # O que já existe e vira suíte de equivalência do motor novo (docs/mapa-roteiro-inspecao.md):
+  # COND-02 (16/08/2026) entregou o motor puro. Ele decide aplicabilidade e explica a decisão, mas
+  # NENHUMA tela o chama ainda — o comportamento visível no app é o de antes até o COND-03.
+  #
+  # Garantido por teste, no motor (src/domain/applicability/):
+  #   os três estados · null/indeterminado · TODAS/QUALQUER · else · herança seção→item ·
+  #   erro de regra que não esconde requisito · "não foi possível determinar" · roteiro sem regra ·
+  #   ciclo, referência quebrada, opção inexistente, pergunta aposentada, condição impossível
+  #     → src/__tests__/domain/applicability.test.ts
+  #     → src/__tests__/domain/applicabilityValidation.test.ts
+  #   as regras hardcoded de hoje reproduzidas pelo motor
+  #     → src/__tests__/domain/applicabilityEquivalence.test.ts
+  #
+  # Ainda sem implementação (cards COND-03 a COND-10): congelamento na criação, preservação de
+  # resposta de ramo desativado, confirmação antes de retirar item respondido, score/progresso/PDF,
+  # plano de ação, offline, duas consultoras, editor e duplicação de roteiro.
+  #
+  # O que já existia e virou a suíte de equivalência (docs/mapa-roteiro-inspecao.md):
   #   src/data/templates.ts:383  getEffectiveTemplate — as 6 regras hardcoded
   #   src/utils/reportTemplate.ts:72  resolveReportTemplate — congelamento e o fallback do achado A2
   #   src/utils/scoring.ts:8  binaryScore — item sem resposta valendo conforme (achado A1)
-  # Ao implementar cada card, trocar esta nota pela rastreabilidade real.
