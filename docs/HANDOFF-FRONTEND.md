@@ -560,6 +560,11 @@ cobre. Medido no código em 16/08/2026:
   do FE-21 não enxerga isso (conta classe, não hex). Achado do `audit-ui.mjs`, detalhe na seção do
   Arsenal.
 - As telas deste card nascem já com os primitivos de formulário do FE-24 — não migrar depois.
+- **Deixar dois espaços previstos no desenho, mesmo sem implementar:** onde mora uma **pergunta de
+  roteamento** e como uma **seção condicional** se anuncia. É o projeto `COND-` — ver
+  [HANDOFF-CONDICIONAIS.md](HANDOFF-CONDICIONAIS.md). O `COND-08` mexe neste mesmo arquivo
+  (`InspectionExecution.tsx`, 1.322 linhas); desenhar a tela sabendo que vai existir árvore é
+  barato, implementar árvore numa tela que ainda vai ser redesenhada é caro. **FE-23 vem antes.**
 
 ### ⬜ FE-24 · Sistema de formulários aplicado ao app inteiro
 
