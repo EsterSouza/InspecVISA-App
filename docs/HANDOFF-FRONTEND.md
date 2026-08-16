@@ -7,7 +7,7 @@
 
 ## Onde estamos — atualizado em 16/08/2026
 
-**18 cards entregues, 10 na fila.** Card entregue tem o título ~~riscado~~ mais abaixo, com a data
+**19 cards entregues, 9 na fila.** Card entregue tem o título ~~riscado~~ mais abaixo, com a data
 e o commit; card aberto tem ⬜. Esta é a única tabela de estado do documento — se divergir de
 qualquer outra coisa aqui, ela ganha.
 
@@ -15,7 +15,6 @@ qualquer outra coisa aqui, ela ganha.
 
 | Card | O que é | Só depois de |
 |---|---|---|
-| **FE-19** | Configurações com salvar por seção e margem de agenda por modalidade | — |
 | **FE-20** | Vazio / carregando / erro + `PageHeader` nas 23 páginas que ainda o escrevem à mão | — |
 | **FE-23** | **Fluxo de inspeção** `/new` → `/execute` → `/summary`. Começa por protótipo: 2 das 3 telas nunca foram desenhadas | protótipo aprovado |
 | **FE-24** | **Formulários**: 225 controles crus em 40 arquivos viram `Input`/`Select`/`Textarea`/`Label` | FE-23 |
@@ -26,8 +25,8 @@ qualquer outra coisa aqui, ela ganha.
 | **FE-12** | Tema escuro no app inteiro | **FE-21** |
 | **FE-27** | Gate de regressão visual e a11y — **é o card que fecha o frontend** | FE-12, só para o tema |
 
-**FE-23 e FE-24 são condição para declarar o redesenho encerrado.** Os dois primeiros da fila
-(FE-19 e FE-20) são aplicação de padrão já decidido e podem sair a qualquer momento.
+**FE-23 e FE-24 são condição para declarar o redesenho encerrado.** O primeiro da fila (FE-20) é
+aplicação de padrão já decidido e pode sair a qualquer momento.
 
 ### ✅ O que já está no ar
 
@@ -51,9 +50,10 @@ qualquer outra coisa aqui, ela ganha.
 | FE-17 | Solicitações, Roteiros e Biblioteca em tabela densa | 16/08 | `87f36f1` |
 | FE-18 | Sincronização com linha do tempo e fila que falhou | 16/08 | `5420ddb` |
 | FE-17b | Editor do roteiro em master-detail, com "Aposentar item" | 16/08 | `25ced0c` |
+| FE-19 | Configurações com nav de seção lateral e salvar por seção | 16/08 | `35d0242` |
 
 **Ondas:** 1 (portal) **fechada** · 2 (admin) **fechada** · 3 (fechamento) falta FE-12 e a revisão
-final de a11y · 4 (o admin que falta) em andamento, 6 de 14 entregues.
+final de a11y · 4 (o admin que falta) em andamento, 7 de 14 entregues.
 
 ---
 
@@ -219,7 +219,7 @@ Acrescentadas no Artefato D, aprovadas em 16/08/2026:
 | ~~**1 — Portal no ar**~~ ✅ | FE-04a, FE-13, FE-09, FE-10 | O cliente entra no portal novo, navega por seção, vê o plano de ação por unidade e a agenda em calendário |
 | ~~**2 — Admin**~~ ✅ | FE-04b, FE-05, FE-06, FE-07, FE-08 | A consultoria usa o shell novo, a tela de Plano de Ação e a aba de Arquivos |
 | **3 — Fechamento** ⬜ | ~~FE-11~~, FE-12, revisão de a11y | Dark mode ligado de verdade e nenhum resto do CSS antigo |
-| **4 — O admin que falta** ⬜ | ~~FE-14 a FE-18~~ · FE-19 a FE-27 | ~~As telas do Artefato D no ar~~ ✅ · ~~os `alert()`/`confirm()` mortos~~ ✅ · a cor virada token, o fluxo de inspeção redesenhado, nenhum controle de formulário cru e o gate visual passando |
+| **4 — O admin que falta** ⬜ | ~~FE-14 a FE-19~~ · FE-20 a FE-27 | ~~As telas do Artefato D no ar~~ ✅ · ~~os `alert()`/`confirm()` mortos~~ ✅ · a cor virada token, o fluxo de inspeção redesenhado, nenhum controle de formulário cru e o gate visual passando |
 
 **FE-04 foi partido em dois** para não segurar a onda 1: `FE-04a` é só o que o portal usa; `FE-04b` é o resto (tabela densa, rail, tooltip, paginação), que só o admin precisa.
 
@@ -447,14 +447,33 @@ Fecha os 7 achados do diagnóstico em `ClientDetails.tsx` (1.257 linhas):
 7. Usar o primitivo `Tabs` do FE-04b, que existe com ARIA completo desde 15/08 e não é usado aqui.
 - **A aba ativa vai para a URL** (`?aba=arquivos`), decisão 20.
 
-### ⬜ FE-19 · Configurações
-`Settings.tsx` com nav de seção lateral e **salvar por seção** (decisão 19), zona de risco
-separada no fim. Duas coisas que a tela passa a expor:
-- **Margem de agenda por modalidade** (presencial 1h/3h, online 30min/2h) deixa de ser invisível,
-  e a modalidade passa a ser obrigatória na criação manual de compromisso — hoje um agendamento
-  sem `attendance_mode` cai silenciosamente na margem de presencial.
-- O seletor de tema fica **desabilitado com explicação** até o FE-21, em vez de existir e não
-  fazer nada.
+### ~~FE-19 · Configurações~~ · ✅ 16/08/2026 · `35d0242`
+`Settings.tsx` trocou a pilha única de cards por nav de seção lateral (Perfil, Agenda, Aparência,
+Sistema, Zona de risco), com a seção ativa em `?secao=` (mesmo padrão da decisão 20). Cada seção
+salva sozinha — não há botão único no fim da página (decisão 19); Zona de risco fica separada como
+a última seção, estilo vermelho no nav.
+- **Agenda** expõe a margem de conflito por modalidade (presencial 1h/3h, online 30min/2h) —
+  hoje fixa nas funções SQL, sem UI editável, então a seção é informativa, não um formulário.
+- **Aparência** ganhou o seletor de tema (Claro/Escuro, refletindo `settings.theme`) **desabilitado
+  com explicação**, em vez de existir e não fazer nada — só liga de verdade depois do FE-21.
+- **Achado real ao implementar:** a modalidade nunca era pedida na criação manual de um
+  compromisso — `Schedules.tsx` hardcodeava `attendanceMode: 'presencial'` nos três pontos que
+  chamam `insertConfirmedRequest`. E mesmo onde já era pedida (`NewVisitModal.tsx`, usado a partir
+  de `AppointmentRequestsPanel.tsx`), o valor nunca chegava a `schedules.attendance_mode` — só a
+  `appointment_requests.attendance_mode`. Como `private.appointment_has_conflict` soma as duas
+  tabelas com `OR`, um agendamento manual **online** ainda caía na margem larga de presencial pelo
+  lado de `schedules`, por baixo do pano — silenciosamente, exatamente o sintoma que o card
+  descrevia. Corrigido: `attendanceMode` entrou no tipo `Schedule` e no `mapToPostgres`/
+  `mapFromPostgres` de `scheduleService.ts`; os dois formulários de criação manual (`Schedules.tsx`
+  e `NewVisitModal.tsx`) agora pedem a modalidade como campo obrigatório (padrão presencial,
+  toggle Presencial/Online de 44px) e propagam o valor para o `Schedule` e para a solicitação
+  vinculada, inclusive ao editar.
+- `tsc -b` e `npm run build` limpos. Verificado no navegador logada como Ester: as 5 seções
+  trocam de conteúdo mantendo o layout, `?secao=agenda` etc. entra na URL, e o toggle
+  Presencial/Online do modal "Agendar Visita" alterna `aria-pressed` corretamente — fechado sem
+  salvar para não escrever em cima da agenda real. Suíte de testes com os mesmos 6 falhos
+  pré-existentes (`localStorage.clear is not a function`, ambiente, confirmado reproduzindo
+  idêntico com as mudanças em stash — nenhum deles toca `Settings.tsx`/`Schedules.tsx`).
 
 ### ⬜ FE-20 · Estados e cabeçalho
 - `EmptyState` de primeira vez, de filtro e de erro, e `Skeleton` com a forma do conteúdo,
@@ -754,7 +773,7 @@ entregou o editor de roteiro sem precisar de arrastar.
 | ~~FE-17~~ ✅ | Solicitações, Roteiros e Biblioteca em tabela densa | Sonnet 5 | médio | entregue 16/08 |
 | ~~FE-17b~~ ✅ | Editor do roteiro em master-detail | Opus 5 | alto | entregue 16/08 |
 | ~~FE-18~~ ✅ | Sincronização | Sonnet 5 | médio | entregue 16/08 |
-| FE-19 | Configurações | Sonnet 5 | médio | FE-15 ✅ |
+| ~~FE-19~~ ✅ | Configurações | Sonnet 5 | médio | entregue 16/08 |
 | FE-20 | Estados vazio/carregando/erro + `PageHeader` em 23 páginas | Sonnet 5 | médio | — |
 | FE-21 | 2.858 classes + 20 hex → token, família por família | Codex (medium) | alto | de-para aprovado ✅ |
 | FE-22 | `Clients` e `Inspections` em tabela densa | Codex (medium) | baixo | FE-17 ✅ |
@@ -765,12 +784,12 @@ entregou o editor de roteiro sem precisar de arrastar.
 | FE-27 | Gate de regressão visual e a11y | Opus 5 (matriz) · Sonnet 5 (spec) | médio-alto | FE-12, só para a camada de tema |
 | FE-12 | Ligar o tema escuro no app inteiro | Sonnet 5 | médio | **FE-21** — impossível antes |
 
-**A ordem, revisada em 16/08/2026.** `FE-15`, `FE-14`, `FE-16`, `FE-17`, `FE-18` e `FE-17b` já saíram — o
-`FE-15` foi primeiro porque outros três esperavam por ele, e `FE-14`/`FE-16` em paralelo por serem
-as duas telas de uso diário. Daqui em diante:
+**A ordem, revisada em 16/08/2026.** `FE-15`, `FE-14`, `FE-16`, `FE-17`, `FE-18`, `FE-17b` e `FE-19`
+já saíram — o `FE-15` foi primeiro porque outros três esperavam por ele, e `FE-14`/`FE-16` em
+paralelo por serem as duas telas de uso diário. Daqui em diante:
 
-1. ~~**FE-17b**~~ ✅ · **FE-19 e FE-20** — aplicação de padrão já decidido no artefato, fecham o
-   que a Onda 4 original abriu.
+1. ~~**FE-17b**~~ ✅ · ~~**FE-19**~~ ✅ · **FE-20** — aplicação de padrão já decidido no artefato,
+   fecha o que a Onda 4 original abriu.
 2. **FE-23 e FE-24** — estrutura real de uso. Vêm antes da cor de propósito.
 3. **FE-21** — só com o desenho das telas praticamente congelado. Converter cor **antes** de o
    desenho parar significa converter duas vezes.
