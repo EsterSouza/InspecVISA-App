@@ -113,6 +113,9 @@ Shell com rail colapsável (estado persistido) e nova ordem, drawer no celular c
 **FE-03 · Artefato C — Portal do cliente (navegável).** ✅ [Publicado](https://claude.ai/code/artifact/e01399ab-5115-43dc-ba31-3352e346130c)
 Navegação com URL por seção: Visão geral · Plano de ação · Solicitações · Documentos · Agenda · Financeiro. Plano de ação agrupado por unidade, com "Todas" e comparativo de cumprimento. Agenda com **calendário de segunda a sexta** e alternador Semana / Lista. O botão no alto troca entre **1 unidade** e **13 unidades** para conferir os dois desenhos no mesmo arquivo.
 
+**FE-D · Artefato D — Onda 4, o admin que falta (navegável).** ✅ [Publicado](https://claude.ai/code/artifact/2001223c-6df9-4464-8e7f-3c299ad61832)
+Aprovado pela Ester em 16/08/2026. Doze telas: o **diagnóstico antes/depois** da ficha do cliente com os 7 achados numerados sobre o desenho; **Início unificado**; **ficha do cliente com abas**; as rotas que eram esboço cinza no FE-02 (**Solicitações, Roteiros, Biblioteca, Sincronização, Configurações**); o **editor de roteiro**; os **padrões que faltam** (diálogo de confirmação nas 3 variantes, campo de formulário, vazio/carregando/erro, menu de ações da linha); o **de-para das 2.856 classes de cor cruas**; e o plano em cards.
+
 ### Decisões de design tomadas nos protótipos
 
 Ficam registradas aqui, não no servidor do DesignMD (regra 2 da seção do MCP).
@@ -131,6 +134,17 @@ Ficam registradas aqui, não no servidor do DesignMD (regra 2 da seção do MCP)
 12. **Um calendário só para todas as agendas.** Portal e admin usam o mesmo renderizador; muda o conteúdo do evento, nunca a grade. Duas implementações parecidas divergem em três meses, e aí o cliente e a consultoria passam a ver a mesma semana de jeitos diferentes.
 13. **Calendário é opção, não substituição.** Toda agenda mantém o alternador Semana / Lista. Lista ganha para conferir data e situação em massa; calendário ganha para enxergar buraco na semana. Cada uma serve a uma pergunta.
 14. **"Hoje" do protótipo é quarta, 12/08/2026** — uma quarta de verdade no calendário de 2026. A data anterior (08/08) era um sábado rotulado como quarta; num protótipo de agenda, data que se contradiz destrói a confiança na tela inteira.
+
+Acrescentadas no Artefato D, aprovadas em 16/08/2026:
+
+15. **Início absorve o Painel.** As duas telas respondiam à mesma pergunta com dados e desenhos diferentes. `/` passa a ser a fila de trabalho (as 7 filas do Painel, janela de dias e filtro por consultora) e `/painel` vira `<Navigate to="/" replace>`, para não quebrar link salvo. Média de conformidade, inspeções recentes e não conformidades frequentes descem para a faixa **"Desempenho"**, recolhida por padrão — é leitura de análise, não fila de trabalho, e não pode disputar o topo da tela com o que precisa de decisão hoje.
+16. **Diálogo de confirmação, três regras que o `confirm()` nativo não dá.** `role="alertdialog"`; o foco abre no **Cancelar**, nunca no botão que destrói; clicar fora **não** fecha (`data-guard`), porque em ação sem volta fechar por engano é perda de dado; e o rótulo do botão diz a ação ("Excluir solicitação", nunca "OK"). Ação catastrófica exige digitar a palavra. Três variantes: simples, com lista de consequências, e com digitação.
+17. **Lista densa: duas ações na linha, o resto no menu ⋮.** A destrutiva vai no fim, separada por divisória. O menu abre no clique, anda com as setas, `Home`/`End` vão às pontas, `Esc` fecha e devolve o foco ao botão.
+18. **Vazio de filtro não é vazio de primeira vez.** O de primeira vez oferece criar; o de filtro oferece **limpar filtros** e não oferece criar — o dado existe, só está escondido. E nenhum dos dois é o estado de erro, que sempre traz uma ação de recuperação e nunca mostra a mensagem crua do servidor.
+19. **Configurações salva por seção.** Nada de um botão único no fim de uma página longa, onde ninguém sabe o que o "Salvar" cobre. Zona de risco separada visualmente, no fim.
+20. **A aba ativa entra na URL** (`?aba=arquivos`). Sem isso o link do Início não consegue levar a uma aba específica da ficha, o botão de voltar não funciona dentro da tela e não dá para mandar "olha os arquivos desta visita" para a colega.
+21. **No editor de roteiro não existe "Excluir item" — existe "Aposentar".** Apagar deixaria resposta órfã e degradaria relatório já entregue. Aposentar tira o item das **próximas** inspeções, deixa as em andamento terminarem com ele e não toca em nada já concluído.
+22. **No toque, nada abaixo de 44px — campo inclusive.** A regra existia desde o FE-01 mas valia só para `.btn`: campo, aba, paginação e o botão de ordenar da tabela ficavam abaixo, e o de ordenar tinha **18px**. Corrigido no `components.css`, que agora fecha com um bloco `@media (pointer: coarse)` — e ele precisa ficar **no fim do arquivo**, depois de todas as alturas que sobrescreve.
 
 ### Achados de CSS que valem para a Fase 2
 
@@ -153,6 +167,7 @@ Ficam registradas aqui, não no servidor do DesignMD (regra 2 da seção do MCP)
 | **1 — Portal no ar** | FE-04a, FE-13, FE-09, FE-10 | O cliente entra no portal novo, navega por seção, vê o plano de ação por unidade e a agenda em calendário |
 | **2 — Admin** | FE-04b, FE-05, FE-06, FE-07, FE-08 | A consultoria usa o shell novo, a tela de Plano de Ação e a aba de Arquivos |
 | **3 — Fechamento** | FE-11, FE-12, revisão de a11y | Dark mode ligado de verdade e nenhum resto do CSS antigo |
+| **4 — O admin que falta** | FE-14 a FE-22 | As 12 telas do Artefato D no ar, os 114 `alert()`/`confirm()` mortos e a cor virada token |
 
 **FE-04 foi partido em dois** para não segurar a onda 1: `FE-04a` é só o que o portal usa; `FE-04b` é o resto (tabela densa, rail, tooltip, paginação), que só o admin precisa.
 
@@ -220,6 +235,128 @@ Trocar `mx-auto max-w-3xl|4xl|5xl|6xl` pelo `PageShell`. Representativos: `src/p
 Os tokens de FE-04 já nascem nos dois modos. Ligar o dark no app inteiro é trabalho separado. Enquanto não for feito, decidir: implementar ou esconder o toggle que hoje não faz nada.
 
 ---
+
+---
+
+## ONDA 4 — o admin que falta
+
+> Aberta em 16/08/2026, a partir de [`auditoria-admin-onda4.md`](auditoria-admin-onda4.md) e do
+> **Artefato D**, aprovado pela Ester no mesmo dia.
+>
+> A Onda 2 entregou **fundação e casca, não as telas**: `FE-04b` criou os primitivos, `FE-05`
+> unificou a largura, `FE-06` fez o rail, `FE-07` e `FE-08` entregaram duas funcionalidades — e o
+> corpo das páginas continua sendo o desenho antigo. O protótipo `fe-02-admin.html`, aprovado em
+> 09/08/2026, **nunca foi adotado**.
+
+### FE-14 · Início unificado
+- `Dashboard.tsx` (`/`, 761 linhas, 31 `<Card>`) e `OperationalPanel.tsx` (`/painel`, 519 linhas)
+  respondem à mesma pergunta. `/` passa a ter o corpo do Painel: as 7 filas da RPC
+  `admin_operational_overview`, com janela de 7/14/30 dias e filtro por consultora no topo.
+- `/painel` vira `<Navigate to="/" replace>`. O item some do `navConfig.ts` e do `BottomNav`.
+- Média de conformidade, inspeções recentes e não conformidades frequentes vão para a faixa
+  **"Desempenho"**, um `<details>` recolhido no fim da página.
+- Os atalhos "Gestão e Biblioteca" do Dashboard **morrem**: Roteiros e Biblioteca estão no rail
+  desde o FE-06.
+
+### FE-15 · Diálogo de confirmação e a morte dos 114 `alert()`/`confirm()`
+- Primitivo novo `ConfirmDialog` em `src/components/ui/`, sobre o `<dialog>` do `Modal.tsx`
+  (FE-04a), seguindo a decisão 16.
+- Três variantes: simples, com lista de consequências, e com digitação da palavra.
+- Migrar as **114** ocorrências em **27 arquivos**. `alert()` de sucesso vira `Toast`;
+  `alert()` de erro vira `Toast` de erro (que não some sozinho); `confirm()` vira `ConfirmDialog`.
+- **É o card que outros três esperam** (FE-16, FE-18, FE-19). Fazer primeiro.
+
+### FE-16 · Ficha do cliente com abas
+Fecha os 7 achados do diagnóstico em `ClientDetails.tsx` (1.257 linhas):
+1. Aba **Arquivos** com a largura inteira, no lugar da tabela do FE-07 espremida no trilho de ~380px.
+2. Trilha de auditoria com os **5 últimos** e "ver tudo", no lugar de todos os eventos sem paginação.
+3. **Identidade no topo** — nome, responsável, telefone, endereço, situação. Hoje o "Resumo do
+   cliente" é o **último** card da página (`:848`).
+4. Conformidade sem gráfico quando há menos de 2 inspeções concluídas: vira uma linha de texto,
+   não ~200px dizendo "Dados insuficientes".
+5. Credenciais do portal atrás de "Mostrar", com copiar. Hoje usuário, senha e token ficam em
+   texto puro, sempre visíveis (`:565-590`).
+6. `window.confirm` de excluir cliente (`:402`) → `ConfirmDialog`.
+7. Usar o primitivo `Tabs` do FE-04b, que existe com ARIA completo desde 15/08 e não é usado aqui.
+- **A aba ativa vai para a URL** (`?aba=arquivos`), decisão 20.
+
+### FE-17 · As rotas que nunca foram desenhadas
+`ServiceRequests.tsx`, `admin/AdminTemplates.tsx` e `admin/LegislationsManager.tsx` viram tabela
+densa com `Table`/`Pagination` do FE-04b, seguindo o Artefato D:
+- **Solicitações** — segmentado Novas/Em andamento/Respondidas com contagem ao vivo, e coluna
+  **"Espera"** em vez da data de abertura: a pergunta da tela é há quanto tempo o cliente espera.
+- **Roteiros** — colunas Itens / Críticos / **Em uso**, e a coluna "Em uso" é o aviso que
+  antecede o clique de editar.
+- **Biblioteca** — filtro por esfera e órgão, segmentado Vigentes/Revogadas/**Sem verbete**.
+  "Sem verbete" é a fila de trabalho da curadoria: são normas citadas por item de roteiro que
+  não aparecem em relatório nenhum. Norma revogada **sem substituto** mostra o campo em branco —
+  reapontar mecanicamente produz citação errada em relatório assinado.
+
+### FE-17b · Editor do roteiro
+`TemplateEditor` / `TemplateDetail` — nunca desenhados até o Artefato D. Master-detail: índice de
+seções e itens à esquerda, item inteiro à direita. A tela existe para tornar visíveis três regras
+que hoje só mordem depois:
+- **Relatório concluído congela o roteiro** (REF-06, snapshot por inspeção) — publicar alteração
+  não reescreve relatório entregue, e a tela diz isso.
+- **A resposta não tem FK para `checklist_items`** — por isso não existe "Excluir item", existe
+  **"Aposentar"** (decisão 21), e "Alterar a pergunta" confirma com o número de respostas abertas
+  afetadas, sugerindo aposentar+criar quando a mudança de sentido é grande.
+- **`requirement_type` não entra no cálculo** — só `weight` e `isCritical`. Escrito abaixo do
+  campo, para ninguém mexer nele achando que está ajustando a nota.
+
+### FE-18 · Sincronização
+`SyncCenter.tsx` ganha linha do tempo com estado em três canais (cor de fundo, forma do traço e
+palavra), quatro indicadores no topo, e tratamento explícito da fila que **falhou** — que exige
+decisão e nunca some sozinha. Descartar um envio abre `ConfirmDialog` com a lista do que se perde.
+
+### FE-19 · Configurações
+`Settings.tsx` com nav de seção lateral e **salvar por seção** (decisão 19), zona de risco
+separada no fim. Duas coisas que a tela passa a expor:
+- **Margem de agenda por modalidade** (presencial 1h/3h, online 30min/2h) deixa de ser invisível,
+  e a modalidade passa a ser obrigatória na criação manual de compromisso — hoje um agendamento
+  sem `attendance_mode` cai silenciosamente na margem de presencial.
+- O seletor de tema fica **desabilitado com explicação** até o FE-21, em vez de existir e não
+  fazer nada.
+
+### FE-20 · Estados e cabeçalho
+- `EmptyState` de primeira vez, de filtro e de erro, e `Skeleton` com a forma do conteúdo,
+  aplicados nas listas (decisão 18).
+- `PageHeader` nas **23 páginas** que ainda escrevem `<h1>` + subtítulo + ações à mão. Hoje só
+  `ActionPlan.tsx` usa o primitivo.
+
+### FE-21 · As 2.856 classes de cor viram token
+- A tabela de-para está no Artefato D, tela **"De-para de cor"**. Converter **família por família,
+  um commit por família**, com `npm run build` entre eles — um commit de 2.856 trocas não é revisável.
+- Três linhas saem do lote e são leitura de uso, não substituição: `bg-violet-*` e `bg-sky-*`
+  **não têm equivalente na marca**, e `text-gray-400` **reprova em contraste hoje** (2,54:1) —
+  a troca corrige um erro, não replica um tom.
+- Depois de cada família, rodar o medidor de contraste do Artefato A.
+
+### FE-22 · Listas restantes viram tabela densa
+`Clients.tsx` e `Inspections.tsx`, seguindo o FE-17 como exemplo aprovado. É o item que estava no
+backlog da Onda 2 sem card próprio.
+
+### Modelo e esforço — ONDA 4
+
+| # | Tarefa | Modelo | Esforço | Depende de |
+|---|---|---|---|---|
+| FE-15 | `ConfirmDialog` + migrar os 114 `alert()`/`confirm()` | Opus 5 (primitivo) · Codex medium (lote) | médio | `Modal` (FE-04a ✅) |
+| FE-14 | Início unificado + redirect de `/painel` | Opus 5 | médio-alto | — |
+| FE-16 | Ficha do cliente com abas | Opus 5 | alto | `Tabs` (FE-04b ✅) · FE-15 |
+| FE-17 | Solicitações, Roteiros e Biblioteca em tabela densa | Sonnet 5 | médio | `Table` (FE-04b ✅) |
+| FE-17b | Editor do roteiro | Opus 5 | alto | FE-15 · FE-17 |
+| FE-18 | Sincronização | Sonnet 5 | médio | FE-15 |
+| FE-19 | Configurações | Sonnet 5 | médio | FE-15 |
+| FE-20 | Estados vazio/carregando/erro + `PageHeader` em 23 páginas | Sonnet 5 | médio | — |
+| FE-21 | 2.856 classes de cor → token, família por família | Codex (medium) | alto | de-para aprovado ✅ |
+| FE-22 | `Clients` e `Inspections` em tabela densa | Codex (medium) | baixo | FE-17 |
+| FE-12 | Ligar o tema escuro no app inteiro | Sonnet 5 | médio | **FE-21** — impossível antes |
+
+**A ordem, e por quê.** `FE-15` primeiro, porque outros três esperam por ele e sem ele as telas
+novas precisariam usar `window.confirm` para depois serem reescritas. Depois `FE-14` e `FE-16` em
+paralelo — são as duas telas de uso diário e não dependem uma da outra. Em seguida `FE-17` a
+`FE-20`, que são aplicação de padrão já decidido no artefato. Por último `FE-21`, `FE-22` e
+`FE-12`: converter cor **antes** de o desenho parar significa converter duas vezes.
 
 ## Fora de escopo (achados de dados, não de layout)
 
@@ -361,8 +498,10 @@ Nomes de modelo mudam rápido; escolher o mais recente no `/model` e calibrar o 
 | Onda 2 (admin) | Todos os cards `FE-*` entregues (FE-04b, FE-05 ponto 1, FE-06, FE-07, FE-08). Resta só o item de backlog sem card ("converter listas de cards em tabelas nas telas restantes") |
 | WeekCalendar: régua 09h-17h | ✅ Entregue em 16/08/2026 — decisão da Ester, ver detalhe abaixo |
 | FE-11 (higiene) | ✅ Entregue em 16/08/2026 — ver detalhe abaixo |
-| Onda 3 | Em andamento — FE-11 entregue; falta FE-12 (dark mode) e a revisão final de a11y |
-| MCP do DesignMD | ✅ funcionando — URL corrigida para `www` e servidor aprovado em `~/.claude.json` |
+| Onda 3 | Em andamento — FE-11 entregue; falta FE-12 (dark mode) e a revisão final de a11y. **FE-12 depende do FE-21** |
+| MCP do DesignMD | ✅ funcionando — plano **Builder** (600 chamadas / 10 min, sem limite diário). URL **com `www`** e servidor aprovado em `~/.claude.json` |
+| **Artefato D** | ✅ [publicado](https://claude.ai/code/artifact/2001223c-6df9-4464-8e7f-3c299ad61832) e **aprovado pela Ester em 16/08/2026** |
+| **Onda 4** | Aberta em 16/08/2026 — FE-14 a FE-22 escritos, nenhum iniciado. Começar pelo FE-15 |
 
 ## Registro de execução
 
@@ -386,6 +525,7 @@ Tabela de acompanhamento rápido — quem fez o quê e quando. O detalhe de cada
 | 16/08/2026 | **FE-05 · Ponto 1** — larguras: `max-w-*` → `PageShell` | Sonnet 5 | — | 11 páginas do admin migradas (todas as que tinham o padrão, incluindo além das 6 representativas citadas no card: `NewInspection`, `ServiceRequests`, `Settings`, `SyncCenter` e os 2 wrappers de `InspectionSummary`). As 2 páginas públicas sem login (`PublicSchedule`, `PublicAppointmentStatus`) ficaram de fora por decisão de escopo: `PageShell` é documentado como largura do admin, não do portal/link público. `tsc -b` e `npm run build` limpos, 382 testes passando, 11 rotas conferidas logada no navegador (Clientes, Início, Agendamentos, Inspeções, Painel, Solicitações, Configurações, Sincronização, detalhe de cliente, Nova Inspeção, relatório concluído). |
 | 16/08/2026 | **FE-06** — rail colapsável + drawer mobile + nova ordem do menu | Sonnet 5 | — | `Sidebar.tsx` ganhou `w-72 ↔ w-16` persistido (`useSettingsStore.sidebarCollapsed`), ícone + `Tooltip` quando colapsado. `navConfig.ts` novo — fonte única dos itens de navegação da equipe, consumida por `Sidebar` e pelo drawer "Mais" do `BottomNav` (antes cada um mantinha a própria lista e elas haviam divergido: Painel, Roteiros, Biblioteca e Solicitações não tinham nenhum acesso no celular). `clientNavItems` perdeu o item "Meu perfil" → `/profile`, rota que não existe, nos dois componentes. `tsc -b` e `npm run build` limpos, 382 testes passando. Achado ao testar: os links viravam ícone puro sem `aria-label` quando colapsados — `lucide-react` marca o SVG como `aria-hidden`, então o link ficava sem nome acessível nenhum (só o `Tooltip`, que é `aria-describedby`, não substitui o nome). Corrigido com `aria-label={item.label}` em cada `NavLink`. Verificado via DOM/`localStorage` no navegador (não por screenshot — o painel do navegador não estava compositando frames nesta sessão): grupos e ordem corretos no `aside`, toggle muda `64px ↔ 288px` de fato (confirmado após reload, que é quando o layout recalcula nesta ferramenta), estado sobrevive a reload via `localStorage['inspec-visa-settings']`, e o drawer "Mais" no mobile (375px) abre com exatamente os itens fora da barra rápida (Agendamentos, Inspeções, Solicitações, Roteiros, Biblioteca, Sincronização, Configurações), agrupados como no Sidebar. |
 | 16/08/2026 | WeekCalendar: régua 09h-17h, sábado fora, linhas mais altas, bug do espaço vazio | Sonnet 5 | — | Pedido direto da Ester: a régua larga (07h-19h) deixava informação do compromisso cortada na grade. `DEFAULT_FIRST_HOUR`/`DEFAULT_LAST_HOUR` em `WeekCalendar.tsx` viraram `9`/`17` (a régua continua crescendo, nunca cortando, se um compromisso sair da faixa). Sábado confirmado como decisão definitiva (já era o comportamento). Depois de aplicado, a Ester mandou print mostrando espaço vazio sobrando **depois** das 17h — não era só percepção: é um bug real de CSS Grid. As 9 divs de fundo (`border-b`, uma por hora) não tinham `gridRow` explícito, então a auto-colocação do Grid pulava as células já ocupadas pelos compromissos com posição explícita, em vez de empilhar por cima — e empurrava as divs de fundo pra linhas mais abaixo, sobrando até 3 linhas fantasma sem rótulo em dias com compromisso no meio do expediente (visto num teste real: quinta-feira foi de 9 pra 12 linhas). Corrigido dando `gridRow: idx + 1` explícito em cada div de fundo. De caminho, também: `auto-rows-[46px]` → `auto-rows-[64px]` (pedido também da Ester, pra sobrar mais espaço vertical por compromisso agora que a régua é mais curta). Nenhuma prop de intervalo é passada por `Schedules.tsx`/`PortalAppointments.tsx` — os dois consumidores herdam tudo automaticamente. Verificado via DOM no navegador: as 5 colunas do dia e a coluna de horário têm exatamente 9 `grid-template-rows` de 64px cada, sem sobra, com compromisso real no meio (quinta-feira com 3 visitas). |
+| 16/08/2026 | **Artefato D** — Onda 4 desenhada e aprovada | Opus 5 | `6a1ba5d`, `5dd101b`, `3ee6b9a` | 12 telas navegáveis. Decisão de produto da Ester: **Início absorve o Painel** (opção A de três apresentadas). Achados desta leva: (1) o padrão `tabs` do catálogo exige a aba na URL, que as abas feitas à mão do `ClientDetails.tsx` não fazem → virou requisito do FE-16; (2) a Ester apontou que faltava a tela do roteiro — estava certa, `TemplateEditor`/`TemplateDetail` constam na auditoria como nunca desenhados e o artefato só tinha a lista → virou FE-17b; (3) **a regra de 44px no toque valia só para `.btn`** — campo, aba, paginação e o botão de ordenar da tabela ficavam abaixo, e o de ordenar tinha 18px. Corrigido no `components.css`, com o bloco `@media (pointer: coarse)` movido para o **fim do arquivo**: escrito antes das alturas que sobrescreve, com a mesma especificidade, ele era descartado em silêncio (a primeira tentativa de correção não pegou por isso). Também nesta leva: `.claude/skills/` com 3 skills do projeto (`design-inspecvisa`, `catalogo-designmd`, `reactbits`) e `.gitignore` destravado só para essa pasta. **Erro de método corrigido:** a primeira verificação responsiva trocava `location.hash` num laço, mas `hashchange` só dispara no ciclo seguinte — o laço media sempre a mesma tela. Refeita trocando o `hidden` direto, tela por tela. |
 | 16/08/2026 | **FE-11** — higiene | Sonnet 5 | — | Apagados `src/components/layout/AdminLayout.tsx` e `src/App.css` (184 linhas, nenhum dos dois importado em lugar nenhum — conferido por `grep` antes de apagar). `index.html:13` corrigido de "C&C Consultoria" pra "TreinaVISA". `PublicHeader.tsx` corrigido de "HUB TREINAVISA SERVICOS" pra "HUB TREINAVISA SERVIÇOS" (cedilha). `tsc -b`, `npm run build` e 382 testes limpos. |
 
 ### FE-04a — o que foi feito e o que ficou pra depois
