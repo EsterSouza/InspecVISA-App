@@ -9,6 +9,14 @@ Este documento responde a três perguntas: **já fizemos tudo do handoff?**, **c
 hoje?** e **o que falta para "deixar a base pronta antes de avançar"?** Complementa (não substitui)
 os dois handoffs — eles continuam sendo a fonte card a card.
 
+> **Aviso de validade (16/08/2026).** A parte de **frontend** desta auditoria envelheceu em um dia:
+> as Ondas 2 e 3 andaram, a Onda 4 foi aberta e entregou 6 cards, e outros 5 (FE-23 a FE-27) foram
+> escritos depois. As linhas afetadas ficaram marcadas com "texto original de 15/08" em vez de
+> reescritas — a foto do dia é a evidência do que mudou.
+> **O estado card a card vive em "Onde estamos", no topo de [HANDOFF-FRONTEND.md](HANDOFF-FRONTEND.md).**
+> O restante deste documento (dados, RLS, dívida de lint, retenção, decisões sanitárias) continua
+> valendo como escrito.
+
 ---
 
 ## 1. Resposta curta
@@ -53,8 +61,8 @@ Confirmado por leitura direta do código em 15/08, não pelo handoff:
 | Onda | Cards | Estado real (evidência) |
 |---|---|---|
 | **1 — Portal** | FE-04a, FE-09, FE-13, FE-10 | ✅ **entregue.** Portal em rotas de seção, plano de ação por unidade, `WeekCalendar`, atrito removido. |
-| **2 — Admin** | FE-04b, FE-05, FE-06, FE-07, FE-08 | 🟡 **em andamento.** FE-04b e FE-08 entregues em 15/08 (mesmo dia desta auditoria, depois dela) — ver `docs/HANDOFF-FRONTEND.md` § "FE-04b" e § "FE-08". `Table`/`Tabs`/`Pagination`/`Tooltip`/`Drawer`/`PageShell`/`PageHeader` existem em `src/components/ui/`; rota `/plano-de-acao` (`src/pages/ActionPlan.tsx`) lê `client_action_items` direto, lista+detalhe. Ainda faltam: `Sidebar.tsx:50` continua `w-72` fixa sem rail/drawer (FE-06), aba de Arquivos (FE-07), as ~15 páginas ainda em `max-w-*` cru (FE-05). |
-| **3 — Fechamento** | FE-11, FE-12 | ❌ **não começou.** `dark:` aparece **0 vez** em todo `src/**/*.tsx` (dark mode morto). `src/App.css` e `src/components/layout/AdminLayout.tsx` (que o FE-11 manda apagar) ainda no repo. `index.html` ainda descreve o app com marca de terceiro. |
+| **2 — Admin** | FE-04b, FE-05, FE-06, FE-07, FE-08 | ✅ **fechada em 16/08/2026** (FE-05, FE-06 e FE-07 saíram depois desta auditoria). Texto original de 15/08: 🟡 **em andamento.** FE-04b e FE-08 entregues em 15/08 (mesmo dia desta auditoria, depois dela) — ver `docs/HANDOFF-FRONTEND.md` § "FE-04b" e § "FE-08". `Table`/`Tabs`/`Pagination`/`Tooltip`/`Drawer`/`PageShell`/`PageHeader` existem em `src/components/ui/`; rota `/plano-de-acao` (`src/pages/ActionPlan.tsx`) lê `client_action_items` direto, lista+detalhe. Ainda faltam: `Sidebar.tsx:50` continua `w-72` fixa sem rail/drawer (FE-06), aba de Arquivos (FE-07), as ~15 páginas ainda em `max-w-*` cru (FE-05). |
+| **3 — Fechamento** | FE-11, FE-12 | 🟡 **FE-11 entregue em 16/08** (`791f4ca`); falta o FE-12, que agora depende do FE-21. Texto original de 15/08: ❌ **não começou.** `dark:` aparece **0 vez** em todo `src/**/*.tsx` (dark mode morto). `src/App.css` e `src/components/layout/AdminLayout.tsx` (que o FE-11 manda apagar) ainda no repo. `index.html` ainda descreve o app com marca de terceiro. |
 
 **Consequência prática do meio-caminho:** a fundação nova (tokens, Sora/Source Sans 3, primitivos)
 convive com o CSS antigo. Onde o admin ainda roda, coexistem cinco larguras de container, inputs
@@ -240,17 +248,17 @@ depois higiene. Nada aqui é funcionalidade nova além do command-palette (opcio
 ### Fase B — Fechar a Onda 2 (Admin) — a assimetria
 4. ~~**FE-04b** — `Table`, `Tabs`, `Pagination`, `Tooltip`, `Drawer`, `PageShell`, `PageHeader`.~~ ✅ Entregue em 15/08.
 5. ~~**FE-08** — tela de Plano de Ação (lista+detalhe).~~ ✅ Entregue em 15/08 (`/plano-de-acao`). Falta um teste de tela ao vivo, logada.
-6. **FE-06** — rail colapsável + drawer mobile + nova ordem do menu.
-7. **FE-07** — aba de Arquivos + corrigir o N+1 de `listAttachments`.
-8. **FE-05** — larguras `max-w-*` → `PageShell` (~15 páginas; candidato a Codex/varredura).
+6. ~~**FE-06** — rail colapsável + drawer mobile + nova ordem do menu.~~ ✅ Entregue em 16/08.
+7. ~~**FE-07** — aba de Arquivos + corrigir o N+1 de `listAttachments`.~~ ✅ Entregue em 15/08.
+8. ~~**FE-05** — larguras `max-w-*` → `PageShell`.~~ ✅ Entregue em 16/08 (11 páginas; as 2 públicas ficaram de fora e viraram o FE-26).
 
 ### Fase C — Fechamento
-9. **FE-12** — ligar dark mode no app inteiro (tokens já prontos).
-10. **FE-11** — higiene: apagar `AdminLayout.tsx`, `App.css`, corrigir marca no `index.html`.
+9. **FE-12** — ligar dark mode no app inteiro (tokens já prontos). **Reordenado em 16/08:** passou a depender do FE-21 e virou o penúltimo da fila.
+10. ~~**FE-11** — higiene: apagar `AdminLayout.tsx`, `App.css`, corrigir marca no `index.html`.~~ ✅ Entregue em 16/08.
 11. **DEBT-02** — dívida de lint, por diretório, um PR por fatia.
 
 ### Fase D — Avançar (só depois de A–C)
-12. **FE-14 (novo)** — command-palette `Ctrl/Cmd-K`.
+12. **Command-palette `Ctrl/Cmd-K`** — sem card. (Estava escrito aqui como "FE-14 (novo)"; o número foi usado em 16/08 pelo Início unificado. Continua um bom candidato, sem card aberto.)
 13. Retenção de buckets, EMAIL-01 (quando você autorizar), e o que a base sólida destravar.
 
 ### Paradas que dependem só de você (não de código)

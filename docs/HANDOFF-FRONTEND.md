@@ -5,6 +5,58 @@
 
 ---
 
+## Onde estamos — atualizado em 16/08/2026
+
+**18 cards entregues, 10 na fila.** Card entregue tem o título ~~riscado~~ mais abaixo, com a data
+e o commit; card aberto tem ⬜. Esta é a única tabela de estado do documento — se divergir de
+qualquer outra coisa aqui, ela ganha.
+
+### ⬜ O que falta, na ordem de fazer
+
+| Card | O que é | Só depois de |
+|---|---|---|
+| **FE-19** | Configurações com salvar por seção e margem de agenda por modalidade | — |
+| **FE-20** | Vazio / carregando / erro + `PageHeader` nas 23 páginas que ainda o escrevem à mão | — |
+| **FE-23** | **Fluxo de inspeção** `/new` → `/execute` → `/summary`. Começa por protótipo: 2 das 3 telas nunca foram desenhadas | protótipo aprovado |
+| **FE-24** | **Formulários**: 225 controles crus em 40 arquivos viram `Input`/`Select`/`Textarea`/`Label` | FE-23 |
+| **FE-21** | 2.858 classes de cor viram token — **mais os 20 hex cravados em TS/TSX** que o de-para não vê | desenho congelado |
+| **FE-22** | `Clients` e `Inspections` em tabela densa | — |
+| **FE-25** | `SmartImporter`, o que sobrou de `TemplateDetail`, e as 3 telas de entrada | — |
+| **FE-26** | `PublicSchedule` e `PublicAppointmentStatus` — o que o cliente vê sem login | — |
+| **FE-12** | Tema escuro no app inteiro | **FE-21** |
+| **FE-27** | Gate de regressão visual e a11y — **é o card que fecha o frontend** | FE-12, só para o tema |
+
+**FE-23 e FE-24 são condição para declarar o redesenho encerrado.** Os dois primeiros da fila
+(FE-19 e FE-20) são aplicação de padrão já decidido e podem sair a qualquer momento.
+
+### ✅ O que já está no ar
+
+| Card | O que entregou | Data | Commit |
+|---|---|---|---|
+| FE-01 a FE-03 | Protótipos A (fundação), B (admin) e C (portal) | 09/08 | `fb37e7f` |
+| FE-04a | Tokens, Sora + Source Sans 3, primitivos do portal, `Modal` com `<dialog>` | 09/08 | `b16a9ae` |
+| FE-09 | Portal quebrado em rotas de seção + plano de ação por unidade | 09/08 | `659b332`, `9de54b1` |
+| FE-13 | `WeekCalendar` compartilhado (portal e admin), régua 09h–17h | 09/08 · 16/08 | `770d2eb`, `d608cbd` |
+| FE-10 | Fim do atrito de nome/função no portal — **fecha a Onda 1** | 10/08 | `1be833c` |
+| FE-04b | `Table`, `Tabs`, `Pagination`, `Tooltip`, `Drawer`, `PageShell`, `PageHeader` | 15/08 | `d8ccf89` |
+| FE-08 | Tela de Plano de Ação do admin (lista + detalhe) | 15/08 | `79bbb7f` |
+| FE-07 | Aba de Arquivos do cliente + fim do N+1 de `listAttachments` | 15/08 | `27d8183` |
+| FE-05 | Larguras: `max-w-*` → `PageShell` em 11 páginas | 16/08 | `4f07879` |
+| FE-06 | Rail colapsável, drawer no celular, nova ordem do menu — **fecha a Onda 2** | 16/08 | `0ccebe8` |
+| FE-11 | Higiene: `AdminLayout`, `App.css`, "C&C Consultoria", grafia do header | 16/08 | `791f4ca` |
+| Artefato D | As 12 telas da Onda 4, aprovadas pela Ester | 16/08 | `6a1ba5d`, `5dd101b`, `3ee6b9a` |
+| FE-14 | Início absorve o Painel; `/painel` vira redirect | 16/08 | `e075949` |
+| FE-15 | `ConfirmDialog` + as 115 ocorrências de `alert()`/`confirm()` mortas | 16/08 | `7771fe3` |
+| FE-16 | Ficha do cliente com abas e identidade no topo | 16/08 | `c36bd6b` |
+| FE-17 | Solicitações, Roteiros e Biblioteca em tabela densa | 16/08 | `87f36f1` |
+| FE-18 | Sincronização com linha do tempo e fila que falhou | 16/08 | `5420ddb` |
+| FE-17b | Editor do roteiro em master-detail, com "Aposentar item" | 16/08 | `25ced0c` |
+
+**Ondas:** 1 (portal) **fechada** · 2 (admin) **fechada** · 3 (fechamento) falta FE-12 e a revisão
+final de a11y · 4 (o admin que falta) em andamento, 6 de 14 entregues.
+
+---
+
 ## Contexto
 
 O app funciona, mas cresceu sem sistema de design. Sintomas relatados pela usuária, todos confirmados no código:
@@ -164,14 +216,14 @@ Acrescentadas no Artefato D, aprovadas em 16/08/2026:
 
 | Onda | O que entra | Termina quando |
 |---|---|---|
-| **1 — Portal no ar** | FE-04a, FE-13, FE-09, FE-10 | O cliente entra no portal novo, navega por seção, vê o plano de ação por unidade e a agenda em calendário |
-| **2 — Admin** | FE-04b, FE-05, FE-06, FE-07, FE-08 | A consultoria usa o shell novo, a tela de Plano de Ação e a aba de Arquivos |
-| **3 — Fechamento** | FE-11, FE-12, revisão de a11y | Dark mode ligado de verdade e nenhum resto do CSS antigo |
-| **4 — O admin que falta** | FE-14 a FE-27 | As 12 telas do Artefato D no ar, os 114 `alert()`/`confirm()` mortos, a cor virada token, o fluxo de inspeção redesenhado, nenhum controle de formulário cru e o gate visual passando |
+| ~~**1 — Portal no ar**~~ ✅ | FE-04a, FE-13, FE-09, FE-10 | O cliente entra no portal novo, navega por seção, vê o plano de ação por unidade e a agenda em calendário |
+| ~~**2 — Admin**~~ ✅ | FE-04b, FE-05, FE-06, FE-07, FE-08 | A consultoria usa o shell novo, a tela de Plano de Ação e a aba de Arquivos |
+| **3 — Fechamento** ⬜ | ~~FE-11~~, FE-12, revisão de a11y | Dark mode ligado de verdade e nenhum resto do CSS antigo |
+| **4 — O admin que falta** ⬜ | ~~FE-14 a FE-18~~ · FE-19 a FE-27 | ~~As telas do Artefato D no ar~~ ✅ · ~~os `alert()`/`confirm()` mortos~~ ✅ · a cor virada token, o fluxo de inspeção redesenhado, nenhum controle de formulário cru e o gate visual passando |
 
 **FE-04 foi partido em dois** para não segurar a onda 1: `FE-04a` é só o que o portal usa; `FE-04b` é o resto (tabela densa, rail, tooltip, paginação), que só o admin precisa.
 
-### FE-04a · Fundação — o que o portal usa (ONDA 1)
+### ~~FE-04a · Fundação — o que o portal usa~~ · ✅ 09/08/2026 · `b16a9ae`
 - `tailwind.config.js:7-27` — ajustar `primary-50/900` para os códigos oficiais, adicionar navy institucional, criar escala `amber` semântica, completar `secondary` (teal). Hoje `Button variant="secondary"` aponta para `secondary-100/700`, **que não existem**: classes inertes. Os valores saem de `docs/prototipos/_src/tokens.css`, que já está validado em AA nos dois temas.
 - Trocar Inter por Sora + Source Sans 3 em `index.html:16-18` e no `fontFamily`.
 - Primitivos que o portal usa: `Button` (revisar variantes), `Input`, `Textarea`, `Select`, `Label`, `Badge`, `Card`, `EmptyState`, `Skeleton`, `Toast`, `Modal` acessível.
@@ -179,11 +231,11 @@ Acrescentadas no Artefato D, aprovadas em 16/08/2026:
 - Instalar `tailwindcss-animate`: `Modal.tsx:32` e `LegislationsManager.tsx:183` já usam `animate-in`/`zoom-in-95` sem o plugin → **as animações não rodam hoje**.
 - Trocar `alert()`/`confirm()` do portal pelo `Toast`/`Modal` novos.
 
-### FE-04b · Fundação — o que só o admin usa (ONDA 2)
+### ~~FE-04b · Fundação — o que só o admin usa~~ · ✅ 15/08/2026 · `d8ccf89`
 - `Table` densa com cabeçalho fixo e ordenação, `Tabs`, `Pagination`, `Tooltip`, `Drawer`.
 - `PageShell` (`max-w-[1600px]` + padding padrão) e `PageHeader` — hoje o cabeçalho `<h1>` + subtítulo + ações é reescrito à mão em ~15 páginas.
 
-### FE-13 · Calendário de semana (ONDA 1) — requisito inegociável
+### ~~FE-13 · Calendário de semana~~ · ✅ 09/08/2026 · `770d2eb` · régua 09h–17h em 16/08 · `d608cbd`
 Pedido da Ester em 09/08/2026: **opção de visualização em calendário de segunda a sexta, e isso vale para qualquer agenda do produto.**
 
 - Um componente só, `WeekCalendar`, em `src/components/ui/`. O portal e os Agendamentos do admin consomem o mesmo — muda o conteúdo do evento, nunca a grade. O renderizador de referência está em `docs/prototipos/_src/shell.js` (`renderCalendario`).
@@ -193,26 +245,26 @@ Pedido da Ester em 09/08/2026: **opção de visualização em calendário de seg
 - Estado do compromisso em três canais: cor de fundo, estilo da borda esquerda e palavra na legenda. O nome acessível do evento carrega dia, horário e estado por extenso.
 - **Decidido pela Ester em 16/08/2026:** sábado não entra na grade — só segunda a sexta (já era o comportamento; confirmado como definitivo, não é mais item em aberto).
 
-### FE-05 · Ponto 1 — larguras
+### ~~FE-05 · Ponto 1 — larguras~~ · ✅ 16/08/2026 · `4f07879`
 Trocar `mx-auto max-w-3xl|4xl|5xl|6xl` pelo `PageShell`. Representativos: `src/pages/Clients.tsx:166`, `src/pages/ClientDetails.tsx:415`, `src/pages/Schedules.tsx:354`, `src/pages/Inspections.tsx:145`, `src/pages/OperationalPanel.tsx:348`, `src/pages/Dashboard.tsx:428`. Mesmo padrão nas demais.
 
-### FE-06 · Pontos 3 e 4 — sidebar
+### ~~FE-06 · Pontos 3 e 4 — sidebar~~ · ✅ 16/08/2026 · `0ccebe8`
 - `Sidebar.tsx:50` — `w-72` fixo vira rail colapsável (`w-72` ↔ `w-16`) com tooltip e persistência em `useSettingsStore`.
 - Adicionar drawer mobile. Hoje abaixo de `lg` a sidebar some e entra `BottomNav` com outro conjunto de itens: **Painel, Roteiros, Biblioteca e Solicitações não têm nenhum acesso no celular.**
 - `Sidebar.tsx:22-33` — nova ordem: **Início, Painel, Clientes, Agendamentos, Inspeções, Solicitações** · *Conteúdo*: Roteiros, Biblioteca · *Sistema*: Sincronização, Configurações. Sincronizar `BottomNav.tsx:7-13`.
 - Remover `clientNavItems` apontando para `/profile`, rota que não existe.
 
-### FE-07 · Ponto 2 — arquivos do cliente
+### ~~FE-07 · Ponto 2 — arquivos do cliente~~ · ✅ 15/08/2026 · `27d8183`
 `ClientDetails.tsx:600-637` renderiza **todos** os anexos de **todas** as visitas num card lateral de 1/3 de largura, cada foto como a palavra "Foto" repetida, sem ordenação, sem paginação, sem abrir — só Remover, guardado por `confirm()` nativo. Vira aba "Arquivos" com tabela agrupada por visita, data em pt-BR, miniatura, paginação e **botão Abrir**, reusando o `file.signed_url` que `PublishedFilesPanel.tsx:63-73` já usa. Corrigir o N+1 de `ClientDetails.tsx:138-144` (um `listAttachments` por visita, `allSettled` engolindo erros em silêncio).
 
-### FE-08 · Ponto 5 — tela de Plano de Ação
+### ~~FE-08 · Ponto 5 — tela de Plano de Ação~~ · ✅ 15/08/2026 · `79bbb7f`
 - Nova rota `/plano-de-acao` lendo `client_action_items` como fonte única.
 - `OperationalPanel.tsx:94` — `/clients/${item.client_id}` passa a `/plano-de-acao?item=${item.id}`. O `id` **já vem da RPC** e hoje é descartado.
 - `ActionPlanPanel.tsx:268` — passa a renderizar `situation` e `recommended_action`. Os campos **já chegam** via `select('*')`, só não são impressos.
 - Card em `ClientDetails.tsx:686-706` linka para a tela nova, em vez de `navigate('/new?...&mode=action-plan')`, que abre uma inspeção nova.
 - Prazo vencido usa **âmbar `#D99721`** + rótulo textual.
 
-### FE-09 · Pontos 6 e 7 — portal do cliente (ONDA 1)
+### ~~FE-09 · Pontos 6 e 7 — portal do cliente~~ · ✅ 09/08/2026 · `659b332`, `9de54b1`
 - Quebrar `ClientPortal.tsx` (591 linhas, 12 seções empilhadas) em rotas de seção sob `/cliente`: Visão geral · Plano de ação · Solicitações · Documentos · Agenda · Financeiro.
 - `PortalActionPlan.tsx` — agrupar por unidade com cabeçalho de grupo e contadores. Hoje o único traço de unidade é um `<span>` cinza de 11px por card.
 - Filtro de unidade com "Todas" e comparativo de cumprimento, ordenado da unidade que mais precisa de atenção para a que menos precisa. Acima de 6 unidades, no celular, os chips viram `<select>`.
@@ -220,18 +272,18 @@ Trocar `mx-auto max-w-3xl|4xl|5xl|6xl` pelo `PageShell`. Representativos: `src/p
 - Passar `p_client_id` nas RPCs `client_portal_action_items` / `client_portal_service_requests`: **elas já aceitam o parâmetro** e o front sempre manda `null`, filtrando tudo no cliente.
 - `generateFranchisePdf(overview)` (`ClientPortal.tsx:463`) passa a respeitar o filtro de unidade — hoje ignora.
 
-### FE-10 · Ponto 8 — tirar o atrito do portal
+### ~~FE-10 · Ponto 8 — tirar o atrito do portal~~ · ✅ 10/08/2026 · `1be833c`
 `PortalActionPlan.tsx` — remover `required` (linhas 221, 231) e as guardas `if (!author.byName.trim() || !author.byRole.trim())` (linhas 156 e 308). Pré-preencher com o nome da conta do portal.
 
 **Sem migration:** `client_status_by_name`/`by_role` já são nullable e a RPC faz `nullif(btrim(coalesce(...)))` → grava `NULL` se vazio. A trava é 100% frontend.
 
-### FE-11 · Higiene
+### ~~FE-11 · Higiene~~ · ✅ 16/08/2026 · `791f4ca`
 - Apagar `src/components/layout/AdminLayout.tsx` — layout completo **nunca importado**, aponta para `/admin/legislations`, rota inexistente.
 - Apagar `src/App.css` — 184 linhas do template Vite, nunca importado.
 - Corrigir `index.html:13`, que descreve o app como **"C&C Consultoria"** (terceira marca, inconsistente).
 - Corrigir "HUB TREINAVISA SERVICOS" no `PublicHeader.tsx:16-19` (sem acento/cedilha).
 
-### FE-12 · Dark mode (card próprio, não bloqueante)
+### ⬜ FE-12 · Dark mode — **depende do FE-21**
 Os tokens de FE-04 já nascem nos dois modos. Ligar o dark no app inteiro é trabalho separado. Enquanto não for feito, decidir: implementar ou esconder o toggle que hoje não faz nada.
 
 ---
@@ -245,10 +297,13 @@ Os tokens de FE-04 já nascem nos dois modos. Ligar o dark no app inteiro é tra
 >
 > A Onda 2 entregou **fundação e casca, não as telas**: `FE-04b` criou os primitivos, `FE-05`
 > unificou a largura, `FE-06` fez o rail, `FE-07` e `FE-08` entregaram duas funcionalidades — e o
-> corpo das páginas continua sendo o desenho antigo. O protótipo `fe-02-admin.html`, aprovado em
-> 09/08/2026, **nunca foi adotado**.
+> corpo das páginas continuava sendo o desenho antigo. O protótipo `fe-02-admin.html`, aprovado em
+> 09/08/2026, **não tinha sido adotado**.
+>
+> **Situação no fim de 16/08/2026:** 6 dos 14 cards da onda entregues (FE-14, FE-15, FE-16, FE-17,
+> FE-17b e FE-18). O que falta está em "Onde estamos", no topo.
 
-### FE-14 · Início unificado
+### ~~FE-14 · Início unificado~~ · ✅ 16/08/2026 · `e075949`
 - `Dashboard.tsx` (`/`, 761 linhas, 31 `<Card>`) e `OperationalPanel.tsx` (`/painel`, 519 linhas)
   respondem à mesma pergunta. `/` passa a ter o corpo do Painel: as 7 filas da RPC
   `admin_operational_overview`, com janela de 7/14/30 dias e filtro por consultora no topo.
@@ -258,7 +313,7 @@ Os tokens de FE-04 já nascem nos dois modos. Ligar o dark no app inteiro é tra
 - Os atalhos "Gestão e Biblioteca" do Dashboard **morrem**: Roteiros e Biblioteca estão no rail
   desde o FE-06.
 
-### FE-15 · Diálogo de confirmação e a morte dos 114 `alert()`/`confirm()`
+### ~~FE-15 · `ConfirmDialog` e a morte dos `alert()`/`confirm()`~~ · ✅ 16/08/2026 · `7771fe3`
 - Primitivo novo `ConfirmDialog` em `src/components/ui/`, sobre o `<dialog>` do `Modal.tsx`
   (FE-04a), seguindo a decisão 16.
 - Três variantes: simples, com lista de consequências, e com digitação da palavra.
@@ -266,7 +321,7 @@ Os tokens de FE-04 já nascem nos dois modos. Ligar o dark no app inteiro é tra
   `alert()` de erro vira `Toast` de erro (que não some sozinho); `confirm()` vira `ConfirmDialog`.
 - **É o card que outros três esperam** (FE-16, FE-18, FE-19). Fazer primeiro.
 
-### FE-17 · As rotas que nunca foram desenhadas — entregue em 16/08/2026
+### ~~FE-17 · Solicitações, Roteiros e Biblioteca em tabela densa~~ · ✅ 16/08/2026 · `87f36f1`
 `ServiceRequests.tsx`, `admin/AdminTemplates.tsx` e `admin/LegislationsManager.tsx` viraram
 tabela densa com `Table`/`Pagination` do FE-04b. As duas telas não tinham `PageShell` — ganharam,
 já que eu estava reescrevendo o layout inteiro de qualquer forma (largura única, decisão 5).
@@ -307,7 +362,7 @@ já que eu estava reescrevendo o layout inteiro de qualquer forma (largura únic
   6 lacunas reais de citação), Drawers abrindo/fechando, segmentado e prefill de "Escrever
   verbete" funcionando, sem rolagem horizontal em 375/1280/1600px.
 
-### FE-18 · Sincronização — entregue em 16/08/2026
+### ~~FE-18 · Sincronização~~ · ✅ 16/08/2026 · `5420ddb`
 `SyncCenter.tsx` trocou a lista por tabela colapsável por uma única linha do tempo (mais
 recente primeiro), com estado em três canais — cor de fundo da marca, forma do traço (tracejado
 só na fila) e a palavra escrita — seguindo a decisão 2 do Manual de Marca.
@@ -338,7 +393,7 @@ só na fila) e a palavra escrita — seguindo a decisão 2 do Manual de Marca.
   arriscaria dado real; a lógica de erro/descarte foi conferida por revisão de código e
   cobertura de tipos, não ao vivo no navegador.
 
-### FE-17b · Editor do roteiro — entregue em 16/08/2026
+### ~~FE-17b · Editor do roteiro~~ · ✅ 16/08/2026 · `25ced0c`
 `TemplateEditor.tsx` virou master-detail: índice de seções/itens à esquerda (com contagem de
 respostas em inspeção em andamento por item), pergunta e todos os campos do item selecionado à
 direita. `TemplateDetail.tsx` ganhou `PageShell` e um card "Aposentados". Torna visíveis três
@@ -378,7 +433,7 @@ regras que hoje só mordiam depois:
   o ciclo completo aposentar→salvar→recarregar→reativar→salvar→recarregar confirmado direto no
   banco (`retired_at` grava e limpa, id do item preservado). Sem rolagem horizontal em 375px.
 
-### FE-16 · Ficha do cliente com abas
+### ~~FE-16 · Ficha do cliente com abas~~ · ✅ 16/08/2026 · `c36bd6b`
 Fecha os 7 achados do diagnóstico em `ClientDetails.tsx` (1.257 linhas):
 1. Aba **Arquivos** com a largura inteira, no lugar da tabela do FE-07 espremida no trilho de ~380px.
 2. Trilha de auditoria com os **5 últimos** e "ver tudo", no lugar de todos os eventos sem paginação.
@@ -392,36 +447,7 @@ Fecha os 7 achados do diagnóstico em `ClientDetails.tsx` (1.257 linhas):
 7. Usar o primitivo `Tabs` do FE-04b, que existe com ARIA completo desde 15/08 e não é usado aqui.
 - **A aba ativa vai para a URL** (`?aba=arquivos`), decisão 20.
 
-### FE-17 · As rotas que nunca foram desenhadas
-`ServiceRequests.tsx`, `admin/AdminTemplates.tsx` e `admin/LegislationsManager.tsx` viram tabela
-densa com `Table`/`Pagination` do FE-04b, seguindo o Artefato D:
-- **Solicitações** — segmentado Novas/Em andamento/Respondidas com contagem ao vivo, e coluna
-  **"Espera"** em vez da data de abertura: a pergunta da tela é há quanto tempo o cliente espera.
-- **Roteiros** — colunas Itens / Críticos / **Em uso**, e a coluna "Em uso" é o aviso que
-  antecede o clique de editar.
-- **Biblioteca** — filtro por esfera e órgão, segmentado Vigentes/Revogadas/**Sem verbete**.
-  "Sem verbete" é a fila de trabalho da curadoria: são normas citadas por item de roteiro que
-  não aparecem em relatório nenhum. Norma revogada **sem substituto** mostra o campo em branco —
-  reapontar mecanicamente produz citação errada em relatório assinado.
-
-### FE-17b · Editor do roteiro
-`TemplateEditor` / `TemplateDetail` — nunca desenhados até o Artefato D. Master-detail: índice de
-seções e itens à esquerda, item inteiro à direita. A tela existe para tornar visíveis três regras
-que hoje só mordem depois:
-- **Relatório concluído congela o roteiro** (REF-06, snapshot por inspeção) — publicar alteração
-  não reescreve relatório entregue, e a tela diz isso.
-- **A resposta não tem FK para `checklist_items`** — por isso não existe "Excluir item", existe
-  **"Aposentar"** (decisão 21), e "Alterar a pergunta" confirma com o número de respostas abertas
-  afetadas, sugerindo aposentar+criar quando a mudança de sentido é grande.
-- **`requirement_type` não entra no cálculo** — só `weight` e `isCritical`. Escrito abaixo do
-  campo, para ninguém mexer nele achando que está ajustando a nota.
-
-### FE-18 · Sincronização
-`SyncCenter.tsx` ganha linha do tempo com estado em três canais (cor de fundo, forma do traço e
-palavra), quatro indicadores no topo, e tratamento explícito da fila que **falhou** — que exige
-decisão e nunca some sozinha. Descartar um envio abre `ConfirmDialog` com a lista do que se perde.
-
-### FE-19 · Configurações
+### ⬜ FE-19 · Configurações
 `Settings.tsx` com nav de seção lateral e **salvar por seção** (decisão 19), zona de risco
 separada no fim. Duas coisas que a tela passa a expor:
 - **Margem de agenda por modalidade** (presencial 1h/3h, online 30min/2h) deixa de ser invisível,
@@ -430,13 +456,13 @@ separada no fim. Duas coisas que a tela passa a expor:
 - O seletor de tema fica **desabilitado com explicação** até o FE-21, em vez de existir e não
   fazer nada.
 
-### FE-20 · Estados e cabeçalho
+### ⬜ FE-20 · Estados e cabeçalho
 - `EmptyState` de primeira vez, de filtro e de erro, e `Skeleton` com a forma do conteúdo,
   aplicados nas listas (decisão 18).
 - `PageHeader` nas **23 páginas** que ainda escrevem `<h1>` + subtítulo + ações à mão. Hoje só
   `ActionPlan.tsx` usa o primitivo.
 
-### FE-21 · As 2.856 classes de cor viram token
+### ⬜ FE-21 · As 2.858 classes de cor viram token
 - A tabela de-para está no Artefato D, tela **"De-para de cor"**. Converter **família por família,
   um commit por família**, com `npm run build` entre eles — um commit de 2.856 trocas não é revisável.
 - Três linhas saem do lote e são leitura de uso, não substituição: `bg-violet-*` e `bg-sky-*`
@@ -450,7 +476,7 @@ separada no fim. Duas coisas que a tela passa a expor:
   de inspeção saem no FE-23, as demais aqui. Fechar o card sem elas deixa a nota da inspeção com o
   âmbar do Tailwind em vez do da marca.
 
-### FE-22 · Listas restantes viram tabela densa
+### ⬜ FE-22 · Listas restantes viram tabela densa
 `Clients.tsx` e `Inspections.tsx`, seguindo o FE-17 como exemplo aprovado. É o item que estava no
 backlog da Onda 2 sem card próprio.
 
@@ -477,7 +503,7 @@ backlog da Onda 2 sem card próprio.
 >
 > **FE-23 e FE-24 são condição para declarar o redesenho encerrado.**
 
-### FE-23 · Fluxo de inspeção end-to-end
+### ⬜ FE-23 · Fluxo de inspeção end-to-end
 
 `/new` → `/execute` → `/summary` é o coração do produto e é o único fluxo grande que nenhum card
 cobre. Medido no código em 16/08/2026:
@@ -516,7 +542,7 @@ cobre. Medido no código em 16/08/2026:
   Arsenal.
 - As telas deste card nascem já com os primitivos de formulário do FE-24 — não migrar depois.
 
-### FE-24 · Sistema de formulários aplicado ao app inteiro
+### ⬜ FE-24 · Sistema de formulários aplicado ao app inteiro
 
 Contado em `src/**/*.tsx` em 16/08/2026: **228** ocorrências de `<input>` / `<select>` /
 `<textarea>` crus — 225 fora dos próprios primitivos — em **40 arquivos**. Do outro lado, **2**
@@ -541,7 +567,7 @@ Concentração: `ClientDetails.tsx` 29 · `PublicSchedule.tsx` 12 · `Legislatio
   conformidade. Migrar formulário de tela que ainda vai ser redesenhada é o mesmo erro de converter
   cor antes de o desenho parar.
 
-### FE-25 · Importador e páginas auxiliares
+### ⬜ FE-25 · Importador e páginas auxiliares
 
 O que sobra fora de qualquer protótipo depois que o FE-17b fechar:
 
@@ -553,7 +579,7 @@ O que sobra fora de qualquer protótipo depois que o FE-17b fechar:
 
 Prioridade abaixo de FE-23/FE-24. Existe para não sobrar ilha antiga quando o resto estiver pronto.
 
-### FE-26 · Superfícies públicas do cliente
+### ⬜ FE-26 · Superfícies públicas do cliente
 
 `PublicSchedule.tsx` (642 linhas) e `PublicAppointmentStatus.tsx` (913) ficaram fora do FE-05 por
 decisão de escopo: `PageShell` é documentado como largura do **admin**, e herdar `max-w-[1600px]`
@@ -568,7 +594,7 @@ válida — o que não vale é ela virar "não recebe redesenho".**
   quem chegar primeiro resolve.
 - A grafia do `PublicHeader.tsx` já foi corrigida no FE-11; falta o layout.
 
-### FE-27 · Gate de regressão visual e acessibilidade
+### ⬜ FE-27 · Gate de regressão visual e acessibilidade
 
 Hoje a conferência é boa e é **manual**: depende de quem executa o card lembrar de abrir 375, 1280
 e 1600px. `npm run build` não detecta coluna espremida, botão quebrando em duas linhas nem tabela
@@ -722,29 +748,29 @@ entregou o editor de roteiro sem precisar de arrastar.
 
 | # | Tarefa | Modelo | Esforço | Depende de |
 |---|---|---|---|---|
-| FE-15 | `ConfirmDialog` + migrar os 114 `alert()`/`confirm()` | Opus 5 (primitivo) · Codex medium (lote) | médio | `Modal` (FE-04a ✅) |
-| FE-14 | Início unificado + redirect de `/painel` | Opus 5 | médio-alto | — |
-| FE-16 | Ficha do cliente com abas | Opus 5 | alto | `Tabs` (FE-04b ✅) · FE-15 |
-| FE-17 | Solicitações, Roteiros e Biblioteca em tabela densa | Sonnet 5 | médio | `Table` (FE-04b ✅) |
-| FE-17b | Editor do roteiro | Opus 5 | alto | FE-15 · FE-17 |
-| FE-18 | Sincronização | Sonnet 5 | médio | FE-15 |
-| FE-19 | Configurações | Sonnet 5 | médio | FE-15 |
+| ~~FE-15~~ ✅ | `ConfirmDialog` + as 115 ocorrências de `alert()`/`confirm()` | Sonnet 5 | médio | entregue 16/08 |
+| ~~FE-14~~ ✅ | Início unificado + redirect de `/painel` | Sonnet 5 | médio-alto | entregue 16/08 |
+| ~~FE-16~~ ✅ | Ficha do cliente com abas | Sonnet 5 | alto | entregue 16/08 |
+| ~~FE-17~~ ✅ | Solicitações, Roteiros e Biblioteca em tabela densa | Sonnet 5 | médio | entregue 16/08 |
+| ~~FE-17b~~ ✅ | Editor do roteiro em master-detail | Opus 5 | alto | entregue 16/08 |
+| ~~FE-18~~ ✅ | Sincronização | Sonnet 5 | médio | entregue 16/08 |
+| FE-19 | Configurações | Sonnet 5 | médio | FE-15 ✅ |
 | FE-20 | Estados vazio/carregando/erro + `PageHeader` em 23 páginas | Sonnet 5 | médio | — |
-| FE-21 | 2.856 classes de cor → token, família por família | Codex (medium) | alto | de-para aprovado ✅ |
-| FE-22 | `Clients` e `Inspections` em tabela densa | Codex (medium) | baixo | FE-17 |
+| FE-21 | 2.858 classes + 20 hex → token, família por família | Codex (medium) | alto | de-para aprovado ✅ |
+| FE-22 | `Clients` e `Inspections` em tabela densa | Codex (medium) | baixo | FE-17 ✅ |
 | FE-23 | Artefato E + fluxo `/new` → `/execute` → `/summary` | Opus 5 | **alto** | protótipo aprovado |
 | FE-24 | ~225 controles crus → `Input`/`Select`/`Textarea`/`Label` | Opus 5 (padrão) · Codex medium (lote) | alto | FE-23 |
-| FE-25 | `SmartImporter`, `TemplateDetail` e as telas de entrada | Sonnet 5 | baixo | FE-17b |
+| FE-25 | `SmartImporter`, `TemplateDetail` e as telas de entrada | Sonnet 5 | baixo | FE-17b ✅ |
 | FE-26 | `PublicSchedule` + `PublicAppointmentStatus` | Opus 5 | médio | Artefato C ✅ |
 | FE-27 | Gate de regressão visual e a11y | Opus 5 (matriz) · Sonnet 5 (spec) | médio-alto | FE-12, só para a camada de tema |
 | FE-12 | Ligar o tema escuro no app inteiro | Sonnet 5 | médio | **FE-21** — impossível antes |
 
-**A ordem, revisada em 16/08/2026.** `FE-15`, `FE-14`, `FE-16`, `FE-17` e `FE-18` já saíram — o
+**A ordem, revisada em 16/08/2026.** `FE-15`, `FE-14`, `FE-16`, `FE-17`, `FE-18` e `FE-17b` já saíram — o
 `FE-15` foi primeiro porque outros três esperavam por ele, e `FE-14`/`FE-16` em paralelo por serem
 as duas telas de uso diário. Daqui em diante:
 
-1. **FE-17b, FE-19 e FE-20** — aplicação de padrão já decidido no artefato, fecham o que a Onda 4
-   original abriu.
+1. ~~**FE-17b**~~ ✅ · **FE-19 e FE-20** — aplicação de padrão já decidido no artefato, fecham o
+   que a Onda 4 original abriu.
 2. **FE-23 e FE-24** — estrutura real de uso. Vêm antes da cor de propósito.
 3. **FE-21** — só com o desenho das telas praticamente congelado. Converter cor **antes** de o
    desenho parar significa converter duas vezes.
@@ -816,7 +842,7 @@ Regra que decide a coluna **Modelo**: sobe quando a decisão é de design ou de 
 
 Regra que decide a coluna **Esforço**: o que o protótipo já resolveu não é mais decisão. Boa parte do que era "alto" antes da Fase 1 virou "aplicar o que está em `docs/prototipos/_src`".
 
-### ONDA 1 — Portal do cliente no ar (prioridade máxima)
+### ~~ONDA 1 — Portal do cliente no ar~~ ✅ fechada em 10/08/2026
 
 | # | Tarefa | Modelo | Esforço | Depende de |
 |---|---|---|---|---|
@@ -832,7 +858,7 @@ Regra que decide a coluna **Esforço**: o que o protótipo já resolveu não é 
 
 **Por que `Modal` e `WeekCalendar` são Opus:** foco, teclado e leitor de tela são onde protótipo bonito vira código quebrado, e o calendário ainda tem posicionamento em grade mais um segundo desenho no celular. O resto da onda é aplicar padrão já decidido.
 
-### ONDA 2 — Admin
+### ~~ONDA 2 — Admin~~ ✅ fechada em 16/08/2026
 
 | # | Tarefa | Modelo | Esforço | Depende de |
 |---|---|---|---|---|
@@ -845,7 +871,7 @@ Regra que decide a coluna **Esforço**: o que o protótipo já resolveu não é 
 | FE-05 · Ponto 1 | Larguras: `max-w-*` → `PageShell` em ~15 páginas ✅ | Sonnet 5 | baixo | `PageShell` |
 | — | Converter listas de cards em tabelas nas telas restantes | Codex (medium) | médio | exemplo aprovado |
 
-### ONDA 3 — Fechamento
+### ONDA 3 — Fechamento ⬜ falta FE-12 e a revisão final de a11y
 
 | # | Tarefa | Modelo | Esforço | Depende de |
 |---|---|---|---|---|
@@ -882,27 +908,16 @@ Nomes de modelo mudam rápido; escolher o mais recente no `/model` e calibrar o 
 
 ## Estado
 
-| Card | Estado |
+**O estado dos cards está em [Onde estamos](#onde-estamos--atualizado-em-16082026), no topo.** Não repetir aqui — duas tabelas de estado divergem em uma semana.
+
+O que não é card:
+
+| | Estado |
 |---|---|
-| FE-01 a FE-03 | ✅ Entregues em 09/08/2026 · calendário de semana acrescentado na revisão do mesmo dia |
-| FE-13 (calendário) | ✅ protótipo aprovado (commit `fb37e7f`) e componente React entregue — `WeekCalendar` em `src/components/ui/`, consumido pelo Portal (`PortalAppointments.tsx`) e pelos Agendamentos do admin (`Schedules.tsx`). Régua 07h–19h cresce (não corta) se algum compromisso ficar fora da faixa; sábado ainda não entra na grade — seguem em aberto com a Ester. |
-| FE-04a (tokens/fontes/primitivos/Modal) | ✅ Entregue em 09/08/2026 (commit `b16a9ae`) — ver detalhe abaixo |
-| FE-09 (rotas de seção + plano de ação por unidade) | ✅ Entregue em 09/08/2026 (commits `659b332`, `9de54b1`) — ver detalhe abaixo |
-| FE-10 (tirar o atrito do portal) | ✅ Entregue em 10/08/2026 — ver detalhe abaixo |
-| Onda 1 (portal) | **Fechada** — FE-04a, FE-09, FE-13 e FE-10 entregues |
-| FE-04b (Table, Tabs, Pagination, Tooltip, Drawer, PageShell, PageHeader) | ✅ Entregue em 15/08/2026 — ver detalhe abaixo |
-| FE-08 (tela de Plano de Ação do admin) | ✅ Entregue em 15/08/2026 — ver detalhe abaixo |
-| FE-07 (aba de Arquivos do cliente) | ✅ Entregue em 15/08/2026 — corrige o N+1 de `listAttachments` |
-| FE-05 · Ponto 1 (larguras: `max-w-*` → `PageShell`) | ✅ Entregue em 16/08/2026 — ver detalhe abaixo |
-| FE-06 (rail colapsável + drawer mobile + nova ordem do menu) | ✅ Entregue em 16/08/2026 — ver detalhe abaixo |
-| Onda 2 (admin) | Todos os cards `FE-*` entregues (FE-04b, FE-05 ponto 1, FE-06, FE-07, FE-08). Resta só o item de backlog sem card ("converter listas de cards em tabelas nas telas restantes") |
-| WeekCalendar: régua 09h-17h | ✅ Entregue em 16/08/2026 — decisão da Ester, ver detalhe abaixo |
-| FE-11 (higiene) | ✅ Entregue em 16/08/2026 — ver detalhe abaixo |
-| Onda 3 | Em andamento — FE-11 entregue; falta FE-12 (dark mode) e a revisão final de a11y. **FE-12 depende do FE-21** |
-| MCP do DesignMD | ✅ funcionando — plano **Builder** (600 chamadas / 10 min, sem limite diário). URL **com `www`** e servidor aprovado em `~/.claude.json` |
-| **Artefato D** | ✅ [publicado](https://claude.ai/code/artifact/2001223c-6df9-4464-8e7f-3c299ad61832) e **aprovado pela Ester em 16/08/2026** |
-| **Onda 4** | Aberta em 16/08/2026 — FE-14, FE-15, FE-16, FE-17, FE-17b e FE-18 entregues; FE-19 a FE-22 escritos, não iniciados |
-| **Onda 4 — ampliação** | Escrita em 16/08/2026 na revisão da Ester: FE-23 a FE-27, nenhum iniciado. **FE-23 (fluxo de inspeção) e FE-24 (formulários) são condição para declarar o redesenho encerrado**; FE-27 é o que autoriza a frase "frontend visual fechado" |
+| **Artefato D** | ✅ [publicado](https://claude.ai/code/artifact/2001223c-6df9-4464-8e7f-3c299ad61832) e aprovado pela Ester em 16/08/2026 |
+| MCP do DesignMD | Plano **Builder** (600 chamadas / 10 min). URL **com `www`**, servidor aprovado em `~/.claude.json`. **Só carrega na abertura do app** — em 16/08 não estava carregado, e o Design Arsenal offline cobriu |
+| Design Arsenal | ✅ ligado à Onda 4 — ver a seção do Arsenal. Biblioteca somente leitura no OneDrive |
+| Backlog sem card | nenhum: o item "converter listas de cards em tabelas" da Onda 2 virou o FE-22 |
 
 ## Registro de execução
 
@@ -934,7 +949,7 @@ Tabela de acompanhamento rápido — quem fez o quê e quando. O detalhe de cada
 | 16/08/2026 | **Onda 4 ampliada** — FE-23 a FE-27 escritos | Ester + Opus 5 | — | Revisão da Ester confrontando o handoff com o Manual 2.0, a auditoria, o mapa de páginas e os protótipos FE-02/FE-D: a Onda 4 cobria ~80% da cobertura visual estrutural. Buracos identificados e conferidos no código antes de escrever os cards: o fluxo `/new` → `/execute` → `/summary` (2.836 linhas somando `ChecklistItem.tsx`, com `InspectionExecution` sem `PageShell` e nenhuma das três com `PageHeader`) não estava em card nenhum e **duas das três telas nunca foram desenhadas** → FE-23 começa por um Artefato E; **228** `<input>`/`<select>`/`<textarea>` crus em 40 arquivos contra **2** arquivos que importam os primitivos do FE-04a → FE-24; `SmartImporter`/`TemplateDetail` e as 3 telas de entrada sem shell → FE-25; as 2 páginas públicas sem login, que o Manual 2.0 exige com a voz da TreinaVISA → FE-26; e a conferência responsiva, que hoje é 100% manual, sobre o Playwright que já existe → FE-27. Ordem revisada: dark mode (FE-12) sai da frente e o FE-21 (contados hoje **2.858** classes cruas, 0 `dark:`) só roda com o desenho congelado. |
 | 16/08/2026 | **FE-16** — Ficha do cliente com abas | Sonnet 5 | — | Fecha os 7 achados do diagnóstico em `ClientDetails.tsx`. Identidade (nome, badges de categoria/segmento/portal/pendências, responsável, telefone, endereço) subiu para o topo, sempre visível — o antigo card "Resumo do Cliente" (`bg-primary-900`, último da página) foi removido, o conteúdo absorvido no cabeçalho. Corpo dividido em 3 abas com o primitivo `Tabs`/`TabPanel` do FE-04b (`aria-label="Seções do cliente"`), aba ativa sincronizada com `?aba=` via `useSearchParams` (decisão 20; `visao-geral` fica sem parâmetro): **Visão geral** (gráfico, histórico de visitas, plano de ação, NC recorrentes), **Arquivos** (a tabela do FE-07 em largura cheia, antes espremida no trilho de 380px; vazio ganhou `EmptyState`), **Portal** (credenciais + pasta personalizada + auditoria). Gráfico de conformidade com menos de 2 inspeções concluídas virou uma linha de texto com ícone, não mais uma caixa de ~200px. Credenciais do portal: senha e token mascarados por padrão (usuário fica visível, não é segredo), toggle único "Mostrar/Ocultar", botão de copiar por campo além do "Copiar tudo" já existente. Trilha de auditoria: só os 5 mais recentes no card, botão "Ver tudo" abre `Drawer` com a lista completa (fetch subiu de `limit: 20` para `limit: 50`, sem round-trip extra); `window.confirm()` de excluir cliente já tinha sido migrado para `ConfirmDialog` no FE-15, achado já fechado. `tsc -b`, `npm run build` e os 382 testes limpos. Verificado logada no navegador num cliente real (REDE SÊNIOR BARRA): identidade e badges no topo, `?aba=arquivos` na URL ao trocar de aba, tabela de arquivos em largura cheia, credenciais mascaradas revelando ao clicar "Mostrar", drawer "Ver tudo" abrindo a auditoria completa, sem rolagem horizontal em 375px. |
 
-### FE-04a — o que foi feito e o que ficou pra depois
+### FE-04a ✅ — detalhe da entrega, e o que ficou pra depois
 
 Feito: paleta oficial (`primary`/`navy`/`secondary`/`amber`) e fontes Sora + Source Sans 3 no `tailwind.config.js`; `tailwindcss-animate` instalado; `Modal.tsx` reescrito com `<dialog>` nativo (fechar no backdrop e trava de rolagem escritos); bug do `Button variant="secondary"` corrigido; primitivos novos `Input`, `Textarea`, `Select`, `Label`, `EmptyState`, `Skeleton`, `Toast` (+ `useToastStore`) em `src/components/ui`, `<Toaster />` montado no `App.tsx`. Build (`npm run build`) limpo.
 
@@ -948,7 +963,7 @@ Conferido nos três artefatos: 15 pares de contraste medidos em tempo real sem n
 
 O que ainda depende dela: se a ordem do menu bate com o uso real, se a densidade da tabela está confortável, se a voz do portal está do jeito que ela fala com os clientes, e as duas pontas soltas do calendário (compromisso fora de 07h–19h e se sábado precisa entrar).
 
-### FE-09 — o que foi feito
+### FE-09 ✅ — detalhe da entrega
 
 `ClientPortal.tsx` virou rota `/cliente/*` com seções próprias (`ClientPortalShell`), seguindo a estrutura do protótipo `fe-03-portal.html`, não o Tailwind cru que uma primeira leva (commit `659b332`) tinha usado por engano — essa leva foi refeita no commit `9de54b1` depois de eu apontar que não tinha ido buscar o protótipo nem os tokens do FE-04a.
 

@@ -4,6 +4,29 @@
 **Para que serve:** é a fonte do diagnóstico da Onda 4. Antes de abrir card `FE-14+`, ler isto.
 **Relacionado:** [HANDOFF-FRONTEND.md](HANDOFF-FRONTEND.md) · [mapa-paginas-admin.md](mapa-paginas-admin.md)
 
+> ## O que deste diagnóstico já foi fechado — atualizado em 16/08/2026
+>
+> **Este documento é a foto do problema em 16/08 de manhã. Não apagar: ele é a evidência do
+> "antes".** O que mudou desde então:
+>
+> | Achado daqui | Card | Estado |
+> |---|---|---|
+> | Duas home telas concorrentes | FE-14 | ✅ `/` absorveu o Painel; `/painel` é redirect |
+> | 114 `alert()`/`confirm()` nativos | FE-15 | ✅ 115 ocorrências migradas; `ConfirmDialog` existe |
+> | `ClientDetails.tsx` com os 7 achados | FE-16 | ✅ identidade no topo, 3 abas, aba na URL |
+> | Solicitações, Roteiros e Biblioteca sem desenho | FE-17 | ✅ tabela densa + `Drawer` nas três |
+> | Editor de roteiro sem desenho | FE-17b | ✅ master-detail + "Aposentar item" |
+> | Sincronização sem desenho | FE-18 | ✅ linha do tempo, fila que falhou tratada |
+> | Configurações sem desenho | FE-19 | ⬜ aberto |
+> | Estados vazio/carregando/erro e `PageHeader` | FE-20 | ⬜ aberto |
+> | 2.856 classes de cor cruas · 0 `dark:` | FE-21 · FE-12 | ⬜ aberto — recontado em **2.858**, mais **20 hex cravados em TS/TSX** que o de-para não pega |
+> | `Clients` e `Inspections` ainda em cards | FE-22 | ⬜ aberto |
+>
+> **O que este diagnóstico não viu, e foi acrescentado em 16/08 (FE-23 a FE-27):** o fluxo
+> `/new` → `/execute` → `/summary`, os ~225 controles de formulário crus, `SmartImporter` e as
+> telas de entrada, as duas páginas públicas sem login, e a ausência de um gate de regressão
+> visual. **Estado card a card: "Onde estamos", no topo do [handoff](HANDOFF-FRONTEND.md).**
+
 ---
 
 ## O achado central

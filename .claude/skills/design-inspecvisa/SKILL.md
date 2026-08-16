@@ -115,8 +115,21 @@ O manual "experimental v1.0" está **abolido**. Não citar.
 4. Contraste: o Artefato A mede os pares ao vivo a partir dos tokens vigentes. Em protótipo
    novo, `window.contraste('--ink','--surface')` está exposto pelo `shell.js`.
 
+## Que card já saiu?
+
+**Não deduzir do código nem perguntar.** A tabela **"Onde estamos"**, no topo de
+`docs/HANDOFF-FRONTEND.md`, é a única fonte: card entregue tem o título ~~riscado~~ com data e
+commit, card aberto tem ⬜. Em 16/08/2026: 18 entregues, 10 na fila (FE-19, FE-20, FE-23, FE-24,
+FE-21, FE-22, FE-25, FE-26, FE-12, FE-27 — nessa ordem).
+
+**Ao fechar um card, atualizar no mesmo commit:** a tabela "Onde estamos" (riscar o título do card
+e tirá-lo da fila), o "Registro de execução" do handoff, e a linha da rota em
+`docs/mapa-paginas-admin.md` se o que a tela faz mudou.
+
 ## Relacionados
 
-- `catalogo-designmd` — quando *não* há decisão tomada e é preciso consultar o catálogo.
-- `docs/HANDOFF-FRONTEND.md` — histórico completo e registro de execução por card.
-- `docs/auditoria-admin-onda4.md` — o diagnóstico medido que abriu a Onda 4.
+- `catalogo-designmd` — quando *não* há decisão tomada e é preciso consultar o catálogo. Traz
+  também o **Design Arsenal**, offline, que se consulta antes do MCP.
+- `docs/HANDOFF-FRONTEND.md` — estado card a card, histórico e registro de execução.
+- `docs/auditoria-admin-onda4.md` — o diagnóstico medido que abriu a Onda 4, com o mapa do que
+  dele já foi fechado.
