@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Eye, EyeOff, Loader2, PlusCircle, WifiOff, X, RefreshCw } from 'lucide-react';
+import { ArrowLeft, ChevronRight, CloudOff, CheckCircle2, Eye, EyeOff, Loader2, PlusCircle, WifiOff, X, RefreshCw } from 'lucide-react';
 import { db } from '../db/database';
 import { getTemplateById, getEffectiveTemplate } from '../data/templates';
 import { type ChecklistTemplate, type Inspection, type InspectionResponse, type InspectionPhoto } from '../types';
@@ -20,6 +20,7 @@ import { belongsToActiveTenant, filterByActiveTenant } from '../utils/localScope
 import { buildRecoveryTemplate } from '../utils/templateRecovery';
 import { withClientLocation } from '../utils/inspectionLocation';
 import { getOpenPendingHistory, type PreviousNCContext } from '../utils/actionPlanContext';
+import { hydrateAndGetPreviousVisitScore, type PreviousVisitScore } from '../utils/previousVisitScore';
 import { filterMissingPendingItems, filterPendingItemsForTemplate } from '../utils/actionPlanState';
 import {
   composeChecklistTemplate,
@@ -40,7 +41,8 @@ import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { SectionAccordion } from '../components/inspection/SectionAccordion';
 import { ChecklistItem } from '../components/inspection/ChecklistItem';
-import { ScorePanel } from '../components/inspection/ScorePanel';
+import { ExecutionScorePanel, type MissingText } from '../components/inspection/ExecutionScorePanel';
+import { ExecutionSectionIndex } from '../components/inspection/ExecutionSectionIndex';
 import { TeamResponsesViewer } from '../components/inspection/TeamResponsesViewer';
 import { SignaturePad } from '../components/ui/SignaturePad';
 import { Modal } from '../components/ui/Modal';
@@ -118,7 +120,10 @@ export function InspectionExecution() {
   // best-effort: sem sinal, a vistoria segue igual, só sem a alegação na tela.
   const [clientEvidence, setClientEvidence] = useState<ClientEvidenceByItem>(new Map());
   const [clientDeclarations, setClientDeclarations] = useState<ClientDeclarationByItem>(new Map());
-  const [expandedSectionIds] = useState<string[]>([]);
+  const [previousVisit, setPreviousVisit] = useState<PreviousVisitScore | null>(null);
+  const [openSectionIds, setOpenSectionIds] = useState<Set<string>>(new Set());
+  const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
+  const [itemFilter, setItemFilter] = useState<'todos' | 'sem-resposta' | 'nao-cumpre' | 'falta-escrever'>('todos');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [hideClientInfo, setHideClientInfo] = useState(false);
   const [photoHydration, setPhotoHydration] = useState<{ total: number; completed: number; failed: number } | null>(null);
@@ -328,6 +333,12 @@ export function InspectionExecution() {
           setLoading(false);
           hydratePhotosInBackground(workingResponses.map(response => response.id));
 
+          // Nota da visita anterior, para a comparação em pontos (decisão 29).
+          // Lê o mesmo cache que o histórico de pendências já hidratou.
+          void hydrateAndGetPreviousVisitScore(enrichedInsp.clientId, id, enrichedInsp.templateId)
+            .then(setPreviousVisit)
+            .catch((err) => console.warn('[Inspection] Nota da visita anterior indisponivel:', err));
+
           // Evidências são carregadas sem bloquear a abertura do roteiro em campo.
           void ClientEvidenceService.byItemForClient(enrichedInsp.clientId)
             .then((result) => {
@@ -387,6 +398,100 @@ export function InspectionExecution() {
     try { return composeChecklistTemplate(getEffectiveTemplate(template, ctx as any, 'ambos', true, currentInspection.createdAt), responses); }
     catch (err) { console.error('getEffectiveTemplate collaboration error:', err); return composeChecklistTemplate(template, responses); }
   }, [currentInspection, responses, template]);
+
+  // ─── ÍNDICE, FILTRO E "FALTA ESCREVER" ────────────────────────────────────
+  const responseByItemId = useMemo(
+    () => new Map(responses.map(response => [response.itemId, response])),
+    [responses],
+  );
+
+  const sectionIndex = useMemo(() => visibleSections.map((section: any, idx: number) => ({
+    id: section.id,
+    label: `${idx + 1} · ${section.title}`,
+    total: section.items.length,
+    answered: section.items.filter((item: any) => responseByItemId.has(item.id)).length,
+  })), [visibleSections, responseByItemId]);
+
+  // O `hasError` que o ChecklistItem calcula por dentro deixa de morar só lá:
+  // NC sem situação e/ou ação vira uma linha clicável, não uma contagem (decisão 30).
+  const missingText = useMemo<MissingText[]>(() => {
+    const out: MissingText[] = [];
+    let order = 0;
+    for (const section of visibleSections as any[]) {
+      for (const item of section.items) {
+        order += 1;
+        const response = responseByItemId.get(item.id);
+        if (response?.result !== 'not_complies') continue;
+        const semSituacao = !response.situationDescription?.trim();
+        const semAcao = !response.correctiveAction?.trim();
+        if (!semSituacao && !semAcao) continue;
+        out.push({
+          itemId: item.id,
+          order,
+          description: response.customDescription || item.description,
+          missing: semSituacao && semAcao ? 'both' : semSituacao ? 'situation' : 'action',
+        });
+      }
+    }
+    return out;
+  }, [visibleSections, responseByItemId]);
+
+  const missingTextItemIds = useMemo(() => new Set(missingText.map(m => m.itemId)), [missingText]);
+
+  const filterCounts = useMemo(() => {
+    const all = (visibleSections as any[]).flatMap(section => section.items);
+    return {
+      todos: all.length,
+      'sem-resposta': all.filter((item: any) => !responseByItemId.has(item.id)).length,
+      'nao-cumpre': all.filter((item: any) => responseByItemId.get(item.id)?.result === 'not_complies').length,
+      'falta-escrever': missingText.length,
+    };
+  }, [visibleSections, responseByItemId, missingText]);
+
+  const itemMatchesFilter = useCallback((itemId: string) => {
+    switch (itemFilter) {
+      case 'sem-resposta': return !responseByItemId.has(itemId);
+      case 'nao-cumpre': return responseByItemId.get(itemId)?.result === 'not_complies';
+      case 'falta-escrever': return missingTextItemIds.has(itemId);
+      default: return true;
+    }
+  }, [itemFilter, responseByItemId, missingTextItemIds]);
+
+  // A primeira seção nasce aberta; o índice abre a que for escolhida.
+  useEffect(() => {
+    setOpenSectionIds(prev => {
+      if (prev.size > 0 || visibleSections.length === 0) return prev;
+      return new Set([visibleSections[0].id]);
+    });
+    setActiveSectionId(prev => prev ?? (visibleSections[0]?.id || null));
+  }, [visibleSections]);
+
+  const goToSection = useCallback((sectionId: string) => {
+    setOpenSectionIds(prev => new Set(prev).add(sectionId));
+    setActiveSectionId(sectionId);
+    window.requestAnimationFrame(() => {
+      document.getElementById(`secao-${sectionId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, []);
+
+  const goToItem = useCallback((itemId: string) => {
+    const section = (visibleSections as any[]).find(s => s.items.some((i: any) => i.id === itemId));
+    if (section) {
+      setOpenSectionIds(prev => new Set(prev).add(section.id));
+      setActiveSectionId(section.id);
+    }
+    setItemFilter('todos');
+    window.requestAnimationFrame(() => {
+      document.getElementById(`item-${itemId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }, [visibleSections]);
+
+  const goToFirstUnanswered = useCallback(() => {
+    for (const section of visibleSections as any[]) {
+      const item = section.items.find((i: any) => !responseByItemId.has(i.id));
+      if (item) { goToItem(item.id); return; }
+    }
+  }, [visibleSections, responseByItemId, goToItem]);
 
   // ─── REALTIME SYNC: Listen for updates from Supabase ─────────────────────
   useEffect(() => {
@@ -956,31 +1061,72 @@ export function InspectionExecution() {
   const usingRecoveryTemplate = !template;
   const displayClientName = hideClientInfo ? 'Cliente oculto' : currentInspection.clientName;
 
+  const totalItems = filterCounts.todos;
+  const answeredItems = totalItems - filterCounts['sem-resposta'];
+  const progressPct = totalItems > 0 ? Math.round((answeredItems / totalItems) * 100) : 0;
+  const criticalNotComplies = (visibleSections as any[])
+    .flatMap(section => section.items)
+    .filter((item: any) => item.isCritical && responseByItemId.get(item.id)?.result === 'not_complies')
+    .length;
+
   return (
-    <div className="flex h-screen flex-col bg-gray-50 pb-safe pb-16 lg:pb-0">
-      <header className="sticky top-0 z-30 border-b border-gray-100 bg-white/80 backdrop-blur-md px-6 py-4 shadow-sm">
-        <div className="mx-auto flex max-w-7xl items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/inspections')} className="rounded-xl">
+    <div className="flex min-h-screen flex-col bg-gray-50 pb-safe pb-16 lg:pb-0">
+      <header className="sticky top-0 z-30 border-b border-gray-200 bg-white px-4 py-3 sm:px-6">
+        <div className="mx-auto w-full max-w-[1600px] space-y-3">
+          {/* Trilha: a execução não é uma ilha sem volta. */}
+          <nav aria-label="Trilha" className="flex items-center gap-1.5 text-xs text-navy-3">
+            <button type="button" className="hover:text-navy-2 hover:underline" onClick={() => navigate('/inspections')}>
+              Inspeções
+            </button>
+            <ChevronRight className="h-3 w-3" aria-hidden="true" />
+            <span className="truncate text-navy-2">{displayClientName}</span>
+            <ChevronRight className="h-3 w-3" aria-hidden="true" />
+            <span className="whitespace-nowrap">
+              Visita de {new Date(currentInspection.inspectionDate).toLocaleDateString('pt-BR')}
+            </span>
+          </nav>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => navigate('/inspections')} aria-label="Voltar para inspeções">
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div className="min-w-0 flex-1">
-              <h1 className="text-lg font-bold text-gray-900 truncate max-w-xs sm:max-w-sm md:max-w-lg">{displayClientName}</h1>
-              <div className="flex items-center space-x-2 text-[10px] font-bold uppercase tracking-wider">
-                {isCompleted && <Badge variant="neutral" className="bg-green-100 text-green-700 border-green-200">Finalizada</Badge>}
-                {usingRecoveryTemplate && <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">Modo Recuperação</Badge>}
-                {!isOnline && <span className="text-amber-600 flex items-center bg-amber-50 px-2 py-0.5 rounded-md"><WifiOff className="mr-1 h-3 w-3" /> Offline</span>}
-                {photoHydration && (
-                  <span className="text-blue-600 flex items-center bg-blue-50 px-2 py-0.5 rounded-md">
-                    Fotos {photoHydration.completed + photoHydration.failed}/{photoHydration.total}
-                  </span>
-                )}
-                {saveStatus === 'saving' && <span className="text-primary-600 animate-pulse">Sincronizando...</span>}
-                {saveStatus === 'saved' && <span className="text-green-600">Dados Protegidos</span>}
-              </div>
+              <h1 className="truncate text-xl font-bold text-navy">{displayClientName}</h1>
+              <p className="truncate text-sm text-navy-3">
+                {effectiveTemplate?.name || 'Roteiro'}
+                {currentInspection.consultantName && ` · aberta por ${currentInspection.consultantName}`}
+                {currentInspection.lastEditedBy && currentInspection.lastEditedBy !== currentInspection.consultantName
+                  && ` · última edição de ${currentInspection.lastEditedBy}`}
+              </p>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
+
+            {/* Estado em três canais: cor, ícone (forma) e a palavra escrita.
+                "Dados Protegidos" sai — é jargão, e verde sozinho não é informação. */}
+            {!isOnline ? (
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-soft-border bg-amber-soft px-2.5 py-1 text-xs font-medium text-amber-soft-ink">
+                <CloudOff className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                Sem conexão — salvo no aparelho
+              </span>
+            ) : saveStatus === 'saving' ? (
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-secondary-200 bg-secondary-100 px-2.5 py-1 text-xs font-medium text-secondary-700">
+                <RefreshCw className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden="true" />
+                Salvando na nuvem
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-success-soft-border bg-success-soft px-2.5 py-1 text-xs font-medium text-success-soft-ink">
+                <CheckCircle2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                Salvo no aparelho e na nuvem
+              </span>
+            )}
+
+            {isCompleted && <Badge variant="success">Finalizada</Badge>}
+            {usingRecoveryTemplate && <Badge variant="warning">Modo recuperação</Badge>}
+            {photoHydration && (
+              <Badge variant="neutral">
+                Fotos {photoHydration.completed + photoHydration.failed}/{photoHydration.total}
+              </Badge>
+            )}
+
             {!isCompleted && (
               <Button
                 variant="outline"
@@ -989,20 +1135,20 @@ export function InspectionExecution() {
                 title="Ver respostas e fotos já sincronizadas sem editar"
               >
                 <Eye className="h-4 w-4" />
-                <span className="hidden md:inline">Ver preenchimento da equipe</span>
+                <span className="hidden md:inline">Ver o que a equipe preencheu</span>
               </Button>
             )}
             <Button
               variant="outline"
               size="icon"
               onClick={() => setHideClientInfo((value) => !value)}
-              title={hideClientInfo ? 'Mostrar dados do cliente' : 'Ocultar dados do cliente'}
+              aria-label={hideClientInfo ? 'Mostrar dados do cliente' : 'Ocultar dados do cliente'}
             >
               {hideClientInfo ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </Button>
             {!isCompleted && (
-              <Button onClick={() => setShowSignatureModal(true)} className="shadow-lg shadow-primary-100">
-                Finalizar Visita
+              <Button onClick={() => setShowSignatureModal(true)}>
+                Encerrar e entregar
               </Button>
             )}
             {isCompleted && (
@@ -1023,10 +1169,26 @@ export function InspectionExecution() {
                     toast.error('Erro ao reabrir inspeção', String(err));
                   }
                 }}
-                className="border-amber-300 text-amber-700 hover:bg-amber-50"
+                className="border-amber-soft-border text-amber-soft-ink hover:bg-amber-soft"
               >
-                Reabrir Inspeção
+                Reabrir inspeção
               </Button>
+            )}
+          </div>
+
+          {/* Progresso: quanto falta, e o que já está errado. */}
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm font-semibold tabular-nums text-navy">
+              {answeredItems} de {totalItems} respondidos
+            </span>
+            <span className="h-2 min-w-[120px] flex-1 overflow-hidden rounded-full bg-gray-100">
+              <span className="block h-full rounded-full bg-primary-700" style={{ width: `${progressPct}%` }} />
+            </span>
+            {criticalNotComplies > 0 && (
+              <Badge variant="danger">{criticalNotComplies} críticos não cumprem</Badge>
+            )}
+            {missingText.length > 0 && (
+              <Badge variant="warning">{missingText.length} sem texto</Badge>
             )}
           </div>
         </div>
@@ -1037,10 +1199,22 @@ export function InspectionExecution() {
       {/* Mobile Score Bar - shown only on small screens */}
       <MobileScoreBar template={effectiveTemplate} />
 
-      <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 lg:grid lg:grid-cols-12 lg:gap-8 overflow-y-auto">
-        <div className="lg:col-span-8 space-y-6">
+      {/* Decisão 24: a largura entra na regra única. `max-w-7xl` sai; quem
+          controla a linha de leitura é a coluna do meio, não a página. */}
+      <div className="mx-auto grid w-full max-w-[1600px] flex-1 grid-cols-1 gap-6 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_340px] 3col:grid-cols-[248px_minmax(0,1fr)_340px]">
+        {/* ── índice de seções ──────────────────────────────────────────── */}
+        <div className="hidden 3col:block 3col:sticky 3col:top-40 3col:self-start">
+          <ExecutionSectionIndex
+            sections={sectionIndex}
+            activeId={activeSectionId}
+            onSelect={goToSection}
+          />
+        </div>
+
+        {/* ── roteiro ───────────────────────────────────────────────────── */}
+        <div className="min-w-0 space-y-6">
           {usingRecoveryTemplate && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            <div className="rounded-md border border-amber-soft-border bg-amber-soft p-4 text-sm text-amber-soft-ink">
               <strong>Roteiro original indisponível.</strong>
               <p className="mt-1">
                 O app carregou {responses.length} respostas/fotos salvas localmente para recuperação. Não limpe o cache.
@@ -1049,55 +1223,76 @@ export function InspectionExecution() {
           )}
 
           {!historyComplete && (
-            <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+            <div className="rounded-md border border-secondary-200 bg-secondary-100 p-4 text-sm text-secondary-700">
               <strong>Histórico offline possivelmente incompleto.</strong>
               <p className="mt-1">As pendências em cache foram preservadas e serão reconciliadas automaticamente quando a conexão voltar.</p>
             </div>
           )}
 
-          {/* Rastreabilidade: quem abriu, última modificação e co-finalização */}
-          <div className="rounded-xl border border-gray-200 bg-white p-3 text-xs text-gray-600">
-            <span className="font-semibold text-gray-800">Aberta por {currentInspection.consultantName || '—'}</span>
-            {currentInspection.createdAt && (
-              <span> · {new Date(currentInspection.createdAt).toLocaleString('pt-BR')}</span>
-            )}
-            {currentInspection.lastEditedBy && (
-              <span className="ml-2 text-gray-400">| Última modificação: <span className="font-medium text-gray-700">{currentInspection.lastEditedBy}</span>
-                {currentInspection.updatedAt ? ` (${new Date(currentInspection.updatedAt).toLocaleString('pt-BR')})` : ''}
-              </span>
-            )}
-            {currentInspection.finalizedBy && currentInspection.finalizedBy.length > 0 && (
-              <div className="mt-2 rounded-lg border border-blue-100 bg-blue-50 p-2 text-blue-800">
-                {currentInspection.finalizedBy.map((f) => (
-                  <div key={f.name}>✓ <strong>{f.name}</strong> finalizou sua parte em {new Date(f.at).toLocaleString('pt-BR')}.</div>
-                ))}
-                {(() => {
-                  const expected = (currentInspection.consultantNames && currentInspection.consultantNames.length > 0)
-                    ? currentInspection.consultantNames
-                    : [currentInspection.consultantName].filter(Boolean) as string[];
-                  const pending = expected.filter(n => !(currentInspection.finalizedBy || []).some(f => f.name === n));
-                  return pending.length > 0
-                    ? <div className="mt-1 font-semibold">Aguardando finalização de: {pending.join(' e ')}. A inspeção segue editável até lá.</div>
-                    : null;
-                })()}
-              </div>
-            )}
+          {/* Co-finalização: quem já fechou a sua parte e quem falta. Quem abriu e
+              quem editou por último já está escrito no cabeçalho. */}
+          {currentInspection.finalizedBy && currentInspection.finalizedBy.length > 0 && (
+            <div className="rounded-md border border-secondary-200 bg-secondary-100 p-3 text-sm text-secondary-700">
+              {currentInspection.finalizedBy.map((f) => (
+                <div key={f.name}>✓ <strong>{f.name}</strong> finalizou sua parte em {new Date(f.at).toLocaleString('pt-BR')}.</div>
+              ))}
+              {(() => {
+                const expected = (currentInspection.consultantNames && currentInspection.consultantNames.length > 0)
+                  ? currentInspection.consultantNames
+                  : [currentInspection.consultantName].filter(Boolean) as string[];
+                const pending = expected.filter(n => !(currentInspection.finalizedBy || []).some(f => f.name === n));
+                return pending.length > 0
+                  ? <div className="mt-1 font-semibold">Aguardando finalização de: {pending.join(' e ')}. A inspeção segue editável até lá.</div>
+                  : null;
+              })()}
+            </div>
+          )}
+
+          {/* Filtro do roteiro. "Falta escrever" também é filtro, não só painel. */}
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Filtrar itens do roteiro">
+            {([
+              ['todos', 'Todos'],
+              ['sem-resposta', 'Sem resposta'],
+              ['nao-cumpre', 'Não cumpre'],
+              ['falta-escrever', 'Falta escrever'],
+            ] as const).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={itemFilter === value}
+                onClick={() => setItemFilter(value)}
+                className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-navy-2 hover:bg-gray-50 aria-[pressed=true]:border-primary-700 aria-[pressed=true]:bg-primary-50 aria-[pressed=true]:font-semibold aria-[pressed=true]:text-primary-800"
+                style={{ minHeight: 44 }}
+              >
+                {label}
+                <span className="tabular-nums text-navy-3">{filterCounts[value]}</span>
+              </button>
+            ))}
           </div>
 
           {visibleSections.map((section: any, idx: number) => {
             const sectionResponses = section.items
               .map((i: any) => responses.find(r => r.itemId === i.id))
               .filter(Boolean) as InspectionResponse[];
+            const visibleItems = section.items.filter((item: any) => itemMatchesFilter(item.id));
+            // Com filtro ligado, seção sem item correspondente sai da tela.
+            if (itemFilter !== 'todos' && visibleItems.length === 0) return null;
+            const isOpen = itemFilter !== 'todos' || openSectionIds.has(section.id);
 
             return (
+              <div key={section.id} id={`secao-${section.id}`} className="scroll-mt-44">
               <SectionAccordion
-                key={section.id}
                 title={`${idx + 1}. ${section.title}`}
                 totalItems={section.items.length}
                 evaluatedItems={sectionResponses.length}
                 compliesCount={sectionResponses.filter(r => r.result === 'complies').length}
                 notCompliesCount={sectionResponses.filter(r => r.result === 'not_complies').length}
-                defaultExpanded={idx === 0 || expandedSectionIds.includes(section.id)}
+                expanded={isOpen}
+                onExpandedChange={(next) => setOpenSectionIds(prev => {
+                  const copy = new Set(prev);
+                  if (next) { copy.add(section.id); setActiveSectionId(section.id); } else copy.delete(section.id);
+                  return copy;
+                })}
               >
                 <div className="space-y-4">
                   {/* ILPI Dimensioning Block — casa por id (roteiro estático) ou por
@@ -1196,41 +1391,65 @@ export function InspectionExecution() {
                   )}
 
                   {/* Template Items */}
-                  {section.items.map((item: any) => {
+                  {visibleItems.map((item: any) => {
                     const resp = responses.find(r => r.itemId === item.id);
                     return (
-                      <ChecklistItem
-                        key={item.id}
-                        item={item}
-                        response={resp}
-                        previousNC={previousNCs.get(item.id)}
-                        clientEvidence={clientEvidence.get(item.id)}
-                        clientDeclaration={clientDeclarations.get(item.id)}
-                        onChange={handleResponseChange}
-                        onUpdateDetails={handleUpdateDetails}
-                        onEdit={item.id.startsWith('extra|') ? handleEditExtraItem : undefined}
-                        onDelete={item.id.startsWith('extra|') ? handleRemoveExtraItem : undefined}
-                        onAddPhoto={handleAddPhoto}
-                        onRemovePhoto={handleRemovePhoto}
-                      />
+                      <div key={item.id} id={`item-${item.id}`} className="scroll-mt-44">
+                        <ChecklistItem
+                          item={item}
+                          response={resp}
+                          previousNC={previousNCs.get(item.id)}
+                          clientEvidence={clientEvidence.get(item.id)}
+                          clientDeclaration={clientDeclarations.get(item.id)}
+                          onChange={handleResponseChange}
+                          onUpdateDetails={handleUpdateDetails}
+                          onEdit={item.id.startsWith('extra|') ? handleEditExtraItem : undefined}
+                          onDelete={item.id.startsWith('extra|') ? handleRemoveExtraItem : undefined}
+                          onAddPhoto={handleAddPhoto}
+                          onRemovePhoto={handleRemovePhoto}
+                        />
+                      </div>
                     );
                   })}
 
                   <Button
-                    variant="ghost"
-                    className="w-full border-2 border-dashed border-gray-100 text-gray-400 hover:text-primary-600 hover:bg-white"
+                    variant="outline"
+                    fullWidth
                     onClick={() => handleAddExtraItem(section.id)}
                   >
-                    <PlusCircle className="mr-2 h-4 w-4" /> Adicionar item extra
+                    <PlusCircle className="mr-2 h-4 w-4" /> Acrescentar um item que o roteiro não prevê
                   </Button>
                 </div>
               </SectionAccordion>
+              </div>
             );
           })}
+
+          {itemFilter !== 'todos' && filterCounts[itemFilter] === 0 && (
+            <div className="rounded-md border border-gray-200 bg-white p-6 text-center">
+              <p className="text-sm text-navy-2">Nenhum item neste filtro.</p>
+              <Button variant="outline" size="sm" className="mt-3" onClick={() => setItemFilter('todos')}>
+                Ver todos os itens
+              </Button>
+            </div>
+          )}
         </div>
 
-        <div className="hidden lg:block lg:col-span-4 sticky top-24 h-fit">
-          <ScorePanel template={effectiveTemplate as ChecklistTemplate} />
+        {/* ── nota ──────────────────────────────────────────────────────── */}
+        <div className="hidden lg:block lg:sticky lg:top-40 lg:self-start">
+          {effectiveTemplate && (
+            <ExecutionScorePanel
+              template={effectiveTemplate as ChecklistTemplate}
+              responses={responses}
+              previousVisit={previousVisit}
+              isIlpi={isIlpiInspection}
+              isCompleted={isCompleted}
+              missingText={missingText}
+              photoQueueCount={photoHydration ? photoHydration.total - photoHydration.completed - photoHydration.failed : 0}
+              onGoToItem={goToItem}
+              onGoToFirstUnanswered={goToFirstUnanswered}
+            />
+          )}
         </div>
       </div>
 

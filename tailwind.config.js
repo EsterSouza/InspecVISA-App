@@ -6,6 +6,11 @@ export default {
   darkMode: 'class',
   theme: {
     extend: {
+      screens: {
+        // Três colunas na execução da inspeção (índice · roteiro · nota):
+        // só cabem com folga a partir de 1400px. Ver FE-23, decisão 23.
+        '3col': '1400px',
+      },
       colors: {
         // Azul de ação — de docs/prototipos/_src/tokens.css (--accent*)
         primary: {

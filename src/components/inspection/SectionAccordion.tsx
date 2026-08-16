@@ -10,6 +10,9 @@ interface SectionAccordionProps {
   notCompliesCount: number;
   children: React.ReactNode;
   defaultExpanded?: boolean;
+  /** Expansão controlada — usada pelo índice de seções da execução (FE-23). */
+  expanded?: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
 }
 
 export function SectionAccordion({
@@ -20,8 +23,15 @@ export function SectionAccordion({
   notCompliesCount,
   children,
   defaultExpanded = false,
+  expanded,
+  onExpandedChange,
 }: SectionAccordionProps) {
-  const [isExpanded, setIsExpanded] = React.useState(defaultExpanded);
+  const [uncontrolled, setUncontrolled] = React.useState(defaultExpanded);
+  const isExpanded = expanded ?? uncontrolled;
+  const setIsExpanded = (next: boolean) => {
+    if (expanded === undefined) setUncontrolled(next);
+    onExpandedChange?.(next);
+  };
 
   const isComplete = evaluatedItems === totalItems && totalItems > 0;
   const isCritical = notCompliesCount > 0;
