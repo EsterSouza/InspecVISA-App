@@ -15,7 +15,7 @@ export function PublicHeader() {
         <div>
           <h1 className="text-lg font-bold leading-tight text-gray-900">InspecVISA</h1>
           <p className="text-xs font-medium uppercase tracking-wide text-primary-700">
-            HUB TREINAVISA SERVICOS
+            HUB TREINAVISA SERVIÇOS
           </p>
         </div>
       </Link>

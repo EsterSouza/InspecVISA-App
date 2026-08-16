@@ -172,11 +172,11 @@ Ficam registradas aqui, não no servidor do DesignMD (regra 2 da seção do MCP)
 Pedido da Ester em 09/08/2026: **opção de visualização em calendário de segunda a sexta, e isso vale para qualquer agenda do produto.**
 
 - Um componente só, `WeekCalendar`, em `src/components/ui/`. O portal e os Agendamentos do admin consomem o mesmo — muda o conteúdo do evento, nunca a grade. O renderizador de referência está em `docs/prototipos/_src/shell.js` (`renderCalendario`).
-- Faixa de 07h às 19h, uma linha por hora. O evento se posiciona por `--inicio` e `--duracao`, sem cálculo de pixel espalhado pelo JSX.
+- Faixa de 09h às 17h, uma linha por hora — a régua cresce (nunca corta) se um compromisso começar antes ou terminar depois disso. Era 07h–19h até 16/08/2026: a Ester pediu a faixa mais estreita porque a régua larga deixava as informações do compromisso cortadas na grade.
 - **Alternador Semana / Lista** em toda agenda. A lista continua existindo; o calendário é opção, não substituição.
 - Abaixo de 720px a grade vira lista por dia — continua sendo a semana, só empilhada.
 - Estado do compromisso em três canais: cor de fundo, estilo da borda esquerda e palavra na legenda. O nome acessível do evento carrega dia, horário e estado por extenso.
-- **A decidir com a Ester:** compromisso fora de 07h–19h (a régua cresce, não corta) e se sábado precisa entrar algum dia.
+- **Decidido pela Ester em 16/08/2026:** sábado não entra na grade — só segunda a sexta (já era o comportamento; confirmado como definitivo, não é mais item em aberto).
 
 ### FE-05 · Ponto 1 — larguras
 Trocar `mx-auto max-w-3xl|4xl|5xl|6xl` pelo `PageShell`. Representativos: `src/pages/Clients.tsx:166`, `src/pages/ClientDetails.tsx:415`, `src/pages/Schedules.tsx:354`, `src/pages/Inspections.tsx:145`, `src/pages/OperationalPanel.tsx:348`, `src/pages/Dashboard.tsx:428`. Mesmo padrão nas demais.
@@ -313,7 +313,7 @@ Regra que decide a coluna **Esforço**: o que o protótipo já resolveu não é 
 | # | Tarefa | Modelo | Esforço | Depende de |
 |---|---|---|---|---|
 | FE-12 | Ligar o dark mode no app inteiro | Sonnet 5 | médio | ondas 1 e 2 |
-| FE-11 | Higiene: `AdminLayout.tsx`, `App.css`, "C&C Consultoria", "HUB TREINAVISA SERVICOS" | Haiku 4.5 | baixo | — |
+| FE-11 | Higiene: `AdminLayout.tsx`, `App.css`, "C&C Consultoria", "HUB TREINAVISA SERVICOS" ✅ | Haiku 4.5 | baixo | — |
 | — | Revisão final de acessibilidade em teclado e leitor de tela | Sonnet 5 | médio | tudo |
 
 FE-11 não depende de nada e pode ser puxado a qualquer momento — é o card para quando sobrarem dez minutos.
@@ -359,7 +359,9 @@ Nomes de modelo mudam rápido; escolher o mais recente no `/model` e calibrar o 
 | FE-05 · Ponto 1 (larguras: `max-w-*` → `PageShell`) | ✅ Entregue em 16/08/2026 — ver detalhe abaixo |
 | FE-06 (rail colapsável + drawer mobile + nova ordem do menu) | ✅ Entregue em 16/08/2026 — ver detalhe abaixo |
 | Onda 2 (admin) | Todos os cards `FE-*` entregues (FE-04b, FE-05 ponto 1, FE-06, FE-07, FE-08). Resta só o item de backlog sem card ("converter listas de cards em tabelas nas telas restantes") |
-| Onda 3 | Depois da onda 2 |
+| WeekCalendar: régua 09h-17h | ✅ Entregue em 16/08/2026 — decisão da Ester, ver detalhe abaixo |
+| FE-11 (higiene) | ✅ Entregue em 16/08/2026 — ver detalhe abaixo |
+| Onda 3 | Em andamento — FE-11 entregue; falta FE-12 (dark mode) e a revisão final de a11y |
 | MCP do DesignMD | ✅ funcionando — URL corrigida para `www` e servidor aprovado em `~/.claude.json` |
 
 ## Registro de execução
@@ -383,6 +385,8 @@ Tabela de acompanhamento rápido — quem fez o quê e quando. O detalhe de cada
 | 15/08/2026 | Documentos do portal: cobre visita com só foto/anexo | Sonnet 5 | `a819e5e`, `37282b8` | Lista de "Documentos por visita" ficava incompleta (só entrava quem tinha relatório); passou a valer para foto/anexo isolados. |
 | 16/08/2026 | **FE-05 · Ponto 1** — larguras: `max-w-*` → `PageShell` | Sonnet 5 | — | 11 páginas do admin migradas (todas as que tinham o padrão, incluindo além das 6 representativas citadas no card: `NewInspection`, `ServiceRequests`, `Settings`, `SyncCenter` e os 2 wrappers de `InspectionSummary`). As 2 páginas públicas sem login (`PublicSchedule`, `PublicAppointmentStatus`) ficaram de fora por decisão de escopo: `PageShell` é documentado como largura do admin, não do portal/link público. `tsc -b` e `npm run build` limpos, 382 testes passando, 11 rotas conferidas logada no navegador (Clientes, Início, Agendamentos, Inspeções, Painel, Solicitações, Configurações, Sincronização, detalhe de cliente, Nova Inspeção, relatório concluído). |
 | 16/08/2026 | **FE-06** — rail colapsável + drawer mobile + nova ordem do menu | Sonnet 5 | — | `Sidebar.tsx` ganhou `w-72 ↔ w-16` persistido (`useSettingsStore.sidebarCollapsed`), ícone + `Tooltip` quando colapsado. `navConfig.ts` novo — fonte única dos itens de navegação da equipe, consumida por `Sidebar` e pelo drawer "Mais" do `BottomNav` (antes cada um mantinha a própria lista e elas haviam divergido: Painel, Roteiros, Biblioteca e Solicitações não tinham nenhum acesso no celular). `clientNavItems` perdeu o item "Meu perfil" → `/profile`, rota que não existe, nos dois componentes. `tsc -b` e `npm run build` limpos, 382 testes passando. Achado ao testar: os links viravam ícone puro sem `aria-label` quando colapsados — `lucide-react` marca o SVG como `aria-hidden`, então o link ficava sem nome acessível nenhum (só o `Tooltip`, que é `aria-describedby`, não substitui o nome). Corrigido com `aria-label={item.label}` em cada `NavLink`. Verificado via DOM/`localStorage` no navegador (não por screenshot — o painel do navegador não estava compositando frames nesta sessão): grupos e ordem corretos no `aside`, toggle muda `64px ↔ 288px` de fato (confirmado após reload, que é quando o layout recalcula nesta ferramenta), estado sobrevive a reload via `localStorage['inspec-visa-settings']`, e o drawer "Mais" no mobile (375px) abre com exatamente os itens fora da barra rápida (Agendamentos, Inspeções, Solicitações, Roteiros, Biblioteca, Sincronização, Configurações), agrupados como no Sidebar. |
+| 16/08/2026 | WeekCalendar: régua 09h-17h, sábado fora (definitivo) | Sonnet 5 | — | Pedido direto da Ester: a régua larga (07h-19h) deixava informação do compromisso cortada na grade. `DEFAULT_FIRST_HOUR`/`DEFAULT_LAST_HOUR` em `WeekCalendar.tsx` viraram `9`/`17` (a régua continua crescendo, nunca cortando, se um compromisso sair da faixa). Nenhuma prop de intervalo é passada por `Schedules.tsx`/`PortalAppointments.tsx` — os dois consumidores herdam a mudança automaticamente, sem alteração própria. Sábado confirmado como decisão definitiva (já era o comportamento, `weekDays` sempre gerava só 5 dias). Verificado via DOM no navegador: régua mostra `09h`...`17h`, dias mostram só `Seg`...`Sex`. |
+| 16/08/2026 | **FE-11** — higiene | Sonnet 5 | — | Apagados `src/components/layout/AdminLayout.tsx` e `src/App.css` (184 linhas, nenhum dos dois importado em lugar nenhum — conferido por `grep` antes de apagar). `index.html:13` corrigido de "C&C Consultoria" pra "TreinaVISA". `PublicHeader.tsx` corrigido de "HUB TREINAVISA SERVICOS" pra "HUB TREINAVISA SERVIÇOS" (cedilha). `tsc -b`, `npm run build` e 382 testes limpos. |
 
 ### FE-04a — o que foi feito e o que ficou pra depois
 

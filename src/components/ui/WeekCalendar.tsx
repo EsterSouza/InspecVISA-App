@@ -3,7 +3,7 @@ import { cn } from '../../lib/utils';
 import { Badge } from './Badge';
 
 /**
- * Grade de semana (segunda a sexta), 07h-19h, um componente só para qualquer
+ * Grade de semana (segunda a sexta), 09h-17h, um componente só para qualquer
  * agenda do produto (portal e admin) — muda o conteúdo do evento, nunca a
  * grade. Porta o protótipo aprovado em docs/prototipos/_src/shell.js
  * (renderCalendario).
@@ -14,7 +14,7 @@ export type WeekCalendarEventState = 'confirmado' | 'a-confirmar' | 'atencao' | 
 export interface WeekCalendarEvent {
   id: string;
   dayIndex: number; // 0 = segunda ... 4 = sexta
-  startHour: number; // hora cheia de início, 7-19
+  startHour: number; // hora cheia de início, 9-17 (a régua cresce se sair dessa faixa)
   durationHours: number;
   title: string;
   subtitle?: string;
@@ -44,8 +44,8 @@ export interface WeekCalendarProps {
   className?: string;
 }
 
-const DEFAULT_FIRST_HOUR = 7;
-const DEFAULT_LAST_HOUR = 19;
+const DEFAULT_FIRST_HOUR = 9;
+const DEFAULT_LAST_HOUR = 17;
 
 const STATE_LABELS: Record<WeekCalendarEventState, string> = {
   confirmado: 'Confirmado',
@@ -95,8 +95,10 @@ export function WeekCalendar({
   const eventsByDay = (dayIndex: number) =>
     week.events.filter((e) => e.dayIndex === dayIndex).sort((a, b) => a.startHour - b.startHour);
 
-  // A régua padrão é 07h-19h, mas cresce (nunca corta) se algum compromisso
-  // começar antes ou terminar depois disso — item em aberto no HANDOFF (FE-13).
+  // A régua padrão é 09h-17h (pedido da Ester em 16/08/2026: intervalo mais
+  // estreito, sem sábado, pra sobrar mais espaço vertical por compromisso),
+  // mas cresce (nunca corta) se algum compromisso começar antes ou terminar
+  // depois disso.
   const firstHour = Math.min(DEFAULT_FIRST_HOUR, ...week.events.map((e) => e.startHour));
   const lastHour = Math.max(DEFAULT_LAST_HOUR, ...week.events.map((e) => e.startHour + e.durationHours));
   const HOURS = Array.from({ length: lastHour - firstHour + 1 }, (_, i) => firstHour + i);
