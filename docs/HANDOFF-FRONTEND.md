@@ -167,7 +167,7 @@ Acrescentadas no Artefato D, aprovadas em 16/08/2026:
 | **1 — Portal no ar** | FE-04a, FE-13, FE-09, FE-10 | O cliente entra no portal novo, navega por seção, vê o plano de ação por unidade e a agenda em calendário |
 | **2 — Admin** | FE-04b, FE-05, FE-06, FE-07, FE-08 | A consultoria usa o shell novo, a tela de Plano de Ação e a aba de Arquivos |
 | **3 — Fechamento** | FE-11, FE-12, revisão de a11y | Dark mode ligado de verdade e nenhum resto do CSS antigo |
-| **4 — O admin que falta** | FE-14 a FE-22 | As 12 telas do Artefato D no ar, os 114 `alert()`/`confirm()` mortos e a cor virada token |
+| **4 — O admin que falta** | FE-14 a FE-27 | As 12 telas do Artefato D no ar, os 114 `alert()`/`confirm()` mortos, a cor virada token, o fluxo de inspeção redesenhado, nenhum controle de formulário cru e o gate visual passando |
 
 **FE-04 foi partido em dois** para não segurar a onda 1: `FE-04a` é só o que o portal usa; `FE-04b` é o resto (tabela densa, rail, tooltip, paginação), que só o admin precisa.
 
@@ -408,6 +408,140 @@ separada no fim. Duas coisas que a tela passa a expor:
 `Clients.tsx` e `Inspections.tsx`, seguindo o FE-17 como exemplo aprovado. É o item que estava no
 backlog da Onda 2 sem card próprio.
 
+---
+
+## Ampliação da Onda 4 — 16/08/2026 (FE-23 a FE-27)
+
+> Revisão da Ester no mesmo dia, confrontando o handoff com o Manual de Marca 2.0, a auditoria do
+> admin, o mapa de páginas e os protótipos FE-02/FE-D. Conclusão: a estratégia se mantém inteira —
+> parou-se de tratar o problema como "deixar as telas mais bonitas" e passou-se a tratar como
+> sistema de interface — mas os cards FE-14 a FE-22 cobrem cerca de **80%** da cobertura visual
+> estrutural. Os ~20% que faltam não são perfumaria: são o fluxo central da inspeção, a aplicação
+> completa do sistema de formulários e o fechamento verificável de todas as superfícies.
+>
+> **A direção visual não muda.** Nada de gradiente, glassmorphism, mais cards, mais cor ou mais
+> animação para parecer "moderno". O diferencial do InspecVISA é parecer um instrumento
+> profissional bem projetado — organizado, legível e específico para trabalho sanitário. Isso
+> conversa com a marca e envelhece melhor que a estética de SaaS do momento.
+>
+> A pergunta que fecha a onda deixa de ser só "quantos restos técnicos sobraram?" e passa a ser:
+> *uma consultora entra no InspecVISA, encontra o que precisa, cadastra uma inspeção, executa em
+> campo, finaliza, entrega o resultado e volta pro cliente sem em nenhum momento sentir que mudou
+> de aplicativo?*
+>
+> **FE-23 e FE-24 são condição para declarar o redesenho encerrado.**
+
+### FE-23 · Fluxo de inspeção end-to-end
+
+`/new` → `/execute` → `/summary` é o coração do produto e é o único fluxo grande que nenhum card
+cobre. Medido no código em 16/08/2026:
+
+| Arquivo | Linhas | `PageShell` | `PageHeader` |
+|---|---|---|---|
+| `src/pages/NewInspection.tsx` | 541 | ✅ (FE-05) | ✗ |
+| `src/pages/InspectionExecution.tsx` | 1.322 | ✗ | ✗ |
+| `src/pages/InspectionSummary.tsx` | 973 | ✅ (FE-05, 2 wrappers) | ✗ |
+| `src/components/inspection/ChecklistItem.tsx` | 698 | — | — |
+
+- **Duas das três telas nunca foram desenhadas.** O FE-02 tem a execução (estado offline,
+  breadcrumb, salvar e concluir); `/new` e `/summary` não estão em protótipo nenhum. Pela regra da
+  Fase 1 — protótipo aprovado antes de codar — **o card começa por um Artefato E** com as duas
+  telas que faltam mais a revisão da execução contra o que o código faz hoje, e só depois
+  implementa.
+- `InspectionExecution.tsx` ficou fora do FE-05 de propósito: tem `max-w-7xl` próprio e cabeçalho
+  `sticky` de largura própria, que não é o padrão trocado lá. Isso vira decisão a tomar, não
+  pendência a ignorar — ou a largura entra na regra única (decisão 5) ou a exceção fica escrita.
+- Cobrir, em desktop, tablet e celular: progresso do checklist, foto, colaboração, calculadora de
+  dimensionamento da ILPI, **operação offline com estado de sincronização em três canais** (cor,
+  forma e palavra, como o FE-18 fez no `SyncCenter`), controles fixos que não tapam conteúdo em
+  375px, geração do PDF e **confirmação explícita de publicação**.
+- Hoje **gerar o PDF publica o relatório e reconcilia o plano de ação** — efeito colateral real que
+  a tela não anuncia em lugar nenhum. O encerramento redesenhado precisa dizer o que vai acontecer
+  antes de acontecer.
+- **Exige decisão antes de codar:** o achado #4 de "Fora de escopo"
+  (`InspectionSummary.tsx:427-439` — sem `linkedRequest` a publicação cai num `console.warn` e nada
+  chega ao portal) é invisível na tela. Redesenhar o encerramento sem tratar isso é desenhar por
+  cima de uma falha silenciosa. Proposta: a tela passa a **mostrar** o que foi e o que não foi
+  publicado; corrigir a causa continua fora de escopo até a Ester autorizar.
+- As telas deste card nascem já com os primitivos de formulário do FE-24 — não migrar depois.
+
+### FE-24 · Sistema de formulários aplicado ao app inteiro
+
+Contado em `src/**/*.tsx` em 16/08/2026: **228** ocorrências de `<input>` / `<select>` /
+`<textarea>` crus — 225 fora dos próprios primitivos — em **40 arquivos**. Do outro lado, **2**
+arquivos importam `Input`/`Select`/`Textarea`/`Label`. Os primitivos existem desde o FE-04a
+(09/08) e praticamente ninguém os usa.
+
+Concentração: `ClientDetails.tsx` 29 · `PublicSchedule.tsx` 12 · `LegislationsManager.tsx`,
+`InspectionSummary.tsx`, `Clients.tsx` e `ConfirmRequestModal.tsx` 11 cada ·
+`PortalServiceRequests.tsx` 10 · `Settings.tsx`, `ServiceRequests.tsx` e `NewInspection.tsx` 9 cada.
+
+- Migrar para `Input`, `Select`, `Textarea`, `Label` e o padrão de campo composto do Artefato D:
+  rótulo, controle, texto de ajuda, erro **textual**, ícone, foco, `disabled`, marcação de
+  obrigatório/opcional e alvo de toque de 44px.
+- **Aceite objetivo:** `grep -roE "<(input|select|textarea)\b" src --include=*.tsx` só devolve
+  ocorrências dentro de `src/components/ui/` e as exceções escritas neste card — cada uma com uma
+  linha dizendo por quê. Candidatas conhecidas: o `<input type="file">` escondido do
+  `PhotoCapture.tsx` e caixas de seleção de linha de tabela.
+- É isto, mais do que a cor, que faz o app parecer um só: uma interface pode ter 100% da paleta
+  correta e continuar incoerente se cada formulário tiver altura, borda, `placeholder`, foco e erro
+  diferentes.
+- **Ordem:** roda **depois** do FE-23 e **não** sobre as telas dele — o FE-23 já entrega as suas em
+  conformidade. Migrar formulário de tela que ainda vai ser redesenhada é o mesmo erro de converter
+  cor antes de o desenho parar.
+
+### FE-25 · Importador e páginas auxiliares
+
+O que sobra fora de qualquer protótipo depois que o FE-17b fechar:
+
+- `src/pages/admin/SmartImporter.tsx` (277 linhas, **sem** `PageShell` e sem `PageHeader`).
+- O que restar de `src/pages/TemplateDetail.tsx` (357 linhas) — está sendo tocado agora pelo
+  FE-17b; medir o que sobra antes de escrever o escopo, não presumir.
+- `Login.tsx` (124), `ProfileSelection.tsx` (78) e `AccessDenied.tsx` (24) — três telas curtas, sem
+  shell, que ninguém olha e que são a primeira coisa que um usuário novo vê.
+
+Prioridade abaixo de FE-23/FE-24. Existe para não sobrar ilha antiga quando o resto estiver pronto.
+
+### FE-26 · Superfícies públicas do cliente
+
+`PublicSchedule.tsx` (642 linhas) e `PublicAppointmentStatus.tsx` (913) ficaram fora do FE-05 por
+decisão de escopo: `PageShell` é documentado como largura do **admin**, e herdar `max-w-[1600px]`
+estragaria a leitura em coluna única de quem só tem o link. **A justificativa técnica continua
+válida — o que não vale é ela virar "não recebe redesenho".**
+
+- São as duas superfícies que o cliente vê **sem login**. O Manual 2.0 manda toda superfície
+  externa carregar o sistema visual e a voz da TreinaVISA, então o rigor de marca aqui é maior que
+  numa tela interna, não menor.
+- Linguagem do Portal (Artefato C), não a do admin: coluna única, foco em tarefa, voz acolhedora.
+- `PublicSchedule.tsx` concentra 12 dos controles crus do FE-24 — os dois cards se encontram aqui;
+  quem chegar primeiro resolve.
+- A grafia do `PublicHeader.tsx` já foi corrigida no FE-11; falta o layout.
+
+### FE-27 · Gate de regressão visual e acessibilidade
+
+Hoje a conferência é boa e é **manual**: depende de quem executa o card lembrar de abrir 375, 1280
+e 1600px. `npm run build` não detecta coluna espremida, botão quebrando em duas linhas nem tabela
+criando rolagem lateral.
+
+Já existe base — `playwright.config.ts` com os projetos `desktop` e `mobile` (Pixel 5) e 4 specs em
+`e2e/`. O card acrescenta uma matriz, não uma ferramenta nova.
+
+- **Duas camadas, e a diferença importa.**
+  **(a) Estrutural, independente de dado:** ausência de rolagem horizontal indevida, alvo de toque
+  ≥44px, foco visível na navegação por teclado, `<dialog>` devolvendo o foco ao botão de origem,
+  truncamento com nome acessível, contraste medido a partir dos tokens vigentes.
+  **(b) Pixel, com `toHaveScreenshot()`, só em rotas de dado fixo:** o `baseURL` do Playwright
+  aponta para ambiente publicado com banco compartilhado (`e2e/apoio/ambiente.ts`), e snapshot de
+  pixel contra dado real quebra a cada visita nova, vira ruído e em duas semanas alguém desliga o
+  gate.
+- Matriz: rotas principais do admin e do portal × 375 / 768 / 1280 / 1600px. Claro e escuro entram
+  **depois** do FE-12.
+- Estados obrigatórios por rota de lista: normal, carregando, vazio de primeira vez, vazio de
+  filtro, erro e `disabled` (decisão 18).
+- A comparação contra os protótipos aprovados fica como revisão humana com a matriz na mão, não
+  como assert automático — protótipo e app divergem de propósito em dado e conteúdo.
+- **É este card que autoriza escrever "frontend visual fechado".**
+
 ### Modelo e esforço — ONDA 4
 
 | # | Tarefa | Modelo | Esforço | Depende de |
@@ -422,13 +556,31 @@ backlog da Onda 2 sem card próprio.
 | FE-20 | Estados vazio/carregando/erro + `PageHeader` em 23 páginas | Sonnet 5 | médio | — |
 | FE-21 | 2.856 classes de cor → token, família por família | Codex (medium) | alto | de-para aprovado ✅ |
 | FE-22 | `Clients` e `Inspections` em tabela densa | Codex (medium) | baixo | FE-17 |
+| FE-23 | Artefato E + fluxo `/new` → `/execute` → `/summary` | Opus 5 | **alto** | protótipo aprovado |
+| FE-24 | ~225 controles crus → `Input`/`Select`/`Textarea`/`Label` | Opus 5 (padrão) · Codex medium (lote) | alto | FE-23 |
+| FE-25 | `SmartImporter`, `TemplateDetail` e as telas de entrada | Sonnet 5 | baixo | FE-17b |
+| FE-26 | `PublicSchedule` + `PublicAppointmentStatus` | Opus 5 | médio | Artefato C ✅ |
+| FE-27 | Gate de regressão visual e a11y | Opus 5 (matriz) · Sonnet 5 (spec) | médio-alto | FE-12, só para a camada de tema |
 | FE-12 | Ligar o tema escuro no app inteiro | Sonnet 5 | médio | **FE-21** — impossível antes |
 
-**A ordem, e por quê.** `FE-15` primeiro, porque outros três esperam por ele e sem ele as telas
-novas precisariam usar `window.confirm` para depois serem reescritas. Depois `FE-14` e `FE-16` em
-paralelo — são as duas telas de uso diário e não dependem uma da outra. Em seguida `FE-17` a
-`FE-20`, que são aplicação de padrão já decidido no artefato. Por último `FE-21`, `FE-22` e
-`FE-12`: converter cor **antes** de o desenho parar significa converter duas vezes.
+**A ordem, revisada em 16/08/2026.** `FE-15`, `FE-14`, `FE-16`, `FE-17` e `FE-18` já saíram — o
+`FE-15` foi primeiro porque outros três esperavam por ele, e `FE-14`/`FE-16` em paralelo por serem
+as duas telas de uso diário. Daqui em diante:
+
+1. **FE-17b, FE-19 e FE-20** — aplicação de padrão já decidido no artefato, fecham o que a Onda 4
+   original abriu.
+2. **FE-23 e FE-24** — estrutura real de uso. Vêm antes da cor de propósito.
+3. **FE-21** — só com o desenho das telas praticamente congelado. Converter cor **antes** de o
+   desenho parar significa converter duas vezes.
+4. **FE-22, FE-25 e FE-26** — as superfícies restantes.
+5. **FE-12** — o tema escuro é o último de propósito: é o card mais vistoso e o menos estrutural.
+6. **FE-27** — fecha a onda e é o único que autoriza a frase "frontend visual fechado".
+
+**Ressalva sobre o FE-21.** Ele é necessário: são **2.858** classes de cor cruas contadas hoje (a
+auditoria dizia 2.856) contra ~600 usos de token, e **zero** `dark:` no app inteiro. Mas "as 2.858
+classes foram convertidas" não é sinônimo de "o visual está pronto" — token resolve coerência
+cromática, não resolve hierarquia, composição, densidade nem fluxo. Por isso ele anda acompanhado
+de revisão de tela, e quem fecha a frase é o FE-27.
 
 ## Fora de escopo (achados de dados, não de layout)
 
@@ -574,6 +726,7 @@ Nomes de modelo mudam rápido; escolher o mais recente no `/model` e calibrar o 
 | MCP do DesignMD | ✅ funcionando — plano **Builder** (600 chamadas / 10 min, sem limite diário). URL **com `www`** e servidor aprovado em `~/.claude.json` |
 | **Artefato D** | ✅ [publicado](https://claude.ai/code/artifact/2001223c-6df9-4464-8e7f-3c299ad61832) e **aprovado pela Ester em 16/08/2026** |
 | **Onda 4** | Aberta em 16/08/2026 — FE-14, FE-15, FE-16, FE-17 e FE-18 entregues; FE-17b, FE-19 a FE-22 escritos, não iniciados |
+| **Onda 4 — ampliação** | Escrita em 16/08/2026 na revisão da Ester: FE-23 a FE-27, nenhum iniciado. **FE-23 (fluxo de inspeção) e FE-24 (formulários) são condição para declarar o redesenho encerrado**; FE-27 é o que autoriza a frase "frontend visual fechado" |
 
 ## Registro de execução
 
@@ -601,6 +754,7 @@ Tabela de acompanhamento rápido — quem fez o quê e quando. O detalhe de cada
 | 16/08/2026 | **FE-11** — higiene | Sonnet 5 | — | Apagados `src/components/layout/AdminLayout.tsx` e `src/App.css` (184 linhas, nenhum dos dois importado em lugar nenhum — conferido por `grep` antes de apagar). `index.html:13` corrigido de "C&C Consultoria" pra "TreinaVISA". `PublicHeader.tsx` corrigido de "HUB TREINAVISA SERVICOS" pra "HUB TREINAVISA SERVIÇOS" (cedilha). `tsc -b`, `npm run build` e 382 testes limpos. |
 | 16/08/2026 | **FE-14** — Início unificado | Sonnet 5 | — | `/` agora abre com o filtro (consultora/unidade/janela de dias) seguido da fila operacional das 7 filas, extraída de `OperationalPanel.tsx` para `src/components/dashboard/OperationalQueues.tsx` (recebe os filtros por prop em vez de manter estado próprio). Média de conformidade, Ativas/Concluídas, Visitas Recentes e Problemas Recorrentes viraram um `<details>` "Desempenho" recolhido no fim. Atalhos "Gestão e Biblioteca" removidos (Roteiros/Biblioteca já estão no rail desde o FE-06). `/painel` virou `<Route ... element={<Navigate to="/" replace />} />`; `src/pages/OperationalPanel.tsx` apagado; item "Painel" removido de `navConfig.ts` e do `staffQuickItems` do `BottomNav.tsx`. `e2e/staff.spec.ts` e `docs/mapa-paginas-admin.md` atualizados. |
 | 16/08/2026 | **FE-15** — `ConfirmDialog` e a morte dos `alert()`/`confirm()` | Sonnet 5 | — | `src/components/ui/ConfirmDialog.tsx` (novo): sobre o `<dialog>` do `Modal.tsx`, que ganhou `role`/`closeOnBackdrop`. Foco abre no Cancelar (nunca no botão destrutivo), clicar fora não fecha, rótulo do botão diz a ação. Três variantes — simples, com lista de consequências (`consequences`) e com digitação da palavra (`confirmWord`) — usada nas duas ações realmente catastróficas do app: apagar todos os dados locais (`Settings.tsx`) e excluir cliente/inspeção permanentemente (`ClientDetails.tsx`, `Inspections.tsx`). `useConfirmDialog()` expõe um `confirm()` assíncrono, substituto direto de `window.confirm()`. `useToastStore`/`Toast.tsx`: erro não some mais sozinho (`duration: null`), aviso passou a durar 6s. As 115 ocorrências reais de `alert()`/`confirm()` em 28 arquivos migradas (`alert()` de sucesso → `Toast`, de erro → `Toast` de erro, `confirm()`/`window.confirm()` → `ConfirmDialog`); `syncService.repairSyncStatus()` (só tinha o `alert()`, zero chamadores) apagado em vez de migrado. `tsc -b`, `npm run build` e os 382 testes limpos. |
+| 16/08/2026 | **Onda 4 ampliada** — FE-23 a FE-27 escritos | Ester + Opus 5 | — | Revisão da Ester confrontando o handoff com o Manual 2.0, a auditoria, o mapa de páginas e os protótipos FE-02/FE-D: a Onda 4 cobria ~80% da cobertura visual estrutural. Buracos identificados e conferidos no código antes de escrever os cards: o fluxo `/new` → `/execute` → `/summary` (2.836 linhas somando `ChecklistItem.tsx`, com `InspectionExecution` sem `PageShell` e nenhuma das três com `PageHeader`) não estava em card nenhum e **duas das três telas nunca foram desenhadas** → FE-23 começa por um Artefato E; **228** `<input>`/`<select>`/`<textarea>` crus em 40 arquivos contra **2** arquivos que importam os primitivos do FE-04a → FE-24; `SmartImporter`/`TemplateDetail` e as 3 telas de entrada sem shell → FE-25; as 2 páginas públicas sem login, que o Manual 2.0 exige com a voz da TreinaVISA → FE-26; e a conferência responsiva, que hoje é 100% manual, sobre o Playwright que já existe → FE-27. Ordem revisada: dark mode (FE-12) sai da frente e o FE-21 (contados hoje **2.858** classes cruas, 0 `dark:`) só roda com o desenho congelado. |
 | 16/08/2026 | **FE-16** — Ficha do cliente com abas | Sonnet 5 | — | Fecha os 7 achados do diagnóstico em `ClientDetails.tsx`. Identidade (nome, badges de categoria/segmento/portal/pendências, responsável, telefone, endereço) subiu para o topo, sempre visível — o antigo card "Resumo do Cliente" (`bg-primary-900`, último da página) foi removido, o conteúdo absorvido no cabeçalho. Corpo dividido em 3 abas com o primitivo `Tabs`/`TabPanel` do FE-04b (`aria-label="Seções do cliente"`), aba ativa sincronizada com `?aba=` via `useSearchParams` (decisão 20; `visao-geral` fica sem parâmetro): **Visão geral** (gráfico, histórico de visitas, plano de ação, NC recorrentes), **Arquivos** (a tabela do FE-07 em largura cheia, antes espremida no trilho de 380px; vazio ganhou `EmptyState`), **Portal** (credenciais + pasta personalizada + auditoria). Gráfico de conformidade com menos de 2 inspeções concluídas virou uma linha de texto com ícone, não mais uma caixa de ~200px. Credenciais do portal: senha e token mascarados por padrão (usuário fica visível, não é segredo), toggle único "Mostrar/Ocultar", botão de copiar por campo além do "Copiar tudo" já existente. Trilha de auditoria: só os 5 mais recentes no card, botão "Ver tudo" abre `Drawer` com a lista completa (fetch subiu de `limit: 20` para `limit: 50`, sem round-trip extra); `window.confirm()` de excluir cliente já tinha sido migrado para `ConfirmDialog` no FE-15, achado já fechado. `tsc -b`, `npm run build` e os 382 testes limpos. Verificado logada no navegador num cliente real (REDE SÊNIOR BARRA): identidade e badges no topo, `?aba=arquivos` na URL ao trocar de aba, tabela de arquivos em largura cheia, credenciais mascaradas revelando ao clicar "Mostrar", drawer "Ver tudo" abrindo a auditoria completa, sem rolagem horizontal em 375px. |
 
 ### FE-04a — o que foi feito e o que ficou pra depois
