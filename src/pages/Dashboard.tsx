@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { PageShell } from '../components/ui/PageShell';
+import { PageHeader } from '../components/ui/PageHeader';
 import { OperationalQueues } from '../components/dashboard/OperationalQueues';
 import {
   AlertTriangle,
@@ -331,26 +332,22 @@ export function Dashboard() {
 
   return (
     <PageShell>
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
-            Olá, {firstName}
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm text-gray-600 sm:text-base">
-            Seu painel de trabalho para priorizar visitas, continuar inspeções e revisar pontos críticos.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => navigate('/schedules')} className="h-11">
-            <Calendar className="mr-2 h-4 w-4" />
-            Agenda
-          </Button>
-          <Button size="lg" className="h-11 px-5 text-sm" onClick={() => navigate('/new')}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Nova Inspeção
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title={`Olá, ${firstName}`}
+        description="Seu painel de trabalho para priorizar visitas, continuar inspeções e revisar pontos críticos."
+        actions={
+          <>
+            <Button variant="outline" onClick={() => navigate('/schedules')} className="h-11">
+              <Calendar className="mr-2 h-4 w-4" />
+              Agenda
+            </Button>
+            <Button size="lg" className="h-11 px-5 text-sm" onClick={() => navigate('/new')}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Nova Inspeção
+            </Button>
+          </>
+        }
+      />
 
       {/* Filtros no topo: consultora, unidade e janela de dias — controlam a fila de trabalho abaixo. */}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Search, Plus, Phone, MapPin, Edit2, Trash2, Loader2, WifiOff, KeyRound } from 'lucide-react';
+import { Search, Plus, Phone, MapPin, Edit2, Trash2, Loader2, WifiOff, KeyRound, AlertTriangle, Users, FilterX } from 'lucide-react';
 import { type Client, type ClientCategory, type ClientContact, type FoodEstablishmentType, FOOD_SEGMENT_LABELS } from '../types';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -8,6 +8,9 @@ import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { useConfirmDialog } from '../components/ui/ConfirmDialog';
 import { PageShell } from '../components/ui/PageShell';
+import { PageHeader } from '../components/ui/PageHeader';
+import { EmptyState } from '../components/ui/EmptyState';
+import { Skeleton } from '../components/ui/Skeleton';
 import { generateId } from '../utils/imageUtils';
 import { UF_OPTIONS, toUF } from '../utils/state';
 import { useNavigate } from 'react-router-dom';
@@ -29,6 +32,7 @@ export function Clients() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [portalAccounts, setPortalAccounts] = useState<ClientPortalAccountRow[]>([]);
   const { confirm, confirmDialog } = useConfirmDialog();
   const [allClients, setAllClients] = useState<Client[]>([]);
@@ -44,15 +48,16 @@ export function Clients() {
         AppointmentAdminService.listPortalAccounts(),
       ]);
       if (accountList.status === 'fulfilled') setPortalAccounts(accountList.value);
-      let list = clientList.status === 'fulfilled' ? clientList.value : [];
+      if (clientList.status === 'rejected') throw clientList.reason;
+      let list = clientList.value;
       setAllClients(list);
 
       if (filterCat !== 'all') {
         list = list.filter(c => c.category === filterCat);
       }
       if (search) {
-        list = list.filter(c => c.name.toLowerCase().includes(search.toLowerCase()) || 
-                                c.cnpj?.includes(search) || 
+        list = list.filter(c => c.name.toLowerCase().includes(search.toLowerCase()) ||
+                                c.cnpj?.includes(search) ||
                                 c.responsibleName?.toLowerCase().includes(search.toLowerCase()) ||
                                 c.contacts?.some((contact) =>
                                   [contact.name, contact.phone, contact.email]
@@ -61,8 +66,10 @@ export function Clients() {
                                 ));
       }
       setClients(list);
-    } catch (err) {
+      setLoadError(null);
+    } catch (err: any) {
       console.error(err);
+      setLoadError(err?.message || 'Verifique sua conexão e tente novamente.');
       toast.error('Erro ao carregar clientes.', 'Verifique sua conexão.');
     } finally {
       setIsFetching(false);
@@ -173,24 +180,24 @@ export function Clients() {
 
   return (
     <PageShell>
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Clientes</h1>
-          <p className="text-sm text-gray-500">Gerencie seus estabelecimentos.</p>
-        </div>
-        <div className="flex items-center gap-3">
-          {!isOnline && (
-            <div className="flex items-center text-amber-600 text-sm font-medium">
-              <WifiOff className="mr-2 h-4 w-4" /> Offline
-            </div>
-          )}
-          {activeTab === 'clientes' && (
-            <Button onClick={() => { setClientContacts([{ name: '', phone: '', email: '' }]); setIsModalOpen(true); }} className="w-full sm:w-auto shadow-lg shadow-primary-100">
-              <Plus className="mr-2 h-5 w-5" /> Novo Cliente
-            </Button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Clientes"
+        description="Gerencie seus estabelecimentos."
+        actions={
+          <>
+            {!isOnline && (
+              <div className="flex items-center text-amber-600 text-sm font-medium">
+                <WifiOff className="mr-2 h-4 w-4" /> Offline
+              </div>
+            )}
+            {activeTab === 'clientes' && (
+              <Button onClick={() => { setClientContacts([{ name: '', phone: '', email: '' }]); setIsModalOpen(true); }} className="w-full sm:w-auto shadow-lg shadow-primary-100">
+                <Plus className="mr-2 h-5 w-5" /> Novo Cliente
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <div className="mb-6 flex gap-1 rounded-xl bg-gray-100 p-1">
         <button
@@ -249,14 +256,59 @@ export function Clients() {
       </div>
 
       <div className="space-y-4">
-        {isFetching ? (
-          <div className="flex justify-center items-center py-12 bg-white rounded-2xl border border-gray-100">
-            <Loader2 className="h-8 w-8 text-primary-500 animate-spin" />
-            <span className="ml-3 text-gray-500 font-medium">Carregando clientes...</span>
+        {loadError ? (
+          <div className="rounded-2xl border border-gray-100 bg-white">
+            <EmptyState
+              role="alert"
+              icon={<AlertTriangle className="h-8 w-8 text-red-500" />}
+              title="Não deu para carregar os clientes"
+              description={loadError}
+              action={
+                <Button size="sm" onClick={() => void loadClients()}>
+                  Tentar de novo
+                </Button>
+              }
+            />
+          </div>
+        ) : isFetching ? (
+          <div className="space-y-4" aria-busy="true" aria-label="Carregando clientes">
+            {[0, 1, 2].map((i) => (
+              <Card key={i} className="p-5">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 space-y-3">
+                    <Skeleton className="h-5 w-48" />
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-64" />
+                  </div>
+                </div>
+              </Card>
+            ))}
           </div>
         ) : clients.length === 0 ? (
-          <div className="rounded-2xl border-2 border-dashed border-gray-200 py-12 text-center text-gray-500 bg-white">
-            Nenhum cliente encontrado.
+          <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-white">
+            {search || filterCat !== 'all' ? (
+              <EmptyState
+                icon={<FilterX className="h-8 w-8" />}
+                title="Nada com este filtro"
+                description="Nenhum cliente encontrado para a busca ou categoria atual. O cadastro pode existir, só está escondido."
+                action={
+                  <Button size="sm" variant="outline" onClick={() => { setSearch(''); setFilterCat('all'); }}>
+                    Limpar filtros
+                  </Button>
+                }
+              />
+            ) : (
+              <EmptyState
+                icon={<Users className="h-8 w-8" />}
+                title="Nenhum cliente cadastrado ainda"
+                description="Cadastre o primeiro estabelecimento para começar a agendar inspeções."
+                action={
+                  <Button size="sm" onClick={() => { setClientContacts([{ name: '', phone: '', email: '' }]); setIsModalOpen(true); }}>
+                    <Plus className="mr-2 h-4 w-4" /> Novo Cliente
+                  </Button>
+                }
+              />
+            )}
           </div>
         ) : (
           clients.map(client => (

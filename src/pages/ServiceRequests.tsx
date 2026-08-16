@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   AlertCircle,
+  AlertTriangle,
   CheckCircle2,
   Clock3,
   ExternalLink,
+  FilterX,
   Headset,
   Loader2,
   MessageSquare,
@@ -33,9 +35,11 @@ import {
 } from '../utils/serviceRequests';
 import { usePagedList } from '../components/schedules/appointmentRequestsShared';
 import { PageShell } from '../components/ui/PageShell';
+import { PageHeader } from '../components/ui/PageHeader';
 import { Button } from '../components/ui/Button';
 import { Drawer } from '../components/ui/Drawer';
 import { EmptyState } from '../components/ui/EmptyState';
+import { Skeleton } from '../components/ui/Skeleton';
 import { Pagination } from '../components/ui/Pagination';
 import { TableContainer, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
 
@@ -551,24 +555,23 @@ export function ServiceRequests() {
 
   return (
     <PageShell>
-      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="flex items-center gap-2 text-2xl font-black tracking-tight text-gray-950">
+      <PageHeader
+        title={
+          <span className="flex items-center gap-2">
             <Headset className="h-6 w-6 text-primary-700" /> Solicitações
-          </h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Demandas abertas pelos clientes no portal. Não são agendamentos: aqui não há data nem
-            duração, só o que alguém pediu e em que pé está.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={load}
-          className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-        >
-          <RefreshCw className="h-3.5 w-3.5" /> Atualizar
-        </button>
-      </div>
+          </span>
+        }
+        description="Demandas abertas pelos clientes no portal. Não são agendamentos: aqui não há data nem duração, só o que alguém pediu e em que pé está."
+        actions={
+          <button
+            type="button"
+            onClick={load}
+            className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+          >
+            <RefreshCw className="h-3.5 w-3.5" /> Atualizar
+          </button>
+        }
+      />
 
       {enabled === false && (
         <p className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
@@ -648,15 +651,48 @@ export function ServiceRequests() {
         {counts.unassigned > 0 && <span className="ml-1 font-bold text-red-700">· {counts.unassigned} sem responsável</span>}
       </p>
 
-      {error && (
-        <p className="mb-3 rounded-md border border-red-100 bg-red-50 p-3 text-xs text-red-700">{error}</p>
-      )}
-
-      {loading && requests.length === 0 ? (
-        <div className="flex justify-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin text-primary-600" />
+      {error && requests.length === 0 ? (
+        <div className="rounded-md border border-gray-200 bg-white">
+          <EmptyState
+            role="alert"
+            icon={<AlertTriangle className="h-8 w-8 text-red-500" />}
+            title="Não deu para carregar as solicitações"
+            description={error}
+            action={
+              <Button size="sm" onClick={load}>
+                Tentar de novo
+              </Button>
+            }
+          />
         </div>
+      ) : loading && requests.length === 0 ? (
+        <TableContainer>
+          <Table aria-busy="true" aria-label="Carregando solicitações">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Aberta em</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Assunto</TableHead>
+                <TableHead>Situação</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {[0, 1, 2].map((i) => (
+                <TableRow key={i}>
+                  <TableCell><Skeleton className="h-4 w-11" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-14" /></TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
       ) : (
+        <>
+        {error && (
+          <p className="mb-3 rounded-md border border-red-100 bg-red-50 p-3 text-xs text-red-700">{error}</p>
+        )}
         <TableContainer>
           <Table>
             <TableHeader>
@@ -675,11 +711,28 @@ export function ServiceRequests() {
               {pagedRequests.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="h-auto py-0">
-                    <EmptyState
-                      icon={<Headset className="h-8 w-8" />}
-                      title="Nenhuma solicitação nesta fila"
-                      description={search || clientId || assignedTo || priority ? 'Nenhum resultado para os filtros atuais.' : undefined}
-                    />
+                    {search || clientId || assignedTo || priority ? (
+                      <EmptyState
+                        icon={<FilterX className="h-8 w-8" />}
+                        title="Nada com este filtro"
+                        description="Nenhum resultado para os filtros atuais. O dado pode existir, só está escondido."
+                        action={
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => { setSearch(''); setClientId(''); setAssignedTo(''); setPriority(''); }}
+                          >
+                            Limpar filtros
+                          </Button>
+                        }
+                      />
+                    ) : (
+                      <EmptyState
+                        icon={<Headset className="h-8 w-8" />}
+                        title="Nenhuma solicitação nesta fila"
+                        description="Quando um cliente pedir alguma coisa pelo portal, ela aparece aqui."
+                      />
+                    )}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -757,6 +810,7 @@ export function ServiceRequests() {
           </Table>
           <Pagination page={page} pageCount={totalPages} onPageChange={setPage} totalItems={requests.length} pageSize={10} />
         </TableContainer>
+        </>
       )}
 
       <Drawer

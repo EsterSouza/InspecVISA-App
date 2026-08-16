@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, Calendar, Activity, CheckCircle, Trash2, Edit, RotateCcw } from 'lucide-react';
+import { Search, Plus, Calendar, Activity, CheckCircle, Trash2, Edit, RotateCcw, AlertTriangle, ClipboardList, FilterX } from 'lucide-react';
 import { ClientService } from '../services/clientService';
 import { InspectionService } from '../services/inspectionService';
 import type { Inspection, Client } from '../types';
@@ -8,6 +8,9 @@ import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { PageShell } from '../components/ui/PageShell';
+import { PageHeader } from '../components/ui/PageHeader';
+import { EmptyState } from '../components/ui/EmptyState';
+import { Skeleton } from '../components/ui/Skeleton';
 import { formatDateTime } from '../utils/imageUtils';
 import { ProfileModal } from '../components/profile/ProfileModal';
 import { useSettingsStore } from '../store/useSettingsStore';
@@ -31,6 +34,7 @@ export function Inspections() {
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [deletedInspections, setDeletedInspections] = useState<Inspection[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'in_progress' | 'completed'>('all');
   const [showTrash, setShowTrash] = useState(false);
@@ -71,8 +75,10 @@ export function Inspections() {
 
       const deleted = attachClientData(await InspectionService.getDeletedInspections(), clients);
       setDeletedInspections(deleted);
-    } catch (err) {
+      setLoadError(null);
+    } catch (err: any) {
       console.error('Error loading inspections:', err);
+      setLoadError(err?.message || 'Verifique sua conexão e tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -163,16 +169,16 @@ export function Inspections() {
 
   return (
     <PageShell>
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Inspeções</h1>
-          <p className="text-sm text-gray-500">Histórico e andamento de avaliações.</p>
-        </div>
-        <Button onClick={() => navigate('/new')} className="w-full sm:w-auto shadow-md">
-          <Plus className="mr-2 h-5 w-5" />
-          Nova Inspeção
-        </Button>
-      </div>
+      <PageHeader
+        title="Inspeções"
+        description="Histórico e andamento de avaliações."
+        actions={
+          <Button onClick={() => navigate('/new')} className="w-full sm:w-auto shadow-md">
+            <Plus className="mr-2 h-5 w-5" />
+            Nova Inspeção
+          </Button>
+        }
+      />
 
       <div className="mb-6 flex justify-end">
         <Button
@@ -251,13 +257,59 @@ export function Inspections() {
           </div>
         )}
 
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <Activity className="h-8 w-8 animate-spin text-primary-600" />
+        {loadError ? (
+          <div className="rounded-xl border border-gray-200 bg-white">
+            <EmptyState
+              role="alert"
+              icon={<AlertTriangle className="h-8 w-8 text-red-500" />}
+              title="Não deu para carregar as inspeções"
+              description={loadError}
+              action={
+                <Button size="sm" onClick={() => void loadInspections()}>
+                  Tentar de novo
+                </Button>
+              }
+            />
+          </div>
+        ) : loading ? (
+          <div className="space-y-4" aria-busy="true" aria-label="Carregando inspeções">
+            {[0, 1, 2].map((i) => (
+              <Card key={i} className="p-4 sm:p-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex-1 space-y-3">
+                    <Skeleton className="h-5 w-56" />
+                    <Skeleton className="h-4 w-40" />
+                  </div>
+                  <Skeleton className="h-10 w-32" />
+                </div>
+              </Card>
+            ))}
           </div>
         ) : inspections.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-gray-300 py-16 text-center text-gray-500 bg-gray-50">
-            Nenhuma inspeção encontrada com os filtros atuais.
+          <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50">
+            {search || filterStatus !== 'all' ? (
+              <EmptyState
+                icon={<FilterX className="h-8 w-8" />}
+                title="Nada com este filtro"
+                description="Nenhuma inspeção encontrada para a busca ou status atual."
+                action={
+                  <Button size="sm" variant="outline" onClick={() => { setSearch(''); setFilterStatus('all'); }}>
+                    Limpar filtros
+                  </Button>
+                }
+              />
+            ) : (
+              <EmptyState
+                icon={<ClipboardList className="h-8 w-8" />}
+                title="Nenhuma inspeção ainda"
+                description="Quando você iniciar uma inspeção, ela aparece aqui."
+                action={
+                  <Button size="sm" onClick={() => navigate('/new')}>
+                    <Plus className="mr-2 h-4 w-4" /> Nova Inspeção
+                  </Button>
+                }
+              />
+            )}
           </div>
         ) : (
           inspections.map(insp => (

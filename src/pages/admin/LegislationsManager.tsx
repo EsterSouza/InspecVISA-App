@@ -4,12 +4,14 @@ import { UF_OPTIONS, toUF } from '../../utils/state';
 import { canonicalLegislationKey, extractBaseLegislation } from '../../utils/legislationRefs';
 import { getTemplates } from '../../data/templates';
 import { supplementRegistry } from '../../data/supplementRegistry';
-import { Plus, Trash2, ExternalLink, Search, BookOpen, Loader2, Edit2, Link as LinkIcon } from 'lucide-react';
+import { Plus, Trash2, ExternalLink, Search, BookOpen, Loader2, Edit2, Link as LinkIcon, AlertTriangle, FilterX } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Drawer } from '../../components/ui/Drawer';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { PageShell } from '../../components/ui/PageShell';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { Skeleton } from '../../components/ui/Skeleton';
 import { Pagination } from '../../components/ui/Pagination';
 import { TableContainer, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/Table';
 import { usePagedList } from '../../components/schedules/appointmentRequestsShared';
@@ -119,6 +121,7 @@ interface GapRow {
 export function LegislationsManager() {
   const [legislations, setLegislations] = useState<Legislation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [esfera, setEsfera] = useState('');
   const [orgao, setOrgao] = useState('');
@@ -143,8 +146,10 @@ export function LegislationsManager() {
       setLoading(true);
       const data = await LegislationService.listLegislations();
       setLegislations(data);
-    } catch (err) {
+      setLoadError(null);
+    } catch (err: any) {
       console.error('Failed to load legislations:', err);
+      setLoadError(err?.message || 'Verifique sua conexão e tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -307,25 +312,25 @@ export function LegislationsManager() {
 
   return (
     <PageShell>
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Biblioteca de Legislação</h1>
-          <p className="mt-1 text-sm text-gray-500">A curadoria daqui é o que o relatório consegue citar. Sem verbete, a norma não é citada em lugar nenhum.</p>
-        </div>
-        <div className="flex flex-wrap gap-3">
-          <Button
-            variant="outline"
-            onClick={handleSeed}
-            disabled={isSeeding}
-          >
-            {isSeeding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BookOpen className="mr-2 h-4 w-4" />}
-            Importar Base Padrão
-          </Button>
-          <Button onClick={() => openCreate()}>
-            <Plus className="mr-2 h-4 w-4" /> Novo verbete
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Biblioteca de Legislação"
+        description="A curadoria daqui é o que o relatório consegue citar. Sem verbete, a norma não é citada em lugar nenhum."
+        actions={
+          <>
+            <Button
+              variant="outline"
+              onClick={handleSeed}
+              disabled={isSeeding}
+            >
+              {isSeeding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BookOpen className="mr-2 h-4 w-4" />}
+              Importar Base Padrão
+            </Button>
+            <Button onClick={() => openCreate()}>
+              <Plus className="mr-2 h-4 w-4" /> Novo verbete
+            </Button>
+          </>
+        }
+      />
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <div className="relative flex-1 sm:max-w-xs">
@@ -387,10 +392,47 @@ export function LegislationsManager() {
         </p>
       )}
 
-      {loading ? (
-        <div className="flex justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+      {loadError ? (
+        <div className="rounded-md border border-gray-200 bg-white">
+          <EmptyState
+            role="alert"
+            icon={<AlertTriangle className="h-8 w-8 text-red-500" />}
+            title="Não deu para carregar a biblioteca"
+            description={loadError}
+            action={
+              <Button size="sm" onClick={() => void loadLegislations()}>
+                Tentar de novo
+              </Button>
+            }
+          />
         </div>
+      ) : loading ? (
+        <TableContainer>
+          <Table aria-busy="true" aria-label="Carregando legislações">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Norma</TableHead>
+                <TableHead>Órgão</TableHead>
+                <TableHead>Esfera</TableHead>
+                <TableHead>Assunto</TableHead>
+                <TableHead align="right">Itens ligados</TableHead>
+                <TableHead>Vigência</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {[0, 1, 2].map((i) => (
+                <TableRow key={i}>
+                  <TableCell><Skeleton className="h-4 w-44" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-56" /></TableCell>
+                  <TableCell align="right"><Skeleton className="ml-auto h-4 w-8" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
       ) : (
         <TableContainer>
           <Table>
@@ -410,11 +452,20 @@ export function LegislationsManager() {
                 pagedGaps.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="h-auto py-0">
-                      <EmptyState
-                        icon={<BookOpen className="h-8 w-8" />}
-                        title="Nenhuma lacuna encontrada"
-                        description={query ? 'Nenhum resultado para essa busca.' : 'Toda norma citada pelos roteiros já tem verbete na biblioteca.'}
-                      />
+                      {query ? (
+                        <EmptyState
+                          icon={<FilterX className="h-8 w-8" />}
+                          title="Nada com este filtro"
+                          description="Nenhum resultado para essa busca."
+                          action={<Button size="sm" variant="outline" onClick={() => setSearch('')}>Limpar busca</Button>}
+                        />
+                      ) : (
+                        <EmptyState
+                          icon={<BookOpen className="h-8 w-8" />}
+                          title="Nenhuma lacuna encontrada"
+                          description="Toda norma citada pelos roteiros já tem verbete na biblioteca."
+                        />
+                      )}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -441,11 +492,25 @@ export function LegislationsManager() {
               ) : pagedEntries.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="h-auto py-0">
-                    <EmptyState
-                      icon={<BookOpen className="h-8 w-8" />}
-                      title={`Nenhuma legislação ${SEGMENT_LABELS[segment].toLowerCase()}`}
-                      description={query || esfera || orgao ? 'Nenhum resultado para os filtros atuais.' : 'Use "Importar Base Padrão" para começar.'}
-                    />
+                    {query || esfera || orgao ? (
+                      <EmptyState
+                        icon={<FilterX className="h-8 w-8" />}
+                        title="Nada com este filtro"
+                        description="Nenhum resultado para os filtros atuais. A norma pode existir, só está escondida."
+                        action={
+                          <Button size="sm" variant="outline" onClick={() => { setSearch(''); setEsfera(''); setOrgao(''); }}>
+                            Limpar filtros
+                          </Button>
+                        }
+                      />
+                    ) : (
+                      <EmptyState
+                        icon={<BookOpen className="h-8 w-8" />}
+                        title={`Nenhuma legislação ${SEGMENT_LABELS[segment].toLowerCase()}`}
+                        description='Use "Importar Base Padrão" para começar.'
+                        action={<Button size="sm" onClick={handleSeed} disabled={isSeeding}>Importar Base Padrão</Button>}
+                      />
+                    )}
                   </TableCell>
                 </TableRow>
               ) : (

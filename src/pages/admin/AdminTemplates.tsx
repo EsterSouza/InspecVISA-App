@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, FileText, Search, Lock } from 'lucide-react';
+import { Plus, FileText, Search, Lock, AlertTriangle, FilterX } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { PageShell } from '../../components/ui/PageShell';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { Skeleton } from '../../components/ui/Skeleton';
 import { TableContainer, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/Table';
 import { TemplateService } from '../../services/templateService';
 import { getTemplates } from '../../data/templates';
@@ -104,20 +106,20 @@ export function AdminTemplates() {
   return (
     <PageShell>
       <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Roteiros de Inspeção</h2>
-          <p className="text-sm text-gray-500">Gerencie e importe novos modelos (ROIs) para as consultoras.</p>
-        </div>
-        <div className="flex space-x-3 w-full sm:w-auto">
-          <Button onClick={() => navigate('/templates/import')} variant="outline">
-            Importar ROI
-          </Button>
-          <Button onClick={() => navigate('/templates/new')}>
-            <Plus className="h-4 w-4 mr-2" /> Novo Roteiro
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Roteiros de Inspeção"
+        description="Gerencie e importe novos modelos (ROIs) para as consultoras."
+        actions={
+          <div className="flex space-x-3 w-full sm:w-auto">
+            <Button onClick={() => navigate('/templates/import')} variant="outline">
+              Importar ROI
+            </Button>
+            <Button onClick={() => navigate('/templates/new')}>
+              <Plus className="h-4 w-4 mr-2" /> Novo Roteiro
+            </Button>
+          </div>
+        }
+      />
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -130,18 +132,45 @@ export function AdminTemplates() {
         />
       </div>
 
-      {isLoading ? (
-        <div className="flex justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-500 border-t-transparent" />
+      {loadError ? (
+        <div className="rounded-2xl border border-gray-200 bg-white">
+          <EmptyState
+            role="alert"
+            icon={<AlertTriangle className="h-8 w-8 text-red-500" />}
+            title="Não deu para carregar os roteiros"
+            description={loadError}
+            action={
+              <Button size="sm" onClick={() => loadTemplates()}>
+                Tentar de novo
+              </Button>
+            }
+          />
         </div>
-      ) : loadError ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 py-10">
-          <div className="flex flex-col items-center text-center px-6">
-            <p className="text-red-700 font-semibold mb-2">❌ {loadError}</p>
-            <p className="text-sm text-red-500 mb-4">Verifique se você está conectado à internet e tente novamente.</p>
-            <Button onClick={loadTemplates} variant="outline">Tentar Novamente</Button>
-          </div>
-        </div>
+      ) : isLoading ? (
+        <TableContainer>
+          <Table aria-busy="true" aria-label="Carregando roteiros">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Roteiro</TableHead>
+                <TableHead>Segmento</TableHead>
+                <TableHead align="right">Itens</TableHead>
+                <TableHead align="right">Críticos</TableHead>
+                <TableHead>Atualizado</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {[0, 1, 2].map((i) => (
+                <TableRow key={i}>
+                  <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                  <TableCell align="right"><Skeleton className="ml-auto h-4 w-8" /></TableCell>
+                  <TableCell align="right"><Skeleton className="ml-auto h-4 w-8" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
       ) : (
         <TableContainer>
           <Table>
@@ -161,23 +190,28 @@ export function AdminTemplates() {
               {filtered.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="h-auto py-0">
-                    <EmptyState
-                      icon={<FileText className="h-8 w-8" />}
-                      title="Nenhum roteiro encontrado"
-                      description={
-                        searchTerm
-                          ? 'Nenhum resultado para essa busca.'
-                          : 'Você ainda não tem roteiros personalizados. Comece importando um novo arquivo ou criando um do zero.'
-                      }
-                      action={
-                        !searchTerm && (
+                    {searchTerm ? (
+                      <EmptyState
+                        icon={<FilterX className="h-8 w-8" />}
+                        title="Nada com este filtro"
+                        description="Nenhum resultado para essa busca."
+                        action={
+                          <Button size="sm" variant="outline" onClick={() => setSearchTerm('')}>Limpar busca</Button>
+                        }
+                      />
+                    ) : (
+                      <EmptyState
+                        icon={<FileText className="h-8 w-8" />}
+                        title="Nenhum roteiro personalizado ainda"
+                        description="Comece importando um novo arquivo ou criando um do zero."
+                        action={
                           <div className="flex gap-2">
                             <Button size="sm" variant="outline" onClick={() => navigate('/templates/import')}>Importar Agora</Button>
-                            <Button size="sm" variant="ghost" onClick={() => loadTemplates()}>Recarregar</Button>
+                            <Button size="sm" onClick={() => navigate('/templates/new')}>Novo Roteiro</Button>
                           </div>
-                        )
-                      }
-                    />
+                        }
+                      />
+                    )}
                   </TableCell>
                 </TableRow>
               ) : (

@@ -5,7 +5,10 @@ import { formatDateTime, generateId } from '../utils/imageUtils';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import { PageShell } from '../components/ui/PageShell';
-import { Calendar, Clock, Plus, Trash2, CheckCircle, AlertCircle, User, Play, Edit2, Link2, Copy, ExternalLink } from 'lucide-react';
+import { PageHeader } from '../components/ui/PageHeader';
+import { EmptyState } from '../components/ui/EmptyState';
+import { Skeleton } from '../components/ui/Skeleton';
+import { Calendar, Clock, Plus, Trash2, CheckCircle, AlertCircle, User, Play, Edit2, Link2, Copy, ExternalLink, AlertTriangle } from 'lucide-react';
 import { ScheduleService } from '../services/scheduleService';
 import { ClientService } from '../services/clientService';
 import { getLocalActor } from '../utils/localActor';
@@ -86,6 +89,7 @@ export function Schedules() {
   const { confirm, confirmDialog } = useConfirmDialog();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -141,8 +145,10 @@ export function Schedules() {
 
       setSchedules(revivedSchedules);
       setClients(cList);
-    } catch (err) {
+      setLoadError(null);
+    } catch (err: any) {
       console.error('Error loading schedules:', err);
+      setLoadError(err?.message || 'Verifique sua conexão e tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -400,29 +406,56 @@ export function Schedules() {
     events: weekEvents,
   };
 
-  if (loading && schedules.length === 0) {
-    return (
-      <div className="flex h-96 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-600 border-t-transparent"></div>
-      </div>
-    );
-  }
+  const loadingFirstPage = loading && schedules.length === 0;
 
   return (
     <PageShell>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Agendamentos</h1>
-          <p className="text-sm text-gray-500">Organize suas próximas inspeções e auditorias.</p>
-        </div>
-        {activeTab === 'agenda' && (
-          <Button onClick={() => { resetForm(); setIsModalOpen(true); }}>
-            <Plus className="mr-2 h-4 w-4" />
-            Agendar Visita
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        title="Agendamentos"
+        description="Organize suas próximas inspeções e auditorias."
+        actions={
+          activeTab === 'agenda' && (
+            <Button onClick={() => { resetForm(); setIsModalOpen(true); }}>
+              <Plus className="mr-2 h-4 w-4" />
+              Agendar Visita
+            </Button>
+          )
+        }
+      />
 
+      {loadError && schedules.length === 0 ? (
+        <div className="rounded-2xl border border-gray-200 bg-white">
+          <EmptyState
+            role="alert"
+            icon={<AlertTriangle className="h-8 w-8 text-red-500" />}
+            title="Não deu para carregar a agenda"
+            description={loadError}
+            action={
+              <Button size="sm" onClick={() => void loadData()}>
+                Tentar de novo
+              </Button>
+            }
+          />
+        </div>
+      ) : loadingFirstPage ? (
+        <div className="space-y-6">
+          <Skeleton className="h-40 w-full rounded-2xl" />
+          <div className="space-y-4">
+            {[0, 1, 2].map((i) => (
+              <Card key={i} className="p-5">
+                <div className="flex items-center gap-4">
+                  <Skeleton className="h-14 w-14 shrink-0 rounded-xl" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-40" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      ) : (
+      <>
       <div className="mb-6 rounded-2xl border border-primary-100 bg-primary-50/60 p-4 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
@@ -526,9 +559,12 @@ export function Schedules() {
             Próximas Visitas
           </h2>
           {upcomingSchedules.length === 0 ? (
-            <Card className="bg-gray-50 border-dashed py-12 flex flex-col items-center justify-center">
-              <Calendar className="h-12 w-12 text-gray-300 mb-2" />
-              <p className="text-gray-500 text-sm">Nenhuma visita agendada.</p>
+            <Card className="border-dashed bg-gray-50">
+              <EmptyState
+                icon={<Calendar className="h-8 w-8" />}
+                title="Nenhuma visita agendada"
+                description="Agende uma visita ou envie o link do cliente acima."
+              />
             </Card>
           ) : (
             <div className="grid gap-4">
@@ -603,6 +639,8 @@ export function Schedules() {
           </section>
         )}
       </div>
+      )}
+      </>
       )}
 
       {isModalOpen && (
