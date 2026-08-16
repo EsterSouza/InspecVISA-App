@@ -1,0 +1,1658 @@
+<!-- title: FE-04 · O admin que falta -->
+<style>
+  body { overflow-x: hidden; }
+
+  .app { display: flex; min-height: 100vh; }
+
+  /* ---------- Rail (mesmo do FE-02) ---------- */
+  .rail {
+    position: sticky; top: 0; align-self: flex-start;
+    height: 100vh; flex: none;
+    width: var(--rail-open);
+    display: flex; flex-direction: column;
+    background: var(--surface-sunken);
+    border-right: 1px solid var(--border);
+    transition: width var(--dur-3) var(--ease-out);
+    z-index: var(--z-sticky);
+  }
+  .app[data-rail='closed'] .rail { width: var(--rail-closed); }
+  .app[data-rail='closed'] .rail__label,
+  .app[data-rail='closed'] .rail__group-title,
+  .app[data-rail='closed'] .rail__brand-text,
+  .app[data-rail='closed'] .rail__user-text { display: none; }
+  .app[data-rail='closed'] .rail__link { justify-content: center; padding-inline: 0; }
+  .app[data-rail='closed'] .rail__new span { display: none; }
+
+  .rail__brand { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-4); height: var(--topbar-h); }
+  .rail__mark { width: 28px; height: 28px; flex: none; border-radius: var(--radius-md); background: var(--accent); color: #FFF; display: grid; place-items: center; font-family: var(--font-title); font-weight: 600; font-size: 13px; }
+  .rail__brand-text p:first-child { font-family: var(--font-title); font-weight: 600; font-size: var(--text-base); letter-spacing: var(--tracking-title); line-height: 1.1; }
+  .rail__brand-text p:last-child { font-size: var(--text-2xs); color: var(--ink-2); }
+
+  .rail__new { margin: 0 var(--space-3) var(--space-4); }
+  .rail__nav { flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; padding: 0 var(--space-3) var(--space-4); }
+  .rail__group-title { font-size: var(--text-2xs); font-weight: var(--weight-semibold); color: var(--ink-3); padding: var(--space-4) var(--space-3) var(--space-1); }
+  .rail__link {
+    display: flex; align-items: center; gap: var(--space-3);
+    height: 38px; padding: 0 var(--space-3);
+    margin-bottom: 2px;
+    border-radius: var(--radius-md);
+    color: var(--ink-2); text-decoration: none;
+    font-size: var(--text-base); font-weight: var(--weight-medium);
+    position: relative;
+    transition: background-color var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+  }
+  .rail__link svg { flex: none; }
+  .rail__link:hover { background: var(--surface-hover); color: var(--ink); }
+  .rail__link[aria-current='page'] { background: var(--accent-soft); color: var(--accent-soft-ink); font-weight: var(--weight-semibold); }
+  .rail__link[aria-current='page']::before { content: ''; position: absolute; left: -12px; top: 7px; bottom: 7px; width: 3px; border-radius: 0 2px 2px 0; background: var(--accent); }
+  .rail__badge { margin-left: auto; font-size: var(--text-2xs); font-weight: var(--weight-bold); background: var(--amber-soft); color: var(--amber-soft-ink); border: 1px solid var(--amber-soft-border); border-radius: var(--radius-sm); padding: 0 5px; }
+  .app[data-rail='closed'] .rail__badge { position: absolute; top: 3px; right: 3px; margin: 0; padding: 0 3px; font-size: 9px; }
+
+  .rail__foot { border-top: 1px solid var(--border); padding: var(--space-3); }
+  .rail__user { display: flex; align-items: center; gap: var(--space-3); }
+  .rail__user-text { min-width: 0; }
+  .rail__user-text p:first-child { font-size: var(--text-sm); font-weight: var(--weight-semibold); }
+  .rail__user-text p:last-child { font-size: var(--text-2xs); color: var(--ink-2); }
+
+  @media (max-width: 900px) { .rail { display: none; } }
+
+  /* ---------- Topbar + conteúdo ---------- */
+  .main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+  .topbar {
+    position: sticky; top: 0; z-index: var(--z-sticky);
+    height: var(--topbar-h); flex: none;
+    display: flex; align-items: center; gap: var(--space-3);
+    padding: 0 var(--space-6);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  @media (max-width: 640px) { .topbar { padding: 0 var(--space-4); } }
+  .topbar__search { flex: 1 1 380px; max-width: 420px; }
+  .topbar__search .input { height: 32px; }
+
+  .page { flex: 1 1 auto; padding: var(--space-8) var(--space-8) var(--space-16); max-width: var(--shell-max); width: 100%; margin: 0 auto; }
+  @media (max-width: 900px) { .page { padding: var(--space-6) var(--space-4) var(--space-16); } }
+
+  .page__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-6); }
+  .page__title { font-size: var(--text-2xl); }
+  .page__sub { color: var(--ink-2); font-size: var(--text-base); margin-top: var(--space-1); }
+  .crumbs { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-xs); color: var(--ink-2); margin-bottom: var(--space-2); }
+
+  .screen[hidden] { display: none; }
+
+  .toolbar { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; margin-bottom: var(--space-4); }
+  .toolbar .input-group { flex: 1 1 260px; max-width: 340px; }
+  .toolbar .select { width: auto; min-width: 150px; }
+
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-3); }
+  .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-4); display: block; width: 100%; text-align: left; cursor: pointer; transition: border-color var(--dur-1) var(--ease-out), box-shadow var(--dur-1) var(--ease-out); }
+  .kpi:hover { border-color: var(--border-strong); box-shadow: var(--shadow-2); }
+  .kpi__row { display: flex; align-items: center; gap: var(--space-2); }
+  .kpi__icon { width: 26px; height: 26px; border-radius: var(--radius-sm); display: grid; place-items: center; flex: none; }
+  .kpi__label { font-size: var(--text-xs); font-weight: var(--weight-semibold); color: var(--ink-2); }
+  .kpi__value { font-family: var(--font-title); font-weight: 600; font-size: var(--text-3xl); line-height: 1.1; margin-top: var(--space-2); font-variant-numeric: tabular-nums; }
+  .kpi__foot { font-size: var(--text-2xs); color: var(--ink-2); margin-top: var(--space-1); }
+
+  /* `1fr` sozinho é `minmax(auto, 1fr)`, e item de grid nasce `min-width: auto`:
+     com tabela dentro, nenhum dos dois encolhe e a página rola de lado. */
+  .cols { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: var(--space-5); }
+  @media (max-width: 1180px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+  .cols3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: var(--space-4); }
+  .cols > *, .cols3 > *, .kpis > * { min-width: 0; }
+
+  .list-row { display: flex; gap: var(--space-3); padding: var(--space-3) var(--space-5); border-bottom: 1px solid var(--border); align-items: flex-start; }
+  .list-row:last-child { border-bottom: 0; }
+  .list-row__when { flex: none; width: 62px; font-size: var(--text-xs); color: var(--ink-2); font-variant-numeric: tabular-nums; padding-top: 2px; }
+
+  .mobile-only { display: none; }
+  @media (max-width: 900px) { .mobile-only { display: inline-flex; } }
+  @media (max-width: 640px) { .hide-sm { display: none !important; } }
+
+  /* ---------- Diagnóstico: antes / depois ---------- */
+  .ba { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-5); align-items: start; }
+  @media (max-width: 1100px) { .ba { grid-template-columns: minmax(0, 1fr); } }
+
+  .ba__tag { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--text-xs); font-weight: var(--weight-bold); letter-spacing: .04em; text-transform: uppercase; margin-bottom: var(--space-3); }
+  .ba__tag--antes { color: var(--danger-soft-ink); }
+  .ba__tag--depois { color: var(--success-soft-ink); }
+
+  /* Esquema de layout: caixa cinza representando um bloco da tela real. Não é
+     a tela, é a planta dela — por isso não usa cor de marca. */
+  .wire { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); padding: var(--space-4); }
+  .wire__grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: var(--space-3); }
+  .wire__col { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+  .wire__box {
+    border: 1px dashed var(--border-strong); border-radius: var(--radius-sm);
+    background: var(--surface-sunken);
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-2xs); color: var(--ink-2);
+    display: flex; align-items: center; gap: var(--space-2); min-height: 34px;
+  }
+  .wire__box[data-flag='true'] { border-style: solid; border-color: var(--danger-soft-border); background: var(--danger-soft); color: var(--danger-soft-ink); font-weight: var(--weight-semibold); }
+  .wire__box[data-flag='ok'] { border-style: solid; border-color: var(--success-soft-border); background: var(--success-soft); color: var(--success-soft-ink); font-weight: var(--weight-semibold); }
+  .wire__box .n { flex: none; width: 16px; height: 16px; border-radius: var(--radius-full); background: currentColor; color: var(--surface); font-size: 9px; font-weight: 700; display: grid; place-items: center; }
+  .wire__box--tall { min-height: 72px; align-items: flex-start; }
+  .wire__cap { font-size: var(--text-2xs); color: var(--ink-3); margin-top: var(--space-2); }
+
+  .findings { counter-reset: f; }
+  .findings li { display: flex; gap: var(--space-3); padding: var(--space-3) 0; border-bottom: 1px solid var(--border); font-size: var(--text-sm); }
+  .findings li:last-child { border-bottom: 0; }
+  .findings .n { flex: none; width: 20px; height: 20px; border-radius: var(--radius-full); background: var(--danger-soft); color: var(--danger-soft-ink); border: 1px solid var(--danger-soft-border); font-size: var(--text-2xs); font-weight: 700; display: grid; place-items: center; }
+  .findings ol, .findings ul { margin: 0; padding: 0; list-style: none; }
+
+  /* ---------- Tokens: de-para de cor ---------- */
+  .sw { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(11,31,58,.22); flex: none; vertical-align: -2px; margin-right: var(--space-2); }
+  code, .code { font-family: var(--font-text); font-weight: var(--weight-semibold); font-size: var(--text-sm); background: var(--surface-sunken); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0 4px; white-space: nowrap; }
+
+  /* ---------- Cards do plano ---------- */
+  .plan-card { border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: var(--radius-lg); background: var(--surface); padding: var(--space-4) var(--space-5); }
+  .plan-card[data-peso='alto'] { border-left-color: var(--amber); }
+  .plan-card[data-peso='baixo'] { border-left-color: var(--success); }
+  .plan-card__id { font-family: var(--font-title); font-weight: 600; font-size: var(--text-base); }
+  .plan-card__meta { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-3); }
+
+  /* ---------- Configurações: nav de seção ---------- */
+  .settings { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: var(--space-8); align-items: start; }
+  @media (max-width: 900px) { .settings { grid-template-columns: minmax(0, 1fr); gap: var(--space-5); } }
+  .settings__nav { position: sticky; top: calc(var(--topbar-h) + var(--space-6)); display: flex; flex-direction: column; gap: 2px; }
+  @media (max-width: 900px) { .settings__nav { position: static; flex-direction: row; overflow-x: auto; } }
+  .settings__nav a { display: flex; align-items: center; gap: var(--space-2); height: 36px; padding: 0 var(--space-3); border-radius: var(--radius-md); color: var(--ink-2); text-decoration: none; font-size: var(--text-base); font-weight: var(--weight-medium); white-space: nowrap; }
+  .settings__nav a:hover { background: var(--surface-hover); color: var(--ink); }
+  .settings__nav a[aria-current='true'] { background: var(--accent-soft); color: var(--accent-soft-ink); font-weight: var(--weight-semibold); }
+  .settings__body { max-width: 640px; display: flex; flex-direction: column; gap: var(--space-5); }
+  .danger-zone { border-color: var(--danger-soft-border); }
+  .danger-zone .card__head { background: var(--danger-soft); border-bottom-color: var(--danger-soft-border); border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+  .danger-zone .card__title { color: var(--danger-soft-ink); }
+
+  /* ---------- Linha do tempo (sincronização) ---------- */
+  .tl { position: relative; padding-left: 0; margin: 0; list-style: none; }
+  .tl__item { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: var(--space-4); position: relative; padding-bottom: var(--space-5); }
+  .tl__item:last-child { padding-bottom: 0; }
+  /* O traço não passa do último item: linha sobrando sugere evento que não veio. */
+  .tl__item:not(:last-child)::before { content: ''; position: absolute; left: 19px; top: 32px; bottom: 0; width: 2px; background: var(--border); }
+  .tl__item[data-estado='pendente']:not(:last-child)::before { background: repeating-linear-gradient(to bottom, var(--border) 0 4px, transparent 4px 8px); }
+  .tl__mark { width: 32px; height: 32px; border-radius: var(--radius-full); display: grid; place-items: center; border: 1px solid var(--border); background: var(--surface-sunken); color: var(--ink-2); }
+  .tl__item[data-estado='ok'] .tl__mark { background: var(--success-soft); border-color: var(--success-soft-border); color: var(--success-soft-ink); }
+  .tl__item[data-estado='erro'] .tl__mark { background: var(--danger-soft); border-color: var(--danger-soft-border); color: var(--danger-soft-ink); }
+  .tl__item[data-estado='atencao'] .tl__mark { background: var(--amber-soft); border-color: var(--amber-soft-border); color: var(--amber-soft-ink); }
+  .tl__when { font-size: var(--text-2xs); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .tl__what { font-size: var(--text-base); font-weight: var(--weight-semibold); margin-top: 1px; }
+
+  /* ---------- Faixa recolhível ---------- */
+  details.fold { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); }
+  details.fold > summary { list-style: none; cursor: pointer; padding: var(--space-4) var(--space-5); display: flex; align-items: center; gap: var(--space-3); font-family: var(--font-title); font-weight: var(--weight-title-strong); letter-spacing: var(--tracking-title); }
+  details.fold > summary::-webkit-details-marker { display: none; }
+  details.fold > summary .chev { transition: transform var(--dur-2) var(--ease-out); color: var(--ink-2); }
+  details.fold[open] > summary .chev { transform: rotate(90deg); }
+  details.fold > summary:hover { background: var(--surface-hover); border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+  .fold__body { padding: 0 var(--space-5) var(--space-5); border-top: 1px solid var(--border); padding-top: var(--space-5); }
+
+  /* ---------- Menu de linha (⋮) ---------- */
+  .rowmenu { position: relative; display: inline-flex; }
+  .rowmenu__list {
+    position: absolute; right: 0; top: calc(100% + 4px);
+    z-index: var(--z-dropdown);
+    min-width: 190px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md);
+    box-shadow: var(--shadow-3); padding: var(--space-1); text-align: left;
+  }
+  .rowmenu__list[hidden] { display: none; }
+  .rowmenu__list button {
+    display: flex; align-items: center; gap: var(--space-2); width: 100%;
+    height: 34px; padding: 0 var(--space-3);
+    border: 0; border-radius: var(--radius-sm); background: none;
+    font-size: var(--text-sm); color: var(--ink); text-align: left; cursor: pointer;
+  }
+  .rowmenu__list button:hover { background: var(--surface-hover); }
+  .rowmenu__list hr { margin: var(--space-1) 0; }
+  .rowmenu__list button.danger { color: var(--danger-soft-ink); }
+
+  .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr)); gap: var(--space-4); }
+
+  .file-thumb { width: 34px; height: 34px; border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--accent-soft-ink); display: grid; place-items: center; flex: none; }
+  .prog { display: flex; align-items: center; gap: var(--space-3); font-size: var(--text-sm); }
+  .prog .meter { flex: 1 1 auto; }
+  kbd { font-size: var(--text-2xs); font-family: var(--font-text); font-weight: var(--weight-semibold); border: 1px solid var(--border-control); border-bottom-width: 2px; border-radius: 3px; padding: 1px 5px; }
+</style>
+
+<a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+
+<div class="app" data-rail="open" id="app">
+
+  <!-- ================= RAIL ================= -->
+  <aside class="rail" aria-label="Navegação principal">
+    <div class="rail__brand">
+      <span class="rail__mark" aria-hidden="true">IV</span>
+      <div class="rail__brand-text">
+        <p>InspecVISA</p>
+        <p>Onda 4 · artefato D</p>
+      </div>
+    </div>
+
+    <div class="rail__new">
+      <a class="btn btn--primary btn--block rail__new-btn" href="#/inicio">
+        <svg width="16" height="16" aria-hidden="true"><use href="#ic-plus"/></svg>
+        <span>Nova inspeção</span>
+      </a>
+    </div>
+
+    <nav class="rail__nav">
+      <p class="rail__group-title">Diagnóstico</p>
+      <a class="rail__link" href="#/diagnostico"><svg width="18" height="18" aria-hidden="true"><use href="#ic-alert"/></svg><span class="rail__label">Antes e depois</span></a>
+
+      <p class="rail__group-title">Telas novas</p>
+      <a class="rail__link" href="#/inicio"><svg width="18" height="18" aria-hidden="true"><use href="#ic-home"/></svg><span class="rail__label">Início</span><span class="rail__badge num">9</span></a>
+      <a class="rail__link" href="#/cliente"><svg width="18" height="18" aria-hidden="true"><use href="#ic-users"/></svg><span class="rail__label">Ficha do cliente</span></a>
+      <a class="rail__link" href="#/solicitacoes"><svg width="18" height="18" aria-hidden="true"><use href="#ic-headset"/></svg><span class="rail__label">Solicitações</span></a>
+      <a class="rail__link" href="#/roteiros"><svg width="18" height="18" aria-hidden="true"><use href="#ic-file"/></svg><span class="rail__label">Roteiros</span></a>
+      <a class="rail__link" href="#/biblioteca"><svg width="18" height="18" aria-hidden="true"><use href="#ic-book"/></svg><span class="rail__label">Biblioteca</span></a>
+      <a class="rail__link" href="#/sincronizacao"><svg width="18" height="18" aria-hidden="true"><use href="#ic-activity"/></svg><span class="rail__label">Sincronização</span></a>
+      <a class="rail__link" href="#/configuracoes"><svg width="18" height="18" aria-hidden="true"><use href="#ic-settings"/></svg><span class="rail__label">Configurações</span></a>
+
+      <p class="rail__group-title">Sistema</p>
+      <a class="rail__link" href="#/padroes"><svg width="18" height="18" aria-hidden="true"><use href="#ic-clipboard"/></svg><span class="rail__label">Padrões que faltam</span></a>
+      <a class="rail__link" href="#/cores"><svg width="18" height="18" aria-hidden="true"><use href="#ic-image"/></svg><span class="rail__label">De-para de cor</span></a>
+      <a class="rail__link" href="#/plano"><svg width="18" height="18" aria-hidden="true"><use href="#ic-check-circle"/></svg><span class="rail__label">Plano FE-14+</span></a>
+    </nav>
+
+    <div class="rail__foot">
+      <div class="rail__user">
+        <span class="avatar" aria-hidden="true">E</span>
+        <div class="rail__user-text grow truncate">
+          <p class="truncate">Ester</p>
+          <p class="truncate">Consultora sanitária</p>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ================= MAIN ================= -->
+  <div class="main">
+    <header class="topbar">
+      <button class="btn btn--ghost btn--icon btn--sm mobile-only" data-open="dlg-nav" aria-label="Abrir menu">
+        <svg width="18" height="18" aria-hidden="true"><use href="#ic-menu"/></svg>
+      </button>
+      <button class="btn btn--ghost btn--icon btn--sm hide-sm" id="rail-toggle" aria-label="Recolher a navegação" aria-pressed="false">
+        <svg width="18" height="18" aria-hidden="true"><use href="#ic-panel-left"/></svg>
+      </button>
+
+      <div class="topbar__search input-group hide-sm">
+        <svg width="15" height="15" aria-hidden="true"><use href="#ic-search"/></svg>
+        <input class="input" type="search" placeholder="Buscar cliente, unidade ou pendência" aria-label="Buscar">
+      </div>
+
+      <div class="grow"></div>
+
+      <span class="badge badge--operational hide-sm"><span class="dot"></span>Protótipo</span>
+      <button class="btn btn--ghost btn--icon btn--sm" data-theme-toggle aria-pressed="false" aria-label="Alternar tema claro e escuro">
+        <svg width="16" height="16" aria-hidden="true"><use href="#ic-theme"/></svg>
+      </button>
+      <span class="avatar" aria-hidden="true">E</span>
+    </header>
+
+    <main class="page" id="conteudo">
+
+      <!-- ==================== DIAGNÓSTICO ==================== -->
+      <section class="screen" id="s-diagnostico">
+        <div class="page__head">
+          <div>
+            <h1 class="page__title">Diagnóstico da ficha do cliente</h1>
+            <p class="page__sub">Medido em 16/08/2026, direto no código. <span class="strong">1.257 linhas</span> em <code>ClientDetails.tsx</code>.</p>
+          </div>
+          <a class="btn btn--outline" href="#/cliente">
+            Ver a tela redesenhada
+            <svg width="15" height="15" aria-hidden="true"><use href="#ic-chevron-right"/></svg>
+          </a>
+        </div>
+
+        <div class="notice notice--attention" style="margin-bottom:var(--space-6)">
+          <svg class="notice__mark" width="16" height="16" aria-hidden="true"><use href="#ic-alert"/></svg>
+          <p><span class="strong">A Onda 2 entregou fundação e casca, não as telas.</span> O protótipo FE-02 desenhou esta ficha com abas em 09/08/2026 e ela nunca foi implementada — o corpo da página continua sendo o desenho antigo.</p>
+        </div>
+
+        <div class="ba">
+          <!-- ANTES -->
+          <div>
+            <p class="ba__tag ba__tag--antes"><svg width="14" height="14" aria-hidden="true"><use href="#ic-x"/></svg>Antes — o que está no ar</p>
+            <div class="wire">
+              <div class="wire__grid">
+                <div class="wire__col">
+                  <div class="wire__box"><span>Cabeçalho do cliente + ações</span></div>
+                  <div class="wire__box wire__box--tall" data-flag="true"><span class="n" aria-hidden="true">4</span><span>Gráfico de conformidade — ocupa ~200px para dizer “Dados insuficientes” abaixo de 2 inspeções</span></div>
+                  <div class="wire__box wire__box--tall"><span>Inspeções do cliente</span></div>
+                  <div class="wire__box" data-flag="true"><span class="n" aria-hidden="true">6</span><span>29 campos crus · excluir cliente por <code>window.confirm</code></span></div>
+                </div>
+                <div class="wire__col">
+                  <div class="wire__box"><span>Portal do cliente</span></div>
+                  <div class="wire__box" data-flag="true"><span class="n" aria-hidden="true">5</span><span>Credenciais em texto puro, sempre visíveis</span></div>
+                  <div class="wire__box wire__box--tall" data-flag="true"><span class="n" aria-hidden="true">1</span><span>Tabela de arquivos do FE-07 espremida em ~380px: miniatura, agrupamento e paginação numa coluna de 1/3</span></div>
+                  <div class="wire__box wire__box--tall" data-flag="true"><span class="n" aria-hidden="true">2</span><span>Trilha de auditoria — todos os eventos, sem limite nem paginação</span></div>
+                  <div class="wire__box"><span>Plano de ação (contagem)</span></div>
+                  <div class="wire__box"><span>Financeiro</span></div>
+                  <div class="wire__box" data-flag="true"><span class="n" aria-hidden="true">3</span><span>“Resumo do cliente” — responsável, telefone, endereço. A identidade da ficha é o <span class="strong">último</span> card da página</span></div>
+                </div>
+              </div>
+              <p class="wire__cap">Grade <code>lg:grid-cols-3</code> (<code>:477</code>): 2 cards na coluna larga, 7 empilhados no trilho de 1/3. O primitivo <code>Tabs</code> existe desde o FE-04b, com ARIA completo, e não é usado aqui.</p>
+            </div>
+          </div>
+
+          <!-- DEPOIS -->
+          <div>
+            <p class="ba__tag ba__tag--depois"><svg width="14" height="14" aria-hidden="true"><use href="#ic-check"/></svg>Depois — o que o FE-02 já aprovou</p>
+            <div class="wire">
+              <div class="wire__col">
+                <div class="wire__box" data-flag="ok"><span class="n" aria-hidden="true">3</span><span>Identidade no topo: nome, responsável, telefone, endereço, situação</span></div>
+                <div class="wire__box"><span>Visão geral · Inspeções · Arquivos · Portal · Financeiro</span></div>
+                <div class="wire__box wire__box--tall" data-flag="ok"><span class="n" aria-hidden="true">1</span><span>Aba de Arquivos com a largura inteira: miniatura, visita, data, tamanho, paginação e Abrir</span></div>
+                <div class="wire__box" data-flag="ok"><span class="n" aria-hidden="true">2</span><span>Trilha de auditoria com os 5 últimos e “ver tudo”</span></div>
+                <div class="wire__box" data-flag="ok"><span class="n" aria-hidden="true">5</span><span>Credenciais atrás de “Mostrar”, com copiar</span></div>
+                <div class="wire__box" data-flag="ok"><span class="n" aria-hidden="true">4</span><span>Conformidade só quando há série; abaixo de 2 inspeções vira uma linha de texto</span></div>
+                <div class="wire__box" data-flag="ok"><span class="n" aria-hidden="true">6</span><span>Diálogo de confirmação no lugar do <code>window.confirm</code></span></div>
+              </div>
+              <p class="wire__cap">Uma coluna, cinco abas. Cada aba responde a uma pergunta inteira, com a largura inteira — em vez de sete respostas parciais empilhadas num trilho estreito.</p>
+            </div>
+          </div>
+        </div>
+
+        <h2 style="margin:var(--space-8) 0 var(--space-4)">Os números que sustentam a Onda 4</h2>
+        <div class="cols">
+          <div class="table-wrap">
+            <div class="table-scroll">
+              <table class="table">
+                <caption class="sr-only">Medidas da auditoria de 16/08/2026</caption>
+                <thead>
+                  <tr><th scope="col">Medida</th><th scope="col" class="num">Valor</th><th scope="col">Leitura</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td class="table__primary">Classes de cor cruas do Tailwind</td><td class="num strong">2.856</td><td class="muted">contra ~600 de token da marca — a paleta oficial perde de quase 5 para 1 dentro do próprio app</td></tr>
+                  <tr><td class="table__primary"><code>alert()</code> / <code>confirm()</code> nativos</td><td class="num strong">114</td><td class="muted">em 27 arquivos; não há primitivo de confirmação em lugar nenhum</td></tr>
+                  <tr><td class="table__primary">Páginas usando <code>PageHeader</code></td><td class="num strong">1 de 24</td><td class="muted">o cabeçalho é reescrito à mão em todas as outras</td></tr>
+                  <tr><td class="table__primary">Arquivos usando o primitivo <code>Input</code></td><td class="num strong">1</td><td class="muted">~200 campos crus, sendo 29 só na ficha do cliente</td></tr>
+                  <tr><td class="table__primary">Arquivos usando <code>Table</code></td><td class="num strong">3</td><td class="muted">5 listas ainda são cards; a decisão de 08/08 era tabela densa</td></tr>
+                  <tr><td class="table__primary">Classes <code>dark:</code></td><td class="num strong">0</td><td class="muted">o botão de tema não faz nada — e não fará enquanto a cor não for token</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card__head"><h3 class="card__title">A ordem das coisas</h3></div>
+            <div class="card__body">
+              <p class="small muted" style="margin-bottom:var(--space-4)">Por que o dark mode (FE-12) não é o próximo card, mesmo sendo o mais visível:</p>
+              <ol class="findings">
+                <li><span class="n" aria-hidden="true">1</span><span>Dark mode troca o valor de um token. Onde não há token, não há o que trocar — e hoje 2.856 pontos do app têm a cor escrita na classe.</span></li>
+                <li><span class="n" aria-hidden="true">2</span><span>Converter cor sem um de-para escrito vira decisão de gosto repetida 2.856 vezes, cada uma podendo reprovar em contraste.</span></li>
+                <li><span class="n" aria-hidden="true">3</span><span>Por isso o de-para (<a href="#/cores">tabela ao lado</a>) vem antes, e o FE-12 sai de graça depois.</span></li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== INÍCIO (fusão) ==================== -->
+      <section class="screen" id="s-inicio">
+        <div class="page__head">
+          <div>
+            <h1 class="page__title">Início</h1>
+            <p class="page__sub">Domingo, 16 de agosto de 2026 · o que precisa de você agora.</p>
+          </div>
+          <div class="row-wrap">
+            <select class="select" aria-label="Janela de tempo" style="width:auto"><option>Próximos 7 dias</option><option>14 dias</option><option>30 dias</option></select>
+            <select class="select" aria-label="Consultora" style="width:auto"><option>Toda a equipe</option><option>Ester</option><option>Ana</option></select>
+          </div>
+        </div>
+
+        <div class="notice notice--info" style="margin-bottom:var(--space-6)">
+          <svg class="notice__mark" width="16" height="16" aria-hidden="true"><use href="#ic-check"/></svg>
+          <p><span class="strong">Decisão de 16/08/2026:</span> esta tela absorve o Painel. <code>/painel</code> passa a redirecionar para <code>/</code>, o menu perde um item, e a análise desce para a faixa “Desempenho”, no fim da página.</p>
+        </div>
+
+        <div class="kpis">
+          <button class="kpi">
+            <div class="kpi__row"><span class="kpi__icon" style="background:var(--accent-soft);color:var(--accent-soft-ink)"><svg width="15" height="15" aria-hidden="true"><use href="#ic-calendar"/></svg></span><span class="kpi__label">Compromissos próximos</span></div>
+            <p class="kpi__value">6</p>
+            <p class="kpi__foot">2 amanhã · 4 nesta semana</p>
+          </button>
+          <button class="kpi">
+            <div class="kpi__row"><span class="kpi__icon" style="background:var(--accent-soft);color:var(--accent-soft-ink)"><svg width="15" height="15" aria-hidden="true"><use href="#ic-inbox"/></svg></span><span class="kpi__label">Pedidos de agendamento</span></div>
+            <p class="kpi__value">4</p>
+            <p class="kpi__foot">o mais antigo há 3 dias</p>
+          </button>
+          <button class="kpi" onclick="irPara('#/solicitacoes')">
+            <div class="kpi__row"><span class="kpi__icon" style="background:var(--accent-soft);color:var(--accent-soft-ink)"><svg width="15" height="15" aria-hidden="true"><use href="#ic-headset"/></svg></span><span class="kpi__label">Solicitações novas</span></div>
+            <p class="kpi__value">3</p>
+            <p class="kpi__foot">abrir a lista</p>
+          </button>
+          <button class="kpi">
+            <div class="kpi__row"><span class="kpi__icon" style="background:var(--teal-soft);color:var(--teal-soft-ink)"><svg width="15" height="15" aria-hidden="true"><use href="#ic-clock"/></svg></span><span class="kpi__label">Clientes aguardando resposta</span></div>
+            <p class="kpi__value">4</p>
+            <p class="kpi__foot">1 há mais de 5 dias</p>
+          </button>
+          <button class="kpi">
+            <div class="kpi__row"><span class="kpi__icon" style="background:var(--teal-soft);color:var(--teal-soft-ink)"><svg width="15" height="15" aria-hidden="true"><use href="#ic-image"/></svg></span><span class="kpi__label">Evidências para revisar</span></div>
+            <p class="kpi__value">7</p>
+            <p class="kpi__foot">de 3 clientes</p>
+          </button>
+          <button class="kpi" style="border-color:var(--amber-soft-border);background:var(--amber-soft)">
+            <div class="kpi__row"><span class="kpi__icon" style="background:var(--surface);color:var(--amber-soft-ink)"><svg width="15" height="15" aria-hidden="true"><use href="#ic-alert"/></svg></span><span class="kpi__label" style="color:var(--amber-soft-ink)">Planos de ação vencidos</span></div>
+            <p class="kpi__value" style="color:var(--amber-soft-ink)">9</p>
+            <p class="kpi__foot" style="color:var(--amber-soft-ink)">em 3 unidades · abrir a lista</p>
+          </button>
+          <button class="kpi">
+            <div class="kpi__row"><span class="kpi__icon" style="background:var(--success-soft);color:var(--success-soft-ink)"><svg width="15" height="15" aria-hidden="true"><use href="#ic-money"/></svg></span><span class="kpi__label">Pendências financeiras</span></div>
+            <p class="kpi__value">2</p>
+            <p class="kpi__foot">R$ 3.400,00 em atraso</p>
+          </button>
+        </div>
+
+        <div class="cols" style="margin-top:var(--space-6)">
+          <div class="card">
+            <div class="card__head">
+              <h2 class="card__title">Prazos vencendo</h2>
+              <a href="#/plano" class="small strong">Ver plano de ação</a>
+            </div>
+            <div class="card__body card__body--flush">
+              <div class="list-row">
+                <span class="list-row__when">Hoje</span>
+                <div class="grow">
+                  <p class="strong">Barreira física entre recebimento e manipulação</p>
+                  <p class="small muted">ILPI Recanto · unidade Centro</p>
+                </div>
+                <span class="badge badge--attention"><span class="dot"></span>vence hoje</span>
+              </div>
+              <div class="list-row">
+                <span class="list-row__when">17/08</span>
+                <div class="grow">
+                  <p class="strong">Registro de temperatura da câmara fria</p>
+                  <p class="small muted">Clínica Aurora · unidade Tijuca</p>
+                </div>
+                <span class="badge badge--neutral">2 dias</span>
+              </div>
+              <div class="list-row">
+                <span class="list-row__when">11/08</span>
+                <div class="grow">
+                  <p class="strong">POP de higienização de superfícies assinado pelo RT</p>
+                  <p class="small muted">Estética Lumina · unidade única</p>
+                </div>
+                <span class="badge badge--attention"><span class="dot"></span>vencido há 5 dias</span>
+              </div>
+              <div class="list-row">
+                <span class="list-row__when">20/08</span>
+                <div class="grow">
+                  <p class="strong">Contrato de coleta de resíduos do grupo A</p>
+                  <p class="small muted">Rede Bem Viver · unidade Méier</p>
+                </div>
+                <span class="badge badge--neutral">4 dias</span>
+              </div>
+            </div>
+            <div class="card__foot small"><a href="#/plano">Ver as 9 pendências vencidas</a></div>
+          </div>
+
+          <div class="card">
+            <div class="card__head">
+              <h2 class="card__title">Agenda da semana</h2>
+              <a href="#/inicio" class="small strong">Abrir agendamentos</a>
+            </div>
+            <div class="card__body card__body--flush">
+              <div class="list-row">
+                <span class="list-row__when">Seg 09h</span>
+                <div class="grow"><p class="strong">Visita técnica · ILPI Recanto</p><p class="small muted">Presencial · Ester</p></div>
+                <span class="badge badge--success"><span class="dot"></span>confirmado</span>
+              </div>
+              <div class="list-row">
+                <span class="list-row__when">Ter 14h</span>
+                <div class="grow"><p class="strong">Reinspeção · Clínica Aurora</p><p class="small muted">Presencial · Ana</p></div>
+                <span class="badge badge--neutral"><span class="dot"></span>a confirmar</span>
+              </div>
+              <div class="list-row">
+                <span class="list-row__when">Qua 10h</span>
+                <div class="grow"><p class="strong">Consultoria online · Padaria Trigo Novo</p><p class="small muted">Online · Ester</p></div>
+                <span class="badge badge--success"><span class="dot"></span>confirmado</span>
+              </div>
+              <div class="list-row">
+                <span class="list-row__when">Sex 09h</span>
+                <div class="grow"><p class="strong">Visita técnica · Rede Bem Viver (Méier)</p><p class="small muted">Presencial · Ester</p></div>
+                <span class="badge badge--attention"><span class="dot"></span>sem roteiro definido</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Faixa de análise: recolhida por padrão, decisão da Ester em 16/08 -->
+        <details class="fold" style="margin-top:var(--space-6)">
+          <summary>
+            <svg class="chev" width="16" height="16" aria-hidden="true"><use href="#ic-chevron-right"/></svg>
+            Desempenho
+            <span class="small muted" style="font-family:var(--font-text);font-weight:400">média de conformidade, inspeções recentes e não conformidades frequentes</span>
+          </summary>
+          <div class="fold__body">
+            <div class="stat-row" style="margin-bottom:var(--space-5)">
+              <div class="card"><div class="stat"><p class="stat__label">Inspeções ativas</p><p class="stat__value">12</p><p class="stat__foot">3 iniciadas nesta semana</p></div></div>
+              <div class="card"><div class="stat"><p class="stat__label">Concluídas no mês</p><p class="stat__value">28</p><p class="stat__foot">+6 sobre julho</p></div></div>
+              <div class="card"><div class="stat"><p class="stat__label">Média de conformidade</p><p class="stat__value">81%</p><p class="stat__foot">sobre 28 relatórios concluídos</p></div></div>
+            </div>
+
+            <div class="cols">
+              <div class="card">
+                <div class="card__head"><h3 class="card__title">Não conformidades mais frequentes</h3></div>
+                <div class="card__body card__body--flush">
+                  <div class="list-row"><div class="grow"><p class="strong">Ausência de POP de higienização assinado</p><div class="prog" style="margin-top:6px"><div class="meter" style="flex:1"><div class="meter__fill meter__fill--attention" style="width:64%"></div></div><span class="small num">18</span></div></div></div>
+                  <div class="list-row"><div class="grow"><p class="strong">Registro de temperatura incompleto</p><div class="prog" style="margin-top:6px"><div class="meter" style="flex:1"><div class="meter__fill meter__fill--attention" style="width:46%"></div></div><span class="small num">13</span></div></div></div>
+                  <div class="list-row"><div class="grow"><p class="strong">Sem contrato vigente de resíduos do grupo A</p><div class="prog" style="margin-top:6px"><div class="meter" style="flex:1"><div class="meter__fill" style="width:32%"></div></div><span class="small num">9</span></div></div></div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card__head"><h3 class="card__title">Inspeções recentes</h3></div>
+                <div class="card__body card__body--flush">
+                  <div class="list-row"><span class="list-row__when">15/08</span><div class="grow"><p class="strong">Clínica Aurora · Tijuca</p><p class="small muted">Roteiro de clínica · Ana</p></div><span class="badge badge--success">92%</span></div>
+                  <div class="list-row"><span class="list-row__when">14/08</span><div class="grow"><p class="strong">ILPI Recanto · Centro</p><p class="small muted">Roteiro de ILPI · Ester</p></div><span class="badge badge--attention">68%</span></div>
+                  <div class="list-row"><span class="list-row__when">12/08</span><div class="grow"><p class="strong">Padaria Trigo Novo</p><p class="small muted">Roteiro de alimentos · Ester</p></div><span class="badge badge--success">87%</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </details>
+      </section>
+
+      <!-- ==================== FICHA DO CLIENTE ==================== -->
+      <section class="screen" id="s-cliente">
+        <nav class="crumbs" aria-label="Trilha">
+          <a href="#/inicio">Início</a>
+          <svg width="12" height="12" aria-hidden="true"><use href="#ic-chevron-right"/></svg>
+          <a href="#/inicio">Clientes</a>
+          <svg width="12" height="12" aria-hidden="true"><use href="#ic-chevron-right"/></svg>
+          <span class="strong">ILPI Recanto</span>
+        </nav>
+
+        <!-- 3 do diagnóstico: a identidade da ficha é a primeira coisa da página. -->
+        <div class="card" style="margin-bottom:var(--space-5)">
+          <div class="card__body">
+            <div class="between" style="align-items:flex-start;flex-wrap:wrap">
+              <div class="row" style="align-items:flex-start;gap:var(--space-4)">
+                <span class="avatar avatar--lg" aria-hidden="true">IR</span>
+                <div>
+                  <h1 class="page__title">ILPI Recanto</h1>
+                  <p class="small muted" style="margin-top:2px">CNPJ 00.000.000/0001-00 · Instituição de longa permanência · 3 unidades</p>
+                  <div class="row-wrap" style="margin-top:var(--space-3)">
+                    <span class="badge badge--success"><span class="dot"></span>Contrato ativo</span>
+                    <span class="badge badge--attention"><span class="dot"></span>4 pendências vencidas</span>
+                    <span class="badge badge--neutral">Portal habilitado</span>
+                  </div>
+                </div>
+              </div>
+              <div class="row-wrap">
+                <button class="btn btn--outline btn--sm">Editar</button>
+                <button class="btn btn--primary btn--sm">Nova inspeção</button>
+                <div class="rowmenu">
+                  <button class="btn btn--outline btn--icon btn--sm" aria-label="Mais ações do cliente" aria-haspopup="menu" aria-expanded="false" data-menu="m-cliente">⋮</button>
+                  <div class="rowmenu__list" id="m-cliente" role="menu" hidden>
+                    <button role="menuitem" type="button">Exportar ficha em PDF</button>
+                    <button role="menuitem" type="button">Reenviar acesso ao portal</button>
+                    <hr>
+                    <button role="menuitem" type="button" class="danger" data-open="dlg-excluir">Excluir cliente…</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="stat-row" style="margin-top:var(--space-5);gap:var(--space-3)">
+              <div><p class="tiny muted strong">Responsável</p><p>Maria da Silva · Responsável Técnica</p></div>
+              <div><p class="tiny muted strong">Telefone</p><p class="num">(21) 90000-0000</p></div>
+              <div><p class="tiny muted strong">E-mail</p><p class="truncate">contato@exemplo.com.br</p></div>
+              <div><p class="tiny muted strong">Endereço</p><p>Rua Exemplo, 100 · Centro · Rio de Janeiro/RJ</p></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tabs">
+          <div class="tablist" role="tablist" aria-label="Seções do cliente">
+            <button class="tab" role="tab" id="t-visao" aria-controls="p-visao" aria-selected="true">Visão geral</button>
+            <button class="tab" role="tab" id="t-insp" aria-controls="p-insp" aria-selected="false" tabindex="-1">Inspeções <span class="count num">14</span></button>
+            <button class="tab" role="tab" id="t-arq" aria-controls="p-arq" aria-selected="false" tabindex="-1">Arquivos <span class="count num">86</span></button>
+            <button class="tab" role="tab" id="t-portal" aria-controls="p-portal" aria-selected="false" tabindex="-1">Portal</button>
+            <button class="tab" role="tab" id="t-fin" aria-controls="p-fin" aria-selected="false" tabindex="-1">Financeiro</button>
+          </div>
+        </div>
+
+        <div class="tabpanel" role="tabpanel" id="p-visao" aria-labelledby="t-visao" tabindex="0">
+          <div class="cols">
+            <div class="card">
+              <div class="card__head"><h2 class="card__title">Plano de ação</h2><a class="small strong" href="#/plano">Abrir plano de ação</a></div>
+              <div class="card__body card__body--flush">
+                <div class="list-row"><span class="list-row__when">11/08</span><div class="grow"><p class="strong">POP de higienização assinado pelo RT</p><p class="small muted">Unidade Centro · setor Responsável Técnico (RT)</p></div><span class="badge badge--attention"><span class="dot"></span>vencido há 5 dias</span></div>
+                <div class="list-row"><span class="list-row__when">Hoje</span><div class="grow"><p class="strong">Barreira física entre recebimento e manipulação</p><p class="small muted">Unidade Centro · setor Gerência / Administração</p></div><span class="badge badge--attention"><span class="dot"></span>vence hoje</span></div>
+                <div class="list-row"><span class="list-row__when">22/08</span><div class="grow"><p class="strong">Treinamento de boas práticas registrado</p><p class="small muted">Unidade Méier · setor Gerência / Administração</p></div><span class="badge badge--neutral">6 dias</span></div>
+              </div>
+              <div class="card__foot small">4 vencidas · 7 abertas · 21 resolvidas</div>
+            </div>
+
+            <div class="stack" style="--gap:var(--space-5)">
+              <!-- 4 do diagnóstico: sem série, sem gráfico. -->
+              <div class="card">
+                <div class="card__head"><h3 class="card__title">Conformidade</h3></div>
+                <div class="card__body">
+                  <div class="prog" style="margin-bottom:var(--space-3)">
+                    <div class="meter" style="flex:1"><div class="meter__fill meter__fill--attention" style="width:68%"></div></div>
+                    <span class="strong num">68%</span>
+                  </div>
+                  <p class="small muted">Última inspeção em 14/08/2026. Anterior: 61% em 12/06/2026 — <span class="strong">+7 pontos</span>.</p>
+                  <p class="small dim" style="margin-top:var(--space-3)">Com menos de duas inspeções concluídas esta caixa mostra só a última nota, sem gráfico — em vez dos ~200px de “Dados insuficientes” de hoje.</p>
+                </div>
+              </div>
+
+              <!-- 2 do diagnóstico: 5 últimos + ver tudo -->
+              <div class="card">
+                <div class="card__head"><h3 class="card__title">Trilha de auditoria</h3><span class="small muted num">312 eventos</span></div>
+                <div class="card__body">
+                  <ol class="tl">
+                    <li class="tl__item" data-estado="ok"><span class="tl__mark"><svg width="14" height="14" aria-hidden="true"><use href="#ic-check"/></svg></span><div><p class="tl__when">15/08 · 14:02 · Ester</p><p class="tl__what">Relatório publicado no portal</p></div></li>
+                    <li class="tl__item" data-estado="ok"><span class="tl__mark"><svg width="14" height="14" aria-hidden="true"><use href="#ic-image"/></svg></span><div><p class="tl__when">15/08 · 11:20 · gestor da unidade</p><p class="tl__what">Evidência enviada em 2 pendências</p></div></li>
+                    <li class="tl__item" data-estado="ok"><span class="tl__mark"><svg width="14" height="14" aria-hidden="true"><use href="#ic-clipboard"/></svg></span><div><p class="tl__when">14/08 · 16:47 · Ester</p><p class="tl__what">Inspeção concluída · 68%</p></div></li>
+                    <li class="tl__item" data-estado="ok"><span class="tl__mark"><svg width="14" height="14" aria-hidden="true"><use href="#ic-calendar"/></svg></span><div><p class="tl__when">12/08 · 09:05 · Ana</p><p class="tl__what">Visita reagendada para 14/08</p></div></li>
+                    <li class="tl__item" data-estado="ok"><span class="tl__mark"><svg width="14" height="14" aria-hidden="true"><use href="#ic-key"/></svg></span><div><p class="tl__when">08/08 · 10:31 · sistema</p><p class="tl__what">Acesso ao portal reenviado</p></div></li>
+                  </ol>
+                </div>
+                <div class="card__foot small"><a href="#/cliente">Ver os 312 eventos</a></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tabpanel" role="tabpanel" id="p-insp" aria-labelledby="t-insp" tabindex="0" hidden>
+          <div class="table-wrap">
+            <div class="table-scroll">
+              <table class="table">
+                <caption class="sr-only">Inspeções do cliente</caption>
+                <thead><tr><th scope="col">Data</th><th scope="col">Unidade</th><th scope="col">Roteiro</th><th scope="col">Consultora</th><th scope="col" class="num">Conformidade</th><th scope="col">Situação</th><th scope="col"><span class="sr-only">Ações</span></th></tr></thead>
+                <tbody>
+                  <tr><td class="num">14/08/2026</td><td class="table__primary">Centro</td><td>ILPI — RDC 502/2021</td><td>Ester</td><td class="num">68%</td><td><span class="badge badge--success">concluída</span></td><td class="table__actions"><button class="btn btn--ghost btn--sm">Abrir</button></td></tr>
+                  <tr><td class="num">12/06/2026</td><td class="table__primary">Centro</td><td>ILPI — RDC 502/2021</td><td>Ester</td><td class="num">61%</td><td><span class="badge badge--success">concluída</span></td><td class="table__actions"><button class="btn btn--ghost btn--sm">Abrir</button></td></tr>
+                  <tr><td class="num">05/06/2026</td><td class="table__primary">Méier</td><td>ILPI — RDC 502/2021</td><td>Ana</td><td class="num">—</td><td><span class="badge badge--attention"><span class="dot"></span>em andamento</span></td><td class="table__actions"><button class="btn btn--ghost btn--sm">Continuar</button></td></tr>
+                  <tr><td class="num">28/03/2026</td><td class="table__primary">Barra</td><td>ILPI — RDC 502/2021</td><td>Ester</td><td class="num">74%</td><td><span class="badge badge--success">concluída</span></td><td class="table__actions"><button class="btn btn--ghost btn--sm">Abrir</button></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- 1 do diagnóstico: a tabela de arquivos com a largura inteira -->
+        <div class="tabpanel" role="tabpanel" id="p-arq" aria-labelledby="t-arq" tabindex="0" hidden>
+          <div class="toolbar">
+            <div class="input-group">
+              <svg width="15" height="15" aria-hidden="true"><use href="#ic-search"/></svg>
+              <input class="input" type="search" placeholder="Buscar arquivo" aria-label="Buscar arquivo">
+            </div>
+            <select class="select" aria-label="Visita"><option>Todas as visitas</option><option>14/08/2026 · Centro</option><option>12/06/2026 · Centro</option></select>
+            <select class="select" aria-label="Tipo"><option>Todos os tipos</option><option>Foto</option><option>Documento</option><option>Relatório</option></select>
+          </div>
+          <div class="table-wrap">
+            <div class="table-scroll">
+              <table class="table">
+                <caption class="sr-only">Arquivos do cliente, agrupados por visita</caption>
+                <thead><tr><th scope="col" style="width:52px"><span class="sr-only">Miniatura</span></th><th scope="col">Arquivo</th><th scope="col">Tipo</th><th scope="col">Enviado por</th><th scope="col">Data</th><th scope="col" class="num">Tamanho</th><th scope="col"><span class="sr-only">Ações</span></th></tr></thead>
+                <tbody>
+                  <tr class="group-row"><td colspan="7">Visita de 14/08/2026 · unidade Centro · 28 arquivos</td></tr>
+                  <tr><td><span class="file-thumb" aria-hidden="true"><svg width="15" height="15"><use href="#ic-image"/></svg></span></td><td class="table__primary">area-manipulacao-01.jpg</td><td>Foto</td><td>Ester</td><td class="num">14/08 16:12</td><td class="num">1,8 MB</td><td class="table__actions"><button class="btn btn--ghost btn--sm">Abrir</button></td></tr>
+                  <tr><td><span class="file-thumb" aria-hidden="true"><svg width="15" height="15"><use href="#ic-image"/></svg></span></td><td class="table__primary">camara-fria-registro.jpg</td><td>Foto</td><td>Ester</td><td class="num">14/08 16:20</td><td class="num">2,1 MB</td><td class="table__actions"><button class="btn btn--ghost btn--sm">Abrir</button></td></tr>
+                  <tr><td><span class="file-thumb" aria-hidden="true"><svg width="15" height="15"><use href="#ic-file"/></svg></span></td><td class="table__primary">relatorio-14-08-2026.pdf</td><td>Relatório</td><td>sistema</td><td class="num">15/08 14:02</td><td class="num">640 KB</td><td class="table__actions"><button class="btn btn--ghost btn--sm">Abrir</button></td></tr>
+                  <tr class="group-row"><td colspan="7">Visita de 12/06/2026 · unidade Centro · 19 arquivos</td></tr>
+                  <tr><td><span class="file-thumb" aria-hidden="true"><svg width="15" height="15"><use href="#ic-file"/></svg></span></td><td class="table__primary">pop-higienizacao-assinado.pdf</td><td>Documento</td><td>gestor da unidade</td><td class="num">13/06 09:44</td><td class="num">310 KB</td><td class="table__actions"><button class="btn btn--ghost btn--sm">Abrir</button></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="pagination">
+              <span class="small">1–4 de 86</span>
+              <div class="pagination__pages">
+                <button class="page-btn" disabled aria-label="Página anterior">‹</button>
+                <button class="page-btn" aria-current="page">1</button>
+                <button class="page-btn">2</button>
+                <button class="page-btn">3</button>
+                <span class="dim">…</span>
+                <button class="page-btn">9</button>
+                <button class="page-btn" aria-label="Próxima página">›</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5 do diagnóstico: credencial não fica exposta -->
+        <div class="tabpanel" role="tabpanel" id="p-portal" aria-labelledby="t-portal" tabindex="0" hidden>
+          <div class="cols">
+            <div class="card">
+              <div class="card__head"><h3 class="card__title">Acesso do cliente</h3><span class="badge badge--success"><span class="dot"></span>habilitado</span></div>
+              <div class="card__body stack">
+                <div class="field">
+                  <label class="label" for="pf-user">Usuário</label>
+                  <input class="input" id="pf-user" value="contato@exemplo.com.br" readonly>
+                </div>
+                <div class="field">
+                  <label class="label" for="pf-pass">Senha</label>
+                  <div class="row">
+                    <input class="input" id="pf-pass" type="password" value="senha-oculta" readonly>
+                    <button class="btn btn--outline btn--sm" type="button" data-reveal="pf-pass" aria-pressed="false">Mostrar</button>
+                    <button class="btn btn--outline btn--sm" type="button">Copiar</button>
+                  </div>
+                  <p class="hint">Fica oculta por padrão. A ficha do cliente é aberta em reunião e com a tela compartilhada.</p>
+                </div>
+                <div class="field">
+                  <label class="label" for="pf-token">Link por unidade</label>
+                  <div class="row">
+                    <input class="input" id="pf-token" value="https://…/cliente/visita/••••••••" readonly>
+                    <button class="btn btn--outline btn--sm" type="button">Copiar</button>
+                  </div>
+                  <p class="hint">Endereço público, sem senha — pode ser mandado ao gestor da unidade.</p>
+                </div>
+              </div>
+              <div class="card__foot"><button class="btn btn--outline btn--sm">Reenviar acesso por e-mail</button></div>
+            </div>
+            <div class="card">
+              <div class="card__head"><h3 class="card__title">Travas da conta</h3></div>
+              <div class="card__body stack">
+                <label class="switch"><input type="checkbox" checked><span class="track"></span><span>Permitir agendar novas visitas</span></label>
+                <p class="hint">Desligado automaticamente enquanto houver fatura em atraso. A entrega do relatório nunca é escondida.</p>
+                <hr>
+                <label class="switch"><input type="checkbox" checked><span class="track"></span><span>Mostrar o financeiro no portal</span></label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tabpanel" role="tabpanel" id="p-fin" aria-labelledby="t-fin" tabindex="0" hidden>
+          <div class="table-wrap">
+            <div class="table-scroll">
+              <table class="table">
+                <caption class="sr-only">Faturas do cliente</caption>
+                <thead><tr><th scope="col">Competência</th><th scope="col">Descrição</th><th scope="col">Vencimento</th><th scope="col" class="num">Valor</th><th scope="col">Situação</th></tr></thead>
+                <tbody>
+                  <tr><td class="num">08/2026</td><td class="table__primary">Consultoria mensal · 3 unidades</td><td class="num">10/08/2026</td><td class="num">R$ 2.400,00</td><td><span class="badge badge--attention"><span class="dot"></span>em atraso há 6 dias</span></td></tr>
+                  <tr><td class="num">07/2026</td><td class="table__primary">Consultoria mensal · 3 unidades</td><td class="num">10/07/2026</td><td class="num">R$ 2.400,00</td><td><span class="badge badge--success">pago</span></td></tr>
+                  <tr><td class="num">06/2026</td><td class="table__primary">Consultoria mensal · 3 unidades</td><td class="num">10/06/2026</td><td class="num">R$ 2.400,00</td><td><span class="badge badge--success">pago</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== SOLICITAÇÕES ==================== -->
+      <section class="screen" id="s-solicitacoes">
+        <div class="page__head">
+          <div>
+            <h1 class="page__title">Solicitações</h1>
+            <p class="page__sub">O que o cliente pediu e ainda não teve resposta.</p>
+          </div>
+          <button class="btn btn--primary">Nova solicitação</button>
+        </div>
+
+        <div class="toolbar">
+          <div class="input-group">
+            <svg width="15" height="15" aria-hidden="true"><use href="#ic-search"/></svg>
+            <input class="input" type="search" placeholder="Buscar por cliente ou assunto" aria-label="Buscar solicitação">
+          </div>
+          <div class="segmented" role="group" aria-label="Situação">
+            <button aria-pressed="true">Novas <span class="num">3</span></button>
+            <button aria-pressed="false">Em andamento <span class="num">5</span></button>
+            <button aria-pressed="false">Respondidas <span class="num">41</span></button>
+          </div>
+          <select class="select" aria-label="Cliente"><option>Todos os clientes</option><option>ILPI Recanto</option><option>Clínica Aurora</option></select>
+          <select class="select" aria-label="Tipo"><option>Todos os tipos</option><option>Dúvida técnica</option><option>Documento</option><option>Agendamento</option></select>
+          <div class="grow"></div>
+          <span class="small muted">3 de 49</span>
+        </div>
+
+        <div class="table-wrap">
+          <div class="table-scroll">
+            <table class="table">
+              <caption class="sr-only">Solicitações abertas</caption>
+              <thead>
+                <tr>
+                  <th scope="col"><button class="th-sort" aria-sort="descending">Aberta em <svg class="arrow" width="12" height="12" aria-hidden="true"><use href="#ic-arrow-up"/></svg></button></th>
+                  <th scope="col">Cliente</th>
+                  <th scope="col">Assunto</th>
+                  <th scope="col">Tipo</th>
+                  <th scope="col">Situação</th>
+                  <th scope="col" class="num">Espera</th>
+                  <th scope="col"><span class="sr-only">Ações</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="num">13/08</td>
+                  <td class="table__primary">ILPI Recanto · Centro</td>
+                  <td>Qual norma exige o registro diário de temperatura?</td>
+                  <td><span class="badge badge--neutral">Dúvida técnica</span></td>
+                  <td><span class="badge badge--attention"><span class="dot"></span>nova</span></td>
+                  <td class="num strong">3 dias</td>
+                  <td class="table__actions">
+                    <button class="btn btn--outline btn--sm">Responder</button>
+                    <div class="rowmenu">
+                      <button class="btn btn--ghost btn--icon btn--sm" aria-label="Mais ações desta solicitação" aria-haspopup="menu" aria-expanded="false" data-menu="m-sol1">⋮</button>
+                      <div class="rowmenu__list" id="m-sol1" role="menu" hidden>
+                        <button role="menuitem" type="button">Atribuir a outra consultora</button>
+                        <button role="menuitem" type="button">Transformar em visita</button>
+                        <hr>
+                        <button role="menuitem" type="button" class="danger" data-open="dlg-excluir">Descartar…</button>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="num">15/08</td>
+                  <td class="table__primary">Clínica Aurora · Tijuca</td>
+                  <td>Envio do alvará renovado para conferência</td>
+                  <td><span class="badge badge--neutral">Documento</span></td>
+                  <td><span class="badge badge--attention"><span class="dot"></span>nova</span></td>
+                  <td class="num strong">1 dia</td>
+                  <td class="table__actions"><button class="btn btn--outline btn--sm">Responder</button></td>
+                </tr>
+                <tr>
+                  <td class="num">16/08</td>
+                  <td class="table__primary">Rede Bem Viver · Méier</td>
+                  <td>Antecipar a visita de setembro</td>
+                  <td><span class="badge badge--neutral">Agendamento</span></td>
+                  <td><span class="badge badge--attention"><span class="dot"></span>nova</span></td>
+                  <td class="num strong">hoje</td>
+                  <td class="table__actions"><button class="btn btn--outline btn--sm">Responder</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="pagination">
+            <span class="small">1–3 de 3 · filtro “Novas” ativo</span>
+            <div class="pagination__pages"><button class="page-btn" aria-current="page">1</button></div>
+          </div>
+        </div>
+
+        <p class="small muted" style="margin-top:var(--space-4)">Coluna “Espera” em vez de só a data de abertura: a pergunta da tela é “há quanto tempo o cliente está esperando”, não “quando isso chegou”.</p>
+      </section>
+
+      <!-- ==================== ROTEIROS ==================== -->
+      <section class="screen" id="s-roteiros">
+        <div class="page__head">
+          <div>
+            <h1 class="page__title">Roteiros</h1>
+            <p class="page__sub">Os checklists que a inspeção usa. Um roteiro publicado é congelado por inspeção concluída.</p>
+          </div>
+          <div class="row-wrap">
+            <button class="btn btn--outline">Importar</button>
+            <button class="btn btn--primary">Novo roteiro</button>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <div class="input-group">
+            <svg width="15" height="15" aria-hidden="true"><use href="#ic-search"/></svg>
+            <input class="input" type="search" placeholder="Buscar roteiro" aria-label="Buscar roteiro">
+          </div>
+          <select class="select" aria-label="Segmento"><option>Todos os segmentos</option><option>ILPI</option><option>Clínica</option><option>Alimentos</option><option>Estética</option></select>
+          <div class="segmented" role="group" aria-label="Situação do roteiro">
+            <button aria-pressed="true">Ativos <span class="num">9</span></button>
+            <button aria-pressed="false">Rascunhos <span class="num">2</span></button>
+            <button aria-pressed="false">Arquivados <span class="num">4</span></button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <div class="table-scroll">
+            <table class="table">
+              <caption class="sr-only">Roteiros de inspeção</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Roteiro</th><th scope="col">Segmento</th>
+                  <th scope="col" class="num">Itens</th><th scope="col" class="num">Críticos</th>
+                  <th scope="col" class="num">Em uso</th><th scope="col">Atualizado</th>
+                  <th scope="col">Situação</th><th scope="col"><span class="sr-only">Ações</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td class="table__primary">ILPI — RDC 502/2021</td><td>ILPI</td><td class="num">148</td><td class="num">22</td><td class="num">31</td><td class="num">02/08/2026</td><td><span class="badge badge--success">ativo</span></td><td class="table__actions"><button class="btn btn--ghost btn--sm">Editar</button></td></tr>
+                <tr><td class="table__primary">Clínica — RDC 63/2011</td><td>Clínica</td><td class="num">96</td><td class="num">14</td><td class="num">18</td><td class="num">28/07/2026</td><td><span class="badge badge--success">ativo</span></td><td class="table__actions"><button class="btn btn--ghost btn--sm">Editar</button></td></tr>
+                <tr><td class="table__primary">Serviços de alimentação — RDC 216/2004</td><td>Alimentos</td><td class="num">72</td><td class="num">11</td><td class="num">24</td><td class="num">14/07/2026</td><td><span class="badge badge--success">ativo</span></td><td class="table__actions"><button class="btn btn--ghost btn--sm">Editar</button></td></tr>
+                <tr><td class="table__primary">Estética — RDC 197/2017 <span class="badge badge--attention" style="margin-left:6px"><span class="dot"></span>rascunho</span></td><td>Estética</td><td class="num">54</td><td class="num">8</td><td class="num">0</td><td class="num">16/08/2026</td><td><span class="badge badge--neutral">rascunho</span></td><td class="table__actions"><button class="btn btn--ghost btn--sm">Editar</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="notice notice--attention" style="margin-top:var(--space-5)">
+          <svg class="notice__mark" width="16" height="16" aria-hidden="true"><use href="#ic-alert"/></svg>
+          <div>
+            <p class="strong">Editar um item em uso não é uma edição qualquer.</p>
+            <p class="small">As respostas não têm chave estrangeira para o item do roteiro: reescrever a pergunta no lugar troca o enunciado de respostas antigas e apagar o item deixa resposta órfã num relatório já entregue. A coluna “Em uso” existe para esse aviso aparecer antes do clique, e o editor confirma com o número de inspeções afetadas.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== BIBLIOTECA ==================== -->
+      <section class="screen" id="s-biblioteca">
+        <div class="page__head">
+          <div>
+            <h1 class="page__title">Biblioteca de legislação</h1>
+            <p class="page__sub">A curadoria daqui é o que o relatório consegue citar. Sem verbete, a norma não é citada em lugar nenhum.</p>
+          </div>
+          <button class="btn btn--primary">Novo verbete</button>
+        </div>
+
+        <div class="toolbar">
+          <div class="input-group">
+            <svg width="15" height="15" aria-hidden="true"><use href="#ic-search"/></svg>
+            <input class="input" type="search" placeholder="Buscar por número, órgão ou assunto" aria-label="Buscar legislação">
+          </div>
+          <select class="select" aria-label="Esfera"><option>Todas as esferas</option><option>Federal</option><option>Estadual — RJ</option><option>Municipal — Rio</option></select>
+          <select class="select" aria-label="Órgão"><option>Todos os órgãos</option><option>ANVISA</option><option>Ministério da Saúde</option><option>Governo do Estado do RJ</option></select>
+          <div class="segmented" role="group" aria-label="Vigência">
+            <button aria-pressed="true">Vigentes <span class="num">128</span></button>
+            <button aria-pressed="false">Revogadas <span class="num">31</span></button>
+            <button aria-pressed="false">Sem verbete <span class="num">7</span></button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <div class="table-scroll">
+            <table class="table">
+              <caption class="sr-only">Verbetes de legislação</caption>
+              <thead><tr><th scope="col">Norma</th><th scope="col">Órgão</th><th scope="col">Esfera</th><th scope="col">Assunto</th><th scope="col" class="num">Itens ligados</th><th scope="col">Vigência</th><th scope="col"><span class="sr-only">Ações</span></th></tr></thead>
+              <tbody>
+                <tr><td class="table__primary">RDC 502/2021</td><td>ANVISA</td><td>Federal</td><td>Instituições de longa permanência para idosos</td><td class="num">148</td><td><span class="badge badge--success">vigente</span></td><td class="table__actions"><button class="btn btn--ghost btn--sm">Abrir</button></td></tr>
+                <tr><td class="table__primary">RDC 216/2004</td><td>ANVISA</td><td>Federal</td><td>Boas práticas para serviços de alimentação</td><td class="num">72</td><td><span class="badge badge--success">vigente</span></td><td class="table__actions"><button class="btn btn--ghost btn--sm">Abrir</button></td></tr>
+                <tr><td class="table__primary">Decreto 45.585/2016</td><td>Governo do Estado do RJ</td><td>Estadual — RJ</td><td>Código Sanitário Estadual</td><td class="num">19</td><td><span class="badge badge--danger"><span class="dot"></span>revogado</span></td><td class="table__actions"><button class="btn btn--ghost btn--sm">Abrir</button></td></tr>
+                <tr><td class="table__primary">RDC 197/2017</td><td>ANVISA</td><td>Federal</td><td>Serviços de embelezamento sem responsabilidade médica</td><td class="num">0</td><td><span class="badge badge--attention"><span class="dot"></span>sem verbete</span></td><td class="table__actions"><button class="btn btn--outline btn--sm">Escrever verbete</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="cols" style="margin-top:var(--space-5)">
+          <div class="notice notice--danger">
+            <svg class="notice__mark" width="16" height="16" aria-hidden="true"><use href="#ic-alert"/></svg>
+            <div>
+              <p class="strong">Revogada não é “apagar e apontar para a nova”.</p>
+              <p class="small">O Decreto 45.585 foi revogado e o 57.501/2026 <span class="strong">não cobre o conteúdo dele</span>. A tela mostra a revogação e deixa o substituto em branco quando não há substituto — reapontar mecanicamente produz citação errada em relatório assinado.</p>
+            </div>
+          </div>
+          <div class="notice notice--attention">
+            <svg class="notice__mark" width="16" height="16" aria-hidden="true"><use href="#ic-alert"/></svg>
+            <div>
+              <p class="strong">“Sem verbete” é uma lacuna de produto, não um filtro cosmético.</p>
+              <p class="small">São 7 normas citadas por item de roteiro que não têm verbete na biblioteca. Nenhuma delas aparece no relatório do cliente. Este filtro é a fila de trabalho da curadoria.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== SINCRONIZAÇÃO ==================== -->
+      <section class="screen" id="s-sincronizacao">
+        <div class="page__head">
+          <div>
+            <h1 class="page__title">Sincronização</h1>
+            <p class="page__sub">O que saiu do celular e chegou ao servidor — e o que ficou no meio do caminho.</p>
+          </div>
+          <button class="btn btn--operational">
+            <svg width="15" height="15" aria-hidden="true"><use href="#ic-refresh"/></svg>
+            Sincronizar agora
+          </button>
+        </div>
+
+        <div class="stat-row" style="margin-bottom:var(--space-6)">
+          <div class="card"><div class="stat"><p class="stat__label">Última sincronização</p><p class="stat__value" style="font-size:var(--text-xl)">14:02</p><p class="stat__foot">há 12 minutos</p></div></div>
+          <div class="card"><div class="stat"><p class="stat__label">Na fila</p><p class="stat__value">3</p><p class="stat__foot">2 fotos · 1 resposta</p></div></div>
+          <div class="card" style="border-color:var(--danger-soft-border)"><div class="stat"><p class="stat__label" style="color:var(--danger-soft-ink)">Falharam</p><p class="stat__value" style="color:var(--danger-soft-ink)">1</p><p class="stat__foot" style="color:var(--danger-soft-ink)">precisa de decisão sua</p></div></div>
+          <div class="card"><div class="stat"><p class="stat__label">Enviados hoje</p><p class="stat__value">147</p><p class="stat__foot">sem erro desde 09:20</p></div></div>
+        </div>
+
+        <div class="cols">
+          <div class="card">
+            <div class="card__head"><h2 class="card__title">Linha do tempo</h2><span class="small muted">mais recente primeiro</span></div>
+            <div class="card__body">
+              <ol class="tl">
+                <li class="tl__item" data-estado="erro">
+                  <span class="tl__mark"><svg width="15" height="15" aria-hidden="true"><use href="#ic-alert"/></svg></span>
+                  <div>
+                    <p class="tl__when">14:02 · foto da inspeção de ILPI Recanto</p>
+                    <p class="tl__what">Falhou no envio — <span class="badge badge--danger" style="margin-left:4px">arquivo maior que o limite</span></p>
+                    <p class="small muted" style="margin-top:4px">O arquivo continua salvo no aparelho. Reenviar comprime para 2 MB; descartar apaga do aparelho e não pode ser desfeito.</p>
+                    <div class="row-wrap" style="margin-top:var(--space-3)">
+                      <button class="btn btn--outline btn--sm">Reenviar comprimido</button>
+                      <button class="btn btn--ghost btn--sm" data-open="dlg-descartar">Descartar…</button>
+                    </div>
+                  </div>
+                </li>
+                <li class="tl__item" data-estado="pendente">
+                  <span class="tl__mark"><svg width="15" height="15" aria-hidden="true"><use href="#ic-clock"/></svg></span>
+                  <div><p class="tl__when">14:02 · 3 itens</p><p class="tl__what">Na fila, aguardando conexão estável</p></div>
+                </li>
+                <li class="tl__item" data-estado="ok">
+                  <span class="tl__mark"><svg width="15" height="15" aria-hidden="true"><use href="#ic-check"/></svg></span>
+                  <div><p class="tl__when">13:48 · 24 itens</p><p class="tl__what">Respostas da inspeção de Clínica Aurora enviadas</p></div>
+                </li>
+                <li class="tl__item" data-estado="atencao">
+                  <span class="tl__mark"><svg width="15" height="15" aria-hidden="true"><use href="#ic-alert"/></svg></span>
+                  <div><p class="tl__when">11:20 · roteiro de ILPI</p><p class="tl__what">Versão do roteiro mudou durante a inspeção</p><p class="small muted" style="margin-top:4px">A inspeção seguiu com a versão congelada na abertura. Nenhuma resposta foi perdida.</p></div>
+                </li>
+                <li class="tl__item" data-estado="ok">
+                  <span class="tl__mark"><svg width="15" height="15" aria-hidden="true"><use href="#ic-check"/></svg></span>
+                  <div><p class="tl__when">09:20 · 96 itens</p><p class="tl__what">Sincronização completa da manhã</p></div>
+                </li>
+              </ol>
+            </div>
+            <div class="card__foot small"><button class="btn btn--ghost btn--sm">Carregar eventos anteriores</button></div>
+          </div>
+
+          <div class="stack" style="--gap:var(--space-5)">
+            <div class="card">
+              <div class="card__head"><h3 class="card__title">Estado do aparelho</h3></div>
+              <div class="card__body stack" style="--gap:var(--space-3)">
+                <div class="between"><span class="small muted">Conexão</span><span class="badge badge--success"><span class="dot"></span>online</span></div>
+                <div class="between"><span class="small muted">Espaço usado no aparelho</span><span class="small strong num">318 MB</span></div>
+                <div class="meter"><div class="meter__fill" style="width:32%"></div></div>
+                <div class="between"><span class="small muted">Envio automático</span>
+                  <label class="switch"><input type="checkbox" checked><span class="track"></span><span class="sr-only">Envio automático</span></label>
+                </div>
+                <p class="hint">Com o envio automático ligado, a fila esvazia sozinha assim que a conexão estabiliza. Desligue só para economizar dados em campo.</p>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card__head"><h3 class="card__title">Legenda</h3></div>
+              <div class="card__body">
+                <ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--space-3)">
+                  <li class="row"><span class="tl__mark" style="width:24px;height:24px;background:var(--success-soft);border-color:var(--success-soft-border);color:var(--success-soft-ink)"><svg width="12" height="12" aria-hidden="true"><use href="#ic-check"/></svg></span><span class="small"><span class="strong">Enviado</span> — está no servidor, marca sólida</span></li>
+                  <li class="row"><span class="tl__mark" style="width:24px;height:24px"><svg width="12" height="12" aria-hidden="true"><use href="#ic-clock"/></svg></span><span class="small"><span class="strong">Na fila</span> — traço tracejado até o próximo evento</span></li>
+                  <li class="row"><span class="tl__mark" style="width:24px;height:24px;background:var(--amber-soft);border-color:var(--amber-soft-border);color:var(--amber-soft-ink)"><svg width="12" height="12" aria-hidden="true"><use href="#ic-alert"/></svg></span><span class="small"><span class="strong">Atenção</span> — foi, mas com ressalva</span></li>
+                  <li class="row"><span class="tl__mark" style="width:24px;height:24px;background:var(--danger-soft);border-color:var(--danger-soft-border);color:var(--danger-soft-ink)"><svg width="12" height="12" aria-hidden="true"><use href="#ic-alert"/></svg></span><span class="small"><span class="strong">Falhou</span> — exige decisão, nunca some sozinho</span></li>
+                </ul>
+                <p class="hint" style="margin-top:var(--space-4)">Estado em três canais: cor de fundo, forma do traço e palavra escrita. Nenhum deles sozinho.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== CONFIGURAÇÕES ==================== -->
+      <section class="screen" id="s-configuracoes">
+        <div class="page__head">
+          <div>
+            <h1 class="page__title">Configurações</h1>
+            <p class="page__sub">Cada seção salva sozinha. Não existe um botão único no fim da página.</p>
+          </div>
+        </div>
+
+        <div class="settings">
+          <nav class="settings__nav" aria-label="Seções de configuração">
+            <a href="#/configuracoes" aria-current="true"><svg width="15" height="15" aria-hidden="true"><use href="#ic-building"/></svg>Consultoria</a>
+            <a href="#/configuracoes"><svg width="15" height="15" aria-hidden="true"><use href="#ic-users"/></svg>Equipe</a>
+            <a href="#/configuracoes"><svg width="15" height="15" aria-hidden="true"><use href="#ic-calendar"/></svg>Agenda</a>
+            <a href="#/configuracoes"><svg width="15" height="15" aria-hidden="true"><use href="#ic-file"/></svg>Relatório</a>
+            <a href="#/configuracoes"><svg width="15" height="15" aria-hidden="true"><use href="#ic-key"/></svg>Portal</a>
+            <a href="#/configuracoes"><svg width="15" height="15" aria-hidden="true"><use href="#ic-theme"/></svg>Aparência</a>
+          </nav>
+
+          <div class="settings__body">
+            <div class="card">
+              <div class="card__head"><h2 class="card__title">Consultoria</h2></div>
+              <div class="card__body stack" style="--gap:var(--space-5)">
+                <div class="field">
+                  <label class="label" for="cfg-nome">Nome da consultoria <span class="req" aria-hidden="true">*</span></label>
+                  <input class="input" id="cfg-nome" value="TreinaVISA" aria-describedby="cfg-nome-hint">
+                  <p class="hint" id="cfg-nome-hint">Aparece no cabeçalho do relatório e no portal do cliente.</p>
+                </div>
+                <div class="field">
+                  <label class="label" for="cfg-rt">Responsável técnica</label>
+                  <input class="input" id="cfg-rt" value="Ester">
+                </div>
+                <div class="field" data-invalid="true">
+                  <label class="label" for="cfg-mail">E-mail de contato <span class="req" aria-hidden="true">*</span></label>
+                  <input class="input" id="cfg-mail" value="contato@" aria-invalid="true" aria-describedby="cfg-mail-err">
+                  <p class="error-text" id="cfg-mail-err">Falta o domínio depois do @ — por exemplo, contato@treinavisa.com.br.</p>
+                </div>
+                <div class="field">
+                  <label class="label" for="cfg-fone">WhatsApp de notificação</label>
+                  <input class="input" id="cfg-fone" value="(21) 99339-7315" aria-describedby="cfg-fone-hint">
+                  <p class="hint" id="cfg-fone-hint">É para onde vão os avisos do sistema. Sempre o número profissional, nunca o do cliente.</p>
+                </div>
+              </div>
+              <div class="card__foot" style="display:flex;justify-content:flex-end;gap:var(--space-2)">
+                <button class="btn btn--ghost btn--sm" disabled>Descartar</button>
+                <button class="btn btn--primary btn--sm" disabled>Salvar consultoria</button>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card__head"><h2 class="card__title">Agenda</h2></div>
+              <div class="card__body stack" style="--gap:var(--space-5)">
+                <div class="cols3">
+                  <div class="field">
+                    <label class="label" for="cfg-pres-antes">Presencial — antes</label>
+                    <select class="select" id="cfg-pres-antes"><option>1 hora</option><option>30 minutos</option><option>2 horas</option></select>
+                  </div>
+                  <div class="field">
+                    <label class="label" for="cfg-pres-dep">Presencial — depois</label>
+                    <select class="select" id="cfg-pres-dep"><option>3 horas</option><option>2 horas</option><option>4 horas</option></select>
+                  </div>
+                </div>
+                <div class="cols3">
+                  <div class="field">
+                    <label class="label" for="cfg-on-antes">Online — antes</label>
+                    <select class="select" id="cfg-on-antes"><option>30 minutos</option><option>1 hora</option></select>
+                  </div>
+                  <div class="field">
+                    <label class="label" for="cfg-on-dep">Online — depois</label>
+                    <select class="select" id="cfg-on-dep"><option>2 horas</option><option>1 hora</option></select>
+                  </div>
+                </div>
+                <div class="notice notice--attention">
+                  <svg class="notice__mark" width="16" height="16" aria-hidden="true"><use href="#ic-alert"/></svg>
+                  <p class="small">Compromisso criado à mão sem modalidade cai na margem de <span class="strong">presencial</span>. Esta tela é onde essa regra deixa de ser invisível: o campo de modalidade passa a ser obrigatório na criação manual.</p>
+                </div>
+                <label class="check"><input type="checkbox" checked><span>Bloquear sábado e domingo na grade da semana</span></label>
+                <label class="check"><input type="checkbox"><span>Avisar quando dois compromissos ficarem sem margem entre eles</span></label>
+              </div>
+              <div class="card__foot" style="display:flex;justify-content:flex-end;gap:var(--space-2)">
+                <button class="btn btn--ghost btn--sm">Descartar</button>
+                <button class="btn btn--primary btn--sm">Salvar agenda</button>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card__head"><h2 class="card__title">Aparência</h2></div>
+              <div class="card__body stack">
+                <fieldset style="border:0;padding:0;margin:0">
+                  <legend class="label" style="margin-bottom:var(--space-2)">Tema</legend>
+                  <div class="row-wrap">
+                    <label class="check"><input type="radio" name="tema" checked><span>Seguir o sistema</span></label>
+                    <label class="check"><input type="radio" name="tema"><span>Claro</span></label>
+                    <label class="check"><input type="radio" name="tema"><span>Escuro</span></label>
+                  </div>
+                </fieldset>
+                <p class="hint">Hoje o app tem o botão de tema e <span class="strong">zero</span> classes de tema escuro: o controle existe e não muda nada. Ele só passa a valer depois do FE-21 (cor vira token) — até lá fica desabilitado, com esta explicação, em vez de mentir.</p>
+              </div>
+            </div>
+
+            <div class="card danger-zone">
+              <div class="card__head"><h2 class="card__title">Zona de risco</h2></div>
+              <div class="card__body">
+                <div class="between" style="flex-wrap:wrap;gap:var(--space-4)">
+                  <div>
+                    <p class="strong">Apagar todos os dados locais do aparelho</p>
+                    <p class="small muted">Some com a fila de sincronização que ainda não subiu. Não tem volta.</p>
+                  </div>
+                  <button class="btn btn--danger btn--sm" data-open="dlg-apagar">Apagar dados locais…</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== PADRÕES QUE FALTAM ==================== -->
+      <section class="screen" id="s-padroes">
+        <div class="page__head">
+          <div>
+            <h1 class="page__title">Padrões que faltam</h1>
+            <p class="page__sub">Os quatro que não existem em lugar nenhum do app — e são eles que destravam a limpeza do resto.</p>
+          </div>
+        </div>
+
+        <h2 style="margin-bottom:var(--space-3)">1. Diálogo de confirmação</h2>
+        <p class="prose muted" style="margin-bottom:var(--space-4)">Mata os <span class="strong">114</span> <code>alert()</code>/<code>confirm()</code> de 27 arquivos. Três regras que o nativo não dá: o rótulo do botão diz a ação (nunca “OK”), o foco abre no <span class="strong">Cancelar</span>, e clicar fora <span class="strong">não</span> fecha — em ação sem volta, fechar por engano é perda de dado.</p>
+
+        <div class="cols3" style="margin-bottom:var(--space-8)">
+          <div class="card">
+            <div class="card__body">
+              <h3 style="margin-bottom:var(--space-2)">Simples</h3>
+              <p class="small muted" style="margin-bottom:var(--space-4)">Consequência moderada e localizada.</p>
+              <button class="btn btn--outline btn--block" data-open="dlg-excluir">Excluir um item</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card__body">
+              <h3 style="margin-bottom:var(--space-2)">Com consequências</h3>
+              <p class="small muted" style="margin-bottom:var(--space-4)">Lista o que se perde antes de perguntar.</p>
+              <button class="btn btn--outline btn--block" data-open="dlg-descartar">Descartar um envio</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card__body">
+              <h3 style="margin-bottom:var(--space-2)">Com digitação</h3>
+              <p class="small muted" style="margin-bottom:var(--space-4)">Catastrófica: exige escrever o nome.</p>
+              <button class="btn btn--outline btn--block" data-open="dlg-apagar">Apagar dados locais</button>
+            </div>
+          </div>
+        </div>
+
+        <h2 style="margin-bottom:var(--space-3)">2. Campo de formulário</h2>
+        <p class="prose muted" style="margin-bottom:var(--space-4)">Hoje um único arquivo usa o primitivo <code>Input</code> e há ~200 campos crus, 29 só na ficha do cliente. O campo completo é rótulo + controle + ajuda + erro, com o erro carregando ícone e texto — nunca só a borda vermelha.</p>
+
+        <div class="cols3" style="margin-bottom:var(--space-8)">
+          <div class="card"><div class="card__body stack">
+            <div class="field"><label class="label" for="d-1">Normal</label><input class="input" id="d-1" placeholder="Digite aqui"><p class="hint">Texto de ajuda fica abaixo do campo.</p></div>
+            <div class="field"><label class="label" for="d-2">Opcional <span class="opt">(opcional)</span></label><input class="input" id="d-2"></div>
+          </div></div>
+          <div class="card"><div class="card__body stack">
+            <div class="field" data-invalid="true"><label class="label" for="d-3">Com erro <span class="req" aria-hidden="true">*</span></label><input class="input" id="d-3" value="10 dias úteis" aria-invalid="true" aria-describedby="d-3-e"><p class="error-text" id="d-3-e">Use um número seguido de hora, dia, semana ou mês. “10 dias úteis” não vira prazo e o item nunca vence.</p></div>
+            <div class="field"><label class="label" for="d-4">Desabilitado</label><input class="input" id="d-4" value="Herdado do contrato" disabled></div>
+          </div></div>
+          <div class="card"><div class="card__body stack">
+            <div class="field"><label class="label" for="d-5">Seleção</label><select class="select" id="d-5"><option>Presencial</option><option>Online</option></select></div>
+            <div class="field"><label class="label" for="d-6">Texto longo</label><textarea class="textarea" id="d-6" placeholder="Situação encontrada"></textarea></div>
+          </div></div>
+        </div>
+
+        <h2 style="margin-bottom:var(--space-3)">3. Vazio, carregando e erro</h2>
+        <p class="prose muted" style="margin-bottom:var(--space-4)">Três estados diferentes, três mensagens diferentes. O erro de busca (“não achei com este filtro”) não é o vazio de primeira vez (“ainda não há nada”), e nenhum dos dois é a falha de carregamento.</p>
+
+        <div class="cols3" style="margin-bottom:var(--space-8)">
+          <div class="card">
+            <div class="card__body card__body--flush">
+              <div class="empty">
+                <svg class="empty__icon" aria-hidden="true"><use href="#ic-inbox"/></svg>
+                <p class="empty__title">Nenhuma solicitação ainda</p>
+                <p class="empty__body">Quando um cliente pedir alguma coisa pelo portal, ela aparece aqui.</p>
+                <div class="empty__actions"><button class="btn btn--primary btn--sm">Abrir uma no lugar dele</button></div>
+              </div>
+            </div>
+            <div class="card__foot small muted">Vazio de primeira vez — tem ação de criar.</div>
+          </div>
+
+          <div class="card">
+            <div class="card__body card__body--flush">
+              <div class="empty">
+                <svg class="empty__icon" aria-hidden="true"><use href="#ic-filter"/></svg>
+                <p class="empty__title">Nada com este filtro</p>
+                <p class="empty__body">Não há solicitação nova de “Clínica Aurora” nos últimos 7 dias. Há 5 em andamento.</p>
+                <div class="empty__actions"><button class="btn btn--outline btn--sm">Limpar filtros</button></div>
+              </div>
+            </div>
+            <div class="card__foot small muted">Vazio de filtro — <span class="strong">não</span> oferece criar: o dado existe, só está escondido.</div>
+          </div>
+
+          <div class="card">
+            <div class="card__body card__body--flush">
+              <div class="empty" role="alert">
+                <svg class="empty__icon" style="color:var(--danger-soft-ink)" aria-hidden="true"><use href="#ic-alert"/></svg>
+                <p class="empty__title">Não deu para carregar as solicitações</p>
+                <p class="empty__body">A conexão caiu no meio do carregamento. Seus dados estão salvos.</p>
+                <div class="empty__actions"><button class="btn btn--primary btn--sm">Tentar de novo</button></div>
+                <p class="tiny dim" style="margin-top:var(--space-3)">Código do erro: SR-504 · <button class="btn btn--ghost btn--sm" type="button">Copiar</button></p>
+              </div>
+            </div>
+            <div class="card__foot small muted">Erro — sempre tem recuperação e nunca mostra a mensagem crua do servidor.</div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:var(--space-8)">
+          <div class="card__head"><h3 class="card__title">Carregando</h3><span class="small muted">a forma do que vem, não um giro no meio da tela</span></div>
+          <div class="card__body card__body--flush">
+            <div class="table-wrap" style="border:0;border-radius:0" aria-busy="true" aria-label="Carregando solicitações">
+              <table class="table" aria-hidden="true">
+                <thead><tr><th scope="col">Aberta em</th><th scope="col">Cliente</th><th scope="col">Assunto</th><th scope="col">Situação</th></tr></thead>
+                <tbody>
+                  <tr><td><span class="skel skel--text" style="width:44px;display:block"></span></td><td><span class="skel skel--text" style="width:70%;display:block"></span></td><td><span class="skel skel--text" style="width:90%;display:block"></span></td><td><span class="skel skel--text" style="width:56px;display:block"></span></td></tr>
+                  <tr><td><span class="skel skel--text" style="width:44px;display:block"></span></td><td><span class="skel skel--text" style="width:55%;display:block"></span></td><td><span class="skel skel--text" style="width:75%;display:block"></span></td><td><span class="skel skel--text" style="width:56px;display:block"></span></td></tr>
+                  <tr><td><span class="skel skel--text" style="width:44px;display:block"></span></td><td><span class="skel skel--text" style="width:64%;display:block"></span></td><td><span class="skel skel--text" style="width:82%;display:block"></span></td><td><span class="skel skel--text" style="width:56px;display:block"></span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="card__foot small muted">Mesma altura de linha e mesmas colunas da tabela real — esqueleto de forma diferente dá um solavanco que parece mais lento do que não ter esqueleto nenhum.</div>
+        </div>
+
+        <h2 style="margin-bottom:var(--space-3)">4. Menu de ações da linha</h2>
+        <p class="prose muted" style="margin-bottom:var(--space-4)">Duas ações cabem na linha. Da terceira em diante vão para o menu, com a destrutiva no fim, separada por divisória. Abre no clique, anda com as setas, fecha no <kbd>Esc</kbd> e devolve o foco ao botão.</p>
+        <div class="card" style="max-width:520px">
+          <div class="card__body row-wrap">
+            <button class="btn btn--outline btn--sm">Responder</button>
+            <div class="rowmenu">
+              <button class="btn btn--ghost btn--icon btn--sm" aria-label="Mais ações" aria-haspopup="menu" aria-expanded="false" data-menu="m-demo">⋮</button>
+              <div class="rowmenu__list" id="m-demo" role="menu" hidden>
+                <button role="menuitem" type="button">Atribuir a outra consultora</button>
+                <button role="menuitem" type="button">Transformar em visita</button>
+                <button role="menuitem" type="button">Marcar como respondida</button>
+                <hr>
+                <button role="menuitem" type="button" class="danger" data-open="dlg-excluir">Descartar…</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== DE-PARA DE COR ==================== -->
+      <section class="screen" id="s-cores">
+        <div class="page__head">
+          <div>
+            <h1 class="page__title">De-para de cor</h1>
+            <p class="page__sub">As 2.856 classes cruas do Tailwind e para onde cada família vai. É esta tabela que torna o FE-21 mecânico em vez de 2.856 decisões de gosto.</p>
+          </div>
+        </div>
+
+        <div class="notice notice--danger" style="margin-bottom:var(--space-5)">
+          <svg class="notice__mark" width="16" height="16" aria-hidden="true"><use href="#ic-alert"/></svg>
+          <div>
+            <p class="strong">A conversão não é 1 para 1 e não pode ser feita por regex sozinho.</p>
+            <p class="small">Duas famílias inteiras não têm equivalente na marca (violeta e sky), e <code>text-gray-400</code> reprova em contraste (2,54:1 sobre branco) — trocar por um token de mesmo tom perpetua a falha. Cada linha marcada exige olhar o uso.</p>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <div class="table-scroll">
+            <table class="table">
+              <caption class="sr-only">Conversão das classes de cor cruas para os tokens da marca</caption>
+              <thead>
+                <tr><th scope="col">Classe crua</th><th scope="col">Vira</th><th scope="col">Token</th><th scope="col">Papel</th><th scope="col">Ressalva</th></tr>
+              </thead>
+              <tbody>
+                <tr class="group-row"><td colspan="5">Texto</td></tr>
+                <tr><td><code>text-gray-900</code> · <code>text-gray-950</code></td><td class="table__primary"><span class="sw" style="background:#0B1F3A"></span>text-navy</td><td><code>--ink</code> #0B1F3A</td><td>título, corpo, estrutura</td><td class="muted">—</td></tr>
+                <tr><td><code>text-gray-600</code> · <code>text-gray-700</code></td><td class="table__primary"><span class="sw" style="background:#41556F"></span>text-ink-2</td><td><code>--ink-2</code> #41556F</td><td>apoio, legenda de coluna</td><td class="muted">—</td></tr>
+                <tr><td><code>text-gray-500</code></td><td class="table__primary"><span class="sw" style="background:#54657B"></span>text-ink-3</td><td><code>--ink-3</code> #54657B</td><td>metadado, placeholder</td><td class="muted">o tom mais claro que existe — não há cinza claro de texto</td></tr>
+                <tr><td><code>text-gray-400</code></td><td class="table__primary"><span class="sw" style="background:#54657B"></span>text-ink-3</td><td><code>--ink-3</code></td><td>metadado</td><td><span class="badge badge--danger">reprova hoje</span> 2,54:1 — a troca <span class="strong">corrige</span> um erro de contraste, conferir se o tamanho ainda faz sentido</td></tr>
+                <tr class="group-row"><td colspan="5">Superfície e traço</td></tr>
+                <tr><td><code>bg-white</code></td><td class="table__primary"><span class="sw" style="background:#FFFFFF"></span>bg-surface</td><td><code>--surface</code></td><td>cartão, tabela</td><td class="muted">—</td></tr>
+                <tr><td><code>bg-gray-50</code> · <code>bg-slate-50</code></td><td class="table__primary"><span class="sw" style="background:#E4ECF6"></span>bg-surface-sunken</td><td><code>--surface-sunken</code> #E4ECF6</td><td>cabeçalho de tabela, rodapé, rail</td><td class="muted">—</td></tr>
+                <tr><td><code>border-gray-200</code></td><td class="table__primary"><span class="sw" style="background:#CBD9EA"></span>border-default</td><td><code>--border</code> #CBD9EA</td><td>divisória decorativa</td><td><span class="badge badge--attention"><span class="dot"></span>atenção</span> se delimita <span class="strong">campo</span>, vai para <code>--border-control</code> #7688A2 (3:1 obrigatório)</td></tr>
+                <tr class="group-row"><td colspan="5">Ação — azul TreinaVISA</td></tr>
+                <tr><td><code>bg-blue-600</code> · <code>bg-blue-700</code> · <code>bg-indigo-600</code></td><td class="table__primary"><span class="sw" style="background:#244A9B"></span>bg-primary</td><td><code>--accent</code> #244A9B</td><td>ação principal</td><td class="muted">—</td></tr>
+                <tr><td><code>text-blue-600</code> · <code>text-blue-700</code></td><td class="table__primary"><span class="sw" style="background:#1D3D80"></span>text-accent-ink</td><td><code>--accent-ink</code> #1D3D80</td><td>link em fundo claro</td><td class="muted">—</td></tr>
+                <tr><td><code>bg-blue-50</code> · <code>bg-indigo-50</code></td><td class="table__primary"><span class="sw" style="background:#EAF3FC"></span>bg-primary-50</td><td><code>--accent-soft</code> #EAF3FC</td><td>fundo de leitura, item ativo</td><td class="muted">—</td></tr>
+                <tr class="group-row"><td colspan="5">Semântica</td></tr>
+                <tr><td><code>bg-green-100</code> · <code>bg-emerald-100</code></td><td class="table__primary"><span class="sw" style="background:#E4F3EB"></span>bg-success-soft</td><td><code>--success-soft</code></td><td>sucesso</td><td class="muted">texto vai a <code>--success-soft-ink</code> #0A5734</td></tr>
+                <tr><td><code>bg-red-50</code> · <code>text-red-700</code></td><td class="table__primary"><span class="sw" style="background:#FBE9E7"></span>bg-danger-soft</td><td><code>--danger-soft</code></td><td>erro</td><td class="muted">—</td></tr>
+                <tr><td><code>bg-yellow-100</code> · <code>bg-amber-100</code></td><td class="table__primary"><span class="sw" style="background:#FBF0DC"></span>bg-amber-soft</td><td><code>--amber-soft</code></td><td>prazo, atenção</td><td><span class="badge badge--attention"><span class="dot"></span>atenção</span> ícone e indicador pequeno usam <code>--amber-strong</code> #AE7714; o âmbar puro #D99721 dá 2,50:1 e só serve para preenchimento grande</td></tr>
+                <tr class="group-row"><td colspan="5">Sem equivalente na marca</td></tr>
+                <tr><td><code>bg-violet-100</code> · <code>text-violet-700</code></td><td class="table__primary">—</td><td class="muted">não existe</td><td>usado em “Média de conformidade”</td><td><span class="badge badge--danger">decisão</span> vira <code>--accent-soft</code> (é indicador, não estado) — cada uso precisa ser lido</td></tr>
+                <tr><td><code>bg-sky-100</code> · <code>text-sky-700</code></td><td class="table__primary">—</td><td class="muted">não existe</td><td>usado em “Ativas”</td><td><span class="badge badge--danger">decisão</span> vira <code>--teal-soft</code> se for estado operacional, <code>--accent-soft</code> se for informação</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="cols" style="margin-top:var(--space-5)">
+          <div class="card">
+            <div class="card__head"><h3 class="card__title">Como aplicar sem quebrar</h3></div>
+            <div class="card__body">
+              <ol class="findings">
+                <li><span class="n" aria-hidden="true">1</span><span>Converter família por família, um commit por família, com <code>npm run build</code> entre eles. Um commit de 2.856 trocas não é revisável.</span></li>
+                <li><span class="n" aria-hidden="true">2</span><span>As três linhas marcadas <span class="badge badge--danger">decisão</span> e <span class="badge badge--attention"><span class="dot"></span>atenção</span> saem do lote: são leitura de uso, não substituição.</span></li>
+                <li><span class="n" aria-hidden="true">3</span><span>Depois de cada família, rodar o medidor de contraste do Artefato A — ele mede os pares a partir dos tokens vigentes e reprova sozinho.</span></li>
+                <li><span class="n" aria-hidden="true">4</span><span>Só depois de zerar a última família é que o FE-12 (tema escuro) passa a ser possível: é aí que existe o que trocar.</span></li>
+              </ol>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card__head"><h3 class="card__title">O que isso resolve de uma vez</h3></div>
+            <div class="card__body stack" style="--gap:var(--space-3)">
+              <div class="between"><span class="small">Cor da marca dentro do app</span><span class="badge badge--success">de 17% para 100%</span></div>
+              <div class="meter"><div class="meter__fill meter__fill--success" style="width:100%"></div></div>
+              <p class="small muted">Hoje são ~600 usos de token contra 2.856 de classe crua — a paleta oficial perde de quase 5 para 1 dentro do próprio produto que ela deveria vestir.</p>
+              <hr>
+              <p class="small"><span class="strong">Desbloqueia:</span> FE-12 (tema escuro), a revisão final de acessibilidade, e qualquer troca futura de tom da marca sem caçar classe no meio do JSX.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== PLANO FE-14+ ==================== -->
+      <section class="screen" id="s-plano">
+        <div class="page__head">
+          <div>
+            <h1 class="page__title">Plano — Onda 4</h1>
+            <p class="page__sub">Nove cards. Modelo, esforço e dependência de cada um. Só viram card no handoff depois da sua aprovação.</p>
+          </div>
+        </div>
+
+        <div class="table-wrap" style="margin-bottom:var(--space-8)">
+          <div class="table-scroll">
+            <table class="table">
+              <caption class="sr-only">Cards FE-14 a FE-22</caption>
+              <thead><tr><th scope="col">#</th><th scope="col">Tarefa</th><th scope="col">Modelo</th><th scope="col">Esforço</th><th scope="col">Depende de</th></tr></thead>
+              <tbody>
+                <tr><td class="table__primary">FE-14</td><td>Início unificado — absorve o Painel, <code>/painel</code> vira redirect, faixa “Desempenho” recolhida</td><td>Opus 5</td><td><span class="badge badge--attention">médio-alto</span></td><td class="muted">—</td></tr>
+                <tr><td class="table__primary">FE-15</td><td>Primitivo <code>ConfirmDialog</code> + migração dos 114 <code>alert()</code>/<code>confirm()</code></td><td>Opus 5 · lote no Codex</td><td><span class="badge badge--attention">médio</span></td><td class="muted"><code>Modal</code> (FE-04a ✅)</td></tr>
+                <tr><td class="table__primary">FE-16</td><td>Ficha do cliente com abas — os 7 achados do diagnóstico</td><td>Opus 5</td><td><span class="badge badge--danger">alto</span></td><td class="muted"><code>Tabs</code> (FE-04b ✅) · FE-15</td></tr>
+                <tr><td class="table__primary">FE-17</td><td>Rotas nunca desenhadas: Solicitações, Roteiros, Biblioteca</td><td>Sonnet 5</td><td><span class="badge badge--attention">médio</span></td><td class="muted"><code>Table</code> (FE-04b ✅)</td></tr>
+                <tr><td class="table__primary">FE-18</td><td>Sincronização — linha do tempo, estados e a fila que falhou</td><td>Sonnet 5</td><td><span class="badge badge--attention">médio</span></td><td class="muted">FE-15 (descartar exige confirmação)</td></tr>
+                <tr><td class="table__primary">FE-19</td><td>Configurações — nav de seção, salvar por seção, zona de risco</td><td>Sonnet 5</td><td><span class="badge badge--attention">médio</span></td><td class="muted">FE-15</td></tr>
+                <tr><td class="table__primary">FE-20</td><td>Estados vazio/carregando/erro padronizados + <code>PageHeader</code> nas 23 páginas restantes</td><td>Sonnet 5</td><td><span class="badge badge--attention">médio</span></td><td class="muted">—</td></tr>
+                <tr><td class="table__primary">FE-21</td><td>As 2.856 classes cruas viram token, família por família</td><td>Codex (medium)</td><td><span class="badge badge--danger">alto</span></td><td class="muted">de-para aprovado</td></tr>
+                <tr><td class="table__primary">FE-22</td><td>Listas restantes viram tabela densa: Clientes e Inspeções</td><td>Codex (medium)</td><td><span class="badge badge--success">baixo</span></td><td class="muted">FE-17 como exemplo</td></tr>
+                <tr><td class="table__primary">FE-12</td><td><span class="muted">(já existe)</span> Ligar o tema escuro no app inteiro</td><td>Sonnet 5</td><td><span class="badge badge--attention">médio</span></td><td class="muted"><span class="strong">FE-21</span> — impossível antes</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <h2 style="margin-bottom:var(--space-4)">Em que ordem</h2>
+        <div class="cols3">
+          <div class="plan-card" data-peso="alto">
+            <p class="plan-card__id">Primeiro — FE-15</p>
+            <p class="small muted" style="margin-top:var(--space-2)">É o único que outros três esperam. Enquanto não existir diálogo de confirmação, Ficha do cliente, Sincronização e Configurações precisariam usar <code>window.confirm</code> e depois ser reescritas.</p>
+            <div class="plan-card__meta"><span class="badge badge--info">destrava 3 cards</span><span class="badge badge--neutral">Opus 5</span></div>
+          </div>
+          <div class="plan-card">
+            <p class="plan-card__id">Depois — FE-14 e FE-16</p>
+            <p class="small muted" style="margin-top:var(--space-2)">São as duas telas que você vê todo dia: a de entrada e a ficha do cliente. Cada uma fecha um bloco inteiro do diagnóstico e nenhuma das duas depende da outra — podem ir em paralelo.</p>
+            <div class="plan-card__meta"><span class="badge badge--info">maior efeito visível</span><span class="badge badge--neutral">Opus 5</span></div>
+          </div>
+          <div class="plan-card">
+            <p class="plan-card__id">Em seguida — FE-17 a FE-20</p>
+            <p class="small muted" style="margin-top:var(--space-2)">As rotas que nunca foram desenhadas, mais a padronização de estados. Padrão já decidido neste artefato: é aplicação, não decisão. Cabe no Sonnet.</p>
+            <div class="plan-card__meta"><span class="badge badge--neutral">Sonnet 5</span></div>
+          </div>
+          <div class="plan-card" data-peso="alto">
+            <p class="plan-card__id">Por último — FE-21, FE-22 e FE-12</p>
+            <p class="small muted" style="margin-top:var(--space-2)">O trabalho mecânico de larga escala vai no fim de propósito: converter cor antes de as telas estarem no desenho final significa converter duas vezes. Com o desenho parado, o Codex faz em lote e o tema escuro cai de bônus.</p>
+            <div class="plan-card__meta"><span class="badge badge--neutral">Codex</span><span class="badge badge--attention">só depois do desenho parado</span></div>
+          </div>
+        </div>
+
+        <div class="notice notice--info" style="margin-top:var(--space-6)">
+          <svg class="notice__mark" width="16" height="16" aria-hidden="true"><use href="#ic-check"/></svg>
+          <div>
+            <p class="strong">O que este artefato não resolve, e não deve fingir que resolve.</p>
+            <p class="small">Continuam fora de escopo os quatro achados de dados do handoff (filtro de consultora do Painel comparando setor com nome, Painel contando item que o cliente não vê, prazo em texto livre virando item sem vencimento, e publicação silenciosa sem vínculo). São bugs de consulta, não de layout — o redesenho torna alguns deles mais visíveis, e nenhum deles menos verdadeiro.</p>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<!-- ================= GAVETA DE NAVEGAÇÃO (celular) ================= -->
+<dialog class="drawer drawer--left" id="dlg-nav" aria-label="Navegação">
+  <div class="drawer__head">
+    <div class="row"><span class="rail__mark" aria-hidden="true">IV</span><strong>InspecVISA</strong></div>
+    <button class="btn btn--ghost btn--icon btn--sm" data-close aria-label="Fechar menu"><svg width="16" height="16" aria-hidden="true"><use href="#ic-x"/></svg></button>
+  </div>
+  <nav class="drawer__body">
+    <p class="rail__group-title">Diagnóstico</p>
+    <a class="rail__link" href="#/diagnostico" data-close><svg width="18" height="18" aria-hidden="true"><use href="#ic-alert"/></svg><span>Antes e depois</span></a>
+    <p class="rail__group-title">Telas novas</p>
+    <a class="rail__link" href="#/inicio" data-close><svg width="18" height="18" aria-hidden="true"><use href="#ic-home"/></svg><span>Início</span></a>
+    <a class="rail__link" href="#/cliente" data-close><svg width="18" height="18" aria-hidden="true"><use href="#ic-users"/></svg><span>Ficha do cliente</span></a>
+    <a class="rail__link" href="#/solicitacoes" data-close><svg width="18" height="18" aria-hidden="true"><use href="#ic-headset"/></svg><span>Solicitações</span></a>
+    <a class="rail__link" href="#/roteiros" data-close><svg width="18" height="18" aria-hidden="true"><use href="#ic-file"/></svg><span>Roteiros</span></a>
+    <a class="rail__link" href="#/biblioteca" data-close><svg width="18" height="18" aria-hidden="true"><use href="#ic-book"/></svg><span>Biblioteca</span></a>
+    <a class="rail__link" href="#/sincronizacao" data-close><svg width="18" height="18" aria-hidden="true"><use href="#ic-activity"/></svg><span>Sincronização</span></a>
+    <a class="rail__link" href="#/configuracoes" data-close><svg width="18" height="18" aria-hidden="true"><use href="#ic-settings"/></svg><span>Configurações</span></a>
+    <p class="rail__group-title">Sistema</p>
+    <a class="rail__link" href="#/padroes" data-close><svg width="18" height="18" aria-hidden="true"><use href="#ic-clipboard"/></svg><span>Padrões que faltam</span></a>
+    <a class="rail__link" href="#/cores" data-close><svg width="18" height="18" aria-hidden="true"><use href="#ic-image"/></svg><span>De-para de cor</span></a>
+    <a class="rail__link" href="#/plano" data-close><svg width="18" height="18" aria-hidden="true"><use href="#ic-check-circle"/></svg><span>Plano FE-14+</span></a>
+  </nav>
+</dialog>
+
+<!-- ================= DIÁLOGOS DE CONFIRMAÇÃO =================
+     role="alertdialog", data-guard impede fechar no backdrop, e o
+     data-autofocus fica no Cancelar — nunca no botão que destrói. -->
+<dialog class="modal" id="dlg-excluir" role="alertdialog" aria-labelledby="ex-t" aria-describedby="ex-d" data-guard="true" style="width:min(400px,92vw)">
+  <div class="modal__body" style="padding:var(--space-6)">
+    <div class="row" style="align-items:flex-start;gap:var(--space-3)">
+      <span class="toast__mark" style="width:32px;height:32px;background:var(--danger-soft);color:var(--danger-soft-ink);font-size:16px" aria-hidden="true">!</span>
+      <div>
+        <h2 id="ex-t" style="font-size:var(--text-lg)">Excluir a solicitação?</h2>
+        <p id="ex-d" class="small muted" style="margin-top:var(--space-2)">A solicitação de <span class="strong">ILPI Recanto</span> sai da lista e o cliente deixa de vê-la no portal. Não tem como desfazer.</p>
+      </div>
+    </div>
+  </div>
+  <div class="modal__foot">
+    <button class="btn btn--outline" data-close data-autofocus>Cancelar</button>
+    <button class="btn btn--danger" data-close data-toast="Solicitação excluída." data-toast-tipo="success">Excluir solicitação</button>
+  </div>
+</dialog>
+
+<dialog class="modal" id="dlg-descartar" role="alertdialog" aria-labelledby="dc-t" aria-describedby="dc-d" data-guard="true" style="width:min(430px,92vw)">
+  <div class="modal__body" style="padding:var(--space-6)">
+    <div class="row" style="align-items:flex-start;gap:var(--space-3)">
+      <span class="toast__mark" style="width:32px;height:32px;background:var(--amber-soft);color:var(--amber-soft-ink);font-size:16px" aria-hidden="true">!</span>
+      <div>
+        <h2 id="dc-t" style="font-size:var(--text-lg)">Descartar este envio?</h2>
+        <p id="dc-d" class="small muted" style="margin-top:var(--space-2)">Você perde:</p>
+        <ul class="small muted" style="margin:var(--space-2) 0 0;padding-left:var(--space-5)">
+          <li>a foto <code>area-manipulacao-01.jpg</code>, que só existe no aparelho;</li>
+          <li>o vínculo dela com o item “Barreira física entre recebimento e manipulação”;</li>
+          <li>a evidência no relatório já publicado, que passa a citar um arquivo ausente.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="modal__foot">
+    <button class="btn btn--outline" data-close data-autofocus>Cancelar</button>
+    <button class="btn btn--danger" data-close data-toast="Envio descartado." data-toast-tipo="attention">Descartar envio</button>
+  </div>
+</dialog>
+
+<dialog class="modal" id="dlg-apagar" role="alertdialog" aria-labelledby="ap-t" aria-describedby="ap-d" data-guard="true" style="width:min(430px,92vw)">
+  <div class="modal__body" style="padding:var(--space-6)">
+    <div class="row" style="align-items:flex-start;gap:var(--space-3)">
+      <span class="toast__mark" style="width:32px;height:32px;background:var(--danger-soft);color:var(--danger-soft-ink);font-size:16px" aria-hidden="true">!</span>
+      <div class="grow">
+        <h2 id="ap-t" style="font-size:var(--text-lg)">Apagar todos os dados locais?</h2>
+        <p id="ap-d" class="small muted" style="margin-top:var(--space-2)">Há <span class="strong">3 itens na fila</span> que ainda não subiram para o servidor. Eles somem para sempre.</p>
+        <div class="field" style="margin-top:var(--space-4)">
+          <label class="label" for="ap-conf">Escreva <code>APAGAR</code> para liberar o botão</label>
+          <input class="input" id="ap-conf" autocomplete="off" data-confirma="APAGAR" data-libera="ap-btn" placeholder="APAGAR">
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal__foot">
+    <button class="btn btn--outline" data-close data-autofocus>Cancelar</button>
+    <button class="btn btn--danger" id="ap-btn" data-close disabled data-toast="Dados locais apagados." data-toast-tipo="success">Apagar dados locais</button>
+  </div>
+</dialog>
+
+<script>
+  /* ---------- Rail ---------- */
+  (function () {
+    var app = document.getElementById('app');
+    var bt = document.getElementById('rail-toggle');
+    bt.addEventListener('click', function () {
+      var fechado = app.getAttribute('data-rail') === 'closed';
+      app.setAttribute('data-rail', fechado ? 'open' : 'closed');
+      bt.setAttribute('aria-pressed', String(!fechado));
+      bt.setAttribute('aria-label', fechado ? 'Recolher a navegação' : 'Expandir a navegação');
+    });
+  })();
+
+  /* ---------- Mostrar/ocultar senha ---------- */
+  document.addEventListener('click', function (ev) {
+    var bt = ev.target.closest('[data-reveal]');
+    if (!bt) return;
+    var campo = document.getElementById(bt.getAttribute('data-reveal'));
+    var oculto = campo.type === 'password';
+    campo.type = oculto ? 'text' : 'password';
+    bt.textContent = oculto ? 'Ocultar' : 'Mostrar';
+    bt.setAttribute('aria-pressed', String(oculto));
+  });
+
+  /* ---------- Confirmação por digitação ----------
+     O botão destrutivo só acorda quando a palavra bate exatamente. */
+  document.addEventListener('input', function (ev) {
+    var campo = ev.target.closest('[data-confirma]');
+    if (!campo) return;
+    var alvo = document.getElementById(campo.getAttribute('data-libera'));
+    alvo.disabled = campo.value.trim() !== campo.getAttribute('data-confirma');
+  });
+
+  /* ---------- Aviso ao confirmar ---------- */
+  document.addEventListener('click', function (ev) {
+    var bt = ev.target.closest('[data-toast]');
+    if (!bt || bt.disabled) return;
+    if (window.avisar) window.avisar({ kind: bt.getAttribute('data-toast-tipo') || 'success', title: bt.getAttribute('data-toast') });
+  });
+
+  /* ---------- Menu de linha ----------
+     Abre no clique, anda com as setas, Esc fecha e devolve o foco ao botão. */
+  (function () {
+    var aberto = null;
+
+    function fechar() {
+      if (!aberto) return;
+      var lista = document.getElementById(aberto.getAttribute('data-menu'));
+      lista.hidden = true;
+      aberto.setAttribute('aria-expanded', 'false');
+      aberto = null;
+    }
+
+    document.addEventListener('click', function (ev) {
+      var bt = ev.target.closest('[data-menu]');
+      if (bt) {
+        ev.preventDefault();
+        var jaAberto = aberto === bt;
+        fechar();
+        if (jaAberto) return;
+        var lista = document.getElementById(bt.getAttribute('data-menu'));
+        lista.hidden = false;
+        bt.setAttribute('aria-expanded', 'true');
+        aberto = bt;
+        var primeiro = lista.querySelector('button');
+        if (primeiro) primeiro.focus();
+        return;
+      }
+      if (!ev.target.closest('.rowmenu__list')) fechar();
+    });
+
+    document.addEventListener('keydown', function (ev) {
+      if (!aberto) return;
+      var lista = document.getElementById(aberto.getAttribute('data-menu'));
+      var itens = Array.prototype.slice.call(lista.querySelectorAll('button'));
+      var i = itens.indexOf(document.activeElement);
+
+      if (ev.key === 'Escape') { ev.preventDefault(); var b = aberto; fechar(); b.focus(); return; }
+      if (ev.key === 'ArrowDown') { ev.preventDefault(); itens[(i + 1) % itens.length].focus(); return; }
+      if (ev.key === 'ArrowUp') { ev.preventDefault(); itens[(i - 1 + itens.length) % itens.length].focus(); return; }
+      if (ev.key === 'Home') { ev.preventDefault(); itens[0].focus(); return; }
+      if (ev.key === 'End') { ev.preventDefault(); itens[itens.length - 1].focus(); }
+    });
+  })();
+
+  /* ---------- Roteador por hash ---------- */
+  var TELAS = {
+    diagnostico: 's-diagnostico', inicio: 's-inicio', cliente: 's-cliente',
+    solicitacoes: 's-solicitacoes', roteiros: 's-roteiros', biblioteca: 's-biblioteca',
+    sincronizacao: 's-sincronizacao', configuracoes: 's-configuracoes',
+    padroes: 's-padroes', cores: 's-cores', plano: 's-plano'
+  };
+
+  function irPara(hash) { location.hash = hash; }
+
+  function rotear() {
+    var rota = (location.hash.replace('#/', '') || 'diagnostico').split('?')[0];
+    if (!TELAS[rota]) rota = 'diagnostico';
+
+    Object.keys(TELAS).forEach(function (k) {
+      document.getElementById(TELAS[k]).hidden = (k !== rota);
+    });
+
+    document.querySelectorAll('.rail__link').forEach(function (a) {
+      var alvo = (a.getAttribute('href') || '').replace('#/', '');
+      if (alvo === rota) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    });
+    window.scrollTo(0, 0);
+  }
+
+  window.addEventListener('hashchange', rotear);
+  rotear();
+</script>
