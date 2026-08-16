@@ -7,15 +7,12 @@ import {
   ChevronDown,
   ChevronUp,
   FileWarning,
-  Gauge,
   Headset,
   Inbox,
   Loader2,
   MessageCircleQuestion,
   RefreshCw,
 } from 'lucide-react';
-import type { Client } from '../types';
-import { ClientService } from '../services/clientService';
 import {
   OperationalOverviewService,
   type OperationalBlock,
@@ -24,31 +21,16 @@ import {
   type OperationalItem,
   type OperationalItemFilters,
   type OperationalItemsResult,
-} from '../services/operationalOverviewService';
-import { AppointmentAdminService } from '../services/appointmentAdminService';
-import { PageShell } from '../components/ui/PageShell';
-import { requestDateTimeValue } from '../components/schedules/appointmentRequestsShared';
+} from '../../services/operationalOverviewService';
+import { AppointmentAdminService } from '../../services/appointmentAdminService';
+import { requestDateTimeValue } from '../schedules/appointmentRequestsShared';
 
 /**
- * P360-013 — painel operacional das consultoras.
- *
- * A pergunta que a tela responde é sempre a mesma dos outros painéis desta base (ver
- * `ServiceRequests.tsx`): **o que exige ação agora?** Aqui a resposta é agregada — seis blocos,
- * cada um com sua própria contagem e sua própria lista, carregados de forma independente para
- * que a queda de um não derrube os outros (critério de aceite do card).
- *
- * Financeiro fica visualmente à parte dos blocos técnicos de propósito: são naturezas de
- * pendência diferentes, e misturar os dois na mesma lista esconderia a distinção que a
- * consultora precisa enxergar de cara.
+ * As 7 filas do antigo `/painel` (P360-013), absorvidas pelo Início (FE-14). O filtro de
+ * consultora, unidade e janela de dias mora no `Dashboard.tsx` — este componente só recebe os
+ * valores já resolvidos e cuida da contagem + expansão de cada bloco. Cada bloco carrega de
+ * forma independente: uma falha aqui nunca deve tocar o estado de outro bloco.
  */
-
-const CONSULTANTS = ['Ester Caiafa', 'Ana Roberta Ribeiro'];
-
-const DAYS_AHEAD_OPTIONS = [
-  { value: 7, label: '7 dias' },
-  { value: 14, label: '14 dias' },
-  { value: 30, label: '30 dias' },
-];
 
 interface BlockConfig {
   key: OperationalBlock;
@@ -181,6 +163,16 @@ interface BlockState {
 
 const EMPTY_BLOCK_STATE: BlockState = { items: [], totalCount: 0, loading: false, error: null, expanded: false };
 
+const EMPTY_BLOCK_STATES: Record<OperationalBlock, BlockState> = {
+  appointments: EMPTY_BLOCK_STATE,
+  appointment_requests_pending: EMPTY_BLOCK_STATE,
+  requests_new: EMPTY_BLOCK_STATE,
+  awaiting_client: EMPTY_BLOCK_STATE,
+  evidence_pending: EMPTY_BLOCK_STATE,
+  action_items_overdue: EMPTY_BLOCK_STATE,
+  financial_pending: EMPTY_BLOCK_STATE,
+};
+
 function ItemRow({
   item,
   block,
@@ -312,34 +304,20 @@ function BlockCard({
   );
 }
 
-export function OperationalPanel() {
-  const [clients, setClients] = useState<Client[]>([]);
-  const [consultantName, setConsultantName] = useState('');
-  const [clientId, setClientId] = useState('');
-  const [daysAhead, setDaysAhead] = useState(14);
+export interface OperationalQueuesProps {
+  consultantName: string | null;
+  clientId: string | null;
+  daysAhead: number;
+}
 
+export function OperationalQueues({ consultantName, clientId, daysAhead }: OperationalQueuesProps) {
   const [counts, setCounts] = useState<OperationalCounts | null>(null);
   const [countsLoading, setCountsLoading] = useState(true);
   const [countsError, setCountsError] = useState<string | null>(null);
-
-  const [blockStates, setBlockStates] = useState<Record<OperationalBlock, BlockState>>({
-    appointments: EMPTY_BLOCK_STATE,
-    appointment_requests_pending: EMPTY_BLOCK_STATE,
-    requests_new: EMPTY_BLOCK_STATE,
-    awaiting_client: EMPTY_BLOCK_STATE,
-    evidence_pending: EMPTY_BLOCK_STATE,
-    action_items_overdue: EMPTY_BLOCK_STATE,
-    financial_pending: EMPTY_BLOCK_STATE,
-  });
-
-  useEffect(() => {
-    ClientService.getClients()
-      .then(setClients)
-      .catch((err) => console.warn('[OperationalPanel] Falha ao carregar unidades:', err));
-  }, []);
+  const [blockStates, setBlockStates] = useState<Record<OperationalBlock, BlockState>>(EMPTY_BLOCK_STATES);
 
   const filters = useMemo(
-    () => ({ consultantName: consultantName || null, clientId: clientId || null, daysAhead }),
+    () => ({ consultantName, clientId, daysAhead }),
     [consultantName, clientId, daysAhead]
   );
 
@@ -364,15 +342,7 @@ export function OperationalPanel() {
   useEffect(() => {
     loadCounts();
     // Trocar filtro fecha as listas expandidas: o que estava carregado não reflete mais o filtro novo.
-    setBlockStates({
-      appointments: EMPTY_BLOCK_STATE,
-      appointment_requests_pending: EMPTY_BLOCK_STATE,
-      requests_new: EMPTY_BLOCK_STATE,
-      awaiting_client: EMPTY_BLOCK_STATE,
-      evidence_pending: EMPTY_BLOCK_STATE,
-      action_items_overdue: EMPTY_BLOCK_STATE,
-      financial_pending: EMPTY_BLOCK_STATE,
-    });
+    setBlockStates(EMPTY_BLOCK_STATES);
   }, [loadCounts]);
 
   // Cada bloco busca de forma isolada: uma falha aqui nunca deve tocar o estado de outro bloco.
@@ -419,16 +389,11 @@ export function OperationalPanel() {
   };
 
   return (
-    <PageShell>
-      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="flex items-center gap-2 text-2xl font-black tracking-tight text-gray-950">
-            <Gauge className="h-6 w-6 text-primary-700" /> Painel
-          </h1>
-          <p className="mt-1 text-sm text-gray-500">
-            O que exige ação agora, sem abrir cliente por cliente.
-          </p>
-        </div>
+    <div>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h2 className="text-sm font-bold uppercase tracking-wide text-gray-500">
+          O que exige ação agora
+        </h2>
         <button
           type="button"
           onClick={loadCounts}
@@ -436,41 +401,6 @@ export function OperationalPanel() {
         >
           <RefreshCw className="h-3.5 w-3.5" /> Atualizar
         </button>
-      </div>
-
-      <div className="mb-5 grid gap-2 sm:grid-cols-3">
-        <select
-          value={consultantName}
-          onChange={(e) => setConsultantName(e.target.value)}
-          aria-label="Filtrar por consultora"
-          className="rounded-md border border-gray-200 px-2.5 py-1.5 text-xs"
-        >
-          <option value="">Todas as consultoras</option>
-          {CONSULTANTS.map((name) => (
-            <option key={name} value={name}>{name}</option>
-          ))}
-        </select>
-        <select
-          value={clientId}
-          onChange={(e) => setClientId(e.target.value)}
-          aria-label="Filtrar por unidade"
-          className="rounded-md border border-gray-200 px-2.5 py-1.5 text-xs"
-        >
-          <option value="">Todas as unidades</option>
-          {clients.map((client) => (
-            <option key={client.id} value={client.id}>{client.name}</option>
-          ))}
-        </select>
-        <select
-          value={daysAhead}
-          onChange={(e) => setDaysAhead(Number(e.target.value))}
-          aria-label="Janela de compromissos próximos"
-          className="rounded-md border border-gray-200 px-2.5 py-1.5 text-xs"
-        >
-          {DAYS_AHEAD_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>Próximos {option.label}</option>
-          ))}
-        </select>
       </div>
 
       {countsError && (
@@ -514,6 +444,6 @@ export function OperationalPanel() {
           <Loader2 className="h-6 w-6 animate-spin text-primary-600" />
         </div>
       )}
-    </PageShell>
+    </div>
   );
 }

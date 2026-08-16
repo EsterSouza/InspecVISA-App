@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Gauge, Home, MoreHorizontal, PlusCircle, Users } from 'lucide-react';
+import { Home, MoreHorizontal, PlusCircle, Users } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { SyncIndicator } from '../ui/SyncIndicator';
 import { Drawer } from '../ui/Drawer';
@@ -8,14 +8,14 @@ import { STAFF_NAV_GROUPS, CLIENT_NAV_ITEMS, type NavItem } from './navConfig';
 
 /**
  * Barra de atalhos + gaveta "Mais": docs/HANDOFF-FRONTEND.md § FE-06. A barra
- * espelha o início da nova ordem do Sidebar (Início, Painel, Clientes); o
+ * espelha o início da nova ordem do Sidebar (Início, Clientes); o
  * resto de STAFF_NAV_GROUPS (Agendamentos, Inspeções, Solicitações, Roteiros,
- * Biblioteca, Sincronização, Configurações) mora na gaveta — antes esses 4
- * primeiros não tinham nenhum acesso no celular.
+ * Biblioteca, Sincronização, Configurações) mora na gaveta — antes esses
+ * primeiros não tinham nenhum acesso no celular. "Painel" existiu aqui até o
+ * FE-14, quando `/painel` foi absorvido por `/`.
  */
 const staffQuickItems: NavItem[] = [
   { to: '/', icon: Home, label: 'Início' },
-  { to: '/painel', icon: Gauge, label: 'Painel' },
   { to: '/clients', icon: Users, label: 'Clientes' },
 ];
 

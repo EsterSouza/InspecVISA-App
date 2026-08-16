@@ -16,7 +16,6 @@ HANDOFF.md dizia "não publicado" quando já estava no ar).
 | Rótulo na sidebar | Rota | Ícone |
 |---|---|---|
 | Início | `/` | Home |
-| Painel | `/painel` | Gauge |
 | Clientes | `/clients` | Users |
 | Roteiros | `/templates` | FileText |
 | Biblioteca | `/legislations` | BookOpen |
@@ -28,12 +27,14 @@ HANDOFF.md dizia "não publicado" quando já estava no ar).
 
 Rotas que existem mas não têm item próprio na sidebar (chegam por navegação interna, não pelo
 menu): `/clients/:id`, `/new`, `/execute`, `/summary`, `/templates/new`, `/templates/:id`,
-`/templates/:id/edit`, `/templates/import`, `/access-denied`, `/plano-de-acao`.
+`/templates/:id/edit`, `/templates/import`, `/access-denied`, `/plano-de-acao`, `/painel`
+(redirect para `/`, preservado por link salvo — ver FE-14 abaixo).
 
-## As três telas que mais se confundem entre si
+## As duas telas que mais se confundem entre si
 
-Já geraram dúvida real (15/08/2026): **Painel**, **Agendamentos** e **Solicitações** parecem a
-mesma coisa por nome, mas são domínios diferentes.
+Já geraram dúvida real (15/08/2026): **Agendamentos** e **Solicitações** parecem a mesma coisa por
+nome, mas são domínios diferentes. (Até 16/08/2026 havia uma terceira, **Painel** — absorvida pelo
+Início no FE-14, ver seção abaixo.)
 
 - **Agendamentos** (`Schedules.tsx`) tem duas sub-abas internas: **Agenda** (calendário da semana,
   compromissos confirmados) e **Pedidos de Visita** (`AppointmentRequestsPanel` — pedidos de
@@ -44,21 +45,16 @@ mesma coisa por nome, mas são domínios diferentes.
   atendimento do cliente ("preciso de orientação sobre X", segunda via de relatório), sem data nem
   duração. Separado de propósito da agenda desde o card P360-012 — o comentário no código registra
   que misturar as duas listas era "exatamente o que fazia o WhatsApp virar o canal padrão".
-- **Painel** (`OperationalPanel.tsx`, rota `/painel`) é um agregador (P360-013): junta num só lugar
-  compromissos próximos, pedidos de agendamento pendentes, solicitações novas e pendências
-  financeiras, com link direto para a tela de origem de cada item. É o "o que exige ação agora?"
-  de tudo junto — não substitui as outras duas, resume as duas.
 
 ## Todas as páginas
 
 | Rota | Arquivo | O que é | Quem usa / quando | Dados principais |
 |---|---|---|---|---|
-| `/` | `src/pages/Dashboard.tsx` | Home do staff: estatísticas de inspeções (ativas, concluídas, nota média), atenção do dia (prazos, sync pendente), não conformidades recorrentes. | Toda consultora, ao abrir o app. | Lê `inspections`, `schedules`, `responses` do Dexie local (`db`), agregando client-side. |
-| `/painel` | `src/pages/OperationalPanel.tsx` | Painel operacional agregador (ver seção acima). Seis blocos independentes (um falhar não derruba os outros). | Consultora que quer ver "o que precisa da minha atenção" sem entrar em cada tela. | `OperationalOverviewService` — agrega `appointment_requests`, `service_requests`, financeiro; cada bloco carrega e falha isolado. |
-| `/plano-de-acao` | `src/pages/ActionPlan.tsx` | Plano de ação do admin (FE-08): lista + detalhe de todas as pendências publicadas no portal, lendo `client_action_items` direto (não a RPC do Painel). Detalhe mostra `situation`/`recommended_action` inteiros, permite publicar/ocultar/resolver e revisar evidência do cliente — sem abrir relatório nem inspeção. | Consultora que clica num item vencido do Painel (`?item=`) ou no card "Plano de Ação" da ficha do cliente (`?client=`), ou navega direto para revisar tudo. | `AppointmentAdminService.listAllActionItems/listActionItemEvidence/setActionItemStatus`, `ClientService.getClients()` (nome do cliente). |
+| `/` | `src/pages/Dashboard.tsx` | Home do staff (FE-14, 16/08/2026): filtro de consultora/unidade/janela de dias no topo, seguido da fila operacional agregada — `OperationalQueues` (compromissos próximos, pedidos de agendamento, solicitações novas, clientes aguardando resposta, evidências pendentes, planos de ação vencidos, financeiro), cada bloco isolado. Estatísticas de inspeções (ativas, concluídas, nota média), visitas recentes e não conformidades recorrentes ficam num `<details>` "Desempenho" recolhido no fim — leitura de análise, não fila de trabalho. Absorveu o antigo `/painel` (P360-013); `/painel` agora só redireciona. | Toda consultora, ao abrir o app. | Lê `inspections`, `schedules`, `clients`, `responses` do Dexie local (`db`) para as estatísticas; `src/components/dashboard/OperationalQueues.tsx` chama `OperationalOverviewService` (RPC) para a fila. |
+| `/plano-de-acao` | `src/pages/ActionPlan.tsx` | Plano de ação do admin (FE-08): lista + detalhe de todas as pendências publicadas no portal, lendo `client_action_items` direto (não a RPC da fila operacional). Detalhe mostra `situation`/`recommended_action` inteiros, permite publicar/ocultar/resolver e revisar evidência do cliente — sem abrir relatório nem inspeção. | Consultora que clica num item vencido no bloco "Planos de ação vencidos" do Início (`?item=`) ou no card "Plano de Ação" da ficha do cliente (`?client=`), ou navega direto para revisar tudo. | `AppointmentAdminService.listAllActionItems/listActionItemEvidence/setActionItemStatus`, `ClientService.getClients()` (nome do cliente). |
 | `/clients` | `src/pages/Clients.tsx` | Cadastro de clientes (CRUD) + aba "portal" com contas de acesso do portal do cliente. | Consultora, ao cadastrar/editar cliente ou gerenciar acesso do portal. | `ClientService` (`clients`), `AppointmentAdminService.listPortalAccounts` (`client_portal_accounts`). |
 | `/clients/:id` | `src/pages/ClientDetails.tsx` | Ficha completa do cliente: histórico de inspeções, plano de ação, acesso do portal, trilha de auditoria, solicitações vinculadas, anexos publicados, agendar visita retroativa. Tela grande (1163 linhas) — é o hub de tudo daquele cliente. | Consultora, ao investigar ou preparar visita de um cliente específico. | `ClientService`, `InspectionService`, `AppointmentAdminService`, `ScheduleService` — lê e escreve em vários domínios ao mesmo tempo. |
-| `/schedules` | `src/pages/Schedules.tsx` | Ver seção "as três telas" acima. Agenda semanal + pedidos de visita. | Consultora, todo dia, para ver/confirmar compromissos. | `ScheduleService` (`schedules`), `AppointmentAdminService` (`appointment_requests`, `appointment_notification_log`). |
+| `/schedules` | `src/pages/Schedules.tsx` | Ver seção "as duas telas" acima. Agenda semanal + pedidos de visita. | Consultora, todo dia, para ver/confirmar compromissos. | `ScheduleService` (`schedules`), `AppointmentAdminService` (`appointment_requests`, `appointment_notification_log`). |
 | `/requests` | `src/pages/ServiceRequests.tsx` | Fila de pedidos de atendimento do cliente, organizada por "quem está esperando" (equipe/cliente/encerrado), não por status técnico. | Consultora, para responder pedidos que não são agendamento. | `ServiceRequestService` (`service_requests` + `service_request_events`). |
 | `/settings` | `src/pages/Settings.tsx` | Configuração local do dispositivo/perfil: logo do relatório, dados da consultora, backup/exportação do banco local, logout. | Consultora, uma vez por dispositivo (ou ao trocar de perfil). | `useSettingsStore` (local) + `SettingsService` (sync remoto do perfil). |
 | `/inspections` | `src/pages/Inspections.tsx` | Lista de todas as inspeções (em andamento/concluídas), com lixeira de excluídas. Ponto de entrada para retomar uma inspeção. | Consultora, para achar uma inspeção específica ou continuar uma em andamento. | `InspectionService.getAllInspections`, junta com `ClientService.getClients`. |

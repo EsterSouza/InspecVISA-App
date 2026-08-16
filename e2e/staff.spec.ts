@@ -114,12 +114,13 @@ test.describe('isolamento entre tenants no app interno', () => {
     for (const nome of nomesVistos) expect(nome).toContain(PREFIXO_HOMOLOG);
   });
 
-  test('o painel operacional abre e não mistura tenants', async ({ page }) => {
+  test('/painel redireciona pro Início, que traz a fila operacional sem misturar tenants', async ({ page }) => {
+    // FE-14: /painel foi absorvido pelo Início — a rota antiga só redireciona.
     await page.goto('/painel');
-    await expect(page.getByRole('heading', { name: /^Painel$/ })).toBeVisible({ timeout: 20_000 });
-    await expect(
-      page.getByText('O que exige ação agora, sem abrir cliente por cliente.')
-    ).toBeVisible();
+    await expect(page).toHaveURL(/\/$/, { timeout: 20_000 });
+    await expect(page.getByRole('heading', { name: /O que exige ação agora/i })).toBeVisible({
+      timeout: 20_000,
+    });
 
     await expect(page.getByText('[HOMOLOG] Unidade Do Outro Tenant')).toHaveCount(0);
   });

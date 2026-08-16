@@ -1,23 +1,20 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSettingsStore } from '../store/useSettingsStore';
-import type { Inspection, InspectionResponse, Schedule } from '../types';
+import type { Client, Inspection, InspectionResponse, Schedule } from '../types';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { PageShell } from '../components/ui/PageShell';
+import { OperationalQueues } from '../components/dashboard/OperationalQueues';
 import {
   AlertTriangle,
   ArrowRight,
-  BookOpen,
   Calendar,
   CheckCircle2,
   ClipboardCheck,
-  Clock,
-  FileText,
   Loader2,
   PlusCircle,
-  RefreshCw,
   TrendingUp,
   Users,
 } from 'lucide-react';
@@ -28,17 +25,16 @@ import { nutritionItemIds, type ConsultantArea } from '../utils/scoring';
 
 const TEAM_FILTER = '__all__';
 
+const DAYS_AHEAD_OPTIONS = [
+  { value: 7, label: '7 dias' },
+  { value: 14, label: '14 dias' },
+  { value: 30, label: '30 dias' },
+];
+
 type DashboardStats = {
   totalActive: number;
   totalCompleted: number;
   avgScore: number;
-};
-
-type AttentionStats = {
-  dueToday: number;
-  upcoming: number;
-  inProgress: number;
-  syncQueue: number;
 };
 
 type RecurringIssue = {
@@ -50,39 +46,12 @@ type RecurringIssue = {
 type RawData = {
   inspections: Inspection[];
   schedules: (Schedule & { clientName?: string })[];
+  clients: Client[];
   clientsById: Map<string, string>;
   responsesByInspection: Map<string, InspectionResponse[]>;
-  syncQueueCount: number;
   /** itemIds das seções de nutrição (atribuídas à nutricionista). */
   nutritionItemIds: Set<string>;
 };
-
-function startOfDay(date: Date) {
-  const next = new Date(date);
-  next.setHours(0, 0, 0, 0);
-  return next;
-}
-
-function endOfDay(date: Date) {
-  const next = new Date(date);
-  next.setHours(23, 59, 59, 999);
-  return next;
-}
-
-function getScheduleTiming(schedule: Schedule, now = new Date()) {
-  const todayStart = startOfDay(now);
-  const todayEnd = endOfDay(now);
-
-  if (schedule.scheduledAt < todayStart) {
-    return { label: 'Reagendar', variant: 'danger' as const, tone: 'text-red-600' };
-  }
-
-  if (schedule.scheduledAt <= todayEnd) {
-    return { label: 'Hoje', variant: 'warning' as const, tone: 'text-amber-600' };
-  }
-
-  return { label: 'Próximo', variant: 'default' as const, tone: 'text-primary-600' };
-}
 
 function getInspectionTarget(inspection: Inspection) {
   return inspection.status === 'in_progress' ? '/execute' : '/summary';
@@ -161,6 +130,8 @@ export function Dashboard() {
   const navigate = useNavigate();
   const [raw, setRaw] = useState<RawData | null>(null);
   const [consultantFilter, setConsultantFilter] = useState<string>(TEAM_FILTER);
+  const [clientId, setClientId] = useState('');
+  const [daysAhead, setDaysAhead] = useState(14);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -178,7 +149,6 @@ export function Dashboard() {
         const { ScheduleService } = await import('../services/scheduleService');
         const { ClientService } = await import('../services/clientService');
         const { InspectionService } = await import('../services/inspectionService');
-        const { SyncQueueService } = await import('../services/syncQueueService');
 
         const [allSchedules, clients, allInspections] = await Promise.all([
           ScheduleService.getSchedules(),
@@ -201,8 +171,6 @@ export function Dashboard() {
           })
         );
 
-        const queue = await SyncQueueService.getQueueSummary();
-
         // Conjunto de itens de nutrição a partir de TODOS os roteiros locais
         // (o roteiro ILPI ativo usa ids UUID, então vem do Dexie, não do estático).
         const localTemplates = await db.templates.toArray().catch(() => []);
@@ -220,9 +188,9 @@ export function Dashboard() {
         setRaw({
           inspections: allInspections,
           schedules,
+          clients,
           clientsById,
           responsesByInspection,
-          syncQueueCount: queue.pending + queue.syncing + queue.failed + queue.conflict,
           nutritionItemIds: nutritionIds,
         });
 
@@ -358,72 +326,8 @@ export function Dashboard() {
       .map(([id, count]) => ({ id, description: descriptions.get(id) || 'Item avaliado', count }));
   }, [raw, matchesFilter]);
 
-  const attention: AttentionStats = useMemo(() => {
-    if (!raw) return { dueToday: 0, upcoming: 0, inProgress: 0, syncQueue: 0 };
-    const now = new Date();
-    const todayStart = startOfDay(now);
-    const todayEnd = endOfDay(now);
-    const nextSevenDays = new Date(todayEnd);
-    nextSevenDays.setDate(nextSevenDays.getDate() + 7);
-
-    const pendingSchedules = raw.schedules.filter((schedule) => schedule.status === 'pending');
-
-    return {
-      dueToday: pendingSchedules.filter((s) => s.scheduledAt >= todayStart && s.scheduledAt <= todayEnd).length,
-      upcoming: pendingSchedules.filter((s) => s.scheduledAt > todayEnd && s.scheduledAt <= nextSevenDays).length,
-      inProgress: stats.totalActive,
-      syncQueue: raw.syncQueueCount,
-    };
-  }, [raw, stats.totalActive]);
-
-  const nextSchedules = useMemo(() => {
-    if (!raw) return [] as (Schedule & { clientName?: string })[];
-    return [...raw.schedules]
-      .filter((schedule) => schedule.status === 'pending')
-      .sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime())
-      .slice(0, 4);
-  }, [raw]);
-
-  const attentionCards = [
-    {
-      label: 'Hoje',
-      value: attention.dueToday,
-      detail: 'agendamentos para executar',
-      icon: Calendar,
-      className: 'border-l-4 border-l-primary-500 bg-primary-50/70',
-      iconClassName: 'bg-primary-100 text-primary-700',
-      onClick: () => navigate('/schedules'),
-    },
-    {
-      label: 'Próximas',
-      value: attention.upcoming,
-      detail: 'visitas nos próximos 7 dias',
-      icon: Clock,
-      className: 'border-l-4 border-l-emerald-500 bg-emerald-50/70',
-      iconClassName: 'bg-emerald-100 text-emerald-700',
-      onClick: () => navigate('/schedules'),
-    },
-    {
-      label: 'Em andamento',
-      value: attention.inProgress,
-      detail: 'inspeções abertas',
-      icon: ClipboardCheck,
-      className: 'border-l-4 border-l-sky-500 bg-sky-50/70',
-      iconClassName: 'bg-sky-100 text-sky-700',
-      onClick: () => navigate('/inspections'),
-    },
-    {
-      label: 'Fila de sync',
-      value: attention.syncQueue,
-      detail: 'itens aguardando nuvem',
-      icon: RefreshCw,
-      className: 'border-l-4 border-l-amber-500 bg-amber-50/70',
-      iconClassName: 'bg-amber-100 text-amber-700',
-      onClick: () => navigate('/sync'),
-    },
-  ];
-
   const filterLabel = consultantFilter === TEAM_FILTER ? 'Toda a equipe' : consultantFilter;
+  const clients = raw?.clients ?? [];
 
   return (
     <PageShell>
@@ -448,42 +352,67 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Filtro por consultora — separa o trabalho de cada uma */}
-      {consultants.length > 1 && (
-        <div className="mb-6 flex flex-wrap items-center gap-2">
-          <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
-            <Users className="h-4 w-4" />
-            Consultora
-          </span>
-          <div className="flex flex-wrap gap-1.5">
-            <button
-              type="button"
-              onClick={() => setConsultantFilter(TEAM_FILTER)}
-              className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
-                consultantFilter === TEAM_FILTER
-                  ? 'bg-primary-600 text-white shadow-sm'
-                  : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              Toda a equipe
-            </button>
-            {consultants.map((name) => (
+      {/* Filtros no topo: consultora, unidade e janela de dias — controlam a fila de trabalho abaixo. */}
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        {consultants.length > 1 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <Users className="h-4 w-4" />
+              Consultora
+            </span>
+            <div className="flex flex-wrap gap-1.5">
               <button
-                key={name}
                 type="button"
-                onClick={() => setConsultantFilter(name)}
+                onClick={() => setConsultantFilter(TEAM_FILTER)}
                 className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
-                  consultantFilter === name
+                  consultantFilter === TEAM_FILTER
                     ? 'bg-primary-600 text-white shadow-sm'
                     : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
                 }`}
               >
-                {name}
+                Toda a equipe
               </button>
-            ))}
+              {consultants.map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => setConsultantFilter(name)}
+                  className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
+                    consultantFilter === name
+                      ? 'bg-primary-600 text-white shadow-sm'
+                      : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
           </div>
+        )}
+        <div className="flex flex-wrap gap-2">
+          <select
+            value={clientId}
+            onChange={(e) => setClientId(e.target.value)}
+            aria-label="Filtrar por unidade"
+            className="rounded-md border border-gray-200 px-2.5 py-1.5 text-xs"
+          >
+            <option value="">Todas as unidades</option>
+            {clients.map((client) => (
+              <option key={client.id} value={client.id}>{client.name}</option>
+            ))}
+          </select>
+          <select
+            value={daysAhead}
+            onChange={(e) => setDaysAhead(Number(e.target.value))}
+            aria-label="Janela de compromissos próximos"
+            className="rounded-md border border-gray-200 px-2.5 py-1.5 text-xs"
+          >
+            {DAYS_AHEAD_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>Próximos {option.label}</option>
+            ))}
+          </select>
         </div>
-      )}
+      </div>
 
       {error && (
         <Card className="mb-6 border-red-200 bg-red-50">
@@ -494,268 +423,156 @@ export function Dashboard() {
         </Card>
       )}
 
-      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {attentionCards.map((card) => {
-          const Icon = card.icon;
-          return (
-            <Card
-              key={card.label}
-              className={`${card.className} cursor-pointer transition-shadow hover:shadow-md`}
-              onClick={card.onClick}
-            >
-              <CardContent className="flex items-center gap-4 p-4">
-                <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-md ${card.iconClassName}`}>
-                  <Icon className="h-5 w-5" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-2xl font-bold leading-tight text-gray-950">{card.value}</div>
-                  <div className="text-sm font-semibold text-gray-800">{card.label}</div>
-                  <div className="truncate text-xs text-gray-500">{card.detail}</div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+      <OperationalQueues
+        consultantName={consultantFilter === TEAM_FILTER ? null : consultantFilter}
+        clientId={clientId || null}
+        daysAhead={daysAhead}
+      />
 
-      <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
-        <Card>
-          <CardContent className="flex items-center gap-4 p-5">
-            <div className="flex h-12 w-12 items-center justify-center rounded-md bg-sky-100 text-sky-700">
-              <ClipboardCheck className="h-6 w-6" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-gray-950">{stats.totalActive}</div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">Ativas</div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-4 p-5">
-            <div className="flex h-12 w-12 items-center justify-center rounded-md bg-emerald-100 text-emerald-700">
-              <CheckCircle2 className="h-6 w-6" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-gray-950">{stats.totalCompleted}</div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">Concluídas</div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-4 p-5">
-            <div className="flex h-12 w-12 items-center justify-center rounded-md bg-violet-100 text-violet-700">
-              <TrendingUp className="h-6 w-6" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-gray-950">{stats.avgScore}%</div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Média de conformidade
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <section className="space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="flex items-center text-lg font-semibold text-gray-900">
-              <Calendar className="mr-2 h-5 w-5 text-primary-600" />
-              Agenda da equipe
-            </h2>
-            <Button variant="ghost" size="sm" onClick={() => navigate('/schedules')}>
-              Ver agenda
-              <ArrowRight className="ml-1 h-4 w-4" />
-            </Button>
-          </div>
-
-          {isLoading ? (
-            <Card className="border-dashed bg-gray-50">
-              <CardContent className="flex items-center justify-center gap-2 p-8 text-sm text-gray-500">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Carregando agenda
-              </CardContent>
-            </Card>
-          ) : nextSchedules.length === 0 ? (
-            <Card className="border-dashed bg-gray-50">
-              <CardContent className="flex flex-col items-center justify-center p-8 text-center">
-                <Calendar className="mb-3 h-10 w-10 text-gray-300" />
-                <p className="text-sm font-medium text-gray-600">Nenhuma visita pendente na agenda.</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {nextSchedules.map((schedule) => {
-                const timing = getScheduleTiming(schedule);
-                return (
-                  <Card
-                    key={schedule.id}
-                    className="cursor-pointer transition-shadow hover:shadow-md"
-                    onClick={() => navigate('/schedules')}
-                  >
-                    <CardContent className="p-4">
-                      <div className="mb-3 flex items-center justify-between gap-2">
-                        <Badge variant={timing.variant}>{timing.label}</Badge>
-                        <span className={`text-xs font-semibold ${timing.tone}`}>
-                          {schedule.scheduledAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                      <h3 className="mb-1 truncate text-sm font-bold text-gray-950">{schedule.clientName || 'Cliente'}</h3>
-                      <div className="flex items-center text-xs text-gray-500">
-                        <Clock className="mr-1 h-3.5 w-3.5" />
-                        {schedule.scheduledAt.toLocaleDateString('pt-BR', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric',
-                        })}
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        <section className="space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-gray-900">Gestão e Biblioteca</h2>
-          </div>
-          <div className="grid grid-cols-1 gap-3">
-            <Card
-              className="group cursor-pointer transition-shadow hover:shadow-md"
-              onClick={() => navigate('/templates')}
-            >
+      <details className="mt-8 rounded-xl border border-gray-200 bg-white">
+        <summary className="cursor-pointer list-none px-5 py-4 text-sm font-bold uppercase tracking-wide text-gray-500 hover:text-gray-700">
+          Desempenho
+        </summary>
+        <div className="space-y-8 border-t border-gray-100 px-5 pb-6 pt-5">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <Card>
               <CardContent className="flex items-center gap-4 p-5">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-primary-100 text-primary-700">
-                  <FileText className="h-5 w-5" />
+                <div className="flex h-12 w-12 items-center justify-center rounded-md bg-sky-100 text-sky-700">
+                  <ClipboardCheck className="h-6 w-6" />
                 </div>
-                <div className="min-w-0">
-                  <h3 className="font-bold text-gray-900">Roteiros Digitais</h3>
-                  <p className="truncate text-xs text-gray-500">Criar, editar e reutilizar roteiros.</p>
+                <div>
+                  <div className="text-2xl font-bold text-gray-950">{stats.totalActive}</div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">Ativas</div>
                 </div>
-                <ArrowRight className="ml-auto h-5 w-5 text-gray-300 group-hover:text-primary-500" />
               </CardContent>
             </Card>
-
-            <Card
-              className="group cursor-pointer transition-shadow hover:shadow-md"
-              onClick={() => navigate('/legislations')}
-            >
+            <Card>
               <CardContent className="flex items-center gap-4 p-5">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-emerald-100 text-emerald-700">
-                  <BookOpen className="h-5 w-5" />
+                <div className="flex h-12 w-12 items-center justify-center rounded-md bg-emerald-100 text-emerald-700">
+                  <CheckCircle2 className="h-6 w-6" />
                 </div>
-                <div className="min-w-0">
-                  <h3 className="font-bold text-gray-900">Biblioteca de Leis</h3>
-                  <p className="truncate text-xs text-gray-500">Consultar e gerenciar legislações.</p>
+                <div>
+                  <div className="text-2xl font-bold text-gray-950">{stats.totalCompleted}</div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">Concluídas</div>
                 </div>
-                <ArrowRight className="ml-auto h-5 w-5 text-gray-300 group-hover:text-emerald-500" />
               </CardContent>
             </Card>
-          </div>
-        </section>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <section className="space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-gray-900">
-              Visitas Recentes
-              {consultantFilter !== TEAM_FILTER && (
-                <span className="ml-2 text-sm font-normal text-gray-500">· {filterLabel}</span>
-              )}
-            </h2>
-            <Button variant="ghost" size="sm" onClick={() => navigate('/inspections')}>
-              Ver todas
-              <ArrowRight className="ml-1 h-4 w-4" />
-            </Button>
-          </div>
-
-          {isLoading ? (
-            <Card className="border-dashed bg-gray-50">
-              <CardContent className="flex items-center justify-center gap-2 p-8 text-sm text-gray-500">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Carregando inspeções
-              </CardContent>
-            </Card>
-          ) : recentInspections.length === 0 ? (
-            <Card className="border-dashed bg-gray-50">
-              <CardContent className="flex flex-col items-center justify-center p-8 text-center">
-                <ClipboardCheck className="mb-3 h-10 w-10 text-gray-300" />
-                <p className="text-sm font-medium text-gray-600">Nenhuma inspeção registrada.</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-3">
-              {recentInspections.map((inspection) => (
-                <Card
-                  key={inspection.id}
-                  className="cursor-pointer transition-shadow hover:shadow-md"
-                  onClick={() => navigate(getInspectionTarget(inspection), { state: { inspectionId: inspection.id } })}
-                >
-                  <div className="flex items-center justify-between gap-4 p-4">
-                    <div className="min-w-0 space-y-1">
-                      <h3 className="truncate text-sm font-semibold text-gray-900">
-                        {inspection.clientName || 'Cliente'}
-                      </h3>
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                        <span>{formatDateTime(inspection.createdAt)}</span>
-                        <Badge
-                          variant={inspection.status === 'completed' ? 'success' : 'warning'}
-                          className="px-2 py-0 text-[10px]"
-                        >
-                          {inspection.status === 'completed' ? 'Finalizada' : 'Em andamento'}
-                        </Badge>
-                        {consultantFilter === TEAM_FILTER && consultantsOf(inspection).length > 0 && (
-                          <span className="text-gray-400">· {consultantsOf(inspection).join(', ')}</span>
-                        )}
-                      </div>
-                    </div>
-                    <ArrowRight className="h-4 w-4 shrink-0 text-gray-400" />
+            <Card>
+              <CardContent className="flex items-center gap-4 p-5">
+                <div className="flex h-12 w-12 items-center justify-center rounded-md bg-violet-100 text-violet-700">
+                  <TrendingUp className="h-6 w-6" />
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-gray-950">{stats.avgScore}%</div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Média de conformidade
                   </div>
-                </Card>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="space-y-4">
-          <h2 className="flex items-center text-lg font-semibold text-gray-900">
-            <AlertTriangle className="mr-2 h-5 w-5 text-amber-500" />
-            Problemas Recorrentes
-          </h2>
-
-          {isLoading ? (
-            <Card className="border-dashed bg-gray-50">
-              <CardContent className="flex items-center justify-center gap-2 p-8 text-sm text-gray-500">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Analisando histórico
+                </div>
               </CardContent>
             </Card>
-          ) : recurringIssues.length === 0 ? (
-            <Card className="border-dashed bg-gray-50">
-              <CardContent className="flex flex-col items-center justify-center p-8 text-center">
-                <CheckCircle2 className="mb-3 h-10 w-10 text-emerald-400" />
-                <p className="text-sm font-medium text-gray-600">Nenhuma não conformidade frequente detectada.</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-3">
-              {recurringIssues.map((issue) => (
-                <Card key={issue.id} className="border-l-4 border-l-amber-500">
-                  <CardContent className="flex items-start justify-between gap-4 p-4">
-                    <p className="line-clamp-2 text-sm font-medium text-gray-700">{issue.description}</p>
-                    <div className="shrink-0 rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800">
-                      {issue.count}x
-                    </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <section className="space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Visitas Recentes
+                  {consultantFilter !== TEAM_FILTER && (
+                    <span className="ml-2 text-sm font-normal text-gray-500">· {filterLabel}</span>
+                  )}
+                </h2>
+                <Button variant="ghost" size="sm" onClick={() => navigate('/inspections')}>
+                  Ver todas
+                  <ArrowRight className="ml-1 h-4 w-4" />
+                </Button>
+              </div>
+
+              {isLoading ? (
+                <Card className="border-dashed bg-gray-50">
+                  <CardContent className="flex items-center justify-center gap-2 p-8 text-sm text-gray-500">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Carregando inspeções
                   </CardContent>
                 </Card>
-              ))}
-            </div>
-          )}
-        </section>
-      </div>
+              ) : recentInspections.length === 0 ? (
+                <Card className="border-dashed bg-gray-50">
+                  <CardContent className="flex flex-col items-center justify-center p-8 text-center">
+                    <ClipboardCheck className="mb-3 h-10 w-10 text-gray-300" />
+                    <p className="text-sm font-medium text-gray-600">Nenhuma inspeção registrada.</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-3">
+                  {recentInspections.map((inspection) => (
+                    <Card
+                      key={inspection.id}
+                      className="cursor-pointer transition-shadow hover:shadow-md"
+                      onClick={() => navigate(getInspectionTarget(inspection), { state: { inspectionId: inspection.id } })}
+                    >
+                      <div className="flex items-center justify-between gap-4 p-4">
+                        <div className="min-w-0 space-y-1">
+                          <h3 className="truncate text-sm font-semibold text-gray-900">
+                            {inspection.clientName || 'Cliente'}
+                          </h3>
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                            <span>{formatDateTime(inspection.createdAt)}</span>
+                            <Badge
+                              variant={inspection.status === 'completed' ? 'success' : 'warning'}
+                              className="px-2 py-0 text-[10px]"
+                            >
+                              {inspection.status === 'completed' ? 'Finalizada' : 'Em andamento'}
+                            </Badge>
+                            {consultantFilter === TEAM_FILTER && consultantsOf(inspection).length > 0 && (
+                              <span className="text-gray-400">· {consultantsOf(inspection).join(', ')}</span>
+                            )}
+                          </div>
+                        </div>
+                        <ArrowRight className="h-4 w-4 shrink-0 text-gray-400" />
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="space-y-4">
+              <h2 className="flex items-center text-lg font-semibold text-gray-900">
+                <AlertTriangle className="mr-2 h-5 w-5 text-amber-500" />
+                Problemas Recorrentes
+              </h2>
+
+              {isLoading ? (
+                <Card className="border-dashed bg-gray-50">
+                  <CardContent className="flex items-center justify-center gap-2 p-8 text-sm text-gray-500">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Analisando histórico
+                  </CardContent>
+                </Card>
+              ) : recurringIssues.length === 0 ? (
+                <Card className="border-dashed bg-gray-50">
+                  <CardContent className="flex flex-col items-center justify-center p-8 text-center">
+                    <CheckCircle2 className="mb-3 h-10 w-10 text-emerald-400" />
+                    <p className="text-sm font-medium text-gray-600">Nenhuma não conformidade frequente detectada.</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-3">
+                  {recurringIssues.map((issue) => (
+                    <Card key={issue.id} className="border-l-4 border-l-amber-500">
+                      <CardContent className="flex items-start justify-between gap-4 p-4">
+                        <p className="line-clamp-2 text-sm font-medium text-gray-700">{issue.description}</p>
+                        <div className="shrink-0 rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800">
+                          {issue.count}x
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
+        </div>
+      </details>
     </PageShell>
   );
 }

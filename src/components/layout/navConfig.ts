@@ -4,7 +4,6 @@ import {
   Calendar,
   ClipboardCheck,
   FileText,
-  Gauge,
   Headset,
   Home,
   Settings,
@@ -27,14 +26,14 @@ export interface NavGroup {
  * Fonte única de verdade da navegação da equipe: docs/HANDOFF-FRONTEND.md § FE-06.
  * Sidebar (desktop) e o drawer "Mais" do BottomNav (mobile) consomem os mesmos
  * grupos, na mesma ordem — antes cada um mantinha a própria lista à mão e elas
- * divergiam (Painel, Roteiros, Biblioteca e Solicitações não apareciam no celular).
+ * divergiam (Roteiros, Biblioteca e Solicitações não apareciam no celular).
+ * O item "Painel" existiu aqui até o FE-14, quando `/painel` foi absorvido por `/`.
  */
 export const STAFF_NAV_GROUPS: NavGroup[] = [
   {
     label: null,
     items: [
       { to: '/', icon: Home, label: 'Início' },
-      { to: '/painel', icon: Gauge, label: 'Painel' },
       { to: '/clients', icon: Users, label: 'Clientes' },
       { to: '/schedules', icon: Calendar, label: 'Agendamentos' },
       { to: '/inspections', icon: ClipboardCheck, label: 'Inspeções' },
