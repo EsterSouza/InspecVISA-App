@@ -157,9 +157,13 @@ export function WeekCalendar({
         </div>
 
         <div className="grid min-w-[660px] grid-cols-[52px_repeat(5,minmax(0,1fr))]">
-          <div aria-hidden="true" className="grid auto-rows-[46px]">
-            {HOURS.map((hour) => (
-              <div key={hour} className="pr-2 pt-0.5 text-right text-[11px] tabular-nums text-gray-500">
+          <div aria-hidden="true" className="grid auto-rows-[64px]">
+            {HOURS.map((hour, idx) => (
+              <div
+                key={hour}
+                style={{ gridRow: idx + 1 }}
+                className="pr-2 pt-0.5 text-right text-[11px] tabular-nums text-gray-500"
+              >
                 {formatHour(hour)}
               </div>
             ))}
@@ -169,10 +173,15 @@ export function WeekCalendar({
               key={`${day.label}-${day.dayNumber}`}
               role="group"
               aria-label={`${day.label}, dia ${day.dayNumber}`}
-              className={cn('relative grid auto-rows-[46px] border-l border-gray-200', day.isToday && 'bg-primary-50/40')}
+              className={cn('relative grid auto-rows-[64px] border-l border-gray-200', day.isToday && 'bg-primary-50/40')}
             >
-              {HOURS.map((hour) => (
-                <div key={hour} aria-hidden="true" className="border-b border-gray-100" />
+              {/* `gridRow` explícito aqui é essencial: sem ele, a auto-colocação
+                  do CSS Grid empurra estas 9 linhas de fundo pra baixo dos
+                  compromissos com posição explícita (ela pula linha ocupada
+                  em vez de sobrepor), sobrando espaço fantasma depois do
+                  último horário — achado da Ester em 16/08/2026, com print. */}
+              {HOURS.map((hour, idx) => (
+                <div key={hour} aria-hidden="true" style={{ gridRow: idx + 1 }} className="border-b border-gray-100" />
               ))}
               {eventsByDay(dayIndex).map((event) => {
                 const state = event.state || 'padrao';
