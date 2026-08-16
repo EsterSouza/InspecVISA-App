@@ -12,9 +12,9 @@ Funcionalidade: Agendamento e calendário
     E o calendário serve para enxergar buraco na semana
     E as duas visões existem em toda agenda do produto
 
-  Cenário: Grade de segunda a sexta, 07h às 19h
+  Cenário: Grade de segunda a sexta, 09h às 17h
     Dado a visão de calendário de semana
-    Então há uma linha por hora de 07h a 19h
+    Então há uma linha por hora de 09h a 17h
     E cada evento se posiciona por horário de início e duração
 
   Cenário: Compromisso fora da faixa estica a régua, não corta

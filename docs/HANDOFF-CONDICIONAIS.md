@@ -10,11 +10,12 @@
 
 ## Onde estamos
 
-**Nenhum card iniciado.** O projeto não começa antes da Ester aprovar o escopo e a ordem.
+**COND-01 entregue em 16/08/2026.** Os outros nove não começaram — e o `COND-05` em diante depende
+das 4 respostas pedidas em [contrato-aplicabilidade.md § 10](contrato-aplicabilidade.md).
 
 | Card | O que é | Modelo | Esforço | Depois de |
 |---|---|---|---|---|
-| **COND-01** | Auditoria + contrato de domínio e invariantes | Opus 5 | alto | — |
+| ~~**COND-01**~~ ✅ | Auditoria + contrato de domínio e invariantes · `docs/mapa-roteiro-inspecao.md`, `docs/contrato-aplicabilidade.md`, `docs/gherkin/aplicabilidade.feature` | Opus 5 | alto | — |
 | **COND-02** | Schema declarativo + motor puro + validador | Opus 5 | alto | COND-01 |
 | **COND-03** | `EffectiveTemplate` canônico + **congelamento na criação da inspeção** | Opus 5 | alto | COND-02 |
 | **COND-04** | Persistência, revisão, RLS e compatibilidade | Opus 5 | alto | COND-03 |
@@ -491,8 +492,46 @@ divergirem. O que mudou, e por quê:
 | **Acrescentado: `isRJOnly` e o casamento por título** | Regra morta (15 ocorrências, 0 leitores) e regra frágil (casa seção por palavra no título) precisam de decisão no COND-01 |
 | **Acrescentada a sequência com o frontend** | COND-08 e FE-23 mexem no mesmo arquivo de 1.322 linhas |
 
+## Registro de execução
+
+### COND-01 · 16/08/2026 · Opus 5
+
+**Entregue.** Nenhuma alteração funcional, nenhuma migration, nenhuma escrita em produção.
+
+**Arquivos criados:** `docs/mapa-roteiro-inspecao.md` (auditoria e diagrama, com 10 achados
+numerados) · `docs/contrato-aplicabilidade.md` (contrato normativo, os 15 casos resolvidos) ·
+`docs/gherkin/aplicabilidade.feature` (28 cenários, marcados como alvo e não como comportamento
+atual).
+**Arquivos alterados:** este handoff · `docs/gherkin/README.md` (índice).
+
+**Testes:** nenhum — o card é documental. O `.feature` traz no rodapé o que já existe hoje e vira
+suíte de equivalência do `COND-02`.
+
+**Riscos e achados** (detalhe no mapa): item sem resposta pontua como **conforme**
+(`scoring.ts:8`) e por isso "pendente de condição" jamais pode entrar no conjunto avaliado (A1) ·
+o congelamento tem fallback que reconstrói do roteiro vivo, e com branches esse caso vira o normal
+(A2) · o contexto já é congelado, a regra não (A3) · a execução mantém **duas** árvores
+simultâneas (A4) · duas regras casam seção **por texto do título** (A5) · erro de composição já é
+conservador, mas invisível (A6) · itens ad-hoc entram fora do motor (A7) · seções sintéticas do
+relatório (A8) · **divergência real hoje**: item aposentado depois do início some da execução e
+aparece no Resumo (A9) · publicação do plano de ação falha calada sem vínculo (A10).
+
+**Ficou deliberadamente de fora:** corrigir A9 (é trabalho do `COND-03`), remover `isRJOnly` (é
+`COND-04`, e antes disso a Ester precisa conferir os 15 itens), migrar o casamento por texto para
+id (`COND-03`).
+
+**Achado fora do escopo, registrado e corrigido no mesmo commit por ser uma linha:**
+`docs/gherkin/agendamento.feature` ainda descrevia a régua do calendário como 07h–19h; é 09h–17h
+desde 16/08 (FE-13).
+
+**Desbloqueia:** `COND-02` (motor puro), que pode começar sem depender das respostas da Ester.
+**Continua travado:** `COND-05` em diante, até as 4 decisões do § 10 do contrato.
+
 ## Relacionados
 
+- [contrato-aplicabilidade.md](contrato-aplicabilidade.md) — o contrato normativo (COND-01).
+- [mapa-roteiro-inspecao.md](mapa-roteiro-inspecao.md) — o caminho do roteiro e os 10 achados.
+- [gherkin/aplicabilidade.feature](gherkin/aplicabilidade.feature) — os cenários.
 - [HANDOFF-FRONTEND.md](HANDOFF-FRONTEND.md) — FE-23 (fluxo de inspeção) precede o COND-08.
 - [mapa-paginas-admin.md](mapa-paginas-admin.md) — atualizar as linhas de `/new`, `/execute`,
   `/summary` e do editor de roteiro conforme os cards forem fechando.

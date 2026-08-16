@@ -30,3 +30,4 @@ suíte SQL, ou código), para não virar documentação que mente.
 | `referencias-relatorio.feature` | Referência curada, autoria, revogada/substituta, UF, só o citado |
 | `painel-operacional.feature` | Os seis blocos, filtro por consultora, relatório oculto, sem prazo |
 | `seguranca-multitenant.feature` | Isolamento por tenant, grants nos dois papéis, buckets privados |
+| `aplicabilidade.feature` | **Alvo, não comportamento atual.** Motor de condicionais: três estados, preservação de resposta, congelamento, offline e colaboração (COND-01) |
