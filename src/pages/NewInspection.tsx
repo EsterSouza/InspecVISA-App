@@ -11,6 +11,7 @@ import { getLocalActor } from '../utils/localActor';
 import type { Client, ChecklistTemplate, Inspection } from '../types';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { PageShell } from '../components/ui/PageShell';
 import { Badge } from '../components/ui/Badge';
 import { generateId } from '../utils/imageUtils';
 import { ProfileModal } from '../components/profile/ProfileModal';
@@ -315,7 +316,7 @@ export function NewInspection() {
   if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>;
 
   return (
-    <div className="mx-auto max-w-3xl p-6 lg:p-10">
+    <PageShell>
       <div className="mb-8 flex items-center justify-between">
         <div>
           <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="-ml-3 mb-2 text-gray-500">
@@ -524,6 +525,6 @@ export function NewInspection() {
       {showProfileModal && (
         <ProfileModal onClose={() => setShowProfileModal(false)} />
       )}
-    </div>
+    </PageShell>
   );
 }

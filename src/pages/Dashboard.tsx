@@ -5,6 +5,7 @@ import type { Inspection, InspectionResponse, Schedule } from '../types';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
+import { PageShell } from '../components/ui/PageShell';
 import {
   AlertTriangle,
   ArrowRight,
@@ -425,7 +426,7 @@ export function Dashboard() {
   const filterLabel = consultantFilter === TEAM_FILTER ? 'Toda a equipe' : consultantFilter;
 
   return (
-    <div className="mx-auto max-w-6xl p-4 sm:p-6 lg:p-8">
+    <PageShell>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
@@ -755,6 +756,6 @@ export function Dashboard() {
           )}
         </section>
       </div>
-    </div>
+    </PageShell>
   );
 }

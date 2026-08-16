@@ -31,6 +31,7 @@ import {
   SERVICE_REQUEST_STATUS_LABELS,
   serviceRequestWaitingOn,
 } from '../utils/serviceRequests';
+import { PageShell } from '../components/ui/PageShell';
 
 /**
  * P360-012 — painel interno das solicitações.
@@ -558,7 +559,7 @@ export function ServiceRequests() {
   }, [requests]);
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
+    <PageShell>
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-black tracking-tight text-gray-950">
@@ -681,6 +682,6 @@ export function ServiceRequests() {
           ))}
         </ul>
       )}
-    </div>
+    </PageShell>
   );
 }

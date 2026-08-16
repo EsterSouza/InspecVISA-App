@@ -3,6 +3,7 @@ import { useSettingsStore } from '../store/useSettingsStore';
 import { SyncQueueService } from '../services/syncQueueService';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import { PageShell } from '../components/ui/PageShell';
 import { compressImage } from '../utils/imageUtils';
 import { db } from '../db/database';
 import { forcePushFinalData } from '../utils/forceSync';
@@ -99,7 +100,7 @@ export function Settings() {
 
 
   return (
-    <div className="mx-auto max-w-3xl p-4 sm:p-6 lg:p-8 space-y-6">
+    <PageShell className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Configurações</h1>
         <p className="text-sm text-gray-500">Ajuste seu perfil e preferências do relátorio.</p>
@@ -343,6 +344,6 @@ export function Settings() {
       <div className="text-center text-xs text-gray-400 pb-10">
         InspecVISA PWA v1.0.0 • Dados salvos localmente
       </div>
-    </div>
+    </PageShell>
   );
 }

@@ -3,6 +3,7 @@ import { db } from '../db/database';
 import { SyncQueueService } from '../services/syncQueueService';
 import { exportDatabase } from '../utils/backup';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import { PageShell } from '../components/ui/PageShell';
 import { Button } from '../components/ui/Button';
 import {
   RefreshCw, AlertTriangle, CheckCircle2, Clock, XCircle,
@@ -316,7 +317,7 @@ export function SyncCenter() {
   const isBusy = !!actionLoading;
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6 space-y-5">
+    <PageShell className="space-y-5">
 
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -644,6 +645,6 @@ export function SyncCenter() {
         )}
       </Card>
 
-    </div>
+    </PageShell>
   );
 }

@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
+import { PageShell } from '../components/ui/PageShell';
 import { generateId } from '../utils/imageUtils';
 import { UF_OPTIONS, toUF } from '../utils/state';
 import { useNavigate } from 'react-router-dom';
@@ -165,7 +166,7 @@ export function Clients() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl p-4 sm:p-6 lg:p-8">
+    <PageShell>
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Clientes</h1>
@@ -421,6 +422,6 @@ export function Clients() {
           </div>
         </form>
       </Modal>
-    </div>
+    </PageShell>
   );
 }

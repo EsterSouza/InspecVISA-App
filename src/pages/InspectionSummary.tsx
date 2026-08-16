@@ -14,6 +14,7 @@ import { db } from '../db/database';
 import type { Inspection, InspectionResponse, ChecklistTemplate, ReferenceSource } from '../types';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import { PageShell } from '../components/ui/PageShell';
 import { formatDateTime } from '../utils/imageUtils';
 import { ScorePanel } from '../components/inspection/ScorePanel';
 import { PdfPreviewModal } from '../components/inspection/PdfPreviewModal';
@@ -538,7 +539,7 @@ export function InspectionSummary() {
             </Button>
           </div>
         </header>
-        <div className="mx-auto max-w-4xl p-6 space-y-6 flex-1 overflow-y-auto">
+        <PageShell className="space-y-6 flex-1 overflow-y-auto">
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-amber-800 text-sm">
             <strong>⚠️ Roteiro original não encontrado</strong>
             <p className="mt-1">O modelo de inspeção usado neste relatório não está disponível neste dispositivo. Os dados brutos foram preservados ({reportResponses.length} respostas registradas).</p>
@@ -562,7 +563,7 @@ export function InspectionSummary() {
               </div>
             </div>
           </div>
-        </div>
+        </PageShell>
       </div>
     );
   }
@@ -625,7 +626,7 @@ export function InspectionSummary() {
         </div>
       </header>
       
-      <div className="mx-auto max-w-4xl p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto flex-1">
+      <PageShell className="space-y-6 overflow-y-auto flex-1">
         {isEditing && (
           <Card className="mb-6 border-primary-100 bg-primary-50/30 shadow-sm animate-in fade-in slide-in-from-top-4 duration-300">
             <CardHeader className="pb-2">
@@ -912,8 +913,8 @@ export function InspectionSummary() {
             </div>
           </div>
         </div>
-      </div>
-      
+      </PageShell>
+
       <div className="pb-10"></div>
 
       {/* PDF Pre-generation Modal */}

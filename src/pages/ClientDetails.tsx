@@ -32,6 +32,7 @@ import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
+import { PageShell } from '../components/ui/PageShell';
 import { Pagination } from '../components/ui/Pagination';
 import { TableContainer, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
 
@@ -442,7 +443,7 @@ export function ClientDetails() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl p-4 sm:p-6 lg:p-8">
+    <PageShell>
       {/* Header */}
       <div className="mb-6">
         <Button variant="ghost" size="sm" onClick={() => navigate('/clients')} className="-ml-3 mb-2">
@@ -1174,7 +1175,7 @@ export function ClientDetails() {
           </div>
         </form>
       </Modal>
-    </div>
+    </PageShell>
   );
 }
 

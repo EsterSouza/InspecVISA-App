@@ -304,8 +304,8 @@ Regra que decide a coluna **Esforço**: o que o protótipo já resolveu não é 
 | FE-08 | Tela nova de Plano de Ação: lista + detalhe com `situation` e `recommended_action` | Opus 5 | médio-alto | `Table` |
 | FE-06 | Rail colapsável persistido + drawer no celular + nova ordem do menu | Sonnet 5 | médio | `Drawer` |
 | FE-13 | Agendamentos do admin reusando o `WeekCalendar` ✅ | Sonnet 5 | baixo | FE-13 da onda 1 |
-| FE-07 | Aba de Arquivos + corrigir o N+1 de `listAttachments` | Sonnet 5 | médio | `Table` |
-| FE-05 | Larguras: `max-w-*` → `PageShell` em ~15 páginas | Haiku 4.5 · ou Codex | baixo | `PageShell` |
+| FE-07 | Aba de Arquivos + corrigir o N+1 de `listAttachments` ✅ | Sonnet 5 | médio | `Table` |
+| FE-05 · Ponto 1 | Larguras: `max-w-*` → `PageShell` em ~15 páginas ✅ | Sonnet 5 | baixo | `PageShell` |
 | — | Converter listas de cards em tabelas nas telas restantes | Codex (medium) | médio | exemplo aprovado |
 
 ### ONDA 3 — Fechamento
@@ -355,9 +355,32 @@ Nomes de modelo mudam rápido; escolher o mais recente no `/model` e calibrar o 
 | Onda 1 (portal) | **Fechada** — FE-04a, FE-09, FE-13 e FE-10 entregues |
 | FE-04b (Table, Tabs, Pagination, Tooltip, Drawer, PageShell, PageHeader) | ✅ Entregue em 15/08/2026 — ver detalhe abaixo |
 | FE-08 (tela de Plano de Ação do admin) | ✅ Entregue em 15/08/2026 — ver detalhe abaixo |
-| Onda 2 (admin) | Em andamento — FE-04b e FE-08 entregues; FE-05/06/07 seguem, agora desbloqueados |
+| FE-07 (aba de Arquivos do cliente) | ✅ Entregue em 15/08/2026 — corrige o N+1 de `listAttachments` |
+| FE-05 · Ponto 1 (larguras: `max-w-*` → `PageShell`) | ✅ Entregue em 16/08/2026 — ver detalhe abaixo |
+| Onda 2 (admin) | Em andamento — FE-04b, FE-05 (ponto 1), FE-07 e FE-08 entregues; FE-06 segue |
 | Onda 3 | Depois da onda 2 |
 | MCP do DesignMD | ✅ funcionando — URL corrigida para `www` e servidor aprovado em `~/.claude.json` |
+
+## Registro de execução
+
+Tabela de acompanhamento rápido — quem fez o quê e quando. O detalhe de cada card continua nas seções narrativas abaixo; esta tabela é só para não precisar ler tudo pra saber "isso já foi feito?".
+
+| Data | Card | Modelo | SHA | Observação |
+|---|---|---|---|---|
+| 08/08/2026 | Plano aprovado, handoff aberto | Ester | — | Escopo definido: 3 ondas (portal → admin → fechamento), cards `FE-01` a `FE-13`. |
+| 09/08/2026 | **FE-01 a FE-03** — protótipos aprovados | Sonnet 5 | `fb37e7f` | 3 artefatos publicados, contraste AA conferido, calendário de semana acrescentado a pedido da Ester (virou FE-13). |
+| 09/08/2026 | **FE-04a** — tokens, fontes, primitivos, `Modal` | Sonnet 5 | `b16a9ae` | Paleta oficial, Sora + Source Sans 3, `tailwindcss-animate`, `Input`/`Textarea`/`Select`/`Label`/`EmptyState`/`Skeleton`/`Toast`. Bug do `Button variant="secondary"` corrigido. |
+| 09/08/2026 | **FE-13** — `WeekCalendar` no portal | Sonnet 5 | `770d2eb` | Componente único consumido pelo portal; admin entra depois, no FE-13 da onda 2. |
+| 09/08/2026 | **FE-09** — portal em rotas de seção | Sonnet 5 | `659b332`, `9de54b1` | Primeira leva (`659b332`) foi refeita em `9de54b1` por não ter seguido o protótipo aprovado. |
+| 10/08/2026 | Cumprimento por unidade clicável + link do gestor | Sonnet 5 | `99ed6b7` | Link público por unidade (usa o PORT-02) exposto na UI pela primeira vez. |
+| 10/08/2026 | Pastas sanitárias viram página própria | Sonnet 5 | `5962653` | `PortalQuickActions` parava de empilhar 1 botão por unidade; correções de UX no clique de unidade. |
+| 10/08/2026 | **FE-10** — tira o atrito do portal | Sonnet 5 | `1be833c` | Remove `required`/asterisco de autoria; corrige 2 testes que já estavam quebrados na CI antes desta leva. **Onda 1 (portal) fechada.** |
+| 15/08/2026 | **FE-04b** — Table, Tabs, Pagination, Tooltip, Drawer, PageShell, PageHeader | Sonnet 5 | `d8ccf89` | Só a fundação, nenhuma tela do admin migrada ainda. Verificado em harness temporário, removido antes do commit. |
+| 15/08/2026 | **FE-08** — tela de Plano de Ação do admin | Sonnet 5 | `79bbb7f` | Rota `/plano-de-acao`, lista + detalhe. Não testado logado (sem credencial na sessão); conferido direto no banco de produção. |
+| 15/08/2026 | **FE-07** — aba de Arquivos do cliente | Sonnet 5 | `27d8183` | Corrige o N+1 de `listAttachments` (`ClientDetails.tsx:138-144`). |
+| 15/08/2026 | **PORT-02 (emenda)** — anexo genérico sai do link aberto, exige conta | Sonnet 5 | `daada5c` | Achado ao testar a aba de Documentos: `kind='attachment'` carrega nome de arquivo confidencial, não pode vazar pro link sem login. Edge Function `client-appointment-assets` redeployada em produção (v9). |
+| 15/08/2026 | Documentos do portal: cobre visita com só foto/anexo | Sonnet 5 | `a819e5e`, `37282b8` | Lista de "Documentos por visita" ficava incompleta (só entrava quem tinha relatório); passou a valer para foto/anexo isolados. |
+| 16/08/2026 | **FE-05 · Ponto 1** — larguras: `max-w-*` → `PageShell` | Sonnet 5 | — | 11 páginas do admin migradas (todas as que tinham o padrão, incluindo além das 6 representativas citadas no card: `NewInspection`, `ServiceRequests`, `Settings`, `SyncCenter` e os 2 wrappers de `InspectionSummary`). As 2 páginas públicas sem login (`PublicSchedule`, `PublicAppointmentStatus`) ficaram de fora por decisão de escopo: `PageShell` é documentado como largura do admin, não do portal/link público. `tsc -b` e `npm run build` limpos, 382 testes passando, 11 rotas conferidas logada no navegador (Clientes, Início, Agendamentos, Inspeções, Painel, Solicitações, Configurações, Sincronização, detalhe de cliente, Nova Inspeção, relatório concluído). |
 
 ### FE-04a — o que foi feito e o que ficou pra depois
 
@@ -453,3 +476,13 @@ O código já tinha avançado mais do que o handoff registrava: o bloco "Planos 
 - **`ClientDetails.tsx`** — botão "Abrir Plano de Ação" corrigido: navegava para `/new?clientId=...` (abria uma inspeção **nova**, com o texto do botão prometendo outra coisa). Passa a `/plano-de-acao?client=${client.id}`.
 
 Conferido: `npm run build` limpo, 377 testes existentes passando sem alteração. Não deu para testar logada contra produção nesta leva — a tela fica atrás de `ProtectedRoute` (login por e-mail/senha do Supabase Auth) e a sessão não tinha as credenciais da consultora; confirmei em vez disso, direto no banco (`pfjacmawaigndqclgvpn`, só leitura): 391 itens `published` (195 vencidos) e 21 `resolved`, `situation`/`recommended_action`/`title` **nunca** nulos ou vazios nas 412 linhas (então o componente pode renderizar os três direto, sem placeholder de "sem dados"), 20 clientes distintos, e `client_action_evidence` **ainda vazia** em produção (a gaveta mostra "Nenhuma evidência enviada." pra tudo, por enquanto — consistente com o achado de 10/08). Falta um teste de tela ao vivo, logada, para fechar o card por completo.
+
+### 16/08/2026 — FE-05 · Ponto 1: larguras (`max-w-*` → `PageShell`)
+
+O card citava 6 páginas representativas (`Clients.tsx`, `ClientDetails.tsx`, `Schedules.tsx`, `Inspections.tsx`, `OperationalPanel.tsx`, `Dashboard.tsx`) e pedia "mesmo padrão nas demais". Busca em `src/pages/*.tsx` pelo padrão `mx-auto max-w-{3xl,4xl,5xl,6xl}` achou 5 páginas a mais com o mesmo wrapper: `NewInspection.tsx`, `ServiceRequests.tsx`, `Settings.tsx`, `SyncCenter.tsx` e **dois** wrappers em `InspectionSummary.tsx` (o fallback de "roteiro não encontrado" e o relatório completo) — 11 páginas no total, 12 pontos de troca.
+
+Cada wrapper virou `<PageShell>` (import de `../components/ui/PageShell`), preservando as classes que não são de largura/padding (`space-y-*`, `flex-1`, `overflow-y-auto`) via `className`. Onde o padding original já divergia do padrão do `PageShell` (`p-4 sm:p-6 lg:p-8`) — ex.: `OperationalPanel.tsx` tinha `px-4 py-6 sm:px-6`, `NewInspection.tsx` tinha `p-6 lg:p-10` — a decisão foi **não** carregar o padding customizado no `className`: todas as páginas passaram a herdar o padding padrão do `PageShell`, que é o objetivo do card (uma largura **e** um espaçamento únicos, não 15 variações).
+
+**Ficaram de fora, por decisão de escopo:** `PublicSchedule.tsx` e `PublicAppointmentStatus.tsx` — são as duas telas que o cliente abre **sem login** (agendamento por link público e status de visita por link público). `PageShell.tsx:5` documenta explicitamente "Largura única do **admin**"; herdar `max-w-[1600px]` mudaria a experiência de quem só tem o link, pensada para leitura em coluna única, sem estar no escopo pedido (FE-04b também separa o que é "só admin" do que é "o que o portal usa"). Também ficaram de fora os `max-w-7xl` de `InspectionExecution.tsx` e dos cabeçalhos `sticky` de `InspectionSummary.tsx` — não é o mesmo padrão (`3xl|4xl|5xl|6xl` citado no card), e sim uma barra de cabeçalho de largura própria, não o container de conteúdo.
+
+Conferido: `tsc -b` limpo (não só `tsc --noEmit`), `npm run build` completo limpo, 382 testes passando sem alteração. Testado ao vivo no navegador, logada como Ester (`esterposte@hotmail.com`) — a sessão anterior não tinha credencial, ela logou nesta durante a verificação: as 11 rotas afetadas renderizam sem regressão visual — Início (`/`), Clientes (`/clients`), Agendamentos (`/schedules`), Inspeções (`/inspections`), Painel (`/painel`), Solicitações (`/requests`), Configurações (`/settings`), Sincronização (`/sync`), detalhe de um cliente real (`REDE SÊNIOR BARRA`), Nova Inspeção (`/new`) e um relatório concluído (`CLANDESTINO BEAUTY`, `InspectionSummary` no modo relatório completo). Sem erros de console novos (os 4 erros 401 vistos são de outra rotina, não relacionados a esta troca).

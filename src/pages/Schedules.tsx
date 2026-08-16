@@ -4,6 +4,7 @@ import type { Client, Schedule } from '../types';
 import { formatDateTime, generateId } from '../utils/imageUtils';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
+import { PageShell } from '../components/ui/PageShell';
 import { Calendar, Clock, Plus, Trash2, CheckCircle, AlertCircle, User, Play, Edit2, Link2, Copy, ExternalLink } from 'lucide-react';
 import { ScheduleService } from '../services/scheduleService';
 import { ClientService } from '../services/clientService';
@@ -396,7 +397,7 @@ export function Schedules() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl p-4 sm:p-6 lg:p-8">
+    <PageShell>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Agendamentos</h1>
@@ -759,6 +760,6 @@ export function Schedules() {
           </Card>
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }
