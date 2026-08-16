@@ -307,6 +307,37 @@ já que eu estava reescrevendo o layout inteiro de qualquer forma (largura únic
   6 lacunas reais de citação), Drawers abrindo/fechando, segmentado e prefill de "Escrever
   verbete" funcionando, sem rolagem horizontal em 375/1280/1600px.
 
+### FE-18 · Sincronização — entregue em 16/08/2026
+`SyncCenter.tsx` trocou a lista por tabela colapsável por uma única linha do tempo (mais
+recente primeiro), com estado em três canais — cor de fundo da marca, forma do traço (tracejado
+só na fila) e a palavra escrita — seguindo a decisão 2 do Manual de Marca.
+- Quatro indicadores no topo, todos derivados dos dados já carregados em `loadData()` sem query
+  nova: última sincronização (maior `dataVerifiedAt` entre os `synced`), na fila (`pending` +
+  `syncing`, com detalhamento por tabela), falharam (`failed` + `conflict`, "precisa de decisão
+  sua") e enviados hoje (contagem + horário do primeiro envio do dia).
+- Item **falhado** nunca some sozinho: cada um vira uma linha própria na timeline, com "Tentar
+  novamente" sempre disponível. **"Descartar…"** (abre `ConfirmDialog` com a lista do que se
+  perde, decisão 16) só existe para **fotos** — é o único caso sem ambiguidade sobre a perda
+  (arquivo só local, vínculo com a resposta, relatório publicado passando a citar arquivo
+  ausente). Cliente/inspeção/agendamento/resposta falhados só oferecem retry: descartá-los de
+  verdade significaria excluir a entidade inteira, decisão grande demais pra um botão dentro da
+  fila de sincronização — isso já existe como fluxo próprio em
+  `Clients.tsx`/`ClientDetails.tsx`/`Schedules.tsx`.
+- Itens sincronizados agrupam em lotes por tabela+rótulo+minuto (`09:20 · 96 itens`) — sem isso a
+  timeline vira uma linha por resposta individual.
+- A timeline só enxerga o que sincronizou **nesta sessão** (a partir de `sessionStartedAt`, como
+  já era o antigo "Últimas sincronizações desta sessão") — não existe log persistido de
+  sincronizações passadas; rotulado como "nesta sessão" na tela pra não prometer histórico que
+  não existe.
+- Ações de manutenção (Tentar tudo/Resetar travados/Exportar backup/Liberar trava) migraram do
+  `actionMessage` local pro `useToastStore` (decisão 6: erro não some sozinho).
+- `tsc -b` e `npm run build` limpos. Verificado logada no navegador em 375/1280/1600px, sem
+  rolagem horizontal; estado feliz real (fila vazia, 0 falhas, 1098 enviados hoje) conferido.
+  **Não foi possível forçar um item falhado/conflito pra testar a timeline de erro ao vivo**: o
+  Dexie local desta sessão tem dado real de produção (Ester logada), e fabricar uma falha ali
+  arriscaria dado real; a lógica de erro/descarte foi conferida por revisão de código e
+  cobertura de tipos, não ao vivo no navegador.
+
 ### FE-16 · Ficha do cliente com abas
 Fecha os 7 achados do diagnóstico em `ClientDetails.tsx` (1.257 linhas):
 1. Aba **Arquivos** com a largura inteira, no lugar da tabela do FE-07 espremida no trilho de ~380px.
@@ -542,7 +573,7 @@ Nomes de modelo mudam rápido; escolher o mais recente no `/model` e calibrar o 
 | Onda 3 | Em andamento — FE-11 entregue; falta FE-12 (dark mode) e a revisão final de a11y. **FE-12 depende do FE-21** |
 | MCP do DesignMD | ✅ funcionando — plano **Builder** (600 chamadas / 10 min, sem limite diário). URL **com `www`** e servidor aprovado em `~/.claude.json` |
 | **Artefato D** | ✅ [publicado](https://claude.ai/code/artifact/2001223c-6df9-4464-8e7f-3c299ad61832) e **aprovado pela Ester em 16/08/2026** |
-| **Onda 4** | Aberta em 16/08/2026 — FE-14, FE-15, FE-16 e FE-17 entregues; FE-17b a FE-22 escritos, não iniciados. FE-18/FE-19 desbloqueados (esperavam o FE-15) |
+| **Onda 4** | Aberta em 16/08/2026 — FE-14, FE-15, FE-16, FE-17 e FE-18 entregues; FE-17b, FE-19 a FE-22 escritos, não iniciados |
 
 ## Registro de execução
 
