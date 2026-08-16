@@ -3,12 +3,15 @@ import { Loader2, Paperclip, Trash2 } from 'lucide-react';
 import type { AppointmentAttachment } from '../../types';
 import { AppointmentAdminService } from '../../services/appointmentAdminService';
 import { Button } from '../ui/Button';
+import { useConfirmDialog } from '../ui/ConfirmDialog';
 import { errorMessage } from './appointmentRequestsShared';
+import { toast } from '../../store/useToastStore';
 
 export function PublishedFilesPanel({ requestId, busy }: { requestId: string; busy: boolean }) {
   const [files, setFiles] = useState<AppointmentAttachment[]>([]);
   const [loading, setLoading] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   const loadFiles = useCallback(() => {
     setLoading(true);
@@ -23,13 +26,18 @@ export function PublishedFilesPanel({ requestId, busy }: { requestId: string; bu
   }, [busy, loadFiles]);
 
   const handleRemove = async (file: AppointmentAttachment) => {
-    if (!confirm(`Remover "${file.file_name || 'arquivo'}" do portal do cliente?`)) return;
+    const ok = await confirm({
+      title: `Remover "${file.file_name || 'arquivo'}" do portal?`,
+      description: 'O cliente deixa de vê-lo no portal.',
+      confirmLabel: 'Remover arquivo',
+    });
+    if (!ok) return;
     setRemovingId(file.id);
     try {
       await AppointmentAdminService.removePublishedAttachment(file.id);
       loadFiles();
     } catch (err) {
-      alert(`Erro: ${errorMessage(err)}`);
+      toast.error('Erro', errorMessage(err));
     } finally {
       setRemovingId(null);
     }
@@ -85,6 +93,7 @@ export function PublishedFilesPanel({ requestId, busy }: { requestId: string; bu
           </div>
         ))}
       </div>
+      {confirmDialog}
     </div>
   );
 }

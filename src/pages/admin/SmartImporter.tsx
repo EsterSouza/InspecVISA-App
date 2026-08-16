@@ -4,6 +4,7 @@ import { Save, Trash2, FileUp, Loader2 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { TemplateService } from '../../services/templateService';
+import { toast } from '../../store/useToastStore';
 
 interface ParsedItem {
   id: number;
@@ -39,7 +40,7 @@ export function SmartImporter() {
       } else if (file.name.endsWith('.ts') || file.name.endsWith('.tsx')) {
         text = await DocumentParser.parseTextFile(file);
       } else {
-        alert('Formato não suportado. Use PDF, DOCX ou TypeScript.');
+        toast.error('Formato não suportado.', 'Use PDF, DOCX ou TypeScript.');
         return;
       }
 
@@ -58,7 +59,7 @@ export function SmartImporter() {
       setItems(prev => [...prev, ...mapped]);
     } catch (err) {
       console.error('File parse error:', err);
-      alert('Erro ao processar arquivo.');
+      toast.error('Erro ao processar arquivo.');
     } finally {
       setIsParsingFile(false);
     }
@@ -100,11 +101,11 @@ export function SmartImporter() {
     setIsSaving(true);
     try {
       await TemplateService.saveFullTemplate(templateName, category, items);
-      alert('Roteiro salvo com sucesso!');
+      toast.success('Roteiro salvo com sucesso!');
       navigate('/templates');
     } catch (err) {
       console.error(err);
-      alert('Erro ao salvar roteiro.');
+      toast.error('Erro ao salvar roteiro.');
     } finally {
       setIsSaving(false);
     }

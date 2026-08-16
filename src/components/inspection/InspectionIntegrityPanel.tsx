@@ -4,6 +4,7 @@ import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Modal } from '../ui/Modal';
+import { useConfirmDialog } from '../ui/ConfirmDialog';
 import { SyncQueueService } from '../../services/syncQueueService';
 import {
   getInspectionIntegrity,
@@ -23,6 +24,7 @@ export function InspectionIntegrityPanel({ inspectionId }: InspectionIntegrityPa
   const [retrying, setRetrying] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<IntegrityIssue | null>(null);
   const refreshingRef = useRef(false);
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   const refresh = useCallback(async () => {
     if (refreshingRef.current) return;
@@ -56,7 +58,11 @@ export function InspectionIntegrityPanel({ inspectionId }: InspectionIntegrityPa
   };
 
   const keepLocalConflicts = async () => {
-    const ok = window.confirm('Manter todas as versoes locais em conflito e reenviar para a nuvem?');
+    const ok = await confirm({
+      title: 'Manter versões locais em conflito?',
+      description: 'Reenvia todas para a nuvem, sobrescrevendo a versão remota de cada uma.',
+      confirmLabel: 'Manter versões locais',
+    });
     if (!ok) return;
 
     setRetrying(true);
@@ -80,7 +86,11 @@ export function InspectionIntegrityPanel({ inspectionId }: InspectionIntegrityPa
   };
 
   const applyRemoteIssue = async (issue: IntegrityIssue) => {
-    const ok = window.confirm('Aplicar a versao remota neste item? A versao local atual ficara preservada como referencia tecnica local.');
+    const ok = await confirm({
+      title: 'Aplicar a versão remota neste item?',
+      description: 'A versão local atual fica preservada como referência técnica local.',
+      confirmLabel: 'Aplicar versão remota',
+    });
     if (!ok) return;
 
     setRetrying(true);
@@ -227,6 +237,7 @@ export function InspectionIntegrityPanel({ inspectionId }: InspectionIntegrityPa
           </div>
         )}
       </Modal>
+      {confirmDialog}
     </Card>
   );
 }

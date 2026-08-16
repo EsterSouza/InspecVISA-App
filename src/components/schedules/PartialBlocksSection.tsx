@@ -4,7 +4,9 @@ import { AppointmentAdminService } from '../../services/appointmentAdminService'
 import type { AppointmentBlock, AppointmentBlockRecurrence } from '../../types';
 import { Button } from '../ui/Button';
 import { Card, CardContent } from '../ui/Card';
+import { useConfirmDialog } from '../ui/ConfirmDialog';
 import { SCHEDULE_CONSULTANTS, TEXT_INPUT, errorMessage } from './appointmentRequestsShared';
+import { toast } from '../../store/useToastStore';
 
 const WHO_ALL = 'Todas';
 const RECURRENCE_OPTIONS: { value: AppointmentBlockRecurrence; label: string }[] = [
@@ -37,6 +39,7 @@ export function PartialBlocksSection() {
   const [occurrences, setOccurrences] = useState(4);
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   const load = async () => {
     setLoading(true);
@@ -83,20 +86,24 @@ export function PartialBlocksSection() {
       setRecurrence('none');
       await load();
     } catch (err) {
-      alert(`Erro: ${errorMessage(err)}`);
+      toast.error('Erro', errorMessage(err));
     } finally {
       setSaving(false);
     }
   };
 
   const handleCancel = async (block: AppointmentBlock) => {
-    if (!confirm('Cancelar este bloqueio?')) return;
+    const ok = await confirm({
+      title: 'Cancelar este bloqueio?',
+      confirmLabel: 'Cancelar bloqueio',
+    });
+    if (!ok) return;
     setBusyId(block.id);
     try {
       await AppointmentAdminService.cancelAvailabilityBlock(block.id);
       await load();
     } catch (err) {
-      alert(`Erro: ${errorMessage(err)}`);
+      toast.error('Erro', errorMessage(err));
     } finally {
       setBusyId(null);
     }
@@ -264,6 +271,7 @@ export function PartialBlocksSection() {
           ))}
         </div>
       )}
+      {confirmDialog}
     </section>
   );
 }

@@ -3,6 +3,8 @@ import { LegislationService, type Legislation, type LegislationSegment, type Leg
 import { UF_OPTIONS, toUF } from '../../utils/state';
 import { Plus, Trash2, ExternalLink, Search, BookOpen, AlertCircle, Loader2, Edit2, Check, X, Link } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
+import { useConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { toast } from '../../store/useToastStore';
 
 const SEGMENT_OPTIONS: { value: LegislationSegment; label: string }[] = [
   { value: 'ilpi', label: 'ILPI' },
@@ -59,6 +61,7 @@ export function LegislationsManager() {
   const [editForm, setEditForm] = useState<LegForm>(EMPTY_FORM);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [expandedNotesId, setExpandedNotesId] = useState<string | null>(null);
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   const toggleSegment = (
     setter: React.Dispatch<React.SetStateAction<LegForm>>,
@@ -89,13 +92,19 @@ export function LegislationsManager() {
   }
 
   async function handleSeed() {
-    if (!confirm('Deseja importar automaticamente as principais legislações sanitárias brasileiras para sua biblioteca?')) return;
+    const ok = await confirm({
+      title: 'Importar legislações sugeridas?',
+      description: 'Importa automaticamente as principais legislações sanitárias brasileiras para sua biblioteca.',
+      confirmLabel: 'Importar legislações',
+      tone: 'default',
+    });
+    if (!ok) return;
     try {
       setIsSeeding(true);
       await LegislationService.seedStandardLegislations();
       await loadLegislations();
     } catch {
-      alert('Erro ao importar legislações sugeridas');
+      toast.error('Erro ao importar legislações sugeridas');
     } finally {
       setIsSeeding(false);
     }
@@ -103,7 +112,7 @@ export function LegislationsManager() {
 
   async function handleAdd() {
     if (!newLeg.name || !newLeg.summary) {
-      alert('Nome e Resumo são obrigatórios para registrar uma norma técnica.');
+      toast.error('Nome e Resumo são obrigatórios para registrar uma norma técnica.');
       return;
     }
     try {
@@ -112,7 +121,7 @@ export function LegislationsManager() {
       setIsAdding(false);
       loadLegislations();
     } catch {
-      alert('Erro ao salvar legislação');
+      toast.error('Erro ao salvar legislação');
     }
   }
 
@@ -133,7 +142,7 @@ export function LegislationsManager() {
 
   async function handleSaveEdit(id: string) {
     if (!editForm.name || !editForm.summary) {
-      alert('A legislação deve possuir nome e resumo preenchidos.');
+      toast.error('A legislação deve possuir nome e resumo preenchidos.');
       return;
     }
     try {
@@ -142,19 +151,23 @@ export function LegislationsManager() {
       setEditingId(null);
       loadLegislations();
     } catch {
-      alert('Erro ao salvar alterações');
+      toast.error('Erro ao salvar alterações');
     } finally {
       setSavingId(null);
     }
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Tem certeza que deseja excluir esta legislação?')) return;
+    const ok = await confirm({
+      title: 'Excluir esta legislação?',
+      confirmLabel: 'Excluir legislação',
+    });
+    if (!ok) return;
     try {
       await LegislationService.deleteLegislation(id);
       loadLegislations();
     } catch {
-      alert('Erro ao excluir');
+      toast.error('Erro ao excluir');
     }
   }
 
@@ -526,6 +539,7 @@ export function LegislationsManager() {
           ))}
         </div>
       )}
+      {confirmDialog}
     </div>
   );
 }

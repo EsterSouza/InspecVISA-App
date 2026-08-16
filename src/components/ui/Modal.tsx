@@ -9,9 +9,25 @@ interface ModalProps {
   children: React.ReactNode;
   footer?: React.ReactNode;
   className?: string;
+  /** Papel ARIA do `<dialog>` — `ConfirmDialog` (FE-15) usa `alertdialog`. */
+  role?: 'dialog' | 'alertdialog';
+  /**
+   * Clicar no backdrop fecha por padrão. `ConfirmDialog` desliga isto: em ação
+   * sem volta, fechar por engano ao clicar fora é perda de dado (decisão 16).
+   */
+  closeOnBackdrop?: boolean;
 }
 
-export function Modal({ isOpen, onClose, title, children, footer, className }: ModalProps) {
+export function Modal({
+  isOpen,
+  onClose,
+  title,
+  children,
+  footer,
+  className,
+  role = 'dialog',
+  closeOnBackdrop = true,
+}: ModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -38,12 +54,13 @@ export function Modal({ isOpen, onClose, title, children, footer, className }: M
   };
 
   const handleBackdropClick = (event: React.MouseEvent<HTMLDialogElement>) => {
-    if (event.target === dialogRef.current) onClose();
+    if (closeOnBackdrop && event.target === dialogRef.current) onClose();
   };
 
   return (
     <dialog
       ref={dialogRef}
+      role={role}
       onClose={handleClose}
       onClick={handleBackdropClick}
       className={cn(

@@ -8,7 +8,9 @@ import {
 } from '../../../services/appointmentAdminService';
 import { Button } from '../../ui/Button';
 import { Card, CardContent } from '../../ui/Card';
+import { useConfirmDialog } from '../../ui/ConfirmDialog';
 import { errorMessage } from '../appointmentRequestsShared';
+import { toast } from '../../../store/useToastStore';
 
 interface AddPhotosModalProps {
   request: AppointmentRequest;
@@ -27,6 +29,7 @@ export function AddPhotosModal({ request, onClose, onAdded }: AddPhotosModalProp
   const [loadingPhotos, setLoadingPhotos] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   const loadPublished = () => {
     AppointmentAdminService.listPublishedPhotos(request.id)
@@ -41,13 +44,18 @@ export function AddPhotosModal({ request, onClose, onAdded }: AddPhotosModalProp
   };
 
   const handleRemovePublished = async (id: string) => {
-    if (!confirm('Remover esta foto do portal do cliente?')) return;
+    const ok = await confirm({
+      title: 'Remover foto do portal?',
+      description: 'O cliente deixa de vê-la no portal.',
+      confirmLabel: 'Remover foto',
+    });
+    if (!ok) return;
     setRemovingId(id);
     try {
       await AppointmentAdminService.removePublishedAttachment(id);
       loadPublished();
     } catch (err) {
-      alert(`Erro: ${errorMessage(err)}`);
+      toast.error('Erro', errorMessage(err));
     } finally {
       setRemovingId(null);
     }
@@ -269,6 +277,7 @@ export function AddPhotosModal({ request, onClose, onAdded }: AddPhotosModalProp
           </div>
         </CardContent>
       </Card>
+      {confirmDialog}
     </div>
   );
 }

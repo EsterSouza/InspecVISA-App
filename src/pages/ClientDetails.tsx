@@ -35,6 +35,8 @@ import { Modal } from '../components/ui/Modal';
 import { PageShell } from '../components/ui/PageShell';
 import { Pagination } from '../components/ui/Pagination';
 import { TableContainer, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
+import { useConfirmDialog } from '../components/ui/ConfirmDialog';
+import { toast } from '../store/useToastStore';
 
 const ComplianceTrendChart = lazy(() =>
   import('../components/client/ComplianceTrendChart').then(m => ({ default: m.ComplianceTrendChart }))
@@ -60,6 +62,7 @@ export function ClientDetails() {
   const [copiedAccess, setCopiedAccess] = useState(false);
   const [newAccessCode, setNewAccessCode] = useState<string | null>(null);
   const [isVisitModalOpen, setIsVisitModalOpen] = useState(false);
+  const { confirm, confirmDialog } = useConfirmDialog();
   const [visitDate, setVisitDate] = useState('');
   const [visitTime, setVisitTime] = useState('09:00');
   const [visitMode, setVisitMode] = useState<'presencial' | 'online'>('presencial');
@@ -168,7 +171,7 @@ export function ClientDetails() {
 
   const onEditSubmit = async (data: Client) => {
     if (!navigator.onLine) {
-      alert('Sem conexão com a internet. Não é possível salvar no momento.');
+      toast.error('Sem conexão com a internet.', 'Não é possível salvar no momento.');
       return;
     }
     try {
@@ -200,7 +203,7 @@ export function ClientDetails() {
       setIsModalOpen(false);
     } catch (err: any) {
       console.error(err);
-      alert(err.message || 'Erro ao atualizar cliente.');
+      toast.error(err.message || 'Erro ao atualizar cliente.');
     }
   };
 
@@ -269,7 +272,7 @@ export function ClientDetails() {
   const createPortalAccess = async () => {
     if (!client) return;
     if (!client.email) {
-      alert('Informe um e-mail no cadastro do cliente antes de criar o acesso.');
+      toast.error('Informe um e-mail no cadastro do cliente antes de criar o acesso.');
       return;
     }
     setAccessBusy(true);
@@ -285,7 +288,7 @@ export function ClientDetails() {
       setNewAccessCode(code);
       await refreshPortalAccounts();
     } catch (err: any) {
-      alert(err.message || 'Falha ao criar acesso do cliente.');
+      toast.error(err.message || 'Falha ao criar acesso do cliente.');
     } finally {
       setAccessBusy(false);
     }
@@ -300,7 +303,7 @@ export function ClientDetails() {
       setNewAccessCode(code);
       await refreshPortalAccounts();
     } catch (err: any) {
-      alert(err.message || 'Falha ao gerar nova senha.');
+      toast.error(err.message || 'Falha ao gerar nova senha.');
     } finally {
       setAccessBusy(false);
     }
@@ -308,20 +311,30 @@ export function ClientDetails() {
 
   const regeneratePortalToken = async () => {
     if (!portalAccount) return;
-    if (!confirm('Gerar novo token? Links diretos antigos deixam de funcionar.')) return;
+    const ok = await confirm({
+      title: 'Gerar novo token?',
+      description: 'Links diretos antigos deixam de funcionar.',
+      confirmLabel: 'Gerar novo token',
+    });
+    if (!ok) return;
     setAccessBusy(true);
     try {
       await AppointmentAdminService.regeneratePortalToken(portalAccount.id);
       await refreshPortalAccounts();
     } catch (err: any) {
-      alert(err.message || 'Falha ao gerar novo token.');
+      toast.error(err.message || 'Falha ao gerar novo token.');
     } finally {
       setAccessBusy(false);
     }
   };
 
   const removePublishedAsset = async (asset: AppointmentAttachment) => {
-    if (!confirm('Remover este arquivo do portal do cliente? O arquivo original nao sera apagado.')) return;
+    const ok = await confirm({
+      title: 'Remover este arquivo do portal do cliente?',
+      description: 'O arquivo original não será apagado.',
+      confirmLabel: 'Remover arquivo',
+    });
+    if (!ok) return;
     setRemovingAssetId(asset.id);
     try {
       await AppointmentAdminService.removePublishedAttachment(asset.id);
@@ -330,7 +343,7 @@ export function ClientDetails() {
         [asset.appointment_request_id]: (current[asset.appointment_request_id] || []).filter((item) => item.id !== asset.id),
       }));
     } catch (err: any) {
-      alert(err.message || 'Falha ao remover o arquivo.');
+      toast.error(err.message || 'Falha ao remover o arquivo.');
     } finally {
       setRemovingAssetId(null);
     }
@@ -388,7 +401,7 @@ export function ClientDetails() {
       const requests = await AppointmentAdminService.listRequests();
       setClientRequests(requests.filter((request) => request.client_id === client.id));
     } catch (err: any) {
-      alert(err.message || 'Falha ao criar nova visita.');
+      toast.error(err.message || 'Falha ao criar nova visita.');
     }
   };
 
@@ -396,17 +409,22 @@ export function ClientDetails() {
   const handleDelete = async () => {
     if (!client) return;
     if (!navigator.onLine) {
-      alert('Sem conexão com a internet. Não é possível excluir no momento.');
+      toast.error('Sem conexão com a internet.', 'Não é possível excluir no momento.');
       return;
     }
-    if (window.confirm(`Deseja realmente excluir o cliente "${client.name}"? Todas as inspeções e fotos associadas serão apagadas permanentemente.`)) {
-      try {
-        await ClientService.deleteClient(client.id);
-        navigate('/clients');
-      } catch (err: any) {
-        console.error(err);
-        alert(err.message || 'Erro ao excluir cliente.');
-      }
+    const ok = await confirm({
+      title: `Excluir o cliente "${client.name}"?`,
+      description: 'Todas as inspeções e fotos associadas serão apagadas permanentemente.',
+      confirmLabel: 'Excluir cliente',
+      confirmWord: 'EXCLUIR',
+    });
+    if (!ok) return;
+    try {
+      await ClientService.deleteClient(client.id);
+      navigate('/clients');
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || 'Erro ao excluir cliente.');
     }
   };
 
@@ -1175,6 +1193,7 @@ export function ClientDetails() {
           </div>
         </form>
       </Modal>
+      {confirmDialog}
     </PageShell>
   );
 }

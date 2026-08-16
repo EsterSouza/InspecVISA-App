@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { useConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { TemplateService } from '../../services/templateService';
 import type { ClientCategory } from '../../types';
 
@@ -38,6 +39,7 @@ export function TemplateEditor() {
   const [category, setCategory] = useState<ClientCategory>('estetica');
   const [version, setVersion] = useState('1');
   const [sections, setSections] = useState<EditingSection[]>([]);
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   useEffect(() => {
     if (isEditing && id) {
@@ -141,8 +143,13 @@ export function TemplateEditor() {
     setSections(sections.map(s => s.id === sectionId ? { ...s, title } : s));
   };
 
-  const removeSection = (sectionId: string) => {
-    if (confirm('Tem certeza que deseja remover esta seção e todos os seus itens?')) {
+  const removeSection = async (sectionId: string) => {
+    const ok = await confirm({
+      title: 'Remover seção?',
+      description: 'Remove a seção e todos os seus itens deste roteiro em edição.',
+      confirmLabel: 'Remover seção',
+    });
+    if (ok) {
       setSections(sections.filter(s => s.id !== sectionId));
     }
   };
@@ -380,6 +387,7 @@ export function TemplateEditor() {
         </div>
 
       </div>
+      {confirmDialog}
     </div>
   );
 }

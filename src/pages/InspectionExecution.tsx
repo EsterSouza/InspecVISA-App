@@ -47,6 +47,8 @@ import { Modal } from '../components/ui/Modal';
 import { Input } from '../components/ui/Input';
 import { Label } from '../components/ui/Label';
 import { Select } from '../components/ui/Select';
+import { useConfirmDialog } from '../components/ui/ConfirmDialog';
+import { toast } from '../store/useToastStore';
 
 // Pré-preenche uma nova inspeção (modo plano de ação) com as NCs da visita
 // anterior já marcadas como não conforme, copiando situação/ação/prazo/responsável.
@@ -106,6 +108,7 @@ export function InspectionExecution() {
     setCurrentInspection,
     setResponses,
   } = useInspectionStore();
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -432,10 +435,13 @@ export function InspectionExecution() {
     const pendingEvidence = (clientEvidence.get(itemId) || [])
       .filter(evidence => evidence.status === 'pending' && !alreadyConfirmed.has(evidence.evidenceId));
     if (result === 'complies' && pendingEvidence.length > 0) {
-      const listed = pendingEvidence.map(evidence => `• ${evidence.fileName}`).join('\n');
-      const confirmed = window.confirm(
-        `Ao confirmar CUMPRE, estas evidências pendentes serão aprovadas na finalização:\n\n${listed}\n\nContinuar?`,
-      );
+      const confirmed = await confirm({
+        title: 'Aprovar evidências pendentes junto com CUMPRE?',
+        description: 'Ao confirmar CUMPRE, estas evidências pendentes serão aprovadas na finalização:',
+        consequences: pendingEvidence.map(evidence => evidence.fileName),
+        confirmLabel: 'Confirmar CUMPRE',
+        tone: 'default',
+      });
       if (!confirmed) return;
       pendingEvidence.forEach(evidence => alreadyConfirmed.add(evidence.evidenceId));
     }
@@ -630,7 +636,13 @@ export function InspectionExecution() {
   const handleRemoveExtraItem = useCallback(async (itemId: string) => {
     const state = useInspectionStore.getState();
     const existing = state.responses.find(response => response.itemId === itemId);
-    if (!existing?.customItemMeta || !window.confirm('Excluir este item extra desta inspeção e interromper sua recorrência futura?')) return;
+    if (!existing?.customItemMeta) return;
+    const ok = await confirm({
+      title: 'Excluir este item extra?',
+      description: 'Remove da inspeção e interrompe sua recorrência futura.',
+      confirmLabel: 'Excluir item extra',
+    });
+    if (!ok) return;
     const actor = getLocalActor();
     const now = new Date();
     const discontinued: InspectionResponse = {
@@ -715,7 +727,10 @@ export function InspectionExecution() {
       try { await InspectionService.upsertResponse(newResponse); } catch (err) { console.error('Falha ao criar NC de dimensionamento:', err); }
     }
     void stampInspectionEditor(actor.name);
-    alert('Não-conformidade de dimensionamento registrada na seção, com situação e ação preenchidas. Revise e ajuste se necessário.');
+    toast.success(
+      'Não-conformidade de dimensionamento registrada na seção.',
+      'Situação e ação já preenchidas — revise e ajuste se necessário.'
+    );
   }, [collaborationTemplate, effectiveTemplate, stampInspectionEditor]);
 
 
@@ -734,9 +749,10 @@ export function InspectionExecution() {
 
   const handleConfirmFinish = async () => {
     if (!currentInspection || !signature) return;
-    if (!window.confirm('Encerrar Inspeção?')) return;
+    const ok = await confirm({ title: 'Encerrar inspeção?', confirmLabel: 'Encerrar inspeção', tone: 'default' });
+    if (!ok) return;
     if (!navigator.onLine) {
-      alert('Para finalizar o relatório, conecte-se à internet. O rascunho local continua salvo.');
+      toast.error('Para finalizar o relatório, conecte-se à internet.', 'O rascunho local continua salvo.');
       return;
     }
 
@@ -746,7 +762,7 @@ export function InspectionExecution() {
         const recovered = await InspectionService.getResponsesByInspectionId(currentInspection.id, true);
         if (recovered.length > 0) {
           setResponses(recovered);
-          alert('Foram recuperadas respostas já salvas na nuvem. Revise o roteiro carregado antes de finalizar.');
+          toast.warning('Foram recuperadas respostas já salvas na nuvem.', 'Revise o roteiro carregado antes de finalizar.');
           return;
         }
       }
@@ -784,10 +800,11 @@ export function InspectionExecution() {
           updatedAt: new Date(),
           syncStatus: 'synced',
         });
-        alert(
-          `Sua finalização foi registrada (${actor.name}). A inspeção continua EM ANDAMENTO `
-          + `até ${pending.join(' e ')} finalizar também. O relatório só é fechado e publicado `
-          + `quando todas as consultoras finalizarem — assim a sua parte não é encerrada sem as suas respostas.`
+        toast.warning(
+          `Sua finalização foi registrada (${actor.name}).`,
+          `A inspeção continua EM ANDAMENTO até ${pending.join(' e ')} finalizar também. O relatório só é `
+          + 'fechado e publicado quando todas as consultoras finalizarem — assim a sua parte não é encerrada '
+          + 'sem as suas respostas.'
         );
         setIsFinishing(false);
         setShowSignatureModal(false);
@@ -873,7 +890,10 @@ export function InspectionExecution() {
       navigate('/summary', { state: { inspectionId: currentInspection.id } });
     } catch (err) {
       console.error('[handleConfirmFinish] Error:', err);
-      alert('Relatório salvo como rascunho local, mas ainda não foi finalizado na nuvem. Abra a Central de Sincronização e tente novamente.');
+      toast.error(
+        'Relatório salvo como rascunho local, mas ainda não foi finalizado na nuvem.',
+        'Abra a Central de Sincronização e tente novamente.'
+      );
     } finally {
       setIsFinishing(false);
       setShowSignatureModal(false);
@@ -989,14 +1009,18 @@ export function InspectionExecution() {
               <Button
                 variant="outline"
                 onClick={async () => {
-                  if (window.confirm('Reabrir esta inspeção para edição?')) {
-                    const updates: Partial<Inspection> = { status: 'in_progress' as const, completedAt: undefined };
-                    try {
-                      await InspectionService.updateInspection(currentInspection.id, updates);
-                      setCurrentInspection({ ...currentInspection, ...updates });
-                    } catch (err) {
-                      alert('Erro ao reabrir inspeção: ' + err);
-                    }
+                  const ok = await confirm({
+                    title: 'Reabrir esta inspeção para edição?',
+                    confirmLabel: 'Reabrir inspeção',
+                    tone: 'default',
+                  });
+                  if (!ok) return;
+                  const updates: Partial<Inspection> = { status: 'in_progress' as const, completedAt: undefined };
+                  try {
+                    await InspectionService.updateInspection(currentInspection.id, updates);
+                    setCurrentInspection({ ...currentInspection, ...updates });
+                  } catch (err) {
+                    toast.error('Erro ao reabrir inspeção', String(err));
                   }
                 }}
                 className="border-amber-300 text-amber-700 hover:bg-amber-50"
@@ -1292,6 +1316,7 @@ export function InspectionExecution() {
           </Card>
         </div>
       )}
+      {confirmDialog}
     </div>
   );
 }

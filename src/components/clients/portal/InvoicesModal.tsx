@@ -7,6 +7,7 @@ import {
 } from '../../../services/appointmentAdminService';
 import { Button } from '../../ui/Button';
 import { Card, CardContent } from '../../ui/Card';
+import { useConfirmDialog } from '../../ui/ConfirmDialog';
 import { errorMessage } from './shared';
 
 interface InvoicesModalProps {
@@ -38,6 +39,7 @@ export function InvoicesModal({ account, onClose }: InvoicesModalProps) {
   const [uploading, setUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   const load = async () => {
     setLoading(true);
@@ -80,7 +82,12 @@ export function InvoicesModal({ account, onClose }: InvoicesModalProps) {
   };
 
   const handleDelete = async (invoice: ClientPortalInvoiceRow) => {
-    if (!confirm('Remover esta nota fiscal? O cliente deixará de vê-la no portal.')) return;
+    const ok = await confirm({
+      title: 'Remover nota fiscal?',
+      description: 'O cliente deixará de vê-la no portal.',
+      confirmLabel: 'Remover nota fiscal',
+    });
+    if (!ok) return;
     setDeletingId(invoice.id);
     setError(null);
     try {
@@ -188,6 +195,7 @@ export function InvoicesModal({ account, onClose }: InvoicesModalProps) {
           </Button>
         </CardContent>
       </Card>
+      {confirmDialog}
     </div>
   );
 }

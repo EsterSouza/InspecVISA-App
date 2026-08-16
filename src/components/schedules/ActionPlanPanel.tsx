@@ -4,6 +4,7 @@ import type { ClientActionEvidence, ClientActionItem } from '../../types';
 import { AppointmentAdminService } from '../../services/appointmentAdminService';
 import { Button } from '../ui/Button';
 import { errorMessage, formatDateBR } from './appointmentRequestsShared';
+import { toast } from '../../store/useToastStore';
 
 const ACTION_PRIORITY_LABELS: Record<ClientActionItem['priority'], string> = {
   urgent: 'Urgente',
@@ -60,7 +61,7 @@ export function EvidenceReview({
       const typed = window.prompt('O que o cliente precisa ajustar? (o texto vai para ele)', note || '');
       if (typed === null) return;
       if (!typed.trim()) {
-        alert('Devolver exige uma orientação.');
+        toast.error('Devolver exige uma orientação.');
         return;
       }
       note = typed;
@@ -76,7 +77,7 @@ export function EvidenceReview({
       void AppointmentAdminService.notifyEvidenceReviewed(row.id);
       onReviewed();
     } catch (err) {
-      alert(`Erro: ${errorMessage(err)}`);
+      toast.error('Erro', errorMessage(err));
     } finally {
       setBusyId(null);
     }
@@ -89,7 +90,7 @@ export function EvidenceReview({
       const url = await AppointmentAdminService.evidenceSignedUrl(row);
       window.open(url, '_blank', 'noopener,noreferrer');
     } catch (err) {
-      alert(`Erro: ${errorMessage(err)}`);
+      toast.error('Erro', errorMessage(err));
     } finally {
       setBusyId(null);
     }
@@ -203,7 +204,7 @@ export function ActionPlanPanel({ requestId, busy }: { requestId: string; busy: 
       await AppointmentAdminService.setActionItemStatus(item.id, status);
       loadItems();
     } catch (err) {
-      alert(`Erro: ${errorMessage(err)}`);
+      toast.error('Erro', errorMessage(err));
     } finally {
       setSavingId(null);
     }

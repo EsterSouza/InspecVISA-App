@@ -17,7 +17,9 @@ import type { Client } from '../../types';
 import { AppointmentAdminService, type ClientPortalAccountRow } from '../../services/appointmentAdminService';
 import { Button } from '../ui/Button';
 import { Card, CardContent } from '../ui/Card';
+import { useConfirmDialog } from '../ui/ConfirmDialog';
 import { errorMessage, generateAccessCode } from './portal/shared';
+import { toast } from '../../store/useToastStore';
 import { InvoicesModal } from './portal/InvoicesModal';
 import { PaymentModal } from './portal/PaymentModal';
 import { PortalAccessModal } from './portal/PortalAccessModal';
@@ -48,6 +50,7 @@ export function ClientPortalManagement({ accounts, clients, onChanged }: ClientP
   const [invoicesTarget, setInvoicesTarget] = useState<ClientPortalAccountRow | null>(null);
   const [accessTarget, setAccessTarget] = useState<ClientPortalAccountRow | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   const portalUrl = `${window.location.origin}/cliente`;
   const clientNameMap = new Map(clients.map((client) => [client.id, client.name]));
@@ -68,7 +71,12 @@ export function ClientPortalManagement({ accounts, clients, onChanged }: ClientP
   };
 
   const handleRegenerate = async (account: ClientPortalAccountRow) => {
-    if (!confirm(`Gerar uma nova senha para "${account.name}"? A senha atual deixa de funcionar.`)) return;
+    const ok = await confirm({
+      title: `Gerar uma nova senha para "${account.name}"?`,
+      description: 'A senha atual deixa de funcionar.',
+      confirmLabel: 'Gerar nova senha',
+    });
+    if (!ok) return;
     setBusyId(account.id);
     try {
       const code = generateAccessCode();
@@ -95,20 +103,25 @@ export function ClientPortalManagement({ accounts, clients, onChanged }: ClientP
         emailError,
       });
     } catch (err) {
-      alert(`Erro: ${errorMessage(err)}`);
+      toast.error('Erro', errorMessage(err));
     } finally {
       setBusyId(null);
     }
   };
 
   const handleDelete = async (account: ClientPortalAccountRow) => {
-    if (!confirm(`Remover o acesso de "${account.name}"? O cliente não conseguirá mais entrar no portal.`)) return;
+    const ok = await confirm({
+      title: `Remover o acesso de "${account.name}"?`,
+      description: 'O cliente não conseguirá mais entrar no portal.',
+      confirmLabel: 'Remover acesso',
+    });
+    if (!ok) return;
     setBusyId(account.id);
     try {
       await AppointmentAdminService.deletePortalAccount(account.id);
       onChanged();
     } catch (err) {
-      alert(`Erro: ${errorMessage(err)}`);
+      toast.error('Erro', errorMessage(err));
     } finally {
       setBusyId(null);
     }
@@ -379,6 +392,7 @@ export function ClientPortalManagement({ accounts, clients, onChanged }: ClientP
       {invoicesTarget && (
         <InvoicesModal account={invoicesTarget} onClose={() => setInvoicesTarget(null)} />
       )}
+      {confirmDialog}
     </section>
   );
 }

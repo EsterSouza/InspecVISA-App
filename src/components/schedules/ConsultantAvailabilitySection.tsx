@@ -4,6 +4,7 @@ import { AppointmentAdminService } from '../../services/appointmentAdminService'
 import type { ConsultantAvailabilityRow } from '../../types';
 import { Card, CardContent } from '../ui/Card';
 import { SCHEDULE_CONSULTANTS, errorMessage } from './appointmentRequestsShared';
+import { toast } from '../../store/useToastStore';
 
 const WEEKDAYS: { value: number; label: string }[] = [
   { value: 1, label: 'Seg' },
@@ -54,7 +55,7 @@ export function ConsultantAvailabilitySection() {
           : prev.filter((r) => !(r.consultant_name === consultant && r.weekday === weekday && r.period === period))
       );
     } catch (err) {
-      alert(`Erro: ${errorMessage(err)}`);
+      toast.error('Erro', errorMessage(err));
     } finally {
       setBusyKey(null);
     }

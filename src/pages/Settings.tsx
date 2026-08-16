@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { SettingsService } from '../services/settingsService';
+import { useConfirmDialog } from '../components/ui/ConfirmDialog';
+import { toast } from '../store/useToastStore';
 
 export function Settings() {
   const { settings, currentProfile, updateSettings, replaceSettings, clearData } = useSettingsStore();
@@ -19,6 +21,7 @@ export function Settings() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [loadStatus, setLoadStatus] = useState<'idle' | 'loading' | 'loaded' | 'failed'>('idle');
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   useEffect(() => {
     if (!navigator.onLine) return;
@@ -52,7 +55,7 @@ export function Settings() {
       updateSettings({ logoDataUrl: dataUrl });
     } catch (err) {
       console.error('Logo upload error:', err);
-      alert('Erro ao processar logotipo.');
+      toast.error('Erro ao processar logotipo.');
     }
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -71,31 +74,34 @@ export function Settings() {
     } catch (err: any) {
       console.error('[Settings] Falha ao salvar perfil remoto:', err);
       setSaveStatus('idle');
-      alert(err?.message || 'Nao foi possivel salvar o perfil na nuvem.');
+      toast.error(err?.message || 'Nao foi possivel salvar o perfil na nuvem.');
     }
   };
 
   const handleClearData = async () => {
     const summary = await SyncQueueService.getQueueSummary();
-    const hasUnsynced = summary.pending > 0 || summary.syncing > 0 || summary.failed > 0;
-    
-    let warning = 'ATENÇÃO: Isso apagará permanentemente todos os clientes, inspeções e fotos do seu dispositivo. Tem certeza absoluta?';
-    if (hasUnsynced) {
-      warning = `⚠️ ATENÇÃO: Você tem ${summary.pending + summary.syncing + summary.failed} registros que AINDA NÃO foram salvos na nuvem. Se apagar agora, esses dados serão PERDIDOS PARA SEMPRE. Deseja mesmo prosseguir?`;
-    }
+    const unsyncedCount = summary.pending + summary.syncing + summary.failed;
+    const hasUnsynced = unsyncedCount > 0;
 
-    if (window.confirm(warning)) {
-      if (window.confirm('ÚLTIMO AVISO: Mantenha prosseguir para deletar tudo.')) {
-        await Promise.all([
-          db.clients.clear(),
-          db.inspections.clear(),
-          db.responses.clear(),
-          db.photos.clear(),
-        ]);
-        clearData();
-        window.location.reload();
-      }
-    }
+    const ok = await confirm({
+      title: 'Apagar todos os dados deste dispositivo?',
+      description: hasUnsynced
+        ? `Você tem ${unsyncedCount} registro(s) que ainda não foram salvos na nuvem. Se apagar agora, esses dados serão perdidos para sempre.`
+        : 'Isso apaga permanentemente os dados locais deste dispositivo.',
+      consequences: ['Clientes', 'Inspeções e respostas', 'Fotos'],
+      confirmLabel: 'Apagar tudo',
+      confirmWord: 'APAGAR',
+    });
+    if (!ok) return;
+
+    await Promise.all([
+      db.clients.clear(),
+      db.inspections.clear(),
+      db.responses.clear(),
+      db.photos.clear(),
+    ]);
+    clearData();
+    window.location.reload();
   };
 
 
@@ -279,9 +285,9 @@ export function Settings() {
                 setSaveStatus('saving');
                 try {
                   const res = await forcePushFinalData();
-                  alert(`Sincronização concluída.\nSucesso: ${res.totalSynced}\nErros: ${res.errors}`);
+                  toast.success('Sincronização concluída.', `Sucesso: ${res.totalSynced} · Erros: ${res.errors}`);
                 } catch (e: any) {
-                  alert('Erro ao sincronizar: ' + e.message);
+                  toast.error('Erro ao sincronizar', e.message);
                 } finally {
                   setSaveStatus('idle');
                 }
@@ -344,6 +350,7 @@ export function Settings() {
       <div className="text-center text-xs text-gray-400 pb-10">
         InspecVISA PWA v1.0.0 • Dados salvos localmente
       </div>
+      {confirmDialog}
     </PageShell>
   );
 }

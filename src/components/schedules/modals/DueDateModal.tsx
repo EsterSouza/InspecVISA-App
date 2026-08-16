@@ -5,6 +5,7 @@ import { AppointmentAdminService } from '../../../services/appointmentAdminServi
 import { Button } from '../../ui/Button';
 import { Card, CardContent } from '../../ui/Card';
 import { TEXT_INPUT, errorMessage } from '../appointmentRequestsShared';
+import { toast } from '../../../store/useToastStore';
 
 interface DueDateModalProps {
   request: AppointmentRequest;
@@ -24,7 +25,7 @@ export function DueDateModal({ request, onClose, onSaved }: DueDateModalProps) {
       onSaved();
     } catch (err) {
       console.error(err);
-      alert(`Erro: ${errorMessage(err)}`);
+      toast.error('Erro', errorMessage(err));
     } finally {
       setSaving(false);
     }

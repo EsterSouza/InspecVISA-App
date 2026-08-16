@@ -11,6 +11,8 @@ import { PageShell } from '../components/ui/PageShell';
 import { formatDateTime } from '../utils/imageUtils';
 import { ProfileModal } from '../components/profile/ProfileModal';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { useConfirmDialog } from '../components/ui/ConfirmDialog';
+import { toast } from '../store/useToastStore';
 
 function attachClientData(list: Inspection[], clients: Client[]) {
   const clientMap = new Map<string, Client>(clients.map(client => [client.id, client]));
@@ -35,6 +37,7 @@ export function Inspections() {
   const settings = useSettingsStore((s) => s.settings);
   const [showProfileModal, setShowProfileModal] = useState(!settings.name);
   const trashRefreshPromise = useRef<Promise<void> | null>(null);
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   const loadInspections = useCallback(async () => {
     try {
@@ -104,41 +107,57 @@ export function Inspections() {
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (window.confirm('Mover esta inspeção para a Lixeira? Ela permanecerá disponível para restauração até uma exclusão definitiva manual.')) {
-      // Optimistic update: remove from UI immediately
-      setInspections(prev => prev.filter(i => i.id !== id));
-      
-      InspectionService.deleteInspection(id).then(() => {
-        setShowTrash(true);
-        void loadInspections();
-      }).catch(err => {
-        console.error('[Delete] Failed:', err);
-        void loadInspections();
-        alert('A inspeção foi movida localmente para a Lixeira, mas ainda precisa sincronizar na nuvem.');
-      });
-    }
+    const ok = await confirm({
+      title: 'Mover esta inspeção para a Lixeira?',
+      description: 'Ela permanecerá disponível para restauração até uma exclusão definitiva manual.',
+      confirmLabel: 'Mover para a Lixeira',
+    });
+    if (!ok) return;
+    // Optimistic update: remove from UI immediately
+    setInspections(prev => prev.filter(i => i.id !== id));
+
+    InspectionService.deleteInspection(id).then(() => {
+      setShowTrash(true);
+      void loadInspections();
+    }).catch(err => {
+      console.error('[Delete] Failed:', err);
+      void loadInspections();
+      toast.warning('A inspeção foi movida localmente para a Lixeira.', 'Ainda precisa sincronizar na nuvem.');
+    });
   };
 
   const handleRestore = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (!window.confirm('Restaurar esta inspeção excluída com respostas e fotos locais?')) return;
+    const ok = await confirm({
+      title: 'Restaurar esta inspeção excluída?',
+      description: 'Restaura com respostas e fotos locais.',
+      confirmLabel: 'Restaurar inspeção',
+      tone: 'default',
+    });
+    if (!ok) return;
     try {
       await InspectionService.restoreInspection(id);
       await loadInspections();
-      alert('Inspeção restaurada. Abra a inspeção e confira os dados antes de sincronizar.');
+      toast.success('Inspeção restaurada.', 'Abra a inspeção e confira os dados antes de sincronizar.');
     } catch (err: any) {
-      alert(err?.message || 'Erro ao restaurar inspeção.');
+      toast.error(err?.message || 'Erro ao restaurar inspeção.');
     }
   };
 
   const handlePermanentDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (!window.confirm('Excluir definitivamente este relatório, suas respostas e fotos? Esta ação não pode ser desfeita.')) return;
+    const ok = await confirm({
+      title: 'Excluir definitivamente este relatório?',
+      description: 'Remove o relatório, suas respostas e fotos. Esta ação não pode ser desfeita.',
+      confirmLabel: 'Excluir definitivamente',
+      confirmWord: 'EXCLUIR',
+    });
+    if (!ok) return;
     try {
       await InspectionService.permanentlyDeleteInspection(id);
       await loadInspections();
     } catch (err: any) {
-      alert(err?.message || 'Erro ao excluir definitivamente o relatório.');
+      toast.error(err?.message || 'Erro ao excluir definitivamente o relatório.');
     }
   };
 
@@ -324,6 +343,7 @@ export function Inspections() {
       {showProfileModal && (
         <ProfileModal onClose={() => setShowProfileModal(false)} />
       )}
+      {confirmDialog}
     </PageShell>
   );
 }

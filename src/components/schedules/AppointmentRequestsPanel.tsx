@@ -22,6 +22,8 @@ import { DueDateModal } from './modals/DueDateModal';
 import { NewVisitModal } from './modals/NewVisitModal';
 import { RescheduleModal } from './modals/RescheduleModal';
 import { NotCompletedModal } from './modals/NotCompletedModal';
+import { useConfirmDialog } from '../ui/ConfirmDialog';
+import { toast } from '../../store/useToastStore';
 
 // Aviso pós-ação (relatório publicado / confirmação / remarcação / cancelamento).
 type EventNotifyKind = 'report_available' | 'confirmed' | 'rescheduled' | 'cancelled';
@@ -80,6 +82,7 @@ export function AppointmentRequestsPanel({ focusRequestId }: { focusRequestId?: 
   // Status de entrega do e-mail de confirmação/remarcação, por request — evita reenvio às
   // cegas: o botão mostra se já foi enviado antes de a consultora clicar de novo.
   const [notificationStatuses, setNotificationStatuses] = useState<Map<string, { status: string; sentAt: string | null }>>(new Map());
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   // Modal de confirmação
   const [confirmTarget, setConfirmTarget] = useState<AppointmentRequest | null>(null);
@@ -153,7 +156,7 @@ export function AppointmentRequestsPanel({ focusRequestId }: { focusRequestId?: 
       return result;
     } catch (err) {
       console.error(err);
-      alert(`Erro: ${errorMessage(err)}`);
+      toast.error('Erro', errorMessage(err));
       return undefined;
     } finally {
       setBusy(null);
@@ -184,14 +187,23 @@ export function AppointmentRequestsPanel({ focusRequestId }: { focusRequestId?: 
     setRescheduleTarget(request);
   };
 
-  const handleCancel = (request: AppointmentRequest) => {
-    if (!confirm(`Cancelar a solicitação de "${request.unit_name}"?`)) return;
+  const handleCancel = async (request: AppointmentRequest) => {
+    const ok = await confirm({
+      title: `Cancelar a solicitação de "${request.unit_name}"?`,
+      confirmLabel: 'Cancelar solicitação',
+    });
+    if (!ok) return;
     void withBusy(request.id, () => AppointmentAdminService.cancelRequest(request))
       .then((result) => showEventNotify(request.unit_name, 'cancelled', result ?? null));
   };
 
-  const handleDelete = (request: AppointmentRequest) => {
-    if (!confirm(`Excluir definitivamente "${request.unit_name}" do registro de solicitações?`)) return;
+  const handleDelete = async (request: AppointmentRequest) => {
+    const ok = await confirm({
+      title: `Excluir definitivamente "${request.unit_name}"?`,
+      description: 'Remove do registro de solicitações. Esta ação não pode ser desfeita.',
+      confirmLabel: 'Excluir solicitação',
+    });
+    if (!ok) return;
     void withBusy(request.id, () => AppointmentAdminService.deleteRequest(request));
   };
 
@@ -205,15 +217,20 @@ export function AppointmentRequestsPanel({ focusRequestId }: { focusRequestId?: 
       return;
     }
     await navigator.clipboard.writeText(message);
-    alert('Mensagem com link do portal copiada para compartilhar no WhatsApp.');
+    toast.success('Mensagem copiada.', 'Cole no WhatsApp para compartilhar o link do portal.');
   };
 
   const handleMarkInProgress = (request: AppointmentRequest) => {
     void withBusy(request.id, () => AppointmentAdminService.markInProgress(request));
   };
 
-  const handleMarkCompleted = (request: AppointmentRequest) => {
-    if (!confirm(`Marcar a inspeção de "${request.unit_name}" como concluída?`)) return;
+  const handleMarkCompleted = async (request: AppointmentRequest) => {
+    const ok = await confirm({
+      title: `Marcar a inspeção de "${request.unit_name}" como concluída?`,
+      confirmLabel: 'Marcar como concluída',
+      tone: 'default',
+    });
+    if (!ok) return;
     void withBusy(request.id, () => AppointmentAdminService.markCompleted(request.id));
   };
 
@@ -232,7 +249,7 @@ export function AppointmentRequestsPanel({ focusRequestId }: { focusRequestId?: 
   const handlePublishReport = (request: AppointmentRequest, file: File | null) => {
     if (!file) return;
     if (!file.type.includes('pdf') && !file.name.toLowerCase().endsWith('.pdf')) {
-      alert('O relatório deve ser um arquivo PDF.');
+      toast.error('O relatório deve ser um arquivo PDF.');
       return;
     }
     setBusy(request.id);
@@ -254,7 +271,7 @@ export function AppointmentRequestsPanel({ focusRequestId }: { focusRequestId?: 
       })
       .catch((err) => {
         console.error(err);
-        alert(`Erro: ${errorMessage(err)}`);
+        toast.error('Erro', errorMessage(err));
       })
       .finally(() => setBusy(null));
   };
@@ -499,6 +516,7 @@ export function AppointmentRequestsPanel({ focusRequestId }: { focusRequestId?: 
           </Card>
         </div>
       )}
+      {confirmDialog}
     </div>
   );
 }

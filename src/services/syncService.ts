@@ -46,6 +46,3 @@ export async function syncData() { console.log('SyncData desativado (Modo Online
 export async function syncClientsOnly() {}
 export async function syncSchedulesOnly() {}
 export async function syncInspectionsOnly() {}
-export async function repairSyncStatus() { 
-  alert('O modo Online-Direct não requer reparo de sincronização.');
-}

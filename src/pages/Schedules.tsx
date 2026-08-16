@@ -15,6 +15,8 @@ import { toDateInputValue } from '../utils/appointmentLeadTime';
 import { WeekCalendar, type WeekCalendarEvent, type WeekCalendarEventState, type WeekCalendarWeek } from '../components/ui/WeekCalendar';
 import { APPOINTMENT_TYPE_RULES } from '../utils/appointmentType';
 import { addDays, formatWeekPeriod, mondayOf } from '../utils/weekCalendarDates';
+import { useConfirmDialog } from '../components/ui/ConfirmDialog';
+import { toast } from '../store/useToastStore';
 
 type SchedulesTab = 'agenda' | 'solicitacoes';
 type AgendaView = 'semana' | 'lista';
@@ -81,6 +83,7 @@ export function Schedules() {
   );
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const { confirm, confirmDialog } = useConfirmDialog();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -166,12 +169,12 @@ export function Schedules() {
       const scheduledAt = new Date(`${scheduledDate}T${scheduledTime}`);
       // A equipe agenda a qualquer momento; a antecedência de 24h é só do cliente.
       if (!navigator.onLine) {
-        alert('Sem conexão com a internet. O agendamento precisa sincronizar com o portal do cliente.');
+        toast.error('Sem conexão com a internet.', 'O agendamento precisa sincronizar com o portal do cliente.');
         return;
       }
       const selectedClient = selectedClientId ? clients.find((client) => client.id === selectedClientId) : undefined;
       if (!clientOptionalForEdit && !selectedClient) {
-        alert('Cliente selecionado nao encontrado.');
+        toast.error('Cliente selecionado nao encontrado.');
         return;
       }
       const actor = getLocalActor();
@@ -233,7 +236,7 @@ export function Schedules() {
       } else {
         // Criação manual sempre exige cliente (não passa pelo canal de briefing sem cliente).
         if (!selectedClient) {
-          alert('Cliente selecionado nao encontrado.');
+          toast.error('Cliente selecionado nao encontrado.');
           return;
         }
         // Cria uma ocorrência (Schedule + solicitação confirmada no portal) — exatamente
@@ -289,7 +292,7 @@ export function Schedules() {
       resetForm();
       loadData();
     } catch (err: any) {
-      alert('Erro ao salvar agendamento: ' + err.message);
+      toast.error('Erro ao salvar agendamento', err.message);
     }
   };
 
@@ -326,14 +329,17 @@ export function Schedules() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Deseja excluir este agendamento?')) {
-      try {
-        await ScheduleService.deleteSchedule(id);
-        loadData();
-      } catch (err) {
-        console.error(err);
-        alert('Erro ao excluir agendamento.');
-      }
+    const ok = await confirm({
+      title: 'Excluir este agendamento?',
+      confirmLabel: 'Excluir agendamento',
+    });
+    if (!ok) return;
+    try {
+      await ScheduleService.deleteSchedule(id);
+      loadData();
+    } catch (err) {
+      console.error(err);
+      toast.error('Erro ao excluir agendamento.');
     }
   };
 
@@ -760,6 +766,7 @@ export function Schedules() {
           </Card>
         </div>
       )}
+      {confirmDialog}
     </PageShell>
   );
 }

@@ -26,6 +26,7 @@ import { resolveReportTemplate } from '../utils/reportTemplate';
 import { withClientLocation } from '../utils/inspectionLocation';
 import { composeChecklistTemplate } from '../utils/customItems';
 import { toast } from '../store/useToastStore';
+import { useConfirmDialog } from '../components/ui/ConfirmDialog';
 
 const PDF_PHOTO_HYDRATION_TIMEOUT_MS = 12000;
 
@@ -47,6 +48,7 @@ export function InspectionSummary() {
   const [loading, setLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showPdfModal, setShowPdfModal] = useState(false);
+  const { confirm, confirmDialog } = useConfirmDialog();
   
   const [currentInspection, setInspection] = useState<Inspection | null>(null);
   const [responses, setResponses] = useState<InspectionResponse[]>([]);
@@ -269,7 +271,7 @@ export function InspectionSummary() {
 
       setIsEditing(false);
     } catch (err) {
-      alert('Erro ao salvar: ' + err);
+      toast.error('Erro ao salvar', String(err));
     } finally {
       setSavingMeta(false);
     }
@@ -278,7 +280,10 @@ export function InspectionSummary() {
   const handleGeneratePDF = async (opts: { selectedLegislations: string[]; referenceSources?: ReferenceSource[]; signatureDataUrl?: string }) => {
     if (!currentInspection) return;
     if (!displayTemplate || !scoreArea) {
-      alert('Nao foi possivel gerar o PDF porque o roteiro ou a pontuacao ainda nao carregou. Aguarde alguns segundos e tente novamente.');
+      toast.error(
+        'Não foi possível gerar o PDF.',
+        'O roteiro ou a pontuação ainda não carregou. Aguarde alguns segundos e tente novamente.'
+      );
       return;
     }
     setIsGenerating(true);
@@ -293,11 +298,16 @@ export function InspectionSummary() {
     const currentReadiness = await checkReportReadiness(currentInspection.id);
     setReadiness(currentReadiness);
     if (currentReadiness.conflictCount > 0) {
-      alert('Existem conflitos abertos nesta inspeção. Resolva os conflitos antes de gerar o PDF.');
+      toast.error('Existem conflitos abertos nesta inspeção.', 'Resolva os conflitos antes de gerar o PDF.');
       return;
     }
     if (currentInspection.status !== 'completed') {
-      const ok = window.confirm('Esta inspecao ainda esta em andamento. Gerar um PDF de rascunho mesmo assim?');
+      const ok = await confirm({
+        title: 'Esta inspeção ainda está em andamento.',
+        description: 'Gerar um PDF de rascunho mesmo assim?',
+        confirmLabel: 'Gerar PDF de rascunho',
+        tone: 'default',
+      });
       if (!ok) {
         setIsGenerating(false);
         setPdfPhotoProgress(null);
@@ -305,7 +315,12 @@ export function InspectionSummary() {
       }
     }
     if (!currentReadiness.isReady) {
-      const ok = window.confirm('Existem dados pendentes ou falhas de sincronização. Gerar PDF provisório mesmo assim?');
+      const ok = await confirm({
+        title: 'Existem dados pendentes ou falhas de sincronização.',
+        description: 'Gerar PDF provisório mesmo assim?',
+        confirmLabel: 'Gerar PDF provisório',
+        tone: 'default',
+      });
       if (!ok) {
         setIsGenerating(false);
         setPdfPhotoProgress(null);
@@ -336,14 +351,22 @@ export function InspectionSummary() {
            }
 
            if (hydration.failed > 0) {
-             const ok = window.confirm(
-               `Nao foi possivel baixar ${hydration.failed} foto(s) para este dispositivo agora. Gerar o PDF sem essas imagens? Cancele para tentar novamente depois.`
-             );
+             const ok = await confirm({
+               title: `Não foi possível baixar ${hydration.failed} foto(s) para este dispositivo agora.`,
+               description: 'Gerar o PDF sem essas imagens? Cancele para tentar novamente depois.',
+               confirmLabel: 'Gerar sem essas fotos',
+               tone: 'default',
+             });
              if (!ok) return;
            }
          } catch (err) {
            console.warn('[Summary] PDF photo hydration failed; generating with local photos only:', err);
-           const ok = window.confirm('As fotos da nuvem nao terminaram de baixar agora. Gerar o PDF com as fotos que ja aparecem nesta tela?');
+           const ok = await confirm({
+             title: 'As fotos da nuvem não terminaram de baixar agora.',
+             description: 'Gerar o PDF com as fotos que já aparecem nesta tela?',
+             confirmLabel: 'Gerar com fotos atuais',
+             tone: 'default',
+           });
            if (!ok) return;
          }
        }
@@ -468,31 +491,44 @@ export function InspectionSummary() {
     } catch (err) {
        console.error('PDF Error:', err);
       const message = err instanceof Error ? err.message : String(err);
-      alert(`Erro ao gerar PDF: ${message}`);
+      toast.error('Erro ao gerar PDF', message);
     } finally {
       setIsGenerating(false);
       setPdfPhotoProgress(null);
     }
   };
 
-  const handleOpenPdfModal = () => {
+  const handleOpenPdfModal = async () => {
     if (!displayTemplate || !scoreArea) {
-      alert('Nao foi possivel preparar o PDF porque o roteiro ou a pontuacao ainda nao carregou. Aguarde alguns segundos e tente novamente.');
+      toast.error(
+        'Não foi possível preparar o PDF.',
+        'O roteiro ou a pontuação ainda não carregou. Aguarde alguns segundos e tente novamente.'
+      );
       return;
     }
 
     if (readiness?.conflictCount) {
-      alert('Existem conflitos abertos nesta inspeção. Resolva os conflitos antes de gerar o PDF.');
+      toast.error('Existem conflitos abertos nesta inspeção.', 'Resolva os conflitos antes de gerar o PDF.');
       return;
     }
 
     if (currentInspection?.status !== 'completed') {
-      const ok = window.confirm('Esta inspecao ainda esta em andamento. O PDF sera um rascunho. Continuar?');
+      const ok = await confirm({
+        title: 'Esta inspeção ainda está em andamento.',
+        description: 'O PDF será um rascunho. Continuar?',
+        confirmLabel: 'Continuar',
+        tone: 'default',
+      });
       if (!ok) return;
     }
 
     if (readiness && !readiness.isReady) {
-      const ok = window.confirm('Existem dados pendentes ou falhas de sincronização. O PDF será provisório. Continuar?');
+      const ok = await confirm({
+        title: 'Existem dados pendentes ou falhas de sincronização.',
+        description: 'O PDF será provisório. Continuar?',
+        confirmLabel: 'Continuar',
+        tone: 'default',
+      });
       if (!ok) return;
     }
 
@@ -931,6 +967,7 @@ export function InspectionSummary() {
           progressLabel={pdfPhotoProgress ? `Fotos ${pdfPhotoProgress.completed + pdfPhotoProgress.failed}/${pdfPhotoProgress.total}` : undefined}
         />
       )}
+      {confirmDialog}
     </div>
   );
 }

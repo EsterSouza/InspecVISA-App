@@ -26,6 +26,7 @@ import { Card, CardContent } from '../ui/Card';
 import { STATUS_BADGES, STATUS_LABELS, formatCreatedAt, formatDateBR } from './appointmentRequestsShared';
 import { PublishedFilesPanel } from './PublishedFilesPanel';
 import { ActionPlanModal } from './modals/ActionPlanModal';
+import { toast } from '../../store/useToastStore';
 
 interface ActiveRequestCardProps {
   request: AppointmentRequest;
@@ -96,7 +97,7 @@ export function ActiveRequestCard({
       setMeetingUrl(meetingUrl.trim());
       setMeetingSaved(true);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Não foi possível salvar o link da videoconferência.');
+      toast.error(err instanceof Error ? err.message : 'Não foi possível salvar o link da videoconferência.');
     } finally {
       setMeetingBusy(false);
     }

@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
+import { useConfirmDialog } from '../components/ui/ConfirmDialog';
 import { PageShell } from '../components/ui/PageShell';
 import { generateId } from '../utils/imageUtils';
 import { UF_OPTIONS, toUF } from '../utils/state';
@@ -13,6 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import { ClientService } from '../services/clientService';
 import { AppointmentAdminService, type ClientPortalAccountRow } from '../services/appointmentAdminService';
 import { ClientPortalManagement } from '../components/clients/ClientPortalManagement';
+import { toast } from '../store/useToastStore';
 
 type ClientsTab = 'clientes' | 'portal';
 
@@ -28,6 +30,7 @@ export function Clients() {
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
   const [portalAccounts, setPortalAccounts] = useState<ClientPortalAccountRow[]>([]);
+  const { confirm, confirmDialog } = useConfirmDialog();
   const [allClients, setAllClients] = useState<Client[]>([]);
   const [clientContacts, setClientContacts] = useState<ClientContact[]>([{ name: '', phone: '', email: '' }]);
   
@@ -60,7 +63,7 @@ export function Clients() {
       setClients(list);
     } catch (err) {
       console.error(err);
-      alert('Erro ao carregar clientes. Verifique sua conexão.');
+      toast.error('Erro ao carregar clientes.', 'Verifique sua conexão.');
     } finally {
       setIsFetching(false);
     }
@@ -80,7 +83,7 @@ export function Clients() {
 
   const onSubmit = async (data: Client) => {
     if (!isOnline) {
-      alert('Sem conexão com a internet. Não é possível salvar no momento.');
+      toast.error('Sem conexão com a internet.', 'Não é possível salvar no momento.');
       return;
     }
 
@@ -118,7 +121,7 @@ export function Clients() {
       loadClients(); // Recarrega a lista do servidor
     } catch (err: any) {
       console.error(err);
-      alert(err.message || 'Erro ao salvar cliente.');
+      toast.error(err.message || 'Erro ao salvar cliente.');
     } finally {
       setIsLoading(false);
     }
@@ -140,18 +143,21 @@ export function Clients() {
   const handleDelete = async (client: Client, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!isOnline) {
-      alert('Sem conexão com a internet. Não é possível excluir no momento.');
+      toast.error('Sem conexão com a internet.', 'Não é possível excluir no momento.');
       return;
     }
-    
-    if (window.confirm(`Deseja realmente excluir o cliente "${client.name}"?`)) {
-      try {
-        await ClientService.deleteClient(client.id);
-        loadClients(); // Recarrega a lista do servidor
-      } catch (err: any) {
-        console.error(err);
-        alert(err.message || 'Erro ao excluir cliente.');
-      }
+
+    const ok = await confirm({
+      title: `Excluir o cliente "${client.name}"?`,
+      confirmLabel: 'Excluir cliente',
+    });
+    if (!ok) return;
+    try {
+      await ClientService.deleteClient(client.id);
+      loadClients(); // Recarrega a lista do servidor
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || 'Erro ao excluir cliente.');
     }
   };
 
@@ -422,6 +428,7 @@ export function Clients() {
           </div>
         </form>
       </Modal>
+      {confirmDialog}
     </PageShell>
   );
 }

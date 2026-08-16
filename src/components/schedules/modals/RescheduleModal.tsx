@@ -8,6 +8,7 @@ import {
 import { Button } from '../../ui/Button';
 import { Card, CardContent } from '../../ui/Card';
 import { TEXT_INPUT, errorMessage } from '../appointmentRequestsShared';
+import { toast } from '../../../store/useToastStore';
 
 interface RescheduleModalProps {
   request: AppointmentRequest;
@@ -28,7 +29,7 @@ export function RescheduleModal({ request, onClose, onSaved }: RescheduleModalPr
         : await AppointmentAdminService.rescheduleRequest(request, date, time);
       onSaved(notify);
     } catch (err) {
-      alert(`Erro: ${errorMessage(err)}`);
+      toast.error('Erro', errorMessage(err));
     } finally {
       setSaving(false);
     }

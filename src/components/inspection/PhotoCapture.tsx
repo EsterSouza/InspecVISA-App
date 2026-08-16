@@ -4,6 +4,7 @@ import { compressImage } from '../../utils/imageUtils';
 import type { InspectionPhoto } from '../../types';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
+import { toast } from '../../store/useToastStore';
 
 interface PhotoCaptureProps {
   inputId: string;
@@ -37,7 +38,7 @@ export function PhotoCapture({ inputId, photos, onAddPhoto, onRemovePhoto }: Pho
       if (cameraInputRef.current) cameraInputRef.current.value = '';
     } catch (err) {
       console.error('Error compressing image:', err);
-      alert('Erro ao processar imagem. Tente novamente.');
+      toast.error('Erro ao processar imagem.', 'Tente novamente.');
     } finally {
       setIsCompressing(false);
     }
@@ -70,9 +71,12 @@ export function PhotoCapture({ inputId, photos, onAddPhoto, onRemovePhoto }: Pho
         }
       }
       if (failures === files.length) {
-        alert('Erro ao processar as fotos. Tente novamente.');
+        toast.error('Erro ao processar as fotos.', 'Tente novamente.');
       } else if (failures > 0) {
-        alert(`${failures} de ${files.length} foto(s) não puderam ser processadas. As demais foram adicionadas.`);
+        toast.warning(
+          `${failures} de ${files.length} foto(s) não puderam ser processadas.`,
+          'As demais foram adicionadas.'
+        );
       }
       if (galleryInputRef.current) galleryInputRef.current.value = '';
     } finally {

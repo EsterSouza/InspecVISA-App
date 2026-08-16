@@ -18,6 +18,8 @@ import { ProfileModal } from '../components/profile/ProfileModal';
 import { ScheduleService } from '../services/scheduleService';
 import type { Schedule } from '../types';
 import { isInspectionAppointment } from '../utils/appointmentType';
+import { useConfirmDialog } from '../components/ui/ConfirmDialog';
+import { toast } from '../store/useToastStore';
 
 export function NewInspection() {
   const navigate = useNavigate();
@@ -40,6 +42,7 @@ export function NewInspection() {
   const [existingVisits, setExistingVisits] = useState<Inspection[]>([]);
   const [checkingExistingVisits, setCheckingExistingVisits] = useState(false);
   const [confirmedSeparateVisit, setConfirmedSeparateVisit] = useState(false);
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   const [accompanistName, setAccompanistName] = useState('');
   const [accompanistRole, setAccompanistRole] = useState('');
@@ -219,9 +222,9 @@ export function NewInspection() {
       if (sameDateInspection) {
         const opener = sameDateInspection.consultantName || 'outra consultora';
         const openedAt = new Date(sameDateInspection.createdAt).toLocaleString('pt-BR');
-        alert(
-          `Já existe uma inspeção para ${selectedClient.name} nesta data, aberta por ${opener} em ${openedAt}. `
-          + 'Para não duplicar, você será direcionada para esse relatório. Continue na mesma inspeção.'
+        toast.warning(
+          `Já existe uma inspeção para ${selectedClient.name} nesta data, aberta por ${opener} em ${openedAt}.`,
+          'Para não duplicar, você será direcionada para esse relatório. Continue na mesma inspeção.'
         );
         const linkedScheduleId = matchingSchedule?.id;
         if (linkedScheduleId) {
@@ -235,10 +238,13 @@ export function NewInspection() {
 
       if (existingInspection && !confirmedSeparateVisit) {
         const existingDate = new Date(existingInspection.inspectionDate).toLocaleDateString('pt-BR');
-        const ok = window.confirm(
-          `Já existe uma inspeção para este local em ${existingDate}. Pela regra de 31 dias, ` +
-          'todo complemento deve continuar no mesmo relatório. Se for uma visita realmente nova, confirme essa opção na tela. Deseja abrir o relatório existente agora?'
-        );
+        const ok = await confirm({
+          title: 'Já existe uma inspeção para este local?',
+          description: `Em ${existingDate}. Pela regra de 31 dias, todo complemento deve continuar no `
+            + 'mesmo relatório. Se for uma visita realmente nova, confirme essa opção na tela.',
+          confirmLabel: 'Abrir relatório existente',
+          tone: 'default',
+        });
         if (ok) {
           const linkedScheduleId = matchingSchedule?.id;
           if (linkedScheduleId) {
@@ -247,7 +253,7 @@ export function NewInspection() {
           continueExistingInspection(existingInspection);
           return;
         }
-        alert('Para criar outra inspeção em menos de 31 dias, confirme na tela que esta é uma visita realmente separada.');
+        toast.warning('Para criar outra inspeção em menos de 31 dias, confirme na tela que esta é uma visita realmente separada.');
         return;
       }
 
@@ -284,9 +290,13 @@ export function NewInspection() {
       // Se houver um agendamento compatível, pergunta se quer vincular
       let linkedScheduleId = matchingSchedule?.id;
       if (matchingSchedule && !preSelectedScheduleId) {
-        if (window.confirm(`Existe um agendamento para ${selectedClient.name} hoje. Deseja vinculá-lo a esta inspeção?`)) {
-          // Link will be processed below
-        } else {
+        const linkOk = await confirm({
+          title: 'Vincular agendamento existente?',
+          description: `Existe um agendamento para ${selectedClient.name} hoje.`,
+          confirmLabel: 'Vincular agendamento',
+          tone: 'default',
+        });
+        if (!linkOk) {
           linkedScheduleId = undefined;
         }
       }
@@ -307,7 +317,7 @@ export function NewInspection() {
       });
     } catch (err) {
       console.error(err);
-      alert('Erro ao iniciar inspeção.');
+      toast.error('Erro ao iniciar inspeção.');
     } finally {
       setIsStarting(false);
     }
@@ -525,6 +535,7 @@ export function NewInspection() {
       {showProfileModal && (
         <ProfileModal onClose={() => setShowProfileModal(false)} />
       )}
+      {confirmDialog}
     </PageShell>
   );
 }

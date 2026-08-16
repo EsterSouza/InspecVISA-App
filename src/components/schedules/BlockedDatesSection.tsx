@@ -4,6 +4,7 @@ import { AppointmentAdminService, type BlockedDateRow } from '../../services/app
 import { Button } from '../ui/Button';
 import { Card, CardContent } from '../ui/Card';
 import { SCHEDULE_CONSULTANTS, TEXT_INPUT, errorMessage, formatDateBR } from './appointmentRequestsShared';
+import { toast } from '../../store/useToastStore';
 
 interface BlockedDatesSectionProps {
   blockedDates: BlockedDateRow[];
@@ -30,7 +31,7 @@ export function BlockedDatesSection({ blockedDates, onChanged }: BlockedDatesSec
       setWho(WHO_ALL);
       onChanged();
     } catch (err) {
-      alert(`Erro: ${errorMessage(err)}`);
+      toast.error('Erro', errorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -42,7 +43,7 @@ export function BlockedDatesSection({ blockedDates, onChanged }: BlockedDatesSec
       await AppointmentAdminService.removeBlockedDate(row.id);
       onChanged();
     } catch (err) {
-      alert(`Erro: ${errorMessage(err)}`);
+      toast.error('Erro', errorMessage(err));
     } finally {
       setBusyId(null);
     }

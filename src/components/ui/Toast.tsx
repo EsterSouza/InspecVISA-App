@@ -22,6 +22,7 @@ function Toast({ toast }: { toast: ToastItem }) {
   const Icon = VARIANT_ICONS[toast.variant];
 
   useEffect(() => {
+    if (toast.duration === null) return; // erro: só fecha no clique.
     const timer = setTimeout(() => dismiss(toast.id), toast.duration);
     return () => clearTimeout(timer);
   }, [toast.id, toast.duration, dismiss]);

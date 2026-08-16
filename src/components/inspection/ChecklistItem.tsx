@@ -14,6 +14,7 @@ import {
 import { getFieldSuggestions, type FieldSuggestions } from '../../utils/textSuggestions';
 import { legislationUrlForItem } from '../../utils/legislationRefs';
 import { VoiceDictationButton } from './VoiceDictationButton';
+import { toast } from '../../store/useToastStore';
 
 function isInlineImage(value?: string | null) {
   return /^data:image\/(jpeg|jpg|png|webp);base64,/i.test(value || '');
@@ -65,7 +66,7 @@ function ClientEvidencePanel({ evidence }: { evidence: ClientEvidenceForItem[] }
     try {
       const url = await ClientEvidenceService.signedUrl(row);
       if (url) window.open(url, '_blank', 'noopener,noreferrer');
-      else alert('Nao foi possivel abrir o arquivo agora. Confira a conexao.');
+      else toast.error('Não foi possível abrir o arquivo agora.', 'Confira a conexão.');
     } finally {
       setOpeningId(null);
     }
