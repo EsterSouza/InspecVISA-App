@@ -1,78 +1,82 @@
 ---
 name: reactbits
-description: O que é o React Bits (reactbits.dev), o que dele serve e o que NÃO serve para o InspecVISA, com a lista curta do que vale copiar e o custo de dependência de cada um. Use quando alguém propuser usar React Bits, quando faltar um componente que o nosso sistema não tem (passo a passo, carrossel, dock), ou quando for desenhar página pública de marketing da TreinaVISA.
+description: Nossa cópia completa e local dos 166 componentes do React Bits — código-fonte, índice por categoria e a dependência de cada um. Use para qualquer efeito visual, animação, fundo animado, tipografia animada, carrossel, dock, passo a passo ou interação de cursor, em qualquer produto nosso (InspecVISA, portal, landing pages da TreinaVISA e produtos futuros). Consultar SEMPRE esta pasta, nunca o site nem o MCP deles.
 ---
 
-# React Bits — o que serve e o que não serve
+# React Bits — biblioteca local completa
 
-`https://reactbits.dev` · aberto, código copiável, você fica dono do código.
-Não é biblioteca NPM: copia-se o componente para dentro do projeto.
+**166 componentes, 315 arquivos, 6,6 MB, tudo em disco.** Não precisa abrir o site
+nem chamar MCP nenhum: o código está aqui.
 
-## O veredito, primeiro
+```
+.claude/skills/reactbits/componentes/
+  INDICE.md          ← comece aqui: tabela por categoria com tamanho e dependência
+  LICENCA.md         ← MIT + Commons Clause
+  Animacoes/         37
+  Componentes/       45
+  Fundos/            51
+  Texto-animado/     33
+```
 
-**A maior parte do React Bits não serve para o InspecVISA**, e não é por preconceito —
-é o que o próprio projeto diz de si: *"This is not your typical component library, which
-means you won't find a set of generic buttons, inputs, or other common UI elements here…
-these components are here to help you stand out and make a statement visually."*
+**Como achar:** abra `componentes/INDICE.md`. Ele tem, por categoria, uma tabela com
+componente, arquivos, tamanho e **de qual pacote depende**. Depois leia direto
+`componentes/<Categoria>/<Nome>/<Nome>.jsx`.
 
-São ~150 componentes, e o inventário é: 30 animações de texto (Glitch Text, Scrambled
-Text, Falling Text), 40 fundos animados (Aurora, Plasma, Galaxy, Liquid Chrome, Dither) e
-uma leva de efeitos de cursor e cartões com brilho (Splash Cursor, Magic Bento, Spotlight
-Card, Fluid Glass, Glass Surface, Metallic Paint).
+**Como atualizar:** `node scripts/biblioteca/coletar-reactbits.mjs`
+(retomável, pula o que já existe; `--forcar` rebaixa tudo). Ele regera o índice e as
+dependências a partir dos imports reais, não de suposição.
 
-Isso colide de frente com três coisas nossas:
+## Licença
 
-1. **O Manual de Marca 2.0 proíbe** glassmorphism, ícone decorativo repetido,
-   arredondamento excessivo e "aparência genérica de IA". Fluid Glass, Glass Surface,
-   Glass Icons, Magic Bento e a maior parte dos fundos caem exatamente aí.
-2. **O InspecVISA é ferramenta de trabalho.** A consultora fica horas na mesma tela
-   lendo item de checklist. Fundo animado e texto que se remonta competem com o dado.
-3. **O padrão `stats-cards` do catálogo é explícito:** *"Don't animate the primary number
-   counting up on load; it looks flashy but slows comprehension and annoys on repeat
-   visits."* Ou seja, `Count Up` e `Counter` estão fora dos nossos indicadores.
+**MIT + Commons Clause — livre para uso pessoal e comercial.** Podemos usar em produto
+nosso e em cliente. O Commons Clause proíbe **revender a coleção como produto** — ou seja,
+não montar e vender "um pacote de componentes". Manter o aviso de copyright ao
+redistribuir. Texto completo em `componentes/LICENCA.md`.
 
-O próprio React Bits avisa: *"Using more than 2-3 components on a page is not advised."*
+## A informação que decide tudo: dependência
 
-## Custo de dependência — pesar sempre antes
+O nosso app **não tem nenhuma** biblioteca de animação instalada. Por isso o índice
+separa primeiro os que entram sem somar nada ao bundle.
 
-O app **não tem** `framer-motion`, `gsap`, `three`, `@react-three/*` nem `ogl` hoje
-(conferido no `package.json`). Boa parte dos componentes do React Bits depende de um
-desses. Copiar um componente pode significar adicionar uma biblioteca de animação
-inteira ao bundle de um app que a consultora abre em campo, muitas vezes em 4G.
+**39 componentes só com React e CSS** — os únicos que entram em qualquer lugar sem discussão:
 
-**Regra:** só entra componente que (a) resolva um problema que já temos, e (b) não traga
-dependência nova — ou cuja dependência valha por si.
+`BorderGlow` · `ClickSpark` · `CursorGrid` · `CurvedInput` · `CurvedLoop` · `DepthText` ·
+`DotField` · `DriftWall` · `EchoText` · `ElectricBorder` · `Folder` · `FuzzyText` ·
+`GlareHover` · `GlassIcons` · `GlassSurface` · `GlitchText` · `GooeyNav` · `GradualBlur` ·
+`LetterGlitch` · `Lightning` · `LineSidebar` · `LogoLoop` · `Magnet` · `MagnetLines` ·
+`MetallicPaint` · `Noise` · `OptionWheel` · `ParticleText` · `PixelCard` · `PixelSwap` ·
+`ProfileCard` · `ScrollExpand` · `ShapeGrid` · `SplashCursor` · `SplitFlapText` ·
+`SpotlightCard` · `StarBorder` · `TextPressure` · `Waves`
 
-## A lista curta — o que de fato vale olhar
+O resto puxa: `ogl` (45), `gsap` (35), `three` (23), `motion` (20), `@react-three/fiber` (8),
+`@react-three/drei` (5), e uma cauda de pacotes com 1 a 4 usos cada. Tabela completa no índice.
 
-| Componente | Para quê aqui | Situação |
-|---|---|---|
-| **Stepper** | `NewInspection` é um wizard e **nunca foi desenhado** (consta na auditoria da Onda 4). É o único caso em que temos a necessidade e não temos o componente | **Candidato real.** Usar como referência de estrutura e reescrever com os nossos tokens — depende de `framer-motion`, que não temos |
-| **Animated List** | entrada suave de item em lista longa | Marginal: os nossos tokens de motion (`--dur-*`, `--ease-*`) com `prefers-reduced-motion` já cobrem, sem dependência |
-| **Fade Content** / **Animated Content** | revelar bloco ao entrar na viewport | Marginal, mesmo motivo. `IntersectionObserver` + uma transição resolve |
-| **Dock** / **Card Nav** / **Pill Nav** | navegação | **Não.** Já temos rail + drawer decididos e implementados (FE-06) |
-| **Counter** / **Count Up** | indicadores | **Não** — contraria o padrão `stats-cards` |
-| Fundos, textos animados, efeitos de cursor, tudo com "Glass" no nome | — | **Não** no produto |
+## Onde usar
 
-## Onde o React Bits *poderia* caber de verdade
+- **Landing pages e páginas de produto da TreinaVISA** — é para isso que a coleção existe.
+  Fundo animado, tipografia cinética, cartão com brilho: chamar atenção é a função da página.
+  Aqui a coleção inteira está disponível.
+- **InspecVISA e portal do cliente** — o Manual de Marca 2.0 proíbe glassmorphism e
+  "aparência genérica de IA", e a consultora fica horas lendo item de checklist. Na prática
+  sobra pouco: `Stepper` (o wizard de `NewInspection` nunca foi desenhado), `FadeContent` e
+  `AnimatedContent`. Não é regra, é o que costuma sobreviver à revisão.
+- **Um alerta do próprio React Bits:** *"Using more than 2-3 components on a page is not
+  advised"* — mais que isso pesa e atrapalha.
 
-Não no admin nem no portal: numa **página pública de marketing da TreinaVISA** — venda
-de curso, captação, lançamento. Ali o objetivo é chamar atenção, não sustentar leitura
-longa, e um fundo animado discreto tem função. Se esse projeto existir, esta skill vira
-útil de fato; até lá, o uso no InspecVISA é praticamente nulo.
+## Regras de uso, valem sempre
 
-## Como usar, se for usar
-
-1. Escolher o componente e abrir a página dele: `https://reactbits.dev/components/<slug>`.
-   A página tem "Copy for AI" e alternador JS/TS e CSS/Tailwind.
-2. **Não colar direto.** Reescrever com os nossos tokens (`design-inspecvisa`): nada de
-   cor literal, raio dentro da escala (`--radius-sm/md/lg`), duração e curva dos nossos.
-3. Envolver toda animação em `@media (prefers-reduced-motion: reduce)`.
-4. Conferir contraste depois — muitos deles pressupõem fundo escuro.
-5. Rodar `npm run build` completo e conferir o tamanho do bundle antes e depois.
+1. **Não colar cor literal.** Reescrever com os tokens de `design-inspecvisa`: cor, raio
+   (`--radius-sm/md/lg`), duração (`--dur-1/2/3`) e curva (`--ease-*`) saem de lá.
+2. **Toda animação dentro de `@media (prefers-reduced-motion: reduce)`.**
+3. **Conferir contraste depois** — muitos pressupõem fundo escuro.
+4. **Medir o bundle antes e depois** com `npm run build`, sempre que o componente trouxer
+   dependência nova.
+5. Componente com `three`/`ogl` desenha em WebGL: conferir no celular antes de subir, e ter
+   um estado estático de reserva.
 
 ## Relacionados
 
 - `design-inspecvisa` — os tokens e as regras que qualquer componente copiado tem que obedecer.
-- `catalogo-designmd` — para padrão de componente, o DesignMD é a fonte, não o React Bits:
-  ele traz comportamento de teclado, variantes e *don'ts*, que é o que falta no React Bits.
+- `catalogo-designmd` — para **padrão** de componente (comportamento de teclado, variantes,
+  *don'ts*), a fonte é o DesignMD. O React Bits é efeito visual, não especificação de UX.
+- `biblioteca-design` — a coleção de sistemas de design (paletas e tipografia) para landing pages.

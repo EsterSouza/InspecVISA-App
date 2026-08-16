@@ -24,6 +24,21 @@ o número 120 não é o de nenhum plano publicado e a mensagem diz "free" seja q
 plano. É transitório. Para confirmar antes de mexer em qualquer coisa, chame
 `recommend_blocks` (é gated no Pro): se responder, o plano está ativo e o erro era deles.
 
+## ⚠️ Só falar com eles pelo MCP — nunca por script
+
+Em 16/08/2026 o acesso inteiro caiu por culpa nossa. A borda do `designmd.co` (WAF da
+Vercel, identificador `gru1::`) devolve **403 Forbidden** para qualquer cliente que não
+seja navegador, mesmo com token válido. Depois de algumas requisições por `curl` e de
+duas sondagens em `sitemap.xml` e `robots.txt`, **o bloqueio pegou também o MCP dentro do
+Claude Code**, que estava funcionando minutos antes.
+
+- **Nunca** chamar `designmd.co` por `curl`, `fetch` de script ou qualquer coisa fora do MCP —
+  nem "só para testar".
+- **Nunca** pedir `robots.txt`, `sitemap.xml`, nem varrer caminhos do site.
+- Vendo `403` com `gru1::`: **parar na hora**. Insistir aprofunda o bloqueio. É temporário.
+- Isso não é a mesma coisa que o falso alarme de cota do item 4 — aquele diz
+  `free MCP rate limit` e some sozinho; este é `403 Forbidden` e vem da borda.
+
 ⚠️ **A URL tem que ter `www`:** `https://www.designmd.co/api/mcp`.
 O comando de instalação que o site e o e-mail deles dão usa o apex sem `www`, que
 responde `307` — e nenhum cliente HTTP reenvia o header `Authorization` num redirect
