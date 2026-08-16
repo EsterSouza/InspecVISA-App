@@ -622,6 +622,48 @@ copia estrutura e regra, não código.** As duas exceções são **HyperUI** e *
 Tailwind puro, sem framework, que servem direto ao pipeline dos protótipos (`docs/prototipos/_src`
 é HTML + CSS, não React).
 
+#### Segunda linguagem de componente — a decisão, com os números (16/08/2026)
+
+Pergunta da Ester: se o ganho visual compensa, o risco é peso, carregamento ou travamento?
+Medido no `npm run build` deste dia:
+
+| Medida | Hoje |
+|---|---|
+| `dist/` | 5,6 MB · **precache do PWA: 84 arquivos, 3,9 MB** |
+| Carga inicial (`index` + `vendor`) | 870 KB crus / ~238 KB gzip |
+| Maior tela | `InspectionExecution` 83 KB (roda offline, no celular, em campo) |
+| Animação em uso | **139** classes `animate-*` — CSS, via `tailwindcss-animate` |
+
+**O risco real não é travar, é duplicar.** Radix é comportamento sem animação: não trava, e o custo
+de CPU é desprezível. Motion pode causar engasgo, mas só em lista longa — e o único lugar onde isso
+aconteceria aqui é o checklist da execução, com 100+ itens. O que pesa de verdade:
+
+1. **PWA precacheia tudo.** Byte novo não é carregado sob demanda: entra nos 3,9 MB e é rebaixado a
+   cada atualização do service worker. Consultora em campo, 4G ruim, é o pior lugar para isso.
+2. **Já existe uma camada de comportamento nossa, testada.** `<dialog>` nativo com trap de foco,
+   `Esc` e devolução (FE-04a), `Tabs` com ARIA completo (FE-04b), `ConfirmDialog` (FE-15), `Drawer`,
+   `Tooltip`. Radix substituiria trabalho já feito — e dois portais, dois scroll-locks e dois donos
+   do foco convivendo é onde nasce bug de acessibilidade difícil de achar.
+3. **Duas bibliotecas para o mesmo efeito reprova no nosso próprio gate.** Está no
+   `auditar-ui/references/checklist.md`. Com 139 usos de `animate-*` em CSS, adotar Motion cria
+   exatamente isso — e joga o `prefers-reduced-motion`, hoje resolvido numa media query, para dentro
+   de cada componente em JS.
+4. **FE-21 e FE-12 dobram.** Componente de terceiro traz a própria convenção de cor e de tema: o
+   de-para e o dark mode teriam que ser feitos duas vezes.
+
+**A decisão.** Uma linguagem só. O que separa "instrumento profissional" de "aparência genérica de
+IA" não é a biblioteca de componente — é tipografia, densidade, tabela no lugar de card, contraste,
+alinhamento e microcopy. Nada disso vem de dependência, e as bibliotecas do Arsenal oferecem
+justamente mais gradiente, sombra e animação de entrada, que é o que produz o visual genérico.
+
+**A saída de emergência, para não virar dogma.** Se um card específico esbarrar num problema que é
+genuinamente difícil de fazer à mão com acessibilidade — **combobox/autocomplete**, **popover com
+detecção de colisão** ou **reordenar por arrastar com alternativa por teclado** — adota-se **um**
+primitivo *headless* (Radix, import por componente), nunca o runtime de animação. Antes de adotar:
+branch descartável, importar só aquele componente, `npm run build`, e comparar o delta de gzip no
+chunk inicial **e** no precache. Nenhum desses três casos existe no app hoje — o FE-17b, inclusive,
+entregou o editor de roteiro sem precisar de arrastar.
+
 #### Direção visual: duas das nove skills de direção, e só
 
 | Skill | O que traz | Entra? |
