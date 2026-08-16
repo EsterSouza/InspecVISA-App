@@ -443,6 +443,12 @@ separada no fim. Duas coisas que a tela passa a expor:
   **não têm equivalente na marca**, e `text-gray-400` **reprova em contraste hoje** (2,54:1) —
   a troca corrige um erro, não replica um tom.
 - Depois de cada família, rodar o medidor de contraste do Artefato A.
+- **Emenda de 16/08/2026:** o de-para conta **classe**, e existem **20 cores hexadecimais cravadas
+  em TS/TSX** que ele não enxerga — `ScorePanel.tsx`, `ComplianceTrendChart.tsx`,
+  `utils/scoring.ts`, `MobileScoreBar.tsx`, `PdfPreviewModal.tsx`, `SignaturePad.tsx`,
+  `InspectionSummary.tsx` e `index.css`. Achado pelo `audit-ui.mjs` do Design Arsenal; as do fluxo
+  de inspeção saem no FE-23, as demais aqui. Fechar o card sem elas deixa a nota da inspeção com o
+  âmbar do Tailwind em vez do da marca.
 
 ### FE-22 · Listas restantes viram tabela densa
 `Clients.tsx` e `Inspections.tsx`, seguindo o FE-17 como exemplo aprovado. É o item que estava no
@@ -503,6 +509,11 @@ cobre. Medido no código em 16/08/2026:
   chega ao portal) é invisível na tela. Redesenhar o encerramento sem tratar isso é desenhar por
   cima de uma falha silenciosa. Proposta: a tela passa a **mostrar** o que foi e o que não foi
   publicado; corrigir a causa continua fora de escopo até a Ester autorizar.
+- **A nota é pintada fora do sistema de cor.** `ScorePanel.tsx`, `MobileScoreBar.tsx`,
+  `ComplianceTrendChart.tsx` e `utils/scoring.ts` cravam `#22C55E` / `#F59E0B` / `#EF4444` — os
+  padrões do Tailwind, não `--success #0E7A4A`, `--amber #D99721` e `--danger #B3261E`. O de-para
+  do FE-21 não enxerga isso (conta classe, não hex). Achado do `audit-ui.mjs`, detalhe na seção do
+  Arsenal.
 - As telas deste card nascem já com os primitivos de formulário do FE-24 — não migrar depois.
 
 ### FE-24 · Sistema de formulários aplicado ao app inteiro
@@ -574,6 +585,14 @@ Já existe base — `playwright.config.ts` com os projetos `desktop` e `mobile` 
   aponta para ambiente publicado com banco compartilhado (`e2e/apoio/ambiente.ts`), e snapshot de
   pixel contra dado real quebra a cada visita nova, vira ruído e em duas semanas alguém desliga o
   gate.
+- **(c) Estática, no repositório:** `scripts/audit-ui.mjs` da skill `auditar-ui` do Design Arsenal
+  — foco removido sem substituto, `transition: all`, motion sem `prefers-reduced-motion`, imagem
+  sem `alt`, `target="_blank"` sem `noopener`, `onclick` em `div`/`span` e cor literal fora dos
+  tokens. Roda em segundos, não precisa de navegador. Já rodou uma vez (ver seção do Arsenal).
+- **A régua de aceite vem pronta:** `auditar-ui/references/acceptance.md` — P0 bloqueia,
+  P1 falha em fluxo principal ou acessibilidade, P2 degrada, P3 é refinamento; pronto = nenhum
+  P0/P1 aberto e P2 restante registrado e aceito. E a frase que fecha o gate: *build ou lint não
+  substitui inspeção visual e funcional.*
 - Matriz: rotas principais do admin e do portal × 375 / 768 / 1280 / 1600px. Claro e escuro entram
   **depois** do FE-12.
 - Estados obrigatórios por rota de lista: normal, carregando, vazio de primeira vez, vazio de
@@ -581,6 +600,81 @@ Já existe base — `playwright.config.ts` com os projetos `desktop` e `mobile` 
 - A comparação contra os protótipos aprovados fica como revisão humana com a matriz na mão, não
   como assert automático — protótipo e app divergem de propósito em dado e conteúdo.
 - **É este card que autoriza escrever "frontend visual fechado".**
+
+### Arsenal de design — de onde sai o desenho destes cinco cards
+
+Consultado em 16/08/2026: o **Design Arsenal**
+(`C:\Users\miche\OneDrive - MSFT\TreinaVISA\design-library`, biblioteca **somente leitura**, skill
+`usar-design-arsenal`) — **309 itens**: 281 componentes de 12 fontes, 18 skills autorais e 10
+padrões do DesignMD já sintetizados em disco. Mais o que já mora no repositório: `reactbits` (166
+componentes), `catalogo-designmd` e `design-inspecvisa`.
+
+**O MCP do DesignMD não estava carregado nesta sessão** — e, por decisão registrada, não se fala
+com eles fora do MCP (nem `curl`, nem `sitemap.xml`: em 16/08 isso derrubou o acesso inteiro pelo
+WAF). Não foi necessário: o acervo offline cobre o que estes cards precisam.
+
+**A restrição que decide tudo.** O `package.json` do app tem `lucide-react`,
+`tailwindcss-animate`, `clsx` e `class-variance-authority` — **não tem Motion nem Radix**. Animate
+UI é Radix; Kokonut UI, Cult UI, Magic UI e Motion Primitives são Motion. Copiar qualquer um deles
+traz uma segunda linguagem de componente para dentro do repo, exatamente a ressalva que o
+`catalogo-designmd` já faz sobre os blocos shadcn. Portanto, para o InspecVISA: **do Arsenal se
+copia estrutura e regra, não código.** As duas exceções são **HyperUI** e **Flowbite** — HTML +
+Tailwind puro, sem framework, que servem direto ao pipeline dos protótipos (`docs/prototipos/_src`
+é HTML + CSS, não React).
+
+#### Direção visual: duas das nove skills de direção, e só
+
+| Skill | O que traz | Entra? |
+|---|---|---|
+| `aplicar-swiss-grid` | alinhamento rigoroso, tipografia sans, hierarquia objetiva, cor restrita, composição modular — "sistemas de informação" está na própria descrição dela | **Sim, no admin.** É a tradução operacional de "instrumento de trabalho técnico" |
+| `aplicar-confianca-corporativa` | prova organizada, hierarquia conservadora, leitura de decisão; saúde e compras complexas | **Sim, no FE-26** — as públicas são onde o cliente decide confiar |
+| `aplicar-apple-minimal` | uma ideia por viewport, tipografia ampla | **Não.** A própria skill se exclui: *"não usar para dashboards densos"* |
+| `aplicar-terminal-dark` | superfícies escuras, mono | **Não.** O Manual 2.0 proíbe mono usada só para parecer técnica |
+| `aplicar-motion-expressivo`, `aplicar-neobrutalismo`, `aplicar-luxo-serif`, `aplicar-editorial` | — | **Não.** Contrariam o manual de frente |
+
+#### O que cada card consulta
+
+| Card | Fonte | O que sai de lá |
+|---|---|---|
+| **FE-23** | `desenhar-apps/references/app-patterns.md` · `compor-blocos-ui/references/app-blocks.md` | A tabela "Escolha rápida" resolve três decisões **antes** do desenho: *acompanhar etapas → stepper **somente** quando a ordem é obrigatória* — na inspeção não é, item se responde fora de ordem, então **wizard está descartado**; *editar registro complexo → página ou drawer largo, nunca modal longo*; *confirmar destrutiva → nome do alvo e consequência*. Do `app-blocks.md` vêm os blocos obrigatórios do fluxo: **agenda** (fuso, conflito, estado), **formulário seccionado** (rótulo, ajuda, validação, resumo) e **aprovação** (objeto, mudança, consequência, autor e auditoria) — o último é exatamente o que falta no encerramento de hoje |
+| **FE-24** | `desenhar-apps/references/app-patterns.md` → "Formulários" | Cinco regras que viram aceite, além da contagem: rótulo **sempre visível** (placeholder é exemplo, não rótulo); agrupar por decisão, não pela estrutura do banco; manter o valor digitado depois do erro; erro diz problema **e** recuperação; desabilitar ação só quando a razão estiver clara |
+| **FE-25** | HyperUI (`empty-states`, `tables`, `pagination`, `stats`, `timelines`) | Referência de estrutura em HTML+Tailwind, sem dependência nova |
+| **FE-26** | `aplicar-confianca-corporativa` · Flowbite (`skeleton`, `bottom-navigation`) · HyperUI (`headers`) | Direção de marca para superfície externa + estrutura de leitura em coluna única |
+| **FE-27** | `auditar-ui` **inteira** | A skill **é** o gate: `references/checklist.md` (produto, estrutura, acessibilidade, desempenho, marca), `references/acceptance.md` (P0–P3 e o "critério de pronto") e `scripts/audit-ui.mjs`, um linter estático que roda no nosso repo |
+
+#### O `audit-ui.mjs` já rodou — e achou coisa
+
+`node <arsenal>/skills/auditar-ui/scripts/audit-ui.mjs src docs/prototipos/_src` — 251 arquivos,
+60 achados:
+
+- **57 × P3 `literal-color`, e não é ruído:** são hex cravados **no coração do produto** —
+  `ScorePanel.tsx` (9), `ComplianceTrendChart.tsx` (6), `utils/scoring.ts` (4),
+  `MobileScoreBar.tsx` (3), mais `PdfPreviewModal.tsx`, `SignaturePad.tsx`, `InspectionSummary.tsx`
+  e `index.css`. O tom de atenção usado ali é `#F59E0B` — o **âmbar do Tailwind**, não o `#D99721`
+  da marca; o de sucesso é `#22C55E`, não o `--success #0E7A4A`; o de erro é `#EF4444`, não o
+  `--danger #B3261E`. A nota da inspeção, que é o número mais visto do produto, é pintada fora do
+  sistema de cor inteiro.
+  **O de-para do FE-21 não pega nenhum deles** — ele conta classe (`bg-amber-500`), e isto é string
+  hexadecimal dentro do TS/TSX. Vira item explícito do **FE-23** (as três telas de nota são do
+  fluxo de inspeção) e emenda ao **FE-21**.
+- **3 × P1 `reduced-motion`** nos fragmentos de página do protótipo — **falso positivo**: o
+  `prefers-reduced-motion` está no `base.css` e o script analisa arquivo por arquivo. Registrado
+  para ninguém "corrigir" duas vezes.
+
+#### O que do Arsenal **não** entra
+
+- **Backgrounds (53), Animations (37) e Text Animations (32)** do React Bits, `Confetti`,
+  `Bento Grid`, `Dynamic Island`, `Gooey Input`, `Floating Panel`: são vocabulário de landing page.
+  Num app de fiscalização sanitária viram a "aparência genérica de IA" que o manual proíbe. O
+  Arsenal continua valendo inteiro para as LPs da TreinaVISA — só não para esta interface.
+- **Número animado contando** em indicador (`stats-cards` já tinha decidido isso): atrapalha a
+  leitura de quem confere valor exato.
+- **Nada de `vendor/*` copiado em bloco** — regra da própria skill `usar-design-arsenal`. Se algum
+  arquivo for copiado, a atribuição do campo `summary` (autor, licença, URL) vai junto no topo.
+  Licenças em jogo: MIT (Magic UI, Kokonut, Flowbite, HyperUI) e **MIT + Commons Clause** (Animate
+  UI, React Bits) — uso comercial livre, proibido revender os componentes soltos.
+- **Command palette** (`Action Search Bar`, Kokonut) e **onboarding guiado** (Cult UI) são bons e
+  **não estão em card nenhum**. Ficam anotados como candidatos, não entram por tabela.
 
 ### Modelo e esforço — ONDA 4
 
@@ -794,6 +888,7 @@ Tabela de acompanhamento rápido — quem fez o quê e quando. O detalhe de cada
 | 16/08/2026 | **FE-11** — higiene | Sonnet 5 | — | Apagados `src/components/layout/AdminLayout.tsx` e `src/App.css` (184 linhas, nenhum dos dois importado em lugar nenhum — conferido por `grep` antes de apagar). `index.html:13` corrigido de "C&C Consultoria" pra "TreinaVISA". `PublicHeader.tsx` corrigido de "HUB TREINAVISA SERVICOS" pra "HUB TREINAVISA SERVIÇOS" (cedilha). `tsc -b`, `npm run build` e 382 testes limpos. |
 | 16/08/2026 | **FE-14** — Início unificado | Sonnet 5 | — | `/` agora abre com o filtro (consultora/unidade/janela de dias) seguido da fila operacional das 7 filas, extraída de `OperationalPanel.tsx` para `src/components/dashboard/OperationalQueues.tsx` (recebe os filtros por prop em vez de manter estado próprio). Média de conformidade, Ativas/Concluídas, Visitas Recentes e Problemas Recorrentes viraram um `<details>` "Desempenho" recolhido no fim. Atalhos "Gestão e Biblioteca" removidos (Roteiros/Biblioteca já estão no rail desde o FE-06). `/painel` virou `<Route ... element={<Navigate to="/" replace />} />`; `src/pages/OperationalPanel.tsx` apagado; item "Painel" removido de `navConfig.ts` e do `staffQuickItems` do `BottomNav.tsx`. `e2e/staff.spec.ts` e `docs/mapa-paginas-admin.md` atualizados. |
 | 16/08/2026 | **FE-15** — `ConfirmDialog` e a morte dos `alert()`/`confirm()` | Sonnet 5 | — | `src/components/ui/ConfirmDialog.tsx` (novo): sobre o `<dialog>` do `Modal.tsx`, que ganhou `role`/`closeOnBackdrop`. Foco abre no Cancelar (nunca no botão destrutivo), clicar fora não fecha, rótulo do botão diz a ação. Três variantes — simples, com lista de consequências (`consequences`) e com digitação da palavra (`confirmWord`) — usada nas duas ações realmente catastróficas do app: apagar todos os dados locais (`Settings.tsx`) e excluir cliente/inspeção permanentemente (`ClientDetails.tsx`, `Inspections.tsx`). `useConfirmDialog()` expõe um `confirm()` assíncrono, substituto direto de `window.confirm()`. `useToastStore`/`Toast.tsx`: erro não some mais sozinho (`duration: null`), aviso passou a durar 6s. As 115 ocorrências reais de `alert()`/`confirm()` em 28 arquivos migradas (`alert()` de sucesso → `Toast`, de erro → `Toast` de erro, `confirm()`/`window.confirm()` → `ConfirmDialog`); `syncService.repairSyncStatus()` (só tinha o `alert()`, zero chamadores) apagado em vez de migrado. `tsc -b`, `npm run build` e os 382 testes limpos. |
+| 16/08/2026 | **Design Arsenal ligado à Onda 4** | Opus 5 | — | Catálogo offline consultado (309 itens; MCP do DesignMD não estava carregado, e não se sonda fora dele). Escolhidas as fontes de cada card novo e registrado o que **não** entra. A restrição que decidiu tudo: o app não tem Motion nem Radix, então de Animate UI/Kokonut/Cult/Magic UI se copia estrutura, não código — só HyperUI e Flowbite (HTML+Tailwind puro) servem direto ao pipeline de protótipo. Direção visual: `aplicar-swiss-grid` no admin e `aplicar-confianca-corporativa` nas públicas; as outras 7 direções contrariam o Manual 2.0. `auditar-ui` vira o FE-27 (checklist + P0–P3 + linter estático). **Achado ao rodar o `audit-ui.mjs`:** 20 hex cravados em TS/TSX que o de-para do FE-21 não enxerga — a nota da inspeção usa `#F59E0B`/`#22C55E`/`#EF4444` (padrões do Tailwind) em vez de `--amber`/`--success`/`--danger` da marca. Ponteiro para a biblioteca gravado em `.claude/skills/catalogo-designmd`. |
 | 16/08/2026 | **Onda 4 ampliada** — FE-23 a FE-27 escritos | Ester + Opus 5 | — | Revisão da Ester confrontando o handoff com o Manual 2.0, a auditoria, o mapa de páginas e os protótipos FE-02/FE-D: a Onda 4 cobria ~80% da cobertura visual estrutural. Buracos identificados e conferidos no código antes de escrever os cards: o fluxo `/new` → `/execute` → `/summary` (2.836 linhas somando `ChecklistItem.tsx`, com `InspectionExecution` sem `PageShell` e nenhuma das três com `PageHeader`) não estava em card nenhum e **duas das três telas nunca foram desenhadas** → FE-23 começa por um Artefato E; **228** `<input>`/`<select>`/`<textarea>` crus em 40 arquivos contra **2** arquivos que importam os primitivos do FE-04a → FE-24; `SmartImporter`/`TemplateDetail` e as 3 telas de entrada sem shell → FE-25; as 2 páginas públicas sem login, que o Manual 2.0 exige com a voz da TreinaVISA → FE-26; e a conferência responsiva, que hoje é 100% manual, sobre o Playwright que já existe → FE-27. Ordem revisada: dark mode (FE-12) sai da frente e o FE-21 (contados hoje **2.858** classes cruas, 0 `dark:`) só roda com o desenho congelado. |
 | 16/08/2026 | **FE-16** — Ficha do cliente com abas | Sonnet 5 | — | Fecha os 7 achados do diagnóstico em `ClientDetails.tsx`. Identidade (nome, badges de categoria/segmento/portal/pendências, responsável, telefone, endereço) subiu para o topo, sempre visível — o antigo card "Resumo do Cliente" (`bg-primary-900`, último da página) foi removido, o conteúdo absorvido no cabeçalho. Corpo dividido em 3 abas com o primitivo `Tabs`/`TabPanel` do FE-04b (`aria-label="Seções do cliente"`), aba ativa sincronizada com `?aba=` via `useSearchParams` (decisão 20; `visao-geral` fica sem parâmetro): **Visão geral** (gráfico, histórico de visitas, plano de ação, NC recorrentes), **Arquivos** (a tabela do FE-07 em largura cheia, antes espremida no trilho de 380px; vazio ganhou `EmptyState`), **Portal** (credenciais + pasta personalizada + auditoria). Gráfico de conformidade com menos de 2 inspeções concluídas virou uma linha de texto com ícone, não mais uma caixa de ~200px. Credenciais do portal: senha e token mascarados por padrão (usuário fica visível, não é segredo), toggle único "Mostrar/Ocultar", botão de copiar por campo além do "Copiar tudo" já existente. Trilha de auditoria: só os 5 mais recentes no card, botão "Ver tudo" abre `Drawer` com a lista completa (fetch subiu de `limit: 20` para `limit: 50`, sem round-trip extra); `window.confirm()` de excluir cliente já tinha sido migrado para `ConfirmDialog` no FE-15, achado já fechado. `tsc -b`, `npm run build` e os 382 testes limpos. Verificado logada no navegador num cliente real (REDE SÊNIOR BARRA): identidade e badges no topo, `?aba=arquivos` na URL ao trocar de aba, tabela de arquivos em largura cheia, credenciais mascaradas revelando ao clicar "Mostrar", drawer "Ver tudo" abrindo a auditoria completa, sem rolagem horizontal em 375px. |
 

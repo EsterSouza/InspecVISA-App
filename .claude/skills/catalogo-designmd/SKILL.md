@@ -13,6 +13,29 @@ Este arquivo existe para que a consulta custe 1 ou 2 chamadas, não 10.
 Se a tela está desenhada em `docs/prototipos/`, **não consulte o MCP** — leia
 `design-inspecvisa` e aplique. O catálogo serve para o que ainda não tem desenho.
 
+## Antes do MCP: o Design Arsenal, que é offline
+
+`C:\Users\miche\OneDrive - MSFT\TreinaVISA\design-library` — biblioteca **somente leitura**
+(skill `usar-design-arsenal`, que também mora lá). **309 itens** no `catalog-data.js`
+(`window.DESIGN_CATALOG = {...}`, JSON válido depois do `=`): 281 componentes de 12 fontes,
+18 skills autorais e 10 padrões do DesignMD já sintetizados em disco. **Consultar isto primeiro** —
+não gasta chamada, não depende do servidor estar de pé e cobre a maior parte do que precisamos.
+
+O que serve a este repositório, conferido em 16/08/2026:
+
+| Skill do Arsenal | Para quê |
+|---|---|
+| `desenhar-apps` | tela operacional: `references/app-patterns.md` tem a tabela "Escolha rápida" (fila × tabela × drawer × stepper × kanban) e as regras de formulário |
+| `compor-blocos-ui` | `references/app-blocks.md` — catálogo de blocos de app com o **conteúdo obrigatório** de cada um; `references/designmd-patterns.md` são os padrões do DesignMD sem precisar do MCP |
+| `auditar-ui` | fechamento: `checklist.md`, `acceptance.md` (P0–P3) e `scripts/audit-ui.mjs`, linter estático que roda no nosso `src/` |
+| `aplicar-swiss-grid` · `aplicar-confianca-corporativa` | as **duas** direções compatíveis com o Manual 2.0 — as outras sete contrariam |
+
+**Regra que decide se dá para copiar:** o app **não tem Motion nem Radix** (só `lucide-react`,
+`tailwindcss-animate`, `clsx`, `cva`). Animate UI é Radix; Kokonut, Cult, Magic UI e Motion
+Primitives são Motion. Deles se copia **estrutura e regra, nunca o arquivo**. HyperUI e Flowbite
+são HTML + Tailwind puro e servem direto aos protótipos em `docs/prototipos/_src`.
+Nunca copiar `vendor/*` inteiro; ao copiar um arquivo, levar junto a atribuição do campo `summary`.
+
 ## Plano e cota (16/08/2026)
 
 Conta **Builder — 600 chamadas / 10 min**, sem limite diário. A license key do checkout
