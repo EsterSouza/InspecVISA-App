@@ -10,9 +10,10 @@
 
 ## Onde estamos
 
-**COND-01 entregue em 16/08/2026**, com 3 das 4 decisões de produto já tomadas pela Ester
-([contrato § 10](contrato-aplicabilidade.md)). Os outros nove cards não começaram. O `COND-02` está
-liberado; o `COND-03` espera a decisão 4 (recorte por papel).
+**COND-01 entregue em 16/08/2026**, com as **4 decisões de produto tomadas** pela Ester
+([contrato § 10](contrato-aplicabilidade.md)) — inclusive a de que existe **uma árvore só**, com o
+papel virando filtro de exibição. Os outros nove cards não começaram, e **nenhum está travado por
+decisão**: `COND-02` e `COND-03` podem começar.
 
 | Card | O que é | Modelo | Esforço | Depois de |
 |---|---|---|---|---|
@@ -284,6 +285,12 @@ Pacote de domínio puro: **sem React, sem Supabase, sem rede, sem banco, sem `Da
 
 - Todas as origens (banco, `src/data`, suplemento regional) produzem **uma representação canônica**
   antes de o motor rodar. O motor não sabe de onde o item veio.
+- **Uma árvore só** (decisão da Ester, 16/08 — [contrato § 6.6](contrato-aplicabilidade.md)): a
+  execução para de montar `effectiveTemplate` (papel) e `collaborationTemplate` (completa) em
+  paralelo. Fica a completa; o papel vira filtro de exibição com "ver tudo". Nota, snapshot, PDF e
+  plano de ação passam a usar, por construção, o mesmo conjunto que a tela mostra.
+- Com isso, `snapshotCoversResponses()` perde a razão de existir e o fallback que reconstrói do
+  roteiro vivo é **removido**, não mantido — o snapshot cobre as respostas por construção.
 - Ordem da composição, explícita e testada:
   `base → suplemento regional → substituições (replacesItemId/insertAfterItemId) → condições → congelamento`.
   Suplemento que substitui item **não pode deixar regra apontando para o id anterior** — o

@@ -137,9 +137,12 @@ suplementos (código, avaliados a cada render) e o `retiredAt` (lido do item atu
 (`'ambos'`, `full=true`) é o que vira **snapshot** e o que o painel de colaboração usa. São duas
 composições independentes do mesmo roteiro, recalculadas a cada mudança de `responses`.
 
-Com condicionais, isso vira duas árvores condicionais — e a garantia
-"execução = score = summary = PDF = plano" do `COND-09` precisa dizer **qual das duas** é a
-canônica.
+Com condicionais, isso viraria duas árvores condicionais.
+
+**Decidido pela Ester em 16/08/2026:** existe **uma** árvore, a completa; o papel vira filtro de
+exibição ([contrato § 6.6](contrato-aplicabilidade.md)). Isso resolve o achado A2 pela raiz — se o
+snapshot é sempre a árvore completa, ele cobre todas as respostas por construção, e o fallback que
+reconstrói do roteiro vivo pode ser **removido** no `COND-03` em vez de mantido.
 
 ### A5 · Duas regras casam por texto, não por id
 

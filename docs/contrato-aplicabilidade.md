@@ -193,7 +193,25 @@ Enquanto a resposta controladora de uma não chegou na outra, cada dispositivo m
 coerente com o que tem. **Divergência temporária é aceitável; divergência permanente não.** Após a
 sincronização, as duas árvores têm de ser idênticas — é teste do `COND-08`.
 
-### 6.6 Erro do motor nunca esconde requisito
+### 6.6 Uma árvore só; papel é exibição
+
+**Decisão da Ester, 16/08/2026.** Existe **uma** árvore por inspeção: a completa, calculada pelo
+motor sobre a revisão congelada. O recorte por papel (saúde / nutrição) **não monta uma segunda
+árvore** — ele esconde seções na exibição, e a consultora sempre pode pedir "ver tudo".
+
+Consequências normativas:
+
+- Nota, progresso, resumo, snapshot, PDF e plano de ação usam **sempre** a árvore completa. Nunca
+  existiu razão para a nota ser calculada sobre um recorte de quem está logada.
+- Ao concluir, a consultora **vê o que vai sair no relatório**, inclusive a parte da colega —
+  hoje ela assina um relatório com seções que nunca apareceram na tela dela.
+- O `snapshotCoversResponses()` do achado A2 perde a razão de existir: se o snapshot é sempre a
+  árvore completa, ele cobre todas as respostas por construção. O fallback que reconstrói do
+  roteiro vivo **é removido** no `COND-03`, não mantido.
+- O filtro de exibição é preferência de tela, **não** entra no congelamento. Trocar o papel nas
+  Configurações nunca pode mudar nota, relatório ou o que já foi congelado.
+
+### 6.7 Erro do motor nunca esconde requisito
 
 Se a avaliação falhar (regra corrompida, referência quebrada em inspeção já criada), o
 comportamento é **conservador e visível**: o item aparece, marcado como indeterminado, com aviso na
@@ -270,11 +288,10 @@ itens da execução = itens do score = itens do summary = itens do PDF = itens e
 3. **`isRJOnly`** — a pergunta perdeu o objeto: a flag funciona (ver 9.1). Nenhum item deixou de
    ser avaliado por engano. Fica como caso de migração do `COND-03`.
 
-**Em aberto — trava o `COND-03` (não trava o `COND-02`):**
+4. **Uma árvore só; o papel é filtro de exibição.** ✅ Decidido em 16/08/2026. Hoje a execução monta
+   **duas** árvores simultâneas — a filtrada pelo papel de quem está logada e a completa, que é a
+   que vira snapshot e a que a nota usa. Passa a existir **uma**: a completa. O papel deixa de
+   montar lista e passa a **esconder na exibição**, com "ver tudo" disponível. Detalhe normativo em
+   6.6.
 
-4. **O recorte por papel vira filtro de exibição?** Hoje a execução monta **duas** árvores ao mesmo
-   tempo: a filtrada pelo papel de quem está logada (Ester vê sanitária, Ana vê nutrição) e a
-   completa. A completa é a que vira snapshot e a que a nota usa. A proposta é: **existe uma árvore
-   só — a completa — e o papel vira apenas um filtro de exibição**, com um botão "ver tudo". Muda o
-   que a Ester enxerga ao concluir sozinha uma inspeção que a Ana também respondeu: hoje ela
-   conclui sem ver a parte de nutrição, mas o relatório sai com ela.
+**Nada em aberto.** Todos os cards estão liberados do ponto de vista de decisão de produto.

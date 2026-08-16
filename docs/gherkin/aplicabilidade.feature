@@ -129,6 +129,21 @@ Funcionalidade: Aplicabilidade condicional do roteiro
     Então a árvore é recalculada localmente
     E nenhuma chamada de rede é necessária para mostrar ou esconder item
 
+  Cenário: O recorte por papel esconde na tela, não muda o relatório
+    Dado uma inspeção de ILPI respondida por mim (saúde) e pela nutricionista
+    E que meu perfil está como "saúde"
+    Então as seções de nutrição ficam escondidas na minha tela
+    Mas continuam na árvore da inspeção
+    E consigo pedir "ver tudo" antes de concluir
+    E a nota, o roteiro congelado e o relatório usam a árvore completa
+
+  Cenário: Trocar o perfil não muda nota nem relatório
+    Dado uma inspeção concluída
+    Quando troco meu perfil de "saúde" para "ambos"
+    Então a nota permanece a mesma
+    E o relatório congelado permanece o mesmo
+    Porque o perfil é preferência de exibição, não faz parte do congelamento
+
   Cenário: Duas consultoras convergem para a mesma árvore
     Dado que eu e outra consultora estamos na mesma inspeção
     Quando a resposta controladora dela sincroniza para o meu dispositivo
