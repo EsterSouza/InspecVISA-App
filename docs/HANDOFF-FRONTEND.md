@@ -15,7 +15,7 @@ qualquer outra coisa aqui, ela ganha.
 
 | Card | O que é | Só depois de |
 |---|---|---|
-| **FE-23** | **Fluxo de inspeção** `/new` → `/execute` → `/summary`. Começa por protótipo: 2 das 3 telas nunca foram desenhadas | protótipo aprovado |
+| **FE-23** | **Fluxo de inspeção** `/new` → `/execute` → `/summary`. **Artefato E publicado em 16/08** — falta a Ester aprovar e responder as 2 perguntas em aberto | aprovação do Artefato E |
 | **FE-24** | **Formulários**: 225 controles crus em 40 arquivos viram `Input`/`Select`/`Textarea`/`Label` | FE-23 |
 | **FE-21** | 2.858 classes de cor viram token — **mais os 20 hex cravados em TS/TSX** que o de-para não vê | desenho congelado |
 | **FE-22** | `Clients` e `Inspections` em tabela densa | — |
@@ -167,6 +167,10 @@ Navegação com URL por seção: Visão geral · Plano de ação · Solicitaçõ
 **FE-D · Artefato D — Onda 4, o admin que falta (navegável).** ✅ [Publicado](https://claude.ai/code/artifact/2001223c-6df9-4464-8e7f-3c299ad61832)
 Aprovado pela Ester em 16/08/2026. Doze telas: o **diagnóstico antes/depois** da ficha do cliente com os 7 achados numerados sobre o desenho; **Início unificado**; **ficha do cliente com abas**; as rotas que eram esboço cinza no FE-02 (**Solicitações, Roteiros, Biblioteca, Sincronização, Configurações**); o **editor de roteiro**; os **padrões que faltam** (diálogo de confirmação nas 3 variantes, campo de formulário, vazio/carregando/erro, menu de ações da linha); o **de-para das 2.856 classes de cor cruas**; e o plano em cards.
 
+**FE-E · Artefato E — Fluxo de inspeção (navegável).** ✅ [Publicado](https://claude.ai/code/artifact/a2f2a82d-2444-4ad5-aeba-0001518d9823) em 16/08/2026 — **aguardando aprovação da Ester.**
+Oito telas para o FE-23: o **diagnóstico medido** do fluxo, com a execução do FE-02 confrontada ao que o código faz; **`/new`** e **`/summary`**, que nunca tinham sido desenhadas; a **execução** em três colunas (índice · roteiro · nota); o **encerramento**, etapa que hoje não existe e que anuncia os quatro efeitos antes do clique; **estados e celular** a 375px, com controle fixo que não tapa conteúdo; **a nota fora da paleta**, com o de-para dos 16 hex e a faixa lima; e as **decisões com a ordem de implementação em 6 commits**.
+Duas perguntas ficam para a Ester: (1) encerrar sem vínculo com agendamento deve ser possível marcando a caixa ou deve ser bloqueado? (2) prazo e responsável continuam aceitando texto livre, com aviso de que não vira data, ou passam a ser só a lista?
+
 ### Decisões de design tomadas nos protótipos
 
 Ficam registradas aqui, não no servidor do DesignMD (regra 2 da seção do MCP).
@@ -196,6 +200,15 @@ Acrescentadas no Artefato D, aprovadas em 16/08/2026:
 20. **A aba ativa entra na URL** (`?aba=arquivos`). Sem isso o link do Início não consegue levar a uma aba específica da ficha, o botão de voltar não funciona dentro da tela e não dá para mandar "olha os arquivos desta visita" para a colega.
 21. **No editor de roteiro não existe "Excluir item" — existe "Aposentar".** Apagar deixaria resposta órfã e degradaria relatório já entregue. Aposentar tira o item das **próximas** inspeções, deixa as em andamento terminarem com ele e não toca em nada já concluído.
 22. **No toque, nada abaixo de 44px — campo inclusive.** A regra existia desde o FE-01 mas valia só para `.btn`: campo, aba, paginação e o botão de ordenar da tabela ficavam abaixo, e o de ordenar tinha **18px**. Corrigido no `components.css`, que agora fecha com um bloco `@media (pointer: coarse)` — e ele precisa ficar **no fim do arquivo**, depois de todas as alturas que sobrescreve.
+
+Acrescentadas no Artefato E (fluxo de inspeção), 16/08/2026 — **aguardando aprovação da Ester**:
+
+23. **A execução não é um assistente.** A ordem dos itens não é obrigatória: a consultora responde o que está vendo, andando pela casa. O acordeão por seção fica e o índice de seções vira coluna própria. O wizard "um item por vez" do FE-02 está descartado, e com ele o estado **"Parcial"**, que não existe no domínio — os quatro são CUMPRE, NÃO CUMPRE, N/A e NO (não observado).
+24. **A largura não tem exceção.** `InspectionExecution` passa a usar `--shell-max` como todo o resto (decisão 5). Quem controla a linha de leitura é a coluna do meio (`68ch` na pergunta), não a página. Três colunas em ≥1400px, duas entre 1000 e 1400 (o índice vira gaveta), uma abaixo disso.
+25. **Encerrar e entregar é uma etapa com nome próprio.** Hoje gerar o PDF faz **quatro** coisas — congela o roteiro, grava a nota do portal, publica o relatório e reconcilia o plano de ação — e anuncia zero, atrás de um botão chamado "PDF Final". A tela nova lista os efeitos antes do clique, e existe o caminho "só gerar o PDF, sem entregar", para conferência.
+26. **A entrega tem recibo permanente.** O relatório mostra, item a item, o que chegou ao portal e o que não chegou. Aviso passageiro não serve para informação que a consultora vai precisar amanhã.
+27. **Quatro classificações, três cores.** A faixa "bom" perde o `#84CC16` lima, que não existe na marca; bom e excelente compartilham o verde e se separam pela palavra e pelo número — regra 2 do manual (nada depende só da cor).
+28. **Controle fixo no celular é rodapé, nunca sobreposição.** A área de rolagem termina onde a barra de nota começa. Nenhuma pergunta do roteiro fica atrás do botão de encerrar.
 
 ### Achados de CSS que valem para a Fase 2
 
@@ -556,6 +569,12 @@ backlog da Onda 2 sem card próprio.
 
 ### ⬜ FE-23 · Fluxo de inspeção end-to-end
 
+> **Artefato E publicado em 16/08/2026** — [ver o protótipo](https://claude.ai/code/artifact/a2f2a82d-2444-4ad5-aeba-0001518d9823).
+> Fonte em `docs/prototipos/_src/pages/fe-05-inspecao.html`. Oito telas: diagnóstico medido,
+> `/new`, `/execute`, **encerramento** (a etapa que hoje não existe), `/summary`, estados e celular
+> a 375px, a nota fora da paleta, e as decisões com a ordem de implementação.
+> **Aguarda aprovação da Ester e resposta às duas perguntas em aberto** (tela "Decisões e plano").
+
 `/new` → `/execute` → `/summary` é o coração do produto e é o único fluxo grande que nenhum card
 cobre. Medido no código em 16/08/2026:
 
@@ -566,14 +585,18 @@ cobre. Medido no código em 16/08/2026:
 | `src/pages/InspectionSummary.tsx` | 973 | ✅ (FE-05, 2 wrappers) | ✗ |
 | `src/components/inspection/ChecklistItem.tsx` | 698 | — | — |
 
-- **Duas das três telas nunca foram desenhadas.** O FE-02 tem a execução (estado offline,
-  breadcrumb, salvar e concluir); `/new` e `/summary` não estão em protótipo nenhum. Pela regra da
-  Fase 1 — protótipo aprovado antes de codar — **o card começa por um Artefato E** com as duas
-  telas que faltam mais a revisão da execução contra o que o código faz hoje, e só depois
-  implementa.
-- `InspectionExecution.tsx` ficou fora do FE-05 de propósito: tem `max-w-7xl` próprio e cabeçalho
-  `sticky` de largura própria, que não é o padrão trocado lá. Isso vira decisão a tomar, não
-  pendência a ignorar — ou a largura entra na regra única (decisão 5) ou a exceção fica escrita.
+- ~~**Duas das três telas nunca foram desenhadas.**~~ ✅ **Resolvido pelo Artefato E.** E a
+  terceira estava desenhada **errado**: a execução do FE-02 navega *um item por vez*
+  ("Item anterior / Próximo item") e oferece o estado **"Parcial"**, que não existe no domínio —
+  o app real mostra o roteiro inteiro em acordeão, com CUMPRE / NÃO CUMPRE / N/A / **NO**
+  (não observado), e a consultora responde fora de ordem. O wizard está descartado (decisão 23) —
+  é a própria regra do `app-patterns.md` que o card cita: *stepper somente quando a ordem é
+  obrigatória*. O FE-02 também não previa plano de ação anterior, evidência do cliente,
+  calculadora ILPI, item extra, ditado por voz, co-finalização nem modo de recuperação.
+- ~~`InspectionExecution.tsx` ficou fora do FE-05 de propósito: `max-w-7xl` próprio.~~
+  ✅ **Decidido (decisão 24): a largura entra na regra única.** A página passa a usar
+  `--shell-max`; quem controla a linha de leitura é a coluna do meio (`68ch` na pergunta), não a
+  página. A exceção deixa de existir em vez de virar nota de rodapé.
 - Cobrir, em desktop, tablet e celular: progresso do checklist, foto, colaboração, calculadora de
   dimensionamento da ILPI, **operação offline com estado de sincronização em três canais** (cor,
   forma e palavra, como o FE-18 fez no `SyncCenter`), controles fixos que não tapam conteúdo em
@@ -581,16 +604,22 @@ cobre. Medido no código em 16/08/2026:
 - Hoje **gerar o PDF publica o relatório e reconcilia o plano de ação** — efeito colateral real que
   a tela não anuncia em lugar nenhum. O encerramento redesenhado precisa dizer o que vai acontecer
   antes de acontecer.
-- **Exige decisão antes de codar:** o achado #4 de "Fora de escopo"
-  (`InspectionSummary.tsx:427-439` — sem `linkedRequest` a publicação cai num `console.warn` e nada
-  chega ao portal) é invisível na tela. Redesenhar o encerramento sem tratar isso é desenhar por
-  cima de uma falha silenciosa. Proposta: a tela passa a **mostrar** o que foi e o que não foi
-  publicado; corrigir a causa continua fora de escopo até a Ester autorizar.
-- **A nota é pintada fora do sistema de cor.** `ScorePanel.tsx`, `MobileScoreBar.tsx`,
-  `ComplianceTrendChart.tsx` e `utils/scoring.ts` cravam `#22C55E` / `#F59E0B` / `#EF4444` — os
-  padrões do Tailwind, não `--success #0E7A4A`, `--amber #D99721` e `--danger #B3261E`. O de-para
-  do FE-21 não enxerga isso (conta classe, não hex). Achado do `audit-ui.mjs`, detalhe na seção do
-  Arsenal.
+- **Exige decisão antes de codar:** o achado #4 de "Fora de escopo" — sem `linkedRequest` nada
+  chega ao portal. **Correção do card:** já não é um `console.warn` mudo; alguém acrescentou um
+  `Toast` de atenção em `InspectionSummary.tsx:485`. Mas aviso passageiro some, e a tela volta a
+  parecer entregue. O Artefato E resolve com **dois lugares permanentes**: o cartão "Entrega ao
+  portal" no encerramento (antes) e o recibo item a item no relatório (depois), com "Vincular a um
+  agendamento" ali mesmo. Corrigir a causa continua fora de escopo. **Falta a Ester responder:**
+  encerrar sem vínculo deve ser possível marcando a caixa, ou deve ser bloqueado?
+- **A nota é pintada fora do sistema de cor.** São **16** hex nos três arquivos que desenham a
+  nota — `ScorePanel.tsx` (9), `utils/scoring.ts` (4) e `MobileScoreBar.tsx` (3) —, com
+  `#22C55E` / `#F59E0B` / `#EF4444` no lugar de `--success #0E7A4A`, `--amber #D99721` e
+  `--danger #B3261E`. **Correção do card:** `ComplianceTrendChart.tsx` **não** é deste fluxo —
+  vive em `src/components/client/` e é da ficha do cliente, portanto do FE-21, junto com os 2 hex
+  do `index.css`. E há uma quarta cor que o handoff não listava: `#84CC16` **lima**, a faixa "bom"
+  do `scoring.ts`, que **não tem equivalente na marca**. Decisão 27: as quatro classificações
+  continuam no texto e no PDF, a cor usa três tons (bom e excelente compartilham o verde).
+  `SignaturePad.tsx` usa `#000000` para a tinta da assinatura — isso é tinta, não interface, e fica.
 - As telas deste card nascem já com os primitivos de formulário do FE-24 — não migrar depois.
 - **Deixar dois espaços previstos no desenho, mesmo sem implementar:** onde mora uma **pergunta de
   roteamento** e como uma **seção condicional** se anuncia. É o projeto `COND-` — ver
@@ -971,6 +1000,7 @@ O que não é card:
 | | Estado |
 |---|---|
 | **Artefato D** | ✅ [publicado](https://claude.ai/code/artifact/2001223c-6df9-4464-8e7f-3c299ad61832) e aprovado pela Ester em 16/08/2026 |
+| **Artefato E** | ✅ [publicado](https://claude.ai/code/artifact/a2f2a82d-2444-4ad5-aeba-0001518d9823) em 16/08/2026 · **aguardando aprovação e as 2 respostas da Ester** — só então o FE-23 começa a codar |
 | MCP do DesignMD | Plano **Builder** (600 chamadas / 10 min). URL **com `www`**, servidor aprovado em `~/.claude.json`. **Só carrega na abertura do app** — em 16/08 não estava carregado, e o Design Arsenal offline cobriu |
 | Design Arsenal | ✅ ligado à Onda 4 — ver a seção do Arsenal. Biblioteca somente leitura no OneDrive |
 | Backlog sem card | nenhum: o item "converter listas de cards em tabelas" da Onda 2 virou o FE-22 |
@@ -1004,6 +1034,7 @@ Tabela de acompanhamento rápido — quem fez o quê e quando. O detalhe de cada
 | 16/08/2026 | **Design Arsenal ligado à Onda 4** | Opus 5 | — | Catálogo offline consultado (309 itens; MCP do DesignMD não estava carregado, e não se sonda fora dele). Escolhidas as fontes de cada card novo e registrado o que **não** entra. A restrição que decidiu tudo: o app não tem Motion nem Radix, então de Animate UI/Kokonut/Cult/Magic UI se copia estrutura, não código — só HyperUI e Flowbite (HTML+Tailwind puro) servem direto ao pipeline de protótipo. Direção visual: `aplicar-swiss-grid` no admin e `aplicar-confianca-corporativa` nas públicas; as outras 7 direções contrariam o Manual 2.0. `auditar-ui` vira o FE-27 (checklist + P0–P3 + linter estático). **Achado ao rodar o `audit-ui.mjs`:** 20 hex cravados em TS/TSX que o de-para do FE-21 não enxerga — a nota da inspeção usa `#F59E0B`/`#22C55E`/`#EF4444` (padrões do Tailwind) em vez de `--amber`/`--success`/`--danger` da marca. Ponteiro para a biblioteca gravado em `.claude/skills/catalogo-designmd`. |
 | 16/08/2026 | **Onda 4 ampliada** — FE-23 a FE-27 escritos | Ester + Opus 5 | — | Revisão da Ester confrontando o handoff com o Manual 2.0, a auditoria, o mapa de páginas e os protótipos FE-02/FE-D: a Onda 4 cobria ~80% da cobertura visual estrutural. Buracos identificados e conferidos no código antes de escrever os cards: o fluxo `/new` → `/execute` → `/summary` (2.836 linhas somando `ChecklistItem.tsx`, com `InspectionExecution` sem `PageShell` e nenhuma das três com `PageHeader`) não estava em card nenhum e **duas das três telas nunca foram desenhadas** → FE-23 começa por um Artefato E; **228** `<input>`/`<select>`/`<textarea>` crus em 40 arquivos contra **2** arquivos que importam os primitivos do FE-04a → FE-24; `SmartImporter`/`TemplateDetail` e as 3 telas de entrada sem shell → FE-25; as 2 páginas públicas sem login, que o Manual 2.0 exige com a voz da TreinaVISA → FE-26; e a conferência responsiva, que hoje é 100% manual, sobre o Playwright que já existe → FE-27. Ordem revisada: dark mode (FE-12) sai da frente e o FE-21 (contados hoje **2.858** classes cruas, 0 `dark:`) só roda com o desenho congelado. |
 | 16/08/2026 | **FE-16** — Ficha do cliente com abas | Sonnet 5 | — | Fecha os 7 achados do diagnóstico em `ClientDetails.tsx`. Identidade (nome, badges de categoria/segmento/portal/pendências, responsável, telefone, endereço) subiu para o topo, sempre visível — o antigo card "Resumo do Cliente" (`bg-primary-900`, último da página) foi removido, o conteúdo absorvido no cabeçalho. Corpo dividido em 3 abas com o primitivo `Tabs`/`TabPanel` do FE-04b (`aria-label="Seções do cliente"`), aba ativa sincronizada com `?aba=` via `useSearchParams` (decisão 20; `visao-geral` fica sem parâmetro): **Visão geral** (gráfico, histórico de visitas, plano de ação, NC recorrentes), **Arquivos** (a tabela do FE-07 em largura cheia, antes espremida no trilho de 380px; vazio ganhou `EmptyState`), **Portal** (credenciais + pasta personalizada + auditoria). Gráfico de conformidade com menos de 2 inspeções concluídas virou uma linha de texto com ícone, não mais uma caixa de ~200px. Credenciais do portal: senha e token mascarados por padrão (usuário fica visível, não é segredo), toggle único "Mostrar/Ocultar", botão de copiar por campo além do "Copiar tudo" já existente. Trilha de auditoria: só os 5 mais recentes no card, botão "Ver tudo" abre `Drawer` com a lista completa (fetch subiu de `limit: 20` para `limit: 50`, sem round-trip extra); `window.confirm()` de excluir cliente já tinha sido migrado para `ConfirmDialog` no FE-15, achado já fechado. `tsc -b`, `npm run build` e os 382 testes limpos. Verificado logada no navegador num cliente real (REDE SÊNIOR BARRA): identidade e badges no topo, `?aba=arquivos` na URL ao trocar de aba, tabela de arquivos em largura cheia, credenciais mascaradas revelando ao clicar "Mostrar", drawer "Ver tudo" abrindo a auditoria completa, sem rolagem horizontal em 375px. |
+| 16/08/2026 | **Artefato E** — fluxo de inspeção desenhado | Opus 5 | — | Oito telas navegáveis em `docs/prototipos/_src/pages/fe-05-inspecao.html`, [publicadas](https://claude.ai/code/artifact/a2f2a82d-2444-4ad5-aeba-0001518d9823). **Achados ao ler o código antes de desenhar, todos divergindo do que o card FE-23 dizia:** (1) a execução do FE-02 não estava só "faltando polimento" — ela é um **wizard de um item por vez**, com um estado **"Parcial"** que não existe no domínio, e sem nenhum dos blocos que o app real tem (plano de ação anterior, evidência e declaração do cliente, calculadora ILPI, item extra, ditado por voz, co-finalização, modo recuperação). O `app-patterns.md` que o próprio card manda consultar descarta o stepper quando a ordem não é obrigatória — e na inspeção não é. (2) O achado #4 (publicação sem vínculo) **já não é um `console.warn` mudo**: existe um `Toast` de atenção em `InspectionSummary.tsx:485`; o problema restante é ele sumir da tela, então o artefato o transforma em dois lugares permanentes (cartão de entrega no encerramento, recibo item a item no relatório). (3) O `ComplianceTrendChart.tsx` que o card listava entre os hex do fluxo **vive em `src/components/client/`** — é da ficha do cliente, fica no FE-21, junto com os 2 hex do `index.css`; o fluxo tem **16** hex, todos em `ScorePanel`/`scoring.ts`/`MobileScoreBar`. (4) Há uma **quarta** cor que o card não listava: `#84CC16` lima, faixa "bom" do `scoring.ts`, sem equivalente na marca → decisão 27. (5) Os 4 arquivos somam **30** controles crus, não os ~200 do FE-24 — saem junto com cada tela. Decisões novas 23 a 28 registradas. Conferido no navegador em 375, 1280 e 1600px: nenhuma rolagem lateral nas 8 telas, menor alvo de toque 44px, os 3 pares de contraste da tabela de cor medidos ao vivo (9,17 · 9,35 · 7,94 — todos passam AA). Dois bugs de CSS corrigidos no caminho, os dois da mesma família já catalogada: embrulho de flex com `min-width: auto` mantendo a moldura de 375px dentro de um container de 343, e sugestão de texto longo sem truncar esticando a coluna. **Screenshot não foi possível** — o painel do navegador não estava compositando frames nesta sessão; a verificação foi por DOM, medindo `scrollWidth`, `getBoundingClientRect` e contraste. |
 
 ### FE-04a ✅ — detalhe da entrega, e o que ficou pra depois
 

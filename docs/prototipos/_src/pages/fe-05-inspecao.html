@@ -1,0 +1,1627 @@
+<!-- title: FE-05 · Fluxo de inspeção -->
+<style>
+  body { overflow-x: hidden; }
+
+  .app { display: flex; min-height: 100vh; }
+
+  /* ---------- Rail (mesmo do FE-02/FE-04) ---------- */
+  .rail {
+    position: sticky; top: 0; align-self: flex-start;
+    height: 100vh; flex: none;
+    width: var(--rail-open);
+    display: flex; flex-direction: column;
+    background: var(--surface-sunken);
+    border-right: 1px solid var(--border);
+    transition: width var(--dur-3) var(--ease-out);
+    z-index: var(--z-sticky);
+  }
+  .app[data-rail='closed'] .rail { width: var(--rail-closed); }
+  .app[data-rail='closed'] .rail__label,
+  .app[data-rail='closed'] .rail__group-title,
+  .app[data-rail='closed'] .rail__brand-text,
+  .app[data-rail='closed'] .rail__user-text { display: none; }
+  .app[data-rail='closed'] .rail__link { justify-content: center; padding-inline: 0; }
+
+  .rail__brand { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-4); height: var(--topbar-h); }
+  .rail__mark { width: 28px; height: 28px; flex: none; border-radius: var(--radius-md); background: var(--accent); color: #FFF; display: grid; place-items: center; font-family: var(--font-title); font-weight: 600; font-size: 13px; }
+  .rail__brand-text p:first-child { font-family: var(--font-title); font-weight: 600; font-size: var(--text-base); letter-spacing: var(--tracking-title); line-height: 1.1; }
+  .rail__brand-text p:last-child { font-size: var(--text-2xs); color: var(--ink-2); }
+
+  .rail__nav { flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; padding: var(--space-2) var(--space-3) var(--space-4); }
+  .rail__group-title { font-size: var(--text-2xs); font-weight: var(--weight-semibold); color: var(--ink-3); padding: var(--space-4) var(--space-3) var(--space-1); }
+  .rail__link {
+    display: flex; align-items: center; gap: var(--space-3);
+    height: 38px; padding: 0 var(--space-3);
+    margin-bottom: 2px;
+    border-radius: var(--radius-md);
+    color: var(--ink-2); text-decoration: none;
+    font-size: var(--text-base); font-weight: var(--weight-medium);
+    position: relative;
+    transition: background-color var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+  }
+  .rail__link svg { flex: none; }
+  .rail__link:hover { background: var(--surface-hover); color: var(--ink); }
+  .rail__link[aria-current='page'] { background: var(--accent-soft); color: var(--accent-soft-ink); font-weight: var(--weight-semibold); }
+  .rail__link[aria-current='page']::before { content: ''; position: absolute; left: -12px; top: 7px; bottom: 7px; width: 3px; border-radius: 0 2px 2px 0; background: var(--accent); }
+
+  .rail__foot { border-top: 1px solid var(--border); padding: var(--space-3); }
+  .rail__user { display: flex; align-items: center; gap: var(--space-3); }
+  .rail__user-text { min-width: 0; }
+  .rail__user-text p:first-child { font-size: var(--text-sm); font-weight: var(--weight-semibold); }
+  .rail__user-text p:last-child { font-size: var(--text-2xs); color: var(--ink-2); }
+
+  @media (max-width: 900px) { .rail { display: none; } }
+
+  /* ---------- Topbar + conteúdo ---------- */
+  .main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+  .topbar {
+    position: sticky; top: 0; z-index: var(--z-sticky);
+    height: var(--topbar-h); flex: none;
+    display: flex; align-items: center; gap: var(--space-3);
+    padding: 0 var(--space-6);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  @media (max-width: 640px) { .topbar { padding: 0 var(--space-4); } }
+
+  .page { flex: 1 1 auto; padding: var(--space-8) var(--space-8) var(--space-16); max-width: var(--shell-max); width: 100%; margin: 0 auto; }
+  @media (max-width: 900px) { .page { padding: var(--space-6) var(--space-4) var(--space-16); } }
+
+  .page__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-6); }
+  .page__title { font-size: var(--text-2xl); }
+  .page__sub { color: var(--ink-2); font-size: var(--text-base); margin-top: var(--space-1); }
+  .crumbs { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-xs); color: var(--ink-2); margin-bottom: var(--space-2); flex-wrap: wrap; }
+
+  .screen[hidden] { display: none; }
+
+  .mobile-only { display: none; }
+  @media (max-width: 900px) { .mobile-only { display: inline-flex; } }
+  @media (max-width: 640px) { .hide-sm { display: none !important; } }
+
+  /* `1fr` sozinho é `minmax(auto, 1fr)`, e item de grid nasce `min-width: auto`:
+     com tabela dentro, nenhum dos dois encolhe e a página rola de lado. */
+  .cols { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: var(--space-5); align-items: start; }
+  @media (max-width: 1100px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+  .cols3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: var(--space-4); }
+  .cols > *, .cols3 > * { min-width: 0; }
+
+  .list-row { display: flex; flex-wrap: wrap; gap: var(--space-3); padding: var(--space-3) var(--space-5); border-bottom: 1px solid var(--border); align-items: flex-start; }
+  .list-row:last-child { border-bottom: 0; }
+
+  /* Coluna de amostra da tabela de canais: some a largura fixa no celular,
+     senão a linha inteira passa a medir 355px numa tela de 375. */
+  .canal { flex: none; width: 230px; }
+  @media (max-width: 700px) { .canal { width: 100%; } }
+
+  /* Sugestão do histórico: trunca como no app (`max-w-[220px] truncate`),
+     senão a frase inteira vira uma linha que não encolhe. */
+  .sug { max-width: 100%; }
+  .sug > span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .sticky-side { position: sticky; top: calc(var(--topbar-h) + var(--space-5)); }
+
+  /* ---------- Esquema de layout (planta, não a tela) ---------- */
+  .wire { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); padding: var(--space-4); }
+  .wire__col { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+  .wire__box {
+    border: 1px dashed var(--border-strong); border-radius: var(--radius-md);
+    background: var(--surface-sunken); color: var(--ink-2);
+    padding: var(--space-3); min-height: 44px;
+    display: flex; align-items: center; gap: var(--space-2);
+    font-size: var(--text-xs); line-height: var(--leading-snug);
+  }
+  .wire__box[data-flag='true'] { border-style: solid; border-color: var(--danger-soft-border); background: var(--danger-soft); color: var(--danger-soft-ink); font-weight: var(--weight-semibold); }
+  .wire__box[data-flag='ok'] { border-style: solid; border-color: var(--success-soft-border); background: var(--success-soft); color: var(--success-soft-ink); font-weight: var(--weight-semibold); }
+  .wire__box .n { flex: none; width: 16px; height: 16px; border-radius: var(--radius-full); background: currentColor; color: var(--surface); font-size: 9px; font-weight: 700; display: grid; place-items: center; }
+  .wire__box--tall { min-height: 68px; align-items: flex-start; }
+  .wire__cap { font-size: var(--text-2xs); color: var(--ink-3); margin-top: var(--space-2); }
+
+  .ba { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-5); align-items: start; }
+  @media (max-width: 1100px) { .ba { grid-template-columns: minmax(0, 1fr); } }
+  .ba__tag { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--text-xs); font-weight: var(--weight-bold); letter-spacing: .04em; text-transform: uppercase; margin-bottom: var(--space-3); }
+  .ba__tag--antes { color: var(--danger-soft-ink); }
+  .ba__tag--depois { color: var(--success-soft-ink); }
+
+  .findings { counter-reset: f; margin: 0; padding: 0; list-style: none; }
+  .findings li { display: flex; gap: var(--space-3); padding: var(--space-3) 0; border-bottom: 1px solid var(--border); font-size: var(--text-sm); }
+  .findings li:last-child { border-bottom: 0; }
+  .findings .n { flex: none; width: 20px; height: 20px; border-radius: var(--radius-full); background: var(--danger-soft); color: var(--danger-soft-ink); border: 1px solid var(--danger-soft-border); font-size: var(--text-2xs); font-weight: 700; display: grid; place-items: center; }
+  .findings--ok .n { background: var(--success-soft); color: var(--success-soft-ink); border-color: var(--success-soft-border); }
+
+  /* ================= EXECUÇÃO ================= */
+
+  /* Três colunas em tela larga: índice · roteiro · nota.
+     A coluna do meio tem largura de leitura própria (`68ch` no `.item p`),
+     então a página inteira pode usar `--shell-max` sem esticar a pergunta. */
+  .exec { display: grid; grid-template-columns: 232px minmax(0, 1fr) 300px; gap: var(--space-5); align-items: start; }
+  @media (max-width: 1400px) { .exec { grid-template-columns: minmax(0, 1fr) 300px; } .exec__indice { display: none; } }
+  @media (max-width: 1000px) { .exec { grid-template-columns: minmax(0, 1fr); } .exec__nota { display: none; } }
+  .exec > * { min-width: 0; }
+
+  /* Índice de seções */
+  .tree { max-height: calc(100vh - var(--topbar-h) - var(--space-16)); overflow-y: auto; }
+  .tree__sec {
+    display: flex; align-items: center; gap: var(--space-2);
+    width: 100%; text-align: left;
+    padding: var(--space-2) var(--space-3);
+    background: none; border: 0; border-bottom: 1px solid var(--border);
+    cursor: pointer; color: inherit;
+  }
+  .tree__sec:last-child { border-bottom: 0; }
+  .tree__sec:hover { background: var(--surface-hover); }
+  .tree__sec[aria-current='true'] { background: var(--surface-active); box-shadow: inset 3px 0 0 var(--accent); }
+  .tree__nome { font-size: var(--text-sm); font-weight: var(--weight-medium); line-height: var(--leading-snug); }
+  .tree__num { font-size: var(--text-2xs); color: var(--ink-2); font-variant-numeric: tabular-nums; flex: none; }
+  .tree__meter { margin-top: 5px; }
+
+  /* Estado de sincronização em três canais: cor, forma do traço e palavra. */
+  .sync {
+    display: inline-flex; align-items: center; gap: var(--space-2);
+    border: 1px solid; border-left-width: 3px;
+    border-radius: var(--radius-sm);
+    padding: 3px var(--space-2);
+    font-size: var(--text-xs); font-weight: var(--weight-semibold);
+  }
+  .sync[data-estado='salvo']   { background: var(--success-soft); border-color: var(--success-soft-border); border-left-color: var(--success); color: var(--success-soft-ink); }
+  .sync[data-estado='enviando']{ background: var(--teal-soft);    border-color: var(--teal-soft-border);    border-left-color: var(--teal);    color: var(--teal-soft-ink); }
+  .sync[data-estado='offline'] { background: var(--surface-sunken); border-color: var(--border);            border-left-color: var(--ink-3);   color: var(--ink-2); border-left-style: dashed; }
+  .sync[data-estado='falhou']  { background: var(--amber-soft);   border-color: var(--amber-soft-border);   border-left-color: var(--amber);   color: var(--amber-soft-ink); }
+
+  /* Cabeçalho fixo da execução — largura do shell, como o resto do app. */
+  .exechead {
+    position: sticky; top: var(--topbar-h); z-index: var(--z-sticky);
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    margin: calc(var(--space-8) * -1) calc(var(--space-8) * -1) var(--space-5);
+    padding: var(--space-4) var(--space-8);
+  }
+  @media (max-width: 900px) { .exechead { margin: calc(var(--space-6) * -1) calc(var(--space-4) * -1) var(--space-4); padding: var(--space-3) var(--space-4); } }
+  .exechead__row { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+  .exechead__prog { display: flex; align-items: center; gap: var(--space-3); margin-top: var(--space-3); font-size: var(--text-sm); }
+  .exechead__prog .meter { flex: 1 1 auto; max-width: 420px; }
+
+  /* Cartão de item */
+  .item { border: 1px solid var(--border); border-left: 3px solid var(--border-strong); border-radius: var(--radius-lg); background: var(--surface); padding: var(--space-5); }
+  .item[data-res='ok'] { border-left-color: var(--success); }
+  .item[data-res='no'] { border-left-color: var(--danger); }
+  .item[data-res='pendente'] { border-left-color: var(--amber); border-left-style: dashed; }
+  .item__pergunta { font-size: var(--text-md); font-weight: var(--weight-medium); line-height: var(--leading-snug); margin-top: var(--space-2); max-width: 68ch; }
+  .item__meta { font-size: var(--text-xs); color: var(--ink-2); margin-top: var(--space-2); }
+
+  .conform { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: var(--space-2); margin-top: var(--space-4); }
+  .conform button {
+    min-height: var(--touch-min);
+    display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+    border: 1px solid var(--border-control); border-radius: var(--radius-md);
+    background: var(--surface); color: var(--ink);
+    font-size: var(--text-sm); font-weight: var(--weight-semibold);
+    cursor: pointer;
+    transition: background-color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out);
+  }
+  .conform button:hover { background: var(--surface-hover); }
+  .conform button[aria-pressed='true'] { box-shadow: inset 0 0 0 1px currentColor; }
+  .conform button[aria-pressed='true'][data-kind='ok'] { background: var(--success-soft); border-color: var(--success); color: var(--success-soft-ink); }
+  .conform button[aria-pressed='true'][data-kind='no'] { background: var(--danger-soft);  border-color: var(--danger);  color: var(--danger-soft-ink); }
+  .conform button[aria-pressed='true'][data-kind='na'] { background: var(--surface-active); border-color: var(--accent); color: var(--accent-soft-ink); }
+  .conform button[aria-pressed='true'][data-kind='nobs'] { background: var(--surface-sunken); border-color: var(--ink-3); color: var(--ink-2); }
+
+  .detalhes { margin-top: var(--space-5); border-top: 1px solid var(--border); padding-top: var(--space-5); }
+
+  /* Caixa de contexto — o que veio de antes e o que o cliente respondeu. */
+  .ctx { border: 1px solid; border-radius: var(--radius-md); padding: var(--space-3) var(--space-4); font-size: var(--text-sm); }
+  .ctx--anterior { background: var(--amber-soft); border-color: var(--amber-soft-border); color: var(--amber-soft-ink); }
+  .ctx--cliente  { background: var(--accent-soft); border-color: var(--accent-soft-border); color: var(--accent-soft-ink); }
+  .ctx__tit { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-2xs); font-weight: var(--weight-bold); text-transform: uppercase; letter-spacing: .04em; margin-bottom: var(--space-2); }
+
+  /* Espaço reservado ao motor de condicionais (projeto COND-). */
+  .cond {
+    border: 1px dashed var(--teal-soft-border); border-left: 3px solid var(--teal);
+    border-radius: var(--radius-md); background: var(--teal-soft); color: var(--teal-soft-ink);
+    padding: var(--space-4);
+  }
+  .cond__selo { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--text-2xs); font-weight: var(--weight-bold); text-transform: uppercase; letter-spacing: .04em; margin-bottom: var(--space-2); }
+
+  /* Barra de nota fixa no celular */
+  .notabar {
+    display: flex; align-items: center; gap: var(--space-3);
+    padding: var(--space-2) var(--space-4);
+    background: var(--surface); border-top: 1px solid var(--border);
+    font-size: var(--text-sm);
+  }
+  .notabar__valor { font-family: var(--font-title); font-weight: 600; font-size: var(--text-xl); font-variant-numeric: tabular-nums; }
+
+  /* ---------- Consequências do encerramento ---------- */
+  .conseq { margin: 0; padding: 0; list-style: none; }
+  .conseq li { display: flex; gap: var(--space-3); padding: var(--space-3) 0; border-bottom: 1px solid var(--border); font-size: var(--text-sm); }
+  .conseq li:last-child { border-bottom: 0; }
+  .conseq .mk { flex: none; width: 22px; height: 22px; border-radius: var(--radius-full); display: grid; place-items: center; }
+  .conseq .mk--vai { background: var(--accent-soft); color: var(--accent-soft-ink); }
+  .conseq .mk--nao { background: var(--amber-soft); color: var(--amber-soft-ink); }
+
+  .checklist { margin: 0; padding: 0; list-style: none; }
+  .checklist li { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-2) 0; font-size: var(--text-sm); }
+  .checklist .mk { flex: none; width: 18px; height: 18px; margin-top: 2px; border-radius: var(--radius-full); display: grid; place-items: center; }
+  .checklist .mk--ok { background: var(--success-soft); color: var(--success-soft-ink); }
+  .checklist .mk--at { background: var(--amber-soft); color: var(--amber-soft-ink); }
+  .checklist .mk--no { background: var(--danger-soft); color: var(--danger-soft-ink); }
+
+  /* ---------- Amostra de cor ---------- */
+  .sw { display: inline-flex; align-items: center; gap: var(--space-2); }
+  .sw__chip { width: 18px; height: 18px; border-radius: var(--radius-sm); border: 1px solid rgba(11,31,58,.18); flex: none; }
+  .medida { font-variant-numeric: tabular-nums; font-weight: var(--weight-semibold); }
+  .medida[data-ok='false'] { color: var(--danger-soft-ink); }
+  .medida[data-ok='true'] { color: var(--success-soft-ink); }
+
+  /* ---------- Moldura de celular ---------- */
+  .fones { display: flex; flex-wrap: wrap; gap: var(--space-6); }
+  /* Item de flex nasce `min-width: auto`, e `max-width: 100%` no filho resolve
+     contra o embrulho — que também precisa ser limitado. Sem os dois, a moldura
+     de 375px fica dentro de um container de 343 e a página rola de lado. */
+  .fones > * { min-width: 0; width: min(375px, 100%); }
+  .fone { width: 100%; border: 1px solid var(--border-strong); border-radius: var(--radius-lg); background: var(--surface); overflow: hidden; display: flex; flex-direction: column; height: 640px; }
+  .fone__cap { font-size: var(--text-xs); color: var(--ink-2); margin-top: var(--space-2); }
+  .fone__top { flex: none; padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); background: var(--surface); }
+  .fone__corpo { flex: 1 1 auto; overflow-y: auto; padding: var(--space-3) var(--space-4); background: var(--bg); }
+  .fone__pe { flex: none; border-top: 1px solid var(--border); background: var(--surface); }
+  .fone__pe .btn { border-radius: 0; }
+
+  .fab {
+    position: absolute; right: var(--space-4); bottom: 76px;
+    box-shadow: var(--shadow-2);
+  }
+  .fone { position: relative; }
+</style>
+
+<a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+
+<div class="app" data-rail="open" id="app">
+
+  <!-- ================= RAIL ================= -->
+  <aside class="rail" aria-label="Navegação principal">
+    <div class="rail__brand">
+      <span class="rail__mark" aria-hidden="true">IV</span>
+      <div class="rail__brand-text">
+        <p>InspecVISA</p>
+        <p>FE-23 · artefato E</p>
+      </div>
+    </div>
+
+    <nav class="rail__nav">
+      <p class="rail__group-title">Antes de desenhar</p>
+      <a class="rail__link" href="#/diagnostico"><svg width="18" height="18" aria-hidden="true"><use href="#ic-alert"/></svg><span class="rail__label">Diagnóstico</span></a>
+
+      <p class="rail__group-title">O fluxo, tela a tela</p>
+      <a class="rail__link" href="#/nova"><svg width="18" height="18" aria-hidden="true"><use href="#ic-plus"/></svg><span class="rail__label">1 · Nova inspeção</span></a>
+      <a class="rail__link" href="#/execucao"><svg width="18" height="18" aria-hidden="true"><use href="#ic-clipboard"/></svg><span class="rail__label">2 · Execução</span></a>
+      <a class="rail__link" href="#/encerrar"><svg width="18" height="18" aria-hidden="true"><use href="#ic-check-circle"/></svg><span class="rail__label">3 · Encerramento</span></a>
+      <a class="rail__link" href="#/relatorio"><svg width="18" height="18" aria-hidden="true"><use href="#ic-file"/></svg><span class="rail__label">4 · Relatório</span></a>
+
+      <p class="rail__group-title">Sistema</p>
+      <a class="rail__link" href="#/estados"><svg width="18" height="18" aria-hidden="true"><use href="#ic-activity"/></svg><span class="rail__label">Estados e celular</span></a>
+      <a class="rail__link" href="#/cor"><svg width="18" height="18" aria-hidden="true"><use href="#ic-image"/></svg><span class="rail__label">A nota fora da paleta</span></a>
+      <a class="rail__link" href="#/decisoes"><svg width="18" height="18" aria-hidden="true"><use href="#ic-check"/></svg><span class="rail__label">Decisões e plano</span></a>
+    </nav>
+
+    <div class="rail__foot">
+      <div class="rail__user">
+        <span class="avatar" aria-hidden="true">E</span>
+        <div class="rail__user-text grow truncate">
+          <p class="truncate">Ester</p>
+          <p class="truncate">Consultora sanitária</p>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ================= MAIN ================= -->
+  <div class="main">
+    <header class="topbar">
+      <button class="btn btn--ghost btn--icon btn--sm hide-sm" id="rail-toggle" aria-label="Recolher a navegação" aria-pressed="false">
+        <svg width="18" height="18" aria-hidden="true"><use href="#ic-panel-left"/></svg>
+      </button>
+      <div class="grow"></div>
+      <span class="badge badge--operational hide-sm"><span class="dot"></span>Protótipo</span>
+      <button class="btn btn--ghost btn--icon btn--sm" data-theme-toggle aria-pressed="false" aria-label="Alternar tema claro e escuro">
+        <svg width="16" height="16" aria-hidden="true"><use href="#ic-theme"/></svg>
+      </button>
+      <span class="avatar" aria-hidden="true">E</span>
+    </header>
+
+    <main class="page" id="conteudo">
+
+      <!-- ==================================================================
+           DIAGNÓSTICO
+           ================================================================== -->
+      <section class="screen" id="s-diagnostico">
+        <div class="page__head">
+          <div>
+            <h1 class="page__title">O fluxo da inspeção, medido</h1>
+            <p class="page__sub"><code>/new</code> → <code>/execute</code> → <code>/summary</code> · 3.534 linhas em 4 arquivos · lido no código em 16/08/2026.</p>
+          </div>
+          <a class="btn btn--outline" href="#/nova">Ver a primeira tela<svg width="15" height="15" aria-hidden="true"><use href="#ic-chevron-right"/></svg></a>
+        </div>
+
+        <div class="notice notice--attention" style="margin-bottom:var(--space-6)">
+          <svg class="notice__mark" width="16" height="16" aria-hidden="true"><use href="#ic-alert"/></svg>
+          <p><span class="strong">Duas das três telas nunca foram desenhadas, e a terceira foi desenhada errado.</span>
+             O FE-02 tem uma tela de execução — mas ela navega <em>um item por vez</em>, com “Item anterior / Próximo item”.
+             O app real mostra o roteiro inteiro em seções, e a consultora responde fora de ordem, andando pela casa.
+             Não é uma diferença de estilo: é outro modelo de interação.</p>
+        </div>
+
+        <h2 style="margin-bottom:var(--space-4)">O que existe hoje</h2>
+        <div class="table-wrap" style="margin-bottom:var(--space-8)">
+          <div class="table-scroll">
+            <table class="table">
+              <caption class="sr-only">Estado dos quatro arquivos do fluxo</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Arquivo</th>
+                  <th scope="col" class="num">Linhas</th>
+                  <th scope="col">Largura</th>
+                  <th scope="col"><code>PageHeader</code></th>
+                  <th scope="col">Desenhado em protótipo</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="table__primary"><code>NewInspection.tsx</code></td>
+                  <td class="num">541</td>
+                  <td><span class="badge badge--success">PageShell</span></td>
+                  <td><span class="badge badge--danger">não</span></td>
+                  <td><span class="badge badge--danger">nunca</span></td>
+                </tr>
+                <tr>
+                  <td class="table__primary"><code>InspectionExecution.tsx</code></td>
+                  <td class="num">1.322</td>
+                  <td><span class="badge badge--attention"><code>max-w-7xl</code> próprio</span></td>
+                  <td><span class="badge badge--danger">não</span></td>
+                  <td><span class="badge badge--attention">FE-02, mas com outro modelo</span></td>
+                </tr>
+                <tr>
+                  <td class="table__primary"><code>InspectionSummary.tsx</code></td>
+                  <td class="num">973</td>
+                  <td><span class="badge badge--success">PageShell ×2</span></td>
+                  <td><span class="badge badge--danger">não</span></td>
+                  <td><span class="badge badge--danger">nunca</span></td>
+                </tr>
+                <tr>
+                  <td class="table__primary"><code>ChecklistItem.tsx</code></td>
+                  <td class="num">698</td>
+                  <td class="muted">componente</td>
+                  <td class="muted">—</td>
+                  <td><span class="badge badge--attention">parcial</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <h2 style="margin-bottom:var(--space-4)">Execução: o que o FE-02 desenhou × o que o código faz</h2>
+        <div class="ba" style="margin-bottom:var(--space-8)">
+          <div>
+            <p class="ba__tag ba__tag--antes"><svg width="14" height="14" aria-hidden="true"><use href="#ic-x"/></svg>FE-02 · aprovado em 09/08, e errado</p>
+            <div class="wire">
+              <div class="wire__col">
+                <div class="wire__box" data-flag="true"><span class="n" aria-hidden="true">1</span><span>“Item 12 de 43” · um item por vez · <strong>Item anterior / Próximo item</strong></span></div>
+                <div class="wire__box" data-flag="true"><span class="n" aria-hidden="true">2</span><span>Quatro estados: Conforme · <strong>Parcial</strong> · Não conforme · Não se aplica</span></div>
+                <div class="wire__box"><span>Situação · O que fazer · Prazo · Responsável · Prioridade</span></div>
+                <div class="wire__box" data-flag="true"><span class="n" aria-hidden="true">3</span><span>Painel lateral: só progresso por seção. Sem nota.</span></div>
+                <div class="wire__box" data-flag="true"><span class="n" aria-hidden="true">4</span><span>Nada de: plano de ação anterior · evidência do cliente · dimensionamento ILPI · item extra · ditado · co-finalização · modo recuperação</span></div>
+              </div>
+              <p class="wire__cap">Um wizard. Em <code>desenhar-apps/references/app-patterns.md</code>: <em>acompanhar etapas → stepper somente quando a ordem é obrigatória</em>. Na inspeção não é — a consultora responde a cozinha quando está na cozinha.</p>
+            </div>
+          </div>
+
+          <div>
+            <p class="ba__tag ba__tag--depois"><svg width="14" height="14" aria-hidden="true"><use href="#ic-check"/></svg>O que o app faz de verdade</p>
+            <div class="wire">
+              <div class="wire__col">
+                <div class="wire__box" data-flag="ok"><span class="n" aria-hidden="true">1</span><span>Roteiro inteiro em acordeão por seção · resposta em qualquer ordem</span></div>
+                <div class="wire__box" data-flag="ok"><span class="n" aria-hidden="true">2</span><span>CUMPRE · NÃO CUMPRE · N/A · <strong>NO</strong> (não observado). “Parcial” não existe no domínio</span></div>
+                <div class="wire__box"><span>Situação · Ação · Responsável · Prazo · foto · link · ditado por voz · sugestões do próprio histórico</span></div>
+                <div class="wire__box" data-flag="ok"><span class="n" aria-hidden="true">3</span><span><code>ScorePanel</code> lateral com a nota ao vivo · <code>MobileScoreBar</code> no celular</span></div>
+                <div class="wire__box wire__box--tall" data-flag="ok"><span class="n" aria-hidden="true">4</span><span>Plano de ação anterior com foto · o que o cliente enviou e declarou · calculadora ILPI · item extra · duas consultoras na mesma inspeção · modo recuperação quando o roteiro sumiu</span></div>
+              </div>
+              <p class="wire__cap">O desenho novo mantém o modelo real e arruma o que está feio: hierarquia, densidade, largura, estado de sincronização e o encerramento.</p>
+            </div>
+          </div>
+        </div>
+
+        <h2 style="margin-bottom:var(--space-4)">Os sete achados que este artefato tem de resolver</h2>
+        <div class="cols">
+          <div class="card">
+            <div class="card__body">
+              <ol class="findings">
+                <li><span class="n" aria-hidden="true">1</span><span><span class="strong">O encerramento não diz o que vai fazer.</span> Gerar o PDF congela o relatório, grava a nota do portal, publica o relatório para o cliente e reconcilia o plano de ação — quatro efeitos, nenhum anunciado. O botão diz “PDF Final”.</span></li>
+                <li><span class="n" aria-hidden="true">2</span><span><span class="strong">A entrega pode não acontecer, e só um aviso passageiro conta.</span> Sem agendamento vinculado, nada chega ao portal. Hoje isso virou um <code>Toast</code> (<code>InspectionSummary.tsx:485</code>) — melhor que o <code>console.warn</code> de antes, mas ele some e a tela volta a parecer entregue.</span></li>
+                <li><span class="n" aria-hidden="true">3</span><span><span class="strong">A nota é pintada fora da paleta.</span> 16 cores cravadas em <code>scoring.ts</code>, <code>ScorePanel.tsx</code> e <code>MobileScoreBar.tsx</code> — os padrões do Tailwind, inclusive um <code>#84CC16</code> lima que não existe na marca.</span></li>
+                <li><span class="n" aria-hidden="true">4</span><span><span class="strong">Salvamento e conexão falam por cor e por texto solto.</span> “Sincronizando…”, “Dados Protegidos”, “Offline” e “Fotos 3/8” dividem a mesma linha do cabeçalho, cada um com sua cor. Nenhum tem forma própria.</span></li>
+                <li><span class="n" aria-hidden="true">5</span><span><span class="strong">A largura é a única exceção do app.</span> <code>max-w-7xl</code> aqui, <code>--shell-max</code> em todo o resto — e o cabeçalho <code>sticky</code> tem largura própria, diferente do conteúdo.</span></li>
+                <li><span class="n" aria-hidden="true">6</span><span><span class="strong">30 controles crus</span> nos quatro arquivos, nenhum usando <code>Input</code>/<code>Select</code>/<code>Textarea</code>/<code>Label</code>. A tela de dimensionamento ILPI tem seis <code>&lt;input type="number"&gt;</code> com rótulo em <code>&lt;span&gt;</code>, sem <code>&lt;label for&gt;</code>.</span></li>
+                <li><span class="n" aria-hidden="true">7</span><span><span class="strong">A escolha do cliente é uma parede de cartões.</span> <code>/new</code> abre com um cartão por cliente, sem busca. Com 20 clientes já é rolagem; a rede Sênior sozinha tem 13 unidades.</span></li>
+              </ol>
+            </div>
+          </div>
+
+          <div class="card sticky-side">
+            <div class="card__head"><h3 class="card__title">O que fica de fora, de propósito</h3></div>
+            <div class="card__body">
+              <ul class="checklist">
+                <li><span class="mk mk--at" aria-hidden="true"><svg width="11" height="11"><use href="#ic-alert"/></svg></span>
+                  <span><span class="strong">Corrigir a causa da publicação sem vínculo.</span> Este artefato torna a falha <em>visível e permanente</em> na tela. Fazer a inspeção se vincular sozinha a um agendamento é decisão de produto — fora de escopo até a Ester autorizar.</span></li>
+                <li><span class="mk mk--at" aria-hidden="true"><svg width="11" height="11"><use href="#ic-alert"/></svg></span>
+                  <span><span class="strong">Prazo em texto livre.</span> “assim que possível” vira item sem prazo, que nunca vence. É o achado 3 de “Fora de escopo” do handoff e continua lá — o desenho novo só passa a <em>avisar</em> quando o prazo digitado não é reconhecido.</span></li>
+                <li><span class="mk mk--ok" aria-hidden="true"><svg width="11" height="11"><use href="#ic-check"/></svg></span>
+                  <span><span class="strong">O motor de condicionais.</span> Não se implementa aqui — mas os dois lugares onde ele vai morar já aparecem no desenho, marcados. Ver <code>HANDOFF-CONDICIONAIS.md</code>.</span></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================
+           1 · NOVA INSPEÇÃO
+           ================================================================== -->
+      <section class="screen" id="s-nova" hidden>
+        <div class="crumbs">
+          <a href="#/diagnostico">Inspeções</a>
+          <svg width="12" height="12" aria-hidden="true"><use href="#ic-chevron-right"/></svg>
+          <span>Nova inspeção</span>
+        </div>
+        <div class="page__head">
+          <div>
+            <h1 class="page__title">Nova inspeção</h1>
+            <p class="page__sub">Escolha o local, o roteiro e confirme os dados da visita.</p>
+          </div>
+          <span class="sync" data-estado="offline"><svg width="13" height="13" aria-hidden="true"><use href="#ic-alert"/></svg>Sem conexão — o rascunho fica no aparelho</span>
+        </div>
+
+        <div class="notice notice--info" style="margin-bottom:var(--space-6)">
+          <svg class="notice__mark" width="16" height="16" aria-hidden="true"><use href="#ic-check"/></svg>
+          <p><span class="strong">Não é um assistente de três passos.</span> Os três blocos ficam na mesma página, e o de baixo só acorda quando o de cima está resolvido — o roteiro depende da categoria do cliente. A barra de progresso de três traços sai: ela media um formulário que cabe numa tela.</p>
+        </div>
+
+        <div class="cols">
+          <!-- coluna do formulário -->
+          <div class="stack" style="--gap:var(--space-5)">
+
+            <!-- 1. Estabelecimento -->
+            <div class="card">
+              <div class="card__head">
+                <h2 class="card__title">1 · Estabelecimento</h2>
+                <span class="badge badge--success"><svg width="12" height="12" aria-hidden="true"><use href="#ic-check"/></svg>escolhido</span>
+              </div>
+              <div class="card__body" style="padding-bottom:var(--space-3)">
+                <div class="field">
+                  <label class="label" for="n-busca">Buscar</label>
+                  <div class="input-group">
+                    <svg width="15" height="15" aria-hidden="true"><use href="#ic-search"/></svg>
+                    <input class="input" id="n-busca" type="search" value="sênior" placeholder="Nome, unidade ou cidade">
+                  </div>
+                  <p class="hint">3 de 24 locais correspondem.</p>
+                </div>
+              </div>
+              <div class="card__body card__body--flush">
+                <div class="list-row" style="background:var(--surface-active)">
+                  <span class="badge badge--info" style="margin-top:2px">ILPI</span>
+                  <div class="grow">
+                    <p class="strong">REDE SÊNIOR — unidade Barra</p>
+                    <p class="small muted">Rio de Janeiro · RJ · responsável: Marina Alves</p>
+                  </div>
+                  <svg width="16" height="16" aria-hidden="true" style="color:var(--accent);margin-top:2px"><use href="#ic-check-circle"/></svg>
+                </div>
+                <div class="list-row">
+                  <span class="badge badge--info" style="margin-top:2px">ILPI</span>
+                  <div class="grow">
+                    <p class="strong">REDE SÊNIOR — unidade Botafogo</p>
+                    <p class="small muted">Rio de Janeiro · RJ</p>
+                  </div>
+                </div>
+                <div class="list-row">
+                  <span class="badge badge--info" style="margin-top:2px">ILPI</span>
+                  <div class="grow">
+                    <p class="strong">REDE SÊNIOR — unidade Saens Peña</p>
+                    <p class="small muted">Rio de Janeiro · RJ</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. Roteiro -->
+            <div class="card">
+              <div class="card__head">
+                <h2 class="card__title">2 · Roteiro</h2>
+                <span class="badge badge--neutral">categoria ILPI</span>
+              </div>
+              <div class="card__body stack" style="--gap:var(--space-3)">
+                <label class="check" style="border:1px solid var(--accent);background:var(--accent-soft);border-radius:var(--radius-md);padding:var(--space-3);min-height:var(--touch-min)">
+                  <input type="radio" name="roteiro" checked>
+                  <span>
+                    <span class="strong">ILPI — Base Federal</span>
+                    <span class="small muted" style="display:block">106 itens · 64 críticos · sanitária e nutrição · suplemento do Rio de Janeiro aplicado</span>
+                  </span>
+                </label>
+                <label class="check" style="border:1px solid var(--border);border-radius:var(--radius-md);padding:var(--space-3);min-height:var(--touch-min)">
+                  <input type="radio" name="roteiro">
+                  <span>
+                    <span class="strong">ILPI — Visita de acompanhamento</span>
+                    <span class="small muted" style="display:block">38 itens · 12 críticos</span>
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Espaço COND #1 -->
+            <div class="cond">
+              <p class="cond__selo"><svg width="13" height="13" aria-hidden="true"><use href="#ic-activity"/></svg>Espaço reservado · projeto COND</p>
+              <p class="strong" style="margin-bottom:var(--space-2)">Perguntas de roteamento que já dá para responder aqui</p>
+              <p class="small" style="margin-bottom:var(--space-3)">Quando a resposta é conhecida antes da visita, ela mora nesta tela e não atrapalha o campo. O que já está no cadastro do cliente <span class="strong">não</span> é perguntado de novo (regra do COND-01). O bloco não existe no FE-23 — está aqui para o desenho não precisar mudar depois.</p>
+              <div class="field" style="opacity:.62;pointer-events:none">
+                <label class="label" for="n-cond">A unidade realiza processamento de artigos próprios?</label>
+                <select class="select" id="n-cond" disabled><option>— ainda não implementado —</option></select>
+                <p class="hint">Responder “Não” retira 12 requisitos do roteiro desta visita. Não entra na nota e nunca aparece como infração.</p>
+              </div>
+            </div>
+
+            <!-- 3. A visita -->
+            <div class="card">
+              <div class="card__head"><h2 class="card__title">3 · A visita</h2></div>
+              <div class="card__body stack" style="--gap:var(--space-5)">
+                <div class="row-wrap" style="gap:var(--space-4);align-items:flex-start">
+                  <div class="field" style="flex:1 1 180px">
+                    <label class="label" for="n-data">Data da visita</label>
+                    <input class="input" id="n-data" type="date" value="2026-08-17">
+                  </div>
+                  <div class="field" style="flex:1 1 220px">
+                    <label class="label" for="n-acomp">Quem acompanha <span class="opt">opcional</span></label>
+                    <input class="input" id="n-acomp" placeholder="Nome de quem recebe a visita">
+                  </div>
+                  <div class="field" style="flex:1 1 200px">
+                    <label class="label" for="n-cargo">Função <span class="opt">opcional</span></label>
+                    <input class="input" id="n-cargo" placeholder="Ex.: responsável técnica">
+                  </div>
+                </div>
+
+                <div>
+                  <p class="strong" style="margin-bottom:var(--space-1)">Dados do ILPI</p>
+                  <p class="hint" style="margin-bottom:var(--space-3)">Trazidos do último relatório desta unidade. Confira e ajuste.</p>
+                  <div class="row-wrap" style="gap:var(--space-4);align-items:flex-start">
+                    <div class="field" style="flex:1 1 130px">
+                      <label class="label" for="n-cap">Capacidade</label>
+                      <input class="input" id="n-cap" type="number" inputmode="numeric" value="40">
+                    </div>
+                    <div class="field" style="flex:1 1 130px">
+                      <label class="label" for="n-res">Residentes</label>
+                      <input class="input" id="n-res" type="number" inputmode="numeric" value="36">
+                    </div>
+                  </div>
+                  <p class="strong small" style="margin:var(--space-4) 0 var(--space-2)">Residentes por grau de dependência</p>
+                  <div class="row-wrap" style="gap:var(--space-4);align-items:flex-start">
+                    <div class="field" style="flex:1 1 110px">
+                      <label class="label" for="n-g1">Grau I</label>
+                      <input class="input" id="n-g1" type="number" inputmode="numeric" value="14">
+                    </div>
+                    <div class="field" style="flex:1 1 110px">
+                      <label class="label" for="n-g2">Grau II</label>
+                      <input class="input" id="n-g2" type="number" inputmode="numeric" value="11">
+                    </div>
+                    <div class="field" style="flex:1 1 110px">
+                      <label class="label" for="n-g3">Grau III</label>
+                      <input class="input" id="n-g3" type="number" inputmode="numeric" value="9">
+                    </div>
+                  </div>
+                  <div class="notice notice--attention" style="margin-top:var(--space-3)">
+                    <svg class="notice__mark" width="15" height="15" aria-hidden="true"><use href="#ic-alert"/></svg>
+                    <p class="small">A soma dos graus dá <span class="strong num">34</span> e o total de residentes é <span class="strong num">36</span>. Confira antes de começar — a calculadora de dimensionamento usa os graus.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- coluna do resumo -->
+          <div class="stack sticky-side" style="--gap:var(--space-4)">
+            <div class="card">
+              <div class="card__head"><h2 class="card__title">Antes de começar</h2></div>
+              <div class="card__body stack" style="--gap:var(--space-4)">
+                <div>
+                  <p class="small muted">Local</p>
+                  <p class="strong">REDE SÊNIOR — unidade Barra</p>
+                </div>
+                <div>
+                  <p class="small muted">Roteiro</p>
+                  <p class="strong">ILPI — Base Federal · 106 itens</p>
+                </div>
+                <div>
+                  <p class="small muted">Data</p>
+                  <p class="strong num">17 de agosto de 2026</p>
+                </div>
+                <hr style="margin:0">
+                <div class="notice notice--info">
+                  <svg class="notice__mark" width="15" height="15" aria-hidden="true"><use href="#ic-calendar"/></svg>
+                  <p class="small"><span class="strong">Há um agendamento nesta data.</span> A inspeção será vinculada a ele — é o vínculo que faz o relatório chegar ao portal do cliente no fim.</p>
+                </div>
+                <button class="btn btn--primary btn--lg btn--block">Iniciar inspeção</button>
+                <p class="hint">Você pode parar e voltar quando quiser. Nada é publicado agora.</p>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card__head">
+                <h2 class="card__title">Visitas recentes aqui</h2>
+                <span class="badge badge--attention">1 nos últimos 31 dias</span>
+              </div>
+              <div class="card__body stack" style="--gap:var(--space-3)">
+                <p class="small muted">Pela regra dos 31 dias, complemento de visita continua no mesmo relatório. Só crie outro se for uma visita realmente separada.</p>
+                <div style="border:1px solid var(--amber-soft-border);background:var(--amber-soft);border-radius:var(--radius-md);padding:var(--space-3)">
+                  <p class="strong small" style="color:var(--amber-soft-ink)">04/08/2026 · em andamento</p>
+                  <p class="small" style="color:var(--amber-soft-ink)">Aberta por Ana Paula em 04/08 às 09:12 · 61 de 106 respondidos</p>
+                  <button class="btn btn--outline btn--sm btn--block" style="margin-top:var(--space-3)">Continuar este relatório</button>
+                </div>
+                <label class="check">
+                  <input type="checkbox">
+                  <span class="small">Confirmo que esta é uma visita nova e independente, mesmo em menos de 31 dias.</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:var(--space-8)">
+          <div class="card__head"><h3 class="card__title">O que muda em relação ao que está no ar</h3></div>
+          <div class="card__body">
+            <ol class="findings findings--ok">
+              <li><span class="n" aria-hidden="true">1</span><span>A parede de cartões vira <span class="strong">lista com busca</span>. Com 24 clientes e redes de 13 unidades, o cartão por cliente é a rolagem que este redesenho existe para acabar.</span></li>
+              <li><span class="n" aria-hidden="true">2</span><span>A checagem de duplicata sai do meio do formulário e vira <span class="strong">um cartão fixo ao lado do botão</span> — é a informação que decide se a consultora deve ou não clicar.</span></li>
+              <li><span class="n" aria-hidden="true">3</span><span>O vínculo com o agendamento <span class="strong">aparece antes de começar</span>. Hoje ele é decidido num diálogo no meio do caminho, e é ele que define se o relatório vai chegar ao portal no fim.</span></li>
+              <li><span class="n" aria-hidden="true">4</span><span>Os 9 controles crus viram <code>Input</code>/<code>Select</code>/<code>Label</code>, com rótulo visível e alvo de 44px. <span class="strong">“INICIAR AGORA” em caixa alta com sombra colorida sai</span> — botão de ação é azul e escrito como se fala.</span></li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================
+           2 · EXECUÇÃO
+           ================================================================== -->
+      <section class="screen" id="s-execucao" hidden>
+
+        <div class="exechead">
+          <div class="crumbs">
+            <a href="#/nova">Inspeções</a>
+            <svg width="12" height="12" aria-hidden="true"><use href="#ic-chevron-right"/></svg>
+            <a href="#/nova">REDE SÊNIOR — Barra</a>
+            <svg width="12" height="12" aria-hidden="true"><use href="#ic-chevron-right"/></svg>
+            <span>Visita de 17/08/2026</span>
+          </div>
+          <div class="exechead__row">
+            <div class="grow" style="min-width:220px">
+              <h1 style="font-size:var(--text-xl)">REDE SÊNIOR — unidade Barra</h1>
+              <p class="small muted">ILPI — Base Federal · aberta por Ester em 17/08 09:05 · última edição de Ana Paula às 10:41</p>
+            </div>
+            <span class="sync" data-estado="salvo"><svg width="13" height="13" aria-hidden="true"><use href="#ic-check-circle"/></svg>Salvo no aparelho e na nuvem</span>
+            <button class="btn btn--outline btn--sm"><svg width="15" height="15" aria-hidden="true"><use href="#ic-users"/></svg><span class="hide-sm">Ver o que a equipe preencheu</span></button>
+            <button class="btn btn--primary btn--sm">Encerrar e entregar</button>
+          </div>
+          <div class="exechead__prog">
+            <span class="strong num">64 de 106 respondidos</span>
+            <div class="meter"><div class="meter__fill" style="width:60%"></div></div>
+            <span class="badge badge--danger">7 críticos não cumprem</span>
+            <span class="badge badge--attention">3 sem texto</span>
+          </div>
+        </div>
+
+        <div class="exec">
+          <!-- ÍNDICE -->
+          <aside class="card exec__indice sticky-side" aria-label="Seções do roteiro">
+            <div class="card__head"><h2 class="card__title">Seções</h2></div>
+            <div class="card__body card__body--flush">
+              <div class="tree">
+                <button class="tree__sec">
+                  <span class="grow"><span class="tree__nome">1 · Documentação</span><div class="meter tree__meter"><div class="meter__fill meter__fill--success" style="width:100%"></div></div></span>
+                  <span class="tree__num">14/14</span>
+                </button>
+                <button class="tree__sec" aria-current="true">
+                  <span class="grow"><span class="tree__nome">2 · Cozinha e manipulação</span><div class="meter tree__meter"><div class="meter__fill" style="width:60%"></div></div></span>
+                  <span class="tree__num">12/20</span>
+                </button>
+                <button class="tree__sec">
+                  <span class="grow"><span class="tree__nome">3 · Dormitórios</span><div class="meter tree__meter"><div class="meter__fill" style="width:46%"></div></div></span>
+                  <span class="tree__num">6/13</span>
+                </button>
+                <button class="tree__sec">
+                  <span class="grow">
+                    <span class="tree__nome">4 · Processamento de artigos</span>
+                    <span class="badge badge--operational" style="margin-top:5px">condicional</span>
+                  </span>
+                  <span class="tree__num">12</span>
+                </button>
+                <button class="tree__sec">
+                  <span class="grow"><span class="tree__nome">5 · Recursos humanos</span><div class="meter tree__meter"><div class="meter__fill" style="width:25%"></div></div></span>
+                  <span class="tree__num">3/12</span>
+                </button>
+                <button class="tree__sec">
+                  <span class="grow"><span class="tree__nome">6 · Resíduos</span><div class="meter tree__meter"><div class="meter__fill" style="width:0"></div></div></span>
+                  <span class="tree__num">0/12</span>
+                </button>
+              </div>
+            </div>
+            <div class="card__foot">
+              <p class="tiny muted">O selo <span class="badge badge--operational" style="font-size:9px">condicional</span> é espaço reservado do projeto COND. No FE-23 ele não aparece.</p>
+            </div>
+          </aside>
+
+          <!-- ROTEIRO -->
+          <div class="stack" style="--gap:var(--space-4)">
+
+            <div class="between" style="flex-wrap:wrap">
+              <h2>2 · Cozinha e manipulação</h2>
+              <span class="badge badge--neutral">20 itens · 12 respondidos</span>
+            </div>
+
+            <!-- item respondido, não cumpre, com todo o contexto -->
+            <article class="item" data-res="no">
+              <div class="row-wrap">
+                <span class="badge badge--neutral num">Item 12</span>
+                <span class="badge badge--danger"><svg width="12" height="12" aria-hidden="true"><use href="#ic-alert"/></svg>crítico</span>
+                <span class="badge badge--attention">reincidência</span>
+                <span class="badge badge--outline">RDC 216/2004 · 4.1.7
+                  <a href="#/execucao" aria-label="Abrir a norma RDC 216/2004 na biblioteca"><svg width="12" height="12" aria-hidden="true"><use href="#ic-external"/></svg></a>
+                </span>
+              </div>
+              <p class="item__pergunta">Existe barreira física entre a área de recebimento de gêneros e a área de manipulação?</p>
+
+              <div class="conform" role="group" aria-label="Resultado do item 12">
+                <button data-kind="ok" aria-pressed="false"><svg width="15" height="15" aria-hidden="true"><use href="#ic-check"/></svg>Cumpre</button>
+                <button data-kind="no" aria-pressed="true"><svg width="15" height="15" aria-hidden="true"><use href="#ic-alert"/></svg>Não cumpre</button>
+                <button data-kind="na" aria-pressed="false">Não se aplica</button>
+                <button data-kind="nobs" aria-pressed="false">Não observado</button>
+              </div>
+
+              <div class="ctx ctx--anterior" style="margin-top:var(--space-4)">
+                <p class="ctx__tit"><svg width="13" height="13" aria-hidden="true"><use href="#ic-clock"/></svg>Plano de ação de 04/07/2026 — ainda aberto</p>
+                <p><span class="strong">Situação:</span> fluxo de entrada de gêneros cruzando a bancada de preparo.</p>
+                <p style="margin-top:var(--space-1)"><span class="strong">Ação:</span> instalar divisória ou redefinir o fluxo. <span class="muted">Prazo: 30 dias · RT</span></p>
+                <div class="row-wrap" style="margin-top:var(--space-3)">
+                  <button class="btn btn--outline btn--sm">Reaproveitar este texto</button>
+                  <span class="tiny">Preenche só o que ainda está vazio — nunca sobrescreve o que você digitou.</span>
+                </div>
+              </div>
+
+              <div class="ctx ctx--cliente" style="margin-top:var(--space-3)">
+                <p class="ctx__tit"><svg width="13" height="13" aria-hidden="true"><use href="#ic-inbox"/></svg>O cliente respondeu no portal</p>
+                <p><span class="strong">“Está providenciando”</span> — 02/08, Marina Alves (responsável técnica).</p>
+                <p style="margin-top:var(--space-1)">“Divisória encomendada, entrega prevista para setembro.” · 1 arquivo aguardando sua revisão:
+                  <a href="#/execucao">orcamento-divisoria.pdf</a></p>
+                <p class="tiny" style="margin-top:var(--space-2)">Receber a evidência não conclui a pendência — quem decide se foi cumprido é esta vistoria.</p>
+              </div>
+
+              <div class="detalhes stack" style="--gap:var(--space-4)">
+                <div class="field">
+                  <div class="between" style="gap:var(--space-2)">
+                    <label class="label" for="e-sit">Situação encontrada <span class="req" aria-hidden="true">*</span></label>
+                    <button class="btn btn--ghost btn--sm" aria-label="Ditar a situação encontrada"><svg width="14" height="14" aria-hidden="true"><use href="#ic-activity"/></svg>Ditar</button>
+                  </div>
+                  <textarea class="textarea" id="e-sit" rows="3">A cozinha continua sem barreira física entre a área de recebimento e a de manipulação. O fluxo de entrada cruza a bancada de preparo, agora com caixas de hortifrúti apoiadas na própria bancada.</textarea>
+                  <div class="row-wrap" style="margin-top:var(--space-2)">
+                    <span class="tiny muted">Já usado antes:</span>
+                    <button class="btn btn--outline btn--sm sug" style="max-width:260px" title="Ausência de barreira física entre recebimento e manipulação"><span>Ausência de barreira física entre recebimento e manipulação</span></button>
+                    <button class="btn btn--outline btn--sm sug" style="max-width:260px" title="Fluxo cruzado na área de preparo"><span>Fluxo cruzado na área de preparo</span></button>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <label class="label" for="e-acao">O que precisa ser feito <span class="req" aria-hidden="true">*</span></label>
+                  <div class="row-wrap" style="margin-bottom:var(--space-2)">
+                    <button class="btn btn--outline btn--sm">Providenciar</button>
+                    <button class="btn btn--outline btn--sm">Substituir</button>
+                    <button class="btn btn--outline btn--sm">Implementar</button>
+                    <button class="btn btn--outline btn--sm">Adequar</button>
+                  </div>
+                  <textarea class="textarea" id="e-acao" rows="2">Instalar divisória entre as duas áreas ou redefinir o fluxo de entrada de gêneros, retirando o apoio de caixas sobre a bancada.</textarea>
+                  <p class="hint">Sai assim, palavra por palavra, no portal do cliente e no PDF.</p>
+                </div>
+
+                <div class="row-wrap" style="gap:var(--space-4);align-items:flex-start">
+                  <div class="field" style="flex:1 1 220px">
+                    <label class="label" for="e-resp">Responsável pela correção</label>
+                    <select class="select" id="e-resp">
+                      <option selected>Responsável Técnico (RT)</option>
+                      <option>Gerência / Administração</option>
+                      <option>Equipe de Manutenção</option>
+                      <option>Empresa Terceirizada</option>
+                    </select>
+                    <p class="hint">É o setor, não a consultora.</p>
+                  </div>
+                  <div class="field" style="flex:1 1 190px">
+                    <label class="label" for="e-prazo">Prazo</label>
+                    <select class="select" id="e-prazo">
+                      <option>Imediato</option><option>24 horas</option><option>7 dias</option>
+                      <option>15 dias</option><option selected>30 dias</option><option>60 dias</option><option>90 dias</option>
+                    </select>
+                    <p class="hint">Vira data no portal. Prazo que o sistema não entende nunca vence.</p>
+                  </div>
+                </div>
+
+                <div class="row-wrap">
+                  <button class="btn btn--outline btn--sm"><svg width="15" height="15" aria-hidden="true"><use href="#ic-image"/></svg>Anexar foto</button>
+                  <button class="btn btn--outline btn--sm"><svg width="15" height="15" aria-hidden="true"><use href="#ic-external"/></svg>Anexar link</button>
+                  <span class="badge badge--neutral">2 fotos</span>
+                  <span class="sync" data-estado="enviando"><svg width="13" height="13" aria-hidden="true"><use href="#ic-refresh"/></svg>1 foto na fila de envio</span>
+                </div>
+              </div>
+            </article>
+
+            <!-- item respondido, cumpre, recolhido -->
+            <article class="item" data-res="ok">
+              <div class="row-wrap">
+                <span class="badge badge--neutral num">Item 13</span>
+                <span class="badge badge--outline">RDC 216/2004 · 4.1.9</span>
+              </div>
+              <p class="item__pergunta">As superfícies de contato com alimento são de material liso, impermeável e lavável?</p>
+              <div class="conform" role="group" aria-label="Resultado do item 13">
+                <button data-kind="ok" aria-pressed="true"><svg width="15" height="15" aria-hidden="true"><use href="#ic-check"/></svg>Cumpre</button>
+                <button data-kind="no" aria-pressed="false"><svg width="15" height="15" aria-hidden="true"><use href="#ic-alert"/></svg>Não cumpre</button>
+                <button data-kind="na" aria-pressed="false">Não se aplica</button>
+                <button data-kind="nobs" aria-pressed="false">Não observado</button>
+              </div>
+              <div class="row-wrap" style="margin-top:var(--space-3)">
+                <button class="btn btn--ghost btn--sm" aria-expanded="false"><svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-down"/></svg>Registrar observação</button>
+                <span class="tiny muted">Cumpre não exige texto. O campo abre quando você quiser elogiar ou sugerir melhoria.</span>
+              </div>
+            </article>
+
+            <!-- item sem resposta -->
+            <article class="item" data-res="pendente">
+              <div class="row-wrap">
+                <span class="badge badge--neutral num">Item 14</span>
+                <span class="badge badge--attention">sem resposta</span>
+                <span class="badge badge--outline">RDC 216/2004 · 4.5.2</span>
+              </div>
+              <p class="item__pergunta">Os produtos de higienização estão identificados e guardados fora da área de manipulação?</p>
+              <div class="conform" role="group" aria-label="Resultado do item 14">
+                <button data-kind="ok" aria-pressed="false"><svg width="15" height="15" aria-hidden="true"><use href="#ic-check"/></svg>Cumpre</button>
+                <button data-kind="no" aria-pressed="false"><svg width="15" height="15" aria-hidden="true"><use href="#ic-alert"/></svg>Não cumpre</button>
+                <button data-kind="na" aria-pressed="false">Não se aplica</button>
+                <button data-kind="nobs" aria-pressed="false">Não observado</button>
+              </div>
+            </article>
+
+            <button class="btn btn--outline btn--block"><svg width="15" height="15" aria-hidden="true"><use href="#ic-plus"/></svg>Acrescentar um item que o roteiro não prevê</button>
+
+            <!-- Espaço COND #2 -->
+            <div class="cond">
+              <p class="cond__selo"><svg width="13" height="13" aria-hidden="true"><use href="#ic-activity"/></svg>Espaço reservado · projeto COND</p>
+              <p class="strong" style="margin-bottom:var(--space-2)">Como uma seção condicional se anuncia</p>
+              <p class="small">Quando o motor existir, a seção que entra ou sai traz uma linha de cabeçalho explicando <span class="strong">por quê</span> — nunca aparece ou some em silêncio:</p>
+              <div style="background:var(--surface);border:1px solid var(--teal-soft-border);border-radius:var(--radius-md);padding:var(--space-3);margin-top:var(--space-3)">
+                <p class="strong">4 · Processamento de artigos <span class="badge badge--operational">12 itens · condicional</span></p>
+                <p class="small muted" style="margin-top:var(--space-1)">Exibida porque <span class="strong">“Realiza processamento de artigos próprios?” = Sim</span>. Trocar essa resposta retira os 12 itens do resultado — as respostas ficam guardadas e voltam se o caminho voltar.</p>
+              </div>
+              <p class="tiny" style="margin-top:var(--space-3)">Desenhar a tela sabendo que a árvore vai existir é barato. Implementar árvore numa tela que ainda vai ser redesenhada é caro — por isso o FE-23 vem antes do COND-08.</p>
+            </div>
+          </div>
+
+          <!-- NOTA -->
+          <aside class="stack exec__nota sticky-side" style="--gap:var(--space-4)" aria-label="Resultado parcial">
+            <div class="card">
+              <div class="card__head"><h2 class="card__title">Resultado parcial</h2></div>
+              <div class="card__body" style="text-align:center;padding-bottom:var(--space-4)">
+                <p style="font-family:var(--font-title);font-weight:600;font-size:2.75rem;line-height:1;font-variant-numeric:tabular-nums;color:var(--amber-soft-ink)">71<span style="font-size:var(--text-xl)">%</span></p>
+                <p class="badge badge--attention" style="margin-top:var(--space-2)">Regular</p>
+                <p class="small muted" style="margin-top:var(--space-3)">Calculado sobre os 64 itens já respondidos. Muda até o fim da visita.</p>
+              </div>
+              <div class="card__body card__body--flush">
+                <div class="list-row"><span class="grow small">Cumpre</span><span class="strong num">41</span></div>
+                <div class="list-row"><span class="grow small">Não cumpre</span><span class="strong num" style="color:var(--danger-soft-ink)">18</span></div>
+                <div class="list-row"><span class="grow small">Não se aplica</span><span class="strong num">4</span></div>
+                <div class="list-row"><span class="grow small">Não observado</span><span class="strong num">1</span></div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card__head"><h2 class="card__title">Por área</h2></div>
+              <div class="card__body stack" style="--gap:var(--space-3)">
+                <div>
+                  <div class="between"><span class="small">Sanitária</span><span class="strong num">68%</span></div>
+                  <div class="meter" style="margin-top:5px"><div class="meter__fill meter__fill--attention" style="width:68%"></div></div>
+                </div>
+                <div>
+                  <div class="between"><span class="small">Nutrição</span><span class="strong num">79%</span></div>
+                  <div class="meter" style="margin-top:5px"><div class="meter__fill meter__fill--attention" style="width:79%"></div></div>
+                </div>
+                <p class="tiny muted">Ester responde a sanitária, Ana responde a nutrição. Cada uma vê a nota da sua área e a global.</p>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card__head"><h2 class="card__title">Falta resolver</h2></div>
+              <div class="card__body card__body--flush">
+                <div class="list-row"><span class="grow small">3 não conformidades sem situação ou ação escrita</span></div>
+                <div class="list-row"><span class="grow small">42 itens ainda sem resposta</span></div>
+                <div class="list-row"><span class="grow small">1 foto na fila de envio</span></div>
+              </div>
+              <div class="card__foot"><button class="btn btn--outline btn--sm btn--block">Ir para a primeira pendência</button></div>
+            </div>
+          </aside>
+        </div>
+
+        <div class="card" style="margin-top:var(--space-8)">
+          <div class="card__head"><h3 class="card__title">O que muda em relação ao que está no ar</h3></div>
+          <div class="card__body">
+            <ol class="findings findings--ok">
+              <li><span class="n" aria-hidden="true">1</span><span><span class="strong">Três colunas em ≥1400px: índice · roteiro · nota.</span> O índice de seções existia como acordeão que só marca posição rolando; virar coluna própria resolve o pulo entre a cozinha e os resíduos sem passar por 40 itens.</span></li>
+              <li><span class="n" aria-hidden="true">2</span><span><span class="strong">A largura entra na regra única.</span> <code>max-w-7xl</code> sai; a página usa <code>--shell-max</code> como todas as outras, e quem controla a linha de leitura é a coluna do meio (<code>68ch</code> na pergunta), não a página. Assim a exceção do FE-05 deixa de existir em vez de virar nota de rodapé.</span></li>
+              <li><span class="n" aria-hidden="true">3</span><span><span class="strong">Estado em três canais.</span> Cor, forma do traço da esquerda (contínuo · tracejado) e a palavra escrita — o mesmo padrão que o FE-18 usou na Sincronização. “Dados Protegidos” some: é jargão, e verde sozinho não é informação.</span></li>
+              <li><span class="n" aria-hidden="true">4</span><span><span class="strong">O contexto vem antes dos botões de resultado.</span> O plano de ação anterior e o que o cliente respondeu ficam acima da decisão, não abaixo — é para isso que eles existem.</span></li>
+              <li><span class="n" aria-hidden="true">5</span><span><span class="strong">“Obs” vira “Registrar observação”.</span> O botão vertical com a seta girada 90° e a bolinha de notificação sai. E o painel de detalhes deixa de mudar de cor entre índigo e vermelho conforme o resultado — a informação já está na borda esquerda do cartão.</span></li>
+              <li><span class="n" aria-hidden="true">6</span><span><span class="strong">Prazo e responsável viram <code>Select</code>.</span> Hoje são <code>&lt;input list&gt;</code>: aceitam qualquer texto, e “assim que possível” produz pendência que nunca vence. O campo livre continua possível, mas o valor reconhecido é o padrão.</span></li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================
+           3 · ENCERRAMENTO
+           ================================================================== -->
+      <section class="screen" id="s-encerrar" hidden>
+        <div class="crumbs">
+          <a href="#/execucao">REDE SÊNIOR — Barra</a>
+          <svg width="12" height="12" aria-hidden="true"><use href="#ic-chevron-right"/></svg>
+          <span>Encerrar e entregar</span>
+        </div>
+        <div class="page__head">
+          <div>
+            <h1 class="page__title">Encerrar e entregar</h1>
+            <p class="page__sub">A etapa que não existe hoje. Ela diz o que vai acontecer <em>antes</em> de acontecer.</p>
+          </div>
+          <a class="btn btn--ghost" href="#/execucao"><svg width="15" height="15" aria-hidden="true"><use href="#ic-chevron-right"/></svg>Voltar ao roteiro</a>
+        </div>
+
+        <div class="notice notice--attention" style="margin-bottom:var(--space-6)">
+          <svg class="notice__mark" width="16" height="16" aria-hidden="true"><use href="#ic-alert"/></svg>
+          <p><span class="strong">Hoje, gerar o PDF faz quatro coisas e anuncia zero.</span>
+             Em <code>InspectionSummary.tsx:421-489</code>, o botão “PDF Final” congela o relatório, grava a nota de conformidade no portal,
+             publica o PDF para o cliente e reconcilia o plano de ação. O rótulo do botão fala de um arquivo.
+             A consultora descobre o resto quando o cliente comenta.</p>
+        </div>
+
+        <div class="cols">
+          <div class="stack" style="--gap:var(--space-5)">
+
+            <div class="card">
+              <div class="card__head">
+                <h2 class="card__title">Antes de encerrar</h2>
+                <span class="badge badge--attention">2 pontos de atenção</span>
+              </div>
+              <div class="card__body">
+                <ul class="checklist">
+                  <li><span class="mk mk--ok" aria-hidden="true"><svg width="11" height="11"><use href="#ic-check"/></svg></span>
+                    <span><span class="strong">106 de 106 itens respondidos.</span></span></li>
+                  <li><span class="mk mk--no" aria-hidden="true"><svg width="11" height="11"><use href="#ic-x"/></svg></span>
+                    <span><span class="strong">3 não conformidades sem situação ou ação escrita.</span> Elas entram no plano de ação do cliente em branco.
+                      <a href="#/execucao">Ver as três</a></span></li>
+                  <li><span class="mk mk--at" aria-hidden="true"><svg width="11" height="11"><use href="#ic-alert"/></svg></span>
+                    <span><span class="strong">1 foto ainda na fila de envio.</span> Se encerrar agora, o PDF sai sem ela. <a href="#/estados">Tentar enviar</a></span></li>
+                  <li><span class="mk mk--ok" aria-hidden="true"><svg width="11" height="11"><use href="#ic-check"/></svg></span>
+                    <span>Nenhum conflito de sincronização em aberto.</span></li>
+                  <li><span class="mk mk--ok" aria-hidden="true"><svg width="11" height="11"><use href="#ic-check"/></svg></span>
+                    <span><span class="strong">Ana Paula já finalizou a parte de nutrição</span> em 17/08 às 15:02. Você é a última.</span></li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card__head"><h2 class="card__title">O que vai acontecer ao confirmar</h2></div>
+              <div class="card__body card__body--flush" style="padding:0 var(--space-5)">
+                <ul class="conseq">
+                  <li><span class="mk mk--vai" aria-hidden="true"><svg width="12" height="12"><use href="#ic-check"/></svg></span>
+                    <span><span class="strong">O roteiro é congelado.</span> Uma fotografia dos 106 itens fica guardada com o relatório. Editar o roteiro depois não muda mais este documento.</span></li>
+                  <li><span class="mk mk--vai" aria-hidden="true"><svg width="12" height="12"><use href="#ic-check"/></svg></span>
+                    <span><span class="strong">O PDF é gerado</span> e fica disponível para você baixar e para o cliente abrir.</span></li>
+                  <li><span class="mk mk--vai" aria-hidden="true"><svg width="12" height="12"><use href="#ic-check"/></svg></span>
+                    <span><span class="strong">O cliente passa a ver o relatório no portal</span>, com a nota <span class="strong num">71%</span> — global, sanitária <span class="num">68%</span> e nutrição <span class="num">79%</span>.</span></li>
+                  <li><span class="mk mk--vai" aria-hidden="true"><svg width="12" height="12"><use href="#ic-check"/></svg></span>
+                    <span><span class="strong">18 pendências entram no plano de ação</span> do cliente, com prazo e responsável. As <span class="strong num">6</span> que já estavam abertas da visita de julho são atualizadas, não duplicadas. Pendência que o cliente já resolveu não é reaberta.</span></li>
+                  <li><span class="mk mk--nao" aria-hidden="true"><svg width="12" height="12"><use href="#ic-alert"/></svg></span>
+                    <span><span class="strong">1 evidência enviada pelo cliente será aprovada</span> junto — a que você aceitou ao marcar CUMPRE no item 31.</span></li>
+                </ul>
+              </div>
+              <div class="card__foot">
+                <p class="small muted">O que não acontece: nada é apagado, e você pode reabrir a inspeção depois. Reabrir não retira o que o cliente já viu.</p>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card__head"><h2 class="card__title">Assinatura de quem acompanhou</h2></div>
+              <div class="card__body stack" style="--gap:var(--space-4)">
+                <div class="row-wrap">
+                  <span class="small muted">Acompanhante:</span>
+                  <span class="strong">Marina Alves — responsável técnica</span>
+                </div>
+                <div style="border:1px dashed var(--border-control);border-radius:var(--radius-md);height:130px;display:grid;place-items:center;background:var(--surface-hover)">
+                  <p class="small muted">Assine com o dedo ou com o mouse</p>
+                </div>
+                <div class="row-wrap"><button class="btn btn--ghost btn--sm">Limpar</button></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="stack sticky-side" style="--gap:var(--space-4)">
+            <div class="card">
+              <div class="card__head"><h2 class="card__title">Entrega ao portal</h2></div>
+              <div class="card__body stack" style="--gap:var(--space-3)">
+                <div class="notice notice--success">
+                  <svg class="notice__mark" width="15" height="15" aria-hidden="true"><use href="#ic-check-circle"/></svg>
+                  <p class="small"><span class="strong">Vinculada ao agendamento de 17/08.</span> O relatório, a nota e o plano de ação vão chegar ao portal da REDE SÊNIOR.</p>
+                </div>
+                <p class="small muted">Quem recebe: 1 conta de rede (13 unidades) e o link público desta unidade.</p>
+              </div>
+              <div class="card__foot" style="display:flex;flex-direction:column;gap:var(--space-2)">
+                <button class="btn btn--primary btn--lg btn--block" data-toast="Relatório encerrado e entregue ao portal.">Encerrar e entregar</button>
+                <button class="btn btn--outline btn--block">Só gerar o PDF, sem entregar</button>
+                <p class="hint">A segunda opção gera o arquivo para conferência e <span class="strong">não</span> publica nada.</p>
+              </div>
+            </div>
+
+            <div class="card" style="border-color:var(--amber-soft-border)">
+              <div class="card__head" style="background:var(--amber-soft)">
+                <h2 class="card__title" style="color:var(--amber-soft-ink)">O mesmo cartão, quando não há vínculo</h2>
+              </div>
+              <div class="card__body stack" style="--gap:var(--space-3)">
+                <div class="notice notice--attention">
+                  <svg class="notice__mark" width="15" height="15" aria-hidden="true"><use href="#ic-alert"/></svg>
+                  <p class="small"><span class="strong">Esta inspeção não está vinculada a nenhum agendamento.</span> O PDF será gerado, mas o relatório, a nota e as 18 pendências <span class="strong">não chegam ao portal do cliente</span>.</p>
+                </div>
+                <button class="btn btn--outline btn--sm btn--block">Vincular a um agendamento</button>
+                <label class="check">
+                  <input type="checkbox">
+                  <span class="small">Encerrar mesmo assim, sem entregar ao portal.</span>
+                </label>
+                <p class="tiny muted">O botão de encerrar fica desabilitado até um dos dois caminhos ser escolhido. Este é o achado 4 de “Fora de escopo”: o desenho novo <span class="strong">mostra</span> a falha; corrigir a causa continua fora de escopo.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================
+           4 · RELATÓRIO
+           ================================================================== -->
+      <section class="screen" id="s-relatorio" hidden>
+        <div class="crumbs">
+          <a href="#/execucao">REDE SÊNIOR — Barra</a>
+          <svg width="12" height="12" aria-hidden="true"><use href="#ic-chevron-right"/></svg>
+          <span>Relatório de 17/08/2026</span>
+        </div>
+        <div class="page__head">
+          <div>
+            <h1 class="page__title">REDE SÊNIOR — unidade Barra</h1>
+            <p class="page__sub">ILPI — Base Federal · concluída em 17 de agosto de 2026 às 16:20 · Ester e Ana Paula</p>
+          </div>
+          <div class="row-wrap">
+            <button class="btn btn--outline"><svg width="15" height="15" aria-hidden="true"><use href="#ic-clipboard"/></svg>Editar respostas</button>
+            <button class="btn btn--primary"><svg width="15" height="15" aria-hidden="true"><use href="#ic-download"/></svg>Baixar o PDF</button>
+          </div>
+        </div>
+
+        <div class="cols" style="margin-bottom:var(--space-6)">
+          <div class="card">
+            <div class="card__head"><h2 class="card__title">Entrega</h2></div>
+            <div class="card__body card__body--flush">
+              <div class="list-row">
+                <span class="badge badge--success" style="margin-top:2px"><svg width="12" height="12" aria-hidden="true"><use href="#ic-check"/></svg>entregue</span>
+                <div class="grow"><p class="strong">Relatório no portal</p><p class="small muted">17/08 às 16:22 · visível para a conta da rede e no link público da unidade</p></div>
+                <a class="small" href="#/relatorio">Abrir como o cliente vê</a>
+              </div>
+              <div class="list-row">
+                <span class="badge badge--success" style="margin-top:2px"><svg width="12" height="12" aria-hidden="true"><use href="#ic-check"/></svg>entregue</span>
+                <div class="grow"><p class="strong">Nota de conformidade</p><p class="small muted">global 71% · sanitária 68% · nutrição 79%</p></div>
+              </div>
+              <div class="list-row">
+                <span class="badge badge--success" style="margin-top:2px"><svg width="12" height="12" aria-hidden="true"><use href="#ic-check"/></svg>entregue</span>
+                <div class="grow"><p class="strong">Plano de ação</p><p class="small muted">18 pendências publicadas · 6 atualizadas da visita de julho · nenhuma duplicada</p></div>
+                <a class="small" href="#/relatorio">Ver plano de ação</a>
+              </div>
+              <div class="list-row">
+                <span class="badge badge--attention" style="margin-top:2px"><svg width="12" height="12" aria-hidden="true"><use href="#ic-alert"/></svg>não entregue</span>
+                <div class="grow"><p class="strong">1 foto do item 12</p><p class="small muted">Ficou na fila de envio quando o relatório foi encerrado. O PDF saiu sem ela.</p></div>
+                <button class="btn btn--outline btn--sm">Enviar e regerar</button>
+              </div>
+            </div>
+            <div class="card__foot">
+              <p class="small muted">Este cartão é permanente. O aviso passageiro que existe hoje (<code>Toast</code> em <code>InspectionSummary.tsx:485</code>) some da tela em segundos e leva a informação junto.</p>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card__head"><h2 class="card__title">Resultado</h2></div>
+            <div class="card__body" style="text-align:center">
+              <p style="font-family:var(--font-title);font-weight:600;font-size:3.25rem;line-height:1;font-variant-numeric:tabular-nums;color:var(--amber-soft-ink)">71<span style="font-size:var(--text-2xl)">%</span></p>
+              <p class="badge badge--attention" style="margin-top:var(--space-3)">Regular</p>
+            </div>
+            <div class="card__body card__body--flush">
+              <div class="list-row"><span class="grow small">Sanitária <span class="muted">· Ester</span></span><span class="strong num">68%</span></div>
+              <div class="list-row"><span class="grow small">Nutrição <span class="muted">· Ana Paula</span></span><span class="strong num">79%</span></div>
+              <div class="list-row"><span class="grow small">Não conformidades críticas</span><span class="strong num" style="color:var(--danger-soft-ink)">7</span></div>
+              <div class="list-row"><span class="grow small">Reincidentes da visita anterior</span><span class="strong num">6</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="between" style="margin-bottom:var(--space-3);flex-wrap:wrap">
+          <h2>Ações corretivas — 18</h2>
+          <div class="segmented" role="group" aria-label="Filtrar por gravidade">
+            <button aria-pressed="true">Todas</button>
+            <button aria-pressed="false">Críticas <span class="num">7</span></button>
+            <button aria-pressed="false">Reincidentes <span class="num">6</span></button>
+            <button aria-pressed="false">Prazo imediato <span class="num">4</span></button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <div class="table-scroll">
+            <table class="table">
+              <caption class="sr-only">Não conformidades do relatório de 17/08/2026</caption>
+              <thead>
+                <tr>
+                  <th scope="col" style="width:74px">Item</th>
+                  <th scope="col">Requisito e o que fazer</th>
+                  <th scope="col" style="width:150px">Responsável</th>
+                  <th scope="col" style="width:110px">Prazo</th>
+                  <th scope="col" style="width:96px">Provas</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="num">12</td>
+                  <td>
+                    <p class="table__primary">Barreira física entre recebimento e manipulação
+                      <span class="badge badge--danger">crítico</span>
+                      <span class="badge badge--attention">reincidente</span></p>
+                    <p class="small muted" style="margin-top:2px">Cozinha sem barreira física; fluxo de entrada cruza a bancada de preparo, com caixas apoiadas sobre ela.</p>
+                    <p class="small" style="margin-top:2px"><span class="strong">Fazer:</span> instalar divisória ou redefinir o fluxo de entrada de gêneros.</p>
+                  </td>
+                  <td>Responsável Técnico</td>
+                  <td><span class="badge badge--attention">30 dias</span></td>
+                  <td><span class="badge badge--neutral">2 fotos</span></td>
+                </tr>
+                <tr>
+                  <td class="num">27</td>
+                  <td>
+                    <p class="table__primary">Dimensionamento de cuidadores por turno
+                      <span class="badge badge--danger">crítico</span></p>
+                    <p class="small muted" style="margin-top:2px">4 cuidadores no turno para 36 residentes (14 grau I, 11 grau II, 9 grau III). O mínimo pela RDC 502/2021, com o acréscimo do Rio de Janeiro, é 7.</p>
+                    <p class="small" style="margin-top:2px"><span class="strong">Fazer:</span> completar o quadro mínimo por turno e apresentar a escala.</p>
+                  </td>
+                  <td>Gerência</td>
+                  <td><span class="badge badge--danger">imediato</span></td>
+                  <td><span class="badge badge--neutral">—</span></td>
+                </tr>
+                <tr>
+                  <td class="num">44</td>
+                  <td>
+                    <p class="table__primary">Identificação dos produtos de higienização</p>
+                    <p class="small muted" style="margin-top:2px">Frascos sem rótulo no depósito ao lado da copa.</p>
+                    <p class="small" style="margin-top:2px"><span class="strong">Fazer:</span> identificar todos os frascos e guardar fora da área de manipulação.</p>
+                  </td>
+                  <td>Equipe de Limpeza</td>
+                  <td><span class="badge badge--neutral">15 dias</span></td>
+                  <td><span class="badge badge--neutral">1 foto</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="pagination">
+            <span class="small muted">1–3 de 18</span>
+            <div class="pagination__pages">
+              <button class="page-btn" aria-current="page">1</button>
+              <button class="page-btn">2</button>
+              <button class="page-btn">3</button>
+              <button class="page-btn">4</button>
+              <button class="page-btn">5</button>
+              <button class="page-btn">6</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:var(--space-8)">
+          <div class="card__head"><h3 class="card__title">O que muda em relação ao que está no ar</h3></div>
+          <div class="card__body">
+            <ol class="findings findings--ok">
+              <li><span class="n" aria-hidden="true">1</span><span><span class="strong">O cartão de entrega é o novo topo da tela.</span> É a única pergunta que a consultora tem depois de encerrar: <em>o cliente recebeu?</em> Hoje a resposta não está em lugar nenhum da página.</span></li>
+              <li><span class="n" aria-hidden="true">2</span><span><span class="strong">As não conformidades viram tabela densa.</span> Com 18 pendências, os cartões empilhados de hoje viram meia hora de rolagem. Situação e ação continuam inteiras — a decisão 10 do FE-08 vale aqui.</span></li>
+              <li><span class="n" aria-hidden="true">3</span><span><span class="strong">O botão muda de nome conforme o que faz.</span> “PDF Final / PDF Provisório” some: aqui o relatório já está encerrado e o botão só baixa o arquivo. Encerrar e publicar acontece na tela anterior, com nome próprio.</span></li>
+              <li><span class="n" aria-hidden="true">4</span><span><span class="strong">“Editar Info” some.</span> Os 11 controles crus daquele painel — cliente, acompanhante e os oito campos ILPI — voltam para onde foram preenchidos: a tela de nova inspeção e a seção de recursos humanos do roteiro. Editar dados de cadastro dentro do relatório concluído é como o roteiro voltou a divergir do documento entregue.</span></li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================
+           ESTADOS E CELULAR
+           ================================================================== -->
+      <section class="screen" id="s-estados" hidden>
+        <div class="page__head">
+          <div>
+            <h1 class="page__title">Estados e celular</h1>
+            <p class="page__sub">A inspeção acontece em pé, com uma mão, num prédio de 1970 sem sinal. É o estado difícil que decide o desenho.</p>
+          </div>
+        </div>
+
+        <h2 style="margin-bottom:var(--space-3)">Sincronização em três canais</h2>
+        <p class="muted" style="margin-bottom:var(--space-4);max-width:74ch">Cor, forma do traço da esquerda e a palavra escrita — nenhum estado depende só da cor. Mesmo padrão que o FE-18 adotou na Sincronização.</p>
+        <div class="card" style="margin-bottom:var(--space-8)">
+          <div class="card__body card__body--flush">
+            <div class="list-row"><span class="canal"><span class="sync" data-estado="salvo"><svg width="13" height="13" aria-hidden="true"><use href="#ic-check-circle"/></svg>Salvo no aparelho e na nuvem</span></span><span class="grow small muted">Traço contínuo verde. Substitui “Dados Protegidos”, que é jargão e não diz onde o dado está.</span></div>
+            <div class="list-row"><span class="canal"><span class="sync" data-estado="enviando"><svg width="13" height="13" aria-hidden="true"><use href="#ic-refresh"/></svg>Enviando 3 de 8 fotos</span></span><span class="grow small muted">Traço contínuo teal — cor operacional do InspecVISA. Com número, não “Sincronizando…”.</span></div>
+            <div class="list-row"><span class="canal"><span class="sync" data-estado="offline"><svg width="13" height="13" aria-hidden="true"><use href="#ic-alert"/></svg>Sem conexão — salvo aqui</span></span><span class="grow small muted">Traço <span class="strong">tracejado</span> cinza. Não é erro: trabalhar sem sinal é o normal em campo.</span></div>
+            <div class="list-row"><span class="canal"><span class="sync" data-estado="falhou"><svg width="13" height="13" aria-hidden="true"><use href="#ic-alert"/></svg>2 itens não subiram</span></span><span class="grow small muted">Âmbar, com ação ao lado. Não some sozinho — decisão 6.</span></div>
+          </div>
+        </div>
+
+        <h2 style="margin-bottom:var(--space-3)">Os avisos que interrompem a visita</h2>
+        <div class="cols3" style="margin-bottom:var(--space-8)">
+          <div class="notice notice--attention">
+            <svg class="notice__mark" width="16" height="16" aria-hidden="true"><use href="#ic-alert"/></svg>
+            <div>
+              <p class="strong">Roteiro indisponível — modo recuperação</p>
+              <p class="small" style="margin-top:var(--space-1)">Suas 64 respostas e 12 fotos estão salvas neste aparelho. Não limpe os dados do app. Assim que houver conexão, o roteiro volta e tudo se encaixa.</p>
+            </div>
+          </div>
+          <div class="notice notice--info">
+            <svg class="notice__mark" width="16" height="16" aria-hidden="true"><use href="#ic-users"/></svg>
+            <div>
+              <p class="strong">Sua parte está finalizada</p>
+              <p class="small" style="margin-top:var(--space-1)">A inspeção segue em andamento até Ana Paula finalizar a parte de nutrição. Assim ninguém encerra o relatório sem as respostas da outra.</p>
+            </div>
+          </div>
+          <div class="notice notice--attention">
+            <svg class="notice__mark" width="16" height="16" aria-hidden="true"><use href="#ic-clock"/></svg>
+            <div>
+              <p class="strong">Histórico incompleto</p>
+              <p class="small" style="margin-top:var(--space-1)">Sem conexão, o plano de ação da visita anterior pode estar faltando itens. O que está em cache foi preservado e será reconciliado quando o sinal voltar.</p>
+            </div>
+          </div>
+        </div>
+
+        <h2 style="margin-bottom:var(--space-3)">375px — controles fixos que não tapam conteúdo</h2>
+        <div class="fones">
+          <div>
+            <div class="fone">
+              <div class="fone__top">
+                <div class="between">
+                  <div class="grow truncate">
+                    <p class="strong truncate" style="font-size:var(--text-sm)">REDE SÊNIOR — Barra</p>
+                    <p class="tiny muted">2 · Cozinha e manipulação</p>
+                  </div>
+                  <span class="sync" data-estado="offline" style="flex:none"><svg width="12" height="12" aria-hidden="true"><use href="#ic-alert"/></svg>Sem sinal</span>
+                </div>
+              </div>
+              <div class="fone__corpo stack" style="--gap:var(--space-3)">
+                <article class="item" data-res="no" style="padding:var(--space-4)">
+                  <div class="row-wrap">
+                    <span class="badge badge--neutral num">Item 12</span>
+                    <span class="badge badge--danger">crítico</span>
+                  </div>
+                  <p class="item__pergunta" style="font-size:var(--text-base)">Existe barreira física entre a área de recebimento e a de manipulação?</p>
+                  <div class="conform" role="group" aria-label="Resultado do item 12" style="grid-template-columns:1fr 1fr">
+                    <button data-kind="ok" aria-pressed="false">Cumpre</button>
+                    <button data-kind="no" aria-pressed="true">Não cumpre</button>
+                    <button data-kind="na" aria-pressed="false">Não se aplica</button>
+                    <button data-kind="nobs" aria-pressed="false">Não observado</button>
+                  </div>
+                  <div class="ctx ctx--anterior" style="margin-top:var(--space-3)">
+                    <p class="ctx__tit"><svg width="12" height="12" aria-hidden="true"><use href="#ic-clock"/></svg>Aberto desde 04/07</p>
+                    <p class="small">Instalar divisória ou redefinir o fluxo de entrada.</p>
+                  </div>
+                  <div class="field" style="margin-top:var(--space-3)">
+                    <label class="label" for="m-sit">Situação encontrada <span class="req" aria-hidden="true">*</span></label>
+                    <textarea class="textarea" id="m-sit" rows="3">A cozinha continua sem barreira física entre recebimento e manipulação.</textarea>
+                  </div>
+                </article>
+                <article class="item" data-res="pendente" style="padding:var(--space-4)">
+                  <div class="row-wrap"><span class="badge badge--neutral num">Item 13</span></div>
+                  <p class="item__pergunta" style="font-size:var(--text-base)">As superfícies de contato são de material liso, impermeável e lavável?</p>
+                </article>
+                <div style="height:8px"></div>
+              </div>
+              <button class="btn btn--outline btn--icon fab" aria-label="Ir para outra seção">
+                <svg width="18" height="18" aria-hidden="true"><use href="#ic-menu"/></svg>
+              </button>
+              <div class="fone__pe">
+                <div class="notabar">
+                  <span class="notabar__valor" style="color:var(--amber-soft-ink)">71%</span>
+                  <div class="grow">
+                    <div class="meter"><div class="meter__fill meter__fill--attention" style="width:71%"></div></div>
+                    <p class="tiny muted" style="margin-top:3px">64 de 106 · 7 críticos não cumprem</p>
+                  </div>
+                  <button class="btn btn--primary btn--sm" style="flex:none">Encerrar</button>
+                </div>
+              </div>
+            </div>
+            <p class="fone__cap"><span class="strong">A barra de nota é rodapé, não sobreposição.</span> Ela ocupa o próprio espaço, e a área de rolagem termina acima dela — a última pergunta do roteiro nunca fica escondida atrás do botão de encerrar. O botão flutuante de seções fica acima da barra, alinhado à direita, longe do polegar que rola.</p>
+          </div>
+
+          <div>
+            <div class="fone">
+              <div class="fone__top">
+                <p class="strong" style="font-size:var(--text-sm)">Encerrar e entregar</p>
+                <p class="tiny muted">REDE SÊNIOR — Barra · 17/08/2026</p>
+              </div>
+              <div class="fone__corpo stack" style="--gap:var(--space-3)">
+                <div class="card">
+                  <div class="card__body" style="padding:var(--space-4)">
+                    <p class="strong small" style="margin-bottom:var(--space-2)">Antes de encerrar</p>
+                    <ul class="checklist">
+                      <li><span class="mk mk--ok" aria-hidden="true"><svg width="10" height="10"><use href="#ic-check"/></svg></span><span class="small">106 de 106 respondidos</span></li>
+                      <li><span class="mk mk--no" aria-hidden="true"><svg width="10" height="10"><use href="#ic-x"/></svg></span><span class="small">3 NCs sem texto escrito</span></li>
+                      <li><span class="mk mk--at" aria-hidden="true"><svg width="10" height="10"><use href="#ic-alert"/></svg></span><span class="small">1 foto na fila de envio</span></li>
+                    </ul>
+                  </div>
+                </div>
+                <div class="card">
+                  <div class="card__body" style="padding:var(--space-4)">
+                    <p class="strong small" style="margin-bottom:var(--space-2)">Ao confirmar</p>
+                    <ul class="conseq">
+                      <li><span class="mk mk--vai" aria-hidden="true"><svg width="11" height="11"><use href="#ic-check"/></svg></span><span class="small">O roteiro é congelado</span></li>
+                      <li><span class="mk mk--vai" aria-hidden="true"><svg width="11" height="11"><use href="#ic-check"/></svg></span><span class="small">O cliente vê o relatório e a nota 71%</span></li>
+                      <li><span class="mk mk--vai" aria-hidden="true"><svg width="11" height="11"><use href="#ic-check"/></svg></span><span class="small">18 pendências entram no plano de ação</span></li>
+                    </ul>
+                  </div>
+                </div>
+                <div class="card">
+                  <div class="card__body" style="padding:var(--space-4)">
+                    <p class="strong small" style="margin-bottom:var(--space-2)">Assinatura</p>
+                    <div style="border:1px dashed var(--border-control);border-radius:var(--radius-md);height:100px;display:grid;place-items:center;background:var(--surface-hover)">
+                      <p class="tiny muted">Assine com o dedo</p>
+                    </div>
+                  </div>
+                </div>
+                <div style="height:4px"></div>
+              </div>
+              <div class="fone__pe">
+                <button class="btn btn--primary btn--block btn--lg">Encerrar e entregar</button>
+              </div>
+            </div>
+            <p class="fone__cap"><span class="strong">O encerramento é tela, não modal.</span> O que está no ar hoje é um cartão flutuante com fundo desfocado, e a assinatura fica espremida entre o cabeçalho e o botão. Uma decisão irreversível merece a tela inteira e a rolagem inteira.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================
+           A NOTA FORA DA PALETA
+           ================================================================== -->
+      <section class="screen" id="s-cor" hidden>
+        <div class="page__head">
+          <div>
+            <h1 class="page__title">A nota é pintada fora do sistema de cor</h1>
+            <p class="page__sub">O número mais visto do produto usa a paleta padrão do Tailwind, não a da marca. Achado do <code>audit-ui.mjs</code>, conferido linha a linha.</p>
+          </div>
+        </div>
+
+        <div class="notice notice--attention" style="margin-bottom:var(--space-6)">
+          <svg class="notice__mark" width="16" height="16" aria-hidden="true"><use href="#ic-alert"/></svg>
+          <p><span class="strong">O de-para do FE-21 não pega nenhuma delas.</span> Ele conta <em>classe</em> (<code>bg-amber-500</code>); isto é string hexadecimal dentro do TS/TSX. São <span class="strong num">16</span> ocorrências nos três arquivos que desenham a nota — todas do fluxo de inspeção, portanto deste card, não do FE-21.</p>
+        </div>
+
+        <div class="table-wrap" style="margin-bottom:var(--space-8)">
+          <div class="table-scroll">
+            <table class="table">
+              <caption class="sr-only">De-para das cores da nota</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Onde</th>
+                  <th scope="col" class="num">Qtd.</th>
+                  <th scope="col">Hoje</th>
+                  <th scope="col">Vira</th>
+                  <th scope="col">Contraste do novo sobre branco</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="table__primary"><code>ScorePanel.tsx</code></td>
+                  <td class="num">9</td>
+                  <td><span class="sw"><span class="sw__chip" style="background:#22C55E"></span><code>#22C55E</code></span></td>
+                  <td><span class="sw"><span class="sw__chip" style="background:var(--success)"></span><code>--success</code> #0E7A4A</span></td>
+                  <td><span class="row-wrap" data-fg="--success-soft-ink" data-bg="--surface" data-min="4.5"><span class="medida" data-ratio>—</span><span class="badge" data-verdict></span></span></td>
+                </tr>
+                <tr>
+                  <td class="table__primary"><code>utils/scoring.ts</code></td>
+                  <td class="num">4</td>
+                  <td><span class="sw"><span class="sw__chip" style="background:#F59E0B"></span><code>#F59E0B</code></span></td>
+                  <td><span class="sw"><span class="sw__chip" style="background:var(--amber)"></span><code>--amber</code> #D99721 · texto <code>--amber-strong</code></span></td>
+                  <td><span class="row-wrap" data-fg="--amber-soft-ink" data-bg="--surface" data-min="4.5"><span class="medida" data-ratio>—</span><span class="badge" data-verdict></span></span></td>
+                </tr>
+                <tr>
+                  <td class="table__primary"><code>MobileScoreBar.tsx</code></td>
+                  <td class="num">3</td>
+                  <td><span class="sw"><span class="sw__chip" style="background:#EF4444"></span><code>#EF4444</code></span></td>
+                  <td><span class="sw"><span class="sw__chip" style="background:var(--danger)"></span><code>--danger</code> #B3261E</span></td>
+                  <td><span class="row-wrap" data-fg="--danger-soft-ink" data-bg="--surface" data-min="4.5"><span class="medida" data-ratio>—</span><span class="badge" data-verdict></span></span></td>
+                </tr>
+                <tr>
+                  <td class="table__primary"><code>utils/scoring.ts</code> · faixa “bom”</td>
+                  <td class="num">1</td>
+                  <td><span class="sw"><span class="sw__chip" style="background:#84CC16"></span><code>#84CC16</code> lima</span></td>
+                  <td class="strong">não tem equivalente na marca</td>
+                  <td class="muted">decisão abaixo</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="cols">
+          <div class="card">
+            <div class="card__head"><h3 class="card__title">A faixa lima: quatro classificações, três cores</h3></div>
+            <div class="card__body stack" style="--gap:var(--space-4)">
+              <p class="small"><code>scoring.ts</code> classifica em quatro faixas — crítico, regular, bom, excelente — e pinta “bom” de lima. A marca tem três papéis semânticos: sucesso, atenção e erro. Lima entre âmbar e verde não comunica nada que a palavra já não diga, e num monitor mal calibrado vira o mesmo verde.</p>
+              <p class="small strong">Proposta: as quatro classificações continuam existindo no texto e no PDF; a cor usa três tons.</p>
+              <div class="stack" style="--gap:var(--space-2)">
+                <div class="row-wrap"><span class="sw"><span class="sw__chip" style="background:var(--danger)"></span></span><span class="small"><span class="strong">Crítico</span> — abaixo de 60%</span></div>
+                <div class="row-wrap"><span class="sw"><span class="sw__chip" style="background:var(--amber)"></span></span><span class="small"><span class="strong">Regular</span> — 60% a 84%</span></div>
+                <div class="row-wrap"><span class="sw"><span class="sw__chip" style="background:var(--success)"></span></span><span class="small"><span class="strong">Bom</span> — 85% a 94% · <span class="strong">Excelente</span> — 95% ou mais</span></div>
+              </div>
+              <p class="tiny muted">Bom e excelente compartilham a cor e se separam pela palavra e pelo número. É a regra 2 do manual funcionando: a distinção não pode depender só do tom.</p>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card__head"><h3 class="card__title">Onde a cor da nota aparece</h3></div>
+            <div class="card__body">
+              <ul class="checklist">
+                <li><span class="mk mk--ok" aria-hidden="true"><svg width="11" height="11"><use href="#ic-check"/></svg></span><span class="small"><span class="strong">Painel lateral da execução</span> — número grande, anel de progresso e três pontos de legenda</span></li>
+                <li><span class="mk mk--ok" aria-hidden="true"><svg width="11" height="11"><use href="#ic-check"/></svg></span><span class="small"><span class="strong">Barra de nota do celular</span> — a barra colorida abaixo do número</span></li>
+                <li><span class="mk mk--ok" aria-hidden="true"><svg width="11" height="11"><use href="#ic-check"/></svg></span><span class="small"><span class="strong">Relatório</span> — o número de 3,25rem e o selo de classificação</span></li>
+                <li><span class="mk mk--ok" aria-hidden="true"><svg width="11" height="11"><use href="#ic-check"/></svg></span><span class="small"><span class="strong">PDF</span> — a mesma função de classificação alimenta o gerador</span></li>
+                <li><span class="mk mk--at" aria-hidden="true"><svg width="11" height="11"><use href="#ic-alert"/></svg></span><span class="small"><span class="strong">Portal do cliente</span> — a nota gravada aqui é a que o cliente vê. Trocar o tom muda o que ele enxerga: vale avisar antes de publicar a mudança.</span></li>
+              </ul>
+            </div>
+            <div class="card__foot">
+              <p class="small muted">Fora deste card, por não serem do fluxo: <code>ComplianceTrendChart.tsx</code> (5 hex) vive em <code>components/client/</code> e é da ficha do cliente; <code>index.css</code> (2) é a barra de rolagem global. Os dois ficam no FE-21. <code>SignaturePad.tsx</code> usa <code>#000000</code> para a tinta da assinatura — isso é tinta, não cor de interface, e fica.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================
+           DECISÕES E PLANO
+           ================================================================== -->
+      <section class="screen" id="s-decisoes" hidden>
+        <div class="page__head">
+          <div>
+            <h1 class="page__title">Decisões e plano</h1>
+            <p class="page__sub">O que este artefato decide, o que ele deixa em aberto para a Ester e em que ordem o FE-23 é implementado.</p>
+          </div>
+        </div>
+
+        <h2 style="margin-bottom:var(--space-4)">Decisões novas — numeradas a partir da 22 do handoff</h2>
+        <div class="card" style="margin-bottom:var(--space-8)">
+          <div class="card__body">
+            <ol class="findings findings--ok">
+              <li><span class="n" aria-hidden="true">23</span><span><span class="strong">A execução não é um assistente.</span> A ordem dos itens não é obrigatória — a consultora responde o que está vendo. O acordeão por seção fica, e o índice de seções vira coluna própria. O wizard do FE-02 está descartado, e com ele o estado “Parcial”, que não existe no domínio.</span></li>
+              <li><span class="n" aria-hidden="true">24</span><span><span class="strong">A largura não tem exceção.</span> <code>InspectionExecution</code> passa a usar <code>--shell-max</code>. Quem controla a linha de leitura é a coluna do meio, não a página. A exceção do FE-05 deixa de existir em vez de virar nota de rodapé.</span></li>
+              <li><span class="n" aria-hidden="true">25</span><span><span class="strong">Encerrar e entregar é uma etapa com nome próprio.</span> Ela lista, antes do clique, os quatro efeitos que hoje acontecem calados atrás de um botão chamado “PDF Final”. E existe o caminho “só gerar o PDF, sem entregar”, para quem quer conferir.</span></li>
+              <li><span class="n" aria-hidden="true">26</span><span><span class="strong">A entrega tem recibo permanente.</span> O relatório mostra, item a item, o que chegou ao portal e o que não chegou. Aviso passageiro não serve para informação que a consultora vai precisar amanhã.</span></li>
+              <li><span class="n" aria-hidden="true">27</span><span><span class="strong">Quatro classificações, três cores.</span> A faixa lima perde a cor própria; bom e excelente compartilham o verde e se separam pela palavra.</span></li>
+              <li><span class="n" aria-hidden="true">28</span><span><span class="strong">Controle fixo no celular é rodapé, nunca sobreposição.</span> A área de rolagem termina onde a barra começa. Nenhuma pergunta do roteiro fica atrás de um botão.</span></li>
+            </ol>
+          </div>
+        </div>
+
+        <h2 style="margin-bottom:var(--space-4)">O que depende de decisão da Ester</h2>
+        <div class="cols" style="margin-bottom:var(--space-8)">
+          <div class="card">
+            <div class="card__head"><h3 class="card__title">1 · Publicação sem vínculo</h3></div>
+            <div class="card__body stack" style="--gap:var(--space-3)">
+              <p class="small">Este artefato torna a falha <span class="strong">visível e permanente</span> — no encerramento (antes) e no recibo do relatório (depois), com um caminho para vincular ali mesmo. <span class="strong">Corrigir a causa</span> — fazer a inspeção se vincular sozinha, ou impedir o encerramento sem vínculo — continua fora de escopo.</p>
+              <p class="small strong">Precisa de resposta: o encerramento sem vínculo deve ser possível marcando a caixa, ou deve ser bloqueado?</p>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card__head"><h3 class="card__title">2 · Prazo em texto livre</h3></div>
+            <div class="card__body stack" style="--gap:var(--space-3)">
+              <p class="small">Hoje prazo e responsável são <code>&lt;input list&gt;</code>: aceitam qualquer texto. “Assim que possível” vira pendência sem data, que <span class="strong">nunca conta como vencida</span> no portal nem no Início. O desenho novo usa <code>Select</code> com os valores reconhecidos.</p>
+              <p class="small strong">Precisa de resposta: o campo continua aceitando texto livre (com aviso de que não vira data), ou passa a ser só a lista?</p>
+            </div>
+          </div>
+        </div>
+
+        <h2 style="margin-bottom:var(--space-4)">Ordem de implementação do FE-23</h2>
+        <div class="table-wrap">
+          <div class="table-scroll">
+            <table class="table">
+              <caption class="sr-only">Sequência de commits do FE-23</caption>
+              <thead>
+                <tr><th scope="col" style="width:56px">#</th><th scope="col">Entrega</th><th scope="col">Por que nesta posição</th></tr>
+              </thead>
+              <tbody>
+                <tr><td class="num">1</td><td class="table__primary">Cor da nota: os 16 hex viram token, com as quatro faixas em três tons</td><td class="muted">Não depende de layout, dá para conferir isolado e desbloqueia a leitura das outras telas no tema certo.</td></tr>
+                <tr><td class="num">2</td><td class="table__primary"><code>NewInspection</code>: lista com busca, resumo fixo, <code>PageHeader</code>, 9 controles migrados</td><td class="muted">É a tela menor e a única sem dependência das outras duas.</td></tr>
+                <tr><td class="num">3</td><td class="table__primary"><code>InspectionExecution</code>: três colunas, largura única, cabeçalho, estado em três canais</td><td class="muted">O maior arquivo. Layout primeiro, sem mexer no <code>ChecklistItem</code>.</td></tr>
+                <tr><td class="num">4</td><td class="table__primary"><code>ChecklistItem</code>: contexto acima da decisão, detalhes, 4 controles migrados</td><td class="muted">Commit separado — é o componente que 106 instâncias renderizam por tela.</td></tr>
+                <tr><td class="num">5</td><td class="table__primary">Encerramento: tela nova, com a lista de consequências e o cartão de entrega</td><td class="muted">Depende de saber o que a execução calculou (pendências, fotos na fila, co-finalização).</td></tr>
+                <tr><td class="num">6</td><td class="table__primary"><code>InspectionSummary</code>: recibo de entrega, tabela densa de NCs, 11 controles</td><td class="muted">Último porque consome o que o encerramento gravou.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="notice notice--info" style="margin-top:var(--space-6)">
+          <svg class="notice__mark" width="16" height="16" aria-hidden="true"><use href="#ic-check"/></svg>
+          <p><span class="strong">As 30 ocorrências de controle cru destes quatro arquivos saem junto com cada tela</span> — não ficam para o FE-24. É a regra que o próprio card escreveu: migrar formulário de tela que ainda vai ser redesenhada é o mesmo erro de converter cor antes de o desenho parar.</p>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<script>
+  /* ---------- Rail ---------- */
+  (function () {
+    var app = document.getElementById('app');
+    var bt = document.getElementById('rail-toggle');
+    bt.addEventListener('click', function () {
+      var fechado = app.getAttribute('data-rail') === 'closed';
+      app.setAttribute('data-rail', fechado ? 'open' : 'closed');
+      bt.setAttribute('aria-pressed', String(!fechado));
+      bt.setAttribute('aria-label', fechado ? 'Recolher a navegação' : 'Expandir a navegação');
+    });
+  })();
+
+  /* ---------- Botões de resultado do item ----------
+     Um só marcado por grupo; `aria-pressed` é o estado, a cor é consequência. */
+  document.addEventListener('click', function (ev) {
+    var bt = ev.target.closest('.conform button');
+    if (!bt) return;
+    bt.closest('.conform').querySelectorAll('button').forEach(function (b) { b.setAttribute('aria-pressed', 'false'); });
+    bt.setAttribute('aria-pressed', 'true');
+    var cartao = bt.closest('.item');
+    if (cartao) {
+      var mapa = { ok: 'ok', no: 'no', na: 'ok', nobs: 'ok' };
+      cartao.setAttribute('data-res', mapa[bt.getAttribute('data-kind')] || 'ok');
+    }
+  });
+
+  /* ---------- Índice de seções ---------- */
+  document.addEventListener('click', function (ev) {
+    var sec = ev.target.closest('.tree__sec');
+    if (!sec) return;
+    sec.closest('.tree').querySelectorAll('.tree__sec').forEach(function (b) { b.removeAttribute('aria-current'); });
+    sec.setAttribute('aria-current', 'true');
+  });
+
+  /* ---------- Aviso ao confirmar ---------- */
+  document.addEventListener('click', function (ev) {
+    var bt = ev.target.closest('[data-toast]');
+    if (!bt || bt.disabled) return;
+    if (window.avisar) window.avisar({ kind: bt.getAttribute('data-toast-tipo') || 'success', title: bt.getAttribute('data-toast') });
+  });
+
+  /* ---------- Roteador por hash ---------- */
+  var TELAS = {
+    diagnostico: 's-diagnostico',
+    nova: 's-nova', execucao: 's-execucao', encerrar: 's-encerrar', relatorio: 's-relatorio',
+    estados: 's-estados', cor: 's-cor', decisoes: 's-decisoes'
+  };
+
+  function rotear() {
+    var rota = (location.hash.replace('#/', '') || 'diagnostico').split('?')[0];
+    if (!TELAS[rota]) rota = 'diagnostico';
+
+    Object.keys(TELAS).forEach(function (k) {
+      document.getElementById(TELAS[k]).hidden = (k !== rota);
+    });
+
+    document.querySelectorAll('.rail__link').forEach(function (a) {
+      var alvo = (a.getAttribute('href') || '').replace('#/', '');
+      if (alvo === rota) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    });
+    if (window.medirContrastes) window.medirContrastes();
+    window.scrollTo(0, 0);
+  }
+
+  window.addEventListener('hashchange', rotear);
+  rotear();
+</script>

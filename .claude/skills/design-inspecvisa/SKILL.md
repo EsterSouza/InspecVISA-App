@@ -21,6 +21,7 @@ não abra o MCP do DesignMD, não peça opinião, aplique.
 | B · Admin | `_src/pages/fe-02-admin.html` | Painel, Clientes, ficha com abas, Plano de ação, Agendamentos, Execução da inspeção |
 | C · Portal | `_src/pages/fe-03-portal.html` | as 6 seções do portal, 1 unidade × 13 unidades |
 | D · Onda 4 | `_src/pages/fe-04-onda4.html` | diagnóstico, Início unificado, Solicitações, Roteiros, Biblioteca, Sincronização, Configurações, padrões que faltam, de-para de cor, plano FE-14+ |
+| E · Fluxo de inspeção | `_src/pages/fe-05-inspecao.html` | `/new`, execução em 3 colunas, **encerramento** (etapa nova), `/summary`, estados e 375px, a nota fora da paleta, decisões 23–28 · **aguarda aprovação da Ester** |
 
 **Editar só em `_src/`.** Montar com `node docs/prototipos/build.mjs`. Os `.html` da
 raiz e de `_publish/` são gerados — o build sobrescreve.
@@ -92,6 +93,17 @@ O manual "experimental v1.0" está **abolido**. Não citar.
     e **não** oferece criar — o dado existe, só está escondido.
 19. **Configurações salva por seção**, nunca um botão único no fim da página.
 20. **A aba ativa entra na URL** (`?aba=arquivos`) — deep link e botão de voltar.
+
+Do Artefato E, ainda **aguardando aprovação da Ester** (não citar como fechadas):
+
+23. **A execução não é assistente.** Acordeão por seção, resposta fora de ordem, índice em coluna
+    própria. Os quatro resultados são CUMPRE · NÃO CUMPRE · N/A · NO. **"Parcial" não existe.**
+24. **A largura não tem exceção**: `InspectionExecution` passa a `--shell-max`; quem limita a
+    leitura é a coluna do meio (`68ch`), não a página.
+25. **Encerrar e entregar é etapa com nome próprio**, listando os quatro efeitos antes do clique.
+26. **A entrega tem recibo permanente** no relatório — aviso passageiro não conta.
+27. **Quatro classificações, três cores.** Sem lima; bom e excelente compartilham o verde.
+28. **Controle fixo no celular é rodapé, nunca sobreposição.**
 
 ## Armadilhas de CSS que já custaram tempo
 
