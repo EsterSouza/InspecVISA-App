@@ -338,6 +338,46 @@ só na fila) e a palavra escrita — seguindo a decisão 2 do Manual de Marca.
   arriscaria dado real; a lógica de erro/descarte foi conferida por revisão de código e
   cobertura de tipos, não ao vivo no navegador.
 
+### FE-17b · Editor do roteiro — entregue em 16/08/2026
+`TemplateEditor.tsx` virou master-detail: índice de seções/itens à esquerda (com contagem de
+respostas em inspeção em andamento por item), pergunta e todos os campos do item selecionado à
+direita. `TemplateDetail.tsx` ganhou `PageShell` e um card "Aposentados". Torna visíveis três
+regras que hoje só mordiam depois:
+- **Banner fixo em modo edição**: "Relatório concluído usa uma fotografia do roteiro..." (REF-06)
+  — editar aqui nunca reescreve relatório entregue.
+- **"Excluir item" não existe mais para item com id real (uuid)** — vira **"Aposentar item"**
+  (decisão 21), com `ConfirmDialog` explicando a regra. Item novo, nunca salvo, continua com
+  "Remover" (nada a preservar). Coluna nova `checklist_items.retired_at` (migration
+  `20260816204630_checklist_items_retired_at`) — o item some das **próximas** inspeções via um
+  parâmetro novo em `getEffectiveTemplate` (`filterRetiredAsOf`, em `src/data/templates.ts`),
+  aplicado com a data de **início** da inspeção como corte: quem já estava em andamento quando o
+  item foi aposentado continua vendo-o até terminar (grandfather), e relatório concluído nunca
+  passa por esse filtro — usa snapshot. Wire feito nos 4 pontos que montam o roteiro efetivo de
+  uma inspeção real (`InspectionExecution.tsx` ×3, `NewInspection.tsx`); os call sites que só leem
+  roteiro estático ou relatório legado ficaram de fora de propósito.
+- **"Alterar a pergunta" avisa quando há resposta em andamento na pergunta antiga**:
+  `TemplateService.getOpenResponseCounts()` conta respostas de inspeção `in_progress` por item; se
+  a descrição de um item com id real mudou e ele tem resposta aberta, aparece um aviso inline e o
+  `Salvar Roteiro` abre `ConfirmDialog` com a lista antes de gravar — sugerindo aposentar+criar
+  quando o sentido mudou, sem bloquear quem só está corrigindo redação.
+- **Seção não pode ser removida se tiver item com id real** (mesmo risco de órfão que excluir
+  item) — botão fica desabilitado com tooltip explicando.
+- **`requirement_type`** ganhou select com legenda embaixo ("não entra no cálculo da nota...").
+- **Bug real encontrado testando com dado de produção** (roteiro ILPI Base Federal, 106 itens, 3
+  inspeções em andamento): a contagem de respostas abertas vinha **vazia para a maioria dos
+  itens** quando consultada em lote. Causa: a query buscava respostas de **todas** as inspeções
+  (inclusive anos de concluídas) e só filtrava por "em andamento" depois, em JS — um roteiro muito
+  usado estoura o limite padrão de linhas do PostgREST antes do filtro rodar, e itens somem da
+  contagem sem erro nenhum aparecer. Corrigido invertendo a ordem: busca as inspeções em
+  andamento primeiro (conjunto pequeno, poucas dezenas no máximo) e só depois as respostas desse
+  conjunto.
+- `tsc -b`, `npm run build` e os 382 testes limpos. Verificado logada no navegador: no roteiro
+  real ILPI (Base Federal) sem nunca clicar em salvar (badge de resposta aberta, aviso inline ao
+  editar pergunta, `ConfirmDialog` de aposentar cancelado de propósito, bloqueio de remover seção)
+  — e, num roteiro de teste criado e depois arquivado pelo próprio app (prefixo `[ARQUIVADO]`),
+  o ciclo completo aposentar→salvar→recarregar→reativar→salvar→recarregar confirmado direto no
+  banco (`retired_at` grava e limpa, id do item preservado). Sem rolagem horizontal em 375px.
+
 ### FE-16 · Ficha do cliente com abas
 Fecha os 7 achados do diagnóstico em `ClientDetails.tsx` (1.257 linhas):
 1. Aba **Arquivos** com a largura inteira, no lugar da tabela do FE-07 espremida no trilho de ~380px.
@@ -725,7 +765,7 @@ Nomes de modelo mudam rápido; escolher o mais recente no `/model` e calibrar o 
 | Onda 3 | Em andamento — FE-11 entregue; falta FE-12 (dark mode) e a revisão final de a11y. **FE-12 depende do FE-21** |
 | MCP do DesignMD | ✅ funcionando — plano **Builder** (600 chamadas / 10 min, sem limite diário). URL **com `www`** e servidor aprovado em `~/.claude.json` |
 | **Artefato D** | ✅ [publicado](https://claude.ai/code/artifact/2001223c-6df9-4464-8e7f-3c299ad61832) e **aprovado pela Ester em 16/08/2026** |
-| **Onda 4** | Aberta em 16/08/2026 — FE-14, FE-15, FE-16, FE-17 e FE-18 entregues; FE-17b, FE-19 a FE-22 escritos, não iniciados |
+| **Onda 4** | Aberta em 16/08/2026 — FE-14, FE-15, FE-16, FE-17, FE-17b e FE-18 entregues; FE-19 a FE-22 escritos, não iniciados |
 | **Onda 4 — ampliação** | Escrita em 16/08/2026 na revisão da Ester: FE-23 a FE-27, nenhum iniciado. **FE-23 (fluxo de inspeção) e FE-24 (formulários) são condição para declarar o redesenho encerrado**; FE-27 é o que autoriza a frase "frontend visual fechado" |
 
 ## Registro de execução

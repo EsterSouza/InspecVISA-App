@@ -381,10 +381,15 @@ function applySupplement(effective: ChecklistTemplate, supplement: any): void {
  * - 'full' flag: true for Reports/PDF, false for Execution UI
  */
 export function getEffectiveTemplate(
-  baseTemplate: ChecklistTemplate, 
-  client: Client, 
-  role?: string, 
-  full: boolean = false
+  baseTemplate: ChecklistTemplate,
+  client: Client,
+  role?: string,
+  full: boolean = false,
+  // Decisão 21 (FE-17b): item aposentado some das PRÓXIMAS inspeções, mas uma inspeção já em
+  // andamento continua vendo o item se ele foi aposentado DEPOIS que ela começou — por isso o
+  // corte é a data de início da inspeção (pass a `createdAt` dela), não "agora". `undefined`
+  // desliga o filtro (usado por relatório concluído, que nunca deve perder item aposentado).
+  filterRetiredAsOf?: Date
 ): ChecklistTemplate {
   // 1. Initial Deep Copy
   const effective = JSON.parse(JSON.stringify(baseTemplate));
@@ -416,6 +421,15 @@ export function getEffectiveTemplate(
 
   // 4. Apply Multi-professional Filtering (ILPI)
   effective.sections = filterSectionsByRole(effective.sections, role || '', full);
+
+  // 4.5. Remove itens aposentados antes do corte (decisão 21) — grandfather de quem já estava
+  // em andamento quando o item foi aposentado.
+  if (filterRetiredAsOf) {
+    effective.sections = effective.sections.map((section: any) => ({
+      ...section,
+      items: section.items.filter((item: any) => !item.retiredAt || new Date(item.retiredAt) > filterRetiredAsOf),
+    }));
+  }
 
   // 5. Final Sorting
   effective.sections.sort((a: any, b: any) => a.order - b.order);

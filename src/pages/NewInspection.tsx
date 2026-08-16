@@ -384,7 +384,7 @@ export function NewInspection() {
              <h2 className="text-xl font-bold text-gray-800 mb-6">Escolha o Roteiro <span className="text-primary-600">({selectedClient.category?.toUpperCase() || 'GERAL'})</span></h2>
              <div className="grid gap-4">
                {templates.filter(t => t.category === selectedClient.category && !t.name.includes('[ARQUIVADO]')).map(t => {
-                 const effectiveTemplate = getEffectiveTemplate(t, selectedClient, undefined, true);
+                 const effectiveTemplate = getEffectiveTemplate(t, selectedClient, undefined, true, new Date());
                  return (
                  <Card 
                     key={t.id}

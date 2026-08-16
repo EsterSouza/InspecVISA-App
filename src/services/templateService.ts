@@ -133,6 +133,7 @@ export const TemplateService = {
                weight: i.weight,
                isCritical: i.is_critical,
                requirementType: i.requirement_type,
+               retiredAt: i.retired_at,
                order: i.order
             }))
           };
@@ -213,6 +214,7 @@ export const TemplateService = {
             weight: i.weight,
             isCritical: i.is_critical,
             requirementType: i.requirement_type,
+            retiredAt: i.retired_at,
             order: i.order
           }))
         }))
@@ -305,6 +307,43 @@ export const TemplateService = {
     return counts;
   },
 
+  /**
+   * Quantas respostas de inspeções EM ANDAMENTO (não concluídas, não excluídas) existem para
+   * cada item — usado no editor para avisar antes de reescrever a pergunta (decisão 21).
+   * Respostas de inspeções concluídas não entram: relatório publicado usa snapshot (REF-06) e
+   * não é afetado por edição do roteiro vivo. Busca as inspeções em andamento PRIMEIRO (conjunto
+   * pequeno) e só depois as respostas — na ordem inversa, um roteiro muito usado (com anos de
+   * respostas de inspeção já concluída) estoura o limite padrão de linhas do PostgREST antes do
+   * filtro em JS rodar, e itens somem da contagem sem erro nenhum aparecer. Duas consultas em vez
+   * de embed: responses.item_id e responses.inspection_id não têm FK declarada.
+   */
+  async getOpenResponseCounts(itemIds: string[]): Promise<Record<string, number>> {
+    if (itemIds.length === 0) return {};
+
+    const { data: openInspections, error: iError } = await supabase
+      .from('inspections')
+      .select('id')
+      .eq('status', 'in_progress')
+      .is('deleted_at', null);
+    if (iError) throw iError;
+    const inspectionIds = (openInspections || []).map((i: any) => i.id);
+    if (inspectionIds.length === 0) return {};
+
+    const { data: rows, error } = await supabase
+      .from('responses')
+      .select('item_id, inspection_id')
+      .in('item_id', itemIds)
+      .in('inspection_id', inspectionIds)
+      .is('deleted_at', null);
+    if (error) throw error;
+
+    const counts: Record<string, number> = {};
+    for (const row of rows || []) {
+      counts[row.item_id] = (counts[row.item_id] || 0) + 1;
+    }
+    return counts;
+  },
+
   async checkTemplateUsage(templateId: string): Promise<boolean> {
     const { count, error } = await supabase
       .from('inspections')
@@ -354,6 +393,7 @@ export const TemplateService = {
             weight: item.weight || 1,
             is_critical: item.isCritical || item.is_critical || false,
             requirement_type: item.requirementType || item.requirement_type || 'legal',
+            retired_at: item.retiredAt ?? item.retired_at ?? null,
             order: item.order ?? (iIdx + 1)
           });
         });

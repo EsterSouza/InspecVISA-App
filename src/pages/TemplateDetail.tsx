@@ -3,12 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Lock, ChevronDown, ChevronRight,
   AlertTriangle, BookOpen, Scale, Loader2, ClipboardList,
-  CheckCircle2, Info,
+  CheckCircle2, Info, Archive,
 } from 'lucide-react';
 import { getTemplateById } from '../data/templates';
 import { TemplateService } from '../services/templateService';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
+import { PageShell } from '../components/ui/PageShell';
 
 interface TemplateItem {
   id: string;
@@ -17,6 +18,7 @@ interface TemplateItem {
   weight?: number;
   isCritical?: boolean;
   order?: number;
+  retiredAt?: string | null;
 }
 
 interface TemplateSection {
@@ -126,6 +128,7 @@ export function TemplateDetail() {
       critical: allItems.filter(i => i.isCritical).length,
       sections: template.sections.length,
       withLegislation: allItems.filter(i => i.legislation).length,
+      retired: allItems.filter(i => i.retiredAt).length,
     };
   }, [template]);
 
@@ -153,7 +156,7 @@ export function TemplateDetail() {
     <div className="min-h-screen bg-gray-50">
       {/* ── HEADER ─────────────────────────────────────────── */}
       <div className="sticky top-0 z-20 bg-white border-b border-gray-100 shadow-sm">
-        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="max-w-[1600px] mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" onClick={() => navigate('/templates')} className="rounded-xl shrink-0">
               <ArrowLeft className="h-5 w-5" />
@@ -195,16 +198,17 @@ export function TemplateDetail() {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
+      <PageShell className="space-y-6">
 
         {/* ── STATS CARDS ───────────────────────────────────── */}
         {stats && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
             {[
               { icon: ClipboardList, label: 'Seções', value: stats.sections, color: 'text-primary-600', bg: 'bg-primary-50' },
               { icon: CheckCircle2, label: 'Itens Totais', value: stats.total, color: 'text-blue-600', bg: 'bg-blue-50' },
               { icon: AlertTriangle, label: 'Itens Críticos', value: stats.critical, color: 'text-red-600', bg: 'bg-red-50' },
               { icon: BookOpen, label: 'Com Legislação', value: stats.withLegislation, color: 'text-green-600', bg: 'bg-green-50' },
+              { icon: Archive, label: 'Aposentados', value: stats.retired, color: 'text-gray-500', bg: 'bg-gray-100' },
             ].map(({ icon: Icon, label, value, color, bg }) => (
               <div key={label} className="bg-white rounded-2xl border border-gray-100 p-5 flex items-center gap-4 shadow-sm">
                 <div className={`h-10 w-10 rounded-xl ${bg} flex items-center justify-center shrink-0`}>
@@ -286,7 +290,7 @@ export function TemplateDetail() {
                         return (
                           <div
                             key={item.id}
-                            className={`px-5 py-4 flex gap-4 hover:bg-gray-50/70 transition-colors ${item.isCritical ? 'border-l-2 border-red-400' : ''}`}
+                            className={`px-5 py-4 flex gap-4 hover:bg-gray-50/70 transition-colors ${item.isCritical ? 'border-l-2 border-red-400' : ''} ${item.retiredAt ? 'opacity-60' : ''}`}
                           >
                             {/* Item number */}
                             <div className="shrink-0 w-7 pt-0.5 text-right">
@@ -295,9 +299,16 @@ export function TemplateDetail() {
 
                             {/* Item content */}
                             <div className="flex-1 min-w-0 space-y-2">
-                              <p className="text-sm text-gray-800 leading-relaxed">{item.description}</p>
+                              <p className={`text-sm leading-relaxed ${item.retiredAt ? 'text-gray-500 line-through' : 'text-gray-800'}`}>{item.description}</p>
 
                               <div className="flex flex-wrap gap-2 items-center">
+                                {/* Retired badge */}
+                                {item.retiredAt && (
+                                  <span className="flex items-center gap-0.5 text-[10px] font-bold text-gray-500 bg-gray-100 border border-gray-200 rounded-full px-2 py-0.5">
+                                    <Archive className="h-2.5 w-2.5" /> APOSENTADO
+                                  </span>
+                                )}
+
                                 {/* Weight badge */}
                                 <span className={`text-[10px] font-bold border rounded-full px-2 py-0.5 ${weightInfo.color} ${weightInfo.bg}`}>
                                   {weightInfo.label}
@@ -340,7 +351,7 @@ export function TemplateDetail() {
             </p>
           </div>
         )}
-      </div>
+      </PageShell>
     </div>
   );
 }

@@ -1,29 +1,59 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Save, Plus, Trash2, ArrowUp, ArrowDown,
-  AlertTriangle, Copy, Loader2
+  AlertTriangle, Copy, Loader2, Archive, RotateCcw, Info, ClipboardList,
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { Badge } from '../../components/ui/Badge';
+import { Input } from '../../components/ui/Input';
+import { Textarea } from '../../components/ui/Textarea';
+import { Select } from '../../components/ui/Select';
+import { Label } from '../../components/ui/Label';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { PageShell } from '../../components/ui/PageShell';
 import { useConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { TemplateService } from '../../services/templateService';
+import { cn } from '../../lib/utils';
 import type { ClientCategory } from '../../types';
 
 interface EditingItem {
-  id: string; // temp id for UI if new
+  id: string; // temp id (não-uuid) para item novo, nunca salvo
   description: string;
   legislation: string;
+  legislationUrl: string;
   weight: number;
   isCritical: boolean;
+  requirementType: 'legal' | 'good_practice';
+  retiredAt: string | null;
   order: number;
+  /** Undefined = item novo. Serve só para saber se a pergunta mudou desde o carregamento. */
+  originalDescription?: string;
 }
 
 interface EditingSection {
-  id: string; // temp id for UI if new
+  id: string;
   title: string;
   order: number;
   items: EditingItem[];
+}
+
+interface SelectedPath {
+  sectionId: string;
+  itemId: string;
+}
+
+// Mesma checagem de src/services/templateService.ts (_isUuid): item com id de verdade pode ter
+// resposta gravada (responses.item_id sem FK) — por isso só ele ganha "Aposentar" em vez de
+// "Excluir" (decisão 21, docs/HANDOFF-FRONTEND.md).
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isPersistedId = (id: string) => UUID_RE.test(id);
+
+function formatDateBR(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
 export function TemplateEditor() {
@@ -39,18 +69,20 @@ export function TemplateEditor() {
   const [category, setCategory] = useState<ClientCategory>('estetica');
   const [version, setVersion] = useState('1');
   const [sections, setSections] = useState<EditingSection[]>([]);
+  const [selected, setSelected] = useState<SelectedPath | null>(null);
+  const [openResponseCounts, setOpenResponseCounts] = useState<Record<string, number>>({});
   const { confirm, confirmDialog } = useConfirmDialog();
+
+  const generateId = () => Math.random().toString(36).substring(2, 9);
 
   useEffect(() => {
     if (isEditing && id) {
       loadTemplate(id);
     } else {
-      // Default empty section
       setSections([{ id: generateId(), title: 'Nova Seção', order: 1, items: [] }]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isEditing]);
-
-  const generateId = () => Math.random().toString(36).substring(2, 9);
 
   const loadTemplate = async (templateId: string) => {
     try {
@@ -59,27 +91,66 @@ export function TemplateEditor() {
       setName(tpl.name);
       setCategory(tpl.category);
       setVersion(tpl.version || '1');
-      
-      const loadedSections = tpl.sections.map((sec: any) => ({
+
+      const loadedSections: EditingSection[] = tpl.sections.map((sec: any) => ({
         id: sec.id,
         title: sec.title,
         order: sec.order,
         items: (sec.items || []).map((it: any) => ({
           id: it.id,
           description: it.description,
+          originalDescription: it.description,
           legislation: it.legislation || it.legislation_name || '',
+          legislationUrl: it.legislationUrl || it.legislation_url || '',
           weight: it.weight || 1,
           isCritical: it.isCritical || it.is_critical || false,
-          order: it.order
-        }))
+          requirementType: it.requirementType || it.requirement_type || 'legal',
+          retiredAt: it.retiredAt || it.retired_at || null,
+          order: it.order,
+        })),
       }));
       setSections(loadedSections);
+
+      const firstSectionWithItems = loadedSections.find(s => s.items.length > 0);
+      if (firstSectionWithItems) {
+        setSelected({ sectionId: firstSectionWithItems.id, itemId: firstSectionWithItems.items[0].id });
+      }
+
+      const persistedIds = loadedSections.flatMap(s => s.items).map(i => i.id).filter(isPersistedId);
+      if (persistedIds.length > 0) {
+        TemplateService.getOpenResponseCounts(persistedIds)
+          .then(setOpenResponseCounts)
+          .catch(err => console.warn('[TemplateEditor] Falha ao carregar respostas em andamento:', err));
+      }
     } catch (err: any) {
       console.error('Error loading template:', err);
       setError(err.message || 'Erro ao carregar roteiro.');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const confirmDescriptionChangesIfNeeded = async (): Promise<boolean> => {
+    const changed = sections.flatMap(s => s.items).filter(it =>
+      isPersistedId(it.id) &&
+      it.originalDescription !== undefined &&
+      it.originalDescription !== it.description &&
+      (openResponseCounts[it.id] || 0) > 0
+    );
+    if (changed.length === 0) return true;
+    return confirm({
+      title: 'Pergunta alterada com respostas em andamento',
+      description: 'Estas perguntas já têm resposta registrada em inspeção que ainda está em andamento — a resposta antiga vai passar a aparecer sob o texto novo. Se o sentido da pergunta mudou, cancele e aposente o item em vez de reescrevê-lo.',
+      consequences: changed.map(it => {
+        const original = it.originalDescription || '';
+        const snippet = original.length > 70 ? `${original.slice(0, 70)}…` : original;
+        const count = openResponseCounts[it.id] || 0;
+        return `"${snippet}" — ${count} resposta${count === 1 ? '' : 's'} em andamento`;
+      }),
+      confirmLabel: 'Salvar mesmo assim',
+      cancelLabel: 'Cancelar',
+      tone: 'default',
+    });
   };
 
   const handleSave = async () => {
@@ -92,22 +163,22 @@ export function TemplateEditor() {
       return;
     }
 
+    const proceed = await confirmDescriptionChangesIfNeeded();
+    if (!proceed) return;
+
     try {
       setIsSaving(true);
       setError(null);
 
-      // Fix order before saving
       const orderedSections = sections.map((sec, sIdx) => ({
         ...sec,
         order: sIdx + 1,
-        items: sec.items.map((it, iIdx) => ({ ...it, order: iIdx + 1 }))
+        items: sec.items.map((it, iIdx) => ({ ...it, order: iIdx + 1 })),
       }));
 
       if (isEditing && id) {
         await TemplateService.updateFullTemplate(id, { name, category, version }, orderedSections);
       } else {
-        // We use saveFullTemplate logic, but we can't use RawImportItem directly without mapping
-        // We map it to the raw format saveFullTemplate expects
         const rawItems: any[] = [];
         orderedSections.forEach(sec => {
           sec.items.forEach(it => {
@@ -115,15 +186,16 @@ export function TemplateEditor() {
               section: sec.title,
               description: it.description,
               legislation: it.legislation,
+              legislationUrl: it.legislationUrl,
               weight: it.weight,
-              isCritical: it.isCritical
+              isCritical: it.isCritical,
+              requirementType: it.requirementType,
             });
           });
         });
         await TemplateService.saveFullTemplate(name, category, rawItems);
       }
 
-      // Re-fetch all to Dexie
       await TemplateService.syncAllTemplatesToDexie();
       navigate('/templates');
     } catch (err: any) {
@@ -143,7 +215,11 @@ export function TemplateEditor() {
     setSections(sections.map(s => s.id === sectionId ? { ...s, title } : s));
   };
 
+  const sectionHasPersistedItem = (section: EditingSection) => section.items.some(it => isPersistedId(it.id));
+
   const removeSection = async (sectionId: string) => {
+    const section = sections.find(s => s.id === sectionId);
+    if (!section || sectionHasPersistedItem(section)) return;
     const ok = await confirm({
       title: 'Remover seção?',
       description: 'Remove a seção e todos os seus itens deste roteiro em edição.',
@@ -151,6 +227,7 @@ export function TemplateEditor() {
     });
     if (ok) {
       setSections(sections.filter(s => s.id !== sectionId));
+      if (selected?.sectionId === sectionId) setSelected(null);
     }
   };
 
@@ -164,61 +241,74 @@ export function TemplateEditor() {
 
   // --- Item Actions ---
   const addItem = (sectionId: string) => {
-    setSections(sections.map(s => {
-      if (s.id === sectionId) {
-        return {
-          ...s,
-          items: [...s.items, { id: generateId(), description: '', legislation: '', weight: 1, isCritical: false, order: s.items.length + 1 }]
-        };
-      }
-      return s;
-    }));
+    const newItem: EditingItem = {
+      id: generateId(),
+      description: '',
+      legislation: '',
+      legislationUrl: '',
+      weight: 1,
+      isCritical: false,
+      requirementType: 'legal',
+      retiredAt: null,
+      order: 0,
+    };
+    setSections(sections.map(s => s.id === sectionId ? { ...s, items: [...s.items, newItem] } : s));
+    setSelected({ sectionId, itemId: newItem.id });
   };
 
-  const updateItem = (sectionId: string, itemId: string, field: keyof EditingItem, value: any) => {
-    setSections(sections.map(s => {
-      if (s.id === sectionId) {
-        return {
-          ...s,
-          items: s.items.map(i => i.id === itemId ? { ...i, [field]: value } : i)
-        };
-      }
-      return s;
+  function updateItem<K extends keyof EditingItem>(sectionId: string, itemId: string, field: K, value: EditingItem[K]) {
+    setSections(prev => prev.map(s => {
+      if (s.id !== sectionId) return s;
+      return { ...s, items: s.items.map(i => i.id === itemId ? { ...i, [field]: value } : i) };
     }));
-  };
+  }
 
   const removeItem = (sectionId: string, itemId: string) => {
-    setSections(sections.map(s => {
-      if (s.id === sectionId) {
-        return { ...s, items: s.items.filter(i => i.id !== itemId) };
-      }
-      return s;
-    }));
+    setSections(sections.map(s => s.id === sectionId ? { ...s, items: s.items.filter(i => i.id !== itemId) } : s));
+    if (selected?.itemId === itemId) setSelected(null);
   };
 
   const duplicateItem = (sectionId: string, item: EditingItem, index: number) => {
+    const copy: EditingItem = { ...item, id: generateId(), originalDescription: undefined, retiredAt: null };
     setSections(sections.map(s => {
-      if (s.id === sectionId) {
-        const newItems = [...s.items];
-        newItems.splice(index + 1, 0, { ...item, id: generateId() });
-        return { ...s, items: newItems };
-      }
-      return s;
+      if (s.id !== sectionId) return s;
+      const newItems = [...s.items];
+      newItems.splice(index + 1, 0, copy);
+      return { ...s, items: newItems };
     }));
+    setSelected({ sectionId, itemId: copy.id });
   };
 
   const moveItem = (sectionId: string, index: number, direction: 'up' | 'down') => {
     setSections(sections.map(s => {
-      if (s.id === sectionId) {
-        if ((direction === 'up' && index === 0) || (direction === 'down' && index === s.items.length - 1)) return s;
-        const newItems = [...s.items];
-        const swapIndex = direction === 'up' ? index - 1 : index + 1;
-        [newItems[index], newItems[swapIndex]] = [newItems[swapIndex], newItems[index]];
-        return { ...s, items: newItems };
-      }
-      return s;
+      if (s.id !== sectionId) return s;
+      if ((direction === 'up' && index === 0) || (direction === 'down' && index === s.items.length - 1)) return s;
+      const newItems = [...s.items];
+      const swapIndex = direction === 'up' ? index - 1 : index + 1;
+      [newItems[index], newItems[swapIndex]] = [newItems[swapIndex], newItems[index]];
+      return { ...s, items: newItems };
     }));
   };
+
+  const retireItem = async (sectionId: string, itemId: string) => {
+    const ok = await confirm({
+      title: 'Aposentar este item?',
+      description: 'O item some das próximas inspeções. Inspeções já em andamento continuam vendo-o até terminar, e relatório concluído nunca muda — ele usa uma fotografia do roteiro da época em que foi feito. Dá para reativar depois.',
+      confirmLabel: 'Aposentar item',
+      cancelLabel: 'Cancelar',
+      tone: 'default',
+    });
+    if (!ok) return;
+    updateItem(sectionId, itemId, 'retiredAt', new Date().toISOString());
+  };
+
+  const reactivateItem = (sectionId: string, itemId: string) => {
+    updateItem(sectionId, itemId, 'retiredAt', null);
+  };
+
+  const selectedSection = selected ? sections.find(s => s.id === selected.sectionId) : undefined;
+  const selectedItem = selectedSection?.items.find(i => i.id === selected?.itemId);
+  const selectedIndex = selectedSection?.items.findIndex(i => i.id === selected?.itemId) ?? -1;
 
   if (isLoading) {
     return (
@@ -232,14 +322,14 @@ export function TemplateEditor() {
     <div className="min-h-screen bg-gray-50 pb-24">
       {/* HEADER */}
       <div className="sticky top-0 z-20 bg-white border-b border-gray-100 shadow-sm">
-        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="max-w-[1600px] mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4 min-w-0">
             <Button variant="ghost" size="icon" onClick={() => navigate('/templates')} className="rounded-xl shrink-0">
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div>
-              <h1 className="text-lg font-bold text-gray-900">{isEditing ? 'Editar Roteiro' : 'Novo Roteiro'}</h1>
-              {isEditing && <p className="text-xs text-gray-500 font-medium">Edições podem criar uma nova versão (Histórico Protegido)</p>}
+            <div className="min-w-0">
+              <h1 className="text-lg font-bold text-gray-900 truncate">{isEditing ? 'Editar Roteiro' : 'Novo Roteiro'}</h1>
+              {isEditing && <p className="text-xs text-gray-500 font-medium">Edita no lugar — não cria versão nova</p>}
             </div>
           </div>
           <Button onClick={handleSave} disabled={isSaving}>
@@ -249,7 +339,7 @@ export function TemplateEditor() {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
+      <PageShell className="space-y-6">
         {error && (
           <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl flex items-center gap-3">
             <AlertTriangle className="h-5 w-5 shrink-0" />
@@ -257,136 +347,281 @@ export function TemplateEditor() {
           </div>
         )}
 
+        {isEditing && (
+          <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-100 rounded-2xl text-sm text-blue-700">
+            <Info className="h-5 w-5 shrink-0 mt-0.5" />
+            <p>
+              Relatório concluído usa uma <strong>fotografia do roteiro</strong> tirada na hora da
+              conclusão — editar aqui não muda relatório já entregue. O que muda é a lista das
+              próximas inspeções: quem já está em andamento termina com o roteiro de quando começou.
+            </p>
+          </div>
+        )}
+
         {/* METADATA */}
         <Card className="p-6 overflow-visible">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="md:col-span-2">
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Nome do Roteiro</label>
-              <input
-                type="text"
-                className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+              <Label>Nome do Roteiro</Label>
+              <Input
+                className="mt-1.5"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Ex: Checklist Estética 2025"
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Categoria</label>
-              <select
-                className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 outline-none bg-white"
-                value={category}
-                onChange={(e) => setCategory(e.target.value as ClientCategory)}
-              >
+              <Label>Categoria</Label>
+              <Select className="mt-1.5" value={category} onChange={(e) => setCategory(e.target.value as ClientCategory)}>
                 <option value="estetica">Estética</option>
                 <option value="ilpi">ILPI</option>
                 <option value="alimentos">Alimentos</option>
                 <option value="saude">Saúde</option>
-              </select>
+              </Select>
             </div>
           </div>
         </Card>
 
-        {/* SECTIONS */}
-        <div className="space-y-8">
-          {sections.map((section, sIdx) => (
-            <Card key={section.id} className="overflow-hidden border-2 border-gray-100 hover:border-gray-200 transition-colors shadow-sm">
-              <div className="bg-gray-50 border-b border-gray-100 p-4 flex items-center gap-4">
-                <div className="flex flex-col gap-1">
-                  <button onClick={() => moveSection(sIdx, 'up')} disabled={sIdx === 0} className="p-1 hover:bg-gray-200 rounded text-gray-400 disabled:opacity-30"><ArrowUp className="h-3 w-3" /></button>
-                  <button onClick={() => moveSection(sIdx, 'down')} disabled={sIdx === sections.length - 1} className="p-1 hover:bg-gray-200 rounded text-gray-400 disabled:opacity-30"><ArrowDown className="h-3 w-3" /></button>
-                </div>
-                <div className="flex-1">
-                  <input
-                    type="text"
-                    className="w-full bg-transparent font-bold text-lg text-gray-900 border-none p-0 focus:ring-0 placeholder-gray-400"
-                    value={section.title}
-                    onChange={(e) => updateSectionTitle(section.id, e.target.value)}
-                    placeholder="Nome da Seção (Ex: Recepção)"
-                  />
-                </div>
-                <Button variant="ghost" size="icon" onClick={() => removeSection(section.id)} className="text-gray-400 hover:text-red-500 hover:bg-red-50">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-
-              <div className="p-4 space-y-4">
-                {section.items.map((item, iIdx) => (
-                  <div key={item.id} className="flex gap-4 p-4 rounded-xl border border-gray-100 bg-white shadow-sm group">
-                    <div className="flex flex-col gap-1 shrink-0 mt-1">
-                      <button onClick={() => moveItem(section.id, iIdx, 'up')} disabled={iIdx === 0} className="p-1 hover:bg-gray-100 rounded text-gray-400 disabled:opacity-30"><ArrowUp className="h-3 w-3" /></button>
-                      <button onClick={() => moveItem(section.id, iIdx, 'down')} disabled={iIdx === section.items.length - 1} className="p-1 hover:bg-gray-100 rounded text-gray-400 disabled:opacity-30"><ArrowDown className="h-3 w-3" /></button>
-                    </div>
-                    
-                    <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-4">
-                      <div className="md:col-span-12">
-                        <textarea
-                          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 outline-none resize-none"
-                          rows={2}
-                          value={item.description}
-                          onChange={(e) => updateItem(section.id, item.id, 'description', e.target.value)}
-                          placeholder="Descrição do item de inspeção..."
-                        />
-                      </div>
-                      <div className="md:col-span-6">
-                        <input
-                          type="text"
-                          className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-xs focus:ring-2 focus:ring-primary-500 outline-none"
-                          value={item.legislation}
-                          onChange={(e) => updateItem(section.id, item.id, 'legislation', e.target.value)}
-                          placeholder="Legislação (Opcional)"
-                        />
-                      </div>
-                      <div className="md:col-span-3">
-                        <select
-                          className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-xs focus:ring-2 focus:ring-primary-500 outline-none bg-white"
-                          value={item.weight}
-                          onChange={(e) => updateItem(section.id, item.id, 'weight', Number(e.target.value))}
-                        >
-                          <option value={1}>Peso 1 (Sugerido)</option>
-                          <option value={2}>Peso 2 (Recomendado)</option>
-                          <option value={5}>Peso 5 (Necessário)</option>
-                          <option value={10}>Peso 10 (Imprescindível)</option>
-                        </select>
-                      </div>
-                      <div className="md:col-span-3 flex items-center gap-2">
-                        <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-gray-700">
-                          <input
-                            type="checkbox"
-                            className="rounded border-gray-300 text-red-600 focus:ring-red-500 h-4 w-4 cursor-pointer"
-                            checked={item.isCritical}
-                            onChange={(e) => updateItem(section.id, item.id, 'isCritical', e.target.checked)}
-                          />
-                          Item Crítico?
-                        </label>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-2 shrink-0">
-                      <Button variant="ghost" size="icon" onClick={() => duplicateItem(section.id, item, iIdx)} className="h-8 w-8 text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="Duplicar">
-                        <Copy className="h-4 w-4" />
+        {/* MASTER-DETAIL: índice à esquerda, item completo à direita */}
+        <div className="flex flex-col lg:flex-row gap-6 items-start">
+          {/* ÍNDICE */}
+          <div className="w-full lg:w-[380px] shrink-0 lg:sticky lg:top-24 space-y-4">
+            {sections.map((section, sIdx) => {
+              const blocked = sectionHasPersistedItem(section);
+              return (
+                <Card key={section.id} className="overflow-hidden">
+                  <div className="bg-gray-50 border-b border-gray-100 p-3 flex items-center gap-2">
+                    <div className="flex flex-col shrink-0">
+                      <Button variant="ghost" size="icon" className="h-6 w-6" disabled={sIdx === 0} onClick={() => moveSection(sIdx, 'up')}>
+                        <ArrowUp className="h-3 w-3" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => removeItem(section.id, item.id)} className="h-8 w-8 text-gray-400 hover:text-red-600 hover:bg-red-50" title="Remover">
-                        <Trash2 className="h-4 w-4" />
+                      <Button variant="ghost" size="icon" className="h-6 w-6" disabled={sIdx === sections.length - 1} onClick={() => moveSection(sIdx, 'down')}>
+                        <ArrowDown className="h-3 w-3" />
                       </Button>
                     </div>
+                    <input
+                      type="text"
+                      className="flex-1 min-w-0 bg-transparent font-bold text-sm text-gray-900 border-none p-0 focus:ring-0 placeholder-gray-400"
+                      value={section.title}
+                      onChange={(e) => updateSectionTitle(section.id, e.target.value)}
+                      placeholder="Nome da Seção"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0 text-gray-400 hover:text-red-500 hover:bg-red-50 disabled:opacity-30"
+                      disabled={blocked}
+                      title={blocked ? 'Aposente os itens desta seção antes de removê-la' : 'Remover seção'}
+                      onClick={() => removeSection(section.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
-                ))}
 
-                <Button variant="outline" size="sm" onClick={() => addItem(section.id)} className="w-full border-dashed">
-                  <Plus className="h-4 w-4 mr-2" /> Adicionar Item à {section.title || 'Seção'}
-                </Button>
-              </div>
-            </Card>
-          ))}
+                  {section.items.length > 0 && (
+                    <div className="divide-y divide-gray-50">
+                      {section.items.map((item, iIdx) => {
+                        const isSelected = selected?.sectionId === section.id && selected.itemId === item.id;
+                        const openCount = openResponseCounts[item.id] || 0;
+                        return (
+                          <div key={item.id} className={cn('flex items-center gap-1 px-1.5 py-1', isSelected && 'bg-primary-50')}>
+                            <div className="flex flex-col shrink-0">
+                              <Button variant="ghost" size="icon" className="h-5 w-5" disabled={iIdx === 0} onClick={() => moveItem(section.id, iIdx, 'up')}>
+                                <ArrowUp className="h-2.5 w-2.5" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-5 w-5" disabled={iIdx === section.items.length - 1} onClick={() => moveItem(section.id, iIdx, 'down')}>
+                                <ArrowDown className="h-2.5 w-2.5" />
+                              </Button>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setSelected({ sectionId: section.id, itemId: item.id })}
+                              className={cn(
+                                'flex-1 min-w-0 flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-xs',
+                                isSelected ? 'font-semibold text-primary-800' : 'text-gray-700 hover:bg-gray-50'
+                              )}
+                            >
+                              <span className={cn(
+                                'truncate',
+                                item.retiredAt && 'text-gray-400 line-through',
+                                !item.description && 'italic text-gray-400'
+                              )}>
+                                {item.description || 'Nova pergunta…'}
+                              </span>
+                              {item.isCritical && (
+                                <span className="h-1.5 w-1.5 rounded-full bg-red-500 shrink-0" title="Item crítico" />
+                              )}
+                              {openCount > 0 && (
+                                <span
+                                  className="shrink-0 rounded-full bg-amber-soft px-1.5 text-[10px] font-bold text-amber-strong"
+                                  title={`${openCount} resposta(s) em inspeção em andamento`}
+                                >
+                                  {openCount}
+                                </span>
+                              )}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <div className="p-2">
+                    <Button variant="ghost" size="sm" className="w-full border border-dashed border-gray-200" onClick={() => addItem(section.id)}>
+                      <Plus className="h-3.5 w-3.5 mr-1.5" /> Item
+                    </Button>
+                  </div>
+                </Card>
+              );
+            })}
+
+            <Button onClick={addSection} variant="secondary" fullWidth>
+              <Plus className="h-4 w-4 mr-2" /> Nova Seção
+            </Button>
+          </div>
+
+          {/* DETALHE DO ITEM */}
+          <div className="flex-1 min-w-0">
+            {!selectedItem || !selectedSection ? (
+              <Card>
+                <EmptyState
+                  icon={<ClipboardList className="h-8 w-8" />}
+                  title="Selecione um item"
+                  description="Escolha um item na lista à esquerda para ver e editar a pergunta completa."
+                />
+              </Card>
+            ) : (
+              <Card className="p-6 space-y-6 overflow-visible">
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{selectedSection.title}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Item {selectedIndex + 1} de {selectedSection.items.length}</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button variant="ghost" size="sm" onClick={() => duplicateItem(selectedSection.id, selectedItem, selectedIndex)}>
+                      <Copy className="h-3.5 w-3.5 mr-1.5" /> Duplicar
+                    </Button>
+                    {!isPersistedId(selectedItem.id) ? (
+                      <Button variant="ghost" size="sm" className="text-red-600 hover:bg-red-50" onClick={() => removeItem(selectedSection.id, selectedItem.id)}>
+                        <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Remover
+                      </Button>
+                    ) : selectedItem.retiredAt ? (
+                      <Button variant="outline" size="sm" onClick={() => reactivateItem(selectedSection.id, selectedItem.id)}>
+                        <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> Reativar item
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-amber-strong border-amber-soft-border hover:bg-amber-soft"
+                        onClick={() => retireItem(selectedSection.id, selectedItem.id)}
+                      >
+                        <Archive className="h-3.5 w-3.5 mr-1.5" /> Aposentar item
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {selectedItem.retiredAt && (
+                  <div className="flex items-start gap-3 p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-600">
+                    <Archive className="h-4 w-4 shrink-0 mt-0.5 text-gray-400" />
+                    <p>
+                      Aposentado em {formatDateBR(selectedItem.retiredAt)}.
+                      <Badge variant="neutral" className="ml-2 align-middle">Aposentado</Badge>
+                    </p>
+                  </div>
+                )}
+
+                <div>
+                  <Label>Pergunta do item</Label>
+                  <Textarea
+                    className="mt-1.5"
+                    rows={3}
+                    value={selectedItem.description}
+                    onChange={(e) => updateItem(selectedSection.id, selectedItem.id, 'description', e.target.value)}
+                    placeholder="Descrição do item de inspeção..."
+                  />
+                  {isPersistedId(selectedItem.id) &&
+                    selectedItem.originalDescription !== undefined &&
+                    selectedItem.originalDescription !== selectedItem.description &&
+                    (openResponseCounts[selectedItem.id] || 0) > 0 && (
+                      <p className="mt-1.5 flex items-start gap-1.5 text-xs font-medium text-amber-strong">
+                        <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                        {openResponseCounts[selectedItem.id]} resposta(s) em inspeção em andamento vão
+                        aparecer sob esta pergunta nova. Ao salvar, você confirma a mudança.
+                      </p>
+                    )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Legislação</Label>
+                    <Input
+                      className="mt-1.5"
+                      value={selectedItem.legislation}
+                      onChange={(e) => updateItem(selectedSection.id, selectedItem.id, 'legislation', e.target.value)}
+                      placeholder="Ex: RDC 216/2004, art. 4º"
+                    />
+                  </div>
+                  <div>
+                    <Label>Link da legislação</Label>
+                    <Input
+                      className="mt-1.5"
+                      type="url"
+                      value={selectedItem.legislationUrl}
+                      onChange={(e) => updateItem(selectedSection.id, selectedItem.id, 'legislationUrl', e.target.value)}
+                      placeholder="https://..."
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label>Peso</Label>
+                    <Select
+                      className="mt-1.5"
+                      value={selectedItem.weight}
+                      onChange={(e) => updateItem(selectedSection.id, selectedItem.id, 'weight', Number(e.target.value))}
+                    >
+                      <option value={1}>1 — Sugerido</option>
+                      <option value={2}>2 — Recomendado</option>
+                      <option value={5}>5 — Necessário</option>
+                      <option value={10}>10 — Imprescindível</option>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>&nbsp;</Label>
+                    <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700 h-10">
+                      <input
+                        type="checkbox"
+                        className="rounded border-gray-300 text-red-600 focus:ring-red-500 h-4 w-4 cursor-pointer"
+                        checked={selectedItem.isCritical}
+                        onChange={(e) => updateItem(selectedSection.id, selectedItem.id, 'isCritical', e.target.checked)}
+                      />
+                      Item crítico
+                    </label>
+                  </div>
+                  <div>
+                    <Label>Tipo de exigência</Label>
+                    <Select
+                      className="mt-1.5"
+                      value={selectedItem.requirementType}
+                      onChange={(e) => updateItem(selectedSection.id, selectedItem.id, 'requirementType', e.target.value as 'legal' | 'good_practice')}
+                    >
+                      <option value="legal">Legal (norma vigente)</option>
+                      <option value="good_practice">Boa prática (sem base legal)</option>
+                    </Select>
+                    <p className="mt-1 text-[11px] text-gray-400 leading-snug">
+                      Não entra no cálculo da nota — só muda o rótulo da legislação e a página de
+                      referências do PDF.
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            )}
+          </div>
         </div>
-
-        <div className="flex justify-center pt-4">
-          <Button onClick={addSection} variant="secondary" className="px-8 shadow-sm">
-            <Plus className="h-5 w-5 mr-2" /> Nova Seção
-          </Button>
-        </div>
-
-      </div>
+      </PageShell>
       {confirmDialog}
     </div>
   );

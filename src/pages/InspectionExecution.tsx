@@ -299,7 +299,7 @@ export function InspectionExecution() {
             const role = useSettingsStore.getState().settings.consultantRole || 'saude';
             const roleContext = enrichedInsp as unknown as Parameters<typeof getEffectiveTemplate>[1];
             const roleTemplate = tpl
-              ? getEffectiveTemplate(tpl, roleContext, role, false)
+              ? getEffectiveTemplate(tpl, roleContext, role, false, enrichedInsp.createdAt)
               : null;
             const visiblePendingItems = roleTemplate
               ? filterPendingItemsForTemplate(history.items.values(), roleTemplate)
@@ -372,7 +372,7 @@ export function InspectionExecution() {
     if (!template) return buildRecoveryTemplate(currentInspection, responses);
     const role = useSettingsStore.getState().settings.consultantRole || 'saude';
     const ctx = { ...currentInspection, category: (currentInspection as any).clientCategory || (currentInspection as any).category };
-    try { return composeChecklistTemplate(getEffectiveTemplate(template, ctx as any, role, false), responses); }
+    try { return composeChecklistTemplate(getEffectiveTemplate(template, ctx as any, role, false, currentInspection.createdAt), responses); }
     catch (err) { console.error('getEffectiveTemplate error:', err); return composeChecklistTemplate(template, responses); }
   }, [currentInspection, responses, template]);
 
@@ -384,7 +384,7 @@ export function InspectionExecution() {
     if (!currentInspection) return null;
     if (!template) return buildRecoveryTemplate(currentInspection, responses);
     const ctx = { ...currentInspection, category: (currentInspection as any).clientCategory || (currentInspection as any).category };
-    try { return composeChecklistTemplate(getEffectiveTemplate(template, ctx as any, 'ambos', true), responses); }
+    try { return composeChecklistTemplate(getEffectiveTemplate(template, ctx as any, 'ambos', true, currentInspection.createdAt), responses); }
     catch (err) { console.error('getEffectiveTemplate collaboration error:', err); return composeChecklistTemplate(template, responses); }
   }, [currentInspection, responses, template]);
 

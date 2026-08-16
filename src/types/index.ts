@@ -137,6 +137,11 @@ export interface ChecklistItem {
   // Controle de Mescla (Suplementos / Dinâmicos)
   replacesItemId?: string;
   insertAfterItemId?: string;
+
+  // Aposentadoria (decisão 21, FE-17b): item sai das PRÓXIMAS inspeções, mas inspeções em
+  // andamento no momento da aposentadoria continuam vendo-o até terminar (ver getEffectiveTemplate
+  // em src/data/templates.ts). Nunca apagar item com resposta — responses.item_id não tem FK.
+  retiredAt?: string | null;
 }
 
 export interface ReferenceSource {

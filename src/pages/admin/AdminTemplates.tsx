@@ -183,7 +183,9 @@ export function AdminTemplates() {
               ) : (
                 filtered.map((template) => {
                   const sections = template.sections || sectionsById[template.id] || [];
-                  const items = sections.flatMap((s: any) => s.items || []);
+                  // Aposentado (decisão 21, FE-17b) não entra em inspeção nova — "Itens"/"Críticos"
+                  // aqui reflete o que a próxima inspeção realmente vai perguntar.
+                  const items = sections.flatMap((s: any) => s.items || []).filter((i: any) => !i.retiredAt);
                   const criticalCount = items.filter((i: any) => i.isCritical).length;
                   const inUse = usageCounts[template.id] || 0;
                   return (
