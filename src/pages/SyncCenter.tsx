@@ -1,19 +1,33 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { db } from '../db/database';
 import { SyncQueueService } from '../services/syncQueueService';
+import { InspectionService } from '../services/inspectionService';
 import { exportDatabase } from '../utils/backup';
+import { cn } from '../lib/utils';
+import { toast } from '../store/useToastStore';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { PageShell } from '../components/ui/PageShell';
+import { PageHeader } from '../components/ui/PageHeader';
 import { Button } from '../components/ui/Button';
+import { Badge } from '../components/ui/Badge';
+import { EmptyState } from '../components/ui/EmptyState';
+import { useConfirmDialog } from '../components/ui/ConfirmDialog';
 import {
   RefreshCw, AlertTriangle, CheckCircle2, Clock, XCircle,
-  Download, Wifi, WifiOff, ChevronDown, ChevronRight,
-  RotateCcw, Play, Image, Users, ClipboardCheck, FileText,
-  Calendar, Activity, Lock,
+  Download, Wifi, WifiOff, RotateCcw, Play, Trash2, Activity, Lock,
 } from 'lucide-react';
+
+/**
+ * FE-18 — a fila que falhou nunca some sozinha (docs/HANDOFF-FRONTEND.md § FE-18).
+ * A linha do tempo carrega o estado em três canais: cor de fundo da marca, forma do
+ * traço que liga os eventos (tracejado só na fila) e a palavra escrita — nenhum deles
+ * sozinho. Descartar um envio (hoje só fotos, o único caso sem ambiguidade sobre o que
+ * se perde) abre o ConfirmDialog com a lista de consequências.
+ */
 
 type SyncStatus = 'pending' | 'syncing' | 'synced' | 'conflict' | 'failed';
 type TableName = 'clients' | 'inspections' | 'responses' | 'photos' | 'schedules';
+type TimelineState = 'ok' | 'pendente' | 'atencao' | 'erro';
 
 interface SyncItem {
   id: string;
@@ -23,15 +37,14 @@ interface SyncItem {
   syncError?: string | null;
   label: string;
   sub?: string;
-  hasDataUrl?: boolean;
   hasStoragePath?: boolean;
   jobStatus?: 'queued' | 'processing';
+  updatedAt: Date;
 }
 
 interface TableData {
   name: TableName;
   label: string;
-  Icon: React.FC<{ className?: string }>;
   items: SyncItem[];
 }
 
@@ -43,22 +56,58 @@ interface SyncSessionEvent {
   verifiedAt: Date;
 }
 
-const STATUS_STYLE: Record<SyncStatus, { label: string; color: string; bg: string }> = {
-  pending:  { label: 'Pendente',     color: 'text-yellow-700', bg: 'bg-yellow-50 border-yellow-200' },
-  syncing:  { label: 'Enviando',     color: 'text-blue-700',   bg: 'bg-blue-50 border-blue-200' },
-  failed:   { label: 'Erro',         color: 'text-red-700',    bg: 'bg-red-50 border-red-200' },
-  conflict: { label: 'Conflito',     color: 'text-orange-700', bg: 'bg-orange-50 border-orange-200' },
-  synced:   { label: 'Sincronizado', color: 'text-green-700',  bg: 'bg-green-50 border-green-200' },
+interface TimelineEntry {
+  id: string;
+  state: TimelineState;
+  when: Date;
+  meta: string;
+  title: string;
+  detail?: string;
+  item?: SyncItem;
+}
+
+const TABLE_LABELS: Record<TableName, [string, string]> = {
+  clients: ['cliente', 'clientes'],
+  inspections: ['inspeção', 'inspeções'],
+  responses: ['resposta', 'respostas'],
+  photos: ['foto', 'fotos'],
+  schedules: ['agendamento', 'agendamentos'],
 };
 
-function StatusBadge({ status }: { status: SyncStatus }) {
-  const s = STATUS_STYLE[status];
-  return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${s.color} ${s.bg}`}>
-      {s.label}
-    </span>
-  );
-}
+const STATE_WORD: Record<TimelineState, string> = {
+  ok: 'Sincronizado',
+  pendente: 'Na fila',
+  atencao: 'Atenção',
+  erro: 'Falhou',
+};
+
+const STATE_BADGE: Record<TimelineState, 'success' | 'neutral' | 'warning' | 'danger'> = {
+  ok: 'success',
+  pendente: 'neutral',
+  atencao: 'warning',
+  erro: 'danger',
+};
+
+const STATE_MARK: Record<TimelineState, string> = {
+  ok: 'border-green-200 bg-green-50 text-green-700',
+  pendente: 'border-gray-200 bg-gray-50 text-gray-500',
+  atencao: 'border-amber-200 bg-amber-50 text-amber-700',
+  erro: 'border-red-200 bg-red-50 text-red-700',
+};
+
+const STATE_ICON: Record<TimelineState, React.FC<{ className?: string }>> = {
+  ok: CheckCircle2,
+  pendente: Clock,
+  atencao: AlertTriangle,
+  erro: XCircle,
+};
+
+const LEGEND_TEXT: Record<TimelineState, string> = {
+  ok: 'está no servidor, marca sólida',
+  pendente: 'traço tracejado até o próximo evento',
+  atencao: 'foi, mas com ressalva',
+  erro: 'exige decisão, nunca some sozinho',
+};
 
 function truncId(id: string) {
   return id.length > 12 ? `${id.slice(0, 8)}…` : id;
@@ -69,18 +118,75 @@ function jobStatusFromError(syncError?: string | null): SyncItem['jobStatus'] {
   return syncError.includes('processando') ? 'processing' : 'queued';
 }
 
+function countLabel(table: TableName, count: number) {
+  const [singular, plural] = TABLE_LABELS[table];
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function describeItem(item: SyncItem): string {
+  switch (item.table) {
+    case 'clients': return `o cliente ${item.label}`;
+    case 'inspections': return `a inspeção de ${item.label}`;
+    case 'responses': return `uma resposta da inspeção de ${item.label}`;
+    case 'photos': return `uma foto da inspeção de ${item.label}`;
+    case 'schedules': return `o agendamento de ${item.label}`;
+  }
+}
+
+function batchTitle(table: TableName, label: string, count: number): string {
+  switch (table) {
+    case 'clients':
+      return count === 1 ? `Cliente ${label} sincronizado` : `${count} clientes sincronizados`;
+    case 'inspections':
+      return count === 1 ? `Inspeção de ${label} sincronizada` : `${count} inspeções de ${label} sincronizadas`;
+    case 'responses':
+      return count === 1 ? `Resposta de ${label} enviada` : `${count} respostas de ${label} enviadas`;
+    case 'photos':
+      return count === 1 ? `Foto de ${label} enviada` : `${count} fotos de ${label} enviadas`;
+    case 'schedules':
+      return count === 1 ? `Agendamento de ${label} sincronizado` : `${count} agendamentos de ${label} sincronizados`;
+  }
+}
+
+function photoDiscardConsequences(item: SyncItem): string[] {
+  return [
+    item.hasStoragePath
+      ? `a foto${item.sub ? ` vinculada a ${item.sub}` : ''} — parte dela já chegou ao Storage; descartar propaga a remoção`
+      : `a foto${item.sub ? ` vinculada a ${item.sub}` : ''}, que só existe neste aparelho`,
+    'o vínculo dela com a resposta da inspeção',
+    'se o relatório já foi publicado, ele passa a citar um arquivo ausente',
+  ];
+}
+
+function timeHHMM(date: Date) {
+  return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function timeAgo(date: Date): string {
+  const minutes = Math.max(0, Math.round((Date.now() - date.getTime()) / 60000));
+  if (minutes < 1) return 'agora mesmo';
+  if (minutes < 60) return `há ${minutes} min`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `há ${hours} h`;
+  return `há ${Math.round(hours / 24)} d`;
+}
+
 export function SyncCenter() {
   const [sessionStartedAt] = useState(() => new Date());
   const [tables, setTables] = useState<TableData[]>([]);
   const [summary, setSummary] = useState({ pending: 0, syncing: 0, failed: 0, conflict: 0 });
   const [sessionEvents, setSessionEvents] = useState<SyncSessionEvent[]>([]);
+  const [indicators, setIndicators] = useState<{
+    lastSyncedAt: Date | null;
+    syncedTodayCount: number;
+    syncedTodaySince: Date | null;
+  }>({ lastSyncedAt: null, syncedTodayCount: 0, syncedTodaySince: null });
   const [isLoading, setIsLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [syncLocked, setSyncLocked] = useState(false);
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -96,7 +202,6 @@ export function SyncCenter() {
           db.schedules.where('syncStatus').anyOf(FILTER).toArray(),
         ]);
 
-      // Build lookup maps from full tables (local only, very fast)
       const [allClients, allInspections, allResponses, allPhotos, allSchedules] = await Promise.all([
         db.clients.toArray(),
         db.inspections.toArray(),
@@ -130,6 +235,7 @@ export function SyncCenter() {
         jobStatus: jobStatusFromError(raw.syncError),
         label,
         sub,
+        updatedAt: raw.updatedAt ? new Date(raw.updatedAt) : new Date(),
         ...extra,
       });
 
@@ -156,7 +262,7 @@ export function SyncCenter() {
         mapItem(p, 'photos',
           inspClientName.get(respInspId.get((p as any).responseId) ?? '') ?? '—',
           `Resp: ${truncId((p as any).responseId ?? '—')}`,
-          { hasDataUrl: !!(p as any).dataUrl, hasStoragePath: !!(p as any).storagePath })
+          { hasStoragePath: !!(p as any).storagePath })
       );
 
       const scheduleItems = rawSchedules.map(s =>
@@ -168,11 +274,11 @@ export function SyncCenter() {
       );
 
       const tableData: TableData[] = [
-        { name: 'clients',     label: 'Clientes',     Icon: Users,          items: clientItems },
-        { name: 'inspections', label: 'Inspeções',    Icon: ClipboardCheck, items: inspectionItems },
-        { name: 'responses',   label: 'Respostas',    Icon: FileText,       items: responseItems },
-        { name: 'photos',      label: 'Fotos',        Icon: Image,          items: photoItems },
-        { name: 'schedules',   label: 'Agendamentos', Icon: Calendar,       items: scheduleItems },
+        { name: 'clients',     label: 'Clientes',     items: clientItems },
+        { name: 'inspections', label: 'Inspeções',    items: inspectionItems },
+        { name: 'responses',   label: 'Respostas',    items: responseItems },
+        { name: 'photos',      label: 'Fotos',        items: photoItems },
+        { name: 'schedules',   label: 'Agendamentos', items: scheduleItems },
       ];
 
       setTables(tableData);
@@ -184,6 +290,23 @@ export function SyncCenter() {
         })
       );
       setSummary(total);
+
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+      let lastSyncedAt: Date | null = null;
+      let syncedTodayCount = 0;
+      let syncedTodaySince: Date | null = null;
+      [...allClients, ...allInspections, ...allResponses, ...allPhotos, ...allSchedules].forEach((raw: any) => {
+        if (raw.syncStatus !== 'synced' || !raw.dataVerifiedAt) return;
+        const verifiedAt = new Date(raw.dataVerifiedAt);
+        if (Number.isNaN(verifiedAt.getTime())) return;
+        if (!lastSyncedAt || verifiedAt > lastSyncedAt) lastSyncedAt = verifiedAt;
+        if (verifiedAt >= startOfToday) {
+          syncedTodayCount += 1;
+          if (!syncedTodaySince || verifiedAt < syncedTodaySince) syncedTodaySince = verifiedAt;
+        }
+      });
+      setIndicators({ lastSyncedAt, syncedTodayCount, syncedTodaySince });
 
       const eventFrom = (
         table: TableName,
@@ -257,48 +380,36 @@ export function SyncCenter() {
     };
   }, [loadData]);
 
-  const withAction = async (key: string, msg: string, fn: () => Promise<void>) => {
+  const runAction = async (key: string, fn: () => Promise<void>, successMsg: string) => {
     setActionLoading(key);
-    setActionMessage(null);
     try {
       await fn();
-      setActionMessage(msg);
-      setTimeout(() => setActionMessage(null), 3000);
+      toast.success(successMsg);
       await loadData();
     } catch (err) {
-      setActionMessage(`Erro: ${err}`);
+      toast.error('Não foi possível concluir', err instanceof Error ? err.message : String(err));
     } finally {
       setActionLoading(null);
     }
   };
 
   const handleRetryAll = () =>
-    withAction('retryAll', 'Fila desbloqueada e sincronização iniciada.', async () => {
-      await SyncQueueService.retryFailed();
-    });
+    runAction('retryAll', () => SyncQueueService.retryFailed(), 'Fila desbloqueada e sincronização iniciada.');
 
   const handleForceSync = () =>
-    withAction('force', 'Sincronização disparada.', async () => {
-      await SyncQueueService.processAll();
-    });
+    runAction('force', () => SyncQueueService.processAll(), 'Sincronização disparada.');
 
   const handleResetStuck = () =>
-    withAction('reset', 'Registros travados resetados para pendente.', async () => {
-      await SyncQueueService.cleanupStuckSyncing();
-    });
+    runAction('reset', () => SyncQueueService.cleanupStuckSyncing(), 'Registros travados resetados para pendente.');
 
   const handleResetLock = () =>
-    withAction('lock', 'Trava de sincronização liberada.', async () => {
-      SyncQueueService.resetLock();
-    });
+    runAction('lock', async () => { SyncQueueService.resetLock(); }, 'Trava de sincronização liberada.');
 
   const handleExportBackup = () =>
-    withAction('export', 'Backup exportado com sucesso.', async () => {
-      await exportDatabase();
-    });
+    runAction('export', () => exportDatabase(), 'Backup exportado com sucesso.');
 
   const handleRetryItem = (item: SyncItem) =>
-    withAction(`item-${item.id}`, 'Item reenviado.', async () => {
+    runAction(`item-${item.id}`, async () => {
       if (item.table === 'inspections' || item.table === 'responses' || item.table === 'photos') {
         await SyncQueueService.retryItem(item.table, item.id);
       } else if (item.table === 'clients') {
@@ -308,343 +419,319 @@ export function SyncCenter() {
         await db.schedules.update(item.id, { syncStatus: 'pending', syncAttempts: 0, syncError: undefined });
         await SyncQueueService.processAll();
       }
+    }, 'Item reenviado.');
+
+  const handleDiscardPhoto = async (item: SyncItem) => {
+    const ok = await confirm({
+      title: 'Descartar este envio?',
+      description: 'Você perde:',
+      consequences: photoDiscardConsequences(item),
+      confirmLabel: 'Descartar envio',
+      tone: 'danger',
+    });
+    if (!ok) return;
+
+    const key = `discard-${item.id}`;
+    setActionLoading(key);
+    try {
+      await InspectionService.deletePhoto(item.id);
+      toast.warning('Envio descartado.');
+      await loadData();
+    } catch (err) {
+      toast.error('Não foi possível descartar', err instanceof Error ? err.message : String(err));
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const isBusy = !!actionLoading;
+  const queueCount = summary.pending + summary.syncing;
+  const failedCount = summary.failed + summary.conflict;
+
+  const queueBreakdown = useMemo(() => {
+    const counts: Partial<Record<TableName, number>> = {};
+    let processing = 0;
+    tables.forEach(t => t.items.forEach(item => {
+      if (item.syncStatus === 'pending' || item.syncStatus === 'syncing') {
+        counts[t.name] = (counts[t.name] ?? 0) + 1;
+      }
+      if (item.jobStatus === 'processing') processing += 1;
+    }));
+    const parts = (Object.entries(counts) as [TableName, number][])
+      .filter(([, n]) => n > 0)
+      .sort((a, b) => b[1] - a[1])
+      .map(([table, n]) => countLabel(table, n));
+    if (processing > 0) parts.push(`${processing} em processamento no servidor`);
+    return parts.join(' · ');
+  }, [tables]);
+
+  const failedBreakdown = useMemo(() => {
+    const parts: string[] = [];
+    if (summary.failed > 0) parts.push(`${summary.failed} erro${summary.failed > 1 ? 's' : ''}`);
+    if (summary.conflict > 0) parts.push(`${summary.conflict} conflito${summary.conflict > 1 ? 's' : ''}`);
+    return parts.join(' · ');
+  }, [summary]);
+
+  const timeline = useMemo<TimelineEntry[]>(() => {
+    const entries: TimelineEntry[] = [];
+
+    tables.forEach(t => t.items.forEach(item => {
+      if (item.syncStatus === 'failed') {
+        entries.push({
+          id: `failed-${item.id}`,
+          state: 'erro',
+          when: item.updatedAt,
+          meta: `${timeHHMM(item.updatedAt)} · ${item.label}`,
+          title: `Falhou ao enviar ${describeItem(item)}`,
+          detail: item.syncError ?? undefined,
+          item,
+        });
+      } else if (item.syncStatus === 'conflict') {
+        entries.push({
+          id: `conflict-${item.id}`,
+          state: 'atencao',
+          when: item.updatedAt,
+          meta: `${timeHHMM(item.updatedAt)} · ${item.label}`,
+          title: `Conflito de versão em ${describeItem(item)}`,
+          detail: 'Uma versão diferente já está no servidor. Tentar novamente envia a versão deste aparelho por cima.',
+          item,
+        });
+      }
+    }));
+
+    if (queueCount > 0) {
+      const when = lastChecked ?? new Date();
+      entries.push({
+        id: 'queue',
+        state: 'pendente',
+        when,
+        meta: `${timeHHMM(when)} · ${queueCount} ite${queueCount > 1 ? 'ns' : 'm'}`,
+        title: isOnline ? 'Na fila, aguardando conexão estável' : 'Na fila — aparelho offline',
+        detail: queueBreakdown || undefined,
+      });
+    }
+
+    const batches = new Map<string, { table: TableName; label: string; when: Date; count: number }>();
+    sessionEvents.forEach(ev => {
+      const minuteKey = ev.verifiedAt.toISOString().slice(0, 16);
+      const key = `${ev.table}|${ev.label}|${minuteKey}`;
+      const existing = batches.get(key);
+      if (existing) {
+        existing.count += 1;
+        if (ev.verifiedAt > existing.when) existing.when = ev.verifiedAt;
+      } else {
+        batches.set(key, { table: ev.table, label: ev.label, when: ev.verifiedAt, count: 1 });
+      }
+    });
+    batches.forEach((batch, key) => {
+      entries.push({
+        id: `synced-${key}`,
+        state: 'ok',
+        when: batch.when,
+        meta: `${timeHHMM(batch.when)} · ${countLabel(batch.table, batch.count)}`,
+        title: batchTitle(batch.table, batch.label, batch.count),
+      });
     });
 
-  const toggle = (key: string) =>
-    setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
-
-  const totalUnsynced = summary.pending + summary.syncing + summary.failed + summary.conflict;
-  const isBusy = !!actionLoading;
+    return entries.sort((a, b) => b.when.getTime() - a.when.getTime());
+  }, [tables, sessionEvents, queueCount, queueBreakdown, lastChecked, isOnline]);
 
   return (
     <PageShell className="space-y-5">
-
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Activity className="h-6 w-6 text-primary-600" />
+      <PageHeader
+        title={
+          <span className="flex items-center gap-2">
+            <Activity className="h-6 w-6 text-primary-700" />
             Central de Sincronização
-          </h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {lastChecked
-              ? `Atualizado às ${lastChecked.toLocaleTimeString('pt-BR')} — atualiza a cada 15s`
-              : 'Carregando dados locais…'}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className={`flex items-center gap-1.5 text-sm font-medium ${
-            isOnline ? 'text-green-600' : 'text-red-500'
-          }`}>
-            {isOnline
-              ? <Wifi className="h-4 w-4" />
-              : <WifiOff className="h-4 w-4" />}
-            {isOnline ? 'Online' : 'Offline'}
           </span>
-          <Button variant="outline" size="sm" onClick={loadData} disabled={isLoading}>
-            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${isLoading ? 'animate-spin' : ''}`} />
-            Atualizar
-          </Button>
-        </div>
-      </div>
+        }
+        description={
+          lastChecked
+            ? `Atualizado às ${timeHHMM(lastChecked)} — atualiza a cada 15s`
+            : 'Carregando dados locais…'
+        }
+        actions={
+          <>
+            <span className={cn('flex items-center gap-1.5 text-sm font-medium', isOnline ? 'text-green-700' : 'text-red-600')}>
+              {isOnline ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
+              {isOnline ? 'Online' : 'Offline'}
+            </span>
+            <Button onClick={handleForceSync} disabled={isBusy || !isOnline}>
+              <RefreshCw className={cn('mr-1.5 h-4 w-4', actionLoading === 'force' && 'animate-spin')} />
+              Sincronizar agora
+            </Button>
+          </>
+        }
+      />
 
-      {/* Sync lock warning */}
       {syncLocked && (
-        <div className="flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-700">
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <Lock className="h-4 w-4 shrink-0" />
           <span>
-            <strong>Sincronização travada</strong> — um ciclo anterior não terminou. Use
-            <strong> Liberar Trava</strong> abaixo para desbloquear.
+            <strong>Sincronização travada</strong> — um ciclo anterior não terminou.
           </span>
+          <Button variant="danger" size="sm" className="ml-auto" onClick={handleResetLock} disabled={isBusy}>
+            <Lock className={cn('mr-1.5 h-3.5 w-3.5', actionLoading === 'lock' && 'animate-spin')} />
+            Liberar trava
+          </Button>
         </div>
       )}
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {([
-          ['pending',  'Pendente',  summary.pending,  'text-yellow-600 bg-yellow-50 border-yellow-200', Clock],
-          ['syncing',  'Enviando',  summary.syncing,  'text-blue-600 bg-blue-50 border-blue-200',       RefreshCw],
-          ['failed',   'Erros',     summary.failed,   'text-red-600 bg-red-50 border-red-200',           XCircle],
-          ['conflict', 'Conflitos', summary.conflict, 'text-orange-600 bg-orange-50 border-orange-200',  AlertTriangle],
-        ] as const).map(([, label, value, color, Icon]) => (
-          <div key={label} className={`rounded-xl border p-4 flex items-center gap-3 ${color}`}>
-            <Icon className="h-6 w-6 shrink-0" />
-            <div>
-              <div className="text-2xl font-bold leading-none">{value}</div>
-              <div className="text-xs font-medium opacity-80 mt-1">{label}</div>
-            </div>
-          </div>
-        ))}
+      {/* Quatro indicadores */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="rounded-lg border border-gray-200 bg-white p-4">
+          <p className="text-xs font-medium text-gray-500">Última sincronização</p>
+          <p className="mt-1 text-xl font-bold text-gray-900">
+            {indicators.lastSyncedAt ? timeHHMM(indicators.lastSyncedAt) : '—'}
+          </p>
+          <p className="mt-0.5 text-xs text-gray-500">
+            {indicators.lastSyncedAt ? timeAgo(indicators.lastSyncedAt) : 'ainda sem sincronização'}
+          </p>
+        </div>
+        <div className="rounded-lg border border-gray-200 bg-white p-4">
+          <p className="text-xs font-medium text-gray-500">Na fila</p>
+          <p className="mt-1 text-xl font-bold text-gray-900">{queueCount}</p>
+          <p className="mt-0.5 text-xs text-gray-500">{queueBreakdown || 'fila vazia'}</p>
+        </div>
+        <div className={cn('rounded-lg border p-4', failedCount > 0 ? 'border-red-200 bg-red-50' : 'border-gray-200 bg-white')}>
+          <p className={cn('text-xs font-medium', failedCount > 0 ? 'text-red-700' : 'text-gray-500')}>Falharam</p>
+          <p className={cn('mt-1 text-xl font-bold', failedCount > 0 ? 'text-red-700' : 'text-gray-900')}>{failedCount}</p>
+          <p className={cn('mt-0.5 text-xs', failedCount > 0 ? 'text-red-700' : 'text-gray-500')}>
+            {failedCount > 0 ? `${failedBreakdown} — precisa de decisão sua` : 'nenhuma pendência'}
+          </p>
+        </div>
+        <div className="rounded-lg border border-gray-200 bg-white p-4">
+          <p className="text-xs font-medium text-gray-500">Enviados hoje</p>
+          <p className="mt-1 text-xl font-bold text-gray-900">{indicators.syncedTodayCount}</p>
+          <p className="mt-0.5 text-xs text-gray-500">
+            {indicators.syncedTodayCount === 0
+              ? 'nenhum envio hoje ainda'
+              : failedCount === 0
+                ? `sem erro desde ${indicators.syncedTodaySince ? timeHHMM(indicators.syncedTodaySince) : '—'}`
+                : `${failedBreakdown} pendente de decisão`}
+          </p>
+        </div>
       </div>
 
-      {/* Action Bar */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Ações</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="default"
-              size="sm"
-              onClick={handleRetryAll}
-              disabled={isBusy || !isOnline}
-            >
-              <Play className={`h-3.5 w-3.5 mr-1.5 ${actionLoading === 'retryAll' ? 'animate-pulse' : ''}`} />
-              Tentar Tudo
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleForceSync}
-              disabled={isBusy || !isOnline}
-            >
-              <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${actionLoading === 'force' ? 'animate-spin' : ''}`} />
-              Sincronizar Agora
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleResetStuck}
-              disabled={isBusy}
-            >
-              <RotateCcw className={`h-3.5 w-3.5 mr-1.5 ${actionLoading === 'reset' ? 'animate-spin' : ''}`} />
-              Resetar Travados
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExportBackup}
-              disabled={isBusy}
-            >
-              <Download className={`h-3.5 w-3.5 mr-1.5 ${actionLoading === 'export' ? 'animate-pulse' : ''}`} />
-              Exportar Backup
-            </Button>
-            {syncLocked && (
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={handleResetLock}
-                disabled={isBusy}
-                title="O loop de sincronização está travado. Clique para liberar."
-              >
-                <Lock className={`h-3.5 w-3.5 mr-1.5 ${actionLoading === 'lock' ? 'animate-spin' : ''}`} />
-                Liberar Trava
-              </Button>
-            )}
-          </div>
+      {/* Manutenção */}
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
+        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Manutenção</span>
+        <Button variant="outline" size="sm" onClick={handleRetryAll} disabled={isBusy || !isOnline}>
+          <Play className={cn('mr-1.5 h-3.5 w-3.5', actionLoading === 'retryAll' && 'animate-pulse')} />
+          Tentar tudo
+        </Button>
+        <Button variant="outline" size="sm" onClick={handleResetStuck} disabled={isBusy}>
+          <RotateCcw className={cn('mr-1.5 h-3.5 w-3.5', actionLoading === 'reset' && 'animate-spin')} />
+          Resetar travados
+        </Button>
+        <Button variant="outline" size="sm" onClick={handleExportBackup} disabled={isBusy}>
+          <Download className={cn('mr-1.5 h-3.5 w-3.5', actionLoading === 'export' && 'animate-pulse')} />
+          Exportar backup
+        </Button>
+      </div>
 
-          {actionMessage && (
-            <p className="mt-3 text-sm text-green-700 font-medium flex items-center gap-1.5">
-              <CheckCircle2 className="h-4 w-4" />
-              {actionMessage}
-            </p>
-          )}
-
-          {totalUnsynced === 0 && !isLoading && (
-            <p className="mt-3 text-sm text-green-600 flex items-center gap-1.5">
-              <CheckCircle2 className="h-4 w-4" />
-              Tudo sincronizado!
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Per-table sections */}
-      {tables.map(table => {
-        const isOpen = !!expanded[table.name];
-        const count = table.items.length;
-        const Icon = table.Icon;
-
-        const byStatus: Partial<Record<SyncStatus, number>> = {};
-        table.items.forEach(item => {
-          byStatus[item.syncStatus] = (byStatus[item.syncStatus] ?? 0) + 1;
-        });
-
-        return (
-          <Card key={table.name}>
-            <button
-              className="w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded-t-lg"
-              onClick={() => toggle(table.name)}
-            >
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Icon className="h-4 w-4 text-gray-500 shrink-0" />
-                    <CardTitle className="text-sm truncate">{table.label}</CardTitle>
-                    {count > 0 && (
-                      <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">
-                        {count}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <Card className="min-w-0">
+          <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
+            <CardTitle className="text-base">Linha do tempo</CardTitle>
+            <span className="text-xs text-gray-500">mais recente primeiro · nesta sessão</span>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {timeline.length === 0 ? (
+              <EmptyState
+                icon={<CheckCircle2 className="h-8 w-8" />}
+                title="Nada para mostrar ainda"
+                description="Assim que algo for sincronizado, tentado ou falhar, aparece aqui."
+              />
+            ) : (
+              <ol>
+                {timeline.map((entry, idx) => {
+                  const Icon = STATE_ICON[entry.state];
+                  const isLast = idx === timeline.length - 1;
+                  const retryKey = entry.item ? `item-${entry.item.id}` : undefined;
+                  return (
+                    <li key={entry.id} className="relative flex gap-3 pb-5 last:pb-0">
+                      {!isLast && (
+                        <span
+                          aria-hidden="true"
+                          className={cn(
+                            'absolute left-4 top-8 bottom-0 border-l-2',
+                            entry.state === 'pendente' ? 'border-dashed border-gray-300' : 'border-solid border-gray-200'
+                          )}
+                        />
+                      )}
+                      <span className={cn('relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border', STATE_MARK[entry.state])}>
+                        <Icon className="h-4 w-4" />
                       </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {Object.entries(byStatus).map(([st]) => (
-                      <span key={st} className="hidden sm:inline">
-                        <StatusBadge status={st as SyncStatus} />
-                      </span>
-                    ))}
-                    {count === 0 && (
-                      <span className="text-xs text-green-600 font-medium flex items-center gap-1">
-                        <CheckCircle2 className="h-3.5 w-3.5" /> OK
-                      </span>
-                    )}
-                    {isOpen
-                      ? <ChevronDown className="h-4 w-4 text-gray-400" />
-                      : <ChevronRight className="h-4 w-4 text-gray-400" />}
-                  </div>
-                </div>
-              </CardHeader>
-            </button>
-
-            {isOpen && (
-              <CardContent className="pt-0">
-                {count === 0 ? (
-                  <p className="text-sm text-gray-500 py-2">Nenhum item pendente nesta tabela.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {table.items.map(item => {
-                      const itemStyle =
-                        item.syncStatus === 'failed'   ? 'border-red-200 bg-red-50' :
-                        item.syncStatus === 'conflict' ? 'border-orange-200 bg-orange-50' :
-                        item.syncStatus === 'syncing'  ? 'border-blue-200 bg-blue-50' :
-                                                         'border-gray-200 bg-gray-50';
-                      return (
-                        <div key={item.id} className={`rounded-lg border p-3 text-sm ${itemStyle}`}>
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0 flex-1 space-y-1">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                {item.jobStatus ? (
-                                  <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
-                                    {item.jobStatus === 'processing' ? 'Processando' : 'Na fila'}
-                                  </span>
-                                ) : (
-                                  <StatusBadge status={item.syncStatus} />
-                                )}
-                                <span className="font-medium text-gray-900 truncate max-w-[200px]">
-                                  {item.label}
-                                </span>
-                              </div>
-                              {item.sub && (
-                                <p className="text-xs text-gray-500">{item.sub}</p>
-                              )}
-                              <p className="text-xs text-gray-400 font-mono">
-                                ID: {truncId(item.id)}
-                              </p>
-                              {item.syncAttempts > 0 && (
-                                <p className="text-xs text-gray-500">
-                                  Tentativas: {item.syncAttempts}
-                                </p>
-                              )}
-                              {item.syncError && (
-                                <p className="text-xs text-red-600 break-words max-w-prose">
-                                  {item.syncError}
-                                </p>
-                              )}
-                              {item.table === 'photos' && (
-                                <div className="flex gap-4 mt-0.5">
-                                  <span className={`text-xs font-medium ${
-                                    item.hasDataUrl ? 'text-green-600' : 'text-gray-400'
-                                  }`}>
-                                    {item.hasDataUrl ? '✓ Dados locais' : '✗ Sem dados'}
-                                  </span>
-                                  <span className={`text-xs font-medium ${
-                                    item.hasStoragePath ? 'text-green-600' : 'text-yellow-600'
-                                  }`}>
-                                    {item.hasStoragePath
-                                      ? '✓ Storage OK'
-                                      : '⏳ Aguardando upload'}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
+                      <div className="min-w-0 flex-1 pt-0.5">
+                        <p className="text-xs text-gray-500 tabular-nums">{entry.meta}</p>
+                        <p className="mt-0.5 flex flex-wrap items-center gap-2 text-sm font-semibold text-gray-900">
+                          {entry.title}
+                          <Badge variant={STATE_BADGE[entry.state]}>{STATE_WORD[entry.state]}</Badge>
+                        </p>
+                        {entry.detail && <p className="mt-1 break-words text-xs text-gray-500">{entry.detail}</p>}
+                        {!!entry.item?.syncAttempts && (
+                          <p className="mt-0.5 text-xs text-gray-500">Tentativas: {entry.item.syncAttempts}</p>
+                        )}
+                        {(entry.state === 'erro' || entry.state === 'atencao') && entry.item && (
+                          <div className="mt-2 flex flex-wrap gap-2">
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleRetryItem(item)}
+                              onClick={() => handleRetryItem(entry.item!)}
                               disabled={isBusy || !isOnline}
-                              className="shrink-0 h-7 w-7 p-0"
-                              title="Tentar novamente"
                             >
-                              {actionLoading === `item-${item.id}` ? (
-                                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <RotateCcw className="h-3.5 w-3.5" />
-                              )}
+                              <RotateCcw className={cn('mr-1.5 h-3.5 w-3.5', actionLoading === retryKey && 'animate-spin')} />
+                              Tentar novamente
                             </Button>
+                            {entry.state === 'erro' && entry.item.table === 'photos' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDiscardPhoto(entry.item!)}
+                                disabled={isBusy}
+                              >
+                                <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                                Descartar…
+                              </Button>
+                            )}
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            )}
-          </Card>
-        );
-      })}
-
-      {/* Sync Logs */}
-      <Card>
-        <button
-          className="w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded-t-lg"
-          onClick={() => toggle('logs')}
-        >
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Ultimas sincronizacoes desta sessao</CardTitle>
-              <div className="flex items-center gap-2">
-                {sessionEvents.length > 0 ? (
-                  <span className="text-xs text-gray-500">{sessionEvents.length} itens</span>
-                ) : (
-                  <span className="text-xs text-gray-400">sem registros</span>
-                )}
-                {expanded['logs']
-                  ? <ChevronDown className="h-4 w-4 text-gray-400" />
-                  : <ChevronRight className="h-4 w-4 text-gray-400" />}
-              </div>
-            </div>
-          </CardHeader>
-        </button>
-
-        {expanded['logs'] && (
-          <CardContent className="pt-0">
-            {sessionEvents.length === 0 ? (
-              <p className="text-sm text-gray-500 py-2">
-                Nenhuma sincronizacao nesta sessao.
-              </p>
-            ) : (
-              <div className="max-h-80 overflow-y-auto space-y-1 font-mono text-xs rounded border border-gray-100 p-2 bg-gray-50">
-                {sessionEvents.map((event, i) => {
-                  const log = {
-                    level: 'info',
-                    timestamp: event.verifiedAt,
-                    message: `${event.table} - ${event.label}${event.sub ? ` - ${event.sub}` : ''}`,
-                  };
-                  return (
-                  <div
-                    key={i}
-                    className={`px-2 py-1 rounded ${
-                      log.level === 'error' ? 'bg-red-50 text-red-700' :
-                      log.level === 'warn'  ? 'bg-yellow-50 text-yellow-700' :
-                                              'text-gray-600'
-                    }`}
-                  >
-                    <span className="text-gray-400 select-none">
-                      {log.timestamp
-                        ? new Date(log.timestamp).toLocaleTimeString('pt-BR')
-                        : '—'}{' '}
-                    </span>
-                    {log.message}
-                  </div>
+                        )}
+                      </div>
+                    </li>
                   );
                 })}
-              </div>
+              </ol>
             )}
           </CardContent>
-        )}
-      </Card>
+        </Card>
 
+        <Card className="h-fit">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Legenda</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 pt-0">
+            {(Object.keys(STATE_WORD) as TimelineState[]).map(state => {
+              const Icon = STATE_ICON[state];
+              return (
+                <div key={state} className="flex items-start gap-2">
+                  <span className={cn('flex h-6 w-6 shrink-0 items-center justify-center rounded-full border', STATE_MARK[state])}>
+                    <Icon className="h-3.5 w-3.5" />
+                  </span>
+                  <p className="text-xs text-gray-600">
+                    <span className="font-semibold text-gray-900">{STATE_WORD[state]}</span> — {LEGEND_TEXT[state]}
+                  </p>
+                </div>
+              );
+            })}
+            <p className="pt-1 text-xs text-gray-500">
+              Estado em três canais: cor de fundo, forma do traço e a palavra. Nenhum deles sozinho.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {confirmDialog}
     </PageShell>
   );
 }
