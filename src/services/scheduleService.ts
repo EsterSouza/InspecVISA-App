@@ -17,6 +17,7 @@ export function mapFromPostgres(row: any): Schedule {
     subject: row.subject || undefined,
     durationMinutes: row.duration_minutes ?? undefined,
     meetingUrl: row.meeting_url || undefined,
+    attendanceMode: row.attendance_mode || undefined,
     participantNames: Array.isArray(row.participant_names) && row.participant_names.length > 0
       ? row.participant_names
       : undefined,
@@ -45,6 +46,7 @@ export function mapToPostgres(schedule: Schedule): any {
     subject: schedule.subject || null,
     duration_minutes: schedule.durationMinutes ?? null,
     meeting_url: schedule.meetingUrl || null,
+    attendance_mode: schedule.attendanceMode || null,
     participant_names: schedule.participantNames && schedule.participantNames.length > 0
       ? schedule.participantNames
       : null,

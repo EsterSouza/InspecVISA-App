@@ -1,25 +1,49 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { SyncQueueService } from '../services/syncQueueService';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { PageShell } from '../components/ui/PageShell';
+import { PageHeader } from '../components/ui/PageHeader';
+import { TabPanel } from '../components/ui/Tabs';
+import { cn } from '../lib/utils';
 import { compressImage } from '../utils/imageUtils';
 import { db } from '../db/database';
 import { forcePushFinalData } from '../utils/forceSync';
-import { 
-  Save, Upload, Trash2, LogOut, RefreshCw, FileText
+import {
+  Save, Upload, Trash2, LogOut, RefreshCw, FileText,
+  User, Calendar, Palette, Wrench, AlertTriangle, Info
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { SettingsService } from '../services/settingsService';
 import { useConfirmDialog } from '../components/ui/ConfirmDialog';
 import { toast } from '../store/useToastStore';
 
+type Section = 'perfil' | 'agenda' | 'aparencia' | 'sistema' | 'risco';
+
+const SECTIONS: { value: Section; label: string; icon: React.ComponentType<{ className?: string }>; danger?: boolean }[] = [
+  { value: 'perfil', label: 'Perfil', icon: User },
+  { value: 'agenda', label: 'Agenda', icon: Calendar },
+  { value: 'aparencia', label: 'Aparência', icon: Palette },
+  { value: 'sistema', label: 'Sistema', icon: Wrench },
+  { value: 'risco', label: 'Zona de risco', icon: AlertTriangle, danger: true },
+];
+
 export function Settings() {
   const { settings, currentProfile, updateSettings, replaceSettings, clearData } = useSettingsStore();
   const { signOut } = useAuthStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeSection = (searchParams.get('secao') as Section) || 'perfil';
+  const setActiveSection = (value: Section) => {
+    const next = new URLSearchParams(searchParams);
+    if (value === 'perfil') next.delete('secao');
+    else next.set('secao', value);
+    setSearchParams(next);
+  };
+  const [profileSaveStatus, setProfileSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing'>('idle');
   const [loadStatus, setLoadStatus] = useState<'idle' | 'loading' | 'loaded' | 'failed'>('idle');
   const { confirm, confirmDialog } = useConfirmDialog();
 
@@ -66,15 +90,27 @@ export function Settings() {
 
   const saveForm = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaveStatus('saving');
+    setProfileSaveStatus('saving');
     try {
       await SettingsService.save(settings, currentProfile);
-      setSaveStatus('saved');
-      setTimeout(() => setSaveStatus('idle'), 2000);
+      setProfileSaveStatus('saved');
+      setTimeout(() => setProfileSaveStatus('idle'), 2000);
     } catch (err: any) {
       console.error('[Settings] Falha ao salvar perfil remoto:', err);
-      setSaveStatus('idle');
+      setProfileSaveStatus('idle');
       toast.error(err?.message || 'Nao foi possivel salvar o perfil na nuvem.');
+    }
+  };
+
+  const handleForcePush = async () => {
+    setSyncStatus('syncing');
+    try {
+      const res = await forcePushFinalData();
+      toast.success('Sincronização concluída.', `Sucesso: ${res.totalSynced} · Erros: ${res.errors}`);
+    } catch (e: any) {
+      toast.error('Erro ao sincronizar', e.message);
+    } finally {
+      setSyncStatus('idle');
     }
   };
 
@@ -108,245 +144,337 @@ export function Settings() {
   return (
     <PageShell className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Configurações</h1>
-        <p className="text-sm text-gray-500">Ajuste seu perfil e preferências do relátorio.</p>
+        <PageHeader title="Configurações" description="Cada seção salva sozinha — não existe um botão único no fim da página." />
         {loadStatus === 'loading' && (
-          <p className="mt-1 text-xs text-primary-600">Carregando perfil salvo na nuvem...</p>
+          <p className="-mt-4 mb-2 text-xs text-primary-600">Carregando perfil salvo na nuvem...</p>
         )}
         {loadStatus === 'loaded' && (
-          <p className="mt-1 text-xs text-green-600">Perfil carregado da nuvem.</p>
+          <p className="-mt-4 mb-2 text-xs text-green-600">Perfil carregado da nuvem.</p>
         )}
         {loadStatus === 'failed' && (
-          <p className="mt-1 text-xs text-amber-600">Nao foi possivel carregar o perfil remoto agora.</p>
+          <p className="-mt-4 mb-2 text-xs text-amber-600">Nao foi possivel carregar o perfil remoto agora.</p>
         )}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Perfil do Consultor</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={saveForm} className="space-y-6">
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Nome Completo</label>
-                <input
-                  type="text"
-                  required
-                  value={settings.name}
-                  onChange={(e) => updateSettings({ name: e.target.value })}
-                  className="w-full rounded-md border border-gray-300 p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                  placeholder="Seu nome"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Nome da Empresa (Opcional)</label>
-                <input
-                  type="text"
-                  value={settings.companyName || ''}
-                  onChange={(e) => updateSettings({ companyName: e.target.value })}
-                  className="w-full rounded-md border border-gray-300 p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                  placeholder="Nome exibido no rodapé do PDF"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Telefone de Contato</label>
-                <input
-                  type="text"
-                  value={settings.phone || ''}
-                  onChange={(e) => updateSettings({ phone: e.target.value })}
-                  className="w-full rounded-md border border-gray-300 p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                  placeholder="(00) 00000-0000"
-                />
-              </div>
-
-              <div className="space-y-2 col-span-1 sm:col-span-2">
-                <label className="text-sm font-medium text-gray-700">Perfil de Atuação (Filtro de Roteiro)</label>
-                <div className="flex flex-wrap gap-4 mt-1">
-                  <label className="flex items-center space-x-2 cursor-pointer">
-                    <input 
-                      type="radio" 
-                      name="role" 
-                      value="ambos" 
-                      checked={settings.consultantRole === 'ambos' || !settings.consultantRole} 
-                      onChange={() => updateSettings({ consultantRole: 'ambos' })} 
-                      className="text-primary-600 focus:ring-primary-500 w-4 h-4" 
-                    />
-                    <span className="text-sm text-gray-700">Todas as áreas (Completo)</span>
-                  </label>
-                  <label className="flex items-center space-x-2 cursor-pointer">
-                    <input 
-                      type="radio" 
-                      name="role" 
-                      value="saude" 
-                      checked={settings.consultantRole === 'saude'} 
-                      onChange={() => updateSettings({ consultantRole: 'saude' })} 
-                      className="text-primary-600 focus:ring-primary-500 w-4 h-4" 
-                    />
-                    <span className="text-sm text-gray-700">Assistência à Saúde (Ester)</span>
-                  </label>
-                  <label className="flex items-center space-x-2 cursor-pointer">
-                    <input 
-                      type="radio" 
-                      name="role" 
-                      value="nutricao" 
-                      checked={settings.consultantRole === 'nutricao'} 
-                      onChange={() => updateSettings({ consultantRole: 'nutricao' })} 
-                      className="text-primary-600 focus:ring-primary-500 w-4 h-4" 
-                    />
-                    <span className="text-sm text-gray-700">Nutrição/UAN (Ana)</span>
-                  </label>
-                </div>
-                <p className="text-xs text-gray-500 mt-1">Isso afetará quais seções aparecerão no roteiro ILPI.</p>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Tipo de Registro profissional</label>
-                <input
-                  type="text"
-                  value={settings.professionalIdLabel || ''}
-                  onChange={(e) => updateSettings({ professionalIdLabel: e.target.value })}
-                  className="w-full rounded-md border border-gray-300 p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                  placeholder="Ex: CRBM, CRN, CRM..."
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Número do Registro</label>
-                <input
-                  type="text"
-                  value={settings.professionalId || ''}
-                  onChange={(e) => updateSettings({ professionalId: e.target.value })}
-                  className="w-full rounded-md border border-gray-300 p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                  placeholder="Ex: 123456-7"
-                />
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-gray-100">
-              <h4 className="text-sm font-medium text-gray-900 mb-4">Logotipo para o Relatório (PDF)</h4>
-              <div className="flex items-center space-x-6">
-                <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-gray-300 bg-gray-50">
-                  {settings.logoDataUrl ? (
-                    <img src={settings.logoDataUrl} alt="Logo" className="h-full w-full object-contain p-2" />
-                  ) : (
-                    <span className="text-xs text-gray-400">Sem logo</span>
-                  )}
-                </div>
-                <div className="space-y-3">
-                  <div className="flex space-x-2">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      ref={fileInputRef}
-                      onChange={handleLogoUpload}
-                    />
-                    <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-                      <Upload className="mr-2 h-4 w-4" />
-                      Fazer Upload
-                    </Button>
-                    {settings.logoDataUrl && (
-                      <Button type="button" variant="ghost" size="sm" onClick={removeLogo} className="text-red-500 hover:bg-red-50 hover:text-red-600">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-500">Recomendado: Imagem retangular ou quadrada c/ fundo transparente (PNG).</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-6 border-t border-gray-100 flex justify-end">
-              <Button type="submit" disabled={saveStatus === 'saving'} className="min-w-[120px]">
-                {saveStatus === 'saving' ? 'Salvando...' : saveStatus === 'saved' ? 'Salvo ✓' : (
-                  <><Save className="mr-2 h-4 w-4" /> Salvar Perfil</>
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+        <nav
+          aria-label="Seções de configuração"
+          className="flex gap-1 overflow-x-auto pb-1 lg:w-52 lg:shrink-0 lg:flex-col lg:overflow-visible lg:pb-0"
+        >
+          {SECTIONS.map((section) => {
+            const selected = section.value === activeSection;
+            const Icon = section.icon;
+            return (
+              <button
+                key={section.value}
+                type="button"
+                id={`tab-${section.value}`}
+                aria-controls={`tabpanel-${section.value}`}
+                aria-current={selected}
+                onClick={() => setActiveSection(section.value)}
+                className={cn(
+                  'flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 text-sm font-semibold transition-colors lg:w-full',
+                  selected
+                    ? section.danger
+                      ? 'bg-red-50 text-red-700'
+                      : 'bg-primary-50 text-primary-700'
+                    : section.danger
+                      ? 'text-red-600 hover:bg-red-50'
+                      : 'text-gray-600 hover:bg-gray-100'
                 )}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                {section.label}
+              </button>
+            );
+          })}
+        </nav>
 
+        <div className="min-w-0 flex-1 space-y-6">
+          <TabPanel value="perfil" activeValue={activeSection} className="pt-0 space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Perfil do Consultor</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={saveForm} className="space-y-6">
+                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Nome Completo</label>
+                      <input
+                        type="text"
+                        required
+                        value={settings.name}
+                        onChange={(e) => updateSettings({ name: e.target.value })}
+                        className="w-full rounded-md border border-gray-300 p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        placeholder="Seu nome"
+                      />
+                    </div>
 
-      <Card className="border-blue-100 bg-blue-50">
-        <CardContent className="p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h3 className="font-semibold text-blue-900 text-lg">Forçar Sincronização</h3>
-              <p className="text-sm text-blue-700 mt-1">Se houver inspeções pendentes presas no dispositivo, clique aqui para forçar o envio ao servidor.</p>
-            </div>
-            <Button 
-              variant="outline" 
-              className="whitespace-nowrap shrink-0 border-blue-300 text-blue-700 hover:bg-blue-100"
-              onClick={async () => {
-                setSaveStatus('saving');
-                try {
-                  const res = await forcePushFinalData();
-                  toast.success('Sincronização concluída.', `Sucesso: ${res.totalSynced} · Erros: ${res.errors}`);
-                } catch (e: any) {
-                  toast.error('Erro ao sincronizar', e.message);
-                } finally {
-                  setSaveStatus('idle');
-                }
-              }}
-            >
-              <RefreshCw className={`mr-2 h-4 w-4 ${saveStatus === 'saving' ? 'animate-spin' : ''}`} />
-              Forçar Push
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Nome da Empresa (Opcional)</label>
+                      <input
+                        type="text"
+                        value={settings.companyName || ''}
+                        onChange={(e) => updateSettings({ companyName: e.target.value })}
+                        className="w-full rounded-md border border-gray-300 p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        placeholder="Nome exibido no rodapé do PDF"
+                      />
+                    </div>
 
-      <Card className="border-indigo-100 bg-indigo-50">
-        <CardContent className="p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h3 className="font-semibold text-indigo-900 text-lg">Administração</h3>
-              <p className="text-sm text-indigo-700 mt-1">Gerencie os templates de inspeção e legislações disponíveis no aplicativo.</p>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => window.location.href='/templates'} className="whitespace-nowrap shrink-0 border-indigo-300 text-indigo-700 hover:bg-indigo-100">
-                <FileText className="mr-2 h-4 w-4" />
-                Templates
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Telefone de Contato</label>
+                      <input
+                        type="text"
+                        value={settings.phone || ''}
+                        onChange={(e) => updateSettings({ phone: e.target.value })}
+                        className="w-full rounded-md border border-gray-300 p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        placeholder="(00) 00000-0000"
+                      />
+                    </div>
 
-      <Card className="border-amber-100 bg-amber-50">
-        <CardContent className="p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h3 className="font-semibold text-amber-900 text-lg">Sessão do Usuário</h3>
-              <p className="text-sm text-amber-700 mt-1">Encerrar sua sessão atual. Você precisará fazer login novamente para acessar os dados.</p>
-            </div>
-            <Button variant="outline" onClick={() => signOut()} className="whitespace-nowrap shrink-0 border-amber-300 text-amber-700 hover:bg-amber-100">
-              <LogOut className="mr-2 h-4 w-4" />
-              Sair da Conta
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+                    <div className="space-y-2 col-span-1 sm:col-span-2">
+                      <label className="text-sm font-medium text-gray-700">Perfil de Atuação (Filtro de Roteiro)</label>
+                      <div className="flex flex-wrap gap-4 mt-1">
+                        <label className="flex items-center space-x-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="role"
+                            value="ambos"
+                            checked={settings.consultantRole === 'ambos' || !settings.consultantRole}
+                            onChange={() => updateSettings({ consultantRole: 'ambos' })}
+                            className="text-primary-600 focus:ring-primary-500 w-4 h-4"
+                          />
+                          <span className="text-sm text-gray-700">Todas as áreas (Completo)</span>
+                        </label>
+                        <label className="flex items-center space-x-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="role"
+                            value="saude"
+                            checked={settings.consultantRole === 'saude'}
+                            onChange={() => updateSettings({ consultantRole: 'saude' })}
+                            className="text-primary-600 focus:ring-primary-500 w-4 h-4"
+                          />
+                          <span className="text-sm text-gray-700">Assistência à Saúde (Ester)</span>
+                        </label>
+                        <label className="flex items-center space-x-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="role"
+                            value="nutricao"
+                            checked={settings.consultantRole === 'nutricao'}
+                            onChange={() => updateSettings({ consultantRole: 'nutricao' })}
+                            className="text-primary-600 focus:ring-primary-500 w-4 h-4"
+                          />
+                          <span className="text-sm text-gray-700">Nutrição/UAN (Ana)</span>
+                        </label>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">Isso afetará quais seções aparecerão no roteiro ILPI.</p>
+                    </div>
 
-      <Card className="border-red-100 bg-red-50">
-        <CardContent className="p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h3 className="font-semibold text-red-900 text-lg">Zona de Perigo</h3>
-              <p className="text-sm text-red-700 mt-1">Apagar todos os dados locais do aplicativo. Esta ação não pode ser desfeita e os dados não sincronizados serão perdidos.</p>
-            </div>
-            <Button variant="danger" onClick={handleClearData} className="whitespace-nowrap shrink-0">
-              <Trash2 className="mr-2 h-4 w-4" />
-              Apagar Tudo
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-      
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Tipo de Registro profissional</label>
+                      <input
+                        type="text"
+                        value={settings.professionalIdLabel || ''}
+                        onChange={(e) => updateSettings({ professionalIdLabel: e.target.value })}
+                        className="w-full rounded-md border border-gray-300 p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        placeholder="Ex: CRBM, CRN, CRM..."
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700">Número do Registro</label>
+                      <input
+                        type="text"
+                        value={settings.professionalId || ''}
+                        onChange={(e) => updateSettings({ professionalId: e.target.value })}
+                        className="w-full rounded-md border border-gray-300 p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        placeholder="Ex: 123456-7"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-gray-100">
+                    <h4 className="text-sm font-medium text-gray-900 mb-4">Logotipo para o Relatório (PDF)</h4>
+                    <div className="flex items-center space-x-6">
+                      <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-gray-300 bg-gray-50">
+                        {settings.logoDataUrl ? (
+                          <img src={settings.logoDataUrl} alt="Logo" className="h-full w-full object-contain p-2" />
+                        ) : (
+                          <span className="text-xs text-gray-400">Sem logo</span>
+                        )}
+                      </div>
+                      <div className="space-y-3">
+                        <div className="flex space-x-2">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            ref={fileInputRef}
+                            onChange={handleLogoUpload}
+                          />
+                          <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                            <Upload className="mr-2 h-4 w-4" />
+                            Fazer Upload
+                          </Button>
+                          {settings.logoDataUrl && (
+                            <Button type="button" variant="ghost" size="sm" onClick={removeLogo} className="text-red-500 hover:bg-red-50 hover:text-red-600">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500">Recomendado: Imagem retangular ou quadrada c/ fundo transparente (PNG).</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-6 border-t border-gray-100 flex justify-end">
+                    <Button type="submit" disabled={profileSaveStatus === 'saving'} className="min-w-[120px]">
+                      {profileSaveStatus === 'saving' ? 'Salvando...' : profileSaveStatus === 'saved' ? 'Salvo ✓' : (
+                        <><Save className="mr-2 h-4 w-4" /> Salvar Perfil</>
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          </TabPanel>
+
+          <TabPanel value="agenda" activeValue={activeSection} className="pt-0 space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Margem de agenda por modalidade</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <p className="text-sm text-gray-500">
+                  Regra fixa do sistema — ainda não editável por aqui. É o que hoje reserva (ou libera) o
+                  horário ao redor de um compromisso na agenda.
+                </p>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="rounded-xl border border-gray-200 p-4">
+                    <p className="text-sm font-semibold text-gray-900">Presencial</p>
+                    <p className="mt-1 text-sm text-gray-600">1 hora antes · 3 horas depois</p>
+                    <p className="mt-1 text-xs text-gray-500">Reserva o deslocamento até e a partir da visita.</p>
+                  </div>
+                  <div className="rounded-xl border border-gray-200 p-4">
+                    <p className="text-sm font-semibold text-gray-900">Online</p>
+                    <p className="mt-1 text-sm text-gray-600">30 minutos antes · 2 horas depois</p>
+                    <p className="mt-1 text-xs text-gray-500">Só a troca entre chamadas — sem deslocamento.</p>
+                  </div>
+                </div>
+                <div className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                  <Info className="h-4 w-4 shrink-0 text-amber-700 mt-0.5" aria-hidden="true" />
+                  <p className="text-sm text-amber-800">
+                    Compromisso criado à mão sem modalidade caía, em silêncio, na margem de presencial —
+                    a mais larga das duas. A tela de <strong>Agendamentos</strong> agora pede a modalidade
+                    ao criar um compromisso manual, exatamente para que essa escolha pare de ser invisível.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabPanel>
+
+          <TabPanel value="aparencia" activeValue={activeSection} className="pt-0 space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Tema</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <fieldset disabled className="flex flex-wrap gap-4 opacity-60">
+                  <legend className="sr-only">Tema</legend>
+                  <label className="flex items-center space-x-2">
+                    <input type="radio" name="theme" checked={settings.theme !== 'dark'} readOnly className="h-4 w-4" />
+                    <span className="text-sm text-gray-700">Claro</span>
+                  </label>
+                  <label className="flex items-center space-x-2">
+                    <input type="radio" name="theme" checked={settings.theme === 'dark'} readOnly className="h-4 w-4" />
+                    <span className="text-sm text-gray-700">Escuro</span>
+                  </label>
+                </fieldset>
+                <p className="text-xs text-gray-500">
+                  Desabilitado por enquanto. Hoje o app não tem nenhuma classe de tema escuro implementada —
+                  ligar este seletor sem isso trocaria a opção e não mudaria nada na tela. Ele passa a
+                  funcionar depois que a cor do app inteiro virar token de marca.
+                </p>
+              </CardContent>
+            </Card>
+          </TabPanel>
+
+          <TabPanel value="sistema" activeValue={activeSection} className="pt-0 space-y-6">
+            <Card className="border-blue-100 bg-blue-50">
+              <CardContent className="p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h3 className="font-semibold text-blue-900 text-lg">Forçar Sincronização</h3>
+                    <p className="text-sm text-blue-700 mt-1">Se houver inspeções pendentes presas no dispositivo, clique aqui para forçar o envio ao servidor.</p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="whitespace-nowrap shrink-0 border-blue-300 text-blue-700 hover:bg-blue-100"
+                    disabled={syncStatus === 'syncing'}
+                    onClick={handleForcePush}
+                  >
+                    <RefreshCw className={`mr-2 h-4 w-4 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`} />
+                    Forçar Push
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-indigo-100 bg-indigo-50">
+              <CardContent className="p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h3 className="font-semibold text-indigo-900 text-lg">Administração</h3>
+                    <p className="text-sm text-indigo-700 mt-1">Gerencie os templates de inspeção e legislações disponíveis no aplicativo.</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => window.location.href = '/templates'} className="whitespace-nowrap shrink-0 border-indigo-300 text-indigo-700 hover:bg-indigo-100">
+                      <FileText className="mr-2 h-4 w-4" />
+                      Templates
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-amber-100 bg-amber-50">
+              <CardContent className="p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h3 className="font-semibold text-amber-900 text-lg">Sessão do Usuário</h3>
+                    <p className="text-sm text-amber-700 mt-1">Encerrar sua sessão atual. Você precisará fazer login novamente para acessar os dados.</p>
+                  </div>
+                  <Button variant="outline" onClick={() => signOut()} className="whitespace-nowrap shrink-0 border-amber-300 text-amber-700 hover:bg-amber-100">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sair da Conta
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabPanel>
+
+          <TabPanel value="risco" activeValue={activeSection} className="pt-0 space-y-6">
+            <Card className="border-red-100 bg-red-50">
+              <CardContent className="p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h3 className="font-semibold text-red-900 text-lg">Zona de Perigo</h3>
+                    <p className="text-sm text-red-700 mt-1">Apagar todos os dados locais do aplicativo. Esta ação não pode ser desfeita e os dados não sincronizados serão perdidos.</p>
+                  </div>
+                  <Button variant="danger" onClick={handleClearData} className="whitespace-nowrap shrink-0">
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Apagar Tudo
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabPanel>
+        </div>
+      </div>
+
       <div className="text-center text-xs text-gray-400 pb-10">
         InspecVISA PWA v1.0.0 • Dados salvos localmente
       </div>

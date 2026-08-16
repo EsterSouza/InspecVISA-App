@@ -377,6 +377,10 @@ export interface Schedule {
   meetingUrl?: string;
   participantNames?: string[];
   cancellationReason?: string;
+  // Presencial reserva deslocamento (buffer maior) na margem de conflito da agenda;
+  // online só precisa de troca entre chamadas. Ausente (legado/nulo) cai no default
+  // 'presencial' dentro de private.appointment_has_conflict — o lado conservador.
+  attendanceMode?: 'presencial' | 'online';
   // Consultora(s) responsável(is) por esta visita. A inspeção herda na criação.
   consultantNames?: string[];
   user_id?: string;

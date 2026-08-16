@@ -65,6 +65,7 @@ export function NewVisitModal({ clients, onClose, onCreated }: NewVisitModalProp
         status: 'pending',
         notes: `Visita agendada pela equipe — ${selectedClient?.name ?? ''}`,
         consultantNames: selectedConsultants,
+        attendanceMode,
         meetingUrl: attendanceMode === 'online' ? meetingUrl.trim() || undefined : undefined,
         updatedAt: now,
         tenantId,

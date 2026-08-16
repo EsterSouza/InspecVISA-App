@@ -98,6 +98,7 @@ export function Schedules() {
   const [scheduledDate, setScheduledDate] = useState('');
   const [scheduledTime, setScheduledTime] = useState('');
   const [notes, setNotes] = useState('');
+  const [attendanceMode, setAttendanceMode] = useState<'presencial' | 'online'>('presencial');
   const [selectedConsultants, setSelectedConsultants] = useState<string[]>(defaultConsultants);
   const [repeatMonthly, setRepeatMonthly] = useState(false);
   const [repeatCount, setRepeatCount] = useState(2);
@@ -187,6 +188,7 @@ export function Schedules() {
           clientId: selectedClientId || undefined,
           scheduledAt,
           notes: notes,
+          attendanceMode,
           consultantNames: selectedConsultants,
           localActorId: actor.id,
         };
@@ -208,6 +210,7 @@ export function Schedules() {
           await AppointmentAdminService.updateRequest(linkedRequest.id, {
             status: 'confirmed',
             ...clientFields,
+            attendance_mode: attendanceMode,
             requested_date: scheduledDate,
             requested_time: scheduledTime,
             requested_period: startsAt.getHours() < 12 ? 'manha' : 'tarde',
@@ -227,7 +230,7 @@ export function Schedules() {
             scheduleId: updated.id,
             date: scheduledDate,
             time: scheduledTime,
-            attendanceMode: 'presencial',
+            attendanceMode,
             municipality: place.municipality,
             district: place.district,
             consultantNames: selectedConsultants,
@@ -252,6 +255,7 @@ export function Schedules() {
             appointmentType: 'inspection',
             durationMinutes: 60,
             notes: notes,
+            attendanceMode,
             consultantNames: selectedConsultants,
             updatedAt: new Date(),
             localActorId: actor.id,
@@ -268,7 +272,7 @@ export function Schedules() {
             scheduleId: newSchedule.id,
             date: occurrenceDate,
             time: scheduledTime,
-            attendanceMode: 'presencial',
+            attendanceMode,
             municipality: place.municipality,
             district: place.district,
           });
@@ -305,6 +309,7 @@ export function Schedules() {
     setScheduledDate(date);
     setScheduledTime(time);
     setNotes(schedule.notes || '');
+    setAttendanceMode(schedule.attendanceMode || 'presencial');
     setSelectedConsultants(
       schedule.consultantNames && schedule.consultantNames.length > 0
         ? schedule.consultantNames
@@ -321,6 +326,7 @@ export function Schedules() {
     setScheduledDate('');
     setScheduledTime('');
     setNotes('');
+    setAttendanceMode('presencial');
     setSelectedConsultants(defaultConsultants());
     setRepeatMonthly(false);
     setRepeatCount(2);
@@ -685,6 +691,31 @@ export function Schedules() {
                       className="w-full rounded-xl border border-gray-300 p-3 text-sm"
                     />
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <span id="schedule-attendance-label" className="text-sm font-medium text-gray-700">
+                    Modalidade <span className="text-red-500">*</span>
+                  </span>
+                  <div className="grid grid-cols-2 gap-2" role="group" aria-labelledby="schedule-attendance-label">
+                    <button
+                      type="button"
+                      onClick={() => setAttendanceMode('presencial')}
+                      aria-pressed={attendanceMode === 'presencial'}
+                      className={`h-11 rounded-xl border text-sm font-bold ${attendanceMode === 'presencial' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600'}`}
+                    >
+                      Presencial
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAttendanceMode('online')}
+                      aria-pressed={attendanceMode === 'online'}
+                      className={`h-11 rounded-xl border text-sm font-bold ${attendanceMode === 'online' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600'}`}
+                    >
+                      Online
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500">Define a margem de conflito reservada na agenda: presencial reserva deslocamento, online só a troca entre chamadas.</p>
                 </div>
 
                 {!isEditing && (
