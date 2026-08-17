@@ -14,6 +14,8 @@ const capturedTexts: string[] = [];
 const drawnRuns: { text: string; x: number; right: number }[] = [];
 /** URLs registradas como link clicável. */
 const linkedUrls: string[] = [];
+/** Áreas clicáveis registradas via `doc.link(x, y, w, h, { url })`. */
+const linkedRects: { url: string }[] = [];
 
 vi.mock('jspdf', async (importOriginal) => {
   const actual = await importOriginal<typeof import('jspdf')>();
@@ -46,6 +48,13 @@ vi.mock('jspdf', async (importOriginal) => {
         if (url) linkedUrls.push(url);
         return originalTextWithLink(...linkArgs);
       }) as typeof originalTextWithLink;
+
+      const originalLink = this.link.bind(this);
+      this.link = ((...args: Parameters<typeof originalLink>) => {
+        const url = (args[4] as { url?: string } | undefined)?.url;
+        if (url) linkedRects.push({ url });
+        return originalLink(...args);
+      }) as typeof originalLink;
     }
   }
   return { ...actual, default: SpyingJsPDF };
@@ -172,6 +181,29 @@ describe('REF-03 - drawConsultedSources (via generatePDF)', () => {
     expect(capturedTexts.some(t =>
       t.includes('BRASIL. Agência Nacional de Vigilância Sanitária (ANVISA). RDC Anvisa nº 63/2011.')
     )).toBe(true);
+  });
+
+  test('botão do portal aparece na capa quando há link público', async () => {
+    linkedRects.length = 0;
+    const score = calculateScore(responses, sections);
+    await generatePDF(inspection, responses, template, score, settings, [], {
+      selectedLegislations: ['RDC 63/2011'],
+      portalUrl: 'https://app.exemplo.com/cliente/visita/token-abc',
+    });
+
+    expect(capturedTexts).toContain('Ver relatório e plano de ação no portal');
+    expect(linkedRects).toContainEqual({ url: 'https://app.exemplo.com/cliente/visita/token-abc' });
+  });
+
+  test('sem link público, a capa não ganha botão nenhum', async () => {
+    linkedRects.length = 0;
+    const score = calculateScore(responses, sections);
+    await generatePDF(inspection, responses, template, score, settings, [], {
+      selectedLegislations: ['RDC 63/2011'],
+    });
+
+    expect(capturedTexts).not.toContain('Ver relatório e plano de ação no portal');
+    expect(linkedRects).toHaveLength(0);
   });
 
   test('norma revogada é citada com a substituta, não como vigente', async () => {

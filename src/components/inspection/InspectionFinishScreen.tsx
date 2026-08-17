@@ -17,6 +17,7 @@ import { calculateAreaScores } from '../../utils/scoring';
 import { NO_DEADLINE } from '../../utils/clientActionPlan';
 import { generateId } from '../../utils/imageUtils';
 import { toast } from '../../store/useToastStore';
+import { CopyLinkButton } from '../client/CopyLinkButton';
 import type { MissingText } from './ExecutionScorePanel';
 import type { ChecklistTemplate, Inspection, InspectionResponse, Schedule } from '../../types';
 
@@ -39,7 +40,7 @@ import type { ChecklistTemplate, Inspection, InspectionResponse, Schedule } from
  */
 type DeliveryState =
   | { kind: 'carregando' }
-  | { kind: 'pronta'; requestId: string }
+  | { kind: 'pronta'; requestId: string; publicToken: string }
   | { kind: 'sem-agendamento' }
   | { kind: 'vinculo-nao-chegou'; scheduleId: string }
   | { kind: 'offline' };
@@ -106,7 +107,7 @@ export function InspectionFinishScreen({
     setDelivery({ kind: 'carregando' });
     try {
       const request = await AppointmentAdminService.getRequestByInspectionId(inspection.id);
-      if (request) { setDelivery({ kind: 'pronta', requestId: request.id }); return; }
+      if (request) { setDelivery({ kind: 'pronta', requestId: request.id, publicToken: request.public_token }); return; }
 
       const schedules = await ScheduleService.getSchedules();
       const linked = schedules.find(s => s.inspectionId === inspection.id);
@@ -408,13 +409,27 @@ export function InspectionFinishScreen({
               )}
 
               {delivery.kind === 'pronta' && (
-                <div className="flex items-start gap-2 rounded-md border border-success-soft-border bg-success-soft p-3">
-                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-success-soft-ink" aria-hidden="true" />
-                  <p className="text-sm text-success-soft-ink">
-                    <strong>Pronta para entregar.</strong> Há uma solicitação do portal apontando para
-                    esta inspeção.
-                  </p>
-                </div>
+                <>
+                  <div className="flex items-start gap-2 rounded-md border border-success-soft-border bg-success-soft p-3">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-success-soft-ink" aria-hidden="true" />
+                    <p className="text-sm text-success-soft-ink">
+                      <strong>Pronta para entregar.</strong> Há uma solicitação do portal apontando para
+                      esta inspeção.
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 rounded-md border border-default bg-surface-sunken px-3 py-2.5">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-navy-3">Link público do cliente</p>
+                      <p className="truncate text-sm text-navy-2">
+                        {`${window.location.origin}/cliente/visita/${delivery.publicToken}`}
+                      </p>
+                    </div>
+                    <CopyLinkButton
+                      url={`${window.location.origin}/cliente/visita/${delivery.publicToken}`}
+                      label={inspection.clientName || 'cliente'}
+                    />
+                  </div>
+                </>
               )}
 
               {delivery.kind === 'vinculo-nao-chegou' && (

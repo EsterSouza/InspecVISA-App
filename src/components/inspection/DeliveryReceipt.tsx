@@ -9,6 +9,7 @@ import { AppointmentAdminService } from '../../services/appointmentAdminService'
 import { ScheduleService } from '../../services/scheduleService';
 import { isInspectionAppointment } from '../../utils/appointmentType';
 import { toast } from '../../store/useToastStore';
+import { CopyLinkButton } from '../client/CopyLinkButton';
 import type { AppointmentRequest, Inspection, Schedule } from '../../types';
 
 /**
@@ -150,6 +151,16 @@ export function DeliveryReceipt({ inspection }: { inspection: Inspection }) {
         </div>
       ) : (
         <div>
+          <div className="flex items-center justify-between gap-3 border-b border-default bg-surface-sunken px-5 py-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold uppercase tracking-wide text-navy-3">Link público do cliente</p>
+              <p className="truncate text-sm text-navy-2">{`${window.location.origin}/cliente/visita/${request.public_token}`}</p>
+            </div>
+            <CopyLinkButton
+              url={`${window.location.origin}/cliente/visita/${request.public_token}`}
+              label={inspection.clientName || 'cliente'}
+            />
+          </div>
           <Linha
             entregue={!!request.report_pdf_path && !request.report_hidden}
             titulo="Relatório no portal"

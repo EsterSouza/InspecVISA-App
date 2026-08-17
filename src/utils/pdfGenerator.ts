@@ -156,6 +156,8 @@ export async function generatePDF(
     selectedLegislations?: string[];
     referenceSources?: ReferenceSource[];
     signatureDataUrl?: string;
+    /** Link público (sem login) desta visita no portal — some se não houver solicitação vinculada. */
+    portalUrl?: string;
     recurringItemIds?: Set<string>;
     /** REL-03 — o que o cliente alegou ter corrigido, por item do roteiro. */
     clientEvidenceByItemId?: Map<string, ClientEvidenceForItem[]>;
@@ -649,6 +651,23 @@ export async function generatePDF(
   doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
   doc.text(template.name, margin, 28);
+
+  // Botão do portal, na barra do cabeçalho (área fixa, imune à altura variável
+  // do conteúdo abaixo). Só aparece se a inspeção estiver vinculada a uma
+  // solicitação — sem isso não existe link público para levar.
+  if (options.portalUrl) {
+    const btnLabel = 'Ver relatório e plano de ação no portal';
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    const btnW = doc.getTextWidth(btnLabel) + 8;
+    const btnY = 33;
+    const btnH = 6;
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(margin, btnY, btnW, btnH, 1.5, 1.5, 'F');
+    doc.setTextColor(...primaryColor);
+    doc.text(btnLabel, margin + 4, btnY + 4.2);
+    doc.link(margin, btnY, btnW, btnH, { url: options.portalUrl });
+  }
 
   // Establishment data
   let y = 55;

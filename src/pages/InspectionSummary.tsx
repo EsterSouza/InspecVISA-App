@@ -402,6 +402,11 @@ export function InspectionSummary() {
        }
 
        const shouldSyncFinalSnapshot = currentInspection.status === 'completed' && currentReadiness.isReady && navigator.onLine;
+       // Buscado aqui (antes de gerar) para poder desenhar o botão do portal na
+       // capa do PDF; reaproveitado abaixo na publicação, sem buscar de novo.
+       const linkedRequest = navigator.onLine
+         ? await AppointmentAdminService.getRequestByInspectionId(currentInspection.id).catch(() => null)
+         : null;
        await new Promise(resolve => setTimeout(resolve, 100));
        const { generatePDF } = await import('../utils/pdfGenerator');
        const recurringItemIds = await getRecurringItemIdsForClient(currentInspection.clientId, currentInspection.id, displayTemplate)
@@ -442,6 +447,7 @@ export function InspectionSummary() {
            selectedLegislations: opts.selectedLegislations,
            referenceSources: opts.referenceSources,
            signatureDataUrl: opts.signatureDataUrl,
+           portalUrl: linkedRequest ? `${window.location.origin}/cliente/visita/${linkedRequest.public_token}` : undefined,
            recurringItemIds,
            clientEvidenceByItemId: clientEvidenceByItemId?.evidence,
            clientDeclarationByItemId: clientEvidenceByItemId?.declarations,
@@ -453,7 +459,6 @@ export function InspectionSummary() {
            finalizeReport: true,
            inspectionOverride: snapshotInspection,
          });
-         const linkedRequest = await AppointmentAdminService.getRequestByInspectionId(currentInspection.id);
          if (linkedRequest) {
            const file = new File([generatedPdf.blob], generatedPdf.filename, { type: 'application/pdf' });
            await AppointmentAdminService.publishReport(linkedRequest, file);
