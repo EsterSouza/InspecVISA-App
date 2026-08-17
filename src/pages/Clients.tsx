@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Search, Plus, Edit2, Trash2, Loader2, WifiOff, KeyRound, AlertTriangle, Users, FilterX } from 'lucide-react';
+import { Search, Plus, Phone, MapPin, Edit2, Trash2, Loader2, WifiOff, KeyRound, AlertTriangle, Users, FilterX } from 'lucide-react';
 import { type Client, type ClientCategory, type ClientContact, type FoodEstablishmentType, FOOD_SEGMENT_LABELS } from '../types';
 import { Button } from '../components/ui/Button';
+import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
 import { Field } from '../components/ui/Field';
@@ -14,7 +15,7 @@ import { PageShell } from '../components/ui/PageShell';
 import { PageHeader } from '../components/ui/PageHeader';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
-import { TableContainer, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
 import { Pagination } from '../components/ui/Pagination';
 import { PAGE_SIZE, usePagedList } from '../components/schedules/appointmentRequestsShared';
 import { generateId } from '../utils/imageUtils';
@@ -36,6 +37,9 @@ export function Clients() {
   const [search, setSearch] = useState('');
   const [filterCat, setFilterCat] = useState<ClientCategory | 'all'>('all');
   const [sortDir, setSortDir] = useState<'ascending' | 'descending'>('ascending');
+  // Cards é o principal (decisão da Ester em 17/08); a tabela densa é visualização alternativa,
+  // do mesmo jeito que a agenda tem Semana / Lista (decisão 13).
+  const [view, setView] = useState<'cards' | 'tabela'>('cards');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
@@ -192,6 +196,19 @@ export function Clients() {
   }, [clients, sortDir]);
   const { page, totalPages, items: pagedClients, setPage } = usePagedList(sortedClients);
 
+  // Mexer no filtro ou na ordem volta para a primeira página: senão quem estava na página 3 e
+  // limpa a busca cai na cauda da lista, sem nada na tela explicando por quê.
+  useEffect(() => { setPage(1); }, [search, filterCat, sortDir, setPage]);
+
+  // O que cada linha mostra, calculado uma vez: a tabela (desktop) e os cards (celular) leem daqui.
+  const pagedRows = pagedClients.map((client) => ({
+    client,
+    portalAccesses: portalAccessByClient.get(client.id) || [],
+    phone: client.contacts?.find((contact) => contact.phone)?.phone || client.phone,
+    // Cadastro antigo às vezes só tem `address`; sem isso a coluna ficava vazia sem motivo.
+    place: [client.city, toUF(client.state) || client.state].filter(Boolean).join('/') || client.address,
+  }));
+
   return (
     <PageShell>
       <PageHeader
@@ -268,6 +285,24 @@ export function Clients() {
         </Select>
       </div>
 
+      <div className="mb-4 flex justify-end">
+        <div className="inline-flex gap-0.5 rounded-md border border-default bg-surface-sunken p-0.5">
+          {([['cards', 'Cards'], ['tabela', 'Tabela']] as const).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              aria-pressed={view === key}
+              onClick={() => setView(key)}
+              className={`rounded px-3 py-1.5 text-sm font-semibold transition-colors [@media(pointer:coarse)]:min-h-11 ${
+                view === key ? 'bg-surface text-primary-700 shadow-sm' : 'text-navy-3 hover:text-navy'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {loadError ? (
         <div className="rounded-lg border border-default bg-surface">
           <EmptyState
@@ -282,71 +317,144 @@ export function Clients() {
             }
           />
         </div>
-      ) : (
-        <TableContainer>
-          <Table aria-busy={isFetching || undefined} aria-label="Clientes">
-            <TableHeader>
-              <TableRow>
-                <TableHead
-                  sortDirection={sortDir}
-                  onSort={() => setSortDir((d) => (d === 'ascending' ? 'descending' : 'ascending'))}
-                >
-                  Cliente
-                </TableHead>
-                <TableHead>Categoria</TableHead>
-                <TableHead className="hidden md:table-cell">Cidade</TableHead>
-                <TableHead className="hidden md:table-cell">Contato</TableHead>
-                <TableHead className="hidden lg:table-cell">Portal</TableHead>
-                <TableHead align="right"><span className="sr-only">Ações</span></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isFetching ? (
-                [0, 1, 2].map((i) => (
-                  <TableRow key={i}>
-                    <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                    <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
-                    <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-28" /></TableCell>
-                    <TableCell className="hidden lg:table-cell"><Skeleton className="h-4 w-20" /></TableCell>
-                    <TableCell align="right"><Skeleton className="ml-auto h-4 w-16" /></TableCell>
-                  </TableRow>
-                ))
-              ) : pagedClients.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="h-auto py-0">
-                    {search || filterCat !== 'all' ? (
-                      <EmptyState
-                        icon={<FilterX className="h-8 w-8" />}
-                        title="Nada com este filtro"
-                        description="Nenhum cliente encontrado para a busca ou categoria atual. O cadastro pode existir, só está escondido."
-                        action={
-                          <Button size="sm" variant="outline" onClick={() => { setSearch(''); setFilterCat('all'); }}>
-                            Limpar filtros
-                          </Button>
-                        }
-                      />
-                    ) : (
-                      <EmptyState
-                        icon={<Users className="h-8 w-8" />}
-                        title="Nenhum cliente cadastrado ainda"
-                        description="Cadastre o primeiro estabelecimento para começar a agendar inspeções."
-                        action={
-                          <Button size="sm" onClick={() => { setClientContacts([{ name: '', phone: '', email: '' }]); setIsModalOpen(true); }}>
-                            <Plus className="mr-2 h-4 w-4" /> Novo Cliente
-                          </Button>
-                        }
-                      />
+      ) : isFetching ? (
+        <div className="space-y-4" aria-busy="true" aria-label="Carregando clientes">
+          {[0, 1, 2].map((i) => (
+            <Card key={i} className="p-5">
+              <div className="flex items-start justify-between">
+                <div className="flex-1 space-y-3">
+                  <Skeleton className="h-5 w-48" />
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-64" />
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      ) : clients.length === 0 ? (
+        <div className="rounded-lg border border-default bg-surface">
+          {search || filterCat !== 'all' ? (
+            <EmptyState
+              icon={<FilterX className="h-8 w-8" />}
+              title="Nada com este filtro"
+              description="Nenhum cliente encontrado para a busca ou categoria atual. O cadastro pode existir, só está escondido."
+              action={
+                <Button size="sm" variant="outline" onClick={() => { setSearch(''); setFilterCat('all'); }}>
+                  Limpar filtros
+                </Button>
+              }
+            />
+          ) : (
+            <EmptyState
+              icon={<Users className="h-8 w-8" />}
+              title="Nenhum cliente cadastrado ainda"
+              description="Cadastre o primeiro estabelecimento para começar a agendar inspeções."
+              action={
+                <Button size="sm" onClick={() => { setClientContacts([{ name: '', phone: '', email: '' }]); setIsModalOpen(true); }}>
+                  <Plus className="mr-2 h-4 w-4" /> Novo Cliente
+                </Button>
+              }
+            />
+          )}
+        </div>
+      ) : view === 'cards' ? (
+        <div className="space-y-4">
+          {pagedRows.map(({ client, portalAccesses, phone, place }) => (
+            <Card
+              key={client.id}
+              className="p-5 hover:border-primary-200 hover:shadow-md transition-all cursor-pointer group"
+              onClick={() => navigate(`/clients/${client.id}`)}
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-navy group-hover:text-primary-700 transition-colors">{client.name}</h3>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    <Badge variant={
+                      client.category === 'estetica' ? 'success' :
+                      client.category === 'ilpi' ? 'warning' : 'default'
+                    }>
+                      {client.category?.toUpperCase() || 'SEM CATEGORIA'}
+                    </Badge>
+                    {client.category === 'alimentos' && client.foodTypes?.map(ft => (
+                      <Badge key={ft} variant="outline" className="bg-amber-soft text-amber-soft-ink border-amber-soft-border">
+                        {FOOD_SEGMENT_LABELS[ft as FoodEstablishmentType] || ft}
+                      </Badge>
+                    ))}
+                    {portalAccesses.length > 0 && (
+                      <Badge variant="outline" className="bg-primary-50 text-primary-700 border-primary-200">
+                        <KeyRound className="mr-1 h-3 w-3" />
+                        Portal: {portalAccesses.map((account) => account.name).join(', ')}
+                      </Badge>
                     )}
-                  </TableCell>
+                  </div>
+                  <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 text-sm text-navy-2">
+                    {phone && (
+                      <div className="flex items-center">
+                        <Phone className="mr-2 h-4 w-4 text-navy-3" /> {phone}
+                      </div>
+                    )}
+                    {place && (
+                      <div className="flex items-center col-span-1 sm:col-span-2">
+                        <MapPin className="mr-2 h-4 w-4 text-navy-3" /> {place}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {/* Sempre visíveis: no toque não existe hover, e antes elas só apareciam com o cursor em cima. */}
+                <div className="ml-4 flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label={`Editar ${client.name}`}
+                    title="Editar cliente"
+                    onClick={(e) => handleEdit(client, e)}
+                  >
+                    <Edit2 className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label={`Excluir ${client.name}`}
+                    title="Excluir cliente"
+                    className="text-danger hover:bg-danger-soft hover:text-danger"
+                    onClick={(e) => handleDelete(client, e)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          ))}
+          <Pagination
+            page={page}
+            pageCount={totalPages}
+            onPageChange={setPage}
+            totalItems={sortedClients.length}
+            pageSize={PAGE_SIZE}
+            className="rounded-lg border border-default"
+          />
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-lg border border-default bg-surface">
+          <div className="overflow-x-auto">
+            <Table aria-label="Clientes">
+              <TableHeader>
+                <TableRow>
+                  <TableHead
+                    sortDirection={sortDir}
+                    onSort={() => setSortDir((d) => (d === 'ascending' ? 'descending' : 'ascending'))}
+                  >
+                    Cliente
+                  </TableHead>
+                  <TableHead>Categoria</TableHead>
+                  <TableHead>Cidade</TableHead>
+                  <TableHead>Contato</TableHead>
+                  <TableHead className="hidden xl:table-cell">Portal</TableHead>
+                  <TableHead align="right"><span className="sr-only">Ações</span></TableHead>
                 </TableRow>
-              ) : (
-                pagedClients.map((client) => {
-                  const portalAccesses = portalAccessByClient.get(client.id) || [];
-                  const phone = (client.contacts?.find((contact) => contact.phone)?.phone) || client.phone;
-                  // Cadastro antigo às vezes só tem `address`; sem isso a coluna ficava vazia sem motivo.
-                  const place = [client.city, toUF(client.state) || client.state].filter(Boolean).join('/') || client.address;
-                  return (
+              </TableHeader>
+              <TableBody>
+                {pagedRows.map(({ client, portalAccesses, phone, place }) => (
                     <TableRow
                       key={client.id}
                       onClick={() => navigate(`/clients/${client.id}`)}
@@ -360,7 +468,7 @@ export function Clients() {
                       }}
                       className="cursor-pointer"
                     >
-                      <TableCell primary className="max-w-[320px]">
+                      <TableCell primary className="max-w-[240px]">
                         <p className="truncate">{client.name}</p>
                         {(client.responsibleName || client.cnpj) && (
                           <p className="truncate text-xs font-normal text-navy-3">
@@ -381,13 +489,13 @@ export function Clients() {
                           </p>
                         )}
                       </TableCell>
-                      <TableCell className="hidden max-w-[220px] truncate md:table-cell">
+                      <TableCell className="max-w-[220px] truncate">
                         {place || <span className="text-navy-3">—</span>}
                       </TableCell>
-                      <TableCell className="hidden md:table-cell">
+                      <TableCell>
                         {phone || <span className="text-navy-3">—</span>}
                       </TableCell>
-                      <TableCell className="hidden lg:table-cell max-w-[200px]">
+                      <TableCell className="hidden xl:table-cell max-w-[200px]">
                         {portalAccesses.length > 0 ? (
                           <span className="flex items-center gap-1 truncate text-xs font-semibold text-primary-700">
                             <KeyRound className="h-3 w-3 shrink-0" />
@@ -422,11 +530,11 @@ export function Clients() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
           <Pagination
             page={page}
             pageCount={totalPages}
@@ -434,7 +542,7 @@ export function Clients() {
             totalItems={sortedClients.length}
             pageSize={PAGE_SIZE}
           />
-        </TableContainer>
+        </div>
       )}
       </>
       )}

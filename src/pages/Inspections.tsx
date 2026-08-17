@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, Activity, CheckCircle, Trash2, Edit, RotateCcw, AlertTriangle, ClipboardList, FilterX } from 'lucide-react';
+import { Search, Plus, Calendar, Activity, CheckCircle, Trash2, Edit, RotateCcw, AlertTriangle, ClipboardList, FilterX } from 'lucide-react';
 import { ClientService } from '../services/clientService';
 import { InspectionService } from '../services/inspectionService';
 import type { Inspection, Client } from '../types';
 import { Button } from '../components/ui/Button';
+import { Card } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { Badge } from '../components/ui/Badge';
@@ -12,7 +13,7 @@ import { PageShell } from '../components/ui/PageShell';
 import { PageHeader } from '../components/ui/PageHeader';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
-import { TableContainer, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
 import { Pagination } from '../components/ui/Pagination';
 import { PAGE_SIZE, usePagedList } from '../components/schedules/appointmentRequestsShared';
 import { formatDateTime } from '../utils/imageUtils';
@@ -33,6 +34,18 @@ function attachClientData(list: Inspection[], clients: Client[]) {
   });
 }
 
+/** Data em cima, hora embaixo: em uma linha só a coluna da tabela pedia 135px. */
+function DateAndTime({ value }: { value?: Date | string | null }) {
+  if (!value) return <span className="text-navy-3">—</span>;
+  const [dia, hora] = formatDateTime(value as Date).split(', ');
+  return (
+    <>
+      <p className="whitespace-nowrap">{dia}</p>
+      {hora && <p className="whitespace-nowrap text-xs text-navy-3">{hora}</p>}
+    </>
+  );
+}
+
 export function Inspections() {
   const navigate = useNavigate();
   const [inspections, setInspections] = useState<Inspection[]>([]);
@@ -42,6 +55,9 @@ export function Inspections() {
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'in_progress' | 'completed'>('all');
   const [showTrash, setShowTrash] = useState(false);
+  // Cards é o principal (decisão da Ester em 17/08); a tabela densa é visualização alternativa,
+  // do mesmo jeito que a agenda tem Semana / Lista (decisão 13).
+  const [view, setView] = useState<'cards' | 'tabela'>('cards');
   const settings = useSettingsStore((s) => s.settings);
   const [showProfileModal, setShowProfileModal] = useState(!settings.name);
   const trashRefreshPromise = useRef<Promise<void> | null>(null);
@@ -171,9 +187,11 @@ export function Inspections() {
     }
   };
 
-  // A ordem é a do `loadInspections` (em andamento primeiro, depois data decrescente) — a tabela
-  // pagina, não reordena: quem está em campo precisa ver o que está aberto no topo.
+  // A ordem é a do `loadInspections` (em andamento primeiro, depois data decrescente).
   const { page, totalPages, items: pagedInspections, setPage } = usePagedList(inspections);
+
+  // Mexer no filtro volta para a primeira página.
+  useEffect(() => { setPage(1); }, [search, filterStatus, setPage]);
 
   return (
     <PageShell>
@@ -188,7 +206,22 @@ export function Inspections() {
         }
       />
 
-      <div className="mb-6 flex justify-end">
+      <div className="mb-6 flex flex-wrap items-center justify-end gap-3">
+        <div className="inline-flex gap-0.5 rounded-md border border-default bg-surface-sunken p-0.5">
+          {([['cards', 'Cards'], ['tabela', 'Tabela']] as const).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              aria-pressed={view === key}
+              onClick={() => setView(key)}
+              className={`rounded px-3 py-1.5 text-sm font-semibold transition-colors [@media(pointer:coarse)]:min-h-11 ${
+                view === key ? 'bg-surface text-primary-700 shadow-sm' : 'text-navy-3 hover:text-navy'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <Button
           variant="outline"
           onClick={() => {
@@ -265,7 +298,7 @@ export function Inspections() {
         )}
 
         {loadError ? (
-          <div className="rounded-lg border border-default bg-surface">
+          <div className="rounded-xl border border-default bg-surface">
             <EmptyState
               role="alert"
               icon={<AlertTriangle className="h-8 w-8 text-danger" />}
@@ -278,61 +311,62 @@ export function Inspections() {
               }
             />
           </div>
-        ) : (
-          <TableContainer>
-            <Table aria-busy={loading || undefined} aria-label="Inspeções">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Situação</TableHead>
-                  <TableHead>Início</TableHead>
-                  <TableHead className="hidden md:table-cell">Conclusão</TableHead>
-                  <TableHead align="right"><span className="sr-only">Ações</span></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  [0, 1, 2].map((i) => (
-                    <TableRow key={i}>
-                      <TableCell><Skeleton className="h-4 w-52" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                      <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-32" /></TableCell>
-                      <TableCell align="right"><Skeleton className="ml-auto h-4 w-28" /></TableCell>
-                    </TableRow>
-                  ))
-                ) : pagedInspections.length === 0 ? (
+        ) : loading ? (
+          <div className="space-y-4" aria-busy="true" aria-label="Carregando inspeções">
+            {[0, 1, 2].map((i) => (
+              <Card key={i} className="p-4 sm:p-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex-1 space-y-3">
+                    <Skeleton className="h-5 w-56" />
+                    <Skeleton className="h-4 w-40" />
+                  </div>
+                  <Skeleton className="h-10 w-32" />
+                </div>
+              </Card>
+            ))}
+          </div>
+        ) : inspections.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-control bg-surface-sunken">
+            {search || filterStatus !== 'all' ? (
+              <EmptyState
+                icon={<FilterX className="h-8 w-8" />}
+                title="Nada com este filtro"
+                description="Nenhuma inspeção encontrada para a busca ou status atual."
+                action={
+                  <Button size="sm" variant="outline" onClick={() => { setSearch(''); setFilterStatus('all'); }}>
+                    Limpar filtros
+                  </Button>
+                }
+              />
+            ) : (
+              <EmptyState
+                icon={<ClipboardList className="h-8 w-8" />}
+                title="Nenhuma inspeção ainda"
+                description="Quando você iniciar uma inspeção, ela aparece aqui."
+                action={
+                  <Button size="sm" onClick={() => navigate('/new')}>
+                    <Plus className="mr-2 h-4 w-4" /> Nova Inspeção
+                  </Button>
+                }
+              />
+            )}
+          </div>
+        ) : view === 'tabela' ? (
+          <div className="overflow-hidden rounded-xl border border-default bg-surface">
+            <div className="overflow-x-auto">
+              <Table aria-label="Inspeções">
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={5} className="h-auto py-0">
-                      {search || filterStatus !== 'all' ? (
-                        <EmptyState
-                          icon={<FilterX className="h-8 w-8" />}
-                          title="Nada com este filtro"
-                          description="Nenhuma inspeção encontrada para a busca ou status atual."
-                          action={
-                            <Button size="sm" variant="outline" onClick={() => { setSearch(''); setFilterStatus('all'); }}>
-                              Limpar filtros
-                            </Button>
-                          }
-                        />
-                      ) : (
-                        <EmptyState
-                          icon={<ClipboardList className="h-8 w-8" />}
-                          title="Nenhuma inspeção ainda"
-                          description="Quando você iniciar uma inspeção, ela aparece aqui."
-                          action={
-                            <Button size="sm" onClick={() => navigate('/new')}>
-                              <Plus className="mr-2 h-4 w-4" /> Nova Inspeção
-                            </Button>
-                          }
-                        />
-                      )}
-                    </TableCell>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Situação</TableHead>
+                    <TableHead>Início</TableHead>
+                    <TableHead>Conclusão</TableHead>
+                    <TableHead align="right"><span className="sr-only">Ações</span></TableHead>
                   </TableRow>
-                ) : (
-                  pagedInspections.map((insp) => {
-                    const target = insp.status === 'in_progress' ? '/execute' : '/summary';
-                    const open = () => navigate(target, { state: { inspectionId: insp.id } });
+                </TableHeader>
+                <TableBody>
+                  {pagedInspections.map((insp) => {
+                    const open = () => navigate(insp.status === 'in_progress' ? '/execute' : '/summary', { state: { inspectionId: insp.id } });
                     return (
                       <TableRow
                         key={insp.id}
@@ -347,7 +381,7 @@ export function Inspections() {
                         }}
                         className="cursor-pointer"
                       >
-                        <TableCell primary className="max-w-[320px]">
+                        <TableCell primary className="max-w-[240px]">
                           <p className="truncate">{insp.clientName}</p>
                           {insp.clientCategory && (
                             <p className="truncate text-xs font-normal uppercase tracking-wide text-navy-3">
@@ -362,17 +396,11 @@ export function Inspections() {
                             <Badge variant="success"><CheckCircle className="mr-1 h-3 w-3" /> Concluída</Badge>
                           )}
                         </TableCell>
-                        <TableCell className="whitespace-nowrap">{formatDateTime(insp.createdAt)}</TableCell>
-                        <TableCell className="hidden whitespace-nowrap md:table-cell">
-                          {insp.completedAt ? formatDateTime(insp.completedAt) : <span className="text-navy-3">—</span>}
-                        </TableCell>
+                        <TableCell><DateAndTime value={insp.createdAt} /></TableCell>
+                        <TableCell><DateAndTime value={insp.completedAt} /></TableCell>
                         <TableCell align="right">
                           <div className="flex justify-end gap-1">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={(e) => { e.stopPropagation(); open(); }}
-                            >
+                            <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); open(); }}>
                               {insp.status === 'in_progress' ? 'Continuar' : 'Ver Relatório'}
                             </Button>
                             {insp.status === 'completed' && (
@@ -403,10 +431,10 @@ export function Inspections() {
                         </TableCell>
                       </TableRow>
                     );
-                  })
-                )}
-              </TableBody>
-            </Table>
+                  })}
+                </TableBody>
+              </Table>
+            </div>
             <Pagination
               page={page}
               pageCount={totalPages}
@@ -414,7 +442,96 @@ export function Inspections() {
               totalItems={inspections.length}
               pageSize={PAGE_SIZE}
             />
-          </TableContainer>
+          </div>
+        ) : (
+          pagedInspections.map(insp => (
+            <Card
+              key={insp.id} 
+              className={`cursor-pointer transition-all hover:shadow-md ${insp.status === 'in_progress' ? 'border-primary-200 bg-primary-50/10' : ''}`}
+              onClick={() => navigate(insp.status === 'in_progress' ? '/execute' : '/summary', { state: { inspectionId: insp.id }})}
+            >
+              <div className="p-4 sm:p-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-3">
+                      <h3 className="text-lg font-bold text-navy">{insp.clientName}</h3>
+                      {insp.status === 'in_progress' ? (
+                        <Badge variant="warning" className="animate-pulse"><Activity className="mr-1 h-3 w-3" /> Em Andamento</Badge>
+                      ) : (
+                        <Badge variant="success"><CheckCircle className="mr-1 h-3 w-3" /> Concluída</Badge>
+                      )}
+                    </div>
+                    
+                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-navy-2">
+                      <div className="flex items-center">
+                        <Calendar className="mr-2 h-4 w-4 text-navy-3" /> 
+                        Início: {formatDateTime(insp.createdAt)}
+                      </div>
+                      {insp.completedAt && (
+                        <div className="flex items-center">
+                          <CheckCircle className="mr-2 h-4 w-4 text-success" /> 
+                          Fim: {formatDateTime(insp.completedAt)}
+                        </div>
+                      )}
+                      {insp.clientCategory && (
+                        <div className="col-span-1 sm:col-span-2 text-xs font-semibold text-navy-3 tracking-wider font-mono">
+                          CATEGORIA: {insp.clientCategory.toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Button 
+                      variant="outline" 
+                      className="bg-surface"
+                      onClick={(e) => {
+                         e.stopPropagation();
+                         navigate(insp.status === 'in_progress' ? '/execute' : '/summary', { state: { inspectionId: insp.id }});
+                      }}
+                    >
+                      {insp.status === 'in_progress' ? 'Continuar' : 'Ver Relatório'}
+                    </Button>
+                    
+                    {insp.status === 'completed' && (
+                      <Button 
+                        variant="outline" 
+                        size="icon"
+                        className="h-10 w-10 text-primary-600 border-primary-100 hover:bg-primary-50"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate('/execute', { state: { inspectionId: insp.id }});
+                        }}
+                        title="Editar Inspeção"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    )}
+
+                    <Button 
+                      variant="ghost" 
+                      className="text-danger hover:bg-danger-soft hover:text-danger px-3"
+                      onClick={(e) => handleDelete(e, insp.id)}
+                      title="Excluir Inspeção"
+                    >
+                      <Trash2 className="h-5 w-5" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          ))
+        )}
+
+        {!loadError && !loading && inspections.length > 0 && view === 'cards' && (
+          <Pagination
+            page={page}
+            pageCount={totalPages}
+            onPageChange={setPage}
+            totalItems={inspections.length}
+            pageSize={PAGE_SIZE}
+            className="rounded-xl border border-default"
+          />
         )}
       </div>
 

@@ -20,7 +20,7 @@
 > | Configurações sem desenho | FE-19 | ✅ nav de seção lateral, salva por seção, seção na URL |
 > | Estados vazio/carregando/erro e `PageHeader` | FE-20 | ✅ padronizados em 7 listas do admin |
 > | 2.856 classes de cor cruas · 0 `dark:` | FE-21 · FE-12 | ✅ **FE-21**: 2.705 classes + 20 hex viraram token (recontado; a auditoria contava também os protótipos HTML) · ⬜ **FE-12** (dark mode) segue aberto |
-> | `Clients` e `Inspections` ainda em cards | FE-22 | ✅ tabela densa + paginação nas duas |
+> | `Clients` e `Inspections` ainda em cards | FE-22 | ✅ resolvido de outro jeito: **cards continuam o padrão** e a tabela densa virou alternador (decisão 34, Ester em 17/08); paginação nas duas visualizações |
 >
 > **O que este diagnóstico não viu, e foi acrescentado em 16/08 (FE-23 a FE-27):** o fluxo
 > `/new` → `/execute` → `/summary`, os ~225 controles de formulário crus, `SmartImporter` e as
