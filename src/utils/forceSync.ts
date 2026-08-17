@@ -1,7 +1,7 @@
 import { db } from '../db/database';
 import { ClientService } from '../services/clientService';
 import { InspectionService } from '../services/inspectionService';
-import { RepositoryService } from '../services/repositoryService';
+import { RepositoryService, type SyncableTable } from '../services/repositoryService';
 import { ScheduleService } from '../services/scheduleService';
 
 export async function forcePushFinalData() {
@@ -24,10 +24,13 @@ export async function forcePushFinalData() {
 }
 
 async function countQueued() {
-  const tables = [db.clients, db.inspections, db.responses, db.photos, db.schedules];
+  // Cada tabela do Dexie é tipada pela sua própria linha, e o tipo é invariante: a lista das
+  // cinco não tem um tipo comum que ainda ofereça `.where`. `SyncableTable` é a visão estreita
+  // de que este trecho precisa — só o índice `syncStatus`, que todas têm.
+  const tables = [db.clients, db.inspections, db.responses, db.photos, db.schedules] as unknown as SyncableTable[];
   let total = 0;
   for (const table of tables) {
-    total += await (table as any).where('syncStatus').anyOf(['pending', 'failed']).count();
+    total += await table.where('syncStatus').anyOf(['pending', 'failed']).count();
   }
   return total;
 }

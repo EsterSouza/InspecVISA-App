@@ -1,6 +1,7 @@
 import { db } from '../db/database';
 import { supabase } from '../lib/supabase';
-import type { InspectionPhoto, SyncStatus } from '../types';
+import type { InspectionPhoto, SyncBase, SyncStatus } from '../types';
+import { rawErrorMessage } from './errors';
 import { belongsToActiveTenant, filterByActiveTenant } from './localScope';
 import { withTimeout } from './network';
 
@@ -27,8 +28,9 @@ export interface IntegrityIssue {
   updatedAt?: Date;
   syncError?: string;
   hasRemoteConflict?: boolean;
-  conflictRemote?: any;
-  conflictLocal?: any;
+  /** A linha inteira do outro lado, como chegou — o painel só a imprime como JSON. */
+  conflictRemote?: unknown;
+  conflictLocal?: unknown;
   localActorId?: string;
   remoteActorId?: string;
 }
@@ -118,8 +120,8 @@ export async function checkReportReadiness(
            };
          }
       }
-    } catch (e: any) {
-      const message = e?.message || String(e);
+    } catch (e) {
+      const message = rawErrorMessage(e) || String(e);
       const previous = readinessRemoteFailures.get(inspectionId);
       readinessRemoteFailures.set(inspectionId, { failedAt: Date.now(), message });
       if (!previous || previous.message !== message) {
@@ -160,7 +162,9 @@ export async function getInspectionIntegrity(inspectionId: string): Promise<Insp
   const issues: IntegrityIssue[] = [];
   const addIssue = (
     table: IntegrityIssue['table'],
-    item: any,
+    // Inspeção, resposta e foto: os três trazem os campos de sincronização de `SyncBase`,
+    // que é tudo que este trecho lê.
+    item: SyncBase & { id: string; updatedAt?: Date },
     label: string
   ) => {
     if (item.syncStatus === 'synced') return;
@@ -170,12 +174,13 @@ export async function getInspectionIntegrity(inspectionId: string): Promise<Insp
       label,
       status: item.syncStatus,
       updatedAt: item.updatedAt,
-      syncError: item.syncError,
+      // `syncError` e nulo (nao ausente) depois de uma sincronizacao bem-sucedida.
+      syncError: item.syncError ?? undefined,
       hasRemoteConflict: Boolean(item.conflictRemote),
       conflictRemote: item.conflictRemote,
       conflictLocal: item.conflictLocal,
-      localActorId: item.localActorId || item.conflictLocal?.localActorId,
-      remoteActorId: item.conflictRemote?.localActorId
+      localActorId: item.localActorId || actorDoSnapshot(item.conflictLocal),
+      remoteActorId: actorDoSnapshot(item.conflictRemote)
     });
   };
 
@@ -214,6 +219,13 @@ function toPhotoIntegrity(photo: InspectionPhoto): PhotoIntegrity {
     // `syncError` e nulo (nao ausente) depois de uma sincronizacao bem-sucedida.
     syncError: photo.syncError ?? undefined
   };
+}
+
+/** Quem escreveu o snapshot de conflito — o campo existe, mas o snapshot é a linha crua. */
+function actorDoSnapshot(snapshot: unknown): string | undefined {
+  if (!snapshot || typeof snapshot !== 'object') return undefined;
+  const actorId = (snapshot as { localActorId?: unknown }).localActorId;
+  return typeof actorId === 'string' ? actorId : undefined;
 }
 
 function statusWeight(status: SyncStatus) {

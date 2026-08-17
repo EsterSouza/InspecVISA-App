@@ -23,8 +23,11 @@ function reviveDate(value: unknown) {
   return Number.isNaN(date.getTime()) ? value : date;
 }
 
-function reviveDateFields<T extends Record<string, any>>(record: T): T {
-  const revived: Record<string, any> = { ...record };
+/** Registro como ele sai do JSON do backup: as datas ainda são texto. */
+type RegistroCru = Record<string, unknown>;
+
+function reviveDateFields<T extends RegistroCru>(record: T): T {
+  const revived: RegistroCru = { ...record };
   for (const field of DATE_FIELDS) {
     if (field in revived) {
       revived[field] = reviveDate(revived[field]);
@@ -33,7 +36,7 @@ function reviveDateFields<T extends Record<string, any>>(record: T): T {
   return revived as T;
 }
 
-function reviveRecords<T extends Record<string, any>>(records: T[]) {
+function reviveRecords<T extends RegistroCru>(records: T[]) {
   return records.map(reviveDateFields);
 }
 

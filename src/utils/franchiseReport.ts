@@ -2,6 +2,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { ClientPortalOverview, ClientPortalVisit } from '../services/clientPortalService';
 import { classificationFromPercentAndCritical, classificationLabel } from './scoring';
+import { fimDaUltimaTabela } from './pdfAutoTable';
 
 function formatDateBR(value: string | null): string {
   if (!value) return '—';
@@ -153,7 +154,7 @@ export function generateFranchisePdf(overview: ClientPortalOverview): void {
       },
       margin: { left: marginX, right: marginX },
     });
-    y = (doc as any).lastAutoTable.finalY + 10;
+    y = fimDaUltimaTabela(doc) + 10;
   }
 
   // ── Itens recorrentes na rede (mesmo achado em várias unidades) ────────
@@ -209,7 +210,7 @@ export function generateFranchisePdf(overview: ClientPortalOverview): void {
       },
       margin: { left: marginX, right: marginX },
     });
-    y = (doc as any).lastAutoTable.finalY + 10;
+    y = fimDaUltimaTabela(doc) + 10;
   }
 
   // ── Tabela por unidade (última visita de cada uma) ─────────────────────

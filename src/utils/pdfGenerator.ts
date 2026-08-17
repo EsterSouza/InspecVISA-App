@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import type { Inspection, InspectionResponse, ChecklistTemplate, InspectionScore, ConsultantSettings, FoodEstablishmentType, ReferenceSource } from '../types';
+import type { Inspection, InspectionResponse, ChecklistTemplate, InspectionScore, ConsultantSettings, FoodEstablishmentType, ReferenceSource, ScoreClassification } from '../types';
 import { FOOD_SEGMENT_LABELS } from '../types';
 import { classificationLabel, getLatestResponsesByItem, calculateAreaScores } from './scoring';
 import { formatDate } from './imageUtils';
@@ -12,6 +12,15 @@ import { isRioState } from './state';
 import { extractBaseLegislation, canonicalLegislationKey, citedLegislations } from './legislationRefs';
 import type { ClientDeclarationForItem, ClientEvidenceForItem } from '../services/clientEvidenceService';
 import { registerPdfFonts, PDF_FONT_HEAD, PDF_FONT_BODY } from './pdfFonts';
+import { fimDaUltimaTabela } from './pdfAutoTable';
+import type { Legislation } from '../services/legislationService';
+
+/**
+ * Verbete de legislação como o PDF pode recebê-lo: a linha da tabela (`Legislation`, que
+ * usa `replaced_by`) ou o verbete embutido em `src/data/legislationLibrary.ts` (que usa
+ * `replacedBy`). É por isso que `formatABNT` lê as duas grafias.
+ */
+type VerbeteLegislacao = Partial<Legislation> & { name: string; replacedBy?: string };
 import { TREINAVISA_LOGO_PNG } from './pdfBrandLogo';
 
 // Aliases curtos das famílias da marca, usados nos setFont de todo o arquivo.
@@ -157,7 +166,7 @@ export async function generatePDF(
   template: ChecklistTemplate,
   score: InspectionScore,
   settings: ConsultantSettings,
-  legislations: any[] = [],
+  legislations: VerbeteLegislacao[] = [],
   options: {
     selectedLegislations?: string[];
     referenceSources?: ReferenceSource[];
@@ -476,7 +485,7 @@ export async function generatePDF(
         try {
           doc.addImage(
             entry.photo.dataUrl,
-            getPdfImageFormat(entry.photo.dataUrl) as any,
+            getPdfImageFormat(entry.photo.dataUrl),
             cellX + (cellW - drawW) / 2,
             cursor + (cellH - drawH) / 2,
             drawW,
@@ -773,7 +782,7 @@ export async function generatePDF(
       margin: { left: margin, right: margin },
       theme: 'grid',
     });
-    y = (doc as any).lastAutoTable.finalY + 8;
+    y = fimDaUltimaTabela(doc) + 8;
 
     // Staffing calculation summary — state-aware
     const l1 = inspection.dependencyLevel1 || 0;
@@ -833,7 +842,7 @@ export async function generatePDF(
       margin: { left: margin, right: margin },
       theme: 'grid',
     });
-    y = (doc as any).lastAutoTable.finalY + 5;
+    y = fimDaUltimaTabela(doc) + 5;
 
     doc.setFontSize(7.5);
     doc.setFont(FB,'normal');
@@ -940,7 +949,7 @@ export async function generatePDF(
   // ── Conformidade por área (sanitária x nutrição) ─────────
   // Só em ILPI com as duas áreas avaliadas. O número grande da capa é o GLOBAL.
   if (areaScores.isSplit && isIlpiReport) {
-    const areaCards: { label: string; consultant?: string; pct: number; classif: string; nc: number }[] = [
+    const areaCards: { label: string; consultant?: string; pct: number; classif: ScoreClassification; nc: number }[] = [
       {
         label: areaScores.sanitary.areaLabel,
         consultant: areaScores.sanitary.consultant,
@@ -979,7 +988,7 @@ export async function generatePDF(
       doc.setFont(FB, 'normal');
       doc.setFontSize(7.5);
       doc.setTextColor(...(classInkMap[card.classif] || mutedColor));
-      doc.text(`${card.nc} NC · ${classificationLabel(card.classif as any)}`, tx + 21, y + 14.5);
+      doc.text(`${card.nc} NC · ${classificationLabel(card.classif)}`, tx + 21, y + 14.5);
     });
     y += 24;
   }
@@ -1045,7 +1054,7 @@ export async function generatePDF(
     theme: 'plain',
   });
 
-  y = (doc as any).lastAutoTable.finalY + 12;
+  y = fimDaUltimaTabela(doc) + 12;
   doc.setFillColor(255, 251, 235);
   doc.setDrawColor(...amber);
   doc.roundedRect(margin, y, contentW, 18, 2, 2, 'FD');
@@ -1356,7 +1365,7 @@ export async function generatePDF(
       margin: { left: margin, right: margin },
       theme: 'plain',
     });
-    y = (doc as any).lastAutoTable.finalY + 12;
+    y = fimDaUltimaTabela(doc) + 12;
   } else {
     y += 4;
   }
@@ -1423,7 +1432,7 @@ export async function generatePDF(
         margin: { left: margin, right: margin, top: margin, bottom: 22 },
         theme: 'plain',
       });
-      y = (doc as any).lastAutoTable.finalY + 6;
+      y = fimDaUltimaTabela(doc) + 6;
     });
     y += 6;
   }
@@ -1824,7 +1833,7 @@ export async function generatePDF(
   drawConsultedSources(doc, options.referenceSources);
 
   // Add footers to ALL pages including new signature/reference pages
-  const totalPagesAfter = (doc.internal as any).getNumberOfPages();
+  const totalPagesAfter = doc.getNumberOfPages();
   for (let i = 1; i <= totalPagesAfter; i++) {
     doc.setPage(i);
     addFooter(i, totalPagesAfter);
@@ -1843,7 +1852,7 @@ function drawReferencesABNT(
   doc: jsPDF,
   template: ChecklistTemplate,
   responses: InspectionResponse[],
-  allLegislations: any[],
+  allLegislations: VerbeteLegislacao[],
   _inspection: Inspection,
   selectedLegislations?: string[]
 ) {
@@ -2070,7 +2079,7 @@ function drawConsultedSources(doc: jsPDF, sources?: ReferenceSource[]) {
  * Sem verbete, a referência sai como o item a citou: sem autoria e sem ementa.
  * Some do relatório seria pior — o item cobra uma exigência e some a base dela.
  */
-function formatABNT(mention: string, libraryEntry?: any): string {
+function formatABNT(mention: string, libraryEntry?: VerbeteLegislacao): string {
   const m = mention.trim();
   if (!libraryEntry) return m;
 
