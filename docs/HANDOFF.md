@@ -378,7 +378,7 @@ citavam a numeração do *roteiro anexo* ao 45.585 (5.5.9, 6.4.1, 7.1…), que �
 | **P360-014** | Acessibilidade e responsividade | Sonnet 5 | médio | superfícies estáveis | ✅ **concluído 08/08/2026** · sem migration, frontend puro |
 | **P360-015** | E2E, rollout e prova de produção | Opus 5 | alto | onda a publicar | ✅ **concluído 08/08/2026** · sem migration; CI, Playwright, smoke e tenant de homologação criados em produção |
 | **DEBT-01** | Margem pública de 4 h por tipo | Sonnet 5 | médio | — | ✅ **concluído 04/08** |
-| **DEBT-02** | Dívida de lint | Sonnet 5 | médio | — | 🟡 **em andamento 17/08/2026** · 531 → 199; fatia 0 (tudo que não é `no-explicit-any`), `src/services`, `src/pages`, `src/utils` e `src/data` zeradas, teto por área cobrado no CI |
+| **DEBT-02** | Dívida de lint | Sonnet 5 | médio | — | 🟡 **em andamento 17/08/2026** · 531 → 139; só falta `scripts` (106) e 33 espalhados; teto por área cobrado no CI |
 | **PORT-04** | Tutorial do portal por conta do cliente | Opus 5 | baixo | — | ✅ **concluído 08/08/2026** · aplicado em produção (1 migration); o campo do tenant vira padrão |
 | **SEC-01** | Endurecer o que a revisão do P360-015 encontrou | Opus 5 | médio | P360-015 (concluído) | ✅ **concluído 08/08/2026** · aplicado em produção (2 migrations), autorizado pela Ester; 50 execuções E2E depois do revoke |
 | **DEBT-03** | Pontas soltas do repositório | Haiku 4.5 | baixo | — | ✅ **concluído 05/08** |
@@ -3449,7 +3449,7 @@ bloqueado —, e não por chamada; a assinatura atual só conhece a margem de qu
 
 ---
 
-## DEBT-02 — Dívida de lint 🟡 em andamento desde 17/08/2026 · 531 → 199
+## DEBT-02 — Dívida de lint 🟡 em andamento desde 17/08/2026 · 531 → 139
 
 **Modelo:** Sonnet 5 · **Esforço:** médio · **Prioridade:** baixa, mas bloqueia lint no CI
 
@@ -3467,7 +3467,7 @@ bloqueado —, e não por chamada; a assinatura atual só conhece a margem de qu
 ### Andamento — 17/08/2026
 
 Recontagem real no início: **531** problemas (521 erros, 10 avisos), não 425 — e **504** deles
-eram `no-explicit-any`. Cinco fatias depois: **199**.
+eram `no-explicit-any`. Sete fatias depois: **139**, e o que sobra é quase tudo `scripts/`.
 
 **Fatia 0 — tudo que não é `no-explicit-any`, zerada** (`3a3440c`). Eram 27, e três eram defeito
 de verdade: `Checkbox`/`Radio` passavam a `ref` para uma função durante o render
@@ -3538,15 +3538,44 @@ cast, `(item as any).isRJOnly` (o campo está em `ChecklistItem`), `(section: an
 ChecklistSupplement` — o suplemento de Goiás casa com o tipo, conferido tirando o cast e rodando
 o `tsc`.
 
-**O que falta, por área** (o teto de hoje, 199): `scripts` 106 · `api` 41 · `src/types` 19 ·
-`src/__tests__` 12 · `src/components` 10 · `src/store` 7 · `supabase/functions` 2 · `src/lib` 1 ·
-`vite.config.ts` 1.
+**Fatia 5 — `src/types`, zerada** (`99f6dde`): 19 → 0. **Doze eram a mesma declaração
+repetida**: `SyncBase` existia no arquivo e não era estendido por ninguém — `Client`,
+`Inspection`, `InspectionResponse`, `InspectionPhoto` e `Schedule` repetiam as sete linhas de
+sincronização cada uma. As cinco passaram a estender `SyncBase`, e o comentário do snapshot de
+conflito mora num lugar só. `conflictRemote`/`conflictLocal` viraram `unknown` e o `tsc` passou
+limpo de primeira — ninguém lê campo desses snapshots sem conferir antes.
+
+`InspectionBundlePayload` dizia `any` nos cinco campos do topo. Eles não são as entidades locais:
+são **linhas do Postgres**, vindas dos `mapToPostgres`, e é isso que os separa do `reportSnapshot`
+logo abaixo, que é o retrato em entidades. `LinhaPostgres` passou a morar em `src/types` (era de
+`repositoryService`). Ao tipar, o `tsc` apontou `payload.inspection?.id`, usado para achar o job
+da sincronização: a linha da inspeção sempre leva `id`, e agora o tipo diz.
+
+**Fatia 6 — `api`, zerada** (`e710a74`): 41 → 0. **Onze estavam em `api/syncJobCore.ts`, que
+ninguém importa desde maio**: o commit `6ecec9a` ("Make sync worker endpoints self contained")
+colou o conteúdo dele dentro dos três endpoints, porque a Vercel tropeçava ao carregar módulo
+compartilhado em `api/`, e o arquivo ficou para trás. Não tem `export default`, então nem como
+endpoint funcionaria, e a cópia já divergia da viva (sem a auto-cura de foto e sem o limitador de
+concorrência). Apagado — tipá-lo daria aparência de código mantido.
+
+Os três endpoints vivos ganharam `RequisicaoHttp`/`RespostaHttp` próprios (o projeto não tem
+`@vercel/node`, e a autossuficiência é deliberada — está escrito no topo de cada um),
+`SupabaseClient` no lugar de `admin: any`, e `mensagemDoErro` para o `catch (err: any)`.
+
+**Dois achados no `process-sync-job`:** o job era processado **sem conferir se o payload tem
+`inspection`** — o endpoint que enfileira recusa esse caso com 400, mas aqui `undefined` seguia
+direto para o `upsert`; agora falha com mensagem, que o `catch` grava no job. E o
+`new Error(msg) as any` com `.status` enxertado, lido lá embaixo como `err?.status`, virou a
+classe `ErroHttp`.
+
+**O que falta, por área** (o teto de hoje, 139): `scripts` 106 · `src/__tests__` 12 ·
+`src/components` 10 · `src/store` 7 · `supabase/functions` 2 · `src/lib` 1 · `vite.config.ts` 1.
 
 **Nota sobre `scripts/` (106):** são scripts de manutenção de dado, rodados uma vez com `npx tsx`.
 Tipar linha de banco ali tem valor bem menor que em `src/` — é a última fatia, não a próxima.
-A ordem sugerida do que sobra: `api` e `src/types` (o `src/types` tende a puxar os últimos
-`conflictRemote?: any`, que já viraram `unknown` de um lado só), depois `src/components` e
-`src/store`, e `scripts` por último.
+A ordem sugerida do que sobra: `src/components` e `src/store` (33 no total, com os testes e o
+resto), e `scripts` por último — é ele, sozinho, que ainda separa o projeto de rodar
+`npm run lint` no CI.
 
 ---
 
