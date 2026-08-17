@@ -53,7 +53,7 @@ export function CollaborativeProgress() {
           {/* Health Progress */}
           <div className="flex-1 space-y-1">
             <div className="flex items-center justify-between text-[10px] uppercase font-bold tracking-wider">
-              <div className="flex items-center text-blue-600">
+              <div className="flex items-center text-accent-ink">
                 <Activity className="mr-1 h-3 w-3" />
                 Saúde e Assistência {myRole === 'saude' && '(Você)'}
               </div>
@@ -61,7 +61,7 @@ export function CollaborativeProgress() {
                 {healthDone}/{healthItems.length} ({Math.round(healthProgress)}%)
               </span>
             </div>
-            <ProgressBar value={healthProgress} colorClass={healthProgress === 100 ? 'bg-green-500' : 'bg-blue-500'} heightClass="h-1.5" />
+            <ProgressBar value={healthProgress} colorClass={healthProgress === 100 ? 'bg-green-500' : 'bg-primary-500'} heightClass="h-1.5" />
           </div>
 
           <div className="hidden sm:block w-px h-8 bg-surface-sunken" />

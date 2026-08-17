@@ -40,7 +40,7 @@ interface FullTemplate {
 const WEIGHT_LABELS: Record<number, { label: string; color: string; bg: string }> = {
   10: { label: 'Imprescindível', color: 'text-red-700', bg: 'bg-red-50 border-red-200' },
   5:  { label: 'Necessário',     color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200' },
-  2:  { label: 'Recomendado',    color: 'text-blue-700', bg: 'bg-blue-50 border-blue-200' },
+  2:  { label: 'Recomendado',    color: 'text-accent-ink', bg: 'bg-primary-50 border-primary-200' },
   1:  { label: 'Sugerido',       color: 'text-navy-2', bg: 'bg-surface-sunken border-default' },
 };
 
@@ -205,7 +205,7 @@ export function TemplateDetail() {
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
             {[
               { icon: ClipboardList, label: 'Seções', value: stats.sections, color: 'text-primary-600', bg: 'bg-primary-50' },
-              { icon: CheckCircle2, label: 'Itens Totais', value: stats.total, color: 'text-blue-600', bg: 'bg-blue-50' },
+              { icon: CheckCircle2, label: 'Itens Totais', value: stats.total, color: 'text-accent-ink', bg: 'bg-primary-50' },
               { icon: AlertTriangle, label: 'Itens Críticos', value: stats.critical, color: 'text-red-600', bg: 'bg-red-50' },
               { icon: BookOpen, label: 'Com Legislação', value: stats.withLegislation, color: 'text-green-600', bg: 'bg-green-50' },
               { icon: Archive, label: 'Aposentados', value: stats.retired, color: 'text-navy-3', bg: 'bg-surface-sunken' },
@@ -343,7 +343,7 @@ export function TemplateDetail() {
 
         {/* ── FOOTER NOTE ───────────────────────────────────── */}
         {template.isStatic && (
-          <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-100 rounded-2xl text-sm text-blue-700">
+          <div className="flex items-start gap-3 p-4 bg-primary-50 border border-primary-100 rounded-2xl text-sm text-accent-ink">
             <Info className="h-5 w-5 shrink-0 mt-0.5" />
             <p>
               Este é um <strong>roteiro padrão</strong> do InspecVISA. Seu conteúdo é gerenciado pela equipe C&C Consultoria.

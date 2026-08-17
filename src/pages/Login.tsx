@@ -29,10 +29,10 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-primary-900 via-primary-800 to-indigo-950 overflow-hidden relative">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-primary-900 via-primary-800 to-navy overflow-hidden relative">
       {/* Decorative circles */}
       <div className="absolute top-0 left-0 w-96 h-96 bg-primary-500/10 rounded-full -translate-x-1/2 -translate-y-1/2 blur-3xl" />
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full translate-x-1/2 translate-y-1/2 blur-3xl" />
+      <div className="absolute bottom-0 right-0 w-96 h-96 bg-primary-500/10 rounded-full translate-x-1/2 translate-y-1/2 blur-3xl" />
 
       <div className="w-full max-w-md relative animate-in fade-in zoom-in duration-700">
         <div className="mb-8 text-center">

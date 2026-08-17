@@ -174,7 +174,7 @@ export function ActiveRequestCard({
                 </span>
                 {showIlpiAreaScores && onSetAreaScores && (
                   <span className="flex items-center gap-1 text-xs text-navy-3">
-                    <Gauge className="h-3.5 w-3.5 text-indigo-600" />
+                    <Gauge className="h-3.5 w-3.5 text-accent-ink" />
                     <span id={`area-scores-label-${request.id}`}>Por área (ILPI):</span>
                     <label htmlFor={`sanitary-score-${request.id}`} className="text-[11px] font-semibold text-navy-3">
                       San
@@ -216,7 +216,7 @@ export function ActiveRequestCard({
                         onSetAreaScores(parse(sanitaryInput), parse(nutritionInput));
                       }}
                       aria-label="Salvar pontuação por área"
-                      className="rounded bg-indigo-50 px-1.5 py-0.5 text-[11px] font-bold text-indigo-700 hover:bg-indigo-100"
+                      className="rounded bg-primary-50 px-1.5 py-0.5 text-[11px] font-bold text-accent-ink hover:bg-primary-100"
                     >
                       Salvar
                     </button>
@@ -228,9 +228,9 @@ export function ActiveRequestCard({
           </div>
 
           {request.attendance_mode === 'online' && (
-            <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3">
+            <div className="rounded-xl border border-primary-100 bg-primary-50/60 p-3">
               <label htmlFor={`meeting-url-${request.id}`} className="flex items-center gap-2 text-sm font-semibold text-navy">
-                <Video className="h-4 w-4 text-blue-700" /> Link da videoconferência
+                <Video className="h-4 w-4 text-accent-ink" /> Link da videoconferência
               </label>
               <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                 <input
@@ -250,7 +250,7 @@ export function ActiveRequestCard({
                   Salvar link
                 </Button>
                 {meetingUrl.trim().startsWith('https://') && (
-                  <a href={meetingUrl.trim()} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center justify-center rounded-md px-3 text-sm font-semibold text-blue-700 hover:bg-blue-100">
+                  <a href={meetingUrl.trim()} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center justify-center rounded-md px-3 text-sm font-semibold text-accent-ink hover:bg-primary-100">
                     Abrir
                   </a>
                 )}
@@ -289,7 +289,7 @@ export function ActiveRequestCard({
                 size="sm"
                 disabled={busy}
                 onClick={onMarkInProgress}
-                className="border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                className="border-primary-200 text-accent-ink hover:bg-primary-50"
               >
                 <Play className="mr-1.5 h-4 w-4" /> Iniciar inspeção
               </Button>
@@ -317,7 +317,7 @@ export function ActiveRequestCard({
                   size="sm"
                   disabled={busy}
                   onClick={onRetryNotification}
-                  className="min-h-11 border-blue-200 text-blue-700 hover:bg-blue-50"
+                  className="min-h-11 border-primary-200 text-accent-ink hover:bg-primary-50"
                 >
                   <RefreshCw className="mr-1.5 h-4 w-4" /> Tentar enviar confirmação
                 </Button>

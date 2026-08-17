@@ -272,7 +272,7 @@ export function PdfPreviewModal({
                       }
                       <span className="flex-1">{leg}</span>
                       {legTags.get(leg) === 'uf' && (
-                        <span className="shrink-0 mt-0.5 text-[9px] font-bold uppercase tracking-wide bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">
+                        <span className="shrink-0 mt-0.5 text-[9px] font-bold uppercase tracking-wide bg-primary-100 text-accent-ink px-1.5 py-0.5 rounded">
                           Estadual/Municipal
                         </span>
                       )}

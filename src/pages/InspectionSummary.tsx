@@ -895,7 +895,7 @@ export function InspectionSummary() {
         )}
 
         {photoHydration && (
-          <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          <div className="rounded-lg border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-accent-ink">
             <strong>Carregando fotos em segundo plano.</strong>
             <p className="mt-1">
               Fotos baixadas: {photoHydration.completed + photoHydration.failed} de {photoHydration.total}
@@ -905,7 +905,7 @@ export function InspectionSummary() {
         )}
 
         {pdfPhotoProgress && (
-          <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          <div className="rounded-lg border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-accent-ink">
             <strong>Preparando fotos para o PDF.</strong>
             <p className="mt-1">Baixando fotos {pdfPhotoProgress.completed + pdfPhotoProgress.failed} de {pdfPhotoProgress.total}.</p>
           </div>

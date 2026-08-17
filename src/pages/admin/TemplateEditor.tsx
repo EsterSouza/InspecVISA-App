@@ -348,7 +348,7 @@ export function TemplateEditor() {
         )}
 
         {isEditing && (
-          <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-100 rounded-2xl text-sm text-blue-700">
+          <div className="flex items-start gap-3 p-4 bg-primary-50 border border-primary-100 rounded-2xl text-sm text-accent-ink">
             <Info className="h-5 w-5 shrink-0 mt-0.5" />
             <p>
               Relatório concluído usa uma <strong>fotografia do roteiro</strong> tirada na hora da

@@ -625,7 +625,7 @@ export function ClientDetails() {
                         <div className={`h-12 w-12 rounded-full flex items-center justify-center text-white font-bold ${
                           insp.status === 'in_progress' ? 'bg-amber-400' :
                           insp.score.scorePercentage >= 90 ? 'bg-green-500' :
-                          insp.score.scorePercentage >= 70 ? 'bg-blue-500' :
+                          insp.score.scorePercentage >= 70 ? 'bg-primary-500' :
                           'bg-red-500'
                         }`}>
                           {insp.status === 'completed' ? `${Math.round(insp.score.scorePercentage)}%` : '?'}

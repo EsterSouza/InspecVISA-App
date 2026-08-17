@@ -36,8 +36,8 @@ export const STATUS_LABELS: Record<AppointmentRequest['status'], string> = {
 
 export const STATUS_BADGES: Record<AppointmentRequest['status'], string> = {
   requested: 'bg-amber-100 text-amber-700',
-  confirmed: 'bg-blue-100 text-blue-700',
-  in_progress: 'bg-indigo-100 text-indigo-700',
+  confirmed: 'bg-primary-100 text-accent-ink',
+  in_progress: 'bg-primary-100 text-accent-ink',
   rescheduled: 'bg-orange-100 text-orange-700',
   completed: 'bg-emerald-100 text-emerald-700',
   report_available: 'bg-green-100 text-green-700',

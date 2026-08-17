@@ -58,7 +58,7 @@ export function ProfileModal({ onClose }: ProfileModalProps) {
                 : 'border-default bg-surface-sunken hover:border-primary-200 hover:bg-surface'
             }`}
           >
-            <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center mr-4 text-blue-600 font-bold group-hover:scale-110 transition-transform">
+            <div className="h-12 w-12 rounded-full bg-primary-100 flex items-center justify-center mr-4 text-accent-ink font-bold group-hover:scale-110 transition-transform">
               EC
             </div>
             <div className="text-left">

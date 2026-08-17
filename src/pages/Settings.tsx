@@ -401,16 +401,16 @@ export function Settings() {
           </TabPanel>
 
           <TabPanel value="sistema" activeValue={activeSection} className="pt-0 space-y-6">
-            <Card className="border-blue-100 bg-blue-50">
+            <Card className="border-primary-100 bg-primary-50">
               <CardContent className="p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
-                    <h3 className="font-semibold text-blue-900 text-lg">Forçar Sincronização</h3>
-                    <p className="text-sm text-blue-700 mt-1">Se houver inspeções pendentes presas no dispositivo, clique aqui para forçar o envio ao servidor.</p>
+                    <h3 className="font-semibold text-accent-ink text-lg">Forçar Sincronização</h3>
+                    <p className="text-sm text-accent-ink mt-1">Se houver inspeções pendentes presas no dispositivo, clique aqui para forçar o envio ao servidor.</p>
                   </div>
                   <Button
                     variant="outline"
-                    className="whitespace-nowrap shrink-0 border-blue-300 text-blue-700 hover:bg-blue-100"
+                    className="whitespace-nowrap shrink-0 border-primary-300 text-accent-ink hover:bg-primary-100"
                     disabled={syncStatus === 'syncing'}
                     onClick={handleForcePush}
                   >
@@ -421,15 +421,15 @@ export function Settings() {
               </CardContent>
             </Card>
 
-            <Card className="border-indigo-100 bg-indigo-50">
+            <Card className="border-primary-100 bg-primary-50">
               <CardContent className="p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
-                    <h3 className="font-semibold text-indigo-900 text-lg">Administração</h3>
-                    <p className="text-sm text-indigo-700 mt-1">Gerencie os templates de inspeção e legislações disponíveis no aplicativo.</p>
+                    <h3 className="font-semibold text-accent-ink text-lg">Administração</h3>
+                    <p className="text-sm text-accent-ink mt-1">Gerencie os templates de inspeção e legislações disponíveis no aplicativo.</p>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => window.location.href = '/templates'} className="whitespace-nowrap shrink-0 border-indigo-300 text-indigo-700 hover:bg-indigo-100">
+                    <Button variant="outline" onClick={() => window.location.href = '/templates'} className="whitespace-nowrap shrink-0 border-primary-300 text-accent-ink hover:bg-primary-100">
                       <FileText className="mr-2 h-4 w-4" />
                       Templates
                     </Button>

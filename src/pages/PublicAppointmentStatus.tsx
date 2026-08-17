@@ -124,7 +124,7 @@ function attachmentIcon(asset: AppointmentAttachment) {
   const mime = (asset.mime_type || '').toLowerCase();
   if (mime.includes('pdf') || name.endsWith('.pdf')) return <FileText className="h-5 w-5 text-red-500" />;
   if (mime.includes('word') || name.endsWith('.doc') || name.endsWith('.docx')) {
-    return <FileType className="h-5 w-5 text-blue-600" />;
+    return <FileType className="h-5 w-5 text-accent-ink" />;
   }
   if (mime.startsWith('image/')) return <ImageIcon className="h-5 w-5 text-emerald-600" />;
   return <Paperclip className="h-5 w-5 text-navy-3" />;

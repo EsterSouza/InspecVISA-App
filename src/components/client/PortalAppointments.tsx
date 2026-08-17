@@ -85,8 +85,8 @@ const STATUS_LABELS: Record<string, string> = {
 
 const STATUS_BADGES: Record<string, string> = {
   requested: 'bg-amber-100 text-amber-700',
-  confirmed: 'bg-blue-100 text-blue-700',
-  in_progress: 'bg-indigo-100 text-indigo-700',
+  confirmed: 'bg-primary-100 text-accent-ink',
+  in_progress: 'bg-primary-100 text-accent-ink',
   rescheduled: 'bg-orange-100 text-orange-700',
   completed: 'bg-emerald-100 text-emerald-700',
   report_available: 'bg-green-100 text-green-700',
@@ -344,7 +344,7 @@ export function PortalAppointments({
                       href={visit.meeting_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="m-2 inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-blue-700 px-3 text-sm font-semibold text-white hover:bg-blue-800"
+                      className="m-2 inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary-700 px-3 text-sm font-semibold text-white hover:bg-primary-800"
                     >
                       <Video className="h-4 w-4" aria-hidden="true" />
                       <span className="hidden sm:inline">Entrar na reunião</span>

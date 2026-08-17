@@ -196,7 +196,7 @@ function PhotoTile({ photo, onPreview, onRemove }: { photo: InspectionPhoto; onP
             </>
           ) : (
             <>
-              <Clock className="h-5 w-5 animate-pulse text-blue-500" />
+              <Clock className="h-5 w-5 animate-pulse text-accent-ink" />
               <span>Baixando foto</span>
               <span className="font-normal text-navy-3">As respostas ja estao visiveis</span>
             </>
@@ -235,7 +235,7 @@ function PhotoSyncBadge({ photo }: { photo: InspectionPhoto }) {
     const failed = Boolean(photo.syncError?.includes('ainda nao baixou'));
     const Icon = failed ? AlertTriangle : Clock;
     return (
-      <div className={`absolute left-1 top-1 flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase shadow ${failed ? 'bg-amber-500 text-white' : 'bg-blue-600 text-white'}`}>
+      <div className={`absolute left-1 top-1 flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase shadow ${failed ? 'bg-amber-500 text-white' : 'bg-primary-600 text-white'}`}>
         <Icon className="h-3 w-3" />
         {failed ? 'Remota' : 'Baixando'}
       </div>
@@ -245,8 +245,8 @@ function PhotoSyncBadge({ photo }: { photo: InspectionPhoto }) {
   const status = photo.syncStatus;
   const config = {
     synced: { label: 'OK', className: 'bg-emerald-600 text-white', icon: CheckCircle },
-    pending: { label: 'Pendente', className: 'bg-blue-600 text-white', icon: Clock },
-    syncing: { label: 'Enviando', className: 'bg-blue-600 text-white', icon: Clock },
+    pending: { label: 'Pendente', className: 'bg-primary-600 text-white', icon: Clock },
+    syncing: { label: 'Enviando', className: 'bg-primary-600 text-white', icon: Clock },
     failed: { label: 'Falha', className: 'bg-red-600 text-white', icon: XCircle },
     conflict: { label: 'Conflito', className: 'bg-amber-500 text-white', icon: AlertTriangle }
   }[status];

@@ -36,7 +36,7 @@ import { readStoredAuthor, storeAuthor } from './PortalActionPlan';
 
 const statusTheme: Record<ServiceRequestStatus, string> = {
   open: 'bg-sky-100 text-sky-800',
-  in_progress: 'bg-indigo-100 text-indigo-800',
+  in_progress: 'bg-primary-100 text-accent-ink',
   awaiting_client: 'bg-amber-100 text-amber-900',
   resolved: 'bg-emerald-100 text-emerald-800',
   cancelled: 'bg-surface-sunken text-navy-2',

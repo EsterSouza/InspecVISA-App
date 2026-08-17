@@ -130,7 +130,7 @@ export function InspectionIntegrityPanel({ inspectionId }: InspectionIntegrityPa
   const statusTone = integrity.conflictCount > 0
     ? 'border-amber-200 bg-amber-50'
     : totalOpen > 0
-      ? 'border-blue-100 bg-blue-50'
+      ? 'border-primary-100 bg-primary-50'
       : 'border-emerald-100 bg-emerald-50';
 
   return (
@@ -273,7 +273,7 @@ function IssueRow({ issue, onInspect }: { issue: IntegrityIssue; onInspect: (iss
 
 function Metric({ label, value, tone, icon }: { label: string; value: number; tone: 'blue' | 'red' | 'amber' | 'gray'; icon?: React.ReactNode }) {
   const toneClass = {
-    blue: 'bg-blue-100 text-blue-800',
+    blue: 'bg-primary-100 text-accent-ink',
     red: 'bg-red-100 text-red-800',
     amber: 'bg-amber-100 text-amber-800',
     gray: 'bg-surface-sunken text-navy'
