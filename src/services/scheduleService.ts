@@ -6,7 +6,32 @@ import { withLocalActor } from '../utils/localActor';
 import { belongsToActiveTenant, filterByActiveTenant } from '../utils/localScope';
 import { assertInspectionAppointment, normalizeAppointmentType } from '../utils/appointmentType';
 
-export function mapFromPostgres(row: any): Schedule {
+/**
+ * Linha da tabela `schedules` como o PostgREST devolve — mesmo motivo do `ClientRow`
+ * em `clientService.ts` (DEBT-02: não há tipos gerados do Supabase).
+ */
+export interface ScheduleRow {
+  id: string;
+  client_id: string | null;
+  scheduled_at: string;
+  status: Schedule['status'];
+  notes: string | null;
+  appointment_type: string | null;
+  subject: string | null;
+  duration_minutes: number | null;
+  meeting_url: string | null;
+  attendance_mode: Schedule['attendanceMode'] | null;
+  participant_names: string[] | null;
+  cancellation_reason: string | null;
+  consultant_names: string[] | null;
+  user_id: string;
+  inspection_id: string | null;
+  updated_at: string | null;
+  tenant_id: string;
+  deleted_at: string | null;
+}
+
+export function mapFromPostgres(row: ScheduleRow): Schedule {
   return {
     id: row.id,
     clientId: row.client_id ?? undefined,
@@ -35,7 +60,7 @@ export function mapFromPostgres(row: any): Schedule {
   };
 }
 
-export function mapToPostgres(schedule: Schedule): any {
+export function mapToPostgres(schedule: Schedule) {
   return {
     id: schedule.id,
     client_id: schedule.clientId ?? null,

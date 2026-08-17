@@ -6,9 +6,38 @@ import { withLocalActor } from '../utils/localActor';
 import { belongsToActiveTenant, filterByActiveTenant } from '../utils/localScope';
 
 /**
+ * Linha da tabela `clients` como o PostgREST devolve. Não há tipos gerados do Supabase
+ * neste projeto (DEBT-02), então o contrato mora aqui: é o que os mapeadores leem, e
+ * errar um nome de coluna passa a ser erro de compilação em vez de `undefined` calado.
+ */
+export interface ClientRow {
+  id: string;
+  name: string;
+  cnpj: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  category: Client['category'];
+  food_types: Client['foodTypes'] | null;
+  responsible_name: string | null;
+  phone: string | null;
+  email: string | null;
+  contacts: Client['contacts'] | null;
+  has_personalized_sanitary_folder: boolean | null;
+  personalized_sanitary_folder_url: string | null;
+  personalized_sanitary_folder_expected_delivery_date: string | null;
+  has_audit_service: boolean | null;
+  has_online_followup: boolean | null;
+  created_at: string;
+  updated_at: string | null;
+  tenant_id: string;
+  deleted_at: string | null;
+}
+
+/**
  * Maps a Postgres row to the local Client type.
  */
-export function mapFromPostgres(row: any): Client {
+export function mapFromPostgres(row: ClientRow): Client {
   return {
     id: row.id,
     name: row.name,
@@ -39,7 +68,7 @@ export function mapFromPostgres(row: any): Client {
 /**
  * Maps a local Client to a Postgres row.
  */
-export function mapToPostgres(client: Client): any {
+export function mapToPostgres(client: Client) {
   return {
     id: client.id,
     name: client.name,
@@ -93,7 +122,7 @@ export const ClientService = {
               .order('created_at', { ascending: false }),
             25000,
             'ClientsBackgroundRefresh'
-          ) as any;
+          );
           if (error || !data) return;
           for (const row of data) {
             await RepositoryService.mergeRemoteRecord(db.clients, mapFromPostgres(row), { label: 'clientes' });
@@ -195,7 +224,7 @@ export const ClientService = {
 
     if (error || !remoteClients?.length) return;
 
-    const remoteIds = new Set(remoteClients.map((c: any) => c.id));
+    const remoteIds = new Set(remoteClients.map((c: { id: string }) => c.id));
     const localClients = filterByActiveTenant(await db.clients.toArray());
     for (const client of localClients) {
       if (client.deletedAt && remoteIds.has(client.id) && client.syncStatus === 'synced') {

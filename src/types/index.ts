@@ -384,7 +384,10 @@ export interface Schedule {
   // Consultora(s) responsável(is) por esta visita. A inspeção herda na criação.
   consultantNames?: string[];
   user_id?: string;
-  inspectionId?: string;
+  // Nulo quando a visita nao tem inspecao vinculada: a coluna e nullable e o mapeador
+  // sempre gravou o null cru. O tipo dizia `string | undefined` porque o `row: any`
+  // escondia (DEBT-02).
+  inspectionId?: string | null;
   updatedAt: Date;
   deletedAt?: Date | null;
   tenantId?: string;

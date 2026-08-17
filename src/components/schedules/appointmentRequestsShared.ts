@@ -44,16 +44,8 @@ export const STATUS_BADGES: Record<AppointmentRequest['status'], string> = {
   cancelled: 'bg-surface-sunken text-navy-3',
 };
 
-// Erros do Supabase (PostgrestError, FunctionsHttpError etc.) não são `instanceof Error`,
-// mas trazem `.message` — sem isso a UI mostrava "operação falhou." sem o motivo real
-// (ex.: "horario indisponivel" do trigger de conflito).
-export function errorMessage(err: unknown): string {
-  if (err instanceof Error) return err.message;
-  if (err && typeof err === 'object' && 'message' in err && typeof (err as { message: unknown }).message === 'string') {
-    return (err as { message: string }).message;
-  }
-  return 'operação falhou.';
-}
+// DEBT-02: a implementacao mora em `utils/errors.ts`, unica para app e servicos.
+export { errorMessage } from '../../utils/errors';
 
 // Quantos cartões cada seção mostra por vez (evita a rolagem sem fim).
 export const PAGE_SIZE = 10;

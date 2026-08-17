@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import type { PostgrestError } from '@supabase/supabase-js';
 import type {
   AppointmentAttachment,
   AppointmentBlock,
@@ -67,6 +68,29 @@ export interface ClientPortalAccountRow {
   /** Tutorial desta conta. Nulo faz o portal cair no padrão do tenant. */
   tutorial_pdf_url: string | null;
 }
+
+/**
+ * O `select` de acessos do portal tem um caminho de compatibilidade: se uma coluna nova
+ * ainda não existe no banco, ele repete a consulta pedindo só as cinco antigas. Por isso
+ * o resto é opcional aqui — é literalmente o que a segunda consulta devolve.
+ */
+type PortalAccountQueryRow = Partial<Omit<ClientPortalAccountRow, 'client_ids'>> & {
+  id: string;
+  name: string;
+  email: string;
+  is_active: boolean;
+  created_at: string;
+  client_portal_account_clients?: { client_id: string }[] | null;
+};
+
+/** Anexo publicado no portal; `previewUrl` é preenchido depois, com a URL assinada. */
+type PublishedAttachmentQueryRow = {
+  id: string;
+  caption: string | null;
+  storage_bucket: string;
+  storage_path: string;
+  previewUrl?: string;
+};
 
 export interface PaymentLinkOption {
   label?: string;
@@ -782,7 +806,7 @@ export const AppointmentAdminService = {
       .eq('kind', 'photo')
       .order('created_at', { ascending: true });
     if (error) throw error;
-    const rows = (data ?? []) as any[];
+    const rows = (data ?? []) as PublishedAttachmentQueryRow[];
     await Promise.all(
       rows.map(async (r) => {
         try {
@@ -810,7 +834,7 @@ export const AppointmentAdminService = {
 
   async listPortalAccounts(): Promise<ClientPortalAccountRow[]> {
     const tenantId = requireTenantId();
-    let { data, error }: { data: any[] | null; error: any } = await withTimeout(
+    let { data, error }: { data: PortalAccountQueryRow[] | null; error: PostgrestError | null } = await withTimeout(
       supabase
         .from('client_portal_accounts')
         .select('id, name, email, username, portal_token, access_code_plain, is_active, created_at, payment_type, payment_status, payment_link, payment_links, payment_due_date, scheduling_suspended, scheduling_suspension_mode, main_drive_folder_url, tutorial_pdf_url, client_portal_account_clients(client_id)')
@@ -829,7 +853,7 @@ export const AppointmentAdminService = {
         error.message?.includes('scheduling_suspension_mode') ||
         error.message?.includes('portal_token');
       if (!missingColumn) throw error;
-      const fallback: { data: any[] | null; error: any } = await withTimeout(
+      const fallback: { data: PortalAccountQueryRow[] | null; error: PostgrestError | null } = await withTimeout(
         supabase
           .from('client_portal_accounts')
           .select('id, name, email, is_active, created_at, client_portal_account_clients(client_id)')
@@ -841,7 +865,7 @@ export const AppointmentAdminService = {
       error = fallback.error;
     }
     if (error) throw error;
-    return (data ?? []).map((row: any) => ({
+    return (data ?? []).map((row) => ({
       id: row.id,
       name: row.name,
       email: row.email,
@@ -850,7 +874,7 @@ export const AppointmentAdminService = {
       access_code_plain: row.access_code_plain ?? null,
       is_active: row.is_active,
       created_at: row.created_at,
-      client_ids: (row.client_portal_account_clients ?? []).map((c: any) => c.client_id),
+      client_ids: (row.client_portal_account_clients ?? []).map((c) => c.client_id),
       payment_type: row.payment_type ?? null,
       payment_status: row.payment_status ?? 'pending',
       payment_link: row.payment_link ?? null,

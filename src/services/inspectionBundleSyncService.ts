@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { errorMessage } from '../utils/errors';
 import { db } from '../db/database';
 import type {
   ChecklistTemplate,
@@ -64,7 +65,13 @@ function isJwtExpired(token: string, skewSeconds = AUTH_TOKEN_EXPIRY_SKEW_SECOND
 
 async function getAccessToken(forceRefresh = false): Promise<string> {
   try {
-    const sessionPromise: Promise<any> = forceRefresh
+    // As duas chamadas do supabase-js devolvem formatos diferentes (`refreshSession` traz
+    // `user` junto); o que este trecho usa e a interseccao das duas.
+    type SessionLookup = {
+      data: { session: { access_token: string } | null };
+      error: { message: string } | null;
+    };
+    const sessionPromise: Promise<SessionLookup> = forceRefresh
       ? supabase.auth.refreshSession()
       : supabase.auth.getSession();
     const { data, error } = await withTimeout(
@@ -116,7 +123,21 @@ async function fetchWithAuth(
   return response;
 }
 
-function normalizeRpcResult(data: any, inspectionId: string): InspectionBundleResult {
+/** O que a RPC devolve. Os nomes vem em duas grafias porque a funcao no banco mudou de
+ *  camelCase para snake_case e relatorio antigo ainda responde na grafia velha. */
+type RpcBundlePayload = Partial<{
+  ok: boolean;
+  inspectionId: string; inspection_id: string;
+  jobId: string; job_id: string;
+  status: InspectionBundleResult['status'];
+  syncBatchId: string; sync_batch_id: string;
+  serverUpdatedAt: string; server_updated_at: string;
+  reportVersionId: string; report_version_id: string;
+  failedItems: InspectionBundleResult['failedItems'];
+  error: string;
+}>;
+
+function normalizeRpcResult(data: RpcBundlePayload | null, inspectionId: string): InspectionBundleResult {
   return {
     ok: Boolean(data?.ok),
     inspectionId: data?.inspectionId || data?.inspection_id || inspectionId,
@@ -130,8 +151,8 @@ function normalizeRpcResult(data: any, inspectionId: string): InspectionBundleRe
   };
 }
 
-function bundleErrorMessage(err: any) {
-  const message = err?.message || String(err);
+function bundleErrorMessage(err: unknown) {
+  const message = errorMessage(err);
   if (message.includes('sync_jobs') || message.includes('/api/sync-inspection-bundle')) {
     return JOB_ERROR_UNAVAILABLE;
   }
@@ -389,7 +410,7 @@ async function markBundleFailure(
   responses: InspectionResponse[],
   photos: InspectionPhoto[],
   schedules: Schedule[],
-  err: any
+  err: unknown
 ) {
   const message = bundleErrorMessage(err);
   const nextStatus: SyncStatus = (inspection.syncAttempts || 0) + 1 >= 3 ? 'failed' : 'pending';
@@ -586,8 +607,8 @@ async function resumeServerJobForBundle(
 
     await markBundleStatus(client, inspection, responses, photos, schedules, 'syncing', jobSyncError(jobId, result.status));
     return 'running';
-  } catch (err: any) {
-    console.warn(`[BundleSync] Could not refresh server job ${jobId}:`, err?.message || err);
+  } catch (err) {
+    console.warn(`[BundleSync] Could not refresh server job ${jobId}:`, errorMessage(err));
     await markBundleStatus(client, inspection, responses, photos, schedules, 'syncing', jobSyncError(jobId, 'processing'));
     return 'running';
   }
@@ -610,7 +631,7 @@ export const InspectionBundleSyncService = {
     try {
       const payload = buildPayload(bundle.client, bundle.inspection, bundle.responses, bundle.photos, bundle.schedules, Boolean(options.finalizeReport));
       const inlinePhotoBytes = payload.photos.reduce(
-        (total: number, photo: any) => total + (photo.local_data_url ? String(photo.local_data_url).length : 0),
+        (total: number, photo: { local_data_url?: string | null }) => total + (photo.local_data_url ? String(photo.local_data_url).length : 0),
         0
       );
       console.log(
@@ -631,8 +652,8 @@ export const InspectionBundleSyncService = {
         if (isJobStillRunning(result)) {
           try {
             result = await waitForJob(result.jobId, options.finalizeReport ? 120000 : JOB_POLL_TIMEOUT_MS);
-          } catch (pollErr: any) {
-            console.warn(`[BundleSync] Job ${result.jobId} still pending after poll error:`, pollErr?.message || pollErr);
+          } catch (pollErr) {
+            console.warn(`[BundleSync] Job ${result.jobId} still pending after poll error:`, errorMessage(pollErr));
             return result;
           }
         }

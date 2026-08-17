@@ -7,7 +7,7 @@ import { db } from '../db/database';
  * foi desativada em favor de chamadas diretas ao Supabase via Services.
  */
 
-export async function logSync(level: 'info' | 'warn' | 'error', message: string, details?: any) {
+export async function logSync(level: 'info' | 'warn' | 'error', message: string, details?: unknown) {
   console[level](`[SyncLog] ${message}`, details || '');
   try {
     await db.sync_logs.add({

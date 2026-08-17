@@ -80,7 +80,8 @@ function queueSync(entity: 'clients' | 'inspections' | 'schedules') {
  */
 async function executeRealtimeSync(entity: string) {
   // Prevent firing if a global sync is already running
-  if ((window as any).isSyncingGlobally) return;
+  // Bandeira global posta pelo sync completo; declarada aqui porque nao vem de lib nenhuma.
+  if ((window as unknown as { isSyncingGlobally?: boolean }).isSyncingGlobally) return;
   
   console.log(`⚡ Realtime event triggered sync for: ${entity}`);
   
