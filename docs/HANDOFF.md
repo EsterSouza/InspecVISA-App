@@ -378,7 +378,7 @@ citavam a numeração do *roteiro anexo* ao 45.585 (5.5.9, 6.4.1, 7.1…), que �
 | **P360-014** | Acessibilidade e responsividade | Sonnet 5 | médio | superfícies estáveis | ✅ **concluído 08/08/2026** · sem migration, frontend puro |
 | **P360-015** | E2E, rollout e prova de produção | Opus 5 | alto | onda a publicar | ✅ **concluído 08/08/2026** · sem migration; CI, Playwright, smoke e tenant de homologação criados em produção |
 | **DEBT-01** | Margem pública de 4 h por tipo | Sonnet 5 | médio | — | ✅ **concluído 04/08** |
-| **DEBT-02** | Dívida de lint | Sonnet 5 | médio | — | 🟡 **em andamento 17/08/2026** · 531 → 251; fatia 0 (tudo que não é `no-explicit-any`), `src/services` e `src/pages` zeradas, teto por área cobrado no CI |
+| **DEBT-02** | Dívida de lint | Sonnet 5 | médio | — | 🟡 **em andamento 17/08/2026** · 531 → 199; fatia 0 (tudo que não é `no-explicit-any`), `src/services`, `src/pages`, `src/utils` e `src/data` zeradas, teto por área cobrado no CI |
 | **PORT-04** | Tutorial do portal por conta do cliente | Opus 5 | baixo | — | ✅ **concluído 08/08/2026** · aplicado em produção (1 migration); o campo do tenant vira padrão |
 | **SEC-01** | Endurecer o que a revisão do P360-015 encontrou | Opus 5 | médio | P360-015 (concluído) | ✅ **concluído 08/08/2026** · aplicado em produção (2 migrations), autorizado pela Ester; 50 execuções E2E depois do revoke |
 | **DEBT-03** | Pontas soltas do repositório | Haiku 4.5 | baixo | — | ✅ **concluído 05/08** |
@@ -3449,7 +3449,7 @@ bloqueado —, e não por chamada; a assinatura atual só conhece a margem de qu
 
 ---
 
-## DEBT-02 — Dívida de lint 🟡 em andamento desde 17/08/2026 · 531 → 251
+## DEBT-02 — Dívida de lint 🟡 em andamento desde 17/08/2026 · 531 → 199
 
 **Modelo:** Sonnet 5 · **Esforço:** médio · **Prioridade:** baixa, mas bloqueia lint no CI
 
@@ -3467,7 +3467,7 @@ bloqueado —, e não por chamada; a assinatura atual só conhece a margem de qu
 ### Andamento — 17/08/2026
 
 Recontagem real no início: **531** problemas (521 erros, 10 avisos), não 425 — e **504** deles
-eram `no-explicit-any`. Depois de duas fatias: **482**.
+eram `no-explicit-any`. Cinco fatias depois: **199**.
 
 **Fatia 0 — tudo que não é `no-explicit-any`, zerada** (`3a3440c`). Eram 27, e três eram defeito
 de verdade: `Checkbox`/`Radio` passavam a `ref` para uma função durante o render
@@ -3516,14 +3516,37 @@ piorar** — não exige zero, exige não regredir. `--max-warnings` não servia:
 avisos. Ao fechar uma fatia, `node scripts/lint-teto.mjs --gravar` baixa o teto. Quando tudo
 chegar a zero, o script sai e o CI passa a rodar `npm run lint`.
 
-**O que falta, por área** (o teto de hoje, 251): `scripts` 106 · `api` 41 · `src/data` 28 ·
-`src/utils` 24 · `src/types` 19 · `src/__tests__` 12 · `src/components` 10 · `src/store` 7 ·
-`supabase/functions` 2 · `src/lib` 1 · `vite.config.ts` 1.
+**Fatia 3 — `src/utils`, zerada** (`ffc1505`): 24 → 0. Três padrões: `(doc as any).lastAutoTable
+.finalY` em **sete** lugares (o `jspdf-autotable` grava onde a tabela terminou no documento, mas
+não estende os tipos do jsPDF — virou `fimDaUltimaTabela()`, em `src/utils/pdfAutoTable.ts`);
+`legislations: any[]`, que escondia que o PDF recebe verbete de **duas origens** — a linha da
+tabela (`replaced_by`) e a biblioteca embutida (`replacedBy`), motivo do `||` no `formatABNT`;
+e `catch (e: any)` só para ler `.message`.
+
+Dois achados de verdade nessa fatia: `(doc.internal as any).getNumberOfPages()` era desvio pelo
+interno para chamar **a mesma função** que `doc.getNumberOfPages()` expõe (o jspdf atribui as duas
+ao mesmo objeto); e o `withTimeout` reconhecia o builder do PostgREST por duck-typing dentro de um
+`any` — agora há um predicado `podeCancelar` dizendo o que se procura.
+
+**Fatia 4 — `src/data`, zerada** (`110ee6f`): 28 → 0. Quase tudo em `templates.ts`, e quase tudo
+em cascata a partir de **uma linha**: o `JSON.parse(JSON.stringify(baseTemplate))` que monta o
+roteiro efetivo devolve `any`, e daí para baixo toda seção e todo item precisavam ser anotados à
+mão. Bastou dizer que a cópia continua sendo um `ChecklistTemplate`. O resto eram casts que já não
+eram necessários: `(client as any).foodTypes` três linhas abaixo de um `client.foodTypes` sem
+cast, `(item as any).isRJOnly` (o campo está em `ChecklistItem`), `(section: any)` onde
+`template.sections` já é `Section[]`, e o `templateIlpiGoiasSuplement as unknown as
+ChecklistSupplement` — o suplemento de Goiás casa com o tipo, conferido tirando o cast e rodando
+o `tsc`.
+
+**O que falta, por área** (o teto de hoje, 199): `scripts` 106 · `api` 41 · `src/types` 19 ·
+`src/__tests__` 12 · `src/components` 10 · `src/store` 7 · `supabase/functions` 2 · `src/lib` 1 ·
+`vite.config.ts` 1.
 
 **Nota sobre `scripts/` (106):** são scripts de manutenção de dado, rodados uma vez com `npx tsx`.
 Tipar linha de banco ali tem valor bem menor que em `src/` — é a última fatia, não a próxima.
-A ordem sugerida do que sobra: `src/utils` e `src/data` (ainda são código de produção), depois
-`api` e `src/types`, e `scripts` por último.
+A ordem sugerida do que sobra: `api` e `src/types` (o `src/types` tende a puxar os últimos
+`conflictRemote?: any`, que já viraram `unknown` de um lado só), depois `src/components` e
+`src/store`, e `scripts` por último.
 
 ---
 
