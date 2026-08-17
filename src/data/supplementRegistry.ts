@@ -39,8 +39,8 @@ export function isIlpiFederalTemplate(template: ChecklistTemplate): boolean {
   // 3. Match by static section IDs (fallback for older bundled templates)
   return (
     template.category === 'ilpi' &&
-    template.sections.some((section: any) => section.id === 'sec-fed-01') &&
-    template.sections.some((section: any) => section.id === 'sec-fed-13')
+    template.sections.some(section => section.id === 'sec-fed-01') &&
+    template.sections.some(section => section.id === 'sec-fed-13')
   );
 }
 
@@ -67,7 +67,7 @@ export const supplementRegistry: SupplementRegistryEntry[] = [
     nameSuffix: ' (+ Suplemento RJ)',
   },
   {
-    supplement: templateIlpiGoiasSuplement as unknown as ChecklistSupplement,
+    supplement: templateIlpiGoiasSuplement,
     appliesTo: (template, client) => isIlpiFederalTemplate(template) && toUF(client.state) === 'GO',
     nameSuffix: ' (+ Suplemento GO)',
   },

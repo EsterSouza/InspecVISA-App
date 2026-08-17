@@ -5,7 +5,7 @@
 // Estética: V. atual (114 itens) | ILPI: V.11/2024 (81 itens)
 // ============================================================
 
-import type { ChecklistTemplate, Client } from '../types';
+import type { ChecklistSupplement, ChecklistTemplate, Client, Section } from '../types';
 import { alimentosTemplates } from './templates_alimentos';
 import { getExtraSections } from './templates_alimentos_segmentos';
 import { supplementRegistry } from './supplementRegistry';
@@ -302,14 +302,14 @@ export function getTemplateById(id: string): ChecklistTemplate | undefined {
  * Filter sections based on consultant role (Saúde / Nutrição)
  * This is used for the execution UI, while Summary/PDF uses full=true
  */
-function filterSectionsByRole(sections: any[], role: string, full: boolean) {
+function filterSectionsByRole(sections: Section[], role: string, full: boolean): Section[] {
   if (full || !role || role === 'ambos') return sections;
 
   // Identify sections that belong to Nutrition - by ID (static templates) OR by title keywords (remote templates)
   const nutritionSectionIds = ['sec-fed-05', 'sec-fed-06'];
   const nutritionKeywords = ['nutri', 'aliment', 'dieta', 'cardápio', 'refei'];
 
-  const isNutritionSection = (s: any): boolean => {
+  const isNutritionSection = (s: Section): boolean => {
     if (nutritionSectionIds.includes(s.id)) return true;
     const titleLower = (s.title || '').toLowerCase();
     return nutritionKeywords.some(kw => titleLower.includes(kw));
@@ -320,7 +320,7 @@ function filterSectionsByRole(sections: any[], role: string, full: boolean) {
   // If no nutrition sections found in this template, show everything (e.g. Estética)
   if (!templateHasNutrition) return sections;
 
-  return sections.filter((section: any) => {
+  return sections.filter((section) => {
     const isNutrition = isNutritionSection(section);
 
     if (role === 'nutricao') return isNutrition;
@@ -334,40 +334,40 @@ function normalizeSectionTitle(title: string): string {
   return (title || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
 }
 
-function applySupplement(effective: ChecklistTemplate, supplement: any): void {
-  supplement.sectionAdditions.forEach((addition: any) => {
+function applySupplement(effective: ChecklistTemplate, supplement: ChecklistSupplement): void {
+  supplement.sectionAdditions.forEach((addition) => {
     // Casa por id (roteiro estático) OU por título (roteiros do banco usam id UUID,
     // então 'sec-fed-12' nunca bate; o título "Recursos Humanos" sim).
     const targetSection =
-      effective.sections.find((s: any) => s.id === addition.targetSectionId)
+      effective.sections.find((s) => s.id === addition.targetSectionId)
       || (addition.targetSectionTitle
-        ? effective.sections.find((s: any) => normalizeSectionTitle(s.title) === normalizeSectionTitle(addition.targetSectionTitle))
+        ? effective.sections.find((s) => normalizeSectionTitle(s.title) === normalizeSectionTitle(addition.targetSectionTitle))
         : undefined);
     if (targetSection) {
       // Suplemento local mais restritivo: o item local substitui o item federal
       // apontado (removido de onde estiver), em vez de somar os dois.
-      addition.items.forEach((newItem: any) => {
+      addition.items.forEach((newItem) => {
         if (newItem.replacesItemId) {
-          effective.sections.forEach((section: any) => {
-            section.items = section.items.filter((i: any) => i.id !== newItem.replacesItemId);
+          effective.sections.forEach((section) => {
+            section.items = section.items.filter((i) => i.id !== newItem.replacesItemId);
           });
         }
       });
 
-      const existingIds = new Set(targetSection.items.map((i: any) => i.id));
-      addition.items.forEach((newItem: any) => {
+      const existingIds = new Set(targetSection.items.map((i) => i.id));
+      addition.items.forEach((newItem) => {
         if (!existingIds.has(newItem.id)) {
           targetSection.items.push(newItem);
           existingIds.add(newItem.id);
         }
       });
-      targetSection.items.sort((a: any, b: any) => a.order - b.order);
+      targetSection.items.sort((a, b) => a.order - b.order);
     }
   });
 
   if (supplement.newSections) {
-    supplement.newSections.forEach((newSec: any) => {
-      if (!effective.sections.find((s: any) => s.id === newSec.id)) {
+    supplement.newSections.forEach((newSec) => {
+      if (!effective.sections.find((s) => s.id === newSec.id)) {
         effective.sections.push(newSec);
       }
     });
@@ -392,8 +392,9 @@ export function getEffectiveTemplate(
   // desliga o filtro (usado por relatório concluído, que nunca deve perder item aposentado).
   filterRetiredAsOf?: Date
 ): ChecklistTemplate {
-  // 1. Initial Deep Copy
-  const effective = JSON.parse(JSON.stringify(baseTemplate));
+  // 1. Initial Deep Copy — o roteiro efetivo é montado destrutivamente daqui para baixo
+  // (suplemento, filtro de papel, itens aposentados), então nunca pode ser o base.
+  const effective: ChecklistTemplate = JSON.parse(JSON.stringify(baseTemplate));
 
   // 1.5. Apply Alimentos Segments
   if (baseTemplate.category === 'alimentos') {
@@ -413,10 +414,10 @@ export function getEffectiveTemplate(
 
   // 3. Apply Food Segment Filtering (Alimentos)
   if (baseTemplate.category === 'alimentos') {
-    const foodTypes = (client as any).foodTypes || [];
-    effective.sections = effective.sections.filter((section: any) => {
+    const foodTypes = client.foodTypes || [];
+    effective.sections = effective.sections.filter((section) => {
       if (!section.applicableFoodTypes || section.applicableFoodTypes.length === 0) return true;
-      return section.applicableFoodTypes.some((t: string) => foodTypes.includes(t));
+      return section.applicableFoodTypes.some((t) => foodTypes.includes(t));
     });
   }
 
@@ -426,14 +427,14 @@ export function getEffectiveTemplate(
   // 4.5. Remove itens aposentados antes do corte (decisão 21) — grandfather de quem já estava
   // em andamento quando o item foi aposentado.
   if (filterRetiredAsOf) {
-    effective.sections = effective.sections.map((section: any) => ({
+    effective.sections = effective.sections.map((section) => ({
       ...section,
-      items: section.items.filter((item: any) => !item.retiredAt || new Date(item.retiredAt) > filterRetiredAsOf),
+      items: section.items.filter((item) => !item.retiredAt || new Date(item.retiredAt) > filterRetiredAsOf),
     }));
   }
 
   // 5. Final Sorting
-  effective.sections.sort((a: any, b: any) => a.order - b.order);
+  effective.sections.sort((a, b) => a.order - b.order);
 
   return effective;
 }
@@ -447,12 +448,12 @@ export function enrichTemplate(template: ChecklistTemplate, client: Client): Che
 }
 
 export function getTotalItems(template: ChecklistTemplate): number {
-  return template.sections.reduce((sum: number, s: any) => sum + s.items.length, 0);
+  return template.sections.reduce((sum, s) => sum + s.items.length, 0);
 }
 
 export function getCriticalItemsCount(template: ChecklistTemplate): number {
   return template.sections.reduce(
-    (sum: number, s: any) => sum + s.items.filter((i: any) => i.isCritical).length, 0
+    (sum, s) => sum + s.items.filter((i) => i.isCritical).length, 0
   );
 }
 

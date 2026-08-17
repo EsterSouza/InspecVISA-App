@@ -862,7 +862,7 @@ export function getExtraSections(
       ...sec,
       items: sec.items.filter(item => {
         // itens marcados isRJOnly só aparecem para RJ
-        if ((item as any).isRJOnly && !isRJ) return false;
+        if (item.isRJOnly && !isRJ) return false;
         return true;
       }),
     }));

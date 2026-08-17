@@ -1,11 +1,10 @@
 {
-  "total": 227,
+  "total": 199,
   "areas": {
     "api": 41,
     "scripts": 106,
     "src/__tests__": 12,
     "src/components": 10,
-    "src/data": 28,
     "src/lib": 1,
     "src/store": 7,
     "src/types": 19,
