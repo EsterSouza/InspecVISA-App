@@ -7,7 +7,7 @@
 
 ## Onde estamos — atualizado em 16/08/2026
 
-**21 cards entregues, 7 na fila.** Card entregue tem o título ~~riscado~~ mais abaixo, com a data
+**22 cards entregues, 6 na fila.** Card entregue tem o título ~~riscado~~ mais abaixo, com a data
 e o commit; card aberto tem ⬜. Esta é a única tabela de estado do documento — se divergir de
 qualquer outra coisa aqui, ela ganha.
 
@@ -16,11 +16,10 @@ qualquer outra coisa aqui, ela ganha.
 | Card | O que é | Só depois de |
 |---|---|---|
 | **FE-24** | **Formulários**: os controles crus restantes viram `Input`/`Select`/`Textarea`/`Label` — recontar, o FE-23 já migrou 27 | — |
-| **FE-21** | 2.858 classes de cor viram token — **mais os 20 hex cravados em TS/TSX** que o de-para não vê | desenho congelado |
 | **FE-22** | `Clients` e `Inspections` em tabela densa | — |
 | **FE-25** | `SmartImporter`, o que sobrou de `TemplateDetail`, e as 3 telas de entrada | — |
 | **FE-26** | `PublicSchedule` e `PublicAppointmentStatus` — o que o cliente vê sem login | — |
-| **FE-12** | Tema escuro no app inteiro | **FE-21** |
+| **FE-12** | Tema escuro no app inteiro | — (FE-21 ✅ destravou) |
 | **FE-27** | Gate de regressão visual e a11y — **é o card que fecha o frontend** | FE-12, só para o tema |
 
 **FE-24 é condição para declarar o redesenho encerrado.**
@@ -51,9 +50,10 @@ qualquer outra coisa aqui, ela ganha.
 | FE-20 | `PageHeader` + vazio/carregando/erro padronizados em 7 listas do admin | 16/08 | `f8ba4c8` |
 | Artefato E | O fluxo de inspeção desenhado, aprovado pela Ester | 16/08 | `52cf2dd`, `6887a39`, `f6d029d` |
 | FE-23 | `/new` → `/execute` → **encerramento** → `/summary` implementados, em 6 commits | 16/08 | `79fcaaf` … `a47986d`, `0f5849a` |
+| FE-21 | 2.705 classes cruas + 20 hex cravados viram token, família por família, em 8 commits | 17/08 | `bd221e1` … `ca0a35d`, `f82e3a6` |
 
 **Ondas:** 1 (portal) **fechada** · 2 (admin) **fechada** · 3 (fechamento) falta FE-12 e a revisão
-final de a11y · 4 (o admin que falta) em andamento, 9 de 14 entregues.
+final de a11y · 4 (o admin que falta) em andamento, 10 de 14 entregues.
 
 ---
 
@@ -306,7 +306,7 @@ Trocar `mx-auto max-w-3xl|4xl|5xl|6xl` pelo `PageShell`. Representativos: `src/p
 - Corrigir `index.html:13`, que descreve o app como **"C&C Consultoria"** (terceira marca, inconsistente).
 - Corrigir "HUB TREINAVISA SERVICOS" no `PublicHeader.tsx:16-19` (sem acento/cedilha).
 
-### ⬜ FE-12 · Dark mode — **depende do FE-21**
+### ⬜ FE-12 · Dark mode — **FE-21 ✅ entregue em 17/08, destravado**
 Os tokens de FE-04 já nascem nos dois modos. Ligar o dark no app inteiro é trabalho separado. Enquanto não for feito, decidir: implementar ou esconder o toggle que hoje não faz nada.
 
 ---
@@ -537,7 +537,15 @@ spinner central.
   pré-existentes (`localStorage.clear is not a function`, ambiente — nenhum arquivo tocado por
   este card).
 
-### ⬜ FE-21 · As 2.858 classes de cor viram token
+### ~~FE-21~~ ✅ · As classes de cor viram token — 17/08/2026
+
+> **Executado em 8 commits** (`bd221e1` fundação de tokens, `ec19107`…`ca0a35d` as 6 famílias,
+> `f82e3a6` os hex cravados), `npm run build` entre cada um, como o card manda. **2.705** classes
+> cruas contadas no `src/` no início (a auditoria dizia 2.858 contando também os protótipos HTML)
+> — **0** ao final. O registro abaixo traz o que a execução encontrou de diferente do de-para.
+
+O texto abaixo é o card como foi escrito, mantido para leitura do histórico.
+
 - A tabela de-para está no Artefato D, tela **"De-para de cor"**. Converter **família por família,
   um commit por família**, com `npm run build` entre eles — um commit de 2.856 trocas não é revisável.
 - Três linhas saem do lote e são leitura de uso, não substituição: `bg-violet-*` e `bg-sky-*`
@@ -550,6 +558,53 @@ spinner central.
   `InspectionSummary.tsx` e `index.css`. Achado pelo `audit-ui.mjs` do Design Arsenal; as do fluxo
   de inspeção saem no FE-23, as demais aqui. Fechar o card sem elas deixa a nota da inspeção com o
   âmbar do Tailwind em vez do da marca.
+
+**O que a execução encontrou.**
+
+- **O de-para do Artefato D é uma amostra, não a lista inteira.** Ele nomeia ~20 padrões de classe
+  (`text-gray-900`, `border-gray-200`...) para ilustrar o raciocínio de cada família; o `src/`
+  usa **151 padrões distintos** (todas as tonalidades 50–950 de cada cor, mais `hover:`/`focus:`
+  em cima). A conversão real foi estender a mesma lógica de família (texto → `navy`/`navy-2`/
+  `navy-3`; fundo suave → `-soft`; borda decorativa → `-soft-border`; texto sobre fundo suave →
+  `-soft-ink`) para cada tonalidade encontrada, não só as citadas.
+- **`tailwind.config.js` não tinha todos os tokens que o de-para pede.** A fundação do FE-04a criou
+  `primary`/`navy`/`secondary`/`amber`/`success`/`danger`, mas não `surface`, `border-default`/
+  `border-control` nem `accent-ink` — sem eles as classes `bg-surface`, `border-default` e
+  `text-accent-ink` do próprio de-para não existiam. Primeiro commit (`bd221e1`) resolve isso.
+- **`border-gray-200` vira `border-control`, não `border-default`, em 50 lugares.** São `<input>`/
+  `<select>`/`<textarea>` **crus** (fora dos primitivos `Input`/`Select`/`Textarea` — a mesma dívida
+  que o FE-24 vai fechar) que delimitam campo com a cor errada. Achado varrendo cada ocorrência
+  contra a tag que a envolve, como o card pedia ("cada linha marcada exige olhar o uso").
+- **Duas cores novas sem par na marca, fora do de-para original:** `orange` (colapsado em `amber`,
+  mesmo papel de atenção) e `purple`, no badge "Reincidente" do plano de ação (`ActionPlanPanel.tsx`,
+  `PortalActionPlan.tsx`) — indicador, não estado, então `accent-ink`, mesmo raciocínio do `violet`.
+- **O cartão da Ana em `ProfileSelection.tsx` usava `purple` de propósito**, para se diferenciar do
+  cartão da Ester (`primary`) — identidade de pessoa, não estado nem indicador. Decisão tomada nesta
+  execução: Ana passa a usar `secondary` (teal, a segunda cor da marca) em vez de repetir `primary`
+  ou inventar uma cor fora do sistema. **Reversível, vale confirmar com a Ester.**
+- **Achado, não corrigido (fora do escopo de conversão):** o botão de pagamento do `PortalBilling.tsx`
+  usa `bg-amber` sólido com texto branco — 2,50:1, e o Manual 2.0 proíbe âmbar como ação principal.
+  Existia antes desta execução (a cor crua já era `bg-amber-600`); a conversão preservou o problema
+  em vez de escondê-lo atrás de um nome de token. Vira card ou emenda de um card de formulário.
+- **Achado: a marca só tem 5 matizes semânticos** (azul, teal, âmbar, verde, vermelho) para as
+  **7 categorias** de fila do `OperationalQueues.tsx` (painel "Início"). Duas categorias
+  ("Solicitações novas" e "Evidências aguardando revisão") agora dividem o mesmo azul, porque o
+  de-para manda `violet` virar sempre `accent-soft`. Antes da conversão eram cores visualmente
+  distintas (mas fora da marca); depois da conversão, corretas e repetidas. Não inventei uma sexta
+  cor — fica registrado para quem decidir se o painel precisa de uma diferenciação que não seja cor
+  (ícone já diferencia; pode bastar).
+- **`utils/scoring.ts` já estava certo** — o FE-23 (decisão 27) já tinha trocado a paleta padrão do
+  Tailwind pelos hex exatos dos tokens (`SCORE_COLORS`/`SCORE_INK`), só não dava pra saber sem ler
+  o arquivo. `ScorePanel.tsx` (renomeado `ExecutionScorePanel.tsx`) e `MobileScoreBar.tsx` também já
+  estavam limpos. Sobravam de verdade: `ComplianceTrendChart.tsx` (Recharts exige string de cor
+  crua — os valores eram o cinza genérico do Tailwind, viraram os hex da marca), `PdfPreviewModal.tsx`
+  (canvas de assinatura próprio, tinta alinhada ao `#000000` do `SignaturePad.tsx`) e `index.css`
+  (scrollbar).
+- Medidor de contraste do Artefato A: sem Artefato A rodando fora do protótipo, cada família foi
+  conferida calculando WCAG AA dos pares reais (fundo/texto, fundo/borda) depois de aplicada. Todos
+  passam — inclusive `text-navy-3` sobre branco, que sobe de 2,54:1 (o `text-gray-400` reprovado)
+  para 5,96:1.
+- `tsc -b` e `npm run build` limpos depois de cada um dos 8 commits.
 
 ### ⬜ FE-22 · Listas restantes viram tabela densa
 `Clients.tsx` e `Inspections.tsx`, seguindo o FE-17 como exemplo aprovado. É o item que estava no
@@ -824,7 +879,10 @@ entregou o editor de roteiro sem precisar de arrastar.
   sistema de cor inteiro.
   **O de-para do FE-21 não pega nenhum deles** — ele conta classe (`bg-amber-500`), e isto é string
   hexadecimal dentro do TS/TSX. Vira item explícito do **FE-23** (as três telas de nota são do
-  fluxo de inspeção) e emenda ao **FE-21**.
+  fluxo de inspeção) e emenda ao **FE-21**. ✅ **Resolvido**: as três telas de nota (`ScorePanel.tsx`,
+  renomeado `ExecutionScorePanel.tsx`, `utils/scoring.ts`, `MobileScoreBar.tsx`) saíram no FE-23
+  (decisão 27); `ComplianceTrendChart.tsx`, `PdfPreviewModal.tsx`, `SignaturePad.tsx` e `index.css`
+  saíram no FE-21 (17/08).
 - **3 × P1 `reduced-motion`** nos fragmentos de página do protótipo — **falso positivo**: o
   `prefers-reduced-motion` está no `base.css` e o script analisa arquivo por arquivo. Registrado
   para ninguém "corrigir" duas vezes.
@@ -856,14 +914,14 @@ entregou o editor de roteiro sem precisar de arrastar.
 | ~~FE-18~~ ✅ | Sincronização | Sonnet 5 | médio | entregue 16/08 |
 | ~~FE-19~~ ✅ | Configurações | Sonnet 5 | médio | entregue 16/08 |
 | ~~FE-20~~ ✅ | Estados vazio/carregando/erro + `PageHeader` em 7 listas do admin | Sonnet 5 | médio | entregue 16/08 |
-| FE-21 | 2.858 classes + 20 hex → token, família por família | Codex (medium) | alto | de-para aprovado ✅ |
+| ~~FE-21~~ ✅ | 2.705 classes + 20 hex → token, família por família | Sonnet 5 | alto | entregue 17/08 |
 | FE-22 | `Clients` e `Inspections` em tabela densa | Codex (medium) | baixo | FE-17 ✅ |
 | FE-23 | Artefato E + fluxo `/new` → `/execute` → `/summary` | Opus 5 | **alto** | protótipo aprovado |
 | FE-24 | ~225 controles crus → `Input`/`Select`/`Textarea`/`Label` | Opus 5 (padrão) · Codex medium (lote) | alto | FE-23 |
 | FE-25 | `SmartImporter`, `TemplateDetail` e as telas de entrada | Sonnet 5 | baixo | FE-17b ✅ |
 | FE-26 | `PublicSchedule` + `PublicAppointmentStatus` | Opus 5 | médio | Artefato C ✅ |
 | FE-27 | Gate de regressão visual e a11y | Opus 5 (matriz) · Sonnet 5 (spec) | médio-alto | FE-12, só para a camada de tema |
-| FE-12 | Ligar o tema escuro no app inteiro | Sonnet 5 | médio | **FE-21** — impossível antes |
+| FE-12 | Ligar o tema escuro no app inteiro | Sonnet 5 | médio | — (FE-21 ✅ destravou) |
 
 **A ordem, revisada em 16/08/2026.** `FE-15`, `FE-14`, `FE-16`, `FE-17`, `FE-18`, `FE-17b`, `FE-19`
 e `FE-20` já saíram — o `FE-15` foi primeiro porque outros três esperavam por ele, e `FE-14`/`FE-16`
@@ -871,17 +929,18 @@ em paralelo por serem as duas telas de uso diário. Daqui em diante:
 
 1. ~~**FE-17b**~~ ✅ · ~~**FE-19**~~ ✅ · ~~**FE-20**~~ ✅ — aplicação de padrão já decidido no
    artefato, fecha o que a Onda 4 original abriu.
-2. **FE-23 e FE-24** — estrutura real de uso. Vêm antes da cor de propósito.
-3. **FE-21** — só com o desenho das telas praticamente congelado. Converter cor **antes** de o
-   desenho parar significa converter duas vezes.
+2. **FE-23** ✅ **e FE-24** — estrutura real de uso. Vêm antes da cor de propósito.
+3. ~~**FE-21**~~ ✅ — convertido em 17/08, com o desenho das telas do FE-23 já congelado (a ordem
+   que o handoff pedia, pra não converter cor duas vezes).
 4. **FE-22, FE-25 e FE-26** — as superfícies restantes.
 5. **FE-12** — o tema escuro é o último de propósito: é o card mais vistoso e o menos estrutural.
 6. **FE-27** — fecha a onda e é o único que autoriza a frase "frontend visual fechado".
 
-**Ressalva sobre o FE-21.** Ele é necessário: são **2.858** classes de cor cruas contadas hoje (a
-auditoria dizia 2.856) contra ~600 usos de token, e **zero** `dark:` no app inteiro. Mas "as 2.858
-classes foram convertidas" não é sinônimo de "o visual está pronto" — token resolve coerência
-cromática, não resolve hierarquia, composição, densidade nem fluxo. Por isso ele anda acompanhado
+**Ressalva sobre o FE-21 (registrada antes de executar, ainda vale).** Ele era necessário: eram
+**2.705** classes de cor cruas contadas no `src/` (a auditoria dizia 2.858 contando também os
+protótipos HTML) contra ~600 usos de token, e **zero** `dark:` no app inteiro. Mas "as classes
+foram convertidas" não é sinônimo de "o visual está pronto" — token resolve coerência
+cromática, não resolve hierarquia, composição, densidade nem fluxo. Por isso ele andou acompanhado
 de revisão de tela, e quem fecha a frase é o FE-27.
 
 ## Fora de escopo (achados de dados, não de layout)
@@ -1054,6 +1113,7 @@ Tabela de acompanhamento rápido — quem fez o quê e quando. O detalhe de cada
 | 17/08/2026 | **FE-23 — 4 defeitos de uso, achados pela Ester usando** | Opus 5 | `e340d7e`, + prazo | Usando o fluxo em campo, quatro coisas que a verificação por DOM não pegou. **(1) Recolher seção não funcionava com filtro ligado:** `isOpen` era `itemFilter !== 'todos' \|\| openSectionIds.has(id)` — com filtro, o primeiro termo mandava e o clique no cabeçalho não tinha efeito nenhum ("não cumpre" e "falta escrever"). E na aba "Todas" a seção recolhida **reabria sozinha**, porque o efeito que semeia a primeira seção rodava a cada recálculo de `visibleSections` (identidade nova a cada resposta) e via `prev.size === 0`. Agora o filtro semeia `openSectionIds` uma vez, o efeito inicial roda uma vez só (`useRef`), e `isOpen` é só o conjunto. **(2) O cartão sumia no meio da escrita:** terminar situação e ação fazia o item deixar de casar com o filtro no mesmo instante, antes de dar tempo de marcar prazo e responsável. Item em que ela está trabalhando fica: responder ou abrir o painel de detalhes torna o item *sticky* (`ChecklistItem` avisa por `onDetailsToggle`), e ele só sai quando ela recolhe o painel ou troca de filtro. **(3) Texto de justificativa na interface:** nota de commit dentro da tela ("comparar com o que não é comparável seria pior…", "este cartão é permanente: aviso passageiro não serve…", "bloquear sem oferecer caminho seria prender o relatório"). Removidas 11 dessas, em 8 arquivos — 2 fora do fluxo (Configurações e a fila financeira do Início, esta com `gray-400` → `gray-500` de tabela). Fica o que a tela precisa dizer para ser operada; o porquê continua no comentário de código. **(4) Prazo de pendência reincidente reiniciava a contagem** — regra de produto nova, decisão 34: item que ganhou 60 dias em junho e reaparecia em agosto voltava a vencer 60 dias depois de agosto, então a pendência nunca vencia. `due_date = excluded.due_date` no `on conflict` de `admin_publish_client_action_items` virou uma regra de 4 ramos, espelhada em `resolveRecurringDueDate` (`clientActionPlan.ts`) para a tela mostrar a data antes de publicar; migration `20260817084903`, aplicada por MCP e conferida com `has_function_privilege`. Verificado no navegador com dados reais da REDE SÊNIOR MÉIER ISOLINA: recolher passou a valer nas três abas e a seção ficou recolhida; os três estados do prazo apareceram nos itens certos ("vence 21/08/2026 · não reinicia", "venceu em 07/07/2026: o escolhido aqui passa a valer, vencendo 28/08/2026"), aviso de vencido a 6,61:1, sem rolagem lateral. **Não verificado no navegador:** o *sticky* do item, porque exercitá-lo exige escrever numa inspeção real de cliente. `npm run build` e os 538 testes limpos. |
 | 17/08/2026 | **Reincidência sobrevive à troca de roteiro da unidade** | Opus 5 | `f1f65e1` | A Ester notou que o Harmonya não mostrava reincidência nenhuma, tendo várias, e suspeitou da revisão de roteiro/legislação. **Não era isso:** `responses.item_id` guarda o id do roteiro **daquela** visita, e a unidade trocou de roteiro entre as duas — até 12/06 as visitas rodaram no roteiro estático do código (`tpl-ilpi-federal-v1`, ids `fed-009`), as de agora rodam no do banco (ids UUID). Comparar só por id não achava nada e `filterPendingItemsForTemplate` descartava a pendência inteira. Conferido no banco: o roteiro do banco **nunca teve item aposentado nem recriado** (94 itens de 11/04 + 12 acrescentados depois), então a revisão está limpa. O texto do requisito é o que sobrevive: as **106 descrições do estático casam exatamente com as 106 do banco**. `src/utils/itemIdentity.ts` remapeia a pendência antiga para o id equivalente; descrição repetida no mesmo roteiro fica fora do índice, porque casar no escuro marcaria o item errado. Alcança os quatro lugares: execução (selo, caixa "Plano de ação anterior", "Usar texto anterior"), relatório/PDF (`getRecurringItemIdsForClient` passa a receber o roteiro do relatório), portal (publicar reencontra a pendência aberta **pelo título**, então continua a mesma linha — sem isso o cliente ganhava uma segunda pendência do mesmo requisito) e item extra (o que quebra nele é a **seção**, remapeada pelo título). A descrição de um item passa a ser lida primeiro do roteiro congelado (REF-06), única fonte para item apagado do roteiro vivo. **Medido em produção para todos os clientes com histórico: 169 → 199 reincidências reconhecidas** (Harmonya 0 → 17, Copacabana 0 → 13). Seguem de fora, sem casamento honesto por texto: **52** respostas de itens apagados do roteiro (a descrição não existe em lugar nenhum) e **31** do Lar Recanto, cuja visita nova usa o roteiro de Goiás — outro roteiro. Conferido no navegador na inspeção real do Harmonya: 13 selos no recorte de Saúde (o resto é do recorte de Nutrição) e o prazo pactuado reencontrado pelo título. **Achados de dado, não corrigidos (produção):** 9 pendências no portal com o título `Requisito avaliado` (Harmonya 5, Freguesia 4), gravadas quando o item não estava no roteiro do relatório — o cliente lê isso no lugar do requisito; e 1 pendência duplicada de verdade no Saens Pena. `npm run build` e os 548 testes limpos. |
 | 17/08/2026 | **Filtro "Reincidentes" na execução + limpeza dos 2 achados de dado** | Opus 5 | (a seguir) | O filtro do roteiro ganhou a quinta aba, a pedido da Ester: **Todos · Sem resposta · Não cumpre · Reincidentes · Falta escrever**. Casa `previousNCs` (já remapeado pelo roteiro atual), então funciona igual para unidade que trocou de roteiro. Conferido no Harmonya: 13 itens, todos com a caixa "Plano de ação anterior", 7 seções abertas, sem rolagem lateral. A tabela de NCs do relatório já tinha o filtro de reincidentes desde o FE-23 — faltava só na execução. **Dados de produção corrigidos, com autorização dela:** (1) as **9 pendências** do portal com o título `Requisito avaliado` (Harmonya 5, Freguesia 4) receberam o texto do requisito, tirado do **roteiro congelado do próprio relatório** (`inspection_report_versions`) — nenhuma tinha evidência anexada, e nenhum outro campo foi tocado; (2) a **duplicata do Saens Pena** (mesmo requisito em duas linhas, chaves `ec03fa1d` e `a8045e53`): fica a linha do roteiro de agora, que herdou `first_detected_on = 17/06` e passou a contar 2 ocorrências; a de junho virou `hidden`, não `resolved` (seria mentira) e não foi apagada (é o registro daquela ocorrência). **O prazo que o cliente já viu (05/09) não foi apertado retroativamente**, mesmo com a regra nova apontando 16/08 — mudar prazo para trás depois de publicado é trocar a regra com o jogo andando. Conferido depois: 0 títulos placeholder e 0 requisitos duplicados visíveis a qualquer cliente. |
+| 17/08/2026 | **FE-21** — classes de cor cruas viram token | Sonnet 5 | `bd221e1`, `ec19107`, `d9a3e1c`, `d42dacc`, `7594756`, `40532dd`, `ca0a35d`, `f82e3a6` | 8 commits, `npm run build` entre cada um. **(0) Fundação:** `tailwind.config.js` ganhou `surface`/`surface-sunken`/`surface-hover`/`surface-active`, `default`/`control` (as duas bordas) e `accent-ink` — o de-para do Artefato D pedia essas classes e elas não existiam desde o FE-04a. **(1) Texto:** `text-gray-{950,900,800}` e `slate-900` → `text-navy`; `{700,600}`/`slate-700` → `text-navy-2`; `{500,400,300,200}`/`slate-{500,400}` → `text-navy-3` (o `text-gray-400` reprovado em contraste, 2,54:1, agora mede 5,96:1). **(2) Superfície/traço:** `bg-white` → `bg-surface`; `bg-gray-{50,100,200}`/`slate-50` → `bg-surface-sunken`; `hover:bg-gray-{50,100}` → `hover:bg-surface-{hover,active}`; `border-gray-{50,100,200}` → `border-default`, `border-gray-{300,400}` → `border-control` — **exceto 50 lugares** em que `border-gray-200` delimitava um `<input>`/`<select>`/`<textarea>` cru (fora dos primitivos, achado varrendo cada ocorrência contra a tag que a envolve): esses foram para `border-control`, não `border-default`, porque delimitam campo. **(3) Ação azul:** `blue`/`indigo`, todos os tons, `text-*` → `text-accent-ink` (tom único de link, não um por shade) e `bg`/`border`/`from`/`via`/`to`/`ring` → o mesmo degrau em `primary-{50..900}`, que já existia desde o FE-04a. **(4) Vermelho (perigo):** ladder própria sobre `danger`/`danger-soft`/`danger-soft-ink`/`danger-soft-border`; achada e corrigida a mão a exceção do banner de erro do `Login.tsx`, que roda sobre o hero escuro (o mapeamento genérico teria posto vermelho quase-preto sobre navy). **(5) Âmbar/amarelo/laranja:** mesma lógica sobre `amber`; laranja (2 usos, sem card no de-para original) colapsado na mesma família — mesmo papel de atenção. **Achado, não corrigido:** o botão de pagamento do `PortalBilling.tsx` usa `bg-amber` sólido com texto branco, 2,50:1 — já era assim antes da conversão, e o Manual 2.0 proíbe âmbar como ação principal; fica pendência pro próximo card de formulário. **(6) Verde/esmeralda (sucesso):** ladder sobre `success`; sem `--success-hover` em `tokens.css`, reaproveitado o próprio `success-soft-ink` como hover — o mesmo padrão que `danger-hover`/`danger-soft-ink` já usavam (mesmo hex). **(7) Sem par na marca:** `sky` é quase sempre estado operacional (badge de pendente/em andamento/agendado/sincronizando) → `secondary` (teal); as 2 exceções que são indicador de dashboard, não estado, → `accent-soft`, junto com os 2 usos de `violet`. `purple` era achado novo fora do de-para: o badge "Reincidente" (indicador) → `accent-ink`; o cartão da Ana em `ProfileSelection.tsx`, que usava `purple` **de propósito** pra se diferenciar do cartão da Ester (`primary`) — decisão tomada aqui, Ana passa a usar `secondary`, preservando a distinção sem inventar cor fora do sistema (**vale confirmar com a Ester**). **Achado de lacuna:** a marca só tem 5 matizes semânticos para as 7 categorias de fila do `OperationalQueues.tsx` — duas categorias (`requests_new`, `evidence_pending`) agora dividem o mesmo azul, porque o de-para manda `violet` virar sempre `accent-soft`. **(hex cravados):** `ScorePanel`/`scoring.ts`/`MobileScoreBar` já estavam certos (FE-23, decisão 27); faltavam de verdade `ComplianceTrendChart.tsx` (Recharts exige string de cor crua — cinza genérico do Tailwind virou os hex da marca), `PdfPreviewModal.tsx` (canvas de assinatura próprio, tinta alinhada ao `#000000` do `SignaturePad.tsx`) e o scrollbar do `index.css`. **Contagem:** 2.705 classes cruas no `src/` no início (a auditoria dizia 2.858 contando também os protótipos HTML) → 0 ao final; 151 padrões distintos, não os ~20 que a tabela de-para nomeava como amostra. Contraste conferido calculando WCAG AA dos pares reais depois de cada família (sem Artefato A fora do protótipo) — todos passam, incluindo `border-control` a 3,61:1 sobre `bg-surface` (mínimo 3:1 exigido em controle). `tsc -b` e `npm run build` limpos nos 8 commits; verificado no navegador (Início e Clientes) com `getComputedStyle` — `bg-surface-sunken` (#E4ECF6) no `<body>`, `border-control` (#7688A2) no campo de busca. **Destrava o FE-12** (dark mode), que dependia deste card. |
 
 ### FE-04a ✅ — detalhe da entrega, e o que ficou pra depois
 
