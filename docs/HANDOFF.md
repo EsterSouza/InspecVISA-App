@@ -378,7 +378,7 @@ citavam a numeração do *roteiro anexo* ao 45.585 (5.5.9, 6.4.1, 7.1…), que �
 | **P360-014** | Acessibilidade e responsividade | Sonnet 5 | médio | superfícies estáveis | ✅ **concluído 08/08/2026** · sem migration, frontend puro |
 | **P360-015** | E2E, rollout e prova de produção | Opus 5 | alto | onda a publicar | ✅ **concluído 08/08/2026** · sem migration; CI, Playwright, smoke e tenant de homologação criados em produção |
 | **DEBT-01** | Margem pública de 4 h por tipo | Sonnet 5 | médio | — | ✅ **concluído 04/08** |
-| **DEBT-02** | Dívida de lint | Sonnet 5 | médio | — | 🟡 **em andamento 17/08/2026** · 531 → 482; fatia 0 (tudo que não é `no-explicit-any`) zerada e teto por área cobrado no CI |
+| **DEBT-02** | Dívida de lint | Sonnet 5 | médio | — | 🟡 **em andamento 17/08/2026** · 531 → 251; fatia 0 (tudo que não é `no-explicit-any`), `src/services` e `src/pages` zeradas, teto por área cobrado no CI |
 | **PORT-04** | Tutorial do portal por conta do cliente | Opus 5 | baixo | — | ✅ **concluído 08/08/2026** · aplicado em produção (1 migration); o campo do tenant vira padrão |
 | **SEC-01** | Endurecer o que a revisão do P360-015 encontrou | Opus 5 | médio | P360-015 (concluído) | ✅ **concluído 08/08/2026** · aplicado em produção (2 migrations), autorizado pela Ester; 50 execuções E2E depois do revoke |
 | **DEBT-03** | Pontas soltas do repositório | Haiku 4.5 | baixo | — | ✅ **concluído 05/08** |
@@ -3449,7 +3449,7 @@ bloqueado —, e não por chamada; a assinatura atual só conhece a margem de qu
 
 ---
 
-## DEBT-02 — Dívida de lint 🟡 em andamento desde 17/08/2026
+## DEBT-02 — Dívida de lint 🟡 em andamento desde 17/08/2026 · 531 → 251
 
 **Modelo:** Sonnet 5 · **Esforço:** médio · **Prioridade:** baixa, mas bloqueia lint no CI
 
@@ -3482,15 +3482,33 @@ de propósito (separar mexeria em 41 arquivos de importação); e `no-control-re
 `set-state-in-effect` com `eslint-disable` justificado na linha — são busca de dados em efeito e
 reset deliberado, e a regra pede biblioteca de query, que o projeto não tem.
 
-**Fatia 1 — `src/services`, começada** (`5c24059`): 141 → 119. Como não há tipos gerados do
-Supabase, o contrato de cada tabela passa a morar ao lado do mapeador (`ClientRow`,
-`ScheduleRow`, `PortalAccountQueryRow`, `RpcBundlePayload`…). Dois achados que o `any` escondia:
-`Schedule.inspectionId` era declarado `string | undefined` mas o mapeador sempre gravou o `null`
-cru da coluna nullable; e as duas chamadas de sessão do supabase-js devolvem formatos diferentes.
-`errorMessage` tinha **duas** cópias em componentes, a do portal mais fraca (só `instanceof
-Error`), que engolia a mensagem dos erros do PostgREST — que não são instâncias de `Error`. Virou
-`src/utils/errors.ts`; o portal passa a mostrar o motivo real onde antes dizia só "operação
-falhou.".
+**Fatia 1 — `src/services`, zerada** (`5c24059`, `44ca681`, `66fef8c`): 141 → 0. Como não há
+tipos gerados do Supabase, o contrato de cada tabela passa a morar ao lado do mapeador
+(`ClientRow`, `ScheduleRow`, `InspectionRow`, `ResponseRow`, `PhotoRow`, `TemplateRow`…).
+O `dexieTable: any` de seis funções do `repositoryService` virou `Table<T>` do Dexie, com
+`SyncableRecord` dizendo o que as filas de fato leem — e, onde o Dexie recusa `update` com o
+genérico ainda aberto, existe uma visão restrita da tabela com o porquê escrito na linha.
+O `migrationService` ganhou cinco interfaces `Legacy*`: o backup antigo traz **as duas grafias**
+do mesmo campo (`created_at` e `createdAt`) porque foi exportado por versões diferentes do app —
+é o que os `||` do arquivo sempre trataram, e o que o `any` escondia.
+
+**Fatia 2 — `src/pages`, zerada** (`5edfb98`): 112 → 0. O padrão das telas era `catch (err: any)`
+só para poder ler `.message`; como cada uma tem seu próprio texto de reserva, `errorMessage`
+ganhou o par `rawErrorMessage` (mensagem ou `undefined`), e `rawErrorMessage(err) || 'Erro ao
+salvar cliente.'` continua dizendo o texto da tela. No `SyncCenter` os 32 `(x as any)` já não
+eram necessários havia tempo — as listas vêm tipadas do Dexie. No `InspectionExecution`, os dois
+pontos que passam a **inspeção** onde `getEffectiveTemplate` pede um **cliente** agora dizem isso
+na cara (`as unknown as Client`, com o motivo), em vez de sumir num `any`.
+
+**Quatro campos que o `any` deixava mentir** — todos declarados como realmente são, sem mudar
+runtime: `syncError` é **nulo** (não ausente) depois de sincronizar; `Schedule.inspectionId` é
+nulo quando a visita não tem inspeção; `situationDescription`/`correctiveAction`/`responsible`/
+`deadline`/`customDescription` são nulos quando vêm do banco; e `listTemplates()` podia devolver
+`null` para quem guarda o resultado direto numa lista.
+
+**Código morto que só a tipagem revelou:** o `TemplateEditor` lia `it.legislation_name` e mais
+quatro campos em snake_case que **nunca chegavam ali** — `getFullTemplate` sempre devolveu
+camelCase.
 
 **O CI já cobra o teto** (passo 3, feito antes do resto): `npm run lint:teto`
 (`scripts/lint-teto.mjs` + `scripts/lint-teto.json`) roda no job `js` e falha se **qualquer área
@@ -3498,15 +3516,14 @@ piorar** — não exige zero, exige não regredir. `--max-warnings` não servia:
 avisos. Ao fechar uma fatia, `node scripts/lint-teto.mjs --gravar` baixa o teto. Quando tudo
 chegar a zero, o script sai e o CI passa a rodar `npm run lint`.
 
-**O que falta, por área** (o teto de hoje): `src/services` 119 · `src/pages` 112 · `scripts` 106 ·
-`api` 41 · `src/data` 28 · `src/utils` 24 · `src/types` 19 · `src/__tests__` 12 ·
-`src/components` 10 · `src/store` 7 · `supabase/functions` 2 · `src/lib` 1 · `vite.config.ts` 1.
+**O que falta, por área** (o teto de hoje, 251): `scripts` 106 · `api` 41 · `src/data` 28 ·
+`src/utils` 24 · `src/types` 19 · `src/__tests__` 12 · `src/components` 10 · `src/store` 7 ·
+`supabase/functions` 2 · `src/lib` 1 · `vite.config.ts` 1.
 
 **Nota sobre `scripts/` (106):** são scripts de manutenção de dado, rodados uma vez com `npx tsx`.
 Tipar linha de banco ali tem valor bem menor que em `src/` — é a última fatia, não a próxima.
-**E sobre `migrationService.ts` (13):** lê um JSON de backup antigo, de forma genuinamente
-dinâmica; trocar por `Record<string, unknown>` exige reescrever ~30 leituras de campo com
-narrowing. Fica para depois de `src/pages`, e com teste antes.
+A ordem sugerida do que sobra: `src/utils` e `src/data` (ainda são código de produção), depois
+`api` e `src/types`, e `scripts` por último.
 
 ---
 
