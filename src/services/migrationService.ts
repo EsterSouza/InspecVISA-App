@@ -1,5 +1,6 @@
 import { db } from '../db/database';
 import { generateId } from '../utils/imageUtils';
+import { toDateKey } from '../utils/clientPortalFormat';
 
 export interface LegacyBackup {
   source: string;
@@ -112,6 +113,8 @@ function findMatchingInspection(
   const mappedClientId = clientIdMap.get(legacyInspection.client_id || legacyInspection.clientId);
   if (!mappedClientId) return null;
   
+  // Aqui o UTC é o certo, não o local: `new Date('2026-08-16')` (data pura, sem
+  // hora) já nasce à meia-noite UTC, e ler em local devolveria 15/08 no Brasil.
   const legacyDate = new Date(legacyInspection.inspection_date || legacyInspection.inspectionDate).toISOString().split('T')[0];
   
   for (const local of localInspections) {
@@ -458,7 +461,7 @@ export async function exportCurrentDatabase() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `backup-inspecvisa-${new Date().toISOString().split('T')[0]}.json`;
+  a.download = `backup-inspecvisa-${toDateKey(new Date())}.json`;
   a.click();
   URL.revokeObjectURL(url);
 }

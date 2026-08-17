@@ -22,6 +22,7 @@ import type { ClientActionItemPayload } from '../utils/clientActionPlan';
 import { getActiveTenantId } from '../utils/localScope';
 import { getLocalActor } from '../utils/localActor';
 import { assertInspectionAppointment, normalizeAppointmentType, type AppointmentType } from '../utils/appointmentType';
+import { toDateKey } from '../utils/clientPortalFormat';
 
 const PORTAL_BUCKET = 'client-portal-files';
 const INSPECTION_PHOTO_BUCKET = 'inspection-photos';
@@ -1382,7 +1383,9 @@ export const AppointmentAdminService = {
         .from('appointment_blocked_dates')
         .select('id, day, reason, consultant_name')
         .eq('tenant_id', tenantId)
-        .gte('day', new Date().toISOString().split('T')[0])
+        // Hoje no fuso local: com UTC, depois das 21h a lista já escondia
+        // o bloqueio de hoje.
+        .gte('day', toDateKey(new Date()))
         .order('day', { ascending: true }),
       'DatasBloqueadas'
     );

@@ -1,4 +1,5 @@
 import { db } from '../db/database';
+import { toDateKey } from './clientPortalFormat';
 
 const PRE_BUNDLE_BACKUP_FLAG = 'inspecvisa-pre-bundle-backup-created';
 const DATE_FIELDS = [
@@ -89,7 +90,7 @@ export async function exportDatabase() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `inspec-visa-backup-${new Date().toISOString().split('T')[0]}.json`;
+  a.download = `inspec-visa-backup-${toDateKey(new Date())}.json`;
   a.click();
   URL.revokeObjectURL(url);
 }

@@ -21,6 +21,7 @@ import { ProfileModal } from '../components/profile/ProfileModal';
 import { ScheduleService } from '../services/scheduleService';
 import type { Schedule } from '../types';
 import { isInspectionAppointment } from '../utils/appointmentType';
+import { toDateKey } from '../utils/clientPortalFormat';
 import { useConfirmDialog } from '../components/ui/ConfirmDialog';
 import { toast } from '../store/useToastStore';
 
@@ -98,7 +99,10 @@ export function NewInspection() {
   const [dep2, setDep2] = useState('');
   const [dep3, setDep3] = useState('');
 
-  const [inspectionDate, setInspectionDate] = useState(new Date().toISOString().split('T')[0]);
+  // Data no fuso local, nunca via toISOString(): em UTC-3 uma visita criada depois
+  // das 21h nasceria com a data de amanhã, e essa data vira inspection_date, prazo
+  // do plano de ação (dueDateFor) e a data impressa no PDF.
+  const [inspectionDate, setInspectionDate] = useState(toDateKey(new Date()));
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   // Decisão 23 aplicada ao `/new`: os três blocos ficam na mesma página e o de
@@ -130,7 +134,7 @@ export function NewInspection() {
           const schedules = await ScheduleService.getSchedules();
           const schedule = schedules.find(s => s.id === preSelectedScheduleId);
           if (schedule) {
-            setInspectionDate(schedule.scheduledAt.toISOString().split('T')[0]);
+            setInspectionDate(toDateKey(schedule.scheduledAt));
           }
         }
 
@@ -184,7 +188,7 @@ export function NewInspection() {
             ? schedules.find(s => s.id === preSelectedScheduleId && s.clientId === selectedClient.id && s.status === 'pending' && isInspectionAppointment(s.appointmentType))
             : undefined;
           const match = forcedMatch || schedules.find(s => {
-            const sDateStr = s.scheduledAt.toISOString().split('T')[0];
+            const sDateStr = toDateKey(s.scheduledAt);
             return s.clientId === selectedClient.id && sDateStr === targetDateStr && s.status === 'pending' && isInspectionAppointment(s.appointmentType);
           });
 
@@ -282,7 +286,7 @@ export function NewInspection() {
       // ── Mesma data: NUNCA cria duplicata — direciona para a inspeção já aberta.
       // (Não há escape de "visita separada" no mesmo dia: é sempre o mesmo relatório.)
       const sameDateInspection = candidates.find(
-        c => c.inspectionDate.toISOString().slice(0, 10) === inspectionDate
+        c => toDateKey(c.inspectionDate) === inspectionDate
       );
       if (sameDateInspection) {
         const opener = sameDateInspection.consultantName || 'outra consultora';

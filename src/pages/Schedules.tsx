@@ -307,7 +307,10 @@ export function Schedules() {
   };
 
   const handleEdit = (schedule: Schedule) => {
-    const date = schedule.scheduledAt.toISOString().split('T')[0];
+    // Data e hora no mesmo fuso: com toISOString() a data vinha em UTC enquanto
+    // toTimeString() já dava a hora local, então editar um agendamento das 21h
+    // abria o formulário com o dia seguinte.
+    const date = toDateInputValue(schedule.scheduledAt);
     const time = schedule.scheduledAt.toTimeString().split(' ')[0].substring(0, 5);
     
     setSelectedClientId(schedule.clientId ?? '');

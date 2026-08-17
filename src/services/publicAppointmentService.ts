@@ -6,6 +6,7 @@ import type {
 } from '../types';
 import { formatAppointmentLeadTimeMessage, isAppointmentAtLeast24hAhead } from '../utils/appointmentLeadTime';
 import { isAllowedAppointmentDuration } from '../utils/appointmentType';
+import { toDateKey } from '../utils/clientPortalFormat';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -46,7 +47,7 @@ export const publicAppointmentService = {
     const { data, error } = await withTimeout(
       supabase.rpc('public_list_calendar_days', {
         p_tenant_id: DEFAULT_TENANT_ID,
-        p_start_date: startDate || new Date().toISOString().split('T')[0],
+        p_start_date: startDate || toDateKey(new Date()),
         p_days: days,
         p_appointment_type: appointmentType,
         p_duration_minutes: durationMinutes ?? null,
