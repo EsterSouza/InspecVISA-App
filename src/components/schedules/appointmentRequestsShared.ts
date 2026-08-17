@@ -44,10 +44,6 @@ export const STATUS_BADGES: Record<AppointmentRequest['status'], string> = {
   cancelled: 'bg-surface-sunken text-navy-3',
 };
 
-// Classe padrão de texto/data/select — placeholder com contraste AA (text-navy-3, não o
-// text-navy-3 padrão do Tailwind, que fica abaixo de 4.5:1 em fundo branco).
-export const TEXT_INPUT = 'w-full rounded-xl border border-control p-3 text-sm placeholder:text-navy-3';
-
 // Erros do Supabase (PostgrestError, FunctionsHttpError etc.) não são `instanceof Error`,
 // mas trazem `.message` — sem isso a UI mostrava "operação falhou." sem o motivo real
 // (ex.: "horario indisponivel" do trigger de conflito).

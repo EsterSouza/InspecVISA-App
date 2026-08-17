@@ -38,6 +38,10 @@ import { PageShell } from '../components/ui/PageShell';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Button } from '../components/ui/Button';
 import { Drawer } from '../components/ui/Drawer';
+import { Input } from '../components/ui/Input';
+import { Select } from '../components/ui/Select';
+import { Textarea } from '../components/ui/Textarea';
+import { Checkbox } from '../components/ui/Checkbox';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Pagination } from '../components/ui/Pagination';
@@ -235,30 +239,32 @@ function RequestDetail({
 
       {/* ─── Ações ─── */}
       <div className="flex flex-wrap items-center gap-1.5 border-t border-dashed border-default pt-3">
-        <select
+        <Select
+          size="sm"
           value={request.assigned_to || ''}
           onChange={(e) => void apply({ assignedTo: e.target.value || null })}
           disabled={busy}
           aria-label="Responsável"
-          className="rounded-md border border-control px-2 py-1 text-[11px] font-medium text-navy-2"
+          className="font-medium text-navy-2"
         >
           <option value="">Sem responsável</option>
           {CONSULTANTS.map((name) => (
             <option key={name} value={name}>{name}</option>
           ))}
-        </select>
+        </Select>
 
-        <select
+        <Select
+          size="sm"
           value={request.priority}
           onChange={(e) => void apply({ priority: e.target.value as ServiceRequestPriority })}
           disabled={busy}
           aria-label="Prioridade"
-          className="rounded-md border border-control px-2 py-1 text-[11px] font-medium text-navy-2"
+          className="font-medium text-navy-2"
         >
           {(Object.keys(SERVICE_REQUEST_PRIORITY_LABELS) as ServiceRequestPriority[]).map((value) => (
             <option key={value} value={value}>{SERVICE_REQUEST_PRIORITY_LABELS[value]}</option>
           ))}
-        </select>
+        </Select>
 
         {request.status === 'open' && (
           <button
@@ -317,24 +323,22 @@ function RequestDetail({
           ))}
         </ul>
 
-        <textarea
+        <Textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
           rows={3}
           maxLength={2000}
           placeholder="Escreva para o cliente ou registre uma nota interna"
           aria-label="Nota da solicitação"
-          className="w-full rounded-md border border-control p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+          className="min-h-0 p-2 text-xs"
         />
-        <label className="flex items-center gap-1.5 text-[11px] font-medium text-navy-2">
-          <input
-            type="checkbox"
-            checked={noteVisible}
-            onChange={(e) => setNoteVisible(e.target.checked)}
-            className="h-3.5 w-3.5"
-          />
-          O cliente pode ler esta nota
-        </label>
+        <Checkbox
+          checked={noteVisible}
+          onChange={(e) => setNoteVisible(e.target.checked)}
+          className="items-center gap-1.5 text-xs font-medium text-navy-2"
+          boxClassName="mt-0 h-3.5 w-3.5"
+          label="O cliente pode ler esta nota"
+        />
 
         <div className="flex flex-wrap gap-1.5">
           <button
@@ -447,9 +451,10 @@ function SlaPanel({
           </p>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {[{ value: 'default', label: 'Padrão (todas)' }, ...SERVICE_REQUEST_CATEGORIES].map((category) => (
-              <label key={category.value} className="flex items-center justify-between gap-2 rounded-md border border-default px-2 py-1.5 text-[11px] text-navy-2">
+              <label key={category.value} className="flex items-center justify-between gap-2 rounded-md border border-default px-2 py-1.5 text-xs text-navy-2">
                 <span>{category.label}</span>
-                <input
+                <Input
+                  size="sm"
                   type="number"
                   min={1}
                   max={365}
@@ -457,7 +462,7 @@ function SlaPanel({
                   onChange={(e) => setDraft((prev) => ({ ...prev, [category.value]: e.target.value }))}
                   placeholder="—"
                   aria-label={`Prazo para ${category.label}`}
-                  className="w-16 rounded border border-control px-1.5 py-0.5 text-right"
+                  className="w-16 text-right"
                 />
               </label>
             ))}
@@ -601,47 +606,47 @@ export function ServiceRequests() {
       </div>
 
       <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        <input
+        <Input
+          size="sm"
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Assunto ou número"
           aria-label="Buscar solicitação"
-          className="rounded-md border border-control px-2.5 py-1.5 text-xs"
         />
-        <select
+        <Select
+          size="sm"
           value={clientId}
           onChange={(e) => setClientId(e.target.value)}
           aria-label="Filtrar por unidade"
-          className="rounded-md border border-control px-2.5 py-1.5 text-xs"
         >
           <option value="">Todas as unidades</option>
           {clients.map((client) => (
             <option key={client.id} value={client.id}>{client.name}</option>
           ))}
-        </select>
-        <select
+        </Select>
+        <Select
+          size="sm"
           value={assignedTo}
           onChange={(e) => setAssignedTo(e.target.value)}
           aria-label="Filtrar por responsável"
-          className="rounded-md border border-control px-2.5 py-1.5 text-xs"
         >
           <option value="">Qualquer responsável</option>
           {CONSULTANTS.map((name) => (
             <option key={name} value={name}>{name}</option>
           ))}
-        </select>
-        <select
+        </Select>
+        <Select
+          size="sm"
           value={priority}
           onChange={(e) => setPriority(e.target.value as ServiceRequestPriority | '')}
           aria-label="Filtrar por prioridade"
-          className="rounded-md border border-control px-2.5 py-1.5 text-xs"
         >
           <option value="">Qualquer prioridade</option>
           {(Object.keys(SERVICE_REQUEST_PRIORITY_LABELS) as ServiceRequestPriority[]).map((value) => (
             <option key={value} value={value}>{SERVICE_REQUEST_PRIORITY_LABELS[value]}</option>
           ))}
-        </select>
+        </Select>
       </div>
 
       <p className="mb-3 text-xs font-medium text-navy-3">

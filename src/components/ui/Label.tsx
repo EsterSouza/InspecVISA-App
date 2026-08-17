@@ -7,9 +7,15 @@ export interface LabelProps extends React.LabelHTMLAttributes<HTMLLabelElement> 
 
 const Label = React.forwardRef<HTMLLabelElement, LabelProps>(
   ({ className, children, required, ...props }, ref) => (
-    <label ref={ref} className={cn('block text-sm font-medium text-navy-2', className)} {...props}>
+    // Artefato D: rótulo é `--ink` semibold; o asterisco de obrigatório usa a tinta
+    // escura do vermelho (`--danger-soft-ink`), que passa AA sobre a superfície clara.
+    <label ref={ref} className={cn('block text-sm font-semibold text-navy', className)} {...props}>
       {children}
-      {required && <span className="ml-0.5 text-danger">*</span>}
+      {required && (
+        <span className="ml-0.5 text-danger-soft-ink" aria-hidden="true">
+          *
+        </span>
+      )}
     </label>
   )
 );

@@ -9,6 +9,8 @@ import {
 import { Button } from '../../ui/Button';
 import { Card, CardContent } from '../../ui/Card';
 import { useConfirmDialog } from '../../ui/ConfirmDialog';
+import { Field } from '../../ui/Field';
+import { Select } from '../../ui/Select';
 import { errorMessage } from '../appointmentRequestsShared';
 import { toast } from '../../../store/useToastStore';
 
@@ -142,16 +144,13 @@ export function AddPhotosModal({ request, onClose, onAdded }: AddPhotosModalProp
             </p>
           ) : (
             <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label htmlFor="add-photos-inspection" className="text-sm font-medium text-navy-2">Inspeção</label>
-                <select
-                  id="add-photos-inspection"
+              <Field label="Inspeção" htmlFor="add-photos-inspection">
+                <Select
                   value={selectedInspectionId}
                   onChange={(e) => {
                     setSelectedInspectionId(e.target.value);
                     setSelectedPhotoIds(new Set());
                   }}
-                  className="w-full rounded-xl border border-control bg-surface p-3 text-sm"
                 >
                   <option value="">Selecione a inspeção...</option>
                   {inspections.map((insp) => (
@@ -161,8 +160,8 @@ export function AddPhotosModal({ request, onClose, onAdded }: AddPhotosModalProp
                       {insp.consultantName ? ` · ${insp.consultantName}` : ''}
                     </option>
                   ))}
-                </select>
-              </div>
+                </Select>
+              </Field>
 
               {loadingPhotos ? (
                 <div className="flex justify-center py-8" role="status" aria-label="Carregando fotos">

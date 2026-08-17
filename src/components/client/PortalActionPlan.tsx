@@ -19,6 +19,8 @@ import {
   EVIDENCE_LIMITS_LABEL,
   checkEvidenceFile,
 } from '../../utils/evidenceFile';
+import { Input } from '../ui/Input';
+import { Textarea } from '../ui/Textarea';
 
 /** Acima disso a lista começa recolhida — o plano de ação de uma rede passa fácil de 30 itens. */
 const COMPACT_THRESHOLD = 5;
@@ -188,6 +190,7 @@ function EvidenceUpload({
 
   return (
     <div className="mt-2.5 border-t border-dashed border-default pt-2.5">
+      {/* Exceção FE-24: seletor de arquivo escondido, acionado pelo botão abaixo. */}
       <input
         ref={inputRef}
         type="file"
@@ -215,32 +218,33 @@ function EvidenceUpload({
             <Paperclip className="h-3.5 w-3.5 text-navy-3" />
             <span className="font-medium">{file.name}</span>
           </p>
-          <textarea
+          <Textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={2}
             maxLength={1000}
             placeholder="Quer explicar o que foi feito? (opcional)"
-            className="w-full rounded-md border border-control p-2 text-xs placeholder:text-navy-3 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+            aria-label="Explicação do que foi feito"
+            className="min-h-0 p-2 text-xs"
           />
           <div className="grid gap-2 sm:grid-cols-2">
-            <input
+            <Input
+              size="sm"
               type="text"
               value={author.byName}
               onChange={(e) => onAuthorChange({ ...author, byName: e.target.value })}
               maxLength={120}
               placeholder="Seu nome"
               aria-label="Seu nome"
-              className="w-full rounded-md border border-control p-2 text-xs placeholder:text-navy-3 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
             />
-            <input
+            <Input
+              size="sm"
               type="text"
               value={author.byRole}
               onChange={(e) => onAuthorChange({ ...author, byRole: e.target.value })}
               maxLength={120}
               placeholder="Sua função"
               aria-label="Sua função"
-              className="w-full rounded-md border border-control p-2 text-xs placeholder:text-navy-3 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
             />
           </div>
           <p className="text-[11px] text-navy-3">
@@ -356,33 +360,33 @@ function DeclareStatus({
 
       {choice && (
         <div className="mt-2 space-y-2">
-          <textarea
+          <Textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={2}
             maxLength={1000}
             placeholder={choice === 'not_done' ? 'Por que ainda não foi feito? *' : 'Quer detalhar? (opcional)'}
             aria-label="Detalhe da situação"
-            className="w-full rounded-md border border-control p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+            className="min-h-0 p-2 text-xs"
           />
           <div className="grid gap-2 sm:grid-cols-2">
-            <input
+            <Input
+              size="sm"
               type="text"
               value={author.byName}
               onChange={(e) => onAuthorChange({ ...author, byName: e.target.value })}
               maxLength={120}
               placeholder="Seu nome"
               aria-label="Seu nome na resposta"
-              className="w-full rounded-md border border-control p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
             />
-            <input
+            <Input
+              size="sm"
               type="text"
               value={author.byRole}
               onChange={(e) => onAuthorChange({ ...author, byRole: e.target.value })}
               maxLength={120}
               placeholder="Sua função"
               aria-label="Sua função na resposta"
-              className="w-full rounded-md border border-control p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
             />
           </div>
           <div className="flex flex-wrap gap-2">

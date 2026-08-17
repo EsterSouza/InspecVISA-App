@@ -6,6 +6,10 @@ import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Modal } from '../components/ui/Modal';
+import { Field } from '../components/ui/Field';
+import { Input } from '../components/ui/Input';
+import { Select } from '../components/ui/Select';
+import { Checkbox } from '../components/ui/Checkbox';
 import { useConfirmDialog } from '../components/ui/ConfirmDialog';
 import { PageShell } from '../components/ui/PageShell';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -233,26 +237,25 @@ export function Clients() {
       ) : (
       <>
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="relative col-span-1 sm:col-span-2">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-navy-3" />
-          <input
-            type="text"
-            placeholder="Buscar por nome, CNPJ..."
-            className="h-10 w-full rounded-xl border border-control pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary-500 outline-none"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        <select
-          className="h-10 w-full rounded-xl border border-control px-3 text-sm focus:ring-2 focus:ring-primary-500 outline-none bg-surface"
+        <Input
+          type="search"
+          icon={<Search />}
+          placeholder="Buscar por nome, CNPJ..."
+          aria-label="Buscar cliente"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          wrapperClassName="col-span-1 sm:col-span-2"
+        />
+        <Select
           value={filterCat}
           onChange={(e) => setFilterCat(e.target.value as any)}
+          aria-label="Filtrar por categoria"
         >
           <option value="all">Todas Categorias</option>
           <option value="estetica">Estética</option>
           <option value="ilpi">ILPI</option>
           <option value="alimentos">Alimentos</option>
-        </select>
+        </Select>
       </div>
 
       <div className="space-y-4">
@@ -367,44 +370,43 @@ export function Clients() {
 
       <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditingClient(null); setClientContacts([{ name: '', phone: '', email: '' }]); reset(); }} title={editingClient ? "Editar Cliente" : "Novo Cliente"}>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-navy-2">Nome do Estabelecimento *</label>
-            <input {...register('name', { required: true })} className="mt-1 h-11 w-full rounded-xl border border-control px-4 focus:ring-2 focus:ring-primary-500 outline-none" />
-            {errors.name && <span className="text-xs text-danger">Obrigatório</span>}
-          </div>
+          <Field label="Nome do Estabelecimento" required error={errors.name && 'Obrigatório'}>
+            <Input {...register('name', { required: true })} />
+          </Field>
 
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-navy-2">Categoria *</label>
-              <select {...register('category', { required: true })} className="mt-1 h-11 w-full rounded-xl border border-control px-4 focus:ring-2 focus:ring-primary-500 outline-none bg-surface">
+            <Field label="Categoria" required>
+              <Select {...register('category', { required: true })}>
                 <option value="estetica">Estética</option>
                 <option value="ilpi">ILPI</option>
                 <option value="alimentos">Alimentos</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-navy-2">CNPJ</label>
-              <input {...register('cnpj')} className="mt-1 h-11 w-full rounded-xl border border-control px-4 focus:ring-2 focus:ring-primary-500 outline-none" />
-            </div>
+              </Select>
+            </Field>
+            <Field label="CNPJ">
+              <Input {...register('cnpj')} />
+            </Field>
           </div>
 
           {selectedCategory === 'alimentos' && (
-            <div className="rounded-2xl border border-amber-soft-border bg-amber-soft/50 p-4 space-y-3">
-              <label className="block text-xs font-bold uppercase text-amber-soft-ink tracking-wider">Tipos de Serviço</label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+            <fieldset className="space-y-3 rounded-2xl border border-amber-soft-border bg-amber-soft/50 p-4">
+              <legend className="text-xs font-bold uppercase tracking-wider text-amber-soft-ink">Tipos de Serviço</legend>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {Object.entries(FOOD_SEGMENT_LABELS).map(([val, label]) => (
-                  <label key={val} className="flex items-center space-x-2">
-                    <input type="checkbox" value={val} {...register('foodTypes')} className="rounded text-primary-600" />
-                    <span className="text-navy-2">{label}</span>
-                  </label>
+                  <Checkbox
+                    key={val}
+                    value={val}
+                    label={label}
+                    className="text-navy-2"
+                    {...register('foodTypes')}
+                  />
                 ))}
               </div>
-            </div>
+            </fieldset>
           )}
 
           <div className="rounded-2xl border border-default bg-surface-sunken/70 p-4">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <label className="text-sm font-semibold text-navy">Responsáveis e contatos</label>
+              <p className="text-sm font-semibold text-navy">Responsáveis e contatos</p>
               <Button
                 type="button"
                 variant="outline"
@@ -418,27 +420,28 @@ export function Clients() {
             <div className="space-y-3">
               {clientContacts.map((contact, index) => (
                 <div key={index} className="grid gap-3 rounded-xl border border-default bg-surface p-3 sm:grid-cols-3">
-                  <input
+                  <Input
                     type="text"
                     value={contact.name || ''}
                     onChange={(e) => setClientContacts((prev) => prev.map((item, i) => i === index ? { ...item, name: e.target.value } : item))}
                     placeholder="Responsável"
-                    className="h-10 rounded-xl border border-control px-3 text-sm outline-none focus:ring-2 focus:ring-primary-500"
+                    aria-label={`Responsável ${index + 1}`}
                   />
-                  <input
+                  <Input
                     type="tel"
                     value={contact.phone || ''}
                     onChange={(e) => setClientContacts((prev) => prev.map((item, i) => i === index ? { ...item, phone: e.target.value } : item))}
                     placeholder="Telefone"
-                    className="h-10 rounded-xl border border-control px-3 text-sm outline-none focus:ring-2 focus:ring-primary-500"
+                    aria-label={`Telefone do responsável ${index + 1}`}
                   />
                   <div className="flex gap-2">
-                    <input
+                    <Input
                       type="email"
                       value={contact.email || ''}
                       onChange={(e) => setClientContacts((prev) => prev.map((item, i) => i === index ? { ...item, email: e.target.value } : item))}
                       placeholder="E-mail"
-                      className="h-10 min-w-0 flex-1 rounded-xl border border-control px-3 text-sm outline-none focus:ring-2 focus:ring-primary-500"
+                      aria-label={`E-mail do responsável ${index + 1}`}
+                      className="min-w-0 flex-1"
                     />
                     {clientContacts.length > 1 && (
                       <button
@@ -457,19 +460,17 @@ export function Clients() {
           </div>
 
           <div className="grid grid-cols-2 gap-4 pt-2">
-            <div className="col-span-2 sm:col-span-1">
-              <label className="block text-sm font-medium text-navy-2">Cidade</label>
-              <input {...register('city')} className="mt-1 h-11 w-full rounded-xl border border-control px-4 focus:ring-2 focus:ring-primary-500 outline-none" />
-            </div>
-            <div className="col-span-2 sm:col-span-1">
-              <label className="block text-sm font-medium text-navy-2">Estado</label>
-              <select {...register('state')} className="mt-1 h-11 w-full rounded-xl border border-control px-4 focus:ring-2 focus:ring-primary-500 outline-none bg-surface">
+            <Field label="Cidade" className="col-span-2 sm:col-span-1">
+              <Input {...register('city')} />
+            </Field>
+            <Field label="Estado" className="col-span-2 sm:col-span-1">
+              <Select {...register('state')}>
                 <option value="">Selecione</option>
                 {UF_OPTIONS.map(({ uf, name }) => (
                   <option key={uf} value={uf}>{uf} — {name}</option>
                 ))}
-              </select>
-            </div>
+              </Select>
+            </Field>
           </div>
 
           <div className="pt-6 border-t flex justify-end gap-3">

@@ -6,6 +6,8 @@ import { InspectionService } from '../services/inspectionService';
 import type { Inspection, Client } from '../types';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { Input } from '../components/ui/Input';
+import { Select } from '../components/ui/Select';
 import { Badge } from '../components/ui/Badge';
 import { PageShell } from '../components/ui/PageShell';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -198,25 +200,24 @@ export function Inspections() {
       </div>
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="relative col-span-1 sm:col-span-2">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-navy-3" />
-          <input
-            type="text"
-            placeholder="Buscar por cliente, consultor..."
-            className="h-10 w-full rounded-md border border-control pl-10 pr-4 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        <select
-          className="h-10 w-full rounded-md border border-control px-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 bg-surface"
+        <Input
+          type="search"
+          icon={<Search />}
+          placeholder="Buscar por cliente, consultor..."
+          aria-label="Buscar inspeção"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          wrapperClassName="col-span-1 sm:col-span-2"
+        />
+        <Select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value as any)}
+          aria-label="Filtrar por status"
         >
           <option value="all">Todos os Status</option>
           <option value="in_progress">Em Andamento</option>
           <option value="completed">Concluídas</option>
-        </select>
+        </Select>
       </div>
 
       <div className="space-y-4">

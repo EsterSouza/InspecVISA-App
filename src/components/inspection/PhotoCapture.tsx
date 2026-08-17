@@ -89,6 +89,8 @@ export function PhotoCapture({ inputId, photos, onAddPhoto, onRemovePhoto }: Pho
     <div className="space-y-4">
       {/* Action Buttons */}
       <div className="flex flex-col sm:flex-row gap-2">
+        {/* Exceção FE-24: dois seletores de arquivo escondidos (câmera e galeria),
+            acionados pelos botões abaixo. */}
         <input
           ref={cameraInputRef}
           type="file"

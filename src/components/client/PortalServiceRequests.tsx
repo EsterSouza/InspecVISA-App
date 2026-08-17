@@ -21,6 +21,10 @@ import {
 } from '../../utils/serviceRequests';
 import { EVIDENCE_ACCEPT_ATTRIBUTE, EVIDENCE_LIMITS_LABEL, checkEvidenceFile } from '../../utils/evidenceFile';
 import { readStoredAuthor, storeAuthor } from './PortalActionPlan';
+import { Field } from '../ui/Field';
+import { Input } from '../ui/Input';
+import { Select } from '../ui/Select';
+import { Textarea } from '../ui/Textarea';
 
 /**
  * P360-012 — solicitações de consultoria no portal.
@@ -145,34 +149,27 @@ function NewRequestForm({
   return (
     <form onSubmit={handleSubmit} className="mt-3 space-y-3 rounded-lg border border-default bg-surface-sunken p-3">
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-1">
-          <label htmlFor="service-request-unit" className="text-xs font-semibold text-navy-2">
-            Unidade *
-          </label>
-          <select
-            id="service-request-unit"
-            value={clientId}
-            onChange={(e) => setClientId(e.target.value)}
-            className="w-full rounded-md border border-control bg-surface p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
-          >
+        <Field label="Unidade" htmlFor="service-request-unit" required>
+          <Select size="sm" value={clientId} onChange={(e) => setClientId(e.target.value)}>
             <option value="">Selecione</option>
             {units.map((unit) => (
               <option key={unit.client_id} value={unit.client_id}>
                 {unit.client_name}
               </option>
             ))}
-          </select>
-        </div>
+          </Select>
+        </Field>
 
-        <div className="space-y-1">
-          <label htmlFor="service-request-category" className="text-xs font-semibold text-navy-2">
-            Categoria *
-          </label>
-          <select
-            id="service-request-category"
+        <Field
+          label="Categoria"
+          htmlFor="service-request-category"
+          required
+          hint={selectedCategory?.hint}
+        >
+          <Select
+            size="sm"
             value={category}
             onChange={(e) => setCategory(e.target.value as ServiceRequestCategory)}
-            className="w-full rounded-md border border-control bg-surface p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
           >
             <option value="">Selecione</option>
             {SERVICE_REQUEST_CATEGORIES.map((item) => (
@@ -180,41 +177,33 @@ function NewRequestForm({
                 {item.label}
               </option>
             ))}
-          </select>
-          {selectedCategory && <p className="text-[11px] text-navy-3">{selectedCategory.hint}</p>}
-        </div>
+          </Select>
+        </Field>
       </div>
 
-      <div className="space-y-1">
-        <label htmlFor="service-request-subject" className="text-xs font-semibold text-navy-2">
-          Assunto *
-        </label>
-        <input
-          id="service-request-subject"
+      <Field label="Assunto" htmlFor="service-request-subject" required>
+        <Input
+          size="sm"
           type="text"
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
           maxLength={160}
           placeholder="Ex.: renovação do alvará sanitário"
-          className="w-full rounded-md border border-control p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
         />
-      </div>
+      </Field>
 
-      <div className="space-y-1">
-        <label htmlFor="service-request-description" className="text-xs font-semibold text-navy-2">
-          O que você precisa *
-        </label>
-        <textarea
-          id="service-request-description"
+      <Field label="O que você precisa" htmlFor="service-request-description" required>
+        <Textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={4}
           maxLength={4000}
           placeholder="Conte o contexto: o que aconteceu, o que já tentaram e qual é a dúvida ou o pedido."
-          className="w-full rounded-md border border-control p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+          className="min-h-0 p-2 text-xs"
         />
-      </div>
+      </Field>
 
+      {/* Exceção FE-24: seletor de arquivo escondido, acionado pelo botão abaixo. */}
       <input
         ref={fileRef}
         type="file"
@@ -252,23 +241,23 @@ function NewRequestForm({
       )}
 
       <div className="grid gap-2 sm:grid-cols-2">
-        <input
+        <Input
+          size="sm"
           type="text"
           value={author.byName}
           onChange={(e) => onAuthorChange({ ...author, byName: e.target.value })}
           maxLength={120}
           placeholder="Seu nome (opcional)"
           aria-label="Seu nome"
-          className="w-full rounded-md border border-control p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
         />
-        <input
+        <Input
+          size="sm"
           type="text"
           value={author.byRole}
           onChange={(e) => onAuthorChange({ ...author, byRole: e.target.value })}
           maxLength={120}
           placeholder="Sua função (opcional)"
           aria-label="Sua função"
-          className="w-full rounded-md border border-control p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
         />
       </div>
 
@@ -332,33 +321,33 @@ function ReplyForm({
 
   return (
     <div className="mt-2.5 border-t border-dashed border-amber-soft-border pt-2.5">
-      <textarea
+      <Textarea
         value={message}
         onChange={(e) => setMessage(e.target.value)}
         rows={3}
         maxLength={2000}
         placeholder="Responda o que a consultoria pediu"
         aria-label="Sua resposta"
-        className="w-full rounded-md border border-control p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+        className="min-h-0 p-2 text-xs"
       />
       <div className="mt-2 grid gap-2 sm:grid-cols-2">
-        <input
+        <Input
+          size="sm"
           type="text"
           value={author.byName}
           onChange={(e) => onAuthorChange({ ...author, byName: e.target.value })}
           maxLength={120}
           placeholder="Seu nome (opcional)"
           aria-label="Seu nome na resposta"
-          className="w-full rounded-md border border-control p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
         />
-        <input
+        <Input
+          size="sm"
           type="text"
           value={author.byRole}
           onChange={(e) => onAuthorChange({ ...author, byRole: e.target.value })}
           maxLength={120}
           placeholder="Sua função (opcional)"
           aria-label="Sua função na resposta"
-          className="w-full rounded-md border border-control p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
         />
       </div>
       {error && <p className="mt-2 text-[11px] font-medium text-danger-soft-ink">{error}</p>}

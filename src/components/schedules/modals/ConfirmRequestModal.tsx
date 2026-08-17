@@ -12,7 +12,10 @@ import { getLocalActor } from '../../../utils/localActor';
 import { generateId } from '../../../utils/imageUtils';
 import { Button } from '../../ui/Button';
 import { Card, CardContent } from '../../ui/Card';
-import { TEXT_INPUT, defaultScheduleConsultants, errorMessage, requestTimeValue } from '../appointmentRequestsShared';
+import { defaultScheduleConsultants, errorMessage, requestTimeValue } from '../appointmentRequestsShared';
+import { Field } from '../../ui/Field';
+import { Input } from '../../ui/Input';
+import { Select } from '../../ui/Select';
 import { ConsultantPicker } from '../ConsultantPicker';
 import { APPOINTMENT_TYPE_RULES, type AppointmentType } from '../../../utils/appointmentType';
 import { PORTAL_APPOINTMENT_TYPE_OPTIONS, publicAppointmentDurations, formatDuration } from '../../../utils/publicAppointmentForm';
@@ -182,77 +185,62 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
 
           <form onSubmit={handleConfirm} className="space-y-4">
             <div className="space-y-1.5">
-              <label htmlFor="confirm-request-type" className="text-sm font-medium text-navy-2">
-                Tipo de compromisso
-              </label>
-              <select
-                id="confirm-request-type"
-                value={appointmentType}
-                onChange={(e) => handleAppointmentTypeChange(e.target.value as AppointmentType)}
-                className="w-full rounded-xl border border-control bg-surface p-3 text-sm"
+              <Field
+                label="Tipo de compromisso"
+                htmlFor="confirm-request-type"
+                hint={`O cliente solicitou como “${APPOINTMENT_TYPE_RULES[request.appointment_type].label}”. Troque para “Inspeção” se for o caso — só assim é possível iniciar a inspeção, publicar relatório e fotos.`}
               >
-                {appointmentTypeOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {APPOINTMENT_TYPE_RULES[option.value].label}
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-navy-3">
-                O cliente solicitou como “{APPOINTMENT_TYPE_RULES[request.appointment_type].label}”. Troque para
-                “Inspeção” se for o caso — só assim é possível iniciar a inspeção, publicar relatório e fotos.
-              </p>
-              <label htmlFor="confirm-request-duration" className="sr-only">Duração</label>
-              <select
+                <Select
+                  value={appointmentType}
+                  onChange={(e) => handleAppointmentTypeChange(e.target.value as AppointmentType)}
+                >
+                  {appointmentTypeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {APPOINTMENT_TYPE_RULES[option.value].label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Select
                 id="confirm-request-duration"
+                aria-label="Duração"
                 value={durationMinutes}
                 onChange={(e) => setDurationMinutes(Number(e.target.value))}
-                className="w-full rounded-xl border border-control bg-surface p-3 text-sm"
               >
                 {publicAppointmentDurations(appointmentType).map((duration) => (
                   <option key={duration} value={duration}>{formatDuration(duration)}</option>
                 ))}
-              </select>
+              </Select>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label htmlFor="confirm-request-date" className="text-sm font-medium text-navy-2">Data confirmada *</label>
-                <input
-                  id="confirm-request-date"
+              <Field label="Data confirmada" htmlFor="confirm-request-date" required>
+                <Input
                   type="date"
                   required
                   value={confirmedDate}
                   onChange={(e) => setConfirmedDate(e.target.value)}
-                  className={TEXT_INPUT}
                 />
-              </div>
-              <div className="space-y-1.5">
-                <label htmlFor="confirm-request-time" className="text-sm font-medium text-navy-2">Horário</label>
-                <input
-                  id="confirm-request-time"
+              </Field>
+              <Field label="Horário" htmlFor="confirm-request-time">
+                <Input
                   type="time"
                   value={confirmedTime}
                   onChange={(e) => setConfirmedTime(e.target.value)}
-                  className={TEXT_INPUT}
                 />
-              </div>
+              </Field>
             </div>
 
             {request.attendance_mode === 'online' && (
-              <div className="space-y-1.5">
-                <label htmlFor="confirm-request-meeting-url" className="text-sm font-medium text-navy-2">
-                  Link da videoconferência
-                </label>
-                <input
-                  id="confirm-request-meeting-url"
+              <Field label="Link da videoconferência" htmlFor="confirm-request-meeting-url">
+                <Input
                   type="url"
                   inputMode="url"
                   value={meetingUrl}
                   onChange={(e) => setMeetingUrl(e.target.value)}
                   placeholder="https://meet.google.com/..."
-                  className={TEXT_INPUT}
                 />
-              </div>
+              </Field>
             )}
 
             <div className="space-y-2">
@@ -312,17 +300,16 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
 
               {clientMode === 'existing' ? (
                 <div className="space-y-2">
-                  <label htmlFor="confirm-request-client-search" className="sr-only">Buscar cliente</label>
-                  <input
+                  <Input
                     id="confirm-request-client-search"
-                    type="text"
+                    type="search"
+                    aria-label="Buscar cliente"
                     placeholder="Buscar cliente..."
                     value={clientSearch}
                     onChange={(e) => {
                       setClientSearch(e.target.value);
                       setSelectedClientId('');
                     }}
-                    className={TEXT_INPUT}
                   />
                   <div className="max-h-44 overflow-y-auto rounded-xl border border-default bg-surface">
                     {filteredClients.length > 0 ? (
@@ -357,16 +344,15 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
                       )}
                     </div>
                   )}
-                  <label htmlFor="confirm-request-client-select" className="sr-only">Selecionar cliente</label>
-                  <select
+                  <Select
                     id="confirm-request-client-select"
+                    aria-label="Selecionar cliente"
                     value={selectedClientId}
                     onChange={(e) => {
                       setSelectedClientId(e.target.value);
                       const c = clients.find((x) => x.id === e.target.value);
                       if (c) setClientSearch(c.name);
                     }}
-                    className="w-full rounded-xl border border-control bg-surface p-3 text-sm"
                   >
                     <option value="">Selecione um cliente...</option>
                     {filteredClients.map((c) => (
@@ -374,65 +360,59 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
                         {c.name}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
               ) : clientMode === 'new' ? (
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <label htmlFor="confirm-request-new-client-name" className="sr-only">Nome do cliente</label>
-                  <input
+                  <Input
                     id="confirm-request-new-client-name"
                     type="text"
+                    aria-label="Nome do cliente"
                     placeholder="Nome do cliente"
                     value={newClientName}
                     onChange={(e) => setNewClientName(e.target.value)}
-                    className={TEXT_INPUT}
                   />
-                  <label htmlFor="confirm-request-new-client-category" className="sr-only">Categoria do cliente</label>
-                  <select
+                  <Select
                     id="confirm-request-new-client-category"
+                    aria-label="Categoria do cliente"
                     value={newClientCategory}
                     onChange={(e) => setNewClientCategory(e.target.value as Client['category'])}
-                    className="w-full rounded-xl border border-control bg-surface p-3 text-sm"
                   >
                     <option value="estetica">Estética</option>
                     <option value="ilpi">ILPI</option>
                     <option value="alimentos">Alimentos</option>
-                  </select>
-                  <div className="sm:col-span-2">
-                    <label htmlFor="confirm-request-new-client-email" className="text-sm font-medium text-navy-2">
-                      E-mail oficial do cliente
-                    </label>
-                    <input
-                      id="confirm-request-new-client-email"
+                  </Select>
+                  <Field
+                    label="E-mail oficial do cliente"
+                    htmlFor="confirm-request-new-client-email"
+                    hint="Depois de criar o cliente, este cadastro será a única fonte usada nas confirmações."
+                    className="sm:col-span-2"
+                  >
+                    <Input
                       type="email"
                       value={newClientEmail}
                       onChange={(e) => setNewClientEmail(e.target.value)}
                       placeholder="cliente@empresa.com.br"
-                      className={`${TEXT_INPUT} mt-1.5`}
                     />
-                    <p className="mt-1 text-xs text-navy-3">Depois de criar o cliente, este cadastro será a única fonte usada nas confirmações.</p>
-                  </div>
+                  </Field>
                 </div>
               ) : null}
             </div>
 
             <ConsultantPicker selected={selectedConsultants} onToggle={toggleConsultant} />
 
-            <div className="space-y-1.5">
-              <label htmlFor="confirm-request-due-date" className="text-sm font-medium text-navy-2">
-                Prazo manual do relatório (opcional)
-              </label>
-              <input
-                id="confirm-request-due-date"
+            <Field
+              label="Prazo manual do relatório"
+              htmlFor="confirm-request-due-date"
+              optional
+              hint="Se vazio, o portal mostra o prazo padrão de 5 dias úteis após a inspeção."
+            >
+              <Input
                 type="date"
                 value={manualDueDate}
                 onChange={(e) => setManualDueDate(e.target.value)}
-                className={TEXT_INPUT}
               />
-              <p className="text-xs text-navy-3">
-                Se vazio, o portal mostra o prazo padrão de 5 dias úteis após a inspeção.
-              </p>
-            </div>
+            </Field>
 
             {error && (
               <div role="alert" className="rounded-xl border border-danger-soft-border bg-danger-soft p-3 text-sm text-danger-soft-ink">

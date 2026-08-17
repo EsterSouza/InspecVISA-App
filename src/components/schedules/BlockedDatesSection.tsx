@@ -3,7 +3,10 @@ import { CalendarOff, Loader2, Trash2 } from 'lucide-react';
 import { AppointmentAdminService, type BlockedDateRow } from '../../services/appointmentAdminService';
 import { Button } from '../ui/Button';
 import { Card, CardContent } from '../ui/Card';
-import { SCHEDULE_CONSULTANTS, TEXT_INPUT, errorMessage, formatDateBR } from './appointmentRequestsShared';
+import { SCHEDULE_CONSULTANTS, errorMessage, formatDateBR } from './appointmentRequestsShared';
+import { Field } from '../ui/Field';
+import { Input } from '../ui/Input';
+import { Select } from '../ui/Select';
 import { toast } from '../../store/useToastStore';
 import { toDateKey } from '../../utils/date';
 
@@ -63,43 +66,31 @@ export function BlockedDatesSection({ blockedDates, onChanged }: BlockedDatesSec
       <Card className="mb-4 shadow-sm">
         <CardContent className="p-4">
           <form onSubmit={handleAdd} className="flex flex-wrap items-end gap-3">
-            <div className="space-y-1.5">
-              <label htmlFor="blocked-date-day" className="block text-xs font-medium text-navy-2">Data</label>
-              <input
-                id="blocked-date-day"
+            <Field label="Data" htmlFor="blocked-date-day" className="w-auto">
+              <Input
                 type="date"
                 required
                 value={day}
                 min={toDateKey(new Date())}
                 onChange={(e) => setDay(e.target.value)}
-                className="rounded-xl border border-control p-2.5 text-sm"
               />
-            </div>
-            <div className="space-y-1.5">
-              <label htmlFor="blocked-date-who" className="block text-xs font-medium text-navy-2">Quem</label>
-              <select
-                id="blocked-date-who"
-                value={who}
-                onChange={(e) => setWho(e.target.value)}
-                className="rounded-xl border border-control bg-surface p-2.5 text-sm"
-              >
+            </Field>
+            <Field label="Quem" htmlFor="blocked-date-who" className="w-auto">
+              <Select value={who} onChange={(e) => setWho(e.target.value)}>
                 <option value={WHO_ALL}>Todas (feriado)</option>
                 {SCHEDULE_CONSULTANTS.map((name) => (
                   <option key={name} value={name}>{name}</option>
                 ))}
-              </select>
-            </div>
-            <div className="min-w-[180px] flex-1 space-y-1.5">
-              <label htmlFor="blocked-date-reason" className="block text-xs font-medium text-navy-2">Motivo (opcional)</label>
-              <input
-                id="blocked-date-reason"
+              </Select>
+            </Field>
+            <Field label="Motivo" htmlFor="blocked-date-reason" optional className="min-w-[180px] flex-1">
+              <Input
                 type="text"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 placeholder="Ex.: Feriado de Corpus Christi"
-                className={TEXT_INPUT.replace('p-3', 'p-2.5')}
               />
-            </div>
+            </Field>
             <Button type="submit" size="sm" disabled={saving || !day}>
               {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <CalendarOff className="mr-1.5 h-4 w-4" />}
               Bloquear

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, FileText, Search, Lock, AlertTriangle, FilterX } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { PageShell } from '../../components/ui/PageShell';
@@ -121,16 +122,14 @@ export function AdminTemplates() {
         }
       />
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-navy-3" />
-        <input
-          type="text"
-          placeholder="Pesquisar roteiros por nome ou categoria..."
-          className="w-full rounded-xl border border-control pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 outline-none"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-      </div>
+      <Input
+        type="search"
+        icon={<Search />}
+        placeholder="Pesquisar roteiros por nome ou categoria..."
+        aria-label="Pesquisar roteiros"
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+      />
 
       {loadError ? (
         <div className="rounded-2xl border border-default bg-surface">

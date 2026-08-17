@@ -15,7 +15,8 @@ import { PageShell } from '../components/ui/PageShell';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Badge } from '../components/ui/Badge';
 import { Input } from '../components/ui/Input';
-import { Label } from '../components/ui/Label';
+import { Field } from '../components/ui/Field';
+import { Checkbox, Radio } from '../components/ui/Checkbox';
 import { generateId } from '../utils/imageUtils';
 import { ProfileModal } from '../components/profile/ProfileModal';
 import { ScheduleService } from '../services/scheduleService';
@@ -24,26 +25,6 @@ import { isInspectionAppointment } from '../utils/appointmentType';
 import { toDateKey } from '../utils/date';
 import { useConfirmDialog } from '../components/ui/ConfirmDialog';
 import { toast } from '../store/useToastStore';
-
-/** Rótulo + controle + ajuda — o campo composto do Artefato D. */
-function Field({ label, htmlFor, hint, optional, children }: {
-  label: string;
-  htmlFor: string;
-  hint?: React.ReactNode;
-  optional?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="min-w-0 flex-1">
-      <Label htmlFor={htmlFor} className="mb-1.5">
-        {label}
-        {optional && <span className="ml-1.5 text-xs font-normal text-navy-3">opcional</span>}
-      </Label>
-      {children}
-      {hint && <p className="mt-1.5 text-xs text-navy-3">{hint}</p>}
-    </div>
-  );
-}
 
 /** Cartão numerado de um dos três blocos da página. */
 function Block({ n, title, aside, children }: {
@@ -507,25 +488,22 @@ export function NewInspection() {
                   const { total, critical } = countItems(effective);
                   const isSelected = selectedTemplate?.id === t.id;
                   return (
-                    <label
+                    <Radio
                       key={t.id}
-                      className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 ${isSelected ? 'border-primary-700 bg-primary-50' : 'border-default'}`}
-                      style={{ minHeight: 44 }}
-                    >
-                      <input
-                        type="radio"
-                        name="roteiro"
-                        className="mt-1 h-4 w-4 shrink-0 accent-primary-700"
-                        checked={isSelected}
-                        onChange={() => setSelectedTemplate(t)}
-                      />
-                      <span className="min-w-0">
-                        <span className="block font-medium text-navy">{effective.name}</span>
-                        <span className="block text-sm text-navy-3">
-                          {total} itens · {critical} críticos
-                        </span>
-                      </span>
-                    </label>
+                      name="roteiro"
+                      checked={isSelected}
+                      onChange={() => setSelectedTemplate(t)}
+                      className={`min-h-11 gap-3 rounded-md border p-3 ${isSelected ? 'border-primary-700 bg-primary-50' : 'border-default'}`}
+                      boxClassName="mt-1"
+                      label={
+                        <>
+                          <span className="block font-medium text-navy">{effective.name}</span>
+                          <span className="block text-sm text-navy-3">
+                            {total} itens · {critical} críticos
+                          </span>
+                        </>
+                      }
+                    />
                   );
                 })}
               </div>
@@ -541,7 +519,7 @@ export function NewInspection() {
             <Block n={3} title="A visita">
               <div className="space-y-6 p-5">
                 <div className="flex flex-wrap items-start gap-4">
-                  <Field label="Data da visita" htmlFor="data-visita">
+                  <Field className="flex-1" label="Data da visita" htmlFor="data-visita">
                     <Input
                       id="data-visita"
                       type="date"
@@ -550,7 +528,7 @@ export function NewInspection() {
                       onChange={(e) => setInspectionDate(e.target.value)}
                     />
                   </Field>
-                  <Field label="Quem acompanha" htmlFor="acompanhante" optional>
+                  <Field className="flex-1" label="Quem acompanha" htmlFor="acompanhante" optional>
                     <Input
                       id="acompanhante"
                       className="h-11"
@@ -559,7 +537,7 @@ export function NewInspection() {
                       onChange={(e) => setAccompanistName(e.target.value)}
                     />
                   </Field>
-                  <Field label="Função" htmlFor="acompanhante-funcao" optional>
+                  <Field className="flex-1" label="Função" htmlFor="acompanhante-funcao" optional>
                     <Input
                       id="acompanhante-funcao"
                       className="h-11"
@@ -577,22 +555,22 @@ export function NewInspection() {
                       Trazidos do último relatório desta unidade. Confira e ajuste.
                     </p>
                     <div className="flex flex-wrap items-start gap-4">
-                      <Field label="Capacidade" htmlFor="ilpi-capacidade">
+                      <Field className="flex-1" label="Capacidade" htmlFor="ilpi-capacidade">
                         <Input id="ilpi-capacidade" type="number" inputMode="numeric" className="h-11" value={ilpiCapacity} onChange={(e) => setIlpiCapacity(e.target.value)} />
                       </Field>
-                      <Field label="Residentes" htmlFor="ilpi-residentes">
+                      <Field className="flex-1" label="Residentes" htmlFor="ilpi-residentes">
                         <Input id="ilpi-residentes" type="number" inputMode="numeric" className="h-11" value={residentsTotal} onChange={(e) => setResidentsTotal(e.target.value)} />
                       </Field>
                     </div>
                     <p className="mb-2 mt-4 text-sm font-medium text-navy">Residentes por grau de dependência</p>
                     <div className="flex flex-wrap items-start gap-4">
-                      <Field label="Grau I" htmlFor="ilpi-grau-1">
+                      <Field className="flex-1" label="Grau I" htmlFor="ilpi-grau-1">
                         <Input id="ilpi-grau-1" type="number" inputMode="numeric" className="h-11" value={dep1} onChange={(e) => setDep1(e.target.value)} />
                       </Field>
-                      <Field label="Grau II" htmlFor="ilpi-grau-2">
+                      <Field className="flex-1" label="Grau II" htmlFor="ilpi-grau-2">
                         <Input id="ilpi-grau-2" type="number" inputMode="numeric" className="h-11" value={dep2} onChange={(e) => setDep2(e.target.value)} />
                       </Field>
-                      <Field label="Grau III" htmlFor="ilpi-grau-3">
+                      <Field className="flex-1" label="Grau III" htmlFor="ilpi-grau-3">
                         <Input id="ilpi-grau-3" type="number" inputMode="numeric" className="h-11" value={dep3} onChange={(e) => setDep3(e.target.value)} />
                       </Field>
                     </div>
@@ -713,15 +691,12 @@ export function NewInspection() {
                         </Button>
                       </div>
                     ))}
-                    <label className="flex cursor-pointer items-start gap-3 text-sm text-navy-2">
-                      <input
-                        type="checkbox"
-                        className="mt-0.5 h-4 w-4 shrink-0 accent-primary-700"
-                        checked={confirmedSeparateVisit}
-                        onChange={(event) => setConfirmedSeparateVisit(event.target.checked)}
-                      />
-                      <span>Confirmo que esta é uma visita nova e independente, mesmo em menos de 31 dias.</span>
-                    </label>
+                    <Checkbox
+                      className="gap-3 text-navy-2"
+                      checked={confirmedSeparateVisit}
+                      onChange={(event) => setConfirmedSeparateVisit(event.target.checked)}
+                      label="Confirmo que esta é uma visita nova e independente, mesmo em menos de 31 dias."
+                    />
                   </>
                 )}
               </div>

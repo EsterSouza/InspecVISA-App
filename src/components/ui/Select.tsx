@@ -1,28 +1,45 @@
 import React from 'react';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { controlClasses, controlSizes, useControlAria, type ControlSize } from './Field';
 
-export type SelectProps = React.SelectHTMLAttributes<HTMLSelectElement>;
+// `size` nativo do select é o número de linhas visíveis — aqui ele passa a ser a densidade.
+export interface SelectProps extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'size'> {
+  size?: ControlSize;
+  /** Layout do invólucro que a seta cria — largura, `flex-1`, `max-w-*`. */
+  wrapperClassName?: string;
+}
 
-const Select = React.forwardRef<HTMLSelectElement, SelectProps>(({ className, children, ...props }, ref) => {
-  return (
-    <div className="relative">
-      <select
-        ref={ref}
-        className={cn(
-          'flex h-10 w-full appearance-none rounded-md border border-control bg-surface px-3 py-2 pr-9 text-sm text-navy',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:border-primary-500',
-          'disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-surface-sunken',
-          className
-        )}
-        {...props}
-      >
-        {children}
-      </select>
-      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-3" />
-    </div>
-  );
-});
+const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
+  ({ className, children, wrapperClassName, size = 'default', ...props }, ref) => {
+    const aria = useControlAria(props);
+    return (
+      <div className={cn('relative', wrapperClassName)}>
+        <select
+          ref={ref}
+          className={cn(
+            controlClasses,
+            controlSizes[size],
+            'appearance-none',
+            size === 'sm' ? 'pr-7' : 'pr-9',
+            className
+          )}
+          {...props}
+          {...aria}
+        >
+          {children}
+        </select>
+        <ChevronDown
+          className={cn(
+            'pointer-events-none absolute top-1/2 h-4 w-4 -translate-y-1/2 text-navy-3',
+            size === 'sm' ? 'right-2' : 'right-3'
+          )}
+          aria-hidden="true"
+        />
+      </div>
+    );
+  }
+);
 Select.displayName = 'Select';
 
 export { Select };

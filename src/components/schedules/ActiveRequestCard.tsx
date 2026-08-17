@@ -23,6 +23,7 @@ import type { AppointmentRequest } from '../../types';
 import { AppointmentAdminService } from '../../services/appointmentAdminService';
 import { Button } from '../ui/Button';
 import { Card, CardContent } from '../ui/Card';
+import { Input } from '../ui/Input';
 import { STATUS_BADGES, STATUS_LABELS, formatCreatedAt, formatDateBR } from './appointmentRequestsShared';
 import { PublishedFilesPanel } from './PublishedFilesPanel';
 import { ActionPlanModal } from './modals/ActionPlanModal';
@@ -146,7 +147,8 @@ export function ActiveRequestCard({
                 <span className="flex items-center gap-1 text-xs text-navy-3">
                   <Gauge className="h-3.5 w-3.5 text-success" />
                   <label htmlFor={`compliance-score-${request.id}`}>Conformidade:</label>
-                  <input
+                  <Input
+                    size="sm"
                     id={`compliance-score-${request.id}`}
                     type="number"
                     min={0}
@@ -154,7 +156,7 @@ export function ActiveRequestCard({
                     value={scoreInput}
                     onChange={(e) => setScoreInput(e.target.value)}
                     placeholder="—"
-                    className="w-14 rounded border border-control px-1.5 py-0.5 text-xs"
+                    className="w-14"
                   />
                   %
                   <button
@@ -179,7 +181,8 @@ export function ActiveRequestCard({
                     <label htmlFor={`sanitary-score-${request.id}`} className="text-[11px] font-semibold text-navy-3">
                       San
                     </label>
-                    <input
+                    <Input
+                      size="sm"
                       id={`sanitary-score-${request.id}`}
                       type="number"
                       min={0}
@@ -187,12 +190,13 @@ export function ActiveRequestCard({
                       value={sanitaryInput}
                       onChange={(e) => setSanitaryInput(e.target.value)}
                       placeholder="—"
-                      className="w-12 rounded border border-control px-1.5 py-0.5 text-xs"
+                      className="w-12"
                     />
                     <label htmlFor={`nutrition-score-${request.id}`} className="text-[11px] font-semibold text-navy-3">
                       Nut
                     </label>
-                    <input
+                    <Input
+                      size="sm"
                       id={`nutrition-score-${request.id}`}
                       type="number"
                       min={0}
@@ -200,7 +204,7 @@ export function ActiveRequestCard({
                       value={nutritionInput}
                       onChange={(e) => setNutritionInput(e.target.value)}
                       placeholder="—"
-                      className="w-12 rounded border border-control px-1.5 py-0.5 text-xs"
+                      className="w-12"
                     />
                     %
                     <button
@@ -233,7 +237,7 @@ export function ActiveRequestCard({
                 <Video className="h-4 w-4 text-accent-ink" /> Link da videoconferência
               </label>
               <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-                <input
+                <Input
                   id={`meeting-url-${request.id}`}
                   type="url"
                   inputMode="url"
@@ -243,7 +247,7 @@ export function ActiveRequestCard({
                     setMeetingSaved(false);
                   }}
                   placeholder="https://meet.google.com/..."
-                  className="h-11 min-w-0 flex-1 rounded-lg border border-control bg-surface px-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+                  className="h-11 min-w-0 flex-1"
                 />
                 <Button type="button" variant="outline" size="sm" className="min-h-11" disabled={meetingBusy} onClick={() => void saveMeetingUrl()}>
                   {meetingBusy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Video className="mr-1.5 h-4 w-4" />}
@@ -260,6 +264,7 @@ export function ActiveRequestCard({
           )}
 
           <div className="flex flex-wrap gap-2 border-t border-default pt-3">
+            {/* Exceção FE-24: seletor de arquivo escondido, acionado pelo botão ao lado. */}
             <input
               ref={reportInputRef}
               type="file"
@@ -271,6 +276,7 @@ export function ActiveRequestCard({
                 e.target.value = '';
               }}
             />
+            {/* Exceção FE-24: seletor de arquivo escondido, acionado pelo botão ao lado. */}
             <input
               ref={attachmentInputRef}
               type="file"

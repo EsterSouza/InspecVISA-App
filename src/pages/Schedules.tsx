@@ -8,6 +8,11 @@ import { PageShell } from '../components/ui/PageShell';
 import { PageHeader } from '../components/ui/PageHeader';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
+import { Field } from '../components/ui/Field';
+import { Label } from '../components/ui/Label';
+import { Input } from '../components/ui/Input';
+import { Textarea } from '../components/ui/Textarea';
+import { Checkbox } from '../components/ui/Checkbox';
 import { Calendar, Clock, Plus, Trash2, CheckCircle, AlertCircle, User, Play, Edit2, Link2, Copy, ExternalLink, AlertTriangle } from 'lucide-react';
 import { ScheduleService } from '../services/scheduleService';
 import { ClientService } from '../services/clientService';
@@ -659,16 +664,16 @@ export function Schedules() {
                       Este briefing não tem cliente vinculado. Deixe em branco para manter assim, ou busque abaixo para vincular agora.
                     </p>
                   )}
-                  <input
+                  <Input
                     id="schedule-client-search"
-                    type="text"
+                    type="search"
+                    aria-label="Buscar cliente"
                     placeholder="Buscar cliente..."
                     value={clientSearch}
                     onChange={(e) => {
                       setClientSearch(e.target.value);
                       setSelectedClientId('');
                     }}
-                    className="w-full rounded-xl border border-control p-3 text-sm placeholder:text-navy-3"
                   />
                   <div className="max-h-44 overflow-y-auto rounded-xl border border-default bg-surface">
                     {filteredClients.length > 0 ? (
@@ -698,31 +703,29 @@ export function Schedules() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label htmlFor="schedule-date" className="text-sm font-medium text-navy-2 flex items-center">
+                    <Label htmlFor="schedule-date" className="flex items-center">
                       <Calendar className="mr-2 h-4 w-4 text-navy-3" aria-hidden="true" /> Data
-                    </label>
+                    </Label>
                     {/* Sem data mínima: a equipe pode registrar visitas retroativas
                         para lançar relatórios de inspeções já realizadas. */}
-                    <input
+                    <Input
                       id="schedule-date"
                       type="date"
                       required
                       value={scheduledDate}
                       onChange={(e) => setScheduledDate(e.target.value)}
-                      className="w-full rounded-xl border border-control p-3 text-sm"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label htmlFor="schedule-time" className="text-sm font-medium text-navy-2 flex items-center">
+                    <Label htmlFor="schedule-time" className="flex items-center">
                       <Clock className="mr-2 h-4 w-4 text-navy-3" aria-hidden="true" /> Horário
-                    </label>
-                    <input
+                    </Label>
+                    <Input
                       id="schedule-time"
                       type="time"
                       required
                       value={scheduledTime}
                       onChange={(e) => setScheduledTime(e.target.value)}
-                      className="w-full rounded-xl border border-control p-3 text-sm"
                     />
                   </div>
                 </div>
@@ -754,26 +757,25 @@ export function Schedules() {
 
                 {!isEditing && (
                   <div className="space-y-2 rounded-xl border border-default bg-surface-sunken p-3">
-                    <label className="flex items-center gap-2 text-sm font-medium text-navy-2">
-                      <input
-                        type="checkbox"
-                        checked={repeatMonthly}
-                        onChange={(e) => setRepeatMonthly(e.target.checked)}
-                        className="h-4 w-4 rounded border-control text-primary-600 focus:ring-primary-500"
-                      />
-                      Repetir mensalmente (mesmo dia/horário)
-                    </label>
+                    <Checkbox
+                      checked={repeatMonthly}
+                      onChange={(e) => setRepeatMonthly(e.target.checked)}
+                      className="items-center text-navy-2"
+                      boxClassName="mt-0"
+                      label="Repetir mensalmente (mesmo dia/horário)"
+                    />
                     {repeatMonthly && (
                       <div className="flex items-center gap-2 pl-6">
-                        <label htmlFor="schedule-repeat-count" className="text-sm text-navy-2">Quantas visitas:</label>
-                        <input
+                        <Label htmlFor="schedule-repeat-count" className="font-medium text-navy-2">Quantas visitas:</Label>
+                        <Input
+                          size="sm"
                           id="schedule-repeat-count"
                           type="number"
                           min={2}
                           max={12}
                           value={repeatCount}
                           onChange={(e) => setRepeatCount(Math.min(12, Math.max(2, Number(e.target.value) || 2)))}
-                          className="w-20 rounded-lg border border-control p-2 text-sm"
+                          className="w-20"
                         />
                         <span className="text-xs text-navy-3">(cria {repeatCount} agendamentos independentes, um por mês)</span>
                       </div>
@@ -806,17 +808,14 @@ export function Schedules() {
                   <p className="text-xs text-navy-3">A inspeção criada a partir desta visita herda quem você marcar aqui.</p>
                 </div>
 
-                <div className="space-y-2">
-                  <label htmlFor="schedule-notes" className="text-sm font-medium text-navy-2">Observações (Opcional)</label>
-                  <textarea
-                    id="schedule-notes"
+                <Field label="Observações" htmlFor="schedule-notes" optional>
+                  <Textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     rows={3}
-                    className="w-full rounded-xl border border-control p-3 text-sm placeholder:text-navy-3"
                     placeholder="Ex: Levar checklist extra..."
                   />
-                </div>
+                </Field>
 
                 <div className="flex gap-3 pt-4">
                   <Button type="button" variant="ghost" className="flex-1" onClick={() => setIsModalOpen(false)}>

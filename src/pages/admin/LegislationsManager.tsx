@@ -8,6 +8,10 @@ import { Plus, Trash2, ExternalLink, Search, BookOpen, Loader2, Edit2, Link as L
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Drawer } from '../../components/ui/Drawer';
+import { Field } from '../../components/ui/Field';
+import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
+import { Textarea } from '../../components/ui/Textarea';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { PageShell } from '../../components/ui/PageShell';
 import { PageHeader } from '../../components/ui/PageHeader';
@@ -333,42 +337,40 @@ export function LegislationsManager() {
       />
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="relative flex-1 sm:max-w-xs">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-3" />
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por número, órgão ou assunto"
-            aria-label="Buscar legislação"
-            className="h-10 w-full rounded-md border border-control pl-9 pr-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-          />
-        </div>
-        <select
+        <Input
+          type="search"
+          icon={<Search />}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar por número, órgão ou assunto"
+          aria-label="Buscar legislação"
+          wrapperClassName="flex-1 sm:max-w-xs"
+        />
+        <Select
           value={esfera}
           onChange={(e) => setEsfera(e.target.value)}
           aria-label="Esfera"
           disabled={rowsAreGaps}
-          className="h-10 rounded-md border border-control bg-surface px-3 text-sm disabled:opacity-50"
+          className="w-auto"
         >
           <option value="">Todas as esferas</option>
           <option value="federal">Federal</option>
           {ufOptions.map((uf) => (
             <option key={uf} value={uf}>Estadual — {uf}</option>
           ))}
-        </select>
-        <select
+        </Select>
+        <Select
           value={orgao}
           onChange={(e) => setOrgao(e.target.value)}
           aria-label="Órgão"
           disabled={rowsAreGaps}
-          className="h-10 rounded-md border border-control bg-surface px-3 text-sm disabled:opacity-50"
+          className="w-auto"
         >
           <option value="">Todos os órgãos</option>
           {authorityOptions.map((a) => (
             <option key={a} value={a}>{a}</option>
           ))}
-        </select>
+        </Select>
         <div className="inline-flex gap-0.5 rounded-md border border-default bg-surface-sunken p-0.5">
           {(Object.keys(SEGMENT_LABELS) as Segment[]).map((key) => (
             <button
@@ -687,79 +689,63 @@ export function LegislationsManager() {
         }
       >
         <div className="space-y-4">
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-navy-2">Nome (Ex: RDC nº 63/2011) *</label>
-            <input
-              className="w-full rounded-lg border border-control p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-navy-2">Resumo ou ementa *</label>
-            <textarea
-              className="h-24 w-full resize-none rounded-lg border border-control p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+          <Field label="Nome (Ex: RDC nº 63/2011)" required>
+            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          </Field>
+          <Field label="Resumo ou ementa" required>
+            <Textarea
+              className="h-24 resize-none"
               value={form.summary}
               onChange={(e) => setForm({ ...form, summary: e.target.value })}
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-navy-2">URL do documento oficial</label>
-            <input
-              className="w-full rounded-lg border border-control p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+          </Field>
+          <Field label="URL do documento oficial">
+            <Input
+              type="url"
               value={form.url}
               onChange={(e) => setForm({ ...form, url: e.target.value })}
               placeholder="https://..."
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-navy-2">Autoria (entra na citação do relatório)</label>
-            <input
-              className="w-full rounded-lg border border-control p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+          </Field>
+          <Field
+            label="Autoria (entra na citação do relatório)"
+            hint="Sem autoria a norma é citada só pelo nome. O relatório nunca deduz o órgão."
+          >
+            <Input
               value={form.authority}
               onChange={(e) => setForm({ ...form, authority: e.target.value })}
               placeholder="Ex: BRASIL. Ministério da Saúde"
             />
-            <p className="mt-1 text-xs text-navy-3">Sem autoria a norma é citada só pelo nome. O relatório nunca deduz o órgão.</p>
-          </div>
+          </Field>
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-navy-2">UF (estadual/municipal)</label>
-              <select
-                className="w-full rounded-lg border border-control bg-surface p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
-                value={toUF(form.uf)}
-                onChange={(e) => setForm({ ...form, uf: e.target.value })}
-              >
+            <Field label="UF (estadual/municipal)">
+              <Select value={toUF(form.uf)} onChange={(e) => setForm({ ...form, uf: e.target.value })}>
                 <option value="">Federal / nacional</option>
                 {UF_OPTIONS.map(({ uf, name }) => (
                   <option key={uf} value={uf}>{uf} — {name}</option>
                 ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-navy-2">Situação</label>
-              <select
-                className="w-full rounded-lg border border-control bg-surface p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+              </Select>
+            </Field>
+            <Field label="Situação">
+              <Select
                 value={form.status}
                 onChange={(e) => setForm({ ...form, status: e.target.value as LegislationStatus })}
               >
                 {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
+              </Select>
+            </Field>
           </div>
           {form.status === 'revogada' && (
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-navy-2">Substituída por</label>
-              <input
-                className="w-full rounded-lg border border-control p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+            <Field label="Substituída por">
+              <Input
                 value={form.replacedBy}
                 onChange={(e) => setForm({ ...form, replacedBy: e.target.value })}
                 placeholder="Ex: RDC Anvisa nº 222/2018 — deixe em branco se não houver substituto"
               />
-            </div>
+            </Field>
           )}
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-navy-2">Segmentos aplicáveis (vazio = todos)</label>
+          <fieldset>
+            <legend className="mb-1 text-sm font-semibold text-navy">Segmentos aplicáveis (vazio = todos)</legend>
             <div className="flex flex-wrap gap-2">
               {SEGMENT_OPTIONS.map(opt => (
                 <button
@@ -776,17 +762,18 @@ export function LegislationsManager() {
                 </button>
               ))}
             </div>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-navy-2">Notas de pesquisa (artigos consultados, trechos, decisões)</label>
-            <textarea
-              className="h-28 w-full resize-y rounded-lg border border-control p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+          </fieldset>
+          <Field
+            label="Notas de pesquisa (artigos consultados, trechos, decisões)"
+            hint="Cache de pesquisa: guarde aqui o que já foi lido dessa norma para não pesquisar de novo depois."
+          >
+            <Textarea
+              className="h-28"
               value={form.researchNotes}
               onChange={(e) => setForm({ ...form, researchNotes: e.target.value })}
               placeholder="Ex.: Art. 25 trata de circulações internas — largura mínima 1,00m..."
             />
-            <p className="mt-1 text-xs text-navy-3">Cache de pesquisa: guarde aqui o que já foi lido dessa norma para não pesquisar de novo depois.</p>
-          </div>
+          </Field>
         </div>
       </Drawer>
 

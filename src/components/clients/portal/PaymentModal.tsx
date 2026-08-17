@@ -3,7 +3,9 @@ import { Loader2, Mail, Trash2 } from 'lucide-react';
 import { AppointmentAdminService, type ClientPortalAccountRow } from '../../../services/appointmentAdminService';
 import { Button } from '../../ui/Button';
 import { Card, CardContent } from '../../ui/Card';
-import { TEXT_INPUT, errorMessage } from './shared';
+import { errorMessage } from './shared';
+import { Field } from '../../ui/Field';
+import { Input } from '../../ui/Input';
 
 interface PaymentModalProps {
   account: ClientPortalAccountRow;
@@ -95,10 +97,17 @@ export function PaymentModal({ account, onClose, onSaved }: PaymentModalProps) {
           <p className="mb-5 text-sm text-navy-3">{account.name}</p>
 
           <div className="space-y-4">
-            <div className="space-y-1.5">
-              <label htmlFor="payment-link" className="text-sm font-medium text-navy-2">Link de pagamento</label>
-              <input
-                id="payment-link"
+            <Field
+              label="Link de pagamento"
+              htmlFor="payment-link"
+              hint={
+                <>
+                  O link deve oferecer Pix, boleto, NuPay e cartao de credito/debito no provedor de pagamento.
+                  {' '}O cliente vê um botão “Pagar agora” no portal enquanto estiver pendente.
+                </>
+              }
+            >
+              <Input
                 type="url"
                 value={link}
                 onChange={(e) => {
@@ -110,11 +119,8 @@ export function PaymentModal({ account, onClose, onSaved }: PaymentModalProps) {
                   });
                 }}
                 placeholder="Cole o link (Mercado Pago, Pix, Stripe...)"
-                className={TEXT_INPUT}
               />
-              <p className="text-xs text-navy-3">O link deve oferecer Pix, boleto, NuPay e cartao de credito/debito no provedor de pagamento.</p>
-              <p className="text-xs text-navy-3">O cliente vê um botão "Pagar agora" no portal enquanto estiver pendente.</p>
-            </div>
+            </Field>
 
             <div className="rounded-xl border border-default bg-surface-sunken p-3">
               <div className="mb-2 flex items-center justify-between gap-2">
@@ -131,18 +137,17 @@ export function PaymentModal({ account, onClose, onSaved }: PaymentModalProps) {
               <div className="space-y-2" role="group" aria-labelledby="payment-extra-links-label">
                 {paymentLinks.map((paymentLink, index) => (
                   <div key={index} className="grid gap-2 sm:grid-cols-[120px_1fr_auto]">
-                    <label htmlFor={`payment-link-label-${index}`} className="sr-only">Nome do link {index + 1}</label>
-                    <input
+                    <Input
                       id={`payment-link-label-${index}`}
+                      aria-label={`Nome do link ${index + 1}`}
                       type="text"
                       value={paymentLink.label || ''}
                       onChange={(e) => setPaymentLinks((prev) => prev.map((item, i) => i === index ? { ...item, label: e.target.value } : item))}
                       placeholder={index === 0 ? 'Principal' : 'Ex: Mensalidade'}
-                      className="rounded-xl border border-control p-2.5 text-sm placeholder:text-navy-3"
                     />
-                    <label htmlFor={`payment-link-url-${index}`} className="sr-only">URL do link {index + 1}</label>
-                    <input
+                    <Input
                       id={`payment-link-url-${index}`}
+                      aria-label={`URL do link ${index + 1}`}
                       type="url"
                       value={paymentLink.url}
                       onChange={(e) => {
@@ -150,7 +155,6 @@ export function PaymentModal({ account, onClose, onSaved }: PaymentModalProps) {
                         if (index === 0) setLink(e.target.value);
                       }}
                       placeholder="https://..."
-                      className="rounded-xl border border-control p-2.5 text-sm placeholder:text-navy-3"
                     />
                     {paymentLinks.length > 1 && (
                       <button
@@ -176,16 +180,9 @@ export function PaymentModal({ account, onClose, onSaved }: PaymentModalProps) {
             </div>
 
             {type === 'monthly' && (
-              <div className="space-y-1.5">
-                <label htmlFor="payment-due-date" className="text-sm font-medium text-navy-2">Data limite do pagamento mensal</label>
-                <input
-                  id="payment-due-date"
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                  className={TEXT_INPUT}
-                />
-              </div>
+              <Field label="Data limite do pagamento mensal" htmlFor="payment-due-date">
+                <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+              </Field>
             )}
 
             <div className="space-y-2">

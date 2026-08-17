@@ -166,12 +166,31 @@ Aprendido em 17/08, com quatro defeitos que só apareceram usando o fluxo:
 
 **Não deduzir do código nem perguntar.** A tabela **"Onde estamos"**, no topo de
 `docs/HANDOFF-FRONTEND.md`, é a única fonte: card entregue tem o título ~~riscado~~ com data e
-commit, card aberto tem ⬜. Em 17/08/2026: 22 entregues, 6 na fila (FE-24, FE-22, FE-25, FE-26,
+commit, card aberto tem ⬜. Em 17/08/2026: 23 entregues, 5 na fila (FE-22, FE-25, FE-26,
 FE-12, FE-27 — nessa ordem).
 
 **Ao fechar um card, atualizar no mesmo commit:** a tabela "Onde estamos" (riscar o título do card
 e tirá-lo da fila), o "Registro de execução" do handoff, e a linha da rota em
 `docs/mapa-paginas-admin.md` se o que a tela faz mudou.
+
+## Primitivos de formulário (FE-24, 17/08/2026)
+
+Campo cru **não se escreve mais** — o aceite do FE-24 é um `grep`. Use os primitivos:
+
+- **`Field`** é o campo composto do Artefato D: rótulo, controle, ajuda, erro. Ele fia `id`,
+  `aria-describedby`, `aria-invalid` e `aria-required` **por contexto** — o `Input`/`Select`/
+  `Textarea`/`Checkbox` dentro dele não precisa de `id` nem de `htmlFor`. Prop explícita ganha.
+- **Erro nunca é só a borda vermelha:** passar `error` já traz ícone + texto e marca o controle.
+- **`Checkbox` e `Radio`** (`ui/Checkbox.tsx`) trazem rótulo, `hint` e o alvo de 44px no toque.
+  Sem rótulo saem só como controle — aí o `aria-label` é obrigatório.
+- **Duas densidades**, `size="default"` e `size="sm"` (h-8), as mesmas do `Button`. Lista densa
+  usa `sm`; não reinventar altura no `className`.
+- **`Input` tem `icon`** (ícone dentro do campo) — e aí o layout vai em `wrapperClassName`,
+  não em `className`, porque quem carrega a largura é o invólucro.
+- Aparência dos três controles mora em **uma constante só** (`controlClasses`, em `Field.tsx`).
+  Mexer lá muda os três de uma vez — que é o ponto.
+- **Exceção viva:** `<input type="file">`. O botão nativo não é estilizável. As 9 do app estão
+  marcadas com `Exceção FE-24:` no comentário de cima; escrever outra exige a mesma linha.
 
 ## Relacionados
 

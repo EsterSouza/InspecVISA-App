@@ -3,8 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import { Save, Trash2, FileUp, Loader2 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
+import { Field } from '../../components/ui/Field';
+import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
+import { Textarea } from '../../components/ui/Textarea';
 import { TemplateService } from '../../services/templateService';
 import { toast } from '../../store/useToastStore';
+
+/**
+ * Edição no lugar, dentro da célula da tabela: o campo passa pelo primitivo (foco, alvo de
+ * toque e fiação de acessibilidade vêm de lá), mas sem moldura — quem delimita é a célula.
+ */
+const INLINE_CELL_INPUT = 'h-auto border-0 bg-transparent px-0 py-0 focus-visible:ring-offset-1';
 
 interface ParsedItem {
   id: number;
@@ -127,28 +137,21 @@ export function SmartImporter() {
             <CardTitle className="text-xs font-bold uppercase text-primary-700">Configurações Gerais</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Nome do Roteiro</label>
-              <input 
-                type="text" 
-                className="w-full rounded-lg border border-control p-2.5"
+            <Field label="Nome do Roteiro">
+              <Input
+                type="text"
                 placeholder="Ex: ROI Estética II - 2024"
                 value={templateName}
                 onChange={(e) => setTemplateName(e.target.value)}
               />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Categoria</label>
-              <select 
-                className="w-full rounded-lg border border-control p-2.5"
-                value={category}
-                onChange={(e) => setCategory(e.target.value as any)}
-              >
+            </Field>
+            <Field label="Categoria">
+              <Select value={category} onChange={(e) => setCategory(e.target.value as any)}>
                 <option value="estetica">Estética e Beleza</option>
                 <option value="ilpi">ILPI</option>
                 <option value="alimentos">Alimentos</option>
-              </select>
-            </div>
+              </Select>
+            </Field>
           </CardContent>
         </Card>
 
@@ -170,6 +173,7 @@ export function SmartImporter() {
                   <span className="text-xs text-navy-3 mt-1">Sincronização automática de itens</span>
                 </>
               )}
+              {/* Exceção FE-24: seletor de arquivo escondido — a área clicável é o rótulo inteiro. */}
               <input type="file" className="hidden" accept=".pdf,.docx,.ts,.tsx" onChange={handleFileUpload} disabled={isParsingFile} />
             </label>
           </CardContent>
@@ -178,18 +182,21 @@ export function SmartImporter() {
 
       <Card>
         <CardContent className="pt-6 space-y-4">
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium flex items-center gap-2">
-              Ou cole conteúdo estruturado (Excel)
-              <Badge>Control+V da Planilha</Badge>
-            </label>
-            <textarea 
-              className="w-full rounded-lg border border-control p-3 text-xs font-mono min-h-[150px] outline-none focus:ring-2 focus:ring-primary-500"
+          <Field
+            label={
+              <span className="inline-flex items-center gap-2">
+                Ou cole conteúdo estruturado (Excel)
+                <Badge>Control+V da Planilha</Badge>
+              </span>
+            }
+          >
+            <Textarea
+              className="min-h-[150px] font-mono text-xs"
               placeholder="Eixo	Item	Descrição	Lei"
               value={pastedText}
               onChange={(e) => setPastedText(e.target.value)}
             />
-          </div>
+          </Field>
           <Button onClick={handleParseText} disabled={!pastedText || isProcessing} variant="outline" className="w-full">
             {isProcessing ? 'Processando...' : 'Adicionar texto colado'}
           </Button>
@@ -223,8 +230,9 @@ export function SmartImporter() {
                 {items.map((item, idx) => (
                   <tr key={idx} className="hover:bg-primary-50/30 transition-colors">
                     <td className="px-6 py-4 align-top">
-                      <input 
-                        className="bg-transparent font-semibold text-primary-900 w-full outline-none focus:text-primary-600 text-sm"
+                      <Input
+                        aria-label={`Seção do item ${idx + 1}`}
+                        className={INLINE_CELL_INPUT + ' font-semibold text-primary-900'}
                         value={item.section}
                         onChange={(e) => {
                           const n = [...items];
@@ -234,8 +242,9 @@ export function SmartImporter() {
                       />
                     </td>
                     <td className="px-6 py-4 align-top">
-                      <textarea 
-                        className="bg-transparent text-navy-2 w-full outline-none focus:text-navy text-xs resize-none"
+                      <Textarea
+                        aria-label={`Descrição do item ${idx + 1}`}
+                        className={INLINE_CELL_INPUT + ' min-h-0 resize-none text-xs text-navy-2'}
                         value={item.description}
                         rows={2}
                         onChange={(e) => {
@@ -246,8 +255,9 @@ export function SmartImporter() {
                       />
                     </td>
                     <td className="px-6 py-4 align-top">
-                       <input 
-                        className="bg-transparent italic text-secondary-600 w-full outline-none text-[11px]"
+                      <Input
+                        aria-label={`Legislação do item ${idx + 1}`}
+                        className={INLINE_CELL_INPUT + ' text-xs italic text-secondary-600'}
                         value={item.legislation}
                         onChange={(e) => {
                           const n = [...items];

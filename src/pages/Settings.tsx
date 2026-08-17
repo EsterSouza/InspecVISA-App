@@ -1,12 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useSettingsStore } from '../store/useSettingsStore';
+import { useSettingsStore, type ConsultantRole } from '../store/useSettingsStore';
 import { SyncQueueService } from '../services/syncQueueService';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { PageShell } from '../components/ui/PageShell';
 import { PageHeader } from '../components/ui/PageHeader';
 import { TabPanel } from '../components/ui/Tabs';
+import { Field } from '../components/ui/Field';
+import { Input } from '../components/ui/Input';
+import { Radio } from '../components/ui/Checkbox';
 import { cn } from '../lib/utils';
 import { compressImage } from '../utils/imageUtils';
 import { db } from '../db/database';
@@ -21,6 +24,13 @@ import { useConfirmDialog } from '../components/ui/ConfirmDialog';
 import { toast } from '../store/useToastStore';
 
 type Section = 'perfil' | 'agenda' | 'aparencia' | 'sistema' | 'risco';
+
+/** Os três perfis oferecidos na tela — `assistencia_social` é legado do store. */
+const CONSULTANT_ROLES: { value: ConsultantRole; label: string }[] = [
+  { value: 'ambos', label: 'Todas as áreas (Completo)' },
+  { value: 'saude', label: 'Assistência à Saúde (Ester)' },
+  { value: 'nutricao', label: 'Nutrição/UAN (Ana)' },
+];
 
 const SECTIONS: { value: Section; label: string; icon: React.ComponentType<{ className?: string }>; danger?: boolean }[] = [
   { value: 'perfil', label: 'Perfil', icon: User },
@@ -199,101 +209,73 @@ export function Settings() {
               <CardContent>
                 <form onSubmit={saveForm} className="space-y-6">
                   <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-navy-2">Nome Completo</label>
-                      <input
+                    <Field label="Nome Completo" required>
+                      <Input
                         type="text"
                         required
                         value={settings.name}
                         onChange={(e) => updateSettings({ name: e.target.value })}
-                        className="w-full rounded-md border border-control p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                         placeholder="Seu nome"
                       />
-                    </div>
+                    </Field>
 
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-navy-2">Nome da Empresa (Opcional)</label>
-                      <input
+                    <Field label="Nome da Empresa" optional>
+                      <Input
                         type="text"
                         value={settings.companyName || ''}
                         onChange={(e) => updateSettings({ companyName: e.target.value })}
-                        className="w-full rounded-md border border-control p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                         placeholder="Nome exibido no rodapé do PDF"
                       />
-                    </div>
+                    </Field>
 
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-navy-2">Telefone de Contato</label>
-                      <input
-                        type="text"
+                    <Field label="Telefone de Contato">
+                      <Input
+                        type="tel"
                         value={settings.phone || ''}
                         onChange={(e) => updateSettings({ phone: e.target.value })}
-                        className="w-full rounded-md border border-control p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                         placeholder="(00) 00000-0000"
                       />
-                    </div>
+                    </Field>
 
-                    <div className="space-y-2 col-span-1 sm:col-span-2">
-                      <label className="text-sm font-medium text-navy-2">Perfil de Atuação (Filtro de Roteiro)</label>
-                      <div className="flex flex-wrap gap-4 mt-1">
-                        <label className="flex items-center space-x-2 cursor-pointer">
-                          <input
-                            type="radio"
+                    <fieldset className="col-span-1 sm:col-span-2">
+                      <legend className="text-sm font-semibold text-navy">Perfil de Atuação (Filtro de Roteiro)</legend>
+                      <div className="mt-1.5 flex flex-wrap gap-4">
+                        {CONSULTANT_ROLES.map(({ value, label }) => (
+                          <Radio
+                            key={value}
                             name="role"
-                            value="ambos"
-                            checked={settings.consultantRole === 'ambos' || !settings.consultantRole}
-                            onChange={() => updateSettings({ consultantRole: 'ambos' })}
-                            className="text-primary-600 focus:ring-primary-500 w-4 h-4"
+                            value={value}
+                            checked={
+                              settings.consultantRole === value ||
+                              (value === 'ambos' && !settings.consultantRole)
+                            }
+                            onChange={() => updateSettings({ consultantRole: value })}
+                            className="items-center text-navy-2"
+                            boxClassName="mt-0"
+                            label={label}
                           />
-                          <span className="text-sm text-navy-2">Todas as áreas (Completo)</span>
-                        </label>
-                        <label className="flex items-center space-x-2 cursor-pointer">
-                          <input
-                            type="radio"
-                            name="role"
-                            value="saude"
-                            checked={settings.consultantRole === 'saude'}
-                            onChange={() => updateSettings({ consultantRole: 'saude' })}
-                            className="text-primary-600 focus:ring-primary-500 w-4 h-4"
-                          />
-                          <span className="text-sm text-navy-2">Assistência à Saúde (Ester)</span>
-                        </label>
-                        <label className="flex items-center space-x-2 cursor-pointer">
-                          <input
-                            type="radio"
-                            name="role"
-                            value="nutricao"
-                            checked={settings.consultantRole === 'nutricao'}
-                            onChange={() => updateSettings({ consultantRole: 'nutricao' })}
-                            className="text-primary-600 focus:ring-primary-500 w-4 h-4"
-                          />
-                          <span className="text-sm text-navy-2">Nutrição/UAN (Ana)</span>
-                        </label>
+                        ))}
                       </div>
-                      <p className="text-xs text-navy-3 mt-1">Isso afetará quais seções aparecerão no roteiro ILPI.</p>
-                    </div>
+                      <p className="mt-1 text-xs text-navy-2">Isso afetará quais seções aparecerão no roteiro ILPI.</p>
+                    </fieldset>
 
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-navy-2">Tipo de Registro profissional</label>
-                      <input
+                    <Field label="Tipo de Registro profissional">
+                      <Input
                         type="text"
                         value={settings.professionalIdLabel || ''}
                         onChange={(e) => updateSettings({ professionalIdLabel: e.target.value })}
-                        className="w-full rounded-md border border-control p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                         placeholder="Ex: CRBM, CRN, CRM..."
                       />
-                    </div>
+                    </Field>
 
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-navy-2">Número do Registro</label>
-                      <input
+                    <Field label="Número do Registro">
+                      <Input
                         type="text"
                         value={settings.professionalId || ''}
                         onChange={(e) => updateSettings({ professionalId: e.target.value })}
-                        className="w-full rounded-md border border-control p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                         placeholder="Ex: 123456-7"
                       />
-                    </div>
+                    </Field>
                   </div>
 
                   <div className="pt-4 border-t border-default">
@@ -308,6 +290,7 @@ export function Settings() {
                       </div>
                       <div className="space-y-3">
                         <div className="flex space-x-2">
+                          {/* Exceção FE-24: seletor de arquivo escondido, acionado pelo botão ao lado. */}
                           <input
                             type="file"
                             accept="image/*"
@@ -384,14 +367,22 @@ export function Settings() {
               <CardContent className="space-y-3">
                 <fieldset disabled className="flex flex-wrap gap-4 opacity-60">
                   <legend className="sr-only">Tema</legend>
-                  <label className="flex items-center space-x-2">
-                    <input type="radio" name="theme" checked={settings.theme !== 'dark'} readOnly className="h-4 w-4" />
-                    <span className="text-sm text-navy-2">Claro</span>
-                  </label>
-                  <label className="flex items-center space-x-2">
-                    <input type="radio" name="theme" checked={settings.theme === 'dark'} readOnly className="h-4 w-4" />
-                    <span className="text-sm text-navy-2">Escuro</span>
-                  </label>
+                  <Radio
+                    name="theme"
+                    checked={settings.theme !== 'dark'}
+                    readOnly
+                    className="items-center text-navy-2"
+                    boxClassName="mt-0"
+                    label="Claro"
+                  />
+                  <Radio
+                    name="theme"
+                    checked={settings.theme === 'dark'}
+                    readOnly
+                    className="items-center text-navy-2"
+                    boxClassName="mt-0"
+                    label="Escuro"
+                  />
                 </fieldset>
                 <p className="text-xs text-navy-3">
                   Desabilitado por enquanto: o tema escuro ainda não está implementado.

@@ -89,7 +89,9 @@ export function PortalBilling({
                   onClick={() => {
                     onAudit('payment_link_clicked', { label: item.label || 'Pagar agora', index });
                   }}
-                  className="inline-flex items-center justify-center gap-2 rounded-md bg-amber px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-amber-strong"
+                  // Manual 2.0: âmbar é semântico, nunca ação principal. Branco sobre `--amber`
+                  // dava 2,50:1 e reprovava AA — pendência que o FE-21 deixou para este card.
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-primary-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-800"
                 >
                   <CreditCard className="h-4 w-4" />
                   {item.label || 'Pagar agora'}

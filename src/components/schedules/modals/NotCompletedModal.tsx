@@ -4,6 +4,8 @@ import type { AppointmentRequest } from '../../../types';
 import { AppointmentAdminService } from '../../../services/appointmentAdminService';
 import { Button } from '../../ui/Button';
 import { Card, CardContent } from '../../ui/Card';
+import { Field } from '../../ui/Field';
+import { Textarea } from '../../ui/Textarea';
 import { errorMessage } from '../appointmentRequestsShared';
 
 interface NotCompletedModalProps {
@@ -41,22 +43,19 @@ export function NotCompletedModal({ request, onClose, onSaved }: NotCompletedMod
           <h3 id="not-completed-title" className="mb-1 text-lg font-bold text-navy">Inspeção não realizada</h3>
           <p className="mb-4 text-sm text-navy-3">{request.unit_name}</p>
 
-          <div className="space-y-1.5">
-            <label htmlFor="not-completed-reason" className="text-sm font-medium text-navy-2">
-              Motivo <span className="text-danger">*</span>
-            </label>
-            <textarea
-              id="not-completed-reason"
+          <Field
+            label="Motivo"
+            htmlFor="not-completed-reason"
+            required
+            hint="Este texto ficará visível para o cliente no Portal do Cliente."
+          >
+            <Textarea
               rows={4}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="Ex.: Cliente não estava no local, documentação pendente, acesso negado..."
-              className="w-full rounded-xl border border-control p-3 text-sm placeholder:text-navy-3 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
             />
-            <p className="text-xs text-navy-3">
-              Este texto ficará visível para o cliente no Portal do Cliente.
-            </p>
-          </div>
+          </Field>
 
           {error && (
             <div role="alert" className="mt-3 rounded-xl border border-danger-soft-border bg-danger-soft p-3 text-sm text-danger-soft-ink">

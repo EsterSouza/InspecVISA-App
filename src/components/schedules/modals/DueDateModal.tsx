@@ -4,7 +4,8 @@ import type { AppointmentRequest } from '../../../types';
 import { AppointmentAdminService } from '../../../services/appointmentAdminService';
 import { Button } from '../../ui/Button';
 import { Card, CardContent } from '../../ui/Card';
-import { TEXT_INPUT, errorMessage } from '../appointmentRequestsShared';
+import { errorMessage } from '../appointmentRequestsShared';
+import { Input } from '../../ui/Input';
 import { toast } from '../../../store/useToastStore';
 
 interface DueDateModalProps {
@@ -37,13 +38,12 @@ export function DueDateModal({ request, onClose, onSaved }: DueDateModalProps) {
         <CardContent className="p-6">
           <h3 id="due-date-title" className="mb-1 text-lg font-bold text-navy">Prazo manual do relatório</h3>
           <p className="mb-4 text-sm text-navy-3">{request.unit_name}</p>
-          <label htmlFor="due-date-input" className="sr-only">Data limite do relatório</label>
-          <input
+          <Input
             id="due-date-input"
+            aria-label="Data limite do relatório"
             type="date"
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
-            className={TEXT_INPUT}
           />
           <div className="mt-5 flex gap-3">
             <Button type="button" variant="ghost" className="flex-1" onClick={onClose}>

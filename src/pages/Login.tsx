@@ -2,7 +2,18 @@ import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
+import { Label } from '../components/ui/Label';
+import { Input } from '../components/ui/Input';
 import { LogIn, Mail, Lock, ArrowRight } from 'lucide-react';
+
+/**
+ * A tela de entrada é a única superfície escura do app (o tema escuro só chega no FE-12).
+ * O campo continua sendo o primitivo — foco, alvo de toque e fiação vêm de lá; só a
+ * pele muda, para não ficar um retângulo branco no meio do navy.
+ */
+const LOGIN_FIELD =
+  'h-12 rounded-xl border-white/10 bg-surface/10 pl-10 pr-4 text-white placeholder:text-white/20 ' +
+  'enabled:hover:border-white/30 focus-visible:border-primary-400 focus-visible:ring-primary-400';
 
 export function Login() {
   const [email, setEmail] = useState('');
@@ -52,35 +63,31 @@ export function Login() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <label htmlFor="staff-login-email" className="text-sm font-medium text-primary-100/80 ml-1">E-mail corporativo</label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-primary-100/40" aria-hidden="true" />
-                  <input
-                    id="staff-login-email"
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full h-12 bg-surface/10 border border-white/10 rounded-xl pl-10 pr-4 text-white placeholder-white/20 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400 transition-all"
-                    placeholder="esterposte@hotmail.com"
-                  />
-                </div>
+                <Label htmlFor="staff-login-email" className="ml-1 text-primary-100/80">E-mail corporativo</Label>
+                <Input
+                  id="staff-login-email"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  icon={<Mail className="text-primary-100/40" />}
+                  className={LOGIN_FIELD}
+                  placeholder="esterposte@hotmail.com"
+                />
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="staff-login-password" className="text-sm font-medium text-primary-100/80 ml-1">Senha</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-primary-100/40" aria-hidden="true" />
-                  <input
-                    id="staff-login-password"
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full h-12 bg-surface/10 border border-white/10 rounded-xl pl-10 pr-4 text-white placeholder-white/20 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400 transition-all"
-                    placeholder="••••••••"
-                  />
-                </div>
+                <Label htmlFor="staff-login-password" className="ml-1 text-primary-100/80">Senha</Label>
+                <Input
+                  id="staff-login-password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  icon={<Lock className="text-primary-100/40" />}
+                  className={LOGIN_FIELD}
+                  placeholder="••••••••"
+                />
               </div>
 
               {error && (

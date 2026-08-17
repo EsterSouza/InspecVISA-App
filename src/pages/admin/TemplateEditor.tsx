@@ -11,6 +11,7 @@ import { Input } from '../../components/ui/Input';
 import { Textarea } from '../../components/ui/Textarea';
 import { Select } from '../../components/ui/Select';
 import { Label } from '../../components/ui/Label';
+import { Checkbox } from '../../components/ui/Checkbox';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { PageShell } from '../../components/ui/PageShell';
 import { useConfirmDialog } from '../../components/ui/ConfirmDialog';
@@ -399,9 +400,10 @@ export function TemplateEditor() {
                         <ArrowDown className="h-3 w-3" />
                       </Button>
                     </div>
-                    <input
+                    <Input
                       type="text"
-                      className="flex-1 min-w-0 bg-transparent font-bold text-sm text-navy border-none p-0 focus:ring-0 placeholder-navy-3"
+                      aria-label="Nome da seção"
+                      className="h-auto min-w-0 flex-1 border-0 bg-transparent p-0 font-bold text-navy focus-visible:ring-offset-1"
                       value={section.title}
                       onChange={(e) => updateSectionTitle(section.id, e.target.value)}
                       placeholder="Nome da Seção"
@@ -591,15 +593,13 @@ export function TemplateEditor() {
                   </div>
                   <div>
                     <Label>&nbsp;</Label>
-                    <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-navy-2 h-10">
-                      <input
-                        type="checkbox"
-                        className="rounded border-control text-danger focus:ring-danger h-4 w-4 cursor-pointer"
-                        checked={selectedItem.isCritical}
-                        onChange={(e) => updateItem(selectedSection.id, selectedItem.id, 'isCritical', e.target.checked)}
-                      />
-                      Item crítico
-                    </label>
+                    <Checkbox
+                      checked={selectedItem.isCritical}
+                      onChange={(e) => updateItem(selectedSection.id, selectedItem.id, 'isCritical', e.target.checked)}
+                      className="h-10 items-center font-medium text-navy-2"
+                      boxClassName="mt-0 accent-danger"
+                      label="Item crítico"
+                    />
                   </div>
                   <div>
                     <Label>Tipo de exigência</Label>

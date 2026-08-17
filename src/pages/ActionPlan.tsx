@@ -21,6 +21,8 @@ import { PageShell } from '../components/ui/PageShell';
 import { toast } from '../store/useToastStore';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Select } from '../components/ui/Select';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Drawer } from '../components/ui/Drawer';
@@ -209,28 +211,26 @@ export function ActionPlan() {
       />
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="relative flex-1 sm:max-w-xs">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-3" />
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar no texto da pendência"
-            aria-label="Buscar pendência"
-            className="h-10 w-full rounded-md border border-control pl-9 pr-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-          />
-        </div>
-        <select
+        <Input
+          type="search"
+          icon={<Search />}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar no texto da pendência"
+          aria-label="Buscar pendência"
+          wrapperClassName="flex-1 sm:max-w-xs"
+        />
+        <Select
           value={clientId}
           onChange={(e) => setClientId(e.target.value)}
           aria-label="Cliente"
-          className="h-10 rounded-md border border-control bg-surface px-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="w-auto"
         >
           <option value="">Todos os clientes</option>
           {clients.map((c) => (
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
-        </select>
+        </Select>
         <div className="inline-flex gap-0.5 rounded-md border border-default bg-surface-sunken p-0.5">
           {(Object.keys(SEGMENT_LABELS) as Segment[]).map((key) => (
             <button

@@ -8,7 +8,11 @@ import { getLocalActor } from '../../../utils/localActor';
 import { generateId } from '../../../utils/imageUtils';
 import { Button } from '../../ui/Button';
 import { Card, CardContent } from '../../ui/Card';
-import { TEXT_INPUT, defaultScheduleConsultants, errorMessage } from '../appointmentRequestsShared';
+import { defaultScheduleConsultants, errorMessage } from '../appointmentRequestsShared';
+import { Field } from '../../ui/Field';
+import { Label } from '../../ui/Label';
+import { Input } from '../../ui/Input';
+import { Select } from '../../ui/Select';
 import { ConsultantPicker } from '../ConsultantPicker';
 
 interface NewVisitModalProps {
@@ -114,17 +118,16 @@ export function NewVisitModal({ clients, onClose, onCreated }: NewVisitModalProp
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <label htmlFor="new-visit-client-search" className="text-sm font-medium text-navy-2">Cliente / unidade</label>
-              <input
+              <Label htmlFor="new-visit-client-search">Cliente / unidade</Label>
+              <Input
                 id="new-visit-client-search"
-                type="text"
+                type="search"
                 placeholder="Buscar cliente..."
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
                   setClientId('');
                 }}
-                className={TEXT_INPUT.replace('p-3', 'p-2.5')}
               />
               <div className="max-h-44 overflow-y-auto rounded-xl border border-default bg-surface">
                 {filtered.length > 0 ? (
@@ -150,9 +153,9 @@ export function NewVisitModal({ clients, onClose, onCreated }: NewVisitModalProp
                   Visita vinculada a: <strong>{selectedClient.name}</strong>
                 </div>
               )}
-              <label htmlFor="new-visit-client-select" className="sr-only">Selecionar cliente</label>
-              <select
+              <Select
                 id="new-visit-client-select"
+                aria-label="Selecionar cliente"
                 value={clientId}
                 onChange={(e) => {
                   setClientId(e.target.value);
@@ -162,25 +165,22 @@ export function NewVisitModal({ clients, onClose, onCreated }: NewVisitModalProp
                     if (c.city) setMunicipality(c.city);
                   }
                 }}
-                className="w-full rounded-xl border border-control bg-surface p-3 text-sm"
               >
                 <option value="">Selecione...</option>
                 {filtered.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
-              </select>
+              </Select>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label htmlFor="new-visit-date" className="text-sm font-medium text-navy-2">Data</label>
+              <Field label="Data" htmlFor="new-visit-date">
                 {/* Sem data mínima: permite registrar visitas retroativas e lançar relatórios antigos. */}
-                <input id="new-visit-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className={TEXT_INPUT} />
-              </div>
-              <div className="space-y-1.5">
-                <label htmlFor="new-visit-time" className="text-sm font-medium text-navy-2">Horário</label>
-                <input id="new-visit-time" type="time" value={time} onChange={(e) => setTime(e.target.value)} className={TEXT_INPUT} />
-              </div>
+                <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              </Field>
+              <Field label="Horário" htmlFor="new-visit-time">
+                <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+              </Field>
             </div>
 
             <div className="grid grid-cols-2 gap-2" role="group" aria-label="Modo de atendimento">
@@ -204,28 +204,21 @@ export function NewVisitModal({ clients, onClose, onCreated }: NewVisitModalProp
 
             {attendanceMode === 'presencial' && (
               <div className="grid grid-cols-2 gap-3">
-                <label htmlFor="new-visit-municipality" className="sr-only">Município</label>
-                <input id="new-visit-municipality" type="text" value={municipality} onChange={(e) => setMunicipality(e.target.value)} placeholder="Município" className={TEXT_INPUT} />
-                <label htmlFor="new-visit-district" className="sr-only">Bairro</label>
-                <input id="new-visit-district" type="text" value={district} onChange={(e) => setDistrict(e.target.value)} placeholder="Bairro" className={TEXT_INPUT} />
+                <Input id="new-visit-municipality" aria-label="Município" type="text" value={municipality} onChange={(e) => setMunicipality(e.target.value)} placeholder="Município" />
+                <Input id="new-visit-district" aria-label="Bairro" type="text" value={district} onChange={(e) => setDistrict(e.target.value)} placeholder="Bairro" />
               </div>
             )}
 
             {attendanceMode === 'online' && (
-              <div className="space-y-1.5">
-                <label htmlFor="new-visit-meeting-url" className="text-sm font-medium text-navy-2">
-                  Link da videoconferência
-                </label>
-                <input
-                  id="new-visit-meeting-url"
+              <Field label="Link da videoconferência" htmlFor="new-visit-meeting-url">
+                <Input
                   type="url"
                   inputMode="url"
                   value={meetingUrl}
                   onChange={(e) => setMeetingUrl(e.target.value)}
                   placeholder="https://meet.google.com/..."
-                  className={TEXT_INPUT}
                 />
-              </div>
+              </Field>
             )}
 
             <ConsultantPicker selected={selectedConsultants} onToggle={toggleConsultant} />

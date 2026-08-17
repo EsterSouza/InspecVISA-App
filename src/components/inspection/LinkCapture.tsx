@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Link2, Plus, Trash2, ExternalLink } from 'lucide-react';
+import { Label } from '../ui/Label';
+import { Input } from '../ui/Input';
 
 interface LinkCaptureProps {
   inputId: string;
@@ -41,18 +43,18 @@ export function LinkCapture({ inputId, links, onChange }: LinkCaptureProps) {
 
   return (
     <div className="space-y-2">
-      <label htmlFor={inputId} className="flex items-center gap-1.5 text-sm font-medium text-navy-2">
-        <Link2 className="h-4 w-4 text-navy-3" /> Link / fonte consultada
-      </label>
+      <Label htmlFor={inputId} className="flex items-center gap-1.5">
+        <Link2 className="h-4 w-4 text-navy-3" aria-hidden="true" /> Link / fonte consultada
+      </Label>
       <div className="flex gap-2">
-        <input
+        <Input
           id={inputId}
           type="url"
           value={draft}
           onChange={(e) => { setDraft(e.target.value); setError(null); }}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addLink(); } }}
           placeholder="https://..."
-          className="min-h-11 w-full flex-1 rounded-md border border-control px-3 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+          className="min-h-11 flex-1 shadow-sm"
         />
         <button
           type="button"

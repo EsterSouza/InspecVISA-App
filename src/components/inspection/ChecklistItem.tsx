@@ -634,7 +634,7 @@ export const ChecklistItem = memo(function ChecklistItem({
             )}
           </div>
 
-          {/* Responsável e prazo eram `<input list>`: aceitavam qualquer texto, e
+          {/* Responsável e prazo eram campo de texto com sugestão: aceitavam qualquer texto, e
               "assim que possível" produzia pendência que nunca vence. Viram lista
               fechada (decisão 33), com "Sem prazo definido" dentro dela. Valor
               antigo fora da lista continua sendo exibido, para não sumir de

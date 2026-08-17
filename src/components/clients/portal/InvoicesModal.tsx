@@ -8,6 +8,9 @@ import {
 import { Button } from '../../ui/Button';
 import { Card, CardContent } from '../../ui/Card';
 import { useConfirmDialog } from '../../ui/ConfirmDialog';
+import { Field } from '../../ui/Field';
+import { Label } from '../../ui/Label';
+import { Input } from '../../ui/Input';
 import { errorMessage } from './shared';
 
 interface InvoicesModalProps {
@@ -109,24 +112,19 @@ export function InvoicesModal({ account, onClose }: InvoicesModalProps) {
 
           <div className="mb-5 space-y-3 rounded-xl border border-default bg-surface-sunken p-3">
             <div className="grid gap-2 sm:grid-cols-[160px_1fr]">
-              <div className="space-y-1 text-xs font-medium text-navy-2">
-                <label htmlFor="invoice-month">Mês de competência</label>
-                <input
-                  id="invoice-month"
-                  type="month"
-                  value={month}
-                  onChange={(e) => setMonth(e.target.value)}
-                  className="w-full rounded-lg border border-control p-2 text-sm"
-                />
-              </div>
-              <div className="space-y-1 text-xs font-medium text-navy-2">
-                <label htmlFor="invoice-file">Arquivo (PDF)</label>
+              <Field label="Mês de competência" htmlFor="invoice-month">
+                <Input size="sm" type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
+              </Field>
+              <div className="space-y-1.5">
+                <Label htmlFor="invoice-file">Arquivo (PDF)</Label>
+                {/* Exceção FE-24: seletor de arquivo visível. O botão nativo do `type="file"`
+                    não é estilizável, então ele não passa pelo primitivo `Input`. */}
                 <input
                   id="invoice-file"
                   type="file"
                   accept="application/pdf"
                   onChange={(e) => setFile(e.target.files?.[0] || null)}
-                  className="w-full rounded-lg border border-control bg-surface p-1.5 text-sm"
+                  className="w-full rounded-md border border-control bg-surface p-1.5 text-sm text-navy file:mr-2 file:rounded file:border-0 file:bg-surface-sunken file:px-2 file:py-1 file:text-xs file:font-semibold file:text-navy-2"
                 />
               </div>
             </div>

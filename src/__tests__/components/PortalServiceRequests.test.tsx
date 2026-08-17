@@ -128,12 +128,12 @@ describe('P360-012 - PortalServiceRequests', () => {
     expect(screen.getByText('Escolha a unidade.')).toBeInTheDocument();
     expect(onCreate).not.toHaveBeenCalled();
 
-    await user.selectOptions(screen.getByLabelText('Unidade *'), 'unit-2');
+    await user.selectOptions(screen.getByLabelText(/^Unidade/), 'unit-2');
     await user.click(screen.getByRole('button', { name: /Registrar solicitação/i }));
     expect(screen.getByText('Escolha a categoria.')).toBeInTheDocument();
 
-    await user.selectOptions(screen.getByLabelText('Categoria *'), 'treinamento');
-    await user.type(screen.getByLabelText('Assunto *'), 'Treinamento da equipe');
+    await user.selectOptions(screen.getByLabelText(/^Categoria/), 'treinamento');
+    await user.type(screen.getByLabelText(/^Assunto/), 'Treinamento da equipe');
     await user.click(screen.getByRole('button', { name: /Registrar solicitação/i }));
     expect(screen.getByText(/pelo menos 10 caracteres/)).toBeInTheDocument();
     expect(onCreate).not.toHaveBeenCalled();
@@ -148,9 +148,9 @@ describe('P360-012 - PortalServiceRequests', () => {
 
     render(<PortalServiceRequests requests={[]} units={[UNITS[0]]} onCreate={onCreate} />);
     await user.click(screen.getByRole('button', { name: /Nova solicitação/i }));
-    await user.selectOptions(screen.getByLabelText('Categoria *'), 'documentacao');
-    await user.type(screen.getByLabelText('Assunto *'), 'Modelo de POP');
-    await user.type(screen.getByLabelText('O que você precisa *'), 'Preciso do modelo de POP de limpeza.');
+    await user.selectOptions(screen.getByLabelText(/^Categoria/), 'documentacao');
+    await user.type(screen.getByLabelText(/^Assunto/), 'Modelo de POP');
+    await user.type(screen.getByLabelText(/^O que você precisa/), 'Preciso do modelo de POP de limpeza.');
 
     const submit = screen.getByRole('button', { name: /Registrar solicitação/i });
     await user.click(submit);
@@ -172,9 +172,9 @@ describe('P360-012 - PortalServiceRequests', () => {
 
     render(<PortalServiceRequests requests={[]} units={[UNITS[0]]} onCreate={onCreate} />);
     await user.click(screen.getByRole('button', { name: /Nova solicitação/i }));
-    await user.selectOptions(screen.getByLabelText('Categoria *'), 'outro');
-    await user.type(screen.getByLabelText('Assunto *'), 'Dúvida de rotina');
-    await user.type(screen.getByLabelText('O que você precisa *'), 'Queria entender a rotina de limpeza.');
+    await user.selectOptions(screen.getByLabelText(/^Categoria/), 'outro');
+    await user.type(screen.getByLabelText(/^Assunto/), 'Dúvida de rotina');
+    await user.type(screen.getByLabelText(/^O que você precisa/), 'Queria entender a rotina de limpeza.');
     await user.click(screen.getByRole('button', { name: /Registrar solicitação/i }));
 
     expect(await screen.findByText(/Solicitação 3 registrada, mas o anexo não subiu/)).toBeInTheDocument();

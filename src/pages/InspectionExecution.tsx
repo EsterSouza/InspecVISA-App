@@ -54,6 +54,7 @@ import { InspectionFinishScreen } from '../components/inspection/InspectionFinis
 import { Modal } from '../components/ui/Modal';
 import { Input } from '../components/ui/Input';
 import { Label } from '../components/ui/Label';
+import { Checkbox } from '../components/ui/Checkbox';
 import { Select } from '../components/ui/Select';
 import { useConfirmDialog } from '../components/ui/ConfirmDialog';
 import { toast } from '../store/useToastStore';
@@ -1586,17 +1587,16 @@ export function InspectionExecution() {
               autoFocus
             />
           </div>
-          <label className="flex min-h-11 items-center gap-3 rounded-lg border border-default px-3">
-            <input
-              type="checkbox"
-              checked={extraCritical}
-              onChange={event => {
-                setExtraCritical(event.target.checked);
-                if (event.target.checked) setExtraWeight(10);
-              }}
-            />
-            <span className="text-sm font-medium text-navy">Item crítico</span>
-          </label>
+          <Checkbox
+            checked={extraCritical}
+            onChange={event => {
+              setExtraCritical(event.target.checked);
+              if (event.target.checked) setExtraWeight(10);
+            }}
+            className="min-h-11 items-center gap-3 rounded-lg border border-default px-3 font-medium text-navy"
+            boxClassName="mt-0"
+            label="Item crítico"
+          />
           <div>
             <Label htmlFor="extra-weight">Peso na pontuação</Label>
             <Select

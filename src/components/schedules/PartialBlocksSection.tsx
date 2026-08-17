@@ -5,7 +5,10 @@ import type { AppointmentBlock, AppointmentBlockRecurrence } from '../../types';
 import { Button } from '../ui/Button';
 import { Card, CardContent } from '../ui/Card';
 import { useConfirmDialog } from '../ui/ConfirmDialog';
-import { SCHEDULE_CONSULTANTS, TEXT_INPUT, errorMessage } from './appointmentRequestsShared';
+import { SCHEDULE_CONSULTANTS, errorMessage } from './appointmentRequestsShared';
+import { Field } from '../ui/Field';
+import { Input } from '../ui/Input';
+import { Select } from '../ui/Select';
 import { toast } from '../../store/useToastStore';
 import { toDateKey } from '../../utils/date';
 
@@ -125,33 +128,25 @@ export function PartialBlocksSection() {
         <CardContent className="p-4">
           <form onSubmit={handleAdd} className="space-y-3">
             <div className="flex flex-wrap items-end gap-3">
-              <div className="space-y-1.5">
-                <label htmlFor="partial-block-day" className="block text-xs font-medium text-navy-2">Data</label>
-                <input
-                  id="partial-block-day"
+              <Field label="Data" htmlFor="partial-block-day" className="w-auto">
+                <Input
                   type="date"
                   required
                   value={day}
                   min={toDateKey(new Date())}
                   onChange={(e) => setDay(e.target.value)}
-                  className="rounded-xl border border-control p-2.5 text-sm"
                 />
-              </div>
-              <div className="space-y-1.5">
-                <label htmlFor="partial-block-start" className="block text-xs font-medium text-navy-2">Início</label>
-                <input
-                  id="partial-block-start"
+              </Field>
+              <Field label="Início" htmlFor="partial-block-start" className="w-auto">
+                <Input
                   type="time"
                   required
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
-                  className="rounded-xl border border-control p-2.5 text-sm"
                 />
-              </div>
-              <div className="space-y-1.5">
-                <label htmlFor="partial-block-duration" className="block text-xs font-medium text-navy-2">Duração (min)</label>
-                <input
-                  id="partial-block-duration"
+              </Field>
+              <Field label="Duração (min)" htmlFor="partial-block-duration" className="w-auto">
+                <Input
                   type="number"
                   required
                   min={15}
@@ -159,9 +154,9 @@ export function PartialBlocksSection() {
                   step={15}
                   value={durationMinutes}
                   onChange={(e) => setDurationMinutes(Math.min(720, Math.max(15, Number(e.target.value) || 15)))}
-                  className="w-28 rounded-xl border border-control p-2.5 text-sm"
+                  className="w-28"
                 />
-              </div>
+              </Field>
               <div className="flex gap-1.5">
                 <Button type="button" variant="ghost" size="sm" onClick={() => applyPreset('manha')}>Manhã inteira</Button>
                 <Button type="button" variant="ghost" size="sm" onClick={() => applyPreset('tarde')}>Tarde inteira</Button>
@@ -169,58 +164,44 @@ export function PartialBlocksSection() {
             </div>
 
             <div className="flex flex-wrap items-end gap-3">
-              <div className="space-y-1.5">
-                <label htmlFor="partial-block-who" className="block text-xs font-medium text-navy-2">Quem</label>
-                <select
-                  id="partial-block-who"
-                  value={who}
-                  onChange={(e) => setWho(e.target.value)}
-                  className="rounded-xl border border-control bg-surface p-2.5 text-sm"
-                >
+              <Field label="Quem" htmlFor="partial-block-who" className="w-auto">
+                <Select value={who} onChange={(e) => setWho(e.target.value)}>
                   <option value={WHO_ALL}>Todas</option>
                   {SCHEDULE_CONSULTANTS.map((name) => (
                     <option key={name} value={name}>{name}</option>
                   ))}
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <label htmlFor="partial-block-recurrence" className="block text-xs font-medium text-navy-2">Repetição</label>
-                <select
-                  id="partial-block-recurrence"
+                </Select>
+              </Field>
+              <Field label="Repetição" htmlFor="partial-block-recurrence" className="w-auto">
+                <Select
                   value={recurrence}
                   onChange={(e) => setRecurrence(e.target.value as AppointmentBlockRecurrence)}
-                  className="rounded-xl border border-control bg-surface p-2.5 text-sm"
                 >
                   {RECURRENCE_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
-                </select>
-              </div>
+                </Select>
+              </Field>
               {recurrence !== 'none' && (
-                <div className="space-y-1.5">
-                  <label htmlFor="partial-block-occurrences" className="block text-xs font-medium text-navy-2">Quantas vezes</label>
-                  <input
-                    id="partial-block-occurrences"
+                <Field label="Quantas vezes" htmlFor="partial-block-occurrences" className="w-auto">
+                  <Input
                     type="number"
                     min={2}
                     max={52}
                     value={occurrences}
                     onChange={(e) => setOccurrences(Math.min(52, Math.max(2, Number(e.target.value) || 2)))}
-                    className="w-24 rounded-xl border border-control p-2.5 text-sm"
+                    className="w-24"
                   />
-                </div>
+                </Field>
               )}
-              <div className="min-w-[180px] flex-1 space-y-1.5">
-                <label htmlFor="partial-block-reason" className="block text-xs font-medium text-navy-2">Motivo (opcional)</label>
-                <input
-                  id="partial-block-reason"
+              <Field label="Motivo" htmlFor="partial-block-reason" optional className="min-w-[180px] flex-1">
+                <Input
                   type="text"
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   placeholder="Ex.: Reunião interna"
-                  className={TEXT_INPUT.replace('p-3', 'p-2.5')}
                 />
-              </div>
+              </Field>
               <Button type="submit" size="sm" disabled={saving || !day || !startTime}>
                 {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Clock className="mr-1.5 h-4 w-4" />}
                 Bloquear

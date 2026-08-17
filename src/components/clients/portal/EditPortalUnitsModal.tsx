@@ -4,7 +4,10 @@ import type { Client } from '../../../types';
 import { AppointmentAdminService, type ClientPortalAccountRow } from '../../../services/appointmentAdminService';
 import { Button } from '../../ui/Button';
 import { Card, CardContent } from '../../ui/Card';
-import { TEXT_INPUT, errorMessage } from './shared';
+import { errorMessage } from './shared';
+import { Field } from '../../ui/Field';
+import { Input } from '../../ui/Input';
+import { Checkbox } from '../../ui/Checkbox';
 
 interface EditPortalUnitsModalProps {
   account: ClientPortalAccountRow;
@@ -74,86 +77,69 @@ export function EditPortalUnitsModal({ account, clients, onClose, onSaved }: Edi
           </p>
 
           <div className="mb-4 grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5 text-sm font-medium text-navy-2">
-              <label htmlFor="edit-portal-email">E-mail de acesso</label>
-              <input
-                id="edit-portal-email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className={`${TEXT_INPUT} font-normal`}
-              />
-            </div>
-            <div className="space-y-1.5 text-sm font-medium text-navy-2">
-              <label htmlFor="edit-portal-username">Nome de usuario</label>
-              <input
-                id="edit-portal-username"
+            <Field label="E-mail de acesso" htmlFor="edit-portal-email">
+              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            </Field>
+            <Field label="Nome de usuario" htmlFor="edit-portal-username">
+              <Input
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="usuario sem espacos"
-                className={`${TEXT_INPUT} font-normal`}
               />
-            </div>
+            </Field>
           </div>
 
-          <div className="mb-4 space-y-1.5 text-sm font-medium text-navy-2">
-            <label htmlFor="edit-portal-drive-folder">Pasta Principal Completa da conta</label>
-            <input
-              id="edit-portal-drive-folder"
+          <Field
+            label="Pasta Principal Completa da conta"
+            htmlFor="edit-portal-drive-folder"
+            hint="Pasta raiz única desta conta. Não altera as Pastas Sanitárias Personalizadas de cada unidade."
+            className="mb-4"
+          >
+            <Input
               type="url"
               value={mainDriveFolderUrl}
               onChange={(e) => setMainDriveFolderUrl(e.target.value)}
               placeholder="https://drive.google.com/..."
-              className={`${TEXT_INPUT} font-normal`}
             />
-            <span className="block text-xs font-normal text-navy-3">
-              Pasta raiz única desta conta. Não altera as Pastas Sanitárias Personalizadas de cada unidade.
-            </span>
-          </div>
+          </Field>
 
-          <div className="mb-4 space-y-1.5 text-sm font-medium text-navy-2">
-            <label htmlFor="edit-portal-tutorial">Tutorial do portal desta conta</label>
-            <input
-              id="edit-portal-tutorial"
+          <Field
+            label="Tutorial do portal desta conta"
+            htmlFor="edit-portal-tutorial"
+            hint="PDF que este cliente vê nos acessos rápidos. Em branco, ele recebe o tutorial padrão configurado em Configurações do portal."
+            className="mb-4"
+          >
+            <Input
               type="url"
               value={tutorialPdfUrl}
               onChange={(e) => setTutorialPdfUrl(e.target.value)}
               placeholder="https://drive.google.com/..."
-              className={`${TEXT_INPUT} font-normal`}
             />
-            <span className="block text-xs font-normal text-navy-3">
-              PDF que este cliente vê nos acessos rápidos. Em branco, ele recebe o tutorial padrão
-              configurado em Configurações do portal.
-            </span>
-          </div>
+          </Field>
 
-          <label htmlFor="edit-portal-unit-search" className="sr-only">Filtrar unidades</label>
-          <input
+          <Input
             id="edit-portal-unit-search"
-            type="text"
+            type="search"
+            aria-label="Filtrar unidades"
             placeholder="Filtrar unidades..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className={`mb-2 ${TEXT_INPUT} p-2.5`}
+            className="mb-2"
           />
           <div className="max-h-64 space-y-1 overflow-y-auto rounded-xl border border-default p-2">
             {filtered.length === 0 ? (
               <p className="p-2 text-sm text-navy-3">Nenhuma unidade encontrada.</p>
             ) : (
               filtered.map((client) => (
-                <label
+                <Checkbox
                   key={client.id}
-                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-surface-hover"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.has(client.id)}
-                    onChange={() => toggle(client.id)}
-                    className="h-4 w-4 rounded border-control text-primary-600"
-                  />
-                  <span className="min-w-0 flex-1 truncate text-navy">{client.name}</span>
-                </label>
+                  checked={selectedIds.has(client.id)}
+                  onChange={() => toggle(client.id)}
+                  className="items-center rounded-lg px-2 py-1.5 hover:bg-surface-hover"
+                  boxClassName="mt-0"
+                  label={<span className="block min-w-0 truncate">{client.name}</span>}
+                />
               ))
             )}
           </div>

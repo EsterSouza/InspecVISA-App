@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { X, ChevronRight, ChevronLeft, Trash2, FileDown, Loader2, CheckSquare, Square, Plus, Link2 } from 'lucide-react';
 import { Button } from '../ui/Button';
+import { Field } from '../ui/Field';
+import { Input } from '../ui/Input';
+import { Checkbox } from '../ui/Checkbox';
 import { canonicalLegislationKey, citedLegislations } from '../../utils/legislationRefs';
 import { isLegislationApplicable, type Legislation } from '../../services/legislationService';
 import type { ChecklistTemplate, InspectionResponse, Inspection, ReferenceSource } from '../../types';
@@ -321,38 +324,28 @@ export function PdfPreviewModal({
               )}
 
               <div className="rounded-xl border border-default p-3 space-y-2">
-                <div>
-                  <label htmlFor="source-url" className="text-xs font-medium text-navy-2">Link <span className="text-danger">*</span></label>
-                  <input
-                    id="source-url"
+                <Field label="Link" htmlFor="source-url" required error={sourceUrlError}>
+                  <Input
                     type="url"
                     value={sourceUrl}
                     onChange={e => { setSourceUrl(e.target.value); setSourceUrlError(null); }}
                     placeholder="https://..."
-                    className="mt-1 w-full min-h-10 rounded-md border border-control px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-100"
                   />
-                  {sourceUrlError && <p role="alert" className="mt-1 text-xs text-danger">{sourceUrlError}</p>}
-                </div>
-                <div>
-                  <label htmlFor="source-title" className="text-xs font-medium text-navy-2">Título</label>
-                  <input
-                    id="source-title"
+                </Field>
+                <Field label="Título" htmlFor="source-title">
+                  <Input
                     value={sourceTitle}
                     onChange={e => setSourceTitle(e.target.value)}
                     placeholder="Ex.: Nota técnica ANVISA sobre..."
-                    className="mt-1 w-full min-h-10 rounded-md border border-control px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-100"
                   />
-                </div>
-                <div>
-                  <label htmlFor="source-note" className="text-xs font-medium text-navy-2">Nota (opcional)</label>
-                  <input
-                    id="source-note"
+                </Field>
+                <Field label="Nota" htmlFor="source-note" optional>
+                  <Input
                     value={sourceNote}
                     onChange={e => setSourceNote(e.target.value)}
                     placeholder="Ex.: consultado em 05/08/2026"
-                    className="mt-1 w-full min-h-10 rounded-md border border-control px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-100"
                   />
-                </div>
+                </Field>
                 <button
                   type="button"
                   onClick={addSource}
@@ -404,15 +397,13 @@ export function PdfPreviewModal({
                 >
                   <Trash2 className="h-3.5 w-3.5" /> Limpar
                 </button>
-                <label className="flex items-center gap-2 text-sm text-navy-3 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={skipSignature}
-                    onChange={e => setSkipSignature(e.target.checked)}
-                    className="rounded border-control text-primary-600"
-                  />
-                  Pular assinatura
-                </label>
+                <Checkbox
+                  checked={skipSignature}
+                  onChange={e => setSkipSignature(e.target.checked)}
+                  className="select-none items-center text-navy-3"
+                  boxClassName="mt-0"
+                  label="Pular assinatura"
+                />
               </div>
 
               {!skipSignature && !hasSignature && (

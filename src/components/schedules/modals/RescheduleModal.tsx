@@ -7,7 +7,9 @@ import {
 } from '../../../services/appointmentAdminService';
 import { Button } from '../../ui/Button';
 import { Card, CardContent } from '../../ui/Card';
-import { TEXT_INPUT, errorMessage } from '../appointmentRequestsShared';
+import { errorMessage } from '../appointmentRequestsShared';
+import { Field } from '../../ui/Field';
+import { Input } from '../../ui/Input';
 import { toast } from '../../../store/useToastStore';
 
 interface RescheduleModalProps {
@@ -43,26 +45,12 @@ export function RescheduleModal({ request, onClose, onSaved }: RescheduleModalPr
           <p className="mb-4 text-sm text-navy-3">{request.unit_name}</p>
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label htmlFor="reschedule-date" className="text-xs font-medium text-navy-2">Nova data</label>
-              <input
-                id="reschedule-date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className={TEXT_INPUT}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label htmlFor="reschedule-time" className="text-xs font-medium text-navy-2">Horário</label>
-              <input
-                id="reschedule-time"
-                type="time"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-                className={TEXT_INPUT}
-              />
-            </div>
+            <Field label="Nova data" htmlFor="reschedule-date">
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </Field>
+            <Field label="Horário" htmlFor="reschedule-time">
+              <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+            </Field>
           </div>
           <p className="mt-2 text-xs text-navy-3">
             A nova data atualiza o portal do cliente, a agenda interna e o bloqueio do calendário público.

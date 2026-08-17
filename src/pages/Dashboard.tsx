@@ -4,6 +4,7 @@ import { useSettingsStore } from '../store/useSettingsStore';
 import type { Client, Inspection, InspectionResponse, Schedule } from '../types';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
+import { Select } from '../components/ui/Select';
 import { Badge } from '../components/ui/Badge';
 import { PageShell } from '../components/ui/PageShell';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -387,27 +388,29 @@ export function Dashboard() {
           </div>
         )}
         <div className="flex flex-wrap gap-2">
-          <select
+          <Select
+            size="sm"
             value={clientId}
             onChange={(e) => setClientId(e.target.value)}
             aria-label="Filtrar por unidade"
-            className="rounded-md border border-control px-2.5 py-1.5 text-xs"
+            className="w-auto"
           >
             <option value="">Todas as unidades</option>
             {clients.map((client) => (
               <option key={client.id} value={client.id}>{client.name}</option>
             ))}
-          </select>
-          <select
+          </Select>
+          <Select
+            size="sm"
             value={daysAhead}
             onChange={(e) => setDaysAhead(Number(e.target.value))}
             aria-label="Janela de compromissos próximos"
-            className="rounded-md border border-control px-2.5 py-1.5 text-xs"
+            className="w-auto"
           >
             {DAYS_AHEAD_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>Próximos {option.label}</option>
             ))}
-          </select>
+          </Select>
         </div>
       </div>
 

@@ -4,6 +4,9 @@ import type { ClientPortalFeature, ClientPortalFeatureRow, SchedulingSuspensionM
 import { AppointmentAdminService, type ClientPortalAccountRow } from '../../../services/appointmentAdminService';
 import { Button } from '../../ui/Button';
 import { Card, CardContent } from '../../ui/Card';
+import { Label } from '../../ui/Label';
+import { Input } from '../../ui/Input';
+import { Checkbox } from '../../ui/Checkbox';
 import { errorMessage } from './shared';
 
 // ─── Central de acesso do portal (PORT-01) ────────────────────
@@ -202,8 +205,9 @@ export function PortalAccessModal({ account, onClose, onSaved }: PortalAccessMod
 
                     {state === 'scheduled' && (
                       <div className="mt-2 text-xs text-navy-2">
-                        <label htmlFor={`release-at-${key}`}>Liberar a partir de</label>
-                        <input
+                        <Label htmlFor={`release-at-${key}`} className="text-xs font-medium text-navy-2">Liberar a partir de</Label>
+                        <Input
+                          size="sm"
                           id={`release-at-${key}`}
                           type="datetime-local"
                           value={toLocalInput(row?.release_at ?? null)}
@@ -214,16 +218,17 @@ export function PortalAccessModal({ account, onClose, onSaved }: PortalAccessMod
                               release_at: e.target.value ? new Date(e.target.value).toISOString() : null,
                             })
                           }
-                          className="mt-1 w-full rounded-lg border border-control p-2 text-sm"
+                          className="mt-1"
                         />
                       </div>
                     )}
 
                     <div className="mt-2 text-xs text-navy-2">
-                      <label htmlFor={`hide-at-${key}`}>
-                        Ocultar a partir de <span className="text-navy-3">(fim de contrato — opcional)</span>
-                      </label>
-                      <input
+                      <Label htmlFor={`hide-at-${key}`} className="text-xs font-medium text-navy-2">
+                        Ocultar a partir de <span className="font-normal text-navy-3">(fim de contrato — opcional)</span>
+                      </Label>
+                      <Input
+                        size="sm"
                         id={`hide-at-${key}`}
                         type="datetime-local"
                         value={toLocalInput(row?.hide_at ?? null)}
@@ -231,20 +236,18 @@ export function PortalAccessModal({ account, onClose, onSaved }: PortalAccessMod
                         onChange={(e) =>
                           void save(key, { hide_at: e.target.value ? new Date(e.target.value).toISOString() : null })
                         }
-                        className="mt-1 w-full rounded-lg border border-control p-2 text-sm"
+                        className="mt-1"
                       />
                     </div>
 
-                    <label className="mt-2 flex items-center gap-2 text-xs text-navy-2">
-                      <input
-                        type="checkbox"
-                        checked={!!row?.lock_when_overdue}
-                        disabled={busy === key}
-                        onChange={(e) => void save(key, { lock_when_overdue: e.target.checked })}
-                        className="h-4 w-4 rounded border-control"
-                      />
-                      Fechar sozinho enquanto o pagamento estiver atrasado
-                    </label>
+                    <Checkbox
+                      checked={!!row?.lock_when_overdue}
+                      disabled={busy === key}
+                      onChange={(e) => void save(key, { lock_when_overdue: e.target.checked })}
+                      className="mt-2 items-center text-xs text-navy-2"
+                      boxClassName="mt-0"
+                      label="Fechar sozinho enquanto o pagamento estiver atrasado"
+                    />
                   </div>
                 );
               })}

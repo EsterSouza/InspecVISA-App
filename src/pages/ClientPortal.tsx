@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ClipboardCheck, KeyRound, Loader2, Mail } from 'lucide-react';
 import { PublicHeader } from '../components/public/PublicHeader';
+import { Field } from '../components/ui/Field';
+import { Input } from '../components/ui/Input';
 import {
   type NextActionOverdueItem,
   type NextActionPaymentOverdue,
@@ -375,34 +377,40 @@ export function ClientPortal() {
             </p>
 
             <form onSubmit={handleLogin} className="mt-6 space-y-4">
-              <div className="space-y-1.5">
-                <label htmlFor="portal-login-identifier" className="flex items-center gap-1.5 text-sm font-medium text-navy-2">
-                  <Mail className="h-4 w-4 text-navy-3" aria-hidden="true" /> E-mail ou usuario
-                </label>
-                <input
-                  id="portal-login-identifier"
+              <Field
+                label={
+                  <span className="inline-flex items-center gap-1.5">
+                    <Mail className="h-4 w-4 text-navy-3" aria-hidden="true" /> E-mail ou usuario
+                  </span>
+                }
+                htmlFor="portal-login-identifier"
+              >
+                <Input
                   type="text"
                   required
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   placeholder="contato@suaempresa.com.br ou usuario"
-                  className="w-full rounded-md border border-control p-3 text-sm placeholder:text-navy-3 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+                  className="min-h-11"
                 />
-              </div>
-              <div className="space-y-1.5">
-                <label htmlFor="portal-login-password" className="flex items-center gap-1.5 text-sm font-medium text-navy-2">
-                  <KeyRound className="h-4 w-4 text-navy-3" aria-hidden="true" /> Senha
-                </label>
-                <input
-                  id="portal-login-password"
+              </Field>
+              <Field
+                label={
+                  <span className="inline-flex items-center gap-1.5">
+                    <KeyRound className="h-4 w-4 text-navy-3" aria-hidden="true" /> Senha
+                  </span>
+                }
+                htmlFor="portal-login-password"
+              >
+                <Input
                   type="password"
                   required
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                   placeholder="Senha permanente fornecida pela consultoria"
-                  className="w-full rounded-md border border-control p-3 text-sm placeholder:text-navy-3 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+                  className="min-h-11"
                 />
-              </div>
+              </Field>
 
               {error && (
                 <div role="alert" className="rounded-md border border-danger-soft-border bg-danger-soft p-3 text-sm text-danger-soft-ink">

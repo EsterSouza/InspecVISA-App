@@ -1,3 +1,6 @@
+import { Label } from '../ui/Label';
+import { Select } from '../ui/Select';
+
 export interface PortalUnitFilterEntry {
   id: string;
   name: string;
@@ -13,7 +16,7 @@ interface PortalUnitFilterProps {
   onChange: (id: string | null) => void;
 }
 
-/** Acima disso os chips somem no celular e viram <select> — não cabem mais numa ou duas linhas. */
+/** Acima disso os chips somem no celular e viram lista suspensa — não cabem mais numa ou duas linhas. */
 const CHIP_TO_SELECT_THRESHOLD = 6;
 
 export function PortalUnitFilter({ entries, totalCount, selectedId, onChange }: PortalUnitFilterProps) {
@@ -30,16 +33,16 @@ export function PortalUnitFilter({ entries, totalCount, selectedId, onChange }: 
 
   return (
     <div className="mb-5">
-      <label htmlFor="portal-unit-filter" className="mb-2 block text-sm font-semibold text-navy">
+      <Label htmlFor="portal-unit-filter" className="mb-2">
         Unidade
-      </label>
+      </Label>
 
       {showSelectOnMobile && (
-        <select
+        <Select
           id="portal-unit-filter"
           value={selectedId ?? ''}
           onChange={(e) => onChange(e.target.value || null)}
-          className="mb-5 w-full rounded-md border border-control bg-surface px-3 py-2 text-sm text-navy focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 sm:hidden"
+          wrapperClassName="mb-5 sm:hidden"
         >
           <option value="">Todas as unidades ({totalCount})</option>
           {entries.map((entry) => (
@@ -47,7 +50,7 @@ export function PortalUnitFilter({ entries, totalCount, selectedId, onChange }: 
               {entry.name} ({entry.count})
             </option>
           ))}
-        </select>
+        </Select>
       )}
 
       <div className={`flex flex-wrap gap-2 ${showSelectOnMobile ? 'hidden sm:flex' : ''}`}>
