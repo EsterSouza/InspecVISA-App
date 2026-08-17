@@ -7,7 +7,7 @@
 
 ## Onde estamos — atualizado em 16/08/2026
 
-**20 cards entregues, 8 na fila.** Card entregue tem o título ~~riscado~~ mais abaixo, com a data
+**21 cards entregues, 7 na fila.** Card entregue tem o título ~~riscado~~ mais abaixo, com a data
 e o commit; card aberto tem ⬜. Esta é a única tabela de estado do documento — se divergir de
 qualquer outra coisa aqui, ela ganha.
 
@@ -15,8 +15,7 @@ qualquer outra coisa aqui, ela ganha.
 
 | Card | O que é | Só depois de |
 |---|---|---|
-| **FE-23** | **Fluxo de inspeção** `/new` → `/execute` → `/summary`. **Artefato E publicado em 16/08**, com as 2 perguntas já respondidas — falta só a Ester aprovar o desenho | aprovação do Artefato E |
-| **FE-24** | **Formulários**: 225 controles crus em 40 arquivos viram `Input`/`Select`/`Textarea`/`Label` | FE-23 |
+| **FE-24** | **Formulários**: os controles crus restantes viram `Input`/`Select`/`Textarea`/`Label` — recontar, o FE-23 já migrou 27 | — |
 | **FE-21** | 2.858 classes de cor viram token — **mais os 20 hex cravados em TS/TSX** que o de-para não vê | desenho congelado |
 | **FE-22** | `Clients` e `Inspections` em tabela densa | — |
 | **FE-25** | `SmartImporter`, o que sobrou de `TemplateDetail`, e as 3 telas de entrada | — |
@@ -24,7 +23,7 @@ qualquer outra coisa aqui, ela ganha.
 | **FE-12** | Tema escuro no app inteiro | **FE-21** |
 | **FE-27** | Gate de regressão visual e a11y — **é o card que fecha o frontend** | FE-12, só para o tema |
 
-**FE-23 e FE-24 são condição para declarar o redesenho encerrado.**
+**FE-24 é condição para declarar o redesenho encerrado.**
 
 ### ✅ O que já está no ar
 
@@ -50,9 +49,11 @@ qualquer outra coisa aqui, ela ganha.
 | FE-17b | Editor do roteiro em master-detail, com "Aposentar item" | 16/08 | `25ced0c` |
 | FE-19 | Configurações com nav de seção lateral e salvar por seção | 16/08 | `35d0242` |
 | FE-20 | `PageHeader` + vazio/carregando/erro padronizados em 7 listas do admin | 16/08 | `f8ba4c8` |
+| Artefato E | O fluxo de inspeção desenhado, aprovado pela Ester | 16/08 | `52cf2dd`, `6887a39`, `f6d029d` |
+| FE-23 | `/new` → `/execute` → **encerramento** → `/summary` implementados, em 6 commits | 16/08 | `79fcaaf` … `a47986d`, `0f5849a` |
 
 **Ondas:** 1 (portal) **fechada** · 2 (admin) **fechada** · 3 (fechamento) falta FE-12 e a revisão
-final de a11y · 4 (o admin que falta) em andamento, 8 de 14 entregues.
+final de a11y · 4 (o admin que falta) em andamento, 9 de 14 entregues.
 
 ---
 
@@ -577,13 +578,17 @@ backlog da Onda 2 sem card próprio.
 >
 > **FE-23 e FE-24 são condição para declarar o redesenho encerrado.**
 
-### ⬜ FE-23 · Fluxo de inspeção end-to-end
+### ~~FE-23~~ ✅ · Fluxo de inspeção end-to-end — 16/08/2026
 
-> **Artefato E publicado em 16/08/2026** — [ver o protótipo](https://claude.ai/code/artifact/a2f2a82d-2444-4ad5-aeba-0001518d9823).
-> Fonte em `docs/prototipos/_src/pages/fe-05-inspecao.html`. Oito telas: diagnóstico medido,
-> `/new`, `/execute`, **encerramento** (a etapa que hoje não existe), `/summary`, estados e celular
-> a 375px, a nota fora da paleta, e as decisões com a ordem de implementação.
-> **Aguarda aprovação da Ester e resposta às duas perguntas em aberto** (tela "Decisões e plano").
+> **Protótipo aprovado pela Ester em 16/08/2026 e implementado no mesmo dia**, nos 6 commits da
+> ordem que o próprio artefato definiu (`79fcaaf`, `803e252`, `59f4937`, `0178ee9`, `fcafe37`,
+> `a47986d`), mais um de acabamento (`0f5849a`). Artefato E em
+> `docs/prototipos/_src/pages/fe-05-inspecao.html` —
+> [ver o protótipo](https://claude.ai/code/artifact/a2f2a82d-2444-4ad5-aeba-0001518d9823).
+> As decisões **23 a 33 estão fechadas**; o registro de execução abaixo traz o que a
+> implementação encontrou de diferente do desenho.
+
+O texto abaixo é o card como foi escrito, mantido para leitura do histórico.
 
 `/new` → `/execute` → `/summary` é o coração do produto e é o único fluxo grande que nenhum card
 cobre. Medido no código em 16/08/2026:
@@ -1045,6 +1050,7 @@ Tabela de acompanhamento rápido — quem fez o quê e quando. O detalhe de cada
 | 16/08/2026 | **Onda 4 ampliada** — FE-23 a FE-27 escritos | Ester + Opus 5 | — | Revisão da Ester confrontando o handoff com o Manual 2.0, a auditoria, o mapa de páginas e os protótipos FE-02/FE-D: a Onda 4 cobria ~80% da cobertura visual estrutural. Buracos identificados e conferidos no código antes de escrever os cards: o fluxo `/new` → `/execute` → `/summary` (2.836 linhas somando `ChecklistItem.tsx`, com `InspectionExecution` sem `PageShell` e nenhuma das três com `PageHeader`) não estava em card nenhum e **duas das três telas nunca foram desenhadas** → FE-23 começa por um Artefato E; **228** `<input>`/`<select>`/`<textarea>` crus em 40 arquivos contra **2** arquivos que importam os primitivos do FE-04a → FE-24; `SmartImporter`/`TemplateDetail` e as 3 telas de entrada sem shell → FE-25; as 2 páginas públicas sem login, que o Manual 2.0 exige com a voz da TreinaVISA → FE-26; e a conferência responsiva, que hoje é 100% manual, sobre o Playwright que já existe → FE-27. Ordem revisada: dark mode (FE-12) sai da frente e o FE-21 (contados hoje **2.858** classes cruas, 0 `dark:`) só roda com o desenho congelado. |
 | 16/08/2026 | **FE-16** — Ficha do cliente com abas | Sonnet 5 | — | Fecha os 7 achados do diagnóstico em `ClientDetails.tsx`. Identidade (nome, badges de categoria/segmento/portal/pendências, responsável, telefone, endereço) subiu para o topo, sempre visível — o antigo card "Resumo do Cliente" (`bg-primary-900`, último da página) foi removido, o conteúdo absorvido no cabeçalho. Corpo dividido em 3 abas com o primitivo `Tabs`/`TabPanel` do FE-04b (`aria-label="Seções do cliente"`), aba ativa sincronizada com `?aba=` via `useSearchParams` (decisão 20; `visao-geral` fica sem parâmetro): **Visão geral** (gráfico, histórico de visitas, plano de ação, NC recorrentes), **Arquivos** (a tabela do FE-07 em largura cheia, antes espremida no trilho de 380px; vazio ganhou `EmptyState`), **Portal** (credenciais + pasta personalizada + auditoria). Gráfico de conformidade com menos de 2 inspeções concluídas virou uma linha de texto com ícone, não mais uma caixa de ~200px. Credenciais do portal: senha e token mascarados por padrão (usuário fica visível, não é segredo), toggle único "Mostrar/Ocultar", botão de copiar por campo além do "Copiar tudo" já existente. Trilha de auditoria: só os 5 mais recentes no card, botão "Ver tudo" abre `Drawer` com a lista completa (fetch subiu de `limit: 20` para `limit: 50`, sem round-trip extra); `window.confirm()` de excluir cliente já tinha sido migrado para `ConfirmDialog` no FE-15, achado já fechado. `tsc -b`, `npm run build` e os 382 testes limpos. Verificado logada no navegador num cliente real (REDE SÊNIOR BARRA): identidade e badges no topo, `?aba=arquivos` na URL ao trocar de aba, tabela de arquivos em largura cheia, credenciais mascaradas revelando ao clicar "Mostrar", drawer "Ver tudo" abrindo a auditoria completa, sem rolagem horizontal em 375px. |
 | 16/08/2026 | **Artefato E** — fluxo de inspeção desenhado | Opus 5 | — | Oito telas navegáveis em `docs/prototipos/_src/pages/fe-05-inspecao.html`, [publicadas](https://claude.ai/code/artifact/a2f2a82d-2444-4ad5-aeba-0001518d9823). **Achados ao ler o código antes de desenhar, todos divergindo do que o card FE-23 dizia:** (1) a execução do FE-02 não estava só "faltando polimento" — ela é um **wizard de um item por vez**, com um estado **"Parcial"** que não existe no domínio, e sem nenhum dos blocos que o app real tem (plano de ação anterior, evidência e declaração do cliente, calculadora ILPI, item extra, ditado por voz, co-finalização, modo recuperação). O `app-patterns.md` que o próprio card manda consultar descarta o stepper quando a ordem não é obrigatória — e na inspeção não é. (2) O achado #4 (publicação sem vínculo) **já não é um `console.warn` mudo**: existe um `Toast` de atenção em `InspectionSummary.tsx:485`; o problema restante é ele sumir da tela, então o artefato o transforma em dois lugares permanentes (cartão de entrega no encerramento, recibo item a item no relatório). (3) O `ComplianceTrendChart.tsx` que o card listava entre os hex do fluxo **vive em `src/components/client/`** — é da ficha do cliente, fica no FE-21, junto com os 2 hex do `index.css`; o fluxo tem **16** hex, todos em `ScorePanel`/`scoring.ts`/`MobileScoreBar`. (4) Há uma **quarta** cor que o card não listava: `#84CC16` lima, faixa "bom" do `scoring.ts`, sem equivalente na marca → decisão 27. (5) Os 4 arquivos somam **30** controles crus, não os ~200 do FE-24 — saem junto com cada tela. Decisões novas 23 a 28 registradas. Conferido no navegador em 375, 1280 e 1600px: nenhuma rolagem lateral nas 8 telas, menor alvo de toque 44px, os 3 pares de contraste da tabela de cor medidos ao vivo (9,17 · 9,35 · 7,94 — todos passam AA). Dois bugs de CSS corrigidos no caminho, os dois da mesma família já catalogada: embrulho de flex com `min-width: auto` mantendo a moldura de 375px dentro de um container de 343, e sugestão de texto longo sem truncar esticando a coluna. **Screenshot não foi possível** — o painel do navegador não estava compositando frames nesta sessão; a verificação foi por DOM, medindo `scrollWidth`, `getBoundingClientRect` e contraste. |
+| 16/08/2026 | **FE-23** — fluxo de inspeção implementado | Opus 5 | `79fcaaf`, `803e252`, `59f4937`, `0178ee9`, `fcafe37`, `a47986d`, `0f5849a` | Protótipo aprovado pela Ester; implementado na ordem de 6 commits que o próprio Artefato E definiu, mais um de acabamento. **(1) Cor:** os 16 hex viraram `SCORE_COLORS` em `scoring.ts`, com `success`/`danger` entrando no `tailwind.config.js` na mesma forma do âmbar. Fora do previsto: o `ScorePanel` tinha **faixas próprias** para o número grande (85 / 70), diferentes das da classificação (90 / 75 / 60) — um 80% saía verde ao lado do selo "TOLERÁVEL". Número, barra e selo passaram a sair da mesma classificação. **(2) `/new`:** os 3 passos viraram 3 blocos na mesma página, parede de cartões virou lista com busca, e o bloqueio dos 31 dias, que só aparecia num `Toast` **depois** do clique, passou a estar escrito no botão desabilitado. **(3) Execução:** três colunas a partir de um breakpoint `3col` novo (1400px), `max-w-7xl` → `max-w-[1600px]`, estado de salvamento em três canais, comparação com a visita anterior em pontos (`previousVisitScore.ts`, lendo o mesmo cache Dexie que o histórico de pendências já hidrata, sobre o `reportTemplateSnapshot` congelado) e o painel "Falta escrever" como lista clicável. **(4) `ChecklistItem`:** prazo e responsável viraram `Select` com "Sem prazo definido" na lista, as listas migraram para `clientActionPlan.ts` para não divergirem de `deadlineToDays`. **(5) Encerramento:** tela com URL própria (`/execute?etapa=encerrar`), não modal; o cartão de entrega testa a **solicitação** que aponta para a inspeção, com os três estados, e a assinatura do acompanhante saiu — sem ela o PDF passa a imprimir uma linha em branco sobre o nome. **(6) Relatório:** recibo de entrega permanente lendo `appointment_requests` + `client_action_items`, comparação final contra final, tabela densa com filtro e selo `sem prazo`; `ScorePanel.tsx` foi apagado, sem terceiro uso. **Controles crus: 27 migrados**, sobram 3 exceções sem primitivo (2 caixas de seleção e 1 grupo de radio), todas dentro de `<label>` de 44px. **Achados de a11y ao conferir no navegador, nenhum previsto no artefato:** a decisão 7 (44px no toque) **existia só no protótipo** — no app, `Button size="sm"` media 32px no dedo, o link da norma dentro do selo 12px e o botão de ditado 28px; virou uma regra `[@media(pointer:coarse)]` no próprio `Button`. E **branco sobre `--amber` dá 2,50:1**, reprovando AA: o selo de classificação passou a fundo suave + tinta escura (`classificationInk`/`classificationBadgeClasses`), e `classificationColor` ficou só para barra e ponto, que são preenchimento. `SectionAccordion` (3,15:1 e 3,60:1) e `ILPIStaffCalculator` (4,42:1) também corrigidos. Medido ao vivo nas quatro telas em 1600, 1280 e 375px: **0 falhas de contraste, 0 alvos abaixo de 44px no dedo, nenhuma rolagem lateral** — a tabela de NCs rola dentro do próprio contêiner. Verificado com dados reais: a comparação apareceu como "−2 pontos, pior que a visita anterior · Visita de 22/06/2026: 89%", e o recibo de entrega leu as três linhas entregues de um relatório publicado em 14/08. **Screenshot indisponível** de novo — o painel do navegador não compõe frames nesta sessão; verificação por DOM. `npm run build` e os 527 testes limpos a cada commit. |
 
 ### FE-04a ✅ — detalhe da entrega, e o que ficou pra depois
 

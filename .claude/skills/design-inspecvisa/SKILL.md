@@ -21,7 +21,7 @@ não abra o MCP do DesignMD, não peça opinião, aplique.
 | B · Admin | `_src/pages/fe-02-admin.html` | Painel, Clientes, ficha com abas, Plano de ação, Agendamentos, Execução da inspeção |
 | C · Portal | `_src/pages/fe-03-portal.html` | as 6 seções do portal, 1 unidade × 13 unidades |
 | D · Onda 4 | `_src/pages/fe-04-onda4.html` | diagnóstico, Início unificado, Solicitações, Roteiros, Biblioteca, Sincronização, Configurações, padrões que faltam, de-para de cor, plano FE-14+ |
-| E · Fluxo de inspeção | `_src/pages/fe-05-inspecao.html` | `/new`, execução em 3 colunas, **encerramento** (etapa nova), `/summary`, estados e 375px, a nota fora da paleta, decisões 23–28 · **aguarda aprovação da Ester** |
+| E · Fluxo de inspeção | `_src/pages/fe-05-inspecao.html` | `/new`, execução em 3 colunas, **encerramento** (etapa nova), `/summary`, estados e 375px, a nota fora da paleta, decisões 23–33 · **implementado (FE-23)** |
 
 **Editar só em `_src/`.** Montar com `node docs/prototipos/build.mjs`. Os `.html` da
 raiz e de `_publish/` são gerados — o build sobrescreve.
@@ -74,7 +74,9 @@ O manual "experimental v1.0" está **abolido**. Não citar.
 4. **Não existe cinza claro de texto.** O menor tom é `--ink-3`, placeholder inclusive.
 5. **A largura é uma só:** `--shell-max: 1600px` → `PageShell` no app.
 6. **Erro não some sozinho.** Sucesso 4s, atenção 6s, erro só no clique; timer pausa no hover.
-7. **Botão pequeno também tem 44px no toque** (`@media (pointer: coarse)`).
+7. **Botão pequeno também tem 44px no toque** (`@media (pointer: coarse)`). No app isso mora no
+   próprio `Button` (`[@media(pointer:coarse)]:min-h-11`); controle fora do primitivo precisa da
+   regra escrita à mão — foi o que faltava no link da norma e no botão de ditado até o FE-23.
 8. No portal, acima de 6 unidades no celular os chips viram `<select>`.
 9. "Todas as unidades" mostra amostra de 3 por grupo, não tudo.
 10. Plano de ação: lista + detalhe, com `situation` e `recommended_action` inteiros.
@@ -94,7 +96,7 @@ O manual "experimental v1.0" está **abolido**. Não citar.
 19. **Configurações salva por seção**, nunca um botão único no fim da página.
 20. **A aba ativa entra na URL** (`?aba=arquivos`) — deep link e botão de voltar.
 
-Do Artefato E, ainda **aguardando aprovação da Ester** (não citar como fechadas):
+Do Artefato E, **aprovadas pela Ester e implementadas no FE-23 em 16/08/2026**:
 
 23. **A execução não é assistente.** Acordeão por seção, resposta fora de ordem, índice em coluna
     própria. Os quatro resultados são CUMPRE · NÃO CUMPRE · N/A · NO. **"Parcial" não existe.**
@@ -103,6 +105,9 @@ Do Artefato E, ainda **aguardando aprovação da Ester** (não citar como fechad
 25. **Encerrar e entregar é etapa com nome próprio**, listando os quatro efeitos antes do clique.
 26. **A entrega tem recibo permanente** no relatório — aviso passageiro não conta.
 27. **Quatro classificações, três cores.** Sem lima; bom e excelente compartilham o verde.
+    Os tons de **preenchimento** (`classificationColor`) e os de **texto** (`classificationInk`)
+    são diferentes: branco sobre `--amber` dá 2,50:1 e reprova AA. Número, rótulo e selo usam a
+    tinta escura; barra e ponto usam o preenchimento.
 28. **Controle fixo no celular é rodapé, nunca sobreposição.**
 29. **A nota compara com a visita anterior** — em **pontos**, não em %; área contra a mesma área;
     a linha some quando não há visita anterior ou o roteiro mudou.
