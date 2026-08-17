@@ -7,7 +7,7 @@ export function AccessDenied() {
   const navigate = useNavigate();
 
   return (
-    <div className="flex h-screen flex-col items-center justify-center bg-surface-sunken p-6 text-center">
+    <div className="flex h-screen flex-col items-center justify-center bg-canvas p-6 text-center">
       <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-danger-soft">
         <ShieldOff className="h-10 w-10 text-danger" />
       </div>

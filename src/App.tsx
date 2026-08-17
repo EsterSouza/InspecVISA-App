@@ -64,7 +64,7 @@ function loadSyncQueueModule() {
 
 function RouteFallback() {
   return (
-    <div className="flex h-full min-h-[50vh] items-center justify-center bg-surface-sunken/50 backdrop-blur-sm">
+    <div className="flex h-full min-h-[50vh] items-center justify-center bg-canvas/50 backdrop-blur-sm">
       <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
     </div>
   );
@@ -110,7 +110,7 @@ function InternalApp({ isInitializing }: InternalAppProps) {
 
   if (!initialized || isInitializing) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center bg-surface-sunken">
+      <div className="flex h-screen flex-col items-center justify-center bg-canvas">
         <Loader2 className="h-10 w-10 animate-spin text-primary-600 mb-4" />
         <p className="text-navy-3 font-medium">Conectando ao InspecVISA...</p>
       </div>
@@ -122,7 +122,7 @@ function InternalApp({ isInitializing }: InternalAppProps) {
     // Conta conhecida: a identidade está sendo aplicada — evita piscar o seletor.
     if (profileForEmail(user.email)) {
       return (
-        <div className="flex h-screen flex-col items-center justify-center bg-surface-sunken">
+        <div className="flex h-screen flex-col items-center justify-center bg-canvas">
           <Loader2 className="h-10 w-10 animate-spin text-primary-600 mb-4" />
           <p className="text-navy-3 font-medium">Preparando seu perfil...</p>
         </div>
@@ -132,7 +132,7 @@ function InternalApp({ isInitializing }: InternalAppProps) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-surface-sunken font-sans text-navy antialiased">
+    <div className="flex h-screen overflow-hidden bg-canvas font-sans text-navy antialiased">
       <div className="hidden lg:block">
          <Routes>
            <Route path="/execute" element={null} />

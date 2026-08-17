@@ -21,7 +21,7 @@ export function ProfileSelection() {
   };
 
   return (
-    <div className="min-h-screen bg-surface-sunken flex items-center justify-center p-6">
+    <div className="min-h-screen bg-canvas flex items-center justify-center p-6">
       <div className="bg-surface rounded-2xl shadow-xl border border-default p-8 max-w-sm w-full mx-auto">
         <div className="text-center mb-8">
           <div className="bg-primary-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-white shadow-sm">

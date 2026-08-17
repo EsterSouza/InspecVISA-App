@@ -319,7 +319,7 @@ export function TemplateEditor() {
   }
 
   return (
-    <div className="min-h-screen bg-surface-sunken pb-24">
+    <div className="min-h-screen bg-canvas pb-24">
       {/* HEADER */}
       <div className="sticky top-0 z-20 bg-surface border-b border-default shadow-sm">
         <div className="max-w-[1600px] mx-auto px-6 py-4 flex items-center justify-between">

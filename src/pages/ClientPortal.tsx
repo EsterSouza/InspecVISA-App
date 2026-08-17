@@ -351,7 +351,7 @@ export function ClientPortal() {
   // ─── Carregando painel ───────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen bg-surface-sunken">
+      <div className="min-h-screen bg-canvas">
         <PublicHeader />
         <div className="flex flex-col items-center justify-center py-24" role="status" aria-live="polite">
           <div className="mb-3 h-8 w-8 animate-pulse rounded-full bg-primary-100" aria-hidden="true" />
@@ -365,7 +365,7 @@ export function ClientPortal() {
   // ─── Login do cliente ────────────────────────────────────────
   if (!token || !overview) {
     return (
-      <div className="min-h-screen bg-surface-sunken">
+      <div className="min-h-screen bg-canvas">
         <PublicHeader />
         <main className="mx-auto max-w-[440px] px-4 py-12">
           <div className="rounded-xl border border-default bg-surface p-6 shadow-sm">
@@ -447,7 +447,7 @@ export function ClientPortal() {
   const totalVisits = overview.units.reduce((sum, u) => sum + u.visits.length, 0);
 
   return (
-    <div className="min-h-screen bg-surface-sunken">
+    <div className="min-h-screen bg-canvas">
       <PublicHeader />
       <ClientPortalShell
         overview={overview}

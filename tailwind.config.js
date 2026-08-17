@@ -36,7 +36,7 @@ export default {
         secondary: {
           DEFAULT: '#0F6B78',
           50: '#F2F9FA',
-          100: '#E3F1F3', // --teal-soft
+          100: '#ADE3EB', // --teal-soft (corrigido 17/08 — ver nota abaixo)
           200: '#BCDDE1', // --teal-soft-border
           300: '#8FC3C9',
           400: '#4F9AA3',
@@ -47,9 +47,14 @@ export default {
           900: '#062931',
         },
         // Âmbar semântico — atenção e prazo, nunca ação principal (--amber*)
+        // "soft" corrigido em 17/08/2026: a versão original (#FBF0DC) tinha luminosidade
+        // 92% — igual à de success-soft/danger-soft/teal-soft (todas 92-95%), então o
+        // matiz era a única diferença e os badges ficavam indistinguíveis a olho. Baixada
+        // a luminosidade e subida a saturação em todos os 4 "soft" semânticos, mantendo o
+        // mesmo matiz; contraste com a tinta ("soft-ink") conferido de novo, todos >=4,5:1.
         amber: {
           DEFAULT: '#D99721',
-          soft: '#FBF0DC',
+          soft: '#FADA9E',
           'soft-ink': '#7A5210',
           'soft-border': '#EFD9AC',
           strong: '#AE7714',
@@ -57,7 +62,7 @@ export default {
         // Verde de sucesso/conformidade — --success*
         success: {
           DEFAULT: '#0E7A4A',
-          soft: '#E4F3EB',
+          soft: '#AEEACA',
           'soft-ink': '#0A5734',
           'soft-border': '#B9DFCA',
         },
@@ -65,7 +70,7 @@ export default {
         danger: {
           DEFAULT: '#B3261E',
           hover: '#8C1D17',
-          soft: '#FBE9E7',
+          soft: '#FAA79E',
           'soft-ink': '#8C1D17',
           'soft-border': '#F0C7C2',
         },
@@ -76,6 +81,10 @@ export default {
           hover: '#F4F8FC',
           active: '#E9F1FB',
         },
+        // Fundo de página — --bg (mais claro que --surface-sunken, que é só chrome:
+        // sidebar, cabeçalho de tabela, rodapé). FE-21 tinha confundido os dois,
+        // corrigido em 17/08/2026.
+        canvas: '#EEF3F9',
         // Traço decorativo — --border (não delimita controle)
         default: '#CBD9EA',
         // Traço de campo — --border-control (3:1 obrigatório em input/select/checkbox)

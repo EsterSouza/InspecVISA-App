@@ -1066,7 +1066,7 @@ export function InspectionExecution() {
   // ─── RENDER STATES ────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-3 bg-surface-sunken">
+      <div className="flex h-screen flex-col items-center justify-center gap-3 bg-canvas">
         <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
         <p className="text-sm text-navy-3 font-medium">Carregando inspeção...</p>
       </div>
@@ -1075,7 +1075,7 @@ export function InspectionExecution() {
 
   if (loadError) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-surface-sunken p-8 text-center">
+      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-canvas p-8 text-center">
         <p className="text-danger font-semibold">{loadError}</p>
         <Button onClick={loadData} variant="outline" className="gap-2">
           <RefreshCw className="h-4 w-4" /> Tentar Novamente
@@ -1089,7 +1089,7 @@ export function InspectionExecution() {
 
   if (!currentInspection) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-surface-sunken p-8 text-center">
+      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-canvas p-8 text-center">
         <div className="mb-4 rounded-full bg-amber-soft p-3">
           <RefreshCw className="h-8 w-8 text-amber-strong" />
         </div>
@@ -1162,7 +1162,7 @@ export function InspectionExecution() {
     .length;
 
   return (
-    <div className="flex min-h-screen flex-col bg-surface-sunken pb-safe pb-16 lg:pb-0">
+    <div className="flex min-h-screen flex-col bg-canvas pb-safe pb-16 lg:pb-0">
       <header className="sticky top-0 z-30 border-b border-default bg-surface px-4 py-3 sm:px-6">
         <div className="mx-auto w-full max-w-[1600px] space-y-3">
           {/* Trilha: a execução não é uma ilha sem volta. */}

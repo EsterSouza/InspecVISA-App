@@ -591,7 +591,7 @@ export function InspectionSummary() {
   // Guard: no inspection at all
   if (!currentInspection) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-surface-sunken p-8 text-center">
+      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-canvas p-8 text-center">
         <p className="text-navy-2 font-semibold">Inspeção não encontrada.</p>
         <button onClick={() => navigate('/inspections')} className="text-primary-600 underline text-sm">Voltar para Inspeções</button>
       </div>
@@ -603,7 +603,7 @@ export function InspectionSummary() {
   // Template missing: show summary with warning, don't block!
   if (!displayTemplate) {
     return (
-      <div className="flex h-screen flex-col bg-surface-sunken pb-16 lg:pb-0">
+      <div className="flex h-screen flex-col bg-canvas pb-16 lg:pb-0">
         <header className="sticky top-0 z-30 border-b border-default bg-surface px-4 py-3 shadow-sm sm:px-6">
           <div className="mx-auto flex max-w-7xl items-center justify-between">
             <button onClick={() => navigate('/inspections')} className="flex items-center text-navy-3 hover:text-navy text-sm font-medium gap-2">
@@ -649,7 +649,7 @@ export function InspectionSummary() {
   }
 
   return (
-    <div className="flex h-screen flex-col bg-surface-sunken pb-safe pb-16 lg:pb-0">
+    <div className="flex h-screen flex-col bg-canvas pb-safe pb-16 lg:pb-0">
       {/* Header */}
       <header className="sticky top-0 z-30 border-b border-default bg-surface px-4 py-3 shadow-sm sm:px-6">
         <div className="mx-auto flex max-w-7xl items-center justify-between">

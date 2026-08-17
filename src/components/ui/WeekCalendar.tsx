@@ -55,8 +55,8 @@ const STATE_LABELS: Record<WeekCalendarEventState, string> = {
 };
 
 const STATE_EVENT_CLASSES: Record<WeekCalendarEventState, string> = {
-  confirmado: 'border-success-soft-border border-l-emerald-600 bg-success-soft text-success-soft-ink',
-  'a-confirmar': 'border-default border-l-gray-400 border-l-dashed bg-surface-sunken text-navy-2',
+  confirmado: 'border-success-soft-border border-l-success bg-success-soft text-success-soft-ink',
+  'a-confirmar': 'border-default border-l-control border-l-dashed bg-surface-sunken text-navy-2',
   atencao: 'border-amber-soft-border border-l-amber bg-amber-soft text-amber-soft-ink',
   padrao: 'border-primary-200 border-l-primary-700 bg-primary-50 text-primary-900',
 };

@@ -481,7 +481,7 @@ export function ClientDetails() {
 
   if (loadError || !client) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-surface-sunken p-8 text-center">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-canvas p-8 text-center">
         <p className="max-w-md font-semibold text-navy-2">{loadError || 'Cliente nao encontrado.'}</p>
         <Button variant="outline" onClick={() => navigate('/clients')}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Voltar para Clientes

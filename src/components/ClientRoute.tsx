@@ -17,7 +17,7 @@ export function ClientRoute({ children }: ClientRouteProps) {
 
   if (!initialized || loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-surface-sunken">
+      <div className="flex h-screen items-center justify-center bg-canvas">
         <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
       </div>
     );

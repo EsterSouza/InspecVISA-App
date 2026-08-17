@@ -555,7 +555,7 @@ export function Dashboard() {
               ) : (
                 <div className="space-y-3">
                   {recurringIssues.map((issue) => (
-                    <Card key={issue.id} className="border-l-4 border-l-amber-500">
+                    <Card key={issue.id} className="border-l-4 border-l-amber">
                       <CardContent className="flex items-start justify-between gap-4 p-4">
                         <p className="line-clamp-2 text-sm font-medium text-navy-2">{issue.description}</p>
                         <div className="shrink-0 rounded-full bg-amber-soft px-2 py-1 text-xs font-bold text-amber-soft-ink">
