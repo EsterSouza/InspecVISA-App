@@ -1,4 +1,5 @@
 import type { ChecklistItem, InspectionResponse } from '../types';
+import { normalizeRequirementText } from './itemIdentity';
 import { toDateKey } from './date';
 
 /**
@@ -123,6 +124,52 @@ export function resolveRecurringDueDate(
   return { effective: pactuated, kind: 'mantido', expired };
 }
 
+/** Pendência já aberta no portal desta unidade, do jeito que o banco a guarda. */
+export interface OpenActionItemRef {
+  source_item_id: string;
+  due_date: string | null;
+  title: string;
+}
+
+export interface OpenActionItemIndex {
+  byId: Map<string, OpenActionItemRef>;
+  byText: Map<string, OpenActionItemRef>;
+}
+
+/**
+ * Indexa as pendências abertas por `source_item_id` **e** pelo título normalizado.
+ *
+ * O título é a descrição do requisito, e é o que permite reencontrar a pendência
+ * quando o roteiro trocou de id entre as duas visitas (ver `itemIdentity.ts`).
+ * Título repetido fica fora do índice por texto: casar no escuro atualizaria a
+ * pendência errada.
+ */
+export function indexOpenActionItems(rows: OpenActionItemRef[]): OpenActionItemIndex {
+  const byId = new Map<string, OpenActionItemRef>();
+  const byText = new Map<string, OpenActionItemRef>();
+  const ambiguous = new Set<string>();
+
+  for (const row of rows) {
+    byId.set(row.source_item_id, row);
+    const key = normalizeRequirementText(row.title);
+    if (!key) continue;
+    if (byText.has(key)) ambiguous.add(key);
+    else byText.set(key, row);
+  }
+
+  for (const key of ambiguous) byText.delete(key);
+  return { byId, byText };
+}
+
+/** A pendência aberta que corresponde a este requisito, pelo id ou pelo texto. */
+export function findOpenActionItem(
+  index: OpenActionItemIndex | undefined,
+  item: { itemId: string; description?: string },
+): OpenActionItemRef | undefined {
+  if (!index) return undefined;
+  return index.byId.get(item.itemId) || index.byText.get(normalizeRequirementText(item.description));
+}
+
 /**
  * Mesma classificação do plano de ação do PDF: crítico é urgente, peso >= 5 é importante, o
  * resto é recomendação. `requirement_type` não entra — ver a nota do REF-04 no handoff.
@@ -137,21 +184,27 @@ export function buildClientActionItems(
   nonCompliantResponses: InspectionResponse[],
   items: ChecklistItem[],
   inspectionDate: Date,
-  /** Prazos já pactuados e abertos desta unidade, por `source_item_id`. */
-  pactuatedDueDates?: Map<string, string | null>
+  /** Pendências já abertas no portal desta unidade. */
+  openActionItems?: OpenActionItemRef[]
 ): ClientActionItemPayload[] {
   const itemById = new Map(items.map((item) => [item.id, item]));
   const baseDate = Number.isNaN(inspectionDate?.getTime?.()) ? new Date() : inspectionDate;
+  const openIndex = openActionItems ? indexOpenActionItems(openActionItems) : undefined;
 
   return nonCompliantResponses
     .filter((response) => !!response.itemId)
     .map((response) => {
       const item = itemById.get(response.itemId);
+      const title = item?.description || response.customDescription || 'Requisito avaliado';
       const proposed = dueDateFor(response.deadline, baseDate);
-      const pactuated = pactuatedDueDates?.get(response.itemId);
+      // Pendência que já existe no portal continua sendo a MESMA linha, mesmo que o
+      // roteiro tenha trocado de id: publicar com a chave nova criaria uma segunda
+      // pendência do mesmo requisito e perderia prazo, ocorrências e evidências.
+      const aberta = findOpenActionItem(openIndex, { itemId: response.itemId, description: title });
+      const pactuated = aberta?.due_date;
       return {
-        source_item_id: response.itemId,
-        title: item?.description || response.customDescription || 'Requisito avaliado',
+        source_item_id: aberta?.source_item_id || response.itemId,
+        title,
         situation: response.situationDescription?.trim() || 'Achado registrado durante a visita técnica.',
         recommended_action:
           response.correctiveAction?.trim() || 'Definir medida corretiva e registrar evidência de conclusão.',

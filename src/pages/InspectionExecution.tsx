@@ -23,6 +23,12 @@ import { withClientLocation } from '../utils/inspectionLocation';
 import { getOpenPendingHistory, type PreviousNCContext } from '../utils/actionPlanContext';
 import { hydrateAndGetPreviousVisitScore, type PreviousVisitScore } from '../utils/previousVisitScore';
 import { filterMissingPendingItems, filterPendingItemsForTemplate } from '../utils/actionPlanState';
+import { remapItemsToTemplate } from '../utils/itemIdentity';
+import {
+  findOpenActionItem,
+  indexOpenActionItems,
+  type OpenActionItemRef,
+} from '../utils/clientActionPlan';
 import {
   composeChecklistTemplate,
   customItemMeta,
@@ -127,8 +133,8 @@ export function InspectionExecution() {
   const [clientEvidence, setClientEvidence] = useState<ClientEvidenceByItem>(new Map());
   const [clientDeclarations, setClientDeclarations] = useState<ClientDeclarationByItem>(new Map());
   const [previousVisit, setPreviousVisit] = useState<PreviousVisitScore | null>(null);
-  /** Prazo já pactuado e aberto no portal, por requisito (`source_item_id`). */
-  const [pactuatedDeadlines, setPactuatedDeadlines] = useState<Map<string, string | null>>(new Map());
+  /** Pendências já abertas no portal desta unidade — prazo pactuado e título. */
+  const [openActionItems, setOpenActionItems] = useState<OpenActionItemRef[]>([]);
   const [openSectionIds, setOpenSectionIds] = useState<Set<string>>(new Set());
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [itemFilter, setItemFilter] = useState<ItemFilter>('todos');
@@ -317,8 +323,11 @@ export function InspectionExecution() {
             const roleTemplate = tpl
               ? getEffectiveTemplate(tpl, roleContext, role, false, enrichedInsp.createdAt)
               : null;
+            // A pendência de uma visita antiga carrega o id do roteiro daquela
+            // visita. Remapeia para o id equivalente no roteiro de agora, senão o
+            // filtro abaixo descarta tudo e a reincidência não aparece.
             const visiblePendingItems = roleTemplate
-              ? filterPendingItemsForTemplate(history.items.values(), roleTemplate)
+              ? filterPendingItemsForTemplate(remapItemsToTemplate(history.items.values(), roleTemplate), roleTemplate)
               : [];
             const visibleHistory = new Map(visiblePendingItems.map(item => [item.itemId, item]));
             setPreviousNCs(visibleHistory);
@@ -352,8 +361,8 @@ export function InspectionExecution() {
 
           // Prazos que já estão valendo no portal desta unidade: reincidência não
           // reinicia a contagem, e a tela precisa mostrar a data que vale.
-          void AppointmentAdminService.listOpenActionItemDeadlines(enrichedInsp.clientId)
-            .then(setPactuatedDeadlines)
+          void AppointmentAdminService.listOpenActionItems(enrichedInsp.clientId)
+            .then(setOpenActionItems)
             .catch((err) => console.warn('[Inspection] Prazos pactuados indisponiveis:', err));
 
           // Evidências são carregadas sem bloquear a abertura do roteiro em campo.
@@ -415,6 +424,8 @@ export function InspectionExecution() {
     try { return composeChecklistTemplate(getEffectiveTemplate(template, ctx as any, 'ambos', true, currentInspection.createdAt), responses); }
     catch (err) { console.error('getEffectiveTemplate collaboration error:', err); return composeChecklistTemplate(template, responses); }
   }, [currentInspection, responses, template]);
+
+  const openActionItemIndex = useMemo(() => indexOpenActionItems(openActionItems), [openActionItems]);
 
   // ─── ÍNDICE, FILTRO E "FALTA ESCREVER" ────────────────────────────────────
   const responseByItemId = useMemo(
@@ -1484,7 +1495,7 @@ export function InspectionExecution() {
                           clientEvidence={clientEvidence.get(item.id)}
                           clientDeclaration={clientDeclarations.get(item.id)}
                           visitDate={currentInspection.inspectionDate}
-                          pactuatedDueDate={pactuatedDeadlines.get(item.id)}
+                          pactuatedDueDate={findOpenActionItem(openActionItemIndex, { itemId: item.id, description: item.description })?.due_date}
                           onChange={handleResponseChange}
                           onUpdateDetails={handleUpdateDetails}
                           onDetailsToggle={handleDetailsToggle}

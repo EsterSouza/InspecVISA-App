@@ -18,7 +18,7 @@ import type {
   ClientPortalSettings,
   SlotPeriod,
 } from '../types';
-import type { ClientActionItemPayload } from '../utils/clientActionPlan';
+import type { ClientActionItemPayload, OpenActionItemRef } from '../utils/clientActionPlan';
 import { getActiveTenantId } from '../utils/localScope';
 import { getLocalActor } from '../utils/localActor';
 import { assertInspectionAppointment, normalizeAppointmentType, type AppointmentType } from '../utils/appointmentType';
@@ -1034,20 +1034,25 @@ export const AppointmentAdminService = {
   },
 
   /**
-   * Prazos já pactuados e ainda abertos desta unidade, por requisito do roteiro.
+   * Pendências ainda abertas desta unidade — chave, prazo pactuado e título.
    *
-   * A execução usa isto para não reiniciar o relógio de uma pendência reincidente:
-   * item resolvido fica de fora de propósito — reaparecer depois de resolvido é
-   * ocorrência nova, e aí o prazo conta desta visita.
+   * Serve a duas coisas: não reiniciar o relógio de uma pendência reincidente, e
+   * reencontrar a pendência pelo texto quando o roteiro trocou de id (o título é a
+   * descrição do requisito). Item resolvido fica de fora de propósito — reaparecer
+   * depois de resolvido é ocorrência nova, e aí o prazo conta desta visita.
    */
-  async listOpenActionItemDeadlines(clientId: string): Promise<Map<string, string | null>> {
+  async listOpenActionItems(clientId: string): Promise<OpenActionItemRef[]> {
     const { data, error } = await supabase
       .from('client_action_items')
-      .select('source_item_id, due_date, status')
+      .select('source_item_id, due_date, title, status')
       .eq('client_id', clientId)
       .neq('status', 'resolved');
     if (error) throw error;
-    return new Map((data || []).map(row => [row.source_item_id as string, (row.due_date as string | null) ?? null]));
+    return (data || []).map(row => ({
+      source_item_id: row.source_item_id as string,
+      due_date: (row.due_date as string | null) ?? null,
+      title: (row.title as string) || '',
+    }));
   },
 
   async listActionItems(requestId: string): Promise<ClientActionItem[]> {

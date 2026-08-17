@@ -272,11 +272,13 @@ export function InspectionSummary() {
     void hydrateAndGetPreviousVisitScore(inspectionClientId, inspectionId, inspectionTemplateId)
       .then((result) => { if (active) setPreviousVisit(result); })
       .catch((err) => console.warn('[Summary] Nota da visita anterior indisponivel:', err));
-    void getRecurringItemIdsForClient(inspectionClientId, inspectionId)
+    // O roteiro entra na conta: pendência de visita feita em outro roteiro só é
+    // reconhecida como reincidente pelo id equivalente no roteiro deste relatório.
+    void getRecurringItemIdsForClient(inspectionClientId, inspectionId, displayTemplate || undefined)
       .then((ids) => { if (active) setRecurringItemIds(ids); })
       .catch(() => {});
     return () => { active = false; };
-  }, [inspectionId, inspectionClientId, inspectionTemplateId]);
+  }, [inspectionId, inspectionClientId, inspectionTemplateId, displayTemplate]);
 
   const handleSaveMetadata = async () => {
     if (!currentInspection) return;
@@ -402,7 +404,7 @@ export function InspectionSummary() {
        const shouldSyncFinalSnapshot = currentInspection.status === 'completed' && currentReadiness.isReady && navigator.onLine;
        await new Promise(resolve => setTimeout(resolve, 100));
        const { generatePDF } = await import('../utils/pdfGenerator');
-       const recurringItemIds = await getRecurringItemIdsForClient(currentInspection.clientId, currentInspection.id)
+       const recurringItemIds = await getRecurringItemIdsForClient(currentInspection.clientId, currentInspection.id, displayTemplate)
          .catch(() => new Set<string>());
        // Evidência confirmada pela consultora precisa ser recarregada como aprovada antes
        // do relatório; assim a finalização nunca omite silenciosamente uma prova aceita.
@@ -502,16 +504,19 @@ export function InspectionSummary() {
              // exceto se venceu (ou está vencendo) ou se a nova é mais curta. A mesma
              // regra está no `on conflict` da RPC — aqui é para o PDF e o portal
              // publicarem a mesma data.
-             const pactuatedDeadlines = await AppointmentAdminService
-               .listOpenActionItemDeadlines(currentInspection.clientId)
-               .catch(() => new Map<string, string | null>());
+             // A lista também é o que reencontra a pendência quando o roteiro trocou
+             // de id entre as visitas: sem isso o portal ganharia uma segunda
+             // pendência do mesmo requisito.
+             const openActionItems = await AppointmentAdminService
+               .listOpenActionItems(currentInspection.clientId)
+               .catch(() => []);
              await AppointmentAdminService.publishActionItems(
                linkedRequest,
                buildClientActionItems(
                  nonCompliantResponses,
                  allItemsList,
                  currentInspection.inspectionDate,
-                 pactuatedDeadlines,
+                 openActionItems,
                )
              );
            } catch (scoreErr) {

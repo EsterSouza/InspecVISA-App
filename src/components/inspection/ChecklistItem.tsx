@@ -654,7 +654,6 @@ export const ChecklistItem = memo(function ChecklistItem({
                   <option value={responsibleValue}>{responsibleValue}</option>
                 )}
               </Select>
-              <p className="text-xs text-navy-3">É o setor, não a consultora.</p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor={`prazo-${item.id}`}>Prazo</Label>

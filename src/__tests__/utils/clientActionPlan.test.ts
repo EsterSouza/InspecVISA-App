@@ -156,7 +156,7 @@ describe('P360-010 - projeção do plano de ação', () => {
       [response({ deadline: '60 dias' })],
       [item()],
       inspectionDate,
-      new Map([['item-1', '2026-04-09']]),
+      [{ source_item_id: 'item-1', due_date: '2026-04-09', title: 'Possuir alvará sanitário vigente' }],
     );
     expect(projected.due_date).toBe('2026-04-09');
   });
@@ -166,9 +166,36 @@ describe('P360-010 - projeção do plano de ação', () => {
       [response({ deadline: '30 dias' })],
       [item()],
       inspectionDate,
-      new Map([['item-1', '2026-02-01']]),
+      [{ source_item_id: 'item-1', due_date: '2026-02-01', title: 'Possuir alvará sanitário vigente' }],
     );
     expect(projected.due_date).toBe('2026-04-09');
+  });
+
+  test('roteiro novo, requisito antigo: a pendência do portal continua a mesma linha', () => {
+    // A visita anterior rodou no roteiro estático (`fed-009`); esta roda no roteiro
+    // do banco, com id UUID. Publicar com a chave nova criaria uma segunda pendência
+    // do mesmo requisito no portal do cliente.
+    const [projected] = buildClientActionItems(
+      [response({ itemId: '1b0370f5-72b4-49c1-a60b-d08fcb3879a5', deadline: '30 dias' })],
+      [item({ id: '1b0370f5-72b4-49c1-a60b-d08fcb3879a5', description: 'Possui ambiente para guarda de material de limpeza (DML).' })],
+      inspectionDate,
+      [{ source_item_id: 'fed-009', due_date: '2026-04-09', title: 'Possui ambiente para guarda de material de limpeza (DML).' }],
+    );
+    expect(projected.source_item_id).toBe('fed-009');
+    expect(projected.due_date).toBe('2026-04-09');
+  });
+
+  test('título repetido em duas pendências abertas não casa por texto', () => {
+    const [projected] = buildClientActionItems(
+      [response({ itemId: 'novo-uuid' })],
+      [item({ id: 'novo-uuid', description: 'Item repetido' })],
+      inspectionDate,
+      [
+        { source_item_id: 'antigo-a', due_date: '2026-04-09', title: 'Item repetido' },
+        { source_item_id: 'antigo-b', due_date: '2026-05-09', title: 'Item repetido' },
+      ],
+    );
+    expect(projected.source_item_id).toBe('novo-uuid');
   });
 
   test('leva situação, ação e responsável digitados', () => {

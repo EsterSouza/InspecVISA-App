@@ -21,6 +21,23 @@ Funcionalidade: Execução de inspeção sanitária
     E não é criada a seção artificial "Pendências de inspeções anteriores"
     E nenhum título de item é um UUID
 
+  # `responses.item_id` guarda o id do roteiro daquela visita. Quando a unidade
+  # muda de roteiro entre as visitas, comparar só por id apaga a reincidência
+  # inteira — foi o que aconteceu com quem tinha histórico no roteiro estático.
+  Cenário: Reincidência sobrevive à troca de roteiro
+    Dado uma NC registrada numa visita feita em outro roteiro
+    E o requisito equivalente existe no roteiro de agora, com o mesmo texto
+    Quando abro a nova inspeção da mesma unidade
+    Então o item aparece com o selo de reincidência e o plano de ação anterior
+    E a pendência do portal continua sendo a mesma linha, sem duplicar
+    E requisito com texto repetido no roteiro não casa, para não marcar o item errado
+
+  Cenário: Item extra de visita anterior encontra a seção pelo título
+    Dado um item extra criado numa visita em outro roteiro
+    Quando abro a nova inspeção da mesma unidade
+    Então ele reaparece na seção de mesmo título do roteiro de agora
+    E o id do item extra não muda
+
   Cenário: Semeadura só preenche o que falta, sem sobrescrever
     Dado uma inspeção em andamento com respostas, textos e fotos
     Quando a inspeção é reaberta e a semeadura roda de novo
@@ -47,5 +64,5 @@ Funcionalidade: Execução de inspeção sanitária
     Então o relatório concluído não é alterado
     E nenhuma resposta histórica é reescrita
 
-  # Garantido por: src/__tests__ (checklistIntegrity, appointment_domain.test.sql),
+  # Garantido por: src/__tests__ (checklistIntegrity, itemIdentity, appointment_domain.test.sql),
   # e pela RPC transacional de finalização (sync_inspection_bundle).

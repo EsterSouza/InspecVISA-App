@@ -3,6 +3,7 @@ import { getTemplateById, getTemplates } from '../data/templates';
 import { InspectionService } from '../services/inspectionService';
 import type { ChecklistItem, ChecklistTemplate, CustomItemMeta, Inspection, InspectionPhoto, InspectionResponse, Section } from '../types';
 import { deriveOpenPendingItems } from './actionPlanState';
+import { buildRequirementIndex, normalizeRequirementText } from './itemIdentity';
 import { filterByActiveTenant } from './localScope';
 
 export interface PreviousNCContext {
@@ -36,7 +37,12 @@ function sortInspectionsNewestFirst(inspections: Inspection[]) {
 }
 
 async function templateForInspection(inspection: Inspection): Promise<ChecklistTemplate | undefined> {
-  return getTemplateById(inspection.templateId) || await db.templates.get(inspection.templateId);
+  // O roteiro congelado no relatório (REF-06) vem primeiro: é o que a visita
+  // realmente usou, e é a única fonte da descrição de um item que depois foi
+  // apagado ou reescrito no roteiro vivo.
+  return inspection.reportTemplateSnapshot
+    || getTemplateById(inspection.templateId)
+    || await db.templates.get(inspection.templateId);
 }
 
 function findItemInTemplate(template: ChecklistTemplate | undefined, itemId: string) {
@@ -189,10 +195,15 @@ export async function getPreviousNCContextByInspection(inspectionId: string): Pr
  * concluídas ANTERIORES deste cliente (excluindo a inspeção informada). Usado
  * para marcar reincidência no PDF. Aguarda a hidratação do tenant para funcionar
  * no desktop. Ver memória sync-no-full-response-hydration.
+ *
+ * Com `currentTemplate`, o conjunto ganha também o id **equivalente no roteiro de
+ * agora** de cada pendência antiga — sem isso, visita feita em outro roteiro não
+ * marca reincidência nenhuma, porque o id do requisito é outro (`itemIdentity.ts`).
  */
 export async function getRecurringItemIdsForClient(
   clientId: string,
-  excludeInspectionId?: string
+  excludeInspectionId?: string,
+  currentTemplate?: Pick<ChecklistTemplate, 'sections'>,
 ): Promise<Set<string>> {
   await InspectionService.hydrateTenantResponses().catch(() => {});
 
@@ -210,7 +221,27 @@ export async function getRecurringItemIdsForClient(
     .filter(response => response.result === 'not_complies' && !response.deletedAt)
     .toArray());
 
-  return new Set(responses.map(response => response.itemId));
+  const ids = new Set(responses.map(response => response.itemId));
+  if (!currentTemplate) return ids;
+
+  const index = buildRequirementIndex(currentTemplate);
+  const currentIds = new Set(
+    (currentTemplate.sections || []).flatMap(section => (section.items || []).map(item => item.id)),
+  );
+  const inspectionById = new Map(inspections.map(inspection => [inspection.id, inspection]));
+
+  // Só as pendências cujo id não existe mais é que precisam ser traduzidas —
+  // resolver a descrição de cada resposta custa uma leitura de roteiro.
+  for (const response of responses) {
+    if (currentIds.has(response.itemId)) continue;
+    const inspection = inspectionById.get(response.inspectionId);
+    if (!inspection) continue;
+    const meta = await resolveResponseMeta(response, inspection);
+    const equivalent = index.get(normalizeRequirementText(meta.description));
+    if (equivalent) ids.add(equivalent);
+  }
+
+  return ids;
 }
 
 export async function getClientActionPlanContext(clientId: string): Promise<ClientActionPlanContext> {
