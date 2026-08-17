@@ -34,6 +34,7 @@ import { resolveReportTemplate } from '../utils/reportTemplate';
 import { withClientLocation } from '../utils/inspectionLocation';
 import { composeChecklistTemplate } from '../utils/customItems';
 import { toast } from '../store/useToastStore';
+import { recoverFromChunkError } from '../utils/chunkRecovery';
 import { useConfirmDialog } from '../components/ui/ConfirmDialog';
 
 const PDF_PHOTO_HYDRATION_TIMEOUT_MS = 12000;
@@ -539,6 +540,10 @@ export function InspectionSummary() {
        }
     } catch (err) {
        console.error('PDF Error:', err);
+      // Chunk do gerador desatualizado após um deploy: recarrega na build nova em
+      // vez de mostrar "Erro ao gerar PDF" (o import falhou antes de qualquer
+      // finalização, então nada é perdido — a pessoa gera de novo já atualizada).
+      if (recoverFromChunkError(err)) return;
       const message = err instanceof Error ? err.message : String(err);
       toast.error('Erro ao gerar PDF', message);
     } finally {

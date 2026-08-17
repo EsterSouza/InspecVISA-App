@@ -1,6 +1,6 @@
 const CHUNK_RECOVERY_KEY = 'inspecvisa:chunk-recovery-reloaded';
 
-function isChunkLoadFailure(reason: unknown) {
+export function isChunkLoadFailure(reason: unknown) {
   const message = reason instanceof Error ? reason.message : String(reason || '');
   return (
     message.includes('Failed to fetch dynamically imported module') ||
@@ -10,12 +10,24 @@ function isChunkLoadFailure(reason: unknown) {
   );
 }
 
-function reloadOnceForFreshBuild(reason: unknown) {
-  if (!isChunkLoadFailure(reason)) return;
-  if (sessionStorage.getItem(CHUNK_RECOVERY_KEY) === '1') return;
+function reloadOnceForFreshBuild(reason: unknown): boolean {
+  if (!isChunkLoadFailure(reason)) return false;
+  if (sessionStorage.getItem(CHUNK_RECOVERY_KEY) === '1') return true;
 
   sessionStorage.setItem(CHUNK_RECOVERY_KEY, '1');
   window.location.reload();
+  return true;
+}
+
+/**
+ * Para os `catch` que engolem o erro (o `import()` do gerador de PDF, por
+ * exemplo): se a falha for de chunk desatualizado após um deploy, recarrega a
+ * página uma vez e devolve `true` — o chamador deve abortar seu próprio aviso de
+ * erro, porque o app vai recarregar na build nova. Sem isto, o erro vira só um
+ * toast e o recovery global (unhandledrejection) nunca dispara.
+ */
+export function recoverFromChunkError(reason: unknown): boolean {
+  return reloadOnceForFreshBuild(reason);
 }
 
 export function installChunkRecovery() {

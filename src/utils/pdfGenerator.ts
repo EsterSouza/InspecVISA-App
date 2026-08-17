@@ -768,7 +768,7 @@ export async function generatePDF(
         inspection.dependencyLevel2 || '0',
         inspection.dependencyLevel3 || '0',
       ]],
-      headStyles: { fillColor: [240, 240, 240], textColor: [60, 60, 60], fontSize: 8 },
+      headStyles: { fillColor: [240, 240, 240], textColor: [60, 60, 60], fontSize: 8, halign: 'center' },
       bodyStyles: { fontSize: 10, halign: 'center' },
       margin: { left: margin, right: margin },
       theme: 'grid',
@@ -819,6 +819,11 @@ export async function generatePDF(
         3: { cellWidth: 45, halign: 'center', fontStyle: 'bold' },
       },
       didParseCell: (data) => {
+        // Cabeçalho segue o alinhamento das colunas (o autoTable não propaga
+        // columnStyles.halign para o head): números sob os títulos.
+        if (data.section === 'head') {
+          data.cell.styles.halign = data.column.index === 0 ? 'left' : 'center';
+        }
         if (data.section === 'body' && data.column.index === 3) {
           const ok = String(data.cell.raw) === 'ADEQUADO';
           data.cell.styles.textColor = ok ? [22, 101, 52] : [185, 28, 28];
@@ -979,42 +984,6 @@ export async function generatePDF(
     y += 24;
   }
 
-  // ── Conformidade por seção (barras) ──────────────────────
-  // O visual que fecha rápido: nome da seção, barra por faixa e o percentual. A
-  // tabela abaixo mantém a contagem detalhada (cumpre / não cumpre / NO / N/A).
-  if (score.scoreBySection.length > 0) {
-    doc.setFont(FH, 'normal');
-    doc.setFontSize(11);
-    doc.setTextColor(...ink);
-    doc.text('Conformidade por seção', margin, y);
-    y += 7.5;
-
-    const labelW = 92;
-    const trackX = margin + labelW;
-    const trackW = contentW - labelW - 16;
-    score.scoreBySection.forEach(s => {
-      if (y > pageH - 30) { doc.addPage(); y = margin; }
-      const pct = Math.round(s.scorePercentage);
-      const fill = bandFill(pct);
-      const inkc = pct >= 85 ? greenInk : pct >= 70 ? amberStrong : redInk;
-      const title = s.sectionTitle.length > 46 ? s.sectionTitle.substring(0, 44) + '…' : s.sectionTitle;
-      doc.setFont(FB, 'normal');
-      doc.setFontSize(9);
-      doc.setTextColor(...textColor);
-      doc.text(title, margin, y + 2.7);
-      doc.setFillColor(236, 240, 246);
-      doc.roundedRect(trackX, y, trackW, 3.4, 1.7, 1.7, 'F');
-      doc.setFillColor(...fill);
-      doc.roundedRect(trackX, y, Math.max(1.5, (trackW * pct) / 100), 3.4, 1.7, 1.7, 'F');
-      doc.setFont(FB, 'bold');
-      doc.setFontSize(9);
-      doc.setTextColor(...inkc);
-      doc.text(`${pct}%`, margin + contentW, y + 2.9, { align: 'right' });
-      y += 8;
-    });
-    y += 4;
-  }
-
   // Summary table
   autoTable(doc, {
     styles: { font: FB },
@@ -1060,10 +1029,13 @@ export async function generatePDF(
       5: { cellWidth: 13, halign: 'center' },
       6: { cellWidth: 14, halign: 'center', fontStyle: 'bold' },
     },
-    // % colorido pela faixa (verde/âmbar/vermelho), inclusive no TOTAL. As barras
-    // por seção agora vivem no bloco "Conformidade por seção", acima — dentro da
-    // célula elas ficavam apertadas e tortas.
+    // Nesta versão do autoTable, columnStyles.halign alinha só o corpo; cabeçalho e
+    // rodapé caem no default (esquerda) e os números não sentam sob o título. Forçamos
+    // o mesmo alinhamento das colunas para cabeçalho e rodapé.
     didParseCell: (data) => {
+      if (data.section === 'head' || data.section === 'foot') {
+        data.cell.styles.halign = data.column.index === 0 ? 'left' : 'center';
+      }
       if (data.column.index === 6 && (data.section === 'body' || data.section === 'foot')) {
         const p = parseInt(String(data.cell.raw), 10) || 0;
         data.cell.styles.textColor = p >= 85 ? greenInk : p >= 70 ? amberStrong : redInk;
@@ -1371,6 +1343,11 @@ export async function generatePDF(
         3: { cellWidth: 26, halign: 'center', fontStyle: 'bold' },
       },
       didParseCell: (data) => {
+        // Cabeçalho/rodapé precisam do mesmo alinhamento das colunas (o autoTable
+        // não propaga columnStyles.halign para eles); senão o número foge do título.
+        if (data.section === 'head' || data.section === 'foot') {
+          data.cell.styles.halign = data.column.index === 0 ? 'left' : 'center';
+        }
         if ((data.section === 'body' || data.section === 'foot') && data.column.index === 3) {
           const pctValue = parseInt(String(data.cell.raw)) || 0;
           data.cell.styles.textColor = pctValue >= 85 ? greenInk : pctValue >= 70 ? amberStrong : redInk;
