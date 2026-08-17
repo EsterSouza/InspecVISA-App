@@ -3,7 +3,12 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ChevronRight, CloudOff, CheckCircle2, Eye, EyeOff, Loader2, PlusCircle, RefreshCw } from 'lucide-react';
 import { db } from '../db/database';
 import { getTemplateById, getEffectiveTemplate } from '../data/templates';
-import { type ChecklistTemplate, type Inspection, type InspectionResponse, type InspectionPhoto } from '../types';
+import { type ChecklistTemplate, type Client, type ClientCategory, type Inspection, type InspectionResponse, type InspectionPhoto } from '../types';
+
+/** Inspecao antiga guardava a categoria do cliente em `category`; a de hoje, em `clientCategory`. */
+function legacyCategory(inspection: Inspection): ClientCategory | undefined {
+  return (inspection as Inspection & { category?: ClientCategory }).category;
+}
 import { ILPIStaffCalculator } from '../components/inspection/ILPIStaffCalculator';
 import { isRioState } from '../utils/state';
 import { useInspectionStore } from '../store/useInspectionStore';
@@ -160,7 +165,7 @@ export function InspectionExecution() {
     return () => { window.removeEventListener('online', update); window.removeEventListener('offline', update); };
   }, []);
 
-  const [template, setTemplate] = useState<any>(null);
+  const [template, setTemplate] = useState<ChecklistTemplate | null>(null);
 
   const attachPhotosToResponses = useCallback((baseResponses: InspectionResponse[], photos: InspectionPhoto[]) => {
     return baseResponses.map(response => ({
@@ -236,7 +241,7 @@ export function InspectionExecution() {
 
       if (localInsp) {
         // Resolve template from cache right away
-        const tpl: any = getTemplateById(localInsp.templateId) || await db.templates.get(localInsp.templateId);
+        const tpl = getTemplateById(localInsp.templateId) || await db.templates.get(localInsp.templateId);
         
         if (tpl) setTemplate(tpl);
 
@@ -283,7 +288,7 @@ export function InspectionExecution() {
 
           // Resolve template (fallback chain: static → Dexie → Supabase)
           // No category fallback allowed as per directive.
-          let tpl: any = getTemplateById(enrichedInsp.templateId) || await db.templates.get(enrichedInsp.templateId);
+          let tpl = getTemplateById(enrichedInsp.templateId) || await db.templates.get(enrichedInsp.templateId);
           
           if (!tpl && navigator.onLine) {
             // Keep loading UI visible during remote fetch
@@ -409,8 +414,11 @@ export function InspectionExecution() {
     if (!currentInspection) return null;
     if (!template) return buildRecoveryTemplate(currentInspection, responses);
     const role = useSettingsStore.getState().settings.consultantRole || 'saude';
-    const ctx = { ...currentInspection, category: (currentInspection as any).clientCategory || (currentInspection as any).category };
-    try { return composeChecklistTemplate(getEffectiveTemplate(template, ctx as any, role, false, currentInspection.createdAt), responses); }
+    // `getEffectiveTemplate` pede um `Client`, mas o que existe aqui e a inspecao — ela
+    // carrega a categoria do cliente (`clientCategory`, e `category` em registro antigo).
+    // O `as unknown as Client` deixa a gambiarra visivel; o `any` a escondia.
+    const ctx = { ...currentInspection, category: currentInspection.clientCategory || legacyCategory(currentInspection) } as unknown as Client;
+    try { return composeChecklistTemplate(getEffectiveTemplate(template, ctx, role, false, currentInspection.createdAt), responses); }
     catch (err) { console.error('getEffectiveTemplate error:', err); return composeChecklistTemplate(template, responses); }
   }, [currentInspection, responses, template]);
 
@@ -419,12 +427,15 @@ export function InspectionExecution() {
   const visibleSections = useMemo(() => effectiveTemplate?.sections || [], [effectiveTemplate]);
   // ILPI: a calculadora de dimensionamento mora na seção "Recursos Humanos".
   const isIlpiInspection = (currentInspection?.clientCategory === 'ilpi')
-    || ((effectiveTemplate as any)?.category === 'ilpi');
+    || (effectiveTemplate?.category === 'ilpi');
   const collaborationTemplate = useMemo(() => {
     if (!currentInspection) return null;
     if (!template) return buildRecoveryTemplate(currentInspection, responses);
-    const ctx = { ...currentInspection, category: (currentInspection as any).clientCategory || (currentInspection as any).category };
-    try { return composeChecklistTemplate(getEffectiveTemplate(template, ctx as any, 'ambos', true, currentInspection.createdAt), responses); }
+    // `getEffectiveTemplate` pede um `Client`, mas o que existe aqui e a inspecao — ela
+    // carrega a categoria do cliente (`clientCategory`, e `category` em registro antigo).
+    // O `as unknown as Client` deixa a gambiarra visivel; o `any` a escondia.
+    const ctx = { ...currentInspection, category: currentInspection.clientCategory || legacyCategory(currentInspection) } as unknown as Client;
+    try { return composeChecklistTemplate(getEffectiveTemplate(template, ctx, 'ambos', true, currentInspection.createdAt), responses); }
     catch (err) { console.error('getEffectiveTemplate collaboration error:', err); return composeChecklistTemplate(template, responses); }
   }, [currentInspection, responses, template]);
 
@@ -436,11 +447,11 @@ export function InspectionExecution() {
     [responses],
   );
 
-  const sectionIndex = useMemo(() => visibleSections.map((section: any, idx: number) => ({
+  const sectionIndex = useMemo(() => visibleSections.map((section, idx: number) => ({
     id: section.id,
     label: `${idx + 1} · ${section.title}`,
     total: section.items.length,
-    answered: section.items.filter((item: any) => responseByItemId.has(item.id)).length,
+    answered: section.items.filter((item) => responseByItemId.has(item.id)).length,
   })), [visibleSections, responseByItemId]);
 
   // O `hasError` que o ChecklistItem calcula por dentro deixa de morar só lá:
@@ -448,7 +459,7 @@ export function InspectionExecution() {
   const missingText = useMemo<MissingText[]>(() => {
     const out: MissingText[] = [];
     let order = 0;
-    for (const section of visibleSections as any[]) {
+    for (const section of visibleSections) {
       for (const item of section.items) {
         order += 1;
         const response = responseByItemId.get(item.id);
@@ -470,12 +481,12 @@ export function InspectionExecution() {
   const missingTextItemIds = useMemo(() => new Set(missingText.map(m => m.itemId)), [missingText]);
 
   const filterCounts = useMemo(() => {
-    const all = (visibleSections as any[]).flatMap(section => section.items);
+    const all = visibleSections.flatMap(section => section.items);
     return {
       todos: all.length,
-      'sem-resposta': all.filter((item: any) => !responseByItemId.has(item.id)).length,
-      'nao-cumpre': all.filter((item: any) => responseByItemId.get(item.id)?.result === 'not_complies').length,
-      reincidentes: all.filter((item: any) => previousNCs.has(item.id)).length,
+      'sem-resposta': all.filter((item) => !responseByItemId.has(item.id)).length,
+      'nao-cumpre': all.filter((item) => responseByItemId.get(item.id)?.result === 'not_complies').length,
+      reincidentes: all.filter((item) => previousNCs.has(item.id)).length,
       'falta-escrever': missingText.length,
     };
   }, [visibleSections, responseByItemId, missingText, previousNCs]);
@@ -503,8 +514,8 @@ export function InspectionExecution() {
     setStickyItemIds(new Set());
     if (next === 'todos') return;
     setOpenSectionIds(new Set(
-      (visibleSections as any[])
-        .filter(section => section.items.some((item: any) => matchesFilter(next, item.id)))
+      visibleSections
+        .filter(section => section.items.some((item) => matchesFilter(next, item.id)))
         .map(section => section.id),
     ));
   }, [visibleSections, matchesFilter]);
@@ -538,7 +549,7 @@ export function InspectionExecution() {
   }, []);
 
   const goToItem = useCallback((itemId: string) => {
-    const section = (visibleSections as any[]).find(s => s.items.some((i: any) => i.id === itemId));
+    const section = visibleSections.find(s => s.items.some((i) => i.id === itemId));
     if (section) {
       setOpenSectionIds(prev => new Set(prev).add(section.id));
       setActiveSectionId(section.id);
@@ -551,8 +562,8 @@ export function InspectionExecution() {
   }, [visibleSections]);
 
   const goToFirstUnanswered = useCallback(() => {
-    for (const section of visibleSections as any[]) {
-      const item = section.items.find((i: any) => !responseByItemId.has(i.id));
+    for (const section of visibleSections) {
+      const item = section.items.find((i) => !responseByItemId.has(i.id));
       if (item) { goToItem(item.id); return; }
     }
   }, [visibleSections, responseByItemId, goToItem]);
@@ -666,7 +677,7 @@ export function InspectionExecution() {
   }, [stampInspectionEditor]);
 
 
-  const handleAddPhoto = useCallback(async (itemId: string, photoData: any) => {
+  const handleAddPhoto = useCallback(async (itemId: string, photoData: Omit<InspectionPhoto, 'id' | 'responseId'> & { id?: string }) => {
     const state = useInspectionStore.getState();
     const existing = state.responses.find(r => r.itemId === itemId);
     if (existing) {
@@ -694,7 +705,7 @@ export function InspectionExecution() {
     const state = useInspectionStore.getState();
     const existing = state.responses.find(r => r.itemId === itemId);
     if (existing) {
-      state.updateResponse(existing.id, { photos: (existing.photos || []).filter((p: any) => p.id !== photoId) });
+      state.updateResponse(existing.id, { photos: (existing.photos || []).filter((p) => p.id !== photoId) });
       
       try {
         await InspectionService.deletePhoto(photoId);
@@ -1159,9 +1170,9 @@ export function InspectionExecution() {
   const totalItems = filterCounts.todos;
   const answeredItems = totalItems - filterCounts['sem-resposta'];
   const progressPct = totalItems > 0 ? Math.round((answeredItems / totalItems) * 100) : 0;
-  const criticalNotComplies = (visibleSections as any[])
+  const criticalNotComplies = visibleSections
     .flatMap(section => section.items)
-    .filter((item: any) => item.isCritical && responseByItemId.get(item.id)?.result === 'not_complies')
+    .filter((item) => item.isCritical && responseByItemId.get(item.id)?.result === 'not_complies')
     .length;
 
   return (
@@ -1376,11 +1387,11 @@ export function InspectionExecution() {
             ))}
           </div>
 
-          {visibleSections.map((section: any, idx: number) => {
+          {visibleSections.map((section, idx: number) => {
             const sectionResponses = section.items
-              .map((i: any) => responses.find(r => r.itemId === i.id))
+              .map((i) => responses.find(r => r.itemId === i.id))
               .filter(Boolean) as InspectionResponse[];
-            const visibleItems = section.items.filter((item: any) => itemMatchesFilter(item.id));
+            const visibleItems = section.items.filter((item) => itemMatchesFilter(item.id));
             // Com filtro ligado, seção sem item correspondente sai da tela.
             if (itemFilter !== 'todos' && visibleItems.length === 0) return null;
             const isOpen = openSectionIds.has(section.id);
@@ -1422,7 +1433,7 @@ export function InspectionExecution() {
                               id={`dependencyLevel${i + 1}`}
                               name={`dependencyLevel${i + 1}`}
                               className="h-11"
-                              value={(currentInspection as any)[`dependencyLevel${i + 1}`] || 0}
+                              value={[currentInspection.dependencyLevel1, currentInspection.dependencyLevel2, currentInspection.dependencyLevel3][i] || 0}
                               onChange={(e) => updateStaffData(`dependencyLevel${i + 1}`, parseInt(e.target.value) || 0)}
                             />
                           </div>
@@ -1496,7 +1507,7 @@ export function InspectionExecution() {
                   )}
 
                   {/* Template Items */}
-                  {visibleItems.map((item: any) => {
+                  {visibleItems.map((item) => {
                     const resp = responses.find(r => r.itemId === item.id);
                     return (
                       <div key={item.id}>

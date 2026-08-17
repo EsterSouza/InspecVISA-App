@@ -9,8 +9,26 @@ import { PageShell } from '../../components/ui/PageShell';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { TableContainer, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/Table';
+import type { Section } from '../../types';
+import { rawErrorMessage } from '../../utils/errors';
 import { TemplateService } from '../../services/templateService';
 import { getTemplates } from '../../data/templates';
+
+/**
+ * Linha desta tela: o roteiro remoto vem só com metadados (`TemplateService.listTemplates()`
+ * não traz seções) e o estático vem completo — as duas formas convivem na mesma lista, e é
+ * por isso que quase tudo é opcional aqui.
+ */
+type RoteiroDaLista = {
+  id: string;
+  name: string;
+  category: string;
+  version?: string | null;
+  updated_at?: string;
+  /** Do catálogo estático: só leitura, não existe no banco. */
+  isStatic?: boolean;
+  sections?: Section[];
+};
 
 function formatDateBR(value?: string): string {
   if (!value) return '—';
@@ -24,11 +42,11 @@ function formatDateBR(value?: string): string {
  * `[ARQUIVADO]` no nome, já filtrado abaixo), então não existe segmentado aqui. */
 export function AdminTemplates() {
   const navigate = useNavigate();
-  const [templates, setTemplates] = useState<any[]>([]);
+  const [templates, setTemplates] = useState<RoteiroDaLista[]>([]);
   // `TemplateService.listTemplates()` traz só metadados (sem seções/itens) — o merge final da
   // tela usa essa lista para poder distinguir remoto de estático, então "Itens"/"Críticos" têm
   // que vir de outro lugar: o snapshot do Dexie, que tem o roteiro completo.
-  const [sectionsById, setSectionsById] = useState<Record<string, any[]>>({});
+  const [sectionsById, setSectionsById] = useState<Record<string, Section[]>>({});
   const [usageCounts, setUsageCounts] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -55,11 +73,11 @@ export function AdminTemplates() {
         updated_at: new Date().toISOString(),
       }));
       setTemplates(localTemplates.length > 0 ? localTemplates : staticTemplates);
-      setSectionsById((prev) => ({ ...prev, ...Object.fromEntries(localTemplates.map((t: any) => [t.id, t.sections])) }));
+      setSectionsById((prev) => ({ ...prev, ...Object.fromEntries(localTemplates.map((t) => [t.id, t.sections])) }));
       setIsLoading(false);
 
       // Fetch remote templates (editable, Supabase)
-      let remoteData: any[] = [];
+      let remoteData: RoteiroDaLista[] = [];
       try {
         remoteData = await TemplateService.listTemplates();
       } catch (remoteErr) {
@@ -67,7 +85,7 @@ export function AdminTemplates() {
       }
 
       // Build set of names that remote already covers
-      const remoteNames = new Set(remoteData.map((t: any) => t.name));
+      const remoteNames = new Set(remoteData.map((t) => t.name));
 
       // Static templates only shown if their name is NOT in remote
       const staticData = getTemplates()
@@ -87,11 +105,11 @@ export function AdminTemplates() {
         await TemplateService.syncAllTemplatesToDexie();
         // initializeDatabase will handle the merge with statics inside
         const synced = await db.templates.toArray();
-        setSectionsById((prev) => ({ ...prev, ...Object.fromEntries(synced.map((t: any) => [t.id, t.sections])) }));
+        setSectionsById((prev) => ({ ...prev, ...Object.fromEntries(synced.map((t) => [t.id, t.sections])) }));
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error loading templates:', err);
-      setLoadError(err?.message || 'Erro ao carregar roteiros.');
+      setLoadError(rawErrorMessage(err) || 'Erro ao carregar roteiros.');
     } finally {
       setIsLoading(false);
     }
@@ -218,8 +236,8 @@ export function AdminTemplates() {
                   const sections = template.sections || sectionsById[template.id] || [];
                   // Aposentado (decisão 21, FE-17b) não entra em inspeção nova — "Itens"/"Críticos"
                   // aqui reflete o que a próxima inspeção realmente vai perguntar.
-                  const items = sections.flatMap((s: any) => s.items || []).filter((i: any) => !i.retiredAt);
-                  const criticalCount = items.filter((i: any) => i.isCritical).length;
+                  const items = sections.flatMap((s) => s.items || []).filter((i) => !i.retiredAt);
+                  const criticalCount = items.filter((i) => i.isCritical).length;
                   const inUse = usageCounts[template.id] || 0;
                   return (
                     <TableRow

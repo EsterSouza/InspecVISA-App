@@ -29,6 +29,19 @@ type SyncStatus = 'pending' | 'syncing' | 'synced' | 'conflict' | 'failed';
 type TableName = 'clients' | 'inspections' | 'responses' | 'photos' | 'schedules';
 type TimelineState = 'ok' | 'pendente' | 'atencao' | 'erro';
 
+/**
+ * O que esta tela lê de qualquer registro sincronizável — cliente, inspeção, resposta, foto
+ * ou agendamento. Ela junta os cinco na mesma lista, e era por isso que tudo aqui era `any`.
+ */
+interface LinhaSincronizavel {
+  id: string;
+  syncStatus?: SyncStatus;
+  syncAttempts?: number;
+  syncError?: string | null;
+  dataVerifiedAt?: Date;
+  updatedAt?: Date;
+}
+
 interface SyncItem {
   id: string;
   table: TableName;
@@ -209,17 +222,17 @@ export function SyncCenter() {
       ]);
 
       const clientName = new Map<string, string>(
-        allClients.map(c => [c.id, (c as any).name ?? truncId(c.id)])
+        allClients.map(c => [c.id, c.name ?? truncId(c.id)])
       );
       const inspClientName = new Map<string, string>(
-        allInspections.map(i => [i.id, clientName.get((i as any).clientId) ?? truncId((i as any).clientId ?? i.id)])
+        allInspections.map(i => [i.id, clientName.get(i.clientId) ?? truncId(i.clientId ?? i.id)])
       );
       const respInspId = new Map<string, string>(
-        allResponses.map(r => [r.id, (r as any).inspectionId])
+        allResponses.map(r => [r.id, r.inspectionId])
       );
 
       const mapItem = (
-        raw: any,
+        raw: LinhaSincronizavel,
         table: TableName,
         label: string,
         sub?: string,
@@ -227,7 +240,8 @@ export function SyncCenter() {
       ): SyncItem => ({
         id: raw.id,
         table,
-        syncStatus: raw.syncStatus,
+        // Todo registro local tem situacao; `pending` e o que o Dexie grava ao criar.
+        syncStatus: raw.syncStatus ?? 'pending',
         syncAttempts: raw.syncAttempts ?? 0,
         syncError: raw.syncError ?? null,
         jobStatus: jobStatusFromError(raw.syncError),
@@ -238,37 +252,37 @@ export function SyncCenter() {
       });
 
       const clientItems = rawClients.map(c =>
-        mapItem(c, 'clients', (c as any).name ?? truncId(c.id),
-          [(c as any).city, (c as any).state].filter(Boolean).join(', ') || undefined)
+        mapItem(c, 'clients', c.name ?? truncId(c.id),
+          [c.city, c.state].filter(Boolean).join(', ') || undefined)
       );
 
       const inspectionItems = rawInspections.map(i =>
         mapItem(i, 'inspections',
-          clientName.get((i as any).clientId) ?? truncId((i as any).clientId ?? i.id),
-          (i as any).inspectionDate
-            ? new Date((i as any).inspectionDate).toLocaleDateString('pt-BR')
-            : (i as any).status ?? undefined)
+          clientName.get(i.clientId) ?? truncId(i.clientId ?? i.id),
+          i.inspectionDate
+            ? new Date(i.inspectionDate).toLocaleDateString('pt-BR')
+            : i.status ?? undefined)
       );
 
       const responseItems = rawResponses.map(r =>
         mapItem(r, 'responses',
-          inspClientName.get((r as any).inspectionId) ?? truncId((r as any).inspectionId ?? r.id),
-          `Item: ${((r as any).itemId ?? '—').slice(0, 12)} | ${(r as any).result ?? '—'}`)
+          inspClientName.get(r.inspectionId) ?? truncId(r.inspectionId ?? r.id),
+          `Item: ${(r.itemId ?? '—').slice(0, 12)} | ${r.result ?? '—'}`)
       );
 
       const photoItems = rawPhotos.map(p =>
         mapItem(p, 'photos',
-          inspClientName.get(respInspId.get((p as any).responseId) ?? '') ?? '—',
-          `Resp: ${truncId((p as any).responseId ?? '—')}`,
-          { hasStoragePath: !!(p as any).storagePath })
+          inspClientName.get(respInspId.get(p.responseId) ?? '') ?? '—',
+          `Resp: ${truncId(p.responseId ?? '—')}`,
+          { hasStoragePath: !!p.storagePath })
       );
 
       const scheduleItems = rawSchedules.map(s =>
         mapItem(s, 'schedules',
-          clientName.get((s as any).clientId) ?? truncId((s as any).clientId ?? s.id),
-          (s as any).scheduledAt
-            ? new Date((s as any).scheduledAt).toLocaleDateString('pt-BR')
-            : (s as any).status ?? undefined)
+          clientName.get(s.clientId ?? '') ?? truncId(s.clientId ?? s.id),
+          s.scheduledAt
+            ? new Date(s.scheduledAt).toLocaleDateString('pt-BR')
+            : s.status ?? undefined)
       );
 
       const tableData: TableData[] = [
@@ -294,7 +308,7 @@ export function SyncCenter() {
       let lastSyncedAt: Date | null = null;
       let syncedTodayCount = 0;
       let syncedTodaySince: Date | null = null;
-      [...allClients, ...allInspections, ...allResponses, ...allPhotos, ...allSchedules].forEach((raw: any) => {
+      [...allClients, ...allInspections, ...allResponses, ...allPhotos, ...allSchedules].forEach((raw: LinhaSincronizavel) => {
         if (raw.syncStatus !== 'synced' || !raw.dataVerifiedAt) return;
         const verifiedAt = new Date(raw.dataVerifiedAt);
         if (Number.isNaN(verifiedAt.getTime())) return;
@@ -308,7 +322,7 @@ export function SyncCenter() {
 
       const eventFrom = (
         table: TableName,
-        raw: any,
+        raw: LinhaSincronizavel,
         label: string,
         sub?: string
       ): SyncSessionEvent | null => {
@@ -319,34 +333,34 @@ export function SyncCenter() {
       };
 
       const recentEvents = [
-        ...allClients.map((c: any) => eventFrom(
+        ...allClients.map((c) => eventFrom(
           'clients',
           c,
           c.name ?? truncId(c.id),
           [c.city, c.state].filter(Boolean).join(', ') || undefined
         )),
-        ...allInspections.map((i: any) => eventFrom(
+        ...allInspections.map((i) => eventFrom(
           'inspections',
           i,
           clientName.get(i.clientId) ?? truncId(i.clientId ?? i.id),
           i.inspectionDate ? new Date(i.inspectionDate).toLocaleDateString('pt-BR') : i.status
         )),
-        ...allResponses.map((r: any) => eventFrom(
+        ...allResponses.map((r) => eventFrom(
           'responses',
           r,
           inspClientName.get(r.inspectionId) ?? truncId(r.inspectionId ?? r.id),
           `Item: ${String(r.itemId ?? '---').slice(0, 12)} | ${r.result ?? '---'}`
         )),
-        ...allPhotos.map((p: any) => eventFrom(
+        ...allPhotos.map((p) => eventFrom(
           'photos',
           p,
           inspClientName.get(respInspId.get(p.responseId) ?? '') ?? 'Cliente',
           `Resp: ${truncId(p.responseId ?? '---')}`
         )),
-        ...allSchedules.map((s: any) => eventFrom(
+        ...allSchedules.map((s) => eventFrom(
           'schedules',
           s,
-          clientName.get(s.clientId) ?? truncId(s.clientId ?? s.id),
+          clientName.get(s.clientId ?? '') ?? truncId(s.clientId ?? s.id),
           s.scheduledAt ? new Date(s.scheduledAt).toLocaleDateString('pt-BR') : s.status
         )),
       ]

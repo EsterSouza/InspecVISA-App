@@ -5,7 +5,7 @@ import { templates as legacyTemplates } from '../data/templates';
 import { withTimeout } from '../utils/network';
 import { db } from '../db/database';
 
-interface RawImportItem {
+export interface RawImportItem {
   section?: string;
   description: string;
   legislation?: string;

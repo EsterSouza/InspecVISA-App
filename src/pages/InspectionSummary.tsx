@@ -11,7 +11,7 @@ import { calculateScore, calculateAreaScores, getLatestResponsesByItem } from '.
 import { isRioState } from '../utils/state';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { db } from '../db/database';
-import type { Inspection, InspectionResponse, ChecklistTemplate, ReferenceSource } from '../types';
+import type { Client, ConsultantSettings, Inspection, InspectionPhoto, InspectionResponse, ChecklistTemplate, ReferenceSource } from '../types';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { PageShell } from '../components/ui/PageShell';
@@ -63,7 +63,7 @@ export function InspectionSummary() {
   const [responses, setResponses] = useState<InspectionResponse[]>([]);
   const [template, setTemplate] = useState<ChecklistTemplate | null>(null);
   const [legislations, setLegislations] = useState<Legislation[]>([]);
-  const [allClients, setAllClients] = useState<any[]>([]);
+  const [allClients, setAllClients] = useState<Client[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [savingMeta, setSavingMeta] = useState(false);
   const [hideClientInfo, setHideClientInfo] = useState(false);
@@ -74,14 +74,14 @@ export function InspectionSummary() {
   const [previousVisit, setPreviousVisit] = useState<PreviousVisitScore | null>(null);
   const [recurringItemIds, setRecurringItemIds] = useState<Set<string>>(new Set());
 
-  const attachPhotosToResponses = (baseResponses: InspectionResponse[], photos: any[]) => {
+  const attachPhotosToResponses = (baseResponses: InspectionResponse[], photos: InspectionPhoto[]) => {
     return baseResponses.map(response => ({
       ...response,
       photos: photos.filter(photo => photo.responseId === response.id),
     }));
   };
 
-  const mergePhotosIntoResponses = useCallback((photos: any[]) => {
+  const mergePhotosIntoResponses = useCallback((photos: InspectionPhoto[]) => {
     if (photos.length === 0) return;
 
     setResponses(current => current.map(response => {
@@ -297,7 +297,7 @@ export function InspectionSummary() {
           clientCategory: client.category,
           city: client.city,
           state: client.state,
-        } as any);
+        });
       }
 
       setIsEditing(false);
@@ -442,7 +442,10 @@ export function InspectionSummary() {
          pdfResponses,
          displayTemplate,
          scoreArea,
-         settings as any,
+         // O `Settings` do store tem um papel a mais (`assistencia_social`) e `theme`
+         // opcional; o PDF le nome, registro, logo e empresa. Divergencia antiga entre os
+         // dois tipos, registrada aqui em vez de sumir dentro de um `any`.
+         settings as unknown as ConsultantSettings,
          legislations,
          {
            selectedLegislations: opts.selectedLegislations,

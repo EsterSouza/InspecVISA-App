@@ -48,6 +48,7 @@ import { Tabs, TabPanel, type TabItem } from '../components/ui/Tabs';
 import { EmptyState } from '../components/ui/EmptyState';
 import { useConfirmDialog } from '../components/ui/ConfirmDialog';
 import { toast } from '../store/useToastStore';
+import { rawErrorMessage } from '../utils/errors';
 
 const ComplianceTrendChart = lazy(() =>
   import('../components/client/ComplianceTrendChart').then(m => ({ default: m.ComplianceTrendChart }))
@@ -118,7 +119,7 @@ export function ClientDetails() {
         // Load all inspections for this client
         const rawInspections = filterByActiveTenant(await db.inspections.where('clientId').equals(id).toArray())
           .filter(i => !i.deletedAt);
-        const allInspIds = rawInspections.map((i: any) => i.id);
+        const allInspIds = rawInspections.map((i) => i.id);
         
         // Load all responses for these inspections at once
         const allResponses = allInspIds.length > 0
@@ -126,8 +127,8 @@ export function ClientDetails() {
           : [];
 
         const inspectionsWithScores = (await Promise.all(
-          rawInspections.map(async (insp: any) => {
-            const responses = allResponses.filter((r: any) => r.inspectionId === insp.id);
+          rawInspections.map(async (insp) => {
+            const responses = allResponses.filter((r) => r.inspectionId === insp.id);
             const template = await db.templates.get(insp.templateId); // Keep templates in Dexie
             const sections = template?.sections || [];
             const score = calculateScore(responses, sections);
@@ -223,9 +224,9 @@ export function ClientDetails() {
       await ClientService.saveClient(updatedClient);
       setClient({ ...updatedClient, syncStatus: 'synced' });
       setIsModalOpen(false);
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      toast.error(err.message || 'Erro ao atualizar cliente.');
+      toast.error(rawErrorMessage(err) || 'Erro ao atualizar cliente.');
     }
   };
 
@@ -339,8 +340,8 @@ export function ClientDetails() {
       });
       setNewAccessCode(code);
       await refreshPortalAccounts();
-    } catch (err: any) {
-      toast.error(err.message || 'Falha ao criar acesso do cliente.');
+    } catch (err) {
+      toast.error(rawErrorMessage(err) || 'Falha ao criar acesso do cliente.');
     } finally {
       setAccessBusy(false);
     }
@@ -354,8 +355,8 @@ export function ClientDetails() {
       await AppointmentAdminService.setPortalAccessCode(portalAccount.id, code);
       setNewAccessCode(code);
       await refreshPortalAccounts();
-    } catch (err: any) {
-      toast.error(err.message || 'Falha ao gerar nova senha.');
+    } catch (err) {
+      toast.error(rawErrorMessage(err) || 'Falha ao gerar nova senha.');
     } finally {
       setAccessBusy(false);
     }
@@ -373,8 +374,8 @@ export function ClientDetails() {
     try {
       await AppointmentAdminService.regeneratePortalToken(portalAccount.id);
       await refreshPortalAccounts();
-    } catch (err: any) {
-      toast.error(err.message || 'Falha ao gerar novo token.');
+    } catch (err) {
+      toast.error(rawErrorMessage(err) || 'Falha ao gerar novo token.');
     } finally {
       setAccessBusy(false);
     }
@@ -394,8 +395,8 @@ export function ClientDetails() {
         ...current,
         [asset.appointment_request_id]: (current[asset.appointment_request_id] || []).filter((item) => item.id !== asset.id),
       }));
-    } catch (err: any) {
-      toast.error(err.message || 'Falha ao remover o arquivo.');
+    } catch (err) {
+      toast.error(rawErrorMessage(err) || 'Falha ao remover o arquivo.');
     } finally {
       setRemovingAssetId(null);
     }
@@ -452,8 +453,8 @@ export function ClientDetails() {
       setVisitDate('');
       const requests = await AppointmentAdminService.listRequests();
       setClientRequests(requests.filter((request) => request.client_id === client.id));
-    } catch (err: any) {
-      toast.error(err.message || 'Falha ao criar nova visita.');
+    } catch (err) {
+      toast.error(rawErrorMessage(err) || 'Falha ao criar nova visita.');
     }
   };
 
@@ -474,9 +475,9 @@ export function ClientDetails() {
     try {
       await ClientService.deleteClient(client.id);
       navigate('/clients');
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      toast.error(err.message || 'Erro ao excluir cliente.');
+      toast.error(rawErrorMessage(err) || 'Erro ao excluir cliente.');
     }
   };
 
@@ -1272,7 +1273,7 @@ function RecurringNCItem({ nc }: { nc: PreviousNCContext }) {
   );
 }
 
-function Activity(props: any) {
+function Activity(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
       {...props}

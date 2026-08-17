@@ -25,6 +25,7 @@ import { ClientService } from '../services/clientService';
 import { AppointmentAdminService, type ClientPortalAccountRow } from '../services/appointmentAdminService';
 import { ClientPortalManagement } from '../components/clients/ClientPortalManagement';
 import { toast } from '../store/useToastStore';
+import { rawErrorMessage } from '../utils/errors';
 
 type ClientsTab = 'clientes' | 'portal';
 
@@ -78,9 +79,9 @@ export function Clients() {
       }
       setClients(list);
       setLoadError(null);
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      setLoadError(err?.message || 'Verifique sua conexão e tente novamente.');
+      setLoadError(rawErrorMessage(err) || 'Verifique sua conexão e tente novamente.');
       toast.error('Erro ao carregar clientes.', 'Verifique sua conexão.');
     } finally {
       setIsFetching(false);
@@ -137,9 +138,9 @@ export function Clients() {
       setEditingClient(null);
       reset();
       loadClients(); // Recarrega a lista do servidor
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      toast.error(err.message || 'Erro ao salvar cliente.');
+      toast.error(rawErrorMessage(err) || 'Erro ao salvar cliente.');
     } finally {
       setIsLoading(false);
     }
@@ -173,9 +174,9 @@ export function Clients() {
     try {
       await ClientService.deleteClient(client.id);
       loadClients(); // Recarrega a lista do servidor
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      toast.error(err.message || 'Erro ao excluir cliente.');
+      toast.error(rawErrorMessage(err) || 'Erro ao excluir cliente.');
     }
   };
 
@@ -275,7 +276,7 @@ export function Clients() {
         />
         <Select
           value={filterCat}
-          onChange={(e) => setFilterCat(e.target.value as any)}
+          onChange={(e) => setFilterCat(e.target.value as ClientCategory | 'all')}
           aria-label="Filtrar por categoria"
         >
           <option value="all">Todas Categorias</option>

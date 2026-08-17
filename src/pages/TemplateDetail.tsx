@@ -10,6 +10,7 @@ import { TemplateService } from '../services/templateService';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { PageShell } from '../components/ui/PageShell';
+import { rawErrorMessage } from '../utils/errors';
 
 interface TemplateItem {
   id: string;
@@ -88,14 +89,14 @@ export function TemplateDetail() {
           const tpl = await TemplateService.getFullTemplate(id);
           setTemplate({ ...tpl, isStatic: false });
           // Expand first section by default
-          const sections = (tpl as any).sections || [];
+          const sections = tpl.sections || [];
           if (sections.length > 0) {
             setExpandedSections(new Set([sections[0].id]));
           }
         }
-      } catch (err: any) {
+      } catch (err) {
         console.error('[TemplateDetail] load error:', err);
-        setError(err?.message || 'Erro ao carregar roteiro.');
+        setError(rawErrorMessage(err) || 'Erro ao carregar roteiro.');
       } finally {
         setLoading(false);
       }

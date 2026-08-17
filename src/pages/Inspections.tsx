@@ -21,6 +21,7 @@ import { ProfileModal } from '../components/profile/ProfileModal';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useConfirmDialog } from '../components/ui/ConfirmDialog';
 import { toast } from '../store/useToastStore';
+import { rawErrorMessage } from '../utils/errors';
 
 function attachClientData(list: Inspection[], clients: Client[]) {
   const clientMap = new Map<string, Client>(clients.map(client => [client.id, client]));
@@ -96,9 +97,9 @@ export function Inspections() {
       const deleted = attachClientData(await InspectionService.getDeletedInspections(), clients);
       setDeletedInspections(deleted);
       setLoadError(null);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error loading inspections:', err);
-      setLoadError(err?.message || 'Verifique sua conexão e tente novamente.');
+      setLoadError(rawErrorMessage(err) || 'Verifique sua conexão e tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -165,8 +166,8 @@ export function Inspections() {
       await InspectionService.restoreInspection(id);
       await loadInspections();
       toast.success('Inspeção restaurada.', 'Abra a inspeção e confira os dados antes de sincronizar.');
-    } catch (err: any) {
-      toast.error(err?.message || 'Erro ao restaurar inspeção.');
+    } catch (err) {
+      toast.error(rawErrorMessage(err) || 'Erro ao restaurar inspeção.');
     }
   };
 
@@ -182,8 +183,8 @@ export function Inspections() {
     try {
       await InspectionService.permanentlyDeleteInspection(id);
       await loadInspections();
-    } catch (err: any) {
-      toast.error(err?.message || 'Erro ao excluir definitivamente o relatório.');
+    } catch (err) {
+      toast.error(rawErrorMessage(err) || 'Erro ao excluir definitivamente o relatório.');
     }
   };
 
@@ -250,7 +251,7 @@ export function Inspections() {
         />
         <Select
           value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value as any)}
+          onChange={(e) => setFilterStatus(e.target.value as 'all' | 'in_progress' | 'completed')}
           aria-label="Filtrar por status"
         >
           <option value="all">Todos os Status</option>

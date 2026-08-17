@@ -104,11 +104,13 @@ export function ExecutionScorePanel({
           <p className="font-title text-[2.75rem] font-semibold leading-none tabular-nums" style={{ color: tinta }}>
             {pct}<span className="text-xl">%</span>
           </p>
-          <p className="mt-2">
+          {/* `<div>` e nao `<p>`: o Badge e um `<div>`, e o React avisava no console que
+              isso e HTML invalido (elemento de bloco dentro de paragrafo). */}
+          <div className="mt-2">
             <Badge variant="neutral" className={`uppercase ${classificationBadgeClasses(score.classification)}`}>
               {classificationLabel(score.classification)}
             </Badge>
-          </p>
+          </div>
 
           {previousVisit && (
             <>

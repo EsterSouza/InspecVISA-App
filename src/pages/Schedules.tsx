@@ -25,6 +25,7 @@ import { APPOINTMENT_TYPE_RULES } from '../utils/appointmentType';
 import { addDays, formatWeekPeriod, mondayOf } from '../utils/weekCalendarDates';
 import { useConfirmDialog } from '../components/ui/ConfirmDialog';
 import { toast } from '../store/useToastStore';
+import { errorMessage, rawErrorMessage } from '../utils/errors';
 
 type SchedulesTab = 'agenda' | 'solicitacoes';
 type AgendaView = 'semana' | 'lista';
@@ -144,9 +145,9 @@ export function Schedules() {
       setSchedules(revivedSchedules);
       setClients(cList);
       setLoadError(null);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error loading schedules:', err);
-      setLoadError(err?.message || 'Verifique sua conexão e tente novamente.');
+      setLoadError(rawErrorMessage(err) || 'Verifique sua conexão e tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -286,11 +287,11 @@ export function Schedules() {
         for (let i = 0; i < occurrences; i++) {
           try {
             await createScheduleOccurrence(i === 0 ? scheduledAt : addMonthsClamped(scheduledAt, i));
-          } catch (occurrenceErr: any) {
+          } catch (occurrenceErr) {
             throw new Error(
               occurrences > 1
-                ? `Falhou na visita ${i + 1} de ${occurrences} (as anteriores já foram criadas): ${occurrenceErr.message}`
-                : occurrenceErr.message
+                ? `Falhou na visita ${i + 1} de ${occurrences} (as anteriores já foram criadas): ${errorMessage(occurrenceErr)}`
+                : errorMessage(occurrenceErr)
             );
           }
         }
@@ -299,8 +300,8 @@ export function Schedules() {
       setIsModalOpen(false);
       resetForm();
       loadData();
-    } catch (err: any) {
-      toast.error('Erro ao salvar agendamento', err.message);
+    } catch (err) {
+      toast.error('Erro ao salvar agendamento', errorMessage(err));
     }
   };
 

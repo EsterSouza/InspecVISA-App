@@ -21,6 +21,7 @@ import { TableContainer, Table, TableHeader, TableBody, TableRow, TableHead, Tab
 import { usePagedList } from '../../components/schedules/appointmentRequestsShared';
 import { useConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { toast } from '../../store/useToastStore';
+import { rawErrorMessage } from '../../utils/errors';
 
 const SEGMENT_OPTIONS: { value: LegislationSegment; label: string }[] = [
   { value: 'ilpi', label: 'ILPI' },
@@ -151,9 +152,9 @@ export function LegislationsManager() {
       const data = await LegislationService.listLegislations();
       setLegislations(data);
       setLoadError(null);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to load legislations:', err);
-      setLoadError(err?.message || 'Verifique sua conexão e tente novamente.');
+      setLoadError(rawErrorMessage(err) || 'Verifique sua conexão e tente novamente.');
     } finally {
       setLoading(false);
     }

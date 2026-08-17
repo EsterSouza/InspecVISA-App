@@ -18,6 +18,8 @@ import { useConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { TemplateService } from '../../services/templateService';
 import { cn } from '../../lib/utils';
 import type { ClientCategory } from '../../types';
+import { rawErrorMessage } from '../../utils/errors';
+import type { RawImportItem } from '../../services/templateService';
 
 interface EditingItem {
   id: string; // temp id (não-uuid) para item novo, nunca salvo
@@ -92,20 +94,23 @@ export function TemplateEditor() {
       setCategory(tpl.category);
       setVersion(tpl.version || '1');
 
-      const loadedSections: EditingSection[] = tpl.sections.map((sec: any) => ({
+      const loadedSections: EditingSection[] = tpl.sections.map((sec) => ({
         id: sec.id,
         title: sec.title,
         order: sec.order,
-        items: (sec.items || []).map((it: any) => ({
+        items: (sec.items || []).map((it) => ({
           id: it.id,
           description: it.description,
           originalDescription: it.description,
-          legislation: it.legislation || it.legislation_name || '',
-          legislationUrl: it.legislationUrl || it.legislation_url || '',
+          // Os `|| it.legislation_name` e companhia sairam com a tipagem: `getFullTemplate`
+          // ja devolve `ChecklistTemplate`, sempre em camelCase — a grafia do banco nunca
+          // chegava aqui. Era codigo morto que so o `any` deixava parecer necessario.
+          legislation: it.legislation || '',
+          legislationUrl: it.legislationUrl || '',
           weight: it.weight || 1,
-          isCritical: it.isCritical || it.is_critical || false,
-          requirementType: it.requirementType || it.requirement_type || 'legal',
-          retiredAt: it.retiredAt || it.retired_at || null,
+          isCritical: it.isCritical || false,
+          requirementType: it.requirementType || 'legal',
+          retiredAt: it.retiredAt || null,
           order: it.order,
         })),
       }));
@@ -122,9 +127,9 @@ export function TemplateEditor() {
           .then(setOpenResponseCounts)
           .catch(err => console.warn('[TemplateEditor] Falha ao carregar respostas em andamento:', err));
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error loading template:', err);
-      setError(err.message || 'Erro ao carregar roteiro.');
+      setError(rawErrorMessage(err) || 'Erro ao carregar roteiro.');
     } finally {
       setIsLoading(false);
     }
@@ -179,7 +184,7 @@ export function TemplateEditor() {
       if (isEditing && id) {
         await TemplateService.updateFullTemplate(id, { name, category, version }, orderedSections);
       } else {
-        const rawItems: any[] = [];
+        const rawItems: RawImportItem[] = [];
         orderedSections.forEach(sec => {
           sec.items.forEach(it => {
             rawItems.push({
@@ -198,9 +203,9 @@ export function TemplateEditor() {
 
       await TemplateService.syncAllTemplatesToDexie();
       navigate('/templates');
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error saving template:', err);
-      setError(err.message || 'Erro ao salvar o roteiro.');
+      setError(rawErrorMessage(err) || 'Erro ao salvar o roteiro.');
     } finally {
       setIsSaving(false);
     }

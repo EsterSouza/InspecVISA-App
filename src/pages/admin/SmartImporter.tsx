@@ -146,7 +146,7 @@ export function SmartImporter() {
               />
             </Field>
             <Field label="Categoria">
-              <Select value={category} onChange={(e) => setCategory(e.target.value as any)}>
+              <Select value={category} onChange={(e) => setCategory(e.target.value as 'estetica' | 'ilpi' | 'alimentos')}>
                 <option value="estetica">Estética e Beleza</option>
                 <option value="ilpi">ILPI</option>
                 <option value="alimentos">Alimentos</option>

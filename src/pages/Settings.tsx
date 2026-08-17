@@ -22,6 +22,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { SettingsService } from '../services/settingsService';
 import { useConfirmDialog } from '../components/ui/ConfirmDialog';
 import { toast } from '../store/useToastStore';
+import { errorMessage, rawErrorMessage } from '../utils/errors';
 
 type Section = 'perfil' | 'agenda' | 'aparencia' | 'sistema' | 'risco';
 
@@ -105,10 +106,10 @@ export function Settings() {
       await SettingsService.save(settings, currentProfile);
       setProfileSaveStatus('saved');
       setTimeout(() => setProfileSaveStatus('idle'), 2000);
-    } catch (err: any) {
+    } catch (err) {
       console.error('[Settings] Falha ao salvar perfil remoto:', err);
       setProfileSaveStatus('idle');
-      toast.error(err?.message || 'Nao foi possivel salvar o perfil na nuvem.');
+      toast.error(rawErrorMessage(err) || 'Nao foi possivel salvar o perfil na nuvem.');
     }
   };
 
@@ -117,8 +118,8 @@ export function Settings() {
     try {
       const res = await forcePushFinalData();
       toast.success('Sincronização concluída.', `Sucesso: ${res.totalSynced} · Erros: ${res.errors}`);
-    } catch (e: any) {
-      toast.error('Erro ao sincronizar', e.message);
+    } catch (e) {
+      toast.error('Erro ao sincronizar', errorMessage(e));
     } finally {
       setSyncStatus('idle');
     }
