@@ -126,7 +126,7 @@ export function PdfPreviewModal({
     ctx.beginPath();
     ctx.moveTo(lastPos.current!.x, lastPos.current!.y);
     ctx.lineTo(pos.x, pos.y);
-    ctx.strokeStyle = '#1e1e2e';
+    ctx.strokeStyle = '#000000';
     ctx.lineWidth = 2.5;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';

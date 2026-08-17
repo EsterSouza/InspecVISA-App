@@ -648,8 +648,6 @@ export function InspectionSummary() {
     );
   }
 
-  // const scoreColor = scoreArea ? classificationColor(scoreArea.classification) : '#94a3b8';
-
   return (
     <div className="flex h-screen flex-col bg-surface-sunken pb-safe pb-16 lg:pb-0">
       {/* Header */}

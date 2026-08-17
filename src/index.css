@@ -32,11 +32,11 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #A8BBD3;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #7688A2;
 }
 
 /* Reduced motion: mantém o que a animação comunica (ex.: "carregando"), remove só o
