@@ -1,4 +1,59 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+
+/**
+ * Os tipos de requisição e resposta são declarados aqui, e não num módulo comum de `api/`:
+ * estes endpoints são autossuficientes de propósito (commit "Make sync worker endpoints self
+ * contained" — a Vercel tropeçava ao carregar módulo compartilhado). O projeto também não tem
+ * `@vercel/node`, então este é o recorte que o handler de fato usa.
+ */
+type RequisicaoHttp = {
+  method?: string;
+  headers: Record<string, string | string[] | undefined>;
+  query?: Record<string, string | string[] | undefined>;
+  body?: unknown;
+};
+
+type RespostaHttp = {
+  statusCode: number;
+  setHeader: (nome: string, valor: string) => void;
+  end: (corpo: string) => void;
+};
+
+/** Uma linha do Postgres como o app a enviou: a coluna que se confere, mais o resto. */
+type LinhaDoBundle = { tenant_id?: string; id?: string; [coluna: string]: unknown };
+
+/** O bundle que ficou guardado no job, como o app o enfileirou. */
+type CargaDoBundle = {
+  client?: LinhaDoBundle | null;
+  inspection?: LinhaDoBundle;
+  responses?: unknown;
+  photos?: unknown;
+  schedules?: unknown;
+  finalizeReport?: boolean;
+};
+
+/**
+ * Erro que já sabe com que código HTTP deve sair. Antes disso o campo era enxertado num
+ * `Error` via `as any`, e só o `err?.status` do handler lá embaixo revelava a intenção.
+ */
+class ErroHttp extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
+/** Mensagem de um erro qualquer — os do PostgREST não são `Error`, mas têm `.message`. */
+function mensagemDoErro(err: unknown): string | undefined {
+  if (err instanceof Error) return err.message || undefined;
+  if (err && typeof err === 'object' && 'message' in err) {
+    const message = (err as { message?: unknown }).message;
+    if (typeof message === 'string') return message || undefined;
+  }
+  return undefined;
+}
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
 const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
@@ -8,7 +63,7 @@ const WRITE_CHUNK_SIZE = 100;
 const PHOTO_UPLOAD_CONCURRENCY = 3;
 const PROCESSING_STALE_MS = 5 * 60 * 1000;
 
-function json(res: any, status: number, body: unknown) {
+function json(res: RespostaHttp, status: number, body: unknown) {
   res.statusCode = status;
   res.setHeader('Content-Type', 'application/json');
   res.end(JSON.stringify(body));
@@ -39,7 +94,7 @@ async function runLimited<T, R>(
   return results;
 }
 
-function bearerToken(req: any) {
+function bearerToken(req: RequisicaoHttp) {
   const header = req.headers.authorization || req.headers.Authorization || '';
   return typeof header === 'string' && header.startsWith('Bearer ')
     ? header.slice('Bearer '.length)
@@ -55,7 +110,7 @@ function dataUrlToUpload(dataUrl: string) {
   };
 }
 
-async function authenticate(req: any) {
+async function authenticate(req: RequisicaoHttp) {
   if (!supabaseUrl || !anonKey || !serviceRoleKey) {
     return { error: { status: 500, message: 'Supabase server environment variables are not configured.' } };
   }
@@ -76,7 +131,7 @@ async function authenticate(req: any) {
   return { user: data.user, admin };
 }
 
-async function assertTenantAccess(admin: any, tenantId: string, userId: string) {
+async function assertTenantAccess(admin: SupabaseClient, tenantId: string, userId: string) {
   const { data: membership, error } = await admin
     .from('tenant_users')
     .select('role')
@@ -90,13 +145,13 @@ async function assertTenantAccess(admin: any, tenantId: string, userId: string) 
   return { role: membership.role };
 }
 
-function isProcessingStale(job: any) {
+function isProcessingStale(job: { status?: string; locked_at?: string | null; updated_at?: string | null }) {
   if (job.status !== 'processing') return false;
   const base = job.locked_at || job.updated_at;
   return base ? Date.now() - new Date(base).getTime() > PROCESSING_STALE_MS : true;
 }
 
-async function processSyncJob(admin: any, jobId: string, userId: string) {
+async function processSyncJob(admin: SupabaseClient, jobId: string, userId: string) {
   const startedAt = new Date().toISOString();
   const { data: job, error: jobError } = await admin
     .from('sync_jobs')
@@ -109,9 +164,7 @@ async function processSyncJob(admin: any, jobId: string, userId: string) {
 
   const access = await assertTenantAccess(admin, job.tenant_id, userId);
   if (access.error) {
-    const err = new Error(access.error.message) as any;
-    err.status = access.error.status;
-    throw err;
+    throw new ErroHttp(access.error.message, access.error.status);
   }
 
   if (job.status === 'completed') {
@@ -149,12 +202,12 @@ async function processSyncJob(admin: any, jobId: string, userId: string) {
 
   if (lockError) throw lockError;
 
-  const payload = locked.payload || {};
+  const payload: CargaDoBundle = locked.payload || {};
   const client = payload.client || null;
   const inspection = payload.inspection;
-  const responses = Array.isArray(payload.responses) ? payload.responses : [];
-  const photos = Array.isArray(payload.photos) ? payload.photos : [];
-  const schedules = Array.isArray(payload.schedules) ? payload.schedules : [];
+  const responses: LinhaDoBundle[] = Array.isArray(payload.responses) ? payload.responses : [];
+  const photos: LinhaDoBundle[] = Array.isArray(payload.photos) ? payload.photos : [];
+  const schedules: LinhaDoBundle[] = Array.isArray(payload.schedules) ? payload.schedules : [];
   const tenantId = locked.tenant_id;
   const inspectionId = locked.inspection_id;
 
@@ -168,6 +221,11 @@ async function processSyncJob(admin: any, jobId: string, userId: string) {
         throw new Error(`Falha ao sincronizar cliente antes da inspecao: ${clientError.message}`);
       }
     }
+
+    // O endpoint que enfileira recusa payload sem `inspection` (400); aqui isso nunca foi
+    // conferido, e o `any` deixava `undefined` seguir para o upsert. Falha com mensagem, que
+    // o catch abaixo grava no job.
+    if (!inspection) throw new Error('Job de sincronizacao sem inspection no payload.');
 
     const { error: inspectionError } = await admin.from('inspections').upsert(inspection);
     if (inspectionError) throw inspectionError;
@@ -218,7 +276,7 @@ async function processSyncJob(admin: any, jobId: string, userId: string) {
     }
 
     for (const chunk of chunkArray(schedules, WRITE_CHUNK_SIZE)) {
-      const invalidSchedule = chunk.find((schedule: any) => schedule.tenant_id !== tenantId);
+      const invalidSchedule = chunk.find((schedule) => schedule.tenant_id !== tenantId);
       if (invalidSchedule) throw new Error('Agendamento com tenant_id divergente.');
       const { error } = await admin.from('schedules').upsert(chunk);
       if (error) throw error;
@@ -274,8 +332,8 @@ async function processSyncJob(admin: any, jobId: string, userId: string) {
       .eq('id', locked.id);
 
     return result;
-  } catch (err: any) {
-    const message = err?.message || 'Erro ao processar job de sincronizacao.';
+  } catch (err) {
+    const message = mensagemDoErro(err) || 'Erro ao processar job de sincronizacao.';
     const failedAt = new Date().toISOString();
     await admin
       .from('sync_jobs')
@@ -298,7 +356,7 @@ async function processSyncJob(admin: any, jobId: string, userId: string) {
   }
 }
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: RequisicaoHttp, res: RespostaHttp) {
   try {
     if (req.method !== 'POST') {
       res.setHeader('Allow', 'POST');
@@ -308,15 +366,17 @@ export default async function handler(req: any, res: any) {
     const auth = await authenticate(req);
     if (auth.error) return json(res, auth.error.status, { ok: false, error: auth.error.message });
 
-    const jobId = req.body?.jobId || req.query?.jobId;
-    if (!jobId) return json(res, 400, { ok: false, error: 'Missing jobId.' });
+    const corpo = req.body && typeof req.body === 'object' ? (req.body as { jobId?: unknown }) : {};
+    const jobIdBruto = corpo.jobId || req.query?.jobId;
+    const jobId = Array.isArray(jobIdBruto) ? jobIdBruto[0] : jobIdBruto;
+    if (typeof jobId !== 'string' || !jobId) return json(res, 400, { ok: false, error: 'Missing jobId.' });
 
     const result = await processSyncJob(auth.admin, jobId, auth.user.id);
     return json(res, result.ok === false ? 500 : 200, result);
-  } catch (err: any) {
-    return json(res, err?.status || 500, {
+  } catch (err) {
+    return json(res, err instanceof ErroHttp ? err.status : 500, {
       ok: false,
-      error: err?.message || 'Erro ao processar job de sincronizacao.',
+      error: mensagemDoErro(err) || 'Erro ao processar job de sincronizacao.',
       failedItems: [],
     });
   }

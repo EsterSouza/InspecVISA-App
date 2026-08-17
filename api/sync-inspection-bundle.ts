@@ -1,32 +1,74 @@
 import { createClient } from '@supabase/supabase-js';
 
+/**
+ * Os tipos de requisição e resposta são declarados aqui, e não num módulo comum de `api/`:
+ * estes endpoints são autossuficientes de propósito (commit "Make sync worker endpoints self
+ * contained" — a Vercel tropeçava ao carregar módulo compartilhado). O projeto também não tem
+ * `@vercel/node`, então este é o recorte que o handler de fato usa. O `req` é iterável porque
+ * `readBody` lê o corpo em pedaços quando a Vercel não o entrega pronto.
+ */
+type RequisicaoHttp = AsyncIterable<Uint8Array> & {
+  method?: string;
+  headers: Record<string, string | string[] | undefined>;
+  body?: unknown;
+};
+
+type RespostaHttp = {
+  statusCode: number;
+  setHeader: (nome: string, valor: string) => void;
+  end: (corpo: string) => void;
+};
+
+/** Uma linha do Postgres como o app a enviou: a coluna que se confere, mais o resto. */
+type LinhaDoBundle = { tenant_id?: string; id?: string; [coluna: string]: unknown };
+
+/** O bundle que o app manda: linhas cruas, não as entidades locais. */
+type CargaDoBundle = {
+  client?: LinhaDoBundle | null;
+  inspection?: LinhaDoBundle;
+  responses?: unknown;
+  photos?: unknown;
+  schedules?: unknown;
+  clientSyncId?: string;
+};
+
+/** Mensagem de um erro qualquer — os do PostgREST não são `Error`, mas têm `.message`. */
+function mensagemDoErro(err: unknown): string | undefined {
+  if (err instanceof Error) return err.message || undefined;
+  if (err && typeof err === 'object' && 'message' in err) {
+    const message = (err as { message?: unknown }).message;
+    if (typeof message === 'string') return message || undefined;
+  }
+  return undefined;
+}
+
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
 const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
-function json(res: any, status: number, body: unknown) {
+function json(res: RespostaHttp, status: number, body: unknown) {
   res.statusCode = status;
   res.setHeader('Content-Type', 'application/json');
   res.end(JSON.stringify(body));
 }
 
-function bearerToken(req: any) {
+function bearerToken(req: RequisicaoHttp) {
   const header = req.headers.authorization || req.headers.Authorization || '';
   return typeof header === 'string' && header.startsWith('Bearer ')
     ? header.slice('Bearer '.length)
     : '';
 }
 
-function tenantIdFromPayload(payload: any) {
+function tenantIdFromPayload(payload: CargaDoBundle) {
   return payload?.inspection?.tenant_id || payload?.inspection?.tenantId || null;
 }
 
-function inspectionIdFromPayload(payload: any) {
+function inspectionIdFromPayload(payload: CargaDoBundle) {
   return payload?.inspection?.id || null;
 }
 
-async function readBody(req: any) {
-  if (req.body && typeof req.body === 'object') return req.body;
+async function readBody(req: RequisicaoHttp): Promise<CargaDoBundle> {
+  if (req.body && typeof req.body === 'object') return req.body as CargaDoBundle;
   if (typeof req.body === 'string') return JSON.parse(req.body || '{}');
 
   const chunks = [];
@@ -35,7 +77,7 @@ async function readBody(req: any) {
   return raw ? JSON.parse(raw) : {};
 }
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: RequisicaoHttp, res: RespostaHttp) {
   try {
     if (req.method !== 'POST') {
       res.setHeader('Allow', 'POST');
@@ -70,9 +112,9 @@ export default async function handler(req: any, res: any) {
     const payload = await readBody(req);
     const client = payload.client || null;
     const inspection = payload.inspection;
-    const responses = Array.isArray(payload.responses) ? payload.responses : [];
-    const photos = Array.isArray(payload.photos) ? payload.photos : [];
-    const schedules = Array.isArray(payload.schedules) ? payload.schedules : [];
+    const responses: LinhaDoBundle[] = Array.isArray(payload.responses) ? payload.responses : [];
+    const photos: LinhaDoBundle[] = Array.isArray(payload.photos) ? payload.photos : [];
+    const schedules: LinhaDoBundle[] = Array.isArray(payload.schedules) ? payload.schedules : [];
     const tenantId = tenantIdFromPayload(payload);
     const inspectionId = inspectionIdFromPayload(payload);
     const serverUpdatedAt = new Date().toISOString();
@@ -100,17 +142,17 @@ export default async function handler(req: any, res: any) {
       return json(res, 400, { ok: false, error: 'Cliente com tenant_id divergente.' });
     }
 
-    const invalidResponse = responses.find((response: any) => response.tenant_id !== tenantId);
+    const invalidResponse = responses.find((response: LinhaDoBundle) => response.tenant_id !== tenantId);
     if (invalidResponse) {
       return json(res, 400, { ok: false, error: 'Resposta com tenant_id divergente.' });
     }
 
-    const invalidPhoto = photos.find((photo: any) => photo.tenant_id !== tenantId);
+    const invalidPhoto = photos.find((photo: LinhaDoBundle) => photo.tenant_id !== tenantId);
     if (invalidPhoto) {
       return json(res, 400, { ok: false, error: 'Foto com tenant_id divergente.' });
     }
 
-    const invalidSchedule = schedules.find((schedule: any) => schedule.tenant_id !== tenantId);
+    const invalidSchedule = schedules.find((schedule: LinhaDoBundle) => schedule.tenant_id !== tenantId);
     if (invalidSchedule) {
       return json(res, 400, { ok: false, error: 'Agendamento com tenant_id divergente.' });
     }
@@ -180,10 +222,10 @@ export default async function handler(req: any, res: any) {
       serverUpdatedAt: job.updated_at,
       failedItems: [],
     });
-  } catch (err: any) {
+  } catch (err) {
     return json(res, 500, {
       ok: false,
-      error: err?.message || 'Erro inesperado ao enfileirar sincronizacao.',
+      error: mensagemDoErro(err) || 'Erro inesperado ao enfileirar sincronizacao.',
     });
   }
 }

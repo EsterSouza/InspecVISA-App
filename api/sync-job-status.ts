@@ -1,23 +1,51 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+
+/**
+ * Os tipos de requisição e resposta são declarados aqui, e não num módulo comum de `api/`:
+ * estes endpoints são autossuficientes de propósito (commit "Make sync worker endpoints self
+ * contained" — a Vercel tropeçava ao carregar módulo compartilhado). O projeto também não tem
+ * `@vercel/node`, então este é o recorte que o handler de fato usa.
+ */
+type RequisicaoHttp = {
+  method?: string;
+  headers: Record<string, string | string[] | undefined>;
+  query?: Record<string, string | string[] | undefined>;
+};
+
+type RespostaHttp = {
+  statusCode: number;
+  setHeader: (nome: string, valor: string) => void;
+  end: (corpo: string) => void;
+};
+
+/** Mensagem de um erro qualquer — os do PostgREST não são `Error`, mas têm `.message`. */
+function mensagemDoErro(err: unknown): string | undefined {
+  if (err instanceof Error) return err.message || undefined;
+  if (err && typeof err === 'object' && 'message' in err) {
+    const message = (err as { message?: unknown }).message;
+    if (typeof message === 'string') return message || undefined;
+  }
+  return undefined;
+}
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
 const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
-function json(res: any, status: number, body: unknown) {
+function json(res: RespostaHttp, status: number, body: unknown) {
   res.statusCode = status;
   res.setHeader('Content-Type', 'application/json');
   res.end(JSON.stringify(body));
 }
 
-function bearerToken(req: any) {
+function bearerToken(req: RequisicaoHttp) {
   const header = req.headers.authorization || req.headers.Authorization || '';
   return typeof header === 'string' && header.startsWith('Bearer ')
     ? header.slice('Bearer '.length)
     : '';
 }
 
-async function authenticate(req: any) {
+async function authenticate(req: RequisicaoHttp) {
   if (!supabaseUrl || !anonKey || !serviceRoleKey) {
     return { error: { status: 500, message: 'Supabase server environment variables are not configured.' } };
   }
@@ -38,7 +66,7 @@ async function authenticate(req: any) {
   return { user: data.user, admin };
 }
 
-async function assertTenantAccess(admin: any, tenantId: string, userId: string) {
+async function assertTenantAccess(admin: SupabaseClient, tenantId: string, userId: string) {
   const { data: membership, error } = await admin
     .from('tenant_users')
     .select('role')
@@ -52,7 +80,7 @@ async function assertTenantAccess(admin: any, tenantId: string, userId: string) 
   return { role: membership.role };
 }
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: RequisicaoHttp, res: RespostaHttp) {
   try {
     if (req.method !== 'GET') {
       res.setHeader('Allow', 'GET');
@@ -62,7 +90,8 @@ export default async function handler(req: any, res: any) {
     const auth = await authenticate(req);
     if (auth.error) return json(res, auth.error.status, { ok: false, error: auth.error.message });
 
-    const jobId = req.query?.jobId;
+    const jobIdBruto = req.query?.jobId;
+    const jobId = Array.isArray(jobIdBruto) ? jobIdBruto[0] : jobIdBruto;
     if (!jobId) return json(res, 400, { ok: false, error: 'Missing jobId.' });
 
     const { data: job, error } = await auth.admin
@@ -89,7 +118,7 @@ export default async function handler(req: any, res: any) {
       processedAt: job.processed_at,
       failedItems: job.result?.failedItems || [],
     });
-  } catch (err: any) {
-    return json(res, 500, { ok: false, error: err?.message || 'Erro inesperado ao consultar job.' });
+  } catch (err) {
+    return json(res, 500, { ok: false, error: mensagemDoErro(err) || 'Erro inesperado ao consultar job.' });
   }
 }

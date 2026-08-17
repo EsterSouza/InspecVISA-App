@@ -1,7 +1,6 @@
 {
-  "total": 180,
+  "total": 139,
   "areas": {
-    "api": 41,
     "scripts": 106,
     "src/__tests__": 12,
     "src/components": 10,
