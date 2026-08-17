@@ -63,23 +63,7 @@ Deno.serve(async (req) => {
       if (accountError) throw accountError;
       if (!accountRow) return jsonResponse({ error: 'acesso invalido' }, { status: 403 });
       account = accountRow;
-
-      // PORT-01: inadimplência NÃO bloqueia o que já foi entregue. Antes, `scheduling_suspended`
-      // impedia a assinatura da URL de todos os anexos — o cliente via o relatório na lista e
-      // não conseguia abrir. Agora suspensão vale só para agendar, e esconder entrega é decisão
-      // explícita por conta, resolvida em client_portal_feature_gates.
-      const { data: gates, error: gatesError } = await admin.rpc('client_portal_feature_gates', {
-        p_token: accountToken,
-      });
-      if (gatesError) throw gatesError;
-      if (gates?.error) return jsonResponse({ error: 'acesso invalido' }, { status: 403 });
-
-      features = gates?.features || {};
-      schedulingSuspended = gates?.scheduling_suspended === true;
     }
-
-    const reportsReleased = features.reports !== false;
-    const photosReleased = features.photos !== false;
 
     const { data: requestRow, error: requestError } = await admin
       .from('appointment_requests')
@@ -97,11 +81,36 @@ Deno.serve(async (req) => {
         .eq('client_id', requestRow.client_id)
         .maybeSingle();
       if (linkError) throw linkError;
-      if (!link) return jsonResponse({ error: 'solicitacao fora do acesso do cliente' }, { status: 403 });
+      // Conta válida, mas de OUTRO cliente (achado real: gestora logada na conta de uma unidade
+      // abre o link público de outra e cai em "acesso restrito"). Uma conta que não bate com esta
+      // visita não pode deixar o link MENOS aberto do que estaria sem conta nenhuma — cai para o
+      // mesmo modo do link anônimo, com a mesma trava de `report_hidden`.
+      if (!link) {
+        account = null;
+        if (requestRow.report_hidden) return jsonResponse({ error: 'relatorio indisponivel' }, { status: 403 });
+      }
     } else if (requestRow.report_hidden) {
       // No modo link, ocultar o relatório fecha a porta inteira — não sobra nem a lista.
       return jsonResponse({ error: 'relatorio indisponivel' }, { status: 403 });
     }
+
+    if (account) {
+      // PORT-01: inadimplência NÃO bloqueia o que já foi entregue. Antes, `scheduling_suspended`
+      // impedia a assinatura da URL de todos os anexos — o cliente via o relatório na lista e
+      // não conseguia abrir. Agora suspensão vale só para agendar, e esconder entrega é decisão
+      // explícita por conta, resolvida em client_portal_feature_gates.
+      const { data: gates, error: gatesError } = await admin.rpc('client_portal_feature_gates', {
+        p_token: accountToken,
+      });
+      if (gatesError) throw gatesError;
+      if (gates?.error) return jsonResponse({ error: 'acesso invalido' }, { status: 403 });
+
+      features = gates?.features || {};
+      schedulingSuspended = gates?.scheduling_suspended === true;
+    }
+
+    const reportsReleased = features.reports !== false;
+    const photosReleased = features.photos !== false;
 
     const { data: clientRow, error: clientError } = await admin
       .from('clients')
