@@ -22,7 +22,7 @@ import type { ClientActionItemPayload } from '../utils/clientActionPlan';
 import { getActiveTenantId } from '../utils/localScope';
 import { getLocalActor } from '../utils/localActor';
 import { assertInspectionAppointment, normalizeAppointmentType, type AppointmentType } from '../utils/appointmentType';
-import { toDateKey } from '../utils/clientPortalFormat';
+import { toDateKey } from '../utils/date';
 
 const PORTAL_BUCKET = 'client-portal-files';
 const INSPECTION_PHOTO_BUCKET = 'inspection-photos';

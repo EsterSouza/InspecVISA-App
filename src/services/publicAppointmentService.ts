@@ -6,7 +6,7 @@ import type {
 } from '../types';
 import { formatAppointmentLeadTimeMessage, isAppointmentAtLeast24hAhead } from '../utils/appointmentLeadTime';
 import { isAllowedAppointmentDuration } from '../utils/appointmentType';
-import { toDateKey } from '../utils/clientPortalFormat';
+import { toDateKey } from '../utils/date';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

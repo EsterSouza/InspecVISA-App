@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { CalendarCheck, CalendarClock, CalendarDays, CalendarOff, FileText, FolderOpen, Image, Paperclip, Video } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { ClientPortalUnit, ClientPortalVisit } from '../../services/clientPortalService';
-import { formatDateBR, parseDateParts, toDateKey } from '../../utils/clientPortalFormat';
+import { formatDateBR, parseDateParts } from '../../utils/clientPortalFormat';
+import { toDateKey } from '../../utils/date';
 import { WeekCalendar, type WeekCalendarEvent, type WeekCalendarEventState, type WeekCalendarWeek } from '../ui/WeekCalendar';
 import { addDays, formatWeekPeriod, mondayOf } from '../../utils/weekCalendarDates';
 

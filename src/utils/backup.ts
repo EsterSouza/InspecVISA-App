@@ -1,5 +1,5 @@
 import { db } from '../db/database';
-import { toDateKey } from './clientPortalFormat';
+import { toDateKey } from './date';
 
 const PRE_BUNDLE_BACKUP_FLAG = 'inspecvisa-pre-bundle-backup-created';
 const DATE_FIELDS = [

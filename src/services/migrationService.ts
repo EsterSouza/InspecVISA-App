@@ -1,6 +1,6 @@
 import { db } from '../db/database';
 import { generateId } from '../utils/imageUtils';
-import { toDateKey } from '../utils/clientPortalFormat';
+import { toDateKey } from '../utils/date';
 
 export interface LegacyBackup {
   source: string;

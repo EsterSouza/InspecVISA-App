@@ -24,7 +24,8 @@ import {
   type ClientPortalOverview,
   type ClientPortalServiceRequest,
 } from '../services/clientPortalService';
-import { paymentLinks, toDateKey } from '../utils/clientPortalFormat';
+import { paymentLinks } from '../utils/clientPortalFormat';
+import { toDateKey } from '../utils/date';
 
 const ACTIVE_VISIT_STATUSES = new Set(['requested', 'confirmed', 'in_progress', 'rescheduled', 'completed']);
 

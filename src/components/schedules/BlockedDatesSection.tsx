@@ -5,7 +5,7 @@ import { Button } from '../ui/Button';
 import { Card, CardContent } from '../ui/Card';
 import { SCHEDULE_CONSULTANTS, TEXT_INPUT, errorMessage, formatDateBR } from './appointmentRequestsShared';
 import { toast } from '../../store/useToastStore';
-import { toDateInputValue } from '../../utils/appointmentLeadTime';
+import { toDateKey } from '../../utils/date';
 
 interface BlockedDatesSectionProps {
   blockedDates: BlockedDateRow[];
@@ -70,7 +70,7 @@ export function BlockedDatesSection({ blockedDates, onChanged }: BlockedDatesSec
                 type="date"
                 required
                 value={day}
-                min={toDateInputValue(new Date())}
+                min={toDateKey(new Date())}
                 onChange={(e) => setDay(e.target.value)}
                 className="rounded-xl border border-gray-300 p-2.5 text-sm"
               />

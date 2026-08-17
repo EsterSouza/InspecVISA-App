@@ -24,6 +24,7 @@ import { clientPortalService, type ClientPortalUnit } from '../services/clientPo
 import { PublicHeader } from '../components/public/PublicHeader';
 import { formatProtocol } from '../utils/protocol';
 import { isAppointmentAtLeast24hAhead } from '../utils/appointmentLeadTime';
+import { toDateKey } from '../utils/date';
 import { isInspectionAppointment, APPOINTMENT_TYPE_RULES } from '../utils/appointmentType';
 import {
   appointmentTypeOptionsFor,
@@ -82,10 +83,6 @@ function clearDraft(): void {
 function parseLocalDate(value: string): Date {
   const [year, month, day] = value.split('-').map(Number);
   return new Date(year, month - 1, day);
-}
-
-function toDateKey(date: Date): string {
-  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
 }
 
 function monthKey(value: string): string {

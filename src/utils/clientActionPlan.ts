@@ -1,5 +1,5 @@
 import type { ChecklistItem, InspectionResponse } from '../types';
-import { toDateKey } from './clientPortalFormat';
+import { toDateKey } from './date';
 
 /**
  * P360-010 — projeção do plano de ação para o portal do cliente.

@@ -14,7 +14,7 @@ import { ClientService } from '../services/clientService';
 import { getLocalActor } from '../utils/localActor';
 import { AppointmentRequestsPanel } from '../components/schedules/AppointmentRequestsPanel';
 import { AppointmentAdminService } from '../services/appointmentAdminService';
-import { toDateInputValue } from '../utils/appointmentLeadTime';
+import { toDateKey } from '../utils/date';
 import { WeekCalendar, type WeekCalendarEvent, type WeekCalendarEventState, type WeekCalendarWeek } from '../components/ui/WeekCalendar';
 import { APPOINTMENT_TYPE_RULES } from '../utils/appointmentType';
 import { addDays, formatWeekPeriod, mondayOf } from '../utils/weekCalendarDates';
@@ -32,13 +32,6 @@ const CONSULTANTS = ['Ester Caiafa', 'Ana Roberta Ribeiro'];
 function defaultConsultants(): string[] {
   const me = getLocalActor().name;
   return CONSULTANTS.includes(me) ? [me] : [];
-}
-
-function dateKey(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
 }
 
 /**
@@ -252,7 +245,7 @@ export function Schedules() {
         // o que o fluxo manual já fazia. Repetição mensal só chama isto várias vezes,
         // uma data por vez, cada ocorrência independente (editável/cancelável à parte).
         const createScheduleOccurrence = async (occurrenceAt: Date) => {
-          const occurrenceDate = toDateInputValue(occurrenceAt);
+          const occurrenceDate = toDateKey(occurrenceAt);
           const newSchedule: Schedule = {
             id: generateId(),
             clientId: selectedClientId,
@@ -310,7 +303,7 @@ export function Schedules() {
     // Data e hora no mesmo fuso: com toISOString() a data vinha em UTC enquanto
     // toTimeString() já dava a hora local, então editar um agendamento das 21h
     // abria o formulário com o dia seguinte.
-    const date = toDateInputValue(schedule.scheduledAt);
+    const date = toDateKey(schedule.scheduledAt);
     const time = schedule.scheduledAt.toTimeString().split(' ')[0].substring(0, 5);
     
     setSelectedClientId(schedule.clientId ?? '');
@@ -377,12 +370,12 @@ export function Schedules() {
     if (!focusScheduleId || schedules.length === 0) return;
     document.getElementById(`schedule-${focusScheduleId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [focusScheduleId, schedules]);
-  const todayKey = dateKey(new Date());
+  const todayKey = toDateKey(new Date());
 
   const weekDays = Array.from({ length: 5 }, (_, i) => addDays(weekStart, i));
   const weekEvents: WeekCalendarEvent[] = schedules
     .map((schedule) => {
-      const dayIndex = weekDays.findIndex((d) => dateKey(d) === dateKey(schedule.scheduledAt));
+      const dayIndex = weekDays.findIndex((d) => toDateKey(d) === toDateKey(schedule.scheduledAt));
       if (dayIndex === -1) return null;
       const typeLabel = schedule.appointmentType ? APPOINTMENT_TYPE_RULES[schedule.appointmentType].label : undefined;
       const time = schedule.scheduledAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -404,7 +397,7 @@ export function Schedules() {
     days: weekDays.map((d, i) => ({
       label: WEEKDAY_LABELS[i],
       dayNumber: d.getDate(),
-      isToday: dateKey(d) === todayKey,
+      isToday: toDateKey(d) === todayKey,
     })),
     events: weekEvents,
   };

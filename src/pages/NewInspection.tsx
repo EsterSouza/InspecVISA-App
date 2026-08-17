@@ -21,7 +21,7 @@ import { ProfileModal } from '../components/profile/ProfileModal';
 import { ScheduleService } from '../services/scheduleService';
 import type { Schedule } from '../types';
 import { isInspectionAppointment } from '../utils/appointmentType';
-import { toDateKey } from '../utils/clientPortalFormat';
+import { toDateKey } from '../utils/date';
 import { useConfirmDialog } from '../components/ui/ConfirmDialog';
 import { toast } from '../store/useToastStore';
 
