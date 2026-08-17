@@ -1,0 +1,18 @@
+{
+  "total": 482,
+  "areas": {
+    "api": 41,
+    "scripts": 106,
+    "src/__tests__": 12,
+    "src/components": 10,
+    "src/data": 28,
+    "src/lib": 1,
+    "src/pages": 112,
+    "src/services": 119,
+    "src/store": 7,
+    "src/types": 19,
+    "src/utils": 24,
+    "supabase/functions": 2,
+    "vite.config.ts": 1
+  }
+}

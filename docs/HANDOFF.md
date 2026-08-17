@@ -378,7 +378,7 @@ citavam a numeração do *roteiro anexo* ao 45.585 (5.5.9, 6.4.1, 7.1…), que �
 | **P360-014** | Acessibilidade e responsividade | Sonnet 5 | médio | superfícies estáveis | ✅ **concluído 08/08/2026** · sem migration, frontend puro |
 | **P360-015** | E2E, rollout e prova de produção | Opus 5 | alto | onda a publicar | ✅ **concluído 08/08/2026** · sem migration; CI, Playwright, smoke e tenant de homologação criados em produção |
 | **DEBT-01** | Margem pública de 4 h por tipo | Sonnet 5 | médio | — | ✅ **concluído 04/08** |
-| **DEBT-02** | Dívida de lint | Sonnet 5 | médio | — | ⬜ pendente |
+| **DEBT-02** | Dívida de lint | Sonnet 5 | médio | — | 🟡 **em andamento 17/08/2026** · 531 → 482; fatia 0 (tudo que não é `no-explicit-any`) zerada e teto por área cobrado no CI |
 | **PORT-04** | Tutorial do portal por conta do cliente | Opus 5 | baixo | — | ✅ **concluído 08/08/2026** · aplicado em produção (1 migration); o campo do tenant vira padrão |
 | **SEC-01** | Endurecer o que a revisão do P360-015 encontrou | Opus 5 | médio | P360-015 (concluído) | ✅ **concluído 08/08/2026** · aplicado em produção (2 migrations), autorizado pela Ester; 50 execuções E2E depois do revoke |
 | **DEBT-03** | Pontas soltas do repositório | Haiku 4.5 | baixo | — | ✅ **concluído 05/08** |
@@ -3449,7 +3449,7 @@ bloqueado —, e não por chamada; a assinatura atual só conhece a margem de qu
 
 ---
 
-## DEBT-02 — Dívida de lint
+## DEBT-02 — Dívida de lint 🟡 em andamento desde 17/08/2026
 
 **Modelo:** Sonnet 5 · **Esforço:** médio · **Prioridade:** baixa, mas bloqueia lint no CI
 
@@ -3463,6 +3463,50 @@ bloqueado —, e não por chamada; a assinatura atual só conhece a margem de qu
    Supabase. Um PR por fatia, sem misturar com mudança de comportamento.
 3. Ligar o lint no CI só quando a fatia estiver zerada; até lá, um `--max-warnings` por diretório
    evita regressão.
+
+### Andamento — 17/08/2026
+
+Recontagem real no início: **531** problemas (521 erros, 10 avisos), não 425 — e **504** deles
+eram `no-explicit-any`. Depois de duas fatias: **482**.
+
+**Fatia 0 — tudo que não é `no-explicit-any`, zerada** (`3a3440c`). Eram 27, e três eram defeito
+de verdade: `Checkbox`/`Radio` passavam a `ref` para uma função durante o render
+(`react-hooks/refs`); `InspectionExecution` recriava `visibleSections` a cada render
+(`template?.sections || []`), desestabilizando **sete** hooks abaixo; e o `SyncCenter` tinha
+`isLoading` escrito e nunca lido desde o FE-18. `useConfirmDialog` passou a devolver um `confirm`
+estável (`useCallback`), o que permitiu fechar as duas dependências que faltavam em
+`InspectionExecution` e beneficia os outros 18 arquivos que usam o hook. O que sobrou virou
+configuração **com o porquê escrito no arquivo**: `_algo` vale como descarte deliberado;
+`react-refresh/only-export-components` desligado nos três arquivos que co-locam hook e componente
+de propósito (separar mexeria em 41 arquivos de importação); e `no-control-regex` mais três
+`set-state-in-effect` com `eslint-disable` justificado na linha — são busca de dados em efeito e
+reset deliberado, e a regra pede biblioteca de query, que o projeto não tem.
+
+**Fatia 1 — `src/services`, começada** (`5c24059`): 141 → 119. Como não há tipos gerados do
+Supabase, o contrato de cada tabela passa a morar ao lado do mapeador (`ClientRow`,
+`ScheduleRow`, `PortalAccountQueryRow`, `RpcBundlePayload`…). Dois achados que o `any` escondia:
+`Schedule.inspectionId` era declarado `string | undefined` mas o mapeador sempre gravou o `null`
+cru da coluna nullable; e as duas chamadas de sessão do supabase-js devolvem formatos diferentes.
+`errorMessage` tinha **duas** cópias em componentes, a do portal mais fraca (só `instanceof
+Error`), que engolia a mensagem dos erros do PostgREST — que não são instâncias de `Error`. Virou
+`src/utils/errors.ts`; o portal passa a mostrar o motivo real onde antes dizia só "operação
+falhou.".
+
+**O CI já cobra o teto** (passo 3, feito antes do resto): `npm run lint:teto`
+(`scripts/lint-teto.mjs` + `scripts/lint-teto.json`) roda no job `js` e falha se **qualquer área
+piorar** — não exige zero, exige não regredir. `--max-warnings` não servia: estes são erros, não
+avisos. Ao fechar uma fatia, `node scripts/lint-teto.mjs --gravar` baixa o teto. Quando tudo
+chegar a zero, o script sai e o CI passa a rodar `npm run lint`.
+
+**O que falta, por área** (o teto de hoje): `src/services` 119 · `src/pages` 112 · `scripts` 106 ·
+`api` 41 · `src/data` 28 · `src/utils` 24 · `src/types` 19 · `src/__tests__` 12 ·
+`src/components` 10 · `src/store` 7 · `supabase/functions` 2 · `src/lib` 1 · `vite.config.ts` 1.
+
+**Nota sobre `scripts/` (106):** são scripts de manutenção de dado, rodados uma vez com `npx tsx`.
+Tipar linha de banco ali tem valor bem menor que em `src/` — é a última fatia, não a próxima.
+**E sobre `migrationService.ts` (13):** lê um JSON de backup antigo, de forma genuinamente
+dinâmica; trocar por `Record<string, unknown>` exige reescrever ~30 leituras de campo com
+narrowing. Fica para depois de `src/pages`, e com teste antes.
 
 ---
 

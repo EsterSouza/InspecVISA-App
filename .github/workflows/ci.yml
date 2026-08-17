@@ -33,6 +33,10 @@ jobs:
         run: npm run build
       - name: Testes
         run: npm test
+      # DEBT-02: o `npm run lint` ainda falha (centenas de `no-explicit-any` sendo zerados
+      # por fatia). Ate la o CI cobra o teto por area: nao exige zero, exige nao piorar.
+      - name: Lint (teto por area)
+        run: npm run lint:teto
       - name: Guardar o build
         uses: actions/upload-artifact@v4
         with:
