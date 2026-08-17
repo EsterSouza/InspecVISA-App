@@ -19,6 +19,37 @@ export interface ClientActionItemPayload {
 }
 
 /**
+ * Decisão 33 do FE-23: **prazo é só a lista**, e "sem prazo" é escolha com nome,
+ * não ausência silenciosa. `Sem prazo definido` produz o mesmo `null` de
+ * `deadlineToDays` que "assim que possível" produzia — a diferença é que agora
+ * é deliberado, e ganha selo próprio no relatório e no portal.
+ */
+export const NO_DEADLINE = 'Sem prazo definido';
+
+export const DEADLINE_OPTIONS = [
+  'Imediato',
+  '24 horas',
+  '7 dias',
+  '15 dias',
+  '30 dias',
+  '45 dias',
+  '60 dias',
+  '90 dias',
+  NO_DEADLINE,
+] as const;
+
+/** O responsável é o **setor**, nunca a consultora. */
+export const RESPONSIBLE_OPTIONS = [
+  'Responsável Técnico (RT)',
+  'Gerência / Administração',
+  'Equipe de Manutenção',
+  'Equipe de Limpeza / Higiene',
+  'Manipulador / Funcionário',
+  'Proprietário',
+  'Empresa Terceirizada',
+] as const;
+
+/**
  * O prazo é texto livre com sugestões (`Imediato`, `24 horas`, `30 dias`...). Converte para
  * dias corridos a partir da visita; devolve null quando a consultora escreveu algo que não dá
  * para datar, e aí o item vai ao portal sem prazo em vez de ganhar um prazo inventado.

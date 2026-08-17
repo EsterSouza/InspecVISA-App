@@ -1394,7 +1394,7 @@ export function InspectionExecution() {
                   {visibleItems.map((item: any) => {
                     const resp = responses.find(r => r.itemId === item.id);
                     return (
-                      <div key={item.id} id={`item-${item.id}`} className="scroll-mt-44">
+                      <div key={item.id}>
                         <ChecklistItem
                           item={item}
                           response={resp}

@@ -1,7 +1,11 @@
 import React, { useState, useEffect, memo } from 'react';
-import { AlertTriangle, ExternalLink, LogIn, FileCheck2, MessageSquare, Pencil, Trash2 } from 'lucide-react';
+import { AlertTriangle, Check, ChevronDown, ExternalLink, FileCheck2, MessageSquare, Pencil, Trash2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Badge } from '../ui/Badge';
+import { Label } from '../ui/Label';
+import { Select } from '../ui/Select';
+import { Textarea } from '../ui/Textarea';
+import { DEADLINE_OPTIONS, RESPONSIBLE_OPTIONS } from '../../utils/clientActionPlan';
 import { PhotoCapture } from './PhotoCapture';
 import { LinkCapture } from './LinkCapture';
 import type { ChecklistItem as ItemType, InspectionResponse, InspectionPhoto } from '../../types';
@@ -184,9 +188,7 @@ export const ChecklistItem = memo(function ChecklistItem({
   // Local buffers — prevent global re-render on every keystroke
   const [localSituation, setLocalSituation] = useState(response?.situationDescription || '');
   const [localAction, setLocalAction] = useState(response?.correctiveAction || '');
-  const [localResponsible, setLocalResponsible] = useState(response?.responsible || '');
-  const [localDeadline, setLocalDeadline] = useState(response?.deadline || '');
-  
+
   const [isFocused, setIsFocused] = useState<string | null>(null);
 
   // Sugestões do próprio histórico deste item: busca preguiçosa, só quando a
@@ -206,8 +208,9 @@ export const ChecklistItem = memo(function ChecklistItem({
   // remote updates visible without synchronously copying props into state.
   const situationValue = isFocused === 'situation' ? localSituation : (response?.situationDescription || '');
   const actionValue = isFocused === 'action' ? localAction : (response?.correctiveAction || '');
-  const responsibleValue = isFocused === 'responsible' ? localResponsible : (response?.responsible || '');
-  const deadlineValue = isFocused === 'deadline' ? localDeadline : (response?.deadline || '');
+  // Responsável e prazo são `Select`: gravam no `onChange`, sem buffer local.
+  const responsibleValue = response?.responsible || '';
+  const deadlineValue = response?.deadline || '';
 
   // ─── AUTO-SAVE WHILE TYPING (1.5s debounce) ───────────────────────────────
   // This guarantees data is saved even if the user never leaves the field.
@@ -224,20 +227,6 @@ export const ChecklistItem = memo(function ChecklistItem({
     const t = setTimeout(() => onUpdateDetails(item.id, { correctiveAction: localAction }), 1500);
     return () => clearTimeout(t);
   }, [isFocused, localAction, response?.correctiveAction, onUpdateDetails, item.id]);
-
-  useEffect(() => {
-    if (isFocused !== 'responsible') return;
-    if (localResponsible === (response?.responsible || '')) return;
-    const t = setTimeout(() => onUpdateDetails(item.id, { responsible: localResponsible }), 1500);
-    return () => clearTimeout(t);
-  }, [isFocused, localResponsible, response?.responsible, onUpdateDetails, item.id]);
-
-  useEffect(() => {
-    if (isFocused !== 'deadline') return;
-    if (localDeadline === (response?.deadline || '')) return;
-    const t = setTimeout(() => onUpdateDetails(item.id, { deadline: localDeadline }), 1500);
-    return () => clearTimeout(t);
-  }, [isFocused, localDeadline, response?.deadline, onUpdateDetails, item.id]);
 
   // onBlur: save immediately (catches fast navigation)
   const handleBlur = (field: keyof InspectionResponse, value: string) => {
@@ -273,48 +262,52 @@ export const ChecklistItem = memo(function ChecklistItem({
       details.correctiveAction = previousNC.correctiveAction;
     }
     if (!responsibleValue.trim() && previousNC.responsible) {
-      setLocalResponsible(previousNC.responsible);
       details.responsible = previousNC.responsible;
     }
     if (!deadlineValue.trim() && previousNC.deadline) {
-      setLocalDeadline(previousNC.deadline);
       details.deadline = previousNC.deadline;
     }
     if (Object.keys(details).length > 0) onUpdateDetails(item.id, details);
     setShowObs(true);
   };
 
+  // Estado em três canais: a cor, a FORMA do traço da esquerda (contínuo para
+  // resolvido, tracejado para pendente) e a palavra escrita nos selos.
   const getBorderColor = () => {
-    if (!isSelected) return 'border-l-4 border-l-yellow-400 border-gray-200';
-    if (response.result === 'complies') return 'border-l-4 border-l-green-500 border-green-200 bg-green-50/30';
-    if (isNotCompliant) return 'border-l-4 border-l-red-500 border-red-200 bg-red-50/30';
-    return 'border-l-4 border-l-gray-400 border-gray-200 bg-gray-50';
+    if (!isSelected) return 'border-l-4 border-dashed border-l-amber border-gray-200';
+    if (response.result === 'complies') return 'border-l-4 border-l-success border-gray-200';
+    if (isNotCompliant) return 'border-l-4 border-l-danger border-gray-200';
+    return 'border-l-4 border-l-navy-3 border-gray-200';
   };
 
   return (
-    <div id={`item-${item.id}`} className={cn("rounded-xl border bg-white p-5 shadow-sm transition-all", getBorderColor())}>
+    <div id={`item-${item.id}`} className={cn('scroll-mt-44 rounded-lg border bg-white p-5 shadow-sm', getBorderColor())}>
       <div className="flex items-start justify-between">
-        <div className="space-y-2 pr-4 flex-1">
+        <div className="min-w-0 flex-1 space-y-2 pr-4">
           {/* Header row with badges */}
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="neutral" className="font-mono">{`Item ${item.order}`}</Badge>
+            <Badge variant="neutral" className="tabular-nums">{`Item ${item.order}`}</Badge>
             {item.isCritical && (
-              <Badge variant="danger" className="animate-pulse">
+              <Badge variant="danger">
                 <AlertTriangle className="mr-1 h-3 w-3" />
-                CRÍTICO
+                crítico
               </Badge>
             )}
             {previousNC && (
-              <Badge variant="warning" className="border-amber-200 bg-amber-50 text-amber-800">
-                <AlertTriangle className="mr-1 h-3 w-3" />
-                REINCIDÊNCIA
-              </Badge>
+              <Badge variant="warning">reincidência</Badge>
             )}
+            {!isSelected && <Badge variant="warning">sem resposta</Badge>}
             {item.legislation && (
-              <span className="inline-flex items-center text-xs font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+              <span className="inline-flex items-center rounded-full border border-gray-300 px-2 py-0.5 text-xs font-medium text-navy-2">
                 {item.legislation}
                 {legislationUrlForItem(item) && (
-                  <a href={legislationUrlForItem(item)} target="_blank" rel="noreferrer" className="ml-1 text-primary-600 hover:text-primary-800">
+                  <a
+                    href={legislationUrlForItem(item)}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={`Abrir a norma ${item.legislation} na biblioteca`}
+                    className="ml-1 text-primary-700 hover:text-primary-800"
+                  >
                     <ExternalLink className="h-3 w-3" />
                   </a>
                 )}
@@ -334,7 +327,7 @@ export const ChecklistItem = memo(function ChecklistItem({
               <button
                 type="button"
                 onClick={() => onDelete(item.id)}
-                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-red-600 hover:bg-red-50"
+                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-danger hover:bg-danger-soft"
                 aria-label={'Excluir item extra ' + item.description}
               >
                 <Trash2 className="h-4 w-4" />
@@ -342,31 +335,11 @@ export const ChecklistItem = memo(function ChecklistItem({
             )}
           </div>
 
-          <p className="mt-2 text-[15px] font-medium leading-relaxed text-gray-900">
+          {/* A linha de leitura mora aqui, na pergunta — não na largura da página. */}
+          <p className="mt-2 max-w-[68ch] text-[15px] font-medium leading-relaxed text-navy">
             {item.id.startsWith('extra|') ? (response?.customDescription || item.description) : item.description}
           </p>
         </div>
-
-        {/* Observation Toggle Button */}
-        {isSelected && (
-          <button
-            onClick={() => setShowObs(!showObs)}
-            className={cn(
-              "flex flex-col items-center justify-center p-2 rounded-xl border transition-all shrink-0 ml-2",
-              showObs
-                ? "bg-primary-600 border-primary-600 text-white shadow-lg"
-                : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-primary-300 hover:text-primary-600"
-            )}
-          >
-            <div className="relative">
-              <LogIn className={cn("h-5 w-5 rotate-90", showObs ? "text-white" : "text-gray-400")} />
-              {((response?.photos?.length ?? 0) > 0 || (response?.links?.length ?? 0) > 0 || response?.situationDescription) && !showObs && (
-                <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 rounded-full bg-primary-500 ring-2 ring-white"></span>
-              )}
-            </div>
-            <span className="text-[10px] font-bold mt-1 uppercase tracking-tight">Obs</span>
-          </button>
-        )}
       </div>
 
       {previousNC && (
@@ -425,97 +398,113 @@ export const ChecklistItem = memo(function ChecklistItem({
       {!previousNC && clientDeclaration && <ClientDeclarationPanel declaration={clientDeclaration} />}
       {!previousNC && !!clientEvidence?.length && <ClientEvidencePanel evidence={clientEvidence} />}
 
-      {/* Action Buttons */}
-      <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <button
-          onClick={() => onChange(item.id, 'complies')}
-          className={cn(
-            "flex h-[52px] items-center justify-center rounded-lg border-2 text-[13px] font-semibold transition-all active:scale-95",
-            response?.result === 'complies'
-              ? "border-green-500 bg-green-50 text-green-700 ring-2 ring-green-500 ring-offset-1"
-              : "border-gray-200 bg-white text-gray-700 hover:border-green-300 hover:bg-green-50"
-          )}
-        >
-          CUMPRE
-        </button>
-        <button
-          onClick={() => onChange(item.id, 'not_complies')}
-          className={cn(
-            "flex h-[52px] items-center justify-center rounded-lg border-2 text-[13px] font-semibold transition-all active:scale-95",
-            response?.result === 'not_complies'
-              ? "border-red-500 bg-red-50 text-red-700 ring-2 ring-red-500 ring-offset-1"
-              : "border-gray-200 bg-white text-gray-700 hover:border-red-300 hover:bg-red-50"
-          )}
-        >
-          NÃO CUMPRE
-        </button>
-        <button
-          onClick={() => onChange(item.id, 'not_applicable')}
-          className={cn(
-            "flex h-[52px] items-center justify-center rounded-lg border-2 text-[13px] font-semibold transition-all active:scale-95",
-            response?.result === 'not_applicable'
-              ? "border-gray-500 bg-gray-100 text-gray-700 ring-2 ring-gray-400 ring-offset-1"
-              : "border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:bg-gray-100"
-          )}
-        >
-          N/A
-        </button>
-        <button
-          onClick={() => onChange(item.id, 'not_observed')}
-          className={cn(
-            "flex h-[52px] items-center justify-center rounded-lg border-2 border-dashed font-semibold transition-all active:scale-95 text-[13px]",
-            response?.result === 'not_observed'
-              ? "border-slate-500 bg-slate-100 text-slate-700 ring-2 ring-slate-400 ring-offset-1"
-              : "border-gray-300 bg-white text-gray-400 hover:border-slate-300 hover:bg-slate-50"
-          )}
-        >
-          NO
-        </button>
+      {/* Os quatro resultados do domínio. "Parcial" não existe (decisão 23).
+          `aria-pressed` é o estado; a cor é consequência, não a informação. */}
+      <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4" role="group" aria-label={`Resultado do item ${item.order}`}>
+        {([
+          ['complies', 'Cumpre', 'border-success bg-success-soft text-success-soft-ink'],
+          ['not_complies', 'Não cumpre', 'border-danger bg-danger-soft text-danger-soft-ink'],
+          ['not_applicable', 'Não se aplica', 'border-navy-3 bg-gray-100 text-navy'],
+          ['not_observed', 'Não observado', 'border-navy-3 bg-gray-100 text-navy'],
+        ] as const).map(([value, label, selectedClasses]) => {
+          const selected = response?.result === value;
+          return (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => onChange(item.id, value)}
+              className={cn(
+                'flex h-[52px] items-center justify-center gap-1.5 rounded-md border px-2 text-[13px] font-semibold',
+                selected
+                  ? `${selectedClasses} ring-1`
+                  : 'border-gray-300 bg-white text-navy-2 hover:bg-gray-50'
+              )}
+            >
+              {value === 'complies' && <Check className="h-4 w-4 shrink-0" aria-hidden="true" />}
+              {value === 'not_complies' && <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />}
+              {label}
+            </button>
+          );
+        })}
       </div>
+
+      {/* "Obs" com seta girada 90° e bolinha de notificação sai. Cumpre não exige
+          texto — o campo abre quando a consultora quiser elogiar ou sugerir. */}
+      {isSelected && !showObs && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowObs(true)}
+            aria-expanded={false}
+            className="inline-flex items-center gap-1.5 rounded-md px-2 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
+            style={{ minHeight: 44 }}
+          >
+            <ChevronDown className="h-4 w-4" aria-hidden="true" />
+            {isNotCompliant ? 'Descrever a não conformidade' : 'Registrar observação'}
+          </button>
+          {hasError && (
+            <span className="text-sm font-medium text-danger-soft-ink">
+              {!response?.situationDescription && !response?.correctiveAction
+                ? 'faltam situação e ação'
+                : !response?.situationDescription ? 'falta a situação' : 'falta a ação'}
+            </span>
+          )}
+          {!isNotCompliant && (
+            <span className="text-xs text-navy-3">Cumpre não exige texto.</span>
+          )}
+        </div>
+      )}
 
       {/* Expanded Details Section (For any status if toggled) */}
       {showObs && isSelected && (
-        <div className={cn(
-          "mt-6 space-y-5 rounded-lg border p-5 shadow-inner animate-in slide-in-from-top-2 duration-200",
-          isNotCompliant ? "border-red-100 bg-red-50/10" : "border-indigo-100 bg-indigo-50/10"
-        )}>
-          <div className={cn(
-            "flex items-center space-x-2",
-            isNotCompliant ? "text-red-700" : "text-indigo-700"
-          )}>
-            {isNotCompliant ? <AlertTriangle className="h-5 w-5" /> : <FileCheck2 className="h-5 w-5" />}
-            <h4 className="font-semibold text-sm">
-              {isNotCompliant ? 'Detalhes da Não Conformidade' : 'Observações de Alto Padrão / Melhoria'}
-            </h4>
+        // O painel deixa de mudar de cor entre índigo e vermelho conforme o
+        // resultado — a informação já está na borda esquerda do cartão.
+        <div className="mt-6 space-y-5 rounded-md border border-gray-200 bg-gray-50 p-5">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-navy">
+              {isNotCompliant ? <AlertTriangle className="h-4 w-4" aria-hidden="true" /> : <FileCheck2 className="h-4 w-4" aria-hidden="true" />}
+              <h4 className="text-sm font-semibold">
+                {isNotCompliant ? 'Detalhes da não conformidade' : 'Observação'}
+              </h4>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowObs(false)}
+              aria-expanded
+              className="rounded-md px-2 py-1 text-sm font-medium text-navy-2 hover:bg-gray-100"
+            >
+              Recolher
+            </button>
           </div>
 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between gap-2">
-              <label className="text-sm font-medium text-gray-700">
-                {isNotCompliant ? 'Situação encontrada' : 'O que foi observado (Pontos de Excelência)'}
-                {isNotCompliant && <span className="text-red-500"> *</span>}
-              </label>
+              <Label htmlFor={`situacao-${item.id}`} required={isNotCompliant}>
+                {isNotCompliant ? 'Situação encontrada' : 'O que foi observado'}
+              </Label>
               <VoiceDictationButton onTranscript={(text) => setLocalSituation((prev) => (prev ? `${prev} ${text}` : text))} />
             </div>
-            <div className="relative">
-              <textarea
-                className={cn(
-                  "w-full rounded-md border p-3 text-sm focus:outline-none focus:ring-2 disabled:opacity-50 min-h-[100px] resize-y shadow-sm",
-                  !response?.situationDescription && hasError
-                    ? "border-red-300 focus:border-red-500 focus:ring-red-500 ring-1 ring-red-100"
-                    : "border-gray-300 focus:border-primary-500 focus:ring-primary-500"
-                )}
-                placeholder={isNotCompliant ? "Descreva a falha observada..." : "Descreva pontos positivos ou o que pode ser elevado para alto padrão..."}
-                value={situationValue}
-                onChange={(e) => setLocalSituation(e.target.value)}
-                onFocus={() => {
-                  setLocalSituation(response?.situationDescription || '');
-                  setIsFocused('situation');
-                }}
-                onBlur={(e) => handleBlur('situationDescription', e.target.value)}
-              />
-
-            </div>
+            <Textarea
+              id={`situacao-${item.id}`}
+              className={cn(
+                'min-h-[100px] resize-y',
+                !response?.situationDescription && hasError && 'border-danger focus-visible:border-danger focus-visible:ring-danger'
+              )}
+              placeholder={isNotCompliant ? 'Descreva a falha observada…' : 'Descreva pontos positivos ou o que pode ser elevado para alto padrão…'}
+              value={situationValue}
+              onChange={(e) => setLocalSituation(e.target.value)}
+              onFocus={() => {
+                setLocalSituation(response?.situationDescription || '');
+                setIsFocused('situation');
+              }}
+              onBlur={(e) => handleBlur('situationDescription', e.target.value)}
+            />
+            {!response?.situationDescription && hasError && (
+              <p className="text-sm text-danger-soft-ink">
+                Sem esta descrição o cliente recebe a pendência sem saber o que foi encontrado.
+              </p>
+            )}
             {!!suggestions?.situationDescription.length && (
               <div className="flex flex-wrap items-center gap-1.5 pt-1">
                 <span className="text-[10px] font-semibold uppercase tracking-tight text-gray-400">Já usado antes:</span>
@@ -548,10 +537,9 @@ export const ChecklistItem = memo(function ChecklistItem({
 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between gap-2">
-              <label className="text-sm font-medium text-gray-700">
-                {isNotCompliant ? 'Ação corretiva necessária' : 'Sugestões de melhoria profissional'}
-                {isNotCompliant && <span className="text-red-500"> *</span>}
-              </label>
+              <Label htmlFor={`acao-${item.id}`} required={isNotCompliant}>
+                {isNotCompliant ? 'O que precisa ser feito' : 'Sugestões de melhoria'}
+              </Label>
               <VoiceDictationButton onTranscript={(text) => setLocalAction((prev) => (prev ? `${prev} ${text}` : text))} />
             </div>
             {isNotCompliant && (
@@ -573,14 +561,13 @@ export const ChecklistItem = memo(function ChecklistItem({
                 ))}
               </div>
             )}
-            <textarea
+            <Textarea
+              id={`acao-${item.id}`}
               className={cn(
-                "w-full rounded-md border p-3 text-sm focus:outline-none focus:ring-2 disabled:opacity-50 min-h-[100px] resize-y shadow-sm",
-                !response?.correctiveAction && hasError
-                  ? "border-red-300 focus:border-red-500 focus:ring-red-500 ring-1 ring-red-100"
-                  : "border-gray-300 focus:border-primary-500 focus:ring-primary-500"
+                'min-h-[100px] resize-y',
+                !response?.correctiveAction && hasError && 'border-danger focus-visible:border-danger focus-visible:ring-danger'
               )}
-              placeholder={isNotCompliant ? "O que precisa ser feito para adequação..." : "Dê sugestões para que o local atinja a nota máxima ou mantenha o brilho..."}
+              placeholder={isNotCompliant ? 'O que precisa ser feito para adequação…' : 'Dê sugestões para que o local atinja a nota máxima ou mantenha o brilho…'}
               value={actionValue}
               onChange={(e) => setLocalAction(e.target.value)}
               onFocus={() => {
@@ -589,6 +576,11 @@ export const ChecklistItem = memo(function ChecklistItem({
               }}
               onBlur={(e) => handleBlur('correctiveAction', e.target.value)}
             />
+            {isNotCompliant && (
+              <p className="text-xs text-navy-3">
+                Sai assim, palavra por palavra, no portal do cliente e no PDF.
+              </p>
+            )}
             {!!suggestions?.correctiveAction.length && (
               <div className="flex flex-wrap items-center gap-1.5 pt-1">
                 <span className="text-[10px] font-semibold uppercase tracking-tight text-gray-400">Já usado antes:</span>
@@ -619,59 +611,47 @@ export const ChecklistItem = memo(function ChecklistItem({
             )}
           </div>
 
-          <datalist id="responsables-list">
-            <option value="Responsável Técnico (RT)" />
-            <option value="Gerência / Administração" />
-            <option value="Equipe de Manutenção" />
-            <option value="Equipe de Limpeza / Higiene" />
-            <option value="Manipulador / Funcionário" />
-            <option value="Proprietário" />
-            <option value="Empresa Terceirizada" />
-          </datalist>
-
-          <datalist id="deadlines-list">
-            <option value="Imediato" />
-            <option value="24 horas" />
-            <option value="7 dias" />
-            <option value="15 dias" />
-            <option value="30 dias" />
-            <option value="45 dias" />
-            <option value="60 dias" />
-            <option value="90 dias" />
-          </datalist>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Responsável e prazo eram `<input list>`: aceitavam qualquer texto, e
+              "assim que possível" produzia pendência que nunca vence. Viram lista
+              fechada (decisão 33), com "Sem prazo definido" dentro dela. Valor
+              antigo fora da lista continua sendo exibido, para não sumir de
+              relatório já preenchido. */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-gray-700">Responsável{isNotCompliant ? ' p/ Correção' : ''}</label>
-              <input
-                type="text"
-                list="responsables-list"
-                className="w-full rounded-md border border-gray-300 p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 shadow-sm"
-                placeholder="Ex: Gerente, RT..."
+              <Label htmlFor={`responsavel-${item.id}`}>Responsável pela correção</Label>
+              <Select
+                id={`responsavel-${item.id}`}
+                className="h-11"
                 value={responsibleValue}
-                onChange={(e) => setLocalResponsible(e.target.value)}
-                onFocus={() => {
-                  setLocalResponsible(response?.responsible || '');
-                  setIsFocused('responsible');
-                }}
-                onBlur={(e) => handleBlur('responsible', e.target.value)}
-              />
+                onChange={(e) => onUpdateDetails(item.id, { responsible: e.target.value })}
+              >
+                <option value="">— não definido —</option>
+                {RESPONSIBLE_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
+                {responsibleValue && !RESPONSIBLE_OPTIONS.includes(responsibleValue as never) && (
+                  <option value={responsibleValue}>{responsibleValue}</option>
+                )}
+              </Select>
+              <p className="text-xs text-navy-3">É o setor, não a consultora.</p>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-gray-700">{isNotCompliant ? 'Prazo Sugerido' : 'Prazo de Implantação'}</label>
-              <input
-                type="text"
-                list="deadlines-list"
-                className="w-full rounded-md border border-gray-300 p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 shadow-sm"
-                placeholder="Ex: Imediato, 15 dias..."
+              <Label htmlFor={`prazo-${item.id}`}>Prazo</Label>
+              <Select
+                id={`prazo-${item.id}`}
+                className="h-11"
                 value={deadlineValue}
-                onChange={(e) => setLocalDeadline(e.target.value)}
-                onFocus={() => {
-                  setLocalDeadline(response?.deadline || '');
-                  setIsFocused('deadline');
-                }}
-                onBlur={(e) => handleBlur('deadline', e.target.value)}
-              />
+                onChange={(e) => onUpdateDetails(item.id, { deadline: e.target.value })}
+              >
+                <option value="">— escolha um prazo —</option>
+                {DEADLINE_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
+                {deadlineValue && !DEADLINE_OPTIONS.includes(deadlineValue as never) && (
+                  <option value={deadlineValue}>{deadlineValue}</option>
+                )}
+              </Select>
+              <p className="text-xs text-navy-3">
+                Vira data no plano de ação do cliente, contada a partir da visita.{' '}
+                <strong>Sem prazo definido</strong> é uma escolha legítima — a pendência aparece no
+                portal, mas nunca fica vencida.
+              </p>
             </div>
           </div>
 
