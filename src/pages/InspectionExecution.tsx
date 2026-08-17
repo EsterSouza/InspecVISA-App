@@ -105,7 +105,7 @@ async function seedPendingResponses(
   return seeded;
 }
 
-type ItemFilter = 'todos' | 'sem-resposta' | 'nao-cumpre' | 'falta-escrever';
+type ItemFilter = 'todos' | 'sem-resposta' | 'nao-cumpre' | 'reincidentes' | 'falta-escrever';
 
 export function InspectionExecution() {
   const location = useLocation();
@@ -472,18 +472,20 @@ export function InspectionExecution() {
       todos: all.length,
       'sem-resposta': all.filter((item: any) => !responseByItemId.has(item.id)).length,
       'nao-cumpre': all.filter((item: any) => responseByItemId.get(item.id)?.result === 'not_complies').length,
+      reincidentes: all.filter((item: any) => previousNCs.has(item.id)).length,
       'falta-escrever': missingText.length,
     };
-  }, [visibleSections, responseByItemId, missingText]);
+  }, [visibleSections, responseByItemId, missingText, previousNCs]);
 
   const matchesFilter = useCallback((filter: ItemFilter, itemId: string) => {
     switch (filter) {
       case 'sem-resposta': return !responseByItemId.has(itemId);
       case 'nao-cumpre': return responseByItemId.get(itemId)?.result === 'not_complies';
+      case 'reincidentes': return previousNCs.has(itemId);
       case 'falta-escrever': return missingTextItemIds.has(itemId);
       default: return true;
     }
-  }, [responseByItemId, missingTextItemIds]);
+  }, [responseByItemId, missingTextItemIds, previousNCs]);
 
   // Responder o item faz ele deixar de casar com o filtro — mas quem está
   // escrevendo ainda precisa dele na tela para marcar prazo e responsável. O
@@ -1348,6 +1350,7 @@ export function InspectionExecution() {
               ['todos', 'Todos'],
               ['sem-resposta', 'Sem resposta'],
               ['nao-cumpre', 'Não cumpre'],
+              ['reincidentes', 'Reincidentes'],
               ['falta-escrever', 'Falta escrever'],
             ] as const).map(([value, label]) => (
               <button

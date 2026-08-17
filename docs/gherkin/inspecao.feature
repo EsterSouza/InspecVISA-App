@@ -32,6 +32,12 @@ Funcionalidade: Execução de inspeção sanitária
     E a pendência do portal continua sendo a mesma linha, sem duplicar
     E requisito com texto repetido no roteiro não casa, para não marcar o item errado
 
+  Cenário: Filtro de reincidentes na execução
+    Dado uma inspeção com pendências de visitas anteriores
+    Quando escolho o filtro "Reincidentes"
+    Então só ficam na tela os itens que já foram não conformes antes
+    E as seções sem nenhum reincidente saem da tela
+
   Cenário: Item extra de visita anterior encontra a seção pelo título
     Dado um item extra criado numa visita em outro roteiro
     Quando abro a nova inspeção da mesma unidade
