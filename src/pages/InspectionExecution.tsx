@@ -1184,17 +1184,23 @@ export function InspectionExecution() {
           </nav>
 
           <div className="flex flex-wrap items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/inspections')} aria-label="Voltar para inspeções">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div className="min-w-0 flex-1">
-              <h1 className="truncate text-xl font-bold text-navy">{displayClientName}</h1>
-              <p className="truncate text-sm text-navy-3">
-                {effectiveTemplate?.name || 'Roteiro'}
-                {currentInspection.consultantName && ` · aberta por ${currentInspection.consultantName}`}
-                {currentInspection.lastEditedBy && currentInspection.lastEditedBy !== currentInspection.consultantName
-                  && ` · última edição de ${currentInspection.lastEditedBy}`}
-              </p>
+            {/* No celular a identificação toma a linha inteira (`basis-full`) e empurra o
+                estado e as ações para a linha de baixo. Sem isso o `flex-wrap` não quebra:
+                como este bloco pode encolher até 0 (`min-w-0`), a linha "cabia" com o nome
+                da unidade espremido em 11px — ou seja, só a reticência. */}
+            <div className="flex min-w-0 basis-full items-center gap-3 sm:flex-1 sm:basis-0">
+              <Button variant="ghost" size="icon" onClick={() => navigate('/inspections')} aria-label="Voltar para inspeções">
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <div className="min-w-0 flex-1">
+                <h1 className="truncate text-xl font-bold text-navy">{displayClientName}</h1>
+                <p className="truncate text-sm text-navy-3">
+                  {effectiveTemplate?.name || 'Roteiro'}
+                  {currentInspection.consultantName && ` · aberta por ${currentInspection.consultantName}`}
+                  {currentInspection.lastEditedBy && currentInspection.lastEditedBy !== currentInspection.consultantName
+                    && ` · última edição de ${currentInspection.lastEditedBy}`}
+                </p>
+              </div>
             </div>
 
             {/* Estado em três canais: cor, ícone (forma) e a palavra escrita.
