@@ -124,8 +124,10 @@ export function VoiceDictationButton({ onTranscript, className }: VoiceDictation
         type="button"
         onClick={() => (isListening ? stop() : start())}
         title={isListening ? 'Parar ditado' : 'Ditar por voz (português)'}
+        aria-label={isListening ? 'Parar o ditado' : 'Ditar por voz'}
         className={cn(
-          'flex h-7 w-7 shrink-0 items-center justify-center rounded-full border transition-colors',
+          // No dedo o alvo vai a 44px (decisão 7); no ponteiro fino continua discreto.
+          'flex h-7 w-7 shrink-0 items-center justify-center rounded-full border transition-colors [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11',
           isListening
             ? 'animate-pulse border-red-400 bg-red-50 text-red-600'
             : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-primary-600',

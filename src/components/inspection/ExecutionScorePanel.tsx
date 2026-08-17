@@ -3,7 +3,7 @@ import { ArrowDown, ArrowUp, ChevronRight, Minus } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
-import { calculateAreaScores, classificationColor, classificationLabel } from '../../utils/scoring';
+import { calculateAreaScores, classificationBadgeClasses, classificationColor, classificationInk, classificationLabel } from '../../utils/scoring';
 import type { PreviousVisitScore } from '../../utils/previousVisitScore';
 import type { ChecklistTemplate, InspectionResponse } from '../../types';
 
@@ -88,7 +88,7 @@ export function ExecutionScorePanel({
   const areas = calculateAreaScores(responses, template.sections);
   const score = areas.global;
   const pct = Math.round(score.scorePercentage);
-  const cor = classificationColor(score.classification);
+  const tinta = classificationInk(score.classification);
   const unanswered = score.totalItems - score.evaluatedItems;
   const dateLabel = previousVisit?.inspectionDate.toLocaleDateString('pt-BR');
 
@@ -101,15 +101,11 @@ export function ExecutionScorePanel({
           </h2>
         </div>
         <div className="px-5 pb-4 pt-5 text-center">
-          <p className="font-title text-[2.75rem] font-semibold leading-none tabular-nums" style={{ color: cor }}>
+          <p className="font-title text-[2.75rem] font-semibold leading-none tabular-nums" style={{ color: tinta }}>
             {pct}<span className="text-xl">%</span>
           </p>
           <p className="mt-2">
-            <Badge
-              variant="neutral"
-              className="uppercase text-white"
-              style={{ backgroundColor: cor }}
-            >
+            <Badge variant="neutral" className={`uppercase ${classificationBadgeClasses(score.classification)}`}>
               {classificationLabel(score.classification)}
             </Badge>
           </p>

@@ -132,11 +132,11 @@ export function ILPIStaffCalculator({
 
           <div className="flex items-end justify-between border-t border-gray-200 pt-3">
             <div>
-              <p className="text-xs text-gray-500">Total necessario por turno</p>
+              <p className="text-xs text-navy-2">Total necessario por turno</p>
               <p className="text-2xl font-black text-gray-900">{summary.caregivers.total}</p>
             </div>
             <div className="text-right">
-              <p className="text-xs text-gray-500">Deficit / Superavit</p>
+              <p className="text-xs text-navy-2">Déficit / superávit</p>
               <Delta ok={summary.caregiversOk} actual={currentCaregivers} required={summary.caregivers.total} />
             </div>
           </div>
@@ -153,16 +153,16 @@ export function ILPIStaffCalculator({
               </div>
               <StatusIcon ok={summary.nursingTechsOk} />
             </div>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-navy-2">
               Minimo: Grau II 1:15 ({summary.nursingTechs.grau2}) e Grau III 1:10 ({summary.nursingTechs.grau3}).
             </p>
             <div className="flex items-end justify-between border-t border-gray-200 pt-3">
               <div>
-                <p className="text-xs text-gray-500">Total mínimo exigido pela Lei RJ nº 8.049/2018</p>
+                <p className="text-xs text-navy-2">Total mínimo exigido pela Lei RJ nº 8.049/2018</p>
                 <p className="text-2xl font-black text-gray-900">{summary.nursingTechs.total}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs text-gray-500">Deficit / Superavit</p>
+                <p className="text-xs text-navy-2">Déficit / superávit</p>
                 <Delta ok={summary.nursingTechsOk} actual={currentNursingTechs} required={summary.nursingTechs.total} />
               </div>
             </div>
@@ -180,16 +180,16 @@ export function ILPIStaffCalculator({
               </div>
               <StatusIcon ok={summary.cleaningStaffOk} />
             </div>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-navy-2">
               Minimo: 1 profissional para cada 100 m2 ou fracao de área interna informada ({summary.cleaningStaff.areaM2} m2).
             </p>
             <div className="flex items-end justify-between border-t border-gray-200 pt-3">
               <div>
-                <p className="text-xs text-gray-500">Total necessario por turno</p>
+                <p className="text-xs text-navy-2">Total necessario por turno</p>
                 <p className="text-2xl font-black text-gray-900">{summary.cleaningStaff.total}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs text-gray-500">Deficit / Superavit</p>
+                <p className="text-xs text-navy-2">Déficit / superávit</p>
                 <Delta ok={summary.cleaningStaffOk} actual={currentCleaningStaff} required={summary.cleaningStaff.total} />
               </div>
             </div>

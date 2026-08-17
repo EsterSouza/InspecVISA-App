@@ -50,23 +50,23 @@ export function SectionAccordion({
           <div className="flex items-center space-x-2">
             <h3 className={cn(
               "text-lg font-semibold",
-              isComplete ? "text-gray-600" : "text-gray-900"
+              isComplete ? "text-navy-2" : "text-navy"
             )}>
               {title}
             </h3>
-            {isComplete && <CheckCircle className="h-5 w-5 text-green-500" />}
-            {isCritical && !isComplete && <AlertTriangle className="h-4 w-4 text-red-500" />}
+            {isComplete && <CheckCircle className="h-5 w-5 text-success" />}
+            {isCritical && !isComplete && <AlertTriangle className="h-4 w-4 text-danger" />}
           </div>
-          <div className="mt-1 flex items-center space-x-3 text-sm text-gray-500">
-            <span className={isComplete ? "font-medium text-green-600" : ""}>
+          <div className="mt-1 flex items-center space-x-3 text-sm text-navy-2">
+            <span className={isComplete ? "font-medium text-success-soft-ink" : ""}>
               {evaluatedItems} / {totalItems} avaliados
             </span>
             {evaluatedItems > 0 && (
               <>
                 <span className="h-1 w-1 rounded-full bg-gray-300" />
-                <span className="text-green-600 font-medium">{compliesCount} conformes</span>
+                <span className="font-medium text-success-soft-ink">{compliesCount} conformes</span>
                 <span className="h-1 w-1 rounded-full bg-gray-300" />
-                <span className={notCompliesCount > 0 ? "text-red-500 font-medium" : ""}>
+                <span className={notCompliesCount > 0 ? "font-medium text-danger-soft-ink" : ""}>
                   {notCompliesCount} não conformes
                 </span>
               </>
@@ -75,7 +75,7 @@ export function SectionAccordion({
         </div>
         
         {/* Expand Icon */}
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-navy-2">
           {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
         </div>
       </button>

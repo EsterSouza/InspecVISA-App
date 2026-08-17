@@ -306,7 +306,9 @@ export const ChecklistItem = memo(function ChecklistItem({
                     target="_blank"
                     rel="noreferrer"
                     aria-label={`Abrir a norma ${item.legislation} na biblioteca`}
-                    className="ml-1 text-primary-700 hover:text-primary-800"
+                    // No dedo o alvo cresce para 44px sem esticar o selo: a área
+                    // clicável sai para fora com margem negativa.
+                    className="ml-1 inline-flex items-center justify-center text-primary-700 hover:text-primary-800 [@media(pointer:coarse)]:-my-4 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
                   >
                     <ExternalLink className="h-3 w-3" />
                   </a>
@@ -472,7 +474,7 @@ export const ChecklistItem = memo(function ChecklistItem({
               type="button"
               onClick={() => setShowObs(false)}
               aria-expanded
-              className="rounded-md px-2 py-1 text-sm font-medium text-navy-2 hover:bg-gray-100"
+              className="rounded-md px-2 py-1 text-sm font-medium text-navy-2 hover:bg-gray-100 [@media(pointer:coarse)]:min-h-11"
             >
               Recolher
             </button>
@@ -507,7 +509,7 @@ export const ChecklistItem = memo(function ChecklistItem({
             )}
             {!!suggestions?.situationDescription.length && (
               <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                <span className="text-[10px] font-semibold uppercase tracking-tight text-gray-400">Já usado antes:</span>
+                <span className="text-xs font-medium text-navy-3">Já usado antes:</span>
                 {(showAllSituationSuggestions ? suggestions.situationDescription : suggestions.situationDescription.slice(0, 4)).map((text) => (
                   <button
                     key={text}
@@ -517,7 +519,7 @@ export const ChecklistItem = memo(function ChecklistItem({
                       onUpdateDetails(item.id, { situationDescription: text });
                     }}
                     title={text}
-                    className="max-w-[220px] truncate text-[11px] font-medium bg-white hover:bg-primary-50 text-gray-600 hover:text-primary-700 border border-gray-200 hover:border-primary-200 rounded-full px-2 py-0.5 transition-colors shadow-sm"
+                    className="max-w-[220px] truncate rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-navy-2 hover:bg-gray-50 [@media(pointer:coarse)]:min-h-11"
                   >
                     {text}
                   </button>
@@ -526,7 +528,7 @@ export const ChecklistItem = memo(function ChecklistItem({
                   <button
                     type="button"
                     onClick={() => setShowAllSituationSuggestions(true)}
-                    className="text-[11px] font-bold text-primary-600 hover:text-primary-800"
+                    className="rounded-md px-2 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-50 [@media(pointer:coarse)]:min-h-11"
                   >
                     +{suggestions.situationDescription.length - 4} mais
                   </button>
@@ -554,7 +556,7 @@ export const ChecklistItem = memo(function ChecklistItem({
                       setLocalAction(newVal);
                       onUpdateDetails(item.id, { correctiveAction: newVal });
                     }}
-                    className="text-[11px] font-medium bg-white hover:bg-primary-50 text-gray-600 hover:text-primary-700 border border-gray-200 hover:border-primary-200 rounded-full px-2 py-0.5 transition-colors shadow-sm"
+                    className="rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-navy-2 hover:bg-gray-50 [@media(pointer:coarse)]:min-h-11"
                   >
                     {verb}
                   </button>
@@ -583,7 +585,7 @@ export const ChecklistItem = memo(function ChecklistItem({
             )}
             {!!suggestions?.correctiveAction.length && (
               <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                <span className="text-[10px] font-semibold uppercase tracking-tight text-gray-400">Já usado antes:</span>
+                <span className="text-xs font-medium text-navy-3">Já usado antes:</span>
                 {(showAllActionSuggestions ? suggestions.correctiveAction : suggestions.correctiveAction.slice(0, 4)).map((text) => (
                   <button
                     key={text}
@@ -593,7 +595,7 @@ export const ChecklistItem = memo(function ChecklistItem({
                       onUpdateDetails(item.id, { correctiveAction: text });
                     }}
                     title={text}
-                    className="max-w-[220px] truncate text-[11px] font-medium bg-white hover:bg-primary-50 text-gray-600 hover:text-primary-700 border border-gray-200 hover:border-primary-200 rounded-full px-2 py-0.5 transition-colors shadow-sm"
+                    className="max-w-[220px] truncate rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-navy-2 hover:bg-gray-50 [@media(pointer:coarse)]:min-h-11"
                   >
                     {text}
                   </button>
@@ -602,7 +604,7 @@ export const ChecklistItem = memo(function ChecklistItem({
                   <button
                     type="button"
                     onClick={() => setShowAllActionSuggestions(true)}
-                    className="text-[11px] font-bold text-primary-600 hover:text-primary-800"
+                    className="rounded-md px-2 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-50 [@media(pointer:coarse)]:min-h-11"
                   >
                     +{suggestions.correctiveAction.length - 4} mais
                   </button>

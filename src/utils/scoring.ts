@@ -400,3 +400,34 @@ export function classificationColor(c: ScoreClassification): string {
     excellent: SCORE_COLORS.success,
   }[c];
 }
+
+/**
+ * Os mesmos três tons, na versão de **texto**. `--amber #D99721` é cor de
+ * preenchimento: como texto sobre branco dá 2,5:1 e reprova AA. Número grande,
+ * rótulo e selo usam estes tons escuros; barra e ponto continuam com o
+ * `classificationColor`.
+ */
+export const SCORE_INK = {
+  danger: '#8C1D17',
+  attention: '#7A5210',
+  success: '#0A5734',
+} as const;
+
+export function classificationInk(c: ScoreClassification): string {
+  return {
+    critical: SCORE_INK.danger,
+    regular: SCORE_INK.attention,
+    good: SCORE_INK.success,
+    excellent: SCORE_INK.success,
+  }[c];
+}
+
+/** Classes do selo de classificação: fundo suave + tinta escura, sempre AA. */
+export function classificationBadgeClasses(c: ScoreClassification): string {
+  return {
+    critical: 'bg-danger-soft text-danger-soft-ink',
+    regular: 'bg-amber-soft text-amber-soft-ink',
+    good: 'bg-success-soft text-success-soft-ink',
+    excellent: 'bg-success-soft text-success-soft-ink',
+  }[c];
+}

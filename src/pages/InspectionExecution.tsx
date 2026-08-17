@@ -1065,7 +1065,11 @@ export function InspectionExecution() {
       <>
         <InspectionFinishScreen
           inspection={currentInspection}
-          template={effectiveTemplate as ChecklistTemplate}
+          // O roteiro COMPLETO (todas as áreas), o mesmo que vira
+          // `reportTemplateSnapshot`: a nota e a contagem de pendências
+          // anunciadas aqui têm de ser as que o cliente vai ver, não as
+          // filtradas pelo papel de quem está encerrando.
+          template={(collaborationTemplate || effectiveTemplate) as ChecklistTemplate}
           responses={responses}
           missingText={missingText}
           isIlpi={isIlpiInspection}
@@ -1103,7 +1107,11 @@ export function InspectionExecution() {
         <div className="mx-auto w-full max-w-[1600px] space-y-3">
           {/* Trilha: a execução não é uma ilha sem volta. */}
           <nav aria-label="Trilha" className="flex items-center gap-1.5 text-xs text-navy-3">
-            <button type="button" className="hover:text-navy-2 hover:underline" onClick={() => navigate('/inspections')}>
+            <button
+              type="button"
+              className="hover:text-navy-2 hover:underline [@media(pointer:coarse)]:py-3.5"
+              onClick={() => navigate('/inspections')}
+            >
               Inspeções
             </button>
             <ChevronRight className="h-3 w-3" aria-hidden="true" />
@@ -1327,77 +1335,76 @@ export function InspectionExecution() {
                       título "Recursos Humanos" (roteiros salvos no banco usam id UUID). */}
                   {(section.id === 'sec-fed-12'
                     || (isIlpiInspection && /recursos\s+humanos/i.test(section.title || ''))) && (
-                    <div className="space-y-4 mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Dimensionamento ILPI</label>
+                    <div className="mb-6 space-y-4 rounded-md border border-gray-200 bg-white p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h3 className="text-sm font-semibold text-navy">Dimensionamento ILPI</h3>
                         {isRioState(currentInspection.state) && (
-                          <Badge variant="outline" className="text-[10px] border-blue-200 text-blue-600 bg-blue-50 font-bold">
-                            Rio de Janeiro (Lei 8.049/18)
-                          </Badge>
+                          <Badge variant="neutral">Rio de Janeiro (Lei 8.049/18)</Badge>
                         )}
                       </div>
                       <div className="grid grid-cols-3 gap-4">
                         {['Level1', 'Level2', 'Level3'].map((lvl, i) => (
                           <div key={lvl}>
-                            <span className="text-[10px] text-slate-500 block mb-1 font-semibold uppercase tracking-tight">GRAU {i + 1}</span>
-                            <input
+                            <Label htmlFor={`dependencyLevel${i + 1}`} className="mb-1.5">Grau {i + 1}</Label>
+                            <Input
                               type="number"
+                              inputMode="numeric"
                               id={`dependencyLevel${i + 1}`}
                               name={`dependencyLevel${i + 1}`}
-                              className="w-full bg-white border border-slate-200 rounded-lg p-2 font-bold focus:ring-2 focus:ring-primary-500 outline-none shadow-sm"
+                              className="h-11"
                               value={(currentInspection as any)[`dependencyLevel${i + 1}`] || 0}
                               onChange={(e) => updateStaffData(`dependencyLevel${i + 1}`, parseInt(e.target.value) || 0)}
                             />
                           </div>
                         ))}
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-4 border-b border-slate-200">
+                      <div className="grid grid-cols-1 gap-4 border-b border-gray-200 pb-4 sm:grid-cols-2">
                         <div>
-                          <span className="text-[10px] text-primary-600 font-bold block mb-1 uppercase tracking-tight">Cuidadores em Turno</span>
-                          <input
+                          <Label htmlFor="observedStaff" className="mb-1.5">Cuidadores em turno</Label>
+                          <Input
                             type="number"
+                            inputMode="numeric"
                             id="observedStaff"
                             name="observedStaff"
-                            placeholder="Qtd. cuidadores..."
-                            className="w-full bg-white border border-primary-100 rounded-lg p-2 font-bold text-primary-900 shadow-sm"
+                            className="h-11"
                             value={currentInspection.observedStaff || 0}
                             onChange={(e) => updateStaffData('observedStaff', parseInt(e.target.value) || 0)}
                           />
                         </div>
                         <div>
-                          <span className="text-[10px] text-primary-600 font-bold block mb-1 uppercase tracking-tight">Técnicos de Enfermagem em Turno</span>
-                          <input
+                          <Label htmlFor="observedNursingTechs" className="mb-1.5">Técnicos de enfermagem em turno</Label>
+                          <Input
                             type="number"
+                            inputMode="numeric"
                             id="observedNursingTechs"
                             name="observedNursingTechs"
-                            placeholder="Técnicos de enfermagem..."
-                            className="w-full bg-white border border-primary-100 rounded-lg p-2 font-bold text-primary-900 shadow-sm"
+                            className="h-11"
                             value={currentInspection.observedNursingTechs || 0}
                             onChange={(e) => updateStaffData('observedNursingTechs', parseInt(e.target.value) || 0)}
                           />
                         </div>
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-4 border-b border-slate-200">
+                      <div className="grid grid-cols-1 gap-4 border-b border-gray-200 pb-4 sm:grid-cols-2">
                         <div>
-                          <span className="text-[10px] text-slate-500 font-bold block mb-1 uppercase tracking-tight">Area util aproximada (m2)</span>
-                          <input
+                          <Label htmlFor="usableAreaM2" className="mb-1.5">Área útil aproximada (m²)</Label>
+                          <Input
                             type="number"
+                            inputMode="numeric"
                             id="usableAreaM2"
                             name="usableAreaM2"
-                            placeholder="Area da licenca sanitaria..."
-                            className="w-full bg-white border border-slate-200 rounded-lg p-2 font-bold text-slate-900 shadow-sm"
+                            className="h-11"
                             value={currentInspection.usableAreaM2 || 0}
                             onChange={(e) => updateStaffData('usableAreaM2', parseInt(e.target.value) || 0)}
                           />
                         </div>
                         <div>
-                          <span className="text-[10px] text-slate-500 font-bold block mb-1 uppercase tracking-tight">Profissionais de limpeza</span>
-                          <input
+                          <Label htmlFor="observedCleaningStaff" className="mb-1.5">Profissionais de limpeza</Label>
+                          <Input
                             type="number"
+                            inputMode="numeric"
                             id="observedCleaningStaff"
                             name="observedCleaningStaff"
-                            placeholder="Equipe de limpeza..."
-                            className="w-full bg-white border border-slate-200 rounded-lg p-2 font-bold text-slate-900 shadow-sm"
+                            className="h-11"
                             value={currentInspection.observedCleaningStaff || 0}
                             onChange={(e) => updateStaffData('observedCleaningStaff', parseInt(e.target.value) || 0)}
                           />

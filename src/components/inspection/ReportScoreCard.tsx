@@ -2,7 +2,7 @@ import React from 'react';
 import { ArrowDown, ArrowUp, Minus } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
-import { calculateAreaScores, classificationColor, classificationLabel } from '../../utils/scoring';
+import { calculateAreaScores, classificationBadgeClasses, classificationColor, classificationInk, classificationLabel } from '../../utils/scoring';
 import type { PreviousVisitScore } from '../../utils/previousVisitScore';
 import type { ChecklistTemplate, InspectionResponse } from '../../types';
 
@@ -35,7 +35,7 @@ export function ReportScoreCard({ template, responses, previousVisit, isIlpi, re
 }) {
   const areas = calculateAreaScores(responses, template.sections);
   const score = areas.global;
-  const cor = classificationColor(score.classification);
+  const tinta = classificationInk(score.classification);
   const split = isIlpi && areas.isSplit;
   const dateLabel = previousVisit?.inspectionDate.toLocaleDateString('pt-BR');
 
@@ -45,11 +45,11 @@ export function ReportScoreCard({ template, responses, previousVisit, isIlpi, re
         <h2 className="text-sm font-semibold text-navy">Resultado</h2>
       </div>
       <div className="px-5 py-6 text-center">
-        <p className="font-title text-[3.25rem] font-semibold leading-none tabular-nums" style={{ color: cor }}>
+        <p className="font-title text-[3.25rem] font-semibold leading-none tabular-nums" style={{ color: tinta }}>
           {Math.round(score.scorePercentage)}<span className="text-2xl">%</span>
         </p>
         <p className="mt-3">
-          <Badge variant="neutral" className="uppercase text-white" style={{ backgroundColor: cor }}>
+          <Badge variant="neutral" className={`uppercase ${classificationBadgeClasses(score.classification)}`}>
             {classificationLabel(score.classification)}
           </Badge>
         </p>

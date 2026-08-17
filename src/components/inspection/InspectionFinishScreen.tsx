@@ -178,7 +178,7 @@ export function InspectionFinishScreen({
   return (
     <PageShell>
       <nav aria-label="Trilha" className="mb-2 flex items-center gap-1.5 text-xs text-navy-3">
-        <button type="button" className="hover:text-navy-2 hover:underline" onClick={onBack}>
+        <button type="button" className="hover:text-navy-2 hover:underline [@media(pointer:coarse)]:py-3.5" onClick={onBack}>
           {inspection.clientName}
         </button>
         <ChevronRight className="h-3 w-3" aria-hidden="true" />
