@@ -222,11 +222,13 @@ export interface InspectionResponse {
   inspectionId: string;
   itemId: string;
   result: ResponseResult;
-  situationDescription?: string;
-  correctiveAction?: string;
-  responsible?: string;
-  deadline?: string;
-  customDescription?: string; // For ad-hoc items added by consultant
+  // Nulos (nao ausentes) quando vem do banco: o mapeador grava a coluna crua, e a coluna
+  // e nullable. O `row: any` escondia (DEBT-02). Toda leitura ja trata como opcional.
+  situationDescription?: string | null;
+  correctiveAction?: string | null;
+  responsible?: string | null;
+  deadline?: string | null;
+  customDescription?: string | null; // For ad-hoc items added by consultant
   photos?: InspectionPhoto[];
   // Links/fontes anexados pela consultora enquanto responde este item específico.
   links?: string[];

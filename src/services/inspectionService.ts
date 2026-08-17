@@ -1,4 +1,6 @@
 import { supabase } from '../lib/supabase';
+import type { PostgrestError } from '@supabase/supabase-js';
+import { errorMessage } from '../utils/errors';
 import type { Inspection, InspectionResponse, InspectionPhoto } from '../types';
 import { db } from '../db/database';
 import { RepositoryService } from './repositoryService';
@@ -64,7 +66,86 @@ function blobToDataUrl(blob: Blob): Promise<string> {
 /**
  * Mappers
  */
-export function mapFromPostgres(row: any): Inspection {
+/**
+ * Linhas das tabelas `inspections`, `responses` e `photos` como o PostgREST devolve.
+ * Sem tipos gerados do Supabase (DEBT-02), o contrato mora ao lado dos mapeadores.
+ * Vários campos aparecem em duas grafias porque a coluna foi renomeada e relatório
+ * antigo ainda responde na grafia velha — é o que os `??` abaixo tratam.
+ */
+/** Resposta do PostgREST: lista ou linha única. */
+type Resposta<Row> = { data: Row[] | null; error: PostgrestError | null };
+type RespostaUnica<Row> = { data: Row | null; error: PostgrestError | null };
+
+export interface InspectionRow {
+  id: string;
+  client_id: string;
+  template_id: string;
+  consultant_name: string;
+  consultant_names: string[] | null;
+  inspection_date: string;
+  status: Inspection['status'];
+  observations: string | null;
+  reference_sources: Inspection['referenceSources'] | null;
+  created_at: string;
+  updated_at: string | null;
+  completed_at: string | null;
+  ilpi_capacity: number | null;
+  residents_total: number | null;
+  residents_male: number | null;
+  residents_female: number | null;
+  dependency_level1?: number | null;
+  dependency_level_1?: number | null;
+  dependency_level2?: number | null;
+  dependency_level_2?: number | null;
+  dependency_level3?: number | null;
+  dependency_level_3?: number | null;
+  observed_staff: number | null;
+  observed_nursing_techs: number | null;
+  usable_area_m2: number | null;
+  observed_cleaning_staff: number | null;
+  accompanist_name: string | null;
+  accompanist_role: string | null;
+  signature_data_url: string | null;
+  last_edited_by: string | null;
+  finalized_by: Inspection['finalizedBy'] | null;
+  tenant_id: string;
+  deleted_at: string | null;
+}
+
+export interface ResponseRow {
+  id: string;
+  inspection_id: string;
+  item_id: string;
+  result: InspectionResponse['result'];
+  situation_description: string | null;
+  corrective_action: string | null;
+  responsible: string | null;
+  deadline: string | null;
+  custom_description: string | null;
+  links: InspectionResponse['links'] | null;
+  custom_item_meta: InspectionResponse['customItemMeta'] | null;
+  confirmed_client_evidence_ids: string[] | null;
+  last_edited_by: string | null;
+  created_at: string;
+  updated_at: string | null;
+  tenant_id: string;
+  deleted_at: string | null;
+}
+
+export interface PhotoRow {
+  id: string;
+  response_id: string;
+  data_url: string | null;
+  storage_path?: string | null;
+  caption: string | null;
+  taken_at: string | null;
+  created_at?: string | null;
+  updated_at: string | null;
+  tenant_id: string;
+  deleted_at: string | null;
+}
+
+export function mapFromPostgres(row: InspectionRow): Inspection {
   return {
     id: row.id,
     clientId: row.client_id,
@@ -105,7 +186,7 @@ export function mapFromPostgres(row: any): Inspection {
   };
 }
 
-export function mapToPostgres(inspection: Inspection): any {
+export function mapToPostgres(inspection: Inspection) {
   return {
     id: inspection.id,
     client_id: inspection.clientId,
@@ -147,7 +228,7 @@ export function mapToPostgres(inspection: Inspection): any {
   };
 }
 
-export function mapResponseToPostgres(response: InspectionResponse): any {
+export function mapResponseToPostgres(response: InspectionResponse) {
   return {
     id: response.id,
     inspection_id: response.inspectionId,
@@ -169,7 +250,7 @@ export function mapResponseToPostgres(response: InspectionResponse): any {
   };
 }
 
-export function mapResponseFromPostgres(row: any): InspectionResponse {
+export function mapResponseFromPostgres(row: ResponseRow): InspectionResponse {
   return {
     id: row.id,
     inspectionId: row.inspection_id,
@@ -195,7 +276,7 @@ export function mapResponseFromPostgres(row: any): InspectionResponse {
   };
 }
 
-export function mapPhotoToPostgres(photo: InspectionPhoto): any {
+export function mapPhotoToPostgres(photo: InspectionPhoto) {
   // Never send base64 dataUrl to the Postgres column — image binaries belong in Supabase Storage.
   // data_url is null until the Storage upload confirms a storagePath.
   return {
@@ -210,7 +291,7 @@ export function mapPhotoToPostgres(photo: InspectionPhoto): any {
   };
 }
 
-export function mapPhotoFromPostgres(row: any): InspectionPhoto {
+export function mapPhotoFromPostgres(row: PhotoRow): InspectionPhoto {
   const dataUrl = row.data_url || '';
   const storagePath = row.storage_path || storagePathFromDataUrl(dataUrl);
 
@@ -220,8 +301,10 @@ export function mapPhotoFromPostgres(row: any): InspectionPhoto {
     dataUrl,
     storagePath,
     caption: row.caption || undefined,
-    takenAt: new Date(row.taken_at || row.created_at || row.updated_at),
-    updatedAt: new Date(row.updated_at || row.taken_at || row.created_at),
+    // As tres colunas de data sao NOT NULL no banco; a cadeia de `||` existe porque
+    // `taken_at` foi acrescentada depois e foto antiga so tinha `created_at`.
+    takenAt: new Date((row.taken_at || row.created_at || row.updated_at) as string),
+    updatedAt: new Date((row.updated_at || row.taken_at || row.created_at) as string),
     tenantId: row.tenant_id,
     deletedAt: row.deleted_at ? new Date(row.deleted_at) : null,
     syncStatus: 'synced',
@@ -401,7 +484,7 @@ export const InspectionService = {
             supabase.from('inspections').select('*').eq('id', id).is('deleted_at', null).single(),
             25000,
             `InspectionById_${id}`
-          ) as any;
+          ) as RespostaUnica<InspectionRow>;
 
           // If the server cannot see a local inspection, preserve the local tree
           // and enqueue it again. Otherwise responses can remain orphaned in Dexie.
@@ -417,9 +500,9 @@ export const InspectionService = {
             const remote = mapFromPostgres(data);
             await RepositoryService.mergeRemoteRecord(db.inspections, remote, { label: 'inspecao' });
           }
-        } catch (err: any) {
+        } catch (err) {
           // Silence timeout warnings in production-like environments to avoid console noise
-          if (!err?.message?.includes('TIMEOUT')) {
+          if (!errorMessage(err).includes('TIMEOUT')) {
             console.warn('[InspectionService] Background refresh for', id, 'failed:', err);
           }
           
@@ -526,7 +609,7 @@ export const InspectionService = {
           .order('deleted_at', { ascending: false }),
         25000,
         'TrashRefresh'
-      ) as any;
+      ) as Resposta<InspectionRow>;
 
       if (error) throw error;
       for (const row of data || []) {
@@ -629,7 +712,7 @@ export const InspectionService = {
     if (responseError) throw responseError;
 
     const responseIds = (responseRows || []).map(row => row.id);
-    let remotePhotos: any[] = [];
+    let remotePhotos: PhotoRow[] = [];
     if (responseIds.length > 0) {
       const { data: photoRows, error: photoReadError } = await supabase
         .from('photos')
@@ -639,8 +722,9 @@ export const InspectionService = {
       remotePhotos = photoRows || [];
 
       const storagePaths = remotePhotos
-        .map(row => row.storage_path || storagePathFromDataUrl(row.data_url))
-        .filter(Boolean);
+        .map(row => row.storage_path || storagePathFromDataUrl(row.data_url || ''))
+        // `filter(Boolean)` nao estreita o tipo sozinho; o predicado faz o mesmo em runtime.
+        .filter((path): path is string => Boolean(path));
       if (storagePaths.length > 0) {
         const { error: storageError } = await supabase.storage.from(PHOTO_BUCKET).remove(storagePaths);
         if (storageError) throw storageError;
@@ -684,7 +768,7 @@ export const InspectionService = {
           supabase.from('responses').select('*').eq('inspection_id', inspectionId).is('deleted_at', null),
           25000,
           `ResponsesRefresh_${inspectionId}`
-        ) as any;
+        ) as Resposta<ResponseRow>;
 
         if (error || !data || (data.length === 0 && local.length > 0)) {
           console.warn(`[SafetyGate] Blocked forced remote overwrite for ${inspectionId}. Error: ${error?.message || 'Empty result'}. Local records preserved: ${local.length}`);
@@ -699,8 +783,8 @@ export const InspectionService = {
           .toArray());
         console.log(`[InspectionService] Forced refresh reconciled ${reconciled.length} responses from remote.`);
         return reconciled;
-      } catch (err: any) {
-        console.warn(`[InspectionService] Forced responses refresh failed for ${inspectionId}:`, err?.message || err);
+      } catch (err) {
+        console.warn(`[InspectionService] Forced responses refresh failed for ${inspectionId}:`, errorMessage(err));
         return local;
       }
     }
@@ -739,7 +823,7 @@ export const InspectionService = {
           supabase.from('responses').select('*').eq('inspection_id', inspectionId),
           25000,
           `ResponsesIncludingDeleted_${inspectionId}`,
-        ) as any;
+        ) as Resposta<ResponseRow>;
         if (error) throw error;
         for (const row of data || []) {
           await RepositoryService.mergeRemoteRecord(
@@ -767,7 +851,7 @@ export const InspectionService = {
       supabase.from('responses').select('*').eq('inspection_id', inspectionId).is('deleted_at', null),
       25000,
       `RemoteViewerResponses_${inspectionId}`
-    ) as any;
+    ) as Resposta<ResponseRow>;
 
     if (responseError) {
       throw new Error(responseError.message || 'Falha ao consultar respostas sincronizadas.');
@@ -782,7 +866,7 @@ export const InspectionService = {
       supabase.from('photos').select('*').in('response_id', responses.map(response => response.id)).is('deleted_at', null),
       25000,
       `RemoteViewerPhotos_${inspectionId}`
-    ) as any;
+    ) as Resposta<PhotoRow>;
 
     if (photoError) {
       throw new Error(photoError.message || 'Falha ao consultar fotos sincronizadas.');
@@ -907,9 +991,9 @@ export const InspectionService = {
           }
           hydratedById.set(hydrated.id, hydrated);
           options.onProgress?.({ total, completed, failed, currentPhotoId: hydrated.id }, hydrated);
-        } catch (err: any) {
+        } catch (err) {
           failed += 1;
-          const message = err?.message || 'Falha ao baixar foto do Storage.';
+          const message = errorMessage(err) || 'Falha ao baixar foto do Storage.';
           await db.photos.update(photo.id, {
             syncError: `Foto sincronizada, mas ainda nao baixou neste dispositivo: ${message}`,
             dataVerifiedAt: new Date(),
@@ -963,7 +1047,7 @@ export const InspectionService = {
               .order('created_at', { ascending: false }),
             10000,
             'InspectionsBackgroundRefresh'
-          ) as any;
+          ) as Resposta<InspectionRow>;
           if (error || !data) return;
 
 
@@ -1082,7 +1166,7 @@ export const InspectionService = {
             .limit(10),
           10000,
           `InspectionCandidates_${clientId}`
-        ) as any;
+        ) as Resposta<InspectionRow>;
 
         if (!error && data) {
           const fetchedCandidates = data
@@ -1129,7 +1213,7 @@ export const InspectionService = {
   async hydrateClientHistory(clientId: string): Promise<boolean> {
     if (!navigator.onLine) return false;
     try {
-      const inspectionRows: any[] = [];
+      const inspectionRows: InspectionRow[] = [];
       for (let from = 0; ; from += 1000) {
         const { data, error } = await supabase
           .from('inspections')
@@ -1192,7 +1276,7 @@ export const InspectionService = {
           supabase.from('responses').select('*').is('deleted_at', null),
           30000,
           'TenantResponsesHydration'
-        ) as any;
+        ) as Resposta<ResponseRow>;
 
         if (error || !data) {
           console.warn('[InspectionService] Hidratacao de respostas: sem dados', error?.message || '');
@@ -1212,8 +1296,8 @@ export const InspectionService = {
         hydratedResponsesTenantId = tenantId;
         console.log(`[InspectionService] Hidratacao de respostas do tenant: ${merged} mescladas de ${data.length} remotas.`);
         return merged;
-      } catch (err: any) {
-        console.warn('[InspectionService] Hidratacao de respostas falhou:', err?.message || err);
+      } catch (err) {
+        console.warn('[InspectionService] Hidratacao de respostas falhou:', errorMessage(err));
         return 0;
       } finally {
         responsesHydrationInFlight = null;
@@ -1263,7 +1347,7 @@ export const InspectionService = {
         },
         async (payload) => {
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            const accepted = await this.mergeRemoteResponses([mapResponseFromPostgres(payload.new as any)]);
+            const accepted = await this.mergeRemoteResponses([mapResponseFromPostgres(payload.new as ResponseRow)]);
             if (accepted.length > 0) onAccepted(accepted);
           }
         }

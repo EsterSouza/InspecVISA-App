@@ -40,7 +40,7 @@ function latestResponses(responses: InspectionResponse[]) {
   return byItem.values();
 }
 
-function lastText(next: string | undefined, current: string | undefined) {
+function lastText(next: string | null | undefined, current: string | null | undefined) {
   return next?.trim() ? next : current;
 }
 

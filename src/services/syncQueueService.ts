@@ -1,5 +1,5 @@
 import { db } from '../db/database';
-import { RepositoryService } from './repositoryService';
+import { RepositoryService, type SyncableTable } from './repositoryService';
 import { ClientService } from './clientService';
 import { ScheduleService } from './scheduleService';
 import { InspectionBundleSyncService } from './inspectionBundleSyncService';
@@ -29,7 +29,7 @@ function publishSummary(summary: QueueSummary) {
   }
 }
 
-function tableForConflict(tableName: ConflictTable) {
+function tableForConflict(tableName: ConflictTable): SyncableTable {
   if (tableName === 'inspections') return db.inspections;
   if (tableName === 'responses') return db.responses;
   return db.photos;
@@ -79,15 +79,15 @@ export const SyncQueueService = {
 
   async cleanupStuckSyncing() {
     // Any record left in 'syncing' means the app was closed mid-sync; reset to 'pending'
-    const tables = [db.clients, db.inspections, db.responses, db.schedules, db.photos];
+    const tables: SyncableTable[] = [db.clients, db.inspections, db.responses, db.schedules, db.photos];
     let count = 0;
     for (const table of tables) {
-      const stuck = await (table as any).where('syncStatus').equals('syncing').toArray();
-      const localOnlyStuck = stuck.filter((item: any) => !item.syncError?.startsWith(JOB_ERROR_PREFIX));
+      const stuck = await table.where('syncStatus').equals('syncing').toArray();
+      const localOnlyStuck = stuck.filter((item) => !item.syncError?.startsWith(JOB_ERROR_PREFIX));
       if (localOnlyStuck.length > 0) {
-        await (table as any)
+        await table
           .where('id')
-          .anyOf(localOnlyStuck.map((item: any) => item.id))
+          .anyOf(localOnlyStuck.map((item) => item.id))
           .modify({ syncStatus: 'pending', syncAttempts: 0 });
         count += localOnlyStuck.length;
       }
@@ -171,19 +171,19 @@ export const SyncQueueService = {
       processingStartedAt = null;
     }
     console.log('[SyncQueue] ⚠️ Iniciando reprocessamento forçado da fila...');
-    const tables = [db.clients, db.inspections, db.responses, db.schedules, db.photos];
+    const tables: SyncableTable[] = [db.clients, db.inspections, db.responses, db.schedules, db.photos];
     for (const table of tables) {
       // Libera itens travados em 'syncing' (fila fantasma) e itens com erro 'failed'
-      await (table as any)
+      await table
         .where('syncStatus')
         .equals('failed')
         .modify({ syncStatus: 'pending', syncAttempts: 0 });
-      const syncing = await (table as any).where('syncStatus').equals('syncing').toArray();
-      const localOnlyStuck = syncing.filter((item: any) => !item.syncError?.startsWith(JOB_ERROR_PREFIX));
+      const syncing = await table.where('syncStatus').equals('syncing').toArray();
+      const localOnlyStuck = syncing.filter((item) => !item.syncError?.startsWith(JOB_ERROR_PREFIX));
       if (localOnlyStuck.length > 0) {
-        await (table as any)
+        await table
           .where('id')
-          .anyOf(localOnlyStuck.map((item: any) => item.id))
+          .anyOf(localOnlyStuck.map((item) => item.id))
           .modify({ syncStatus: 'pending', syncAttempts: 0 });
       }
     }
@@ -227,7 +227,7 @@ export const SyncQueueService = {
   },
 
   async keepLocalConflict(tableName: ConflictTable, id: string) {
-    const table = tableForConflict(tableName) as any;
+    const table = tableForConflict(tableName);
     const item = await table.get(id);
     if (!item || item.syncStatus !== 'conflict') return;
 
@@ -240,7 +240,7 @@ export const SyncQueueService = {
   },
 
   async retryItem(tableName: ConflictTable, id: string) {
-    const table = tableForConflict(tableName) as any;
+    const table = tableForConflict(tableName);
     const item = await table.get(id);
     if (!item || item.syncStatus === 'synced') return;
     if (item.syncStatus === 'syncing' && item.syncError?.startsWith(JOB_ERROR_PREFIX)) {
@@ -296,7 +296,7 @@ export const SyncQueueService = {
   },
 
   async applyRemoteConflict(tableName: ConflictTable, id: string) {
-    const table = tableForConflict(tableName) as any;
+    const table = tableForConflict(tableName);
     const item = await table.get(id);
     if (!item?.conflictRemote) return;
 
@@ -321,13 +321,13 @@ export const SyncQueueService = {
       failed: 0
     };
 
-    const tables = [db.clients, db.inspections, db.responses, db.schedules, db.photos];
+    const tables: SyncableTable[] = [db.clients, db.inspections, db.responses, db.schedules, db.photos];
     
     for (const table of tables) {
-      counts.pending += await (table as any).where('syncStatus').equals('pending').count();
-      counts.syncing += await (table as any).where('syncStatus').equals('syncing').count();
-      counts.conflict += await (table as any).where('syncStatus').equals('conflict').count();
-      counts.failed += await (table as any).where('syncStatus').equals('failed').count();
+      counts.pending += await table.where('syncStatus').equals('pending').count();
+      counts.syncing += await table.where('syncStatus').equals('syncing').count();
+      counts.conflict += await table.where('syncStatus').equals('conflict').count();
+      counts.failed += await table.where('syncStatus').equals('failed').count();
     }
 
     publishSummary(counts);

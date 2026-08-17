@@ -55,7 +55,7 @@ export const RESPONSIBLE_OPTIONS = [
  * dias corridos a partir da visita; devolve null quando a consultora escreveu algo que não dá
  * para datar, e aí o item vai ao portal sem prazo em vez de ganhar um prazo inventado.
  */
-export function deadlineToDays(deadline: string | undefined): number | null {
+export function deadlineToDays(deadline: string | null | undefined): number | null {
   const text = (deadline || '').trim().toLowerCase();
   if (!text) return null;
   // Bug #3: frases claramente imediatas viram prazo 0 em vez de virar item que nunca vence.
@@ -74,7 +74,7 @@ export function deadlineToDays(deadline: string | undefined): number | null {
   return amount;
 }
 
-export function dueDateFor(deadline: string | undefined, baseDate: Date): string | undefined {
+export function dueDateFor(deadline: string | null | undefined, baseDate: Date): string | undefined {
   const days = deadlineToDays(deadline);
   if (days === null) return undefined;
   const due = new Date(baseDate.getTime());

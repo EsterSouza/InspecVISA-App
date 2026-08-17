@@ -14,10 +14,11 @@ export interface PreviousNCContext {
   inspectionId: string;
   inspectionDate: Date;
   count: number;
-  situationDescription?: string;
-  correctiveAction?: string;
-  responsible?: string;
-  deadline?: string;
+  // Aceitam null: o mapeador de respostas grava a coluna crua, que e nullable (DEBT-02).
+  situationDescription?: string | null;
+  correctiveAction?: string | null;
+  responsible?: string | null;
+  deadline?: string | null;
   customItemMeta?: CustomItemMeta;
   photos: InspectionPhoto[];
 }

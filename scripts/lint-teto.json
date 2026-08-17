@@ -1,5 +1,5 @@
 {
-  "total": 482,
+  "total": 363,
   "areas": {
     "api": 41,
     "scripts": 106,
@@ -8,7 +8,6 @@
     "src/data": 28,
     "src/lib": 1,
     "src/pages": 112,
-    "src/services": 119,
     "src/store": 7,
     "src/types": 19,
     "src/utils": 24,
