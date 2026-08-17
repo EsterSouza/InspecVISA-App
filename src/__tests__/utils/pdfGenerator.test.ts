@@ -130,7 +130,7 @@ describe('REF-03 - drawConsultedSources (via generatePDF)', () => {
       selectedLegislations: ['RDC 63/2011'],
     });
 
-    expect(capturedTexts).not.toContain('FONTES CONSULTADAS');
+    expect(capturedTexts).not.toContain('Fontes consultadas');
   });
 
   test('gera a seção "FONTES CONSULTADAS" com título, URL e nota quando há fontes', async () => {
@@ -143,7 +143,7 @@ describe('REF-03 - drawConsultedSources (via generatePDF)', () => {
       referenceSources,
     });
 
-    expect(capturedTexts).toContain('FONTES CONSULTADAS');
+    expect(capturedTexts).toContain('Fontes consultadas');
     expect(capturedTexts).toContain('Nota técnica ANVISA');
     // O endereço vira texto clicável, sem o "Disponível em: <...>" que só servia
     // para o papel e ocupava linhas inteiras de rastreamento.
@@ -162,7 +162,7 @@ describe('REF-03 - drawConsultedSources (via generatePDF)', () => {
       selectedLegislations: ['RDC 63/2011'],
     });
 
-    expect(capturedTexts).not.toContain('REFERÊNCIAS LEGISLATIVAS');
+    expect(capturedTexts).not.toContain('Referências legislativas');
   });
 
   test('norma com verbete é citada com a autoria curada, não deduzida', async () => {
@@ -177,7 +177,7 @@ describe('REF-03 - drawConsultedSources (via generatePDF)', () => {
       },
     ], { selectedLegislations: ['RDC 63/2011'] });
 
-    expect(capturedTexts).toContain('REFERÊNCIAS LEGISLATIVAS');
+    expect(capturedTexts).toContain('Referências legislativas');
     expect(capturedTexts.some(t =>
       t.includes('BRASIL. Agência Nacional de Vigilância Sanitária (ANVISA). RDC Anvisa nº 63/2011.')
     )).toBe(true);
@@ -191,7 +191,7 @@ describe('REF-03 - drawConsultedSources (via generatePDF)', () => {
       portalUrl: 'https://app.exemplo.com/cliente/visita/token-abc',
     });
 
-    expect(capturedTexts).toContain('Ver relatório e plano de ação no portal');
+    expect(capturedTexts.some(t => t.includes('Ver relatório e plano de ação no portal'))).toBe(true);
     expect(linkedRects).toContainEqual({ url: 'https://app.exemplo.com/cliente/visita/token-abc' });
   });
 
@@ -424,7 +424,7 @@ describe('REL-02 - formatação dos itens do relatório', () => {
   test('o item que transborda a página se identifica na retomada', async () => {
     await gerar();
 
-    expect(capturedTexts).toContain('NÃO CONFORMIDADES IDENTIFICADAS - CONTINUAÇÃO');
+    expect(capturedTexts).toContain('Não conformidades identificadas — continuação');
     expect(capturedTexts).toContain('NC-001 (continuação)');
     // Nada do texto longo é perdido: a última linha do bloco chega ao PDF.
     expect(capturedTexts.some(t => t.includes('Ponto 22'))).toBe(true);
@@ -543,7 +543,7 @@ describe('REL-03 - evidência do cliente no relatório final', () => {
     await generatePDF(inspection, responses, template, score, settings, []);
 
     expect(capturedTexts).not.toContain('Evidência apresentada pelo cliente');
-    expect(capturedTexts).not.toContain('EVIDÊNCIAS APRESENTADAS PELO CLIENTE');
+    expect(capturedTexts).not.toContain('Evidências apresentadas pelo cliente');
   });
 
   test('item que voltou a ser NC leva a alegação do cliente junto do achado', async () => {
@@ -562,7 +562,7 @@ describe('REL-03 - evidência do cliente no relatório final', () => {
     expect(corrido).toMatch(/Protocolo de renovacao aberto na VISA/);
     expect(corrido).toMatch(/Parecer da consultoria: Documento aceito/);
     // E o item continua sendo NC nesta visita: o anexo não concluiu nada.
-    expect(capturedTexts).toContain('NÃO CONFORMIDADES IDENTIFICADAS');
+    expect(capturedTexts).toContain('Não conformidades identificadas');
   });
 
   test('item já regularizado ganha seção própria, sem se misturar com as NCs', async () => {
@@ -572,7 +572,7 @@ describe('REL-03 - evidência do cliente no relatório final', () => {
       clientEvidenceByItemId: new Map([['item-1', [evidence()]]]),
     });
 
-    expect(capturedTexts).toContain('EVIDÊNCIAS APRESENTADAS PELO CLIENTE');
+    expect(capturedTexts).toContain('Evidências apresentadas pelo cliente');
     expect(capturedTexts).toContain('EV-001');
     expect(capturedTexts).toContain('REGULARIZADO');
     // A frase que impede a leitura errada: quem conclui é a vistoria, não o anexo.
@@ -609,6 +609,6 @@ describe('REL-03 - evidência do cliente no relatório final', () => {
       clientEvidenceByItemId: new Map([['item-que-sumiu-do-roteiro', [evidence({ itemId: 'item-que-sumiu-do-roteiro' })]]]),
     });
 
-    expect(capturedTexts).not.toContain('EVIDÊNCIAS APRESENTADAS PELO CLIENTE');
+    expect(capturedTexts).not.toContain('Evidências apresentadas pelo cliente');
   });
 });

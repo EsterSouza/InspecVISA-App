@@ -11,6 +11,12 @@ import { isRioState } from './state';
 // número/ano do REF-02. Passa a usar a mesma implementação do resto do app.
 import { extractBaseLegislation, canonicalLegislationKey, citedLegislations } from './legislationRefs';
 import type { ClientDeclarationForItem, ClientEvidenceForItem } from '../services/clientEvidenceService';
+import { registerPdfFonts, PDF_FONT_HEAD, PDF_FONT_BODY } from './pdfFonts';
+import { TREINAVISA_LOGO_PNG } from './pdfBrandLogo';
+
+// Aliases curtos das famílias da marca, usados nos setFont de todo o arquivo.
+const FH = PDF_FONT_HEAD;   // Sora — títulos
+const FB = PDF_FONT_BODY;   // Source Sans 3 — corpo
 
 
 function getPdfImageFormat(dataUrl: string) {
@@ -169,16 +175,34 @@ export async function generatePDF(
   const clientEvidenceByItemId = options.clientEvidenceByItemId ?? new Map<string, ClientEvidenceForItem[]>();
   const clientDeclarationByItemId = options.clientDeclarationByItemId ?? new Map<string, ClientDeclarationForItem>();
   const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+  registerPdfFonts(doc);
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const margin = 20;
   const contentW = pageW - margin * 2;
-  const primaryColor: [number, number, number] = [20, 40, 80]; // Navy Blue 
-  const secondaryColor: [number, number, number] = [45, 90, 142];
-  const textColor: [number, number, number] = [31, 41, 55];
-  const mutedColor: [number, number, number] = [100, 116, 139];
-  const borderColor: [number, number, number] = [226, 232, 240];
-  const surfaceColor: [number, number, number] = [248, 250, 252];
+
+  // ── Tipografia e paleta da marca (Manual de Marca 2.0 / design-inspecvisa) ──
+  // Sora nos títulos, Source Sans 3 na leitura. As cores são os tokens oficiais;
+  // os nomes herdados (primaryColor, mutedColor...) passam a apontar para eles,
+  // então a troca propaga para o documento inteiro.
+  const ink: [number, number, number] = [11, 31, 58];             // #0B1F3A texto/estrutura
+  const ink2: [number, number, number] = [65, 85, 111];           // #41556F apoio
+  const accent: [number, number, number] = [36, 74, 155];         // #244A9B ação/links
+  const accentSoft: [number, number, number] = [234, 243, 252];   // #EAF3FC fundo de leitura
+  const teal: [number, number, number] = [15, 107, 120];          // #0F6B78 operacional
+  const amber: [number, number, number] = [217, 151, 33];         // #D99721 preenchimento âmbar
+  const amberStrong: [number, number, number] = [174, 119, 20];   // #AE7714 texto/ícone âmbar
+  const green: [number, number, number] = [31, 157, 87];          // preenchimento sucesso
+  const greenInk: [number, number, number] = [21, 115, 71];       // texto sucesso
+  const red: [number, number, number] = [214, 69, 69];            // preenchimento erro
+  const redInk: [number, number, number] = [176, 42, 42];         // texto erro
+
+  const primaryColor: [number, number, number] = accent;          // azul da marca — fills e cabeçalhos
+  const secondaryColor: [number, number, number] = teal;
+  const textColor: [number, number, number] = [31, 41, 55];       // corpo (AA sobre branco)
+  const mutedColor: [number, number, number] = [84, 101, 123];    // #54657B — o tom mais claro que existe
+  const borderColor: [number, number, number] = [203, 217, 234];  // #CBD9EA decorativa
+  const surfaceColor: [number, number, number] = [245, 248, 252]; // #F5F8FC
   const templateItemIds = new Set(template.sections.flatMap(section => section.items.map(item => item.id)));
   const reportResponses = getLatestResponsesByItem(responses, templateItemIds);
   const isIlpiReport = template.category === 'ilpi' || inspection.clientCategory === 'ilpi';
@@ -198,14 +222,14 @@ export async function generatePDF(
       ];
 
   function drawSectionTitle(title: string, subtitle?: string) {
-    doc.setFillColor(...primaryColor);
+    doc.setFillColor(...accent);
     doc.roundedRect(margin, y - 5, 3, subtitle ? 18 : 12, 1.5, 1.5, 'F');
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.setTextColor(...primaryColor);
+    doc.setFont(FH, 'normal');
+    doc.setFontSize(15);
+    doc.setTextColor(...ink);
     doc.text(title, margin + 9, y + 2);
     if (subtitle) {
-      doc.setFont('helvetica', 'normal');
+      doc.setFont(FB,'normal');
       doc.setFontSize(8.5);
       doc.setTextColor(...mutedColor);
       doc.text(subtitle, margin + 9, y + 10);
@@ -227,14 +251,14 @@ export async function generatePDF(
     doc.roundedRect(x, y, width, 19, 2, 2, 'FD');
     doc.setFillColor(...accent);
     doc.roundedRect(x, y, 2.5, 19, 1, 1, 'F');
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.setTextColor(...textColor);
+    doc.setFont(FH, 'normal');
+    doc.setFontSize(15);
+    doc.setTextColor(...ink);
     doc.text(value, x + 7, y + 9);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
+    doc.setFont(FB, 'normal');
+    doc.setFontSize(7);
     doc.setTextColor(...mutedColor);
-    doc.text(label.toUpperCase(), x + 7, y + 15);
+    doc.text(label.toUpperCase(), x + 7, y + 15, { charSpace: 0.2 });
   }
 
   // ── Fluxo dos itens (NC / excelência) ────────────────────
@@ -263,7 +287,7 @@ export async function generatePDF(
   };
 
   function applyFlowStyle(style: FlowStyle) {
-    doc.setFont('helvetica', style.font || 'normal');
+    doc.setFont(FB,style.font || 'normal');
     doc.setFontSize(style.size ?? 9.8);
     doc.setTextColor(...(style.color || textColor));
   }
@@ -299,7 +323,7 @@ export async function generatePDF(
   ) {
     let cursor = startY;
     if (cursor + 10.5 > flowBottom) cursor = onContinue();
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(FB,'bold');
     doc.setFontSize(9.2);
     doc.setTextColor(...labelColor);
     doc.text(label, bodyX, cursor);
@@ -332,10 +356,10 @@ export async function generatePDF(
     const legalLineH = 4.2;
     const innerW = contentW - padX * 2;
 
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(FB,'bold');
     doc.setFontSize(10.4);
     const titleLines: string[] = doc.splitTextToSize(title, innerW);
-    doc.setFont('helvetica', 'italic');
+    doc.setFont(FB,'italic');
     doc.setFontSize(8.2);
     const legalLines: string[] = legal ? doc.splitTextToSize(legal, innerW) : [];
 
@@ -357,13 +381,13 @@ export async function generatePDF(
 
     const metaBase = boxY + padTop;
     let metaX = margin + padX;
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(FB,'bold');
     doc.setFontSize(9);
     doc.setTextColor(...accent);
     doc.text(code, metaX, metaBase);
     metaX += doc.getTextWidth(code) + 3.5;
     tags.forEach((tag) => {
-      doc.setFont('helvetica', 'bold');
+      doc.setFont(FB,'bold');
       doc.setFontSize(6.6);
       const tagW = doc.getTextWidth(tag.text) + 5;
       doc.setFillColor(...tag.fill);
@@ -373,7 +397,7 @@ export async function generatePDF(
       metaX += tagW + 2.5;
     });
 
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(FB,'bold');
     doc.setFontSize(10.4);
     doc.setTextColor(...textColor);
     let lineY = metaBase + metaH;
@@ -383,7 +407,7 @@ export async function generatePDF(
     });
 
     if (legalLines.length) {
-      doc.setFont('helvetica', 'italic');
+      doc.setFont(FB,'italic');
       doc.setFontSize(8.2);
       doc.setTextColor(...mutedColor);
       let legalY = lineY - titleLineH + legalGap;
@@ -428,7 +452,7 @@ export async function generatePDF(
 
     let cursor = startY + 0.5;
     if (cursor + 12 > flowBottom) cursor = onContinue();
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(FB,'bold');
     doc.setFontSize(8.6);
     doc.setTextColor(...mutedColor);
     doc.text('Registro fotográfico', bodyX, cursor);
@@ -463,7 +487,7 @@ export async function generatePDF(
         }
 
         if (entry.photo.caption) {
-          doc.setFont('helvetica', 'normal');
+          doc.setFont(FB,'normal');
           doc.setFontSize(7.2);
           doc.setTextColor(...mutedColor);
           const caption: string = doc.splitTextToSize(entry.photo.caption, cellW)[0];
@@ -581,7 +605,7 @@ export async function generatePDF(
 
     let cursor = startY + 0.5;
     if (cursor + 12 > flowBottom) cursor = onContinue();
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(FB,'bold');
     doc.setFontSize(8.6);
     doc.setTextColor(...mutedColor);
     doc.text('Fontes consultadas neste item', bodyX, cursor);
@@ -589,7 +613,7 @@ export async function generatePDF(
 
     list.forEach((link) => {
       const { label, hint } = describeUrl(link);
-      doc.setFont('helvetica', 'normal');
+      doc.setFont(FB,'normal');
       doc.setFontSize(8.6);
       const lines: string[] = doc.splitTextToSize(label, bodyW - 6);
       const blockH = lines.length * 4.5 + (hint ? 4 : 0);
@@ -597,7 +621,7 @@ export async function generatePDF(
 
       doc.setFillColor(...secondaryColor);
       doc.circle(bodyX + 1, cursor - 1.2, 0.8, 'F');
-      doc.setFont('helvetica', 'normal');
+      doc.setFont(FB,'normal');
       doc.setFontSize(8.6);
       lines.forEach((line, idx) => {
         drawUrlLink(doc, line, bodyX + 5, cursor + idx * 4.5, link, secondaryColor);
@@ -605,7 +629,7 @@ export async function generatePDF(
       cursor += lines.length * 4.5;
 
       if (hint) {
-        doc.setFont('helvetica', 'italic');
+        doc.setFont(FB,'italic');
         doc.setFontSize(7.4);
         doc.setTextColor(...mutedColor);
         doc.text(hint, bodyX + 5, cursor + 0.6);
@@ -625,7 +649,7 @@ export async function generatePDF(
     doc.line(margin, y - 6, pageW - margin, y - 6);
     doc.setFontSize(8);
     doc.setTextColor(...mutedColor);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(FB,'normal');
     doc.text(settings.companyName || settings.name, margin, y);
     doc.text(`Página ${pageNum} de ${totalPages}`, pageW - margin, y, { align: 'right' });
     // Data da visita (que finalizou o relatório), não a data de geração do arquivo.
@@ -633,63 +657,75 @@ export async function generatePDF(
   }
 
   // ── PAGE 1: CAPA ─────────────────────────────────────────
-  // Header bar
-  doc.setFillColor(...primaryColor);
-  doc.rect(0, 0, pageW, 40, 'F');
+  // Lombada de cor no lugar do antigo bloco navy: a marca pede navy como texto e
+  // estrutura, não como campo de cor. O acento vertical carrega a identidade sem
+  // cobrir a página de tinta escura.
+  doc.setFillColor(...accent);
+  doc.rect(0, 0, 7, pageH, 'F');
+  doc.setFillColor(...teal);
+  doc.rect(0, pageH * 0.62, 7, pageH * 0.38, 'F');
 
-  // Logo if available
-  if (settings.logoDataUrl) {
-    try {
-      doc.addImage(settings.logoDataUrl, 'JPEG', pageW - margin - 30, 5, 28, 28);
-    } catch { /* skip invalid logo */ }
-  }
+  const coverLeft = margin + 4;
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(16);
-  doc.setTextColor(255, 255, 255);
-  doc.text('RELATÓRIO DE INSPEÇÃO SANITÁRIA', margin, 18);
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'normal');
-  doc.text(template.name, margin, 28);
+  // Logo (topo direito): sempre a da TreinaVISA, por decisão da Ester.
+  try {
+    doc.addImage(TREINAVISA_LOGO_PNG, 'PNG', pageW - margin - 26, 15, 26, 26);
+  } catch { /* skip invalid logo */ }
 
-  // Botão do portal, na barra do cabeçalho (área fixa, imune à altura variável
-  // do conteúdo abaixo). Só aparece se a inspeção estiver vinculada a uma
-  // solicitação — sem isso não existe link público para levar.
+  doc.setFont(FH, 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(...teal);
+  doc.text((settings.companyName || settings.name || 'Consultoria Sanitária').toUpperCase(), coverLeft, 22, { charSpace: 0.3 });
+
+  doc.setFont(FH, 'normal');
+  doc.setFontSize(23);
+  doc.setTextColor(...ink);
+  doc.text('Relatório de Inspeção Sanitária', coverLeft, 33);
+
+  doc.setFont(FB, 'normal');
+  doc.setFontSize(11.5);
+  doc.setTextColor(...ink2);
+  doc.text(template.name, coverLeft, 42);
+
+  let y = 51;
+  // Botão do portal — CTA azul da marca (âmbar nunca é ação principal). Só aparece
+  // quando a inspeção tem solicitação vinculada, ou seja, quando existe link público.
   if (options.portalUrl) {
-    const btnLabel = 'Ver relatório e plano de ação no portal';
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8.5);
-    const btnW = doc.getTextWidth(btnLabel) + 8;
-    const btnY = 33;
-    const btnH = 6;
-    doc.setFillColor(255, 255, 255);
-    doc.roundedRect(margin, btnY, btnW, btnH, 1.5, 1.5, 'F');
-    doc.setTextColor(...primaryColor);
-    doc.text(btnLabel, margin + 4, btnY + 4.2);
-    doc.link(margin, btnY, btnW, btnH, { url: options.portalUrl });
+    const btnLabel = 'Ver relatório e plano de ação no portal  ›';
+    doc.setFont(FB, 'bold');
+    doc.setFontSize(9);
+    const btnW = doc.getTextWidth(btnLabel) + 11;
+    const btnH = 8;
+    doc.setFillColor(...accent);
+    doc.roundedRect(coverLeft, y, btnW, btnH, 2, 2, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.text(btnLabel, coverLeft + 5.5, y + 5.2);
+    doc.link(coverLeft, y, btnW, btnH, { url: options.portalUrl });
+    y += btnH + 8;
+  } else {
+    y += 4;
   }
 
   // Establishment data
-  let y = 55;
-  doc.setTextColor(30, 30, 30);
-  doc.setFontSize(13);
-  doc.setFont('helvetica', 'bold');
-  doc.text('DADOS DO ESTABELECIMENTO', margin, y);
-  y += 2;
-  doc.setDrawColor(...primaryColor);
-  doc.setLineWidth(0.5);
-  doc.line(margin, y, margin + contentW, y);
+  doc.setFont(FH, 'normal');
+  doc.setFontSize(12);
+  doc.setTextColor(...ink);
+  doc.text('Dados do estabelecimento', coverLeft, y);
+  y += 2.5;
+  doc.setDrawColor(...accent);
+  doc.setLineWidth(0.6);
+  doc.line(coverLeft, y, margin + contentW, y);
   y += 8;
 
   const drawField = (label: string, value: string) => {
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(FB, 'bold');
     doc.setFontSize(9);
-    doc.setTextColor(90, 90, 90);
-    doc.text(label, margin, y);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(30, 30, 30);
+    doc.setTextColor(...mutedColor);
+    doc.text(label, coverLeft, y);
+    doc.setFont(FB, 'normal');
+    doc.setTextColor(...ink);
     doc.setFontSize(10);
-    doc.text(value || '—', margin + 35, y);
+    doc.text(value || '—', coverLeft + 35, y);
     y += 7;
   };
 
@@ -709,21 +745,20 @@ export async function generatePDF(
   if (inspection.accompanistName) {
     drawField('Acompanhante:', `${inspection.accompanistName} ${inspection.accompanistRole ? `(${inspection.accompanistRole})` : ''}`);
   }
-
-  if (!isIlpiReport && settings.professionalId) {
-    drawField(`${settings.professionalIdLabel || 'Registro'}:`, settings.professionalId);
-  }
+  // O registro profissional já sai junto do nome da consultora (reportConsultants);
+  // o bloco extra repetia "COREN-RJ: ..." uma segunda vez na capa.
 
   // ILPI Extra Information
   if (inspection.ilpiCapacity || inspection.residentsTotal || inspection.usableAreaM2) {
     y += 5;
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(FH, 'normal');
     doc.setFontSize(11);
-    doc.setTextColor(...primaryColor);
-    doc.text('DADOS TÉCNICOS ILPI', margin, y);
+    doc.setTextColor(...ink);
+    doc.text('DADOS TÉCNICOS ILPI', coverLeft, y);
     y += 5;
 
     autoTable(doc, {
+      styles: { font: FB },
       startY: y,
       head: [['Capacidade', 'Nº Residentes', 'Grau I', 'Grau II', 'Grau III']],
       body: [[
@@ -771,6 +806,7 @@ export async function generatePDF(
     }
 
     autoTable(doc, {
+      styles: { font: FB },
       startY: y,
       head: [['Equipe em turno', 'Observado', 'Mínimo exigido', 'Resultado']],
       body: teamRows,
@@ -795,72 +831,88 @@ export async function generatePDF(
     y = (doc as any).lastAutoTable.finalY + 5;
 
     doc.setFontSize(7.5);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(FB,'normal');
     doc.setTextColor(...mutedColor);
     doc.text(`Base legal: ${staffing.legalBase}. Técnico de enfermagem não substitui cuidador no dimensionamento.`, margin, y);
     y += 10;
   }
 
-  // ── PAGE 1: CAPA (Score Box) ─────────────────────────────
-  y += 5;
+  // ── PAGE 1: CAPA (Score) ─────────────────────────────────
+  // Decisão 27: quatro classificações, três cores (bom e excelente = verde).
+  // A cor vai na barra e no ponto; número, rótulo e selo usam tinta escura —
+  // texto branco sobre âmbar reprova AA (2,5:1).
+  y += 6;
   const scorePercent = Math.round(score.scorePercentage);
-  const getScoreColor = (p: number) => {
-    if (p >= 85) return [34, 197, 94]; // Green
-    if (p >= 70) return [245, 158, 11]; // Yellow
-    return [239, 68, 68]; // Red
-  };
-  const rgb = getScoreColor(scorePercent);
-  // Caixa dupla: Conformidade (%) e Classificação de Risco (MARP)
+  const bandFill = (p: number): [number, number, number] => (p >= 85 ? green : p >= 70 ? amber : red);
+  // Preenchimento por classificação (barra/ponto/rail). Reusado no bloco "por área".
   const riskRgbMap: Record<string, [number, number, number]> = {
-    excellent: [34, 197, 94], good: [132, 204, 22], regular: [245, 158, 11], critical: [239, 68, 68],
+    excellent: green, good: green, regular: amber, critical: red,
   };
-  const riskRgb = riskRgbMap[score.classification] || [100, 116, 139];
+  const classInkMap: Record<string, [number, number, number]> = {
+    excellent: greenInk, good: greenInk, regular: amberStrong, critical: redInk,
+  };
+  const scoreFill = bandFill(scorePercent);
+  const riskFill = riskRgbMap[score.classification] || mutedColor;
+  const riskInk = classInkMap[score.classification] || ink;
   const riskLabel = classificationLabel(score.classification);
-  const halfW = (contentW - 4) / 2;
-  const cx1 = margin + halfW / 2;
-  const cx2 = margin + halfW + 4 + halfW / 2;
 
-  // Esquerda — % de conformidade (cor pelo %)
-  doc.setFillColor(...(rgb as [number, number, number]));
-  doc.roundedRect(margin, y, halfW, 35, 3, 3, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(30);
-  doc.text(`${scorePercent}%`, cx1, y + 15, { align: 'center' });
+  const scoreGap = 4;
+  const leftW = (contentW - scoreGap) * 0.56;
+  const rightW = contentW - scoreGap - leftW;
+  const boxH = 34;
+
+  // Card esquerdo — conformidade global (número em navy, barra colorida)
+  doc.setFillColor(...surfaceColor);
+  doc.setDrawColor(...borderColor);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(margin, y, leftW, boxH, 3, 3, 'FD');
+  doc.setFont(FH, 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(...mutedColor);
+  doc.text('CONFORMIDADE GLOBAL', margin + 7, y + 8, { charSpace: 0.2 });
+  doc.setFontSize(34);
+  doc.setTextColor(...ink);
+  doc.text(`${scorePercent}%`, margin + 7, y + 21);
+  doc.setFont(FB, 'normal');
   doc.setFontSize(8.5);
-  doc.text('CONFORMIDADE', cx1, y + 22, { align: 'center' });
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
-  doc.text(`${score.evaluatedItems} de ${score.totalItems} itens avaliados`, cx1, y + 29, { align: 'center' });
+  doc.setTextColor(...ink2);
+  doc.text(`${score.evaluatedItems} de ${score.totalItems} itens avaliados`, margin + 7, y + 27.5);
+  const barX = margin + 7;
+  const barW = leftW - 14;
+  const barY = y + boxH - 5;
+  doc.setFillColor(236, 240, 246);
+  doc.roundedRect(barX, barY, barW, 2.6, 1.3, 1.3, 'F');
+  doc.setFillColor(...scoreFill);
+  doc.roundedRect(barX, barY, (barW * scorePercent) / 100, 2.6, 1.3, 1.3, 'F');
 
-  // Direita — classificação de risco (cor pelo risco)
-  doc.setFillColor(...riskRgb);
-  doc.roundedRect(margin + halfW + 4, y, halfW, 35, 3, 3, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(16);
-  doc.text(riskLabel, cx2, y + 15, { align: 'center' });
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
-  doc.text('CLASSIFICAÇÃO DE RISCO', cx2, y + 22, { align: 'center' });
+  // Card direito — classificação de risco (selo em tinta escura + ponto colorido)
+  const rx = margin + leftW + scoreGap;
+  doc.setFillColor(...surfaceColor);
+  doc.setDrawColor(...borderColor);
+  doc.roundedRect(rx, y, rightW, boxH, 3, 3, 'FD');
+  doc.setFont(FH, 'normal');
   doc.setFontSize(8);
-  doc.text(`${score.criticalNotCompliesCount} não conformidade(s) crítica(s)`, cx2, y + 29, { align: 'center' });
+  doc.setTextColor(...mutedColor);
+  doc.text('CLASSIFICAÇÃO DE RISCO', rx + 7, y + 8, { charSpace: 0.2 });
+  doc.setFillColor(...riskFill);
+  doc.circle(rx + 8.7, y + 16.5, 2, 'F');
+  doc.setFont(FH, 'normal');
+  doc.setFontSize(15);
+  doc.setTextColor(...riskInk);
+  doc.text(riskLabel, rx + 13, y + 18.5);
+  doc.setFont(FB, 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(...ink2);
+  doc.text(`${score.criticalNotCompliesCount} não conformidade(s) crítica(s)`, rx + 7, y + 28);
 
-  y += 42;
-  // Progress Bar under score box
-  doc.setDrawColor(230, 230, 230);
-  doc.setFillColor(240, 240, 240);
-  doc.roundedRect(margin, y, contentW, 3, 1.5, 1.5, 'F');
-  doc.setFillColor(...(rgb as [number, number, number]));
-  doc.roundedRect(margin, y, (contentW * scorePercent) / 100, 3, 1.5, 1.5, 'F');
-  y += 10;
+  y += boxH + 8;
 
   const coverGap = 4;
   const coverCardW = (contentW - coverGap * 3) / 4;
-  drawMetricCard(margin, coverCardW, 'Cumpre', `${score.compliesCount}`, [22, 163, 74]);
-  drawMetricCard(margin + coverCardW + coverGap, coverCardW, 'Não cumpre', `${score.notCompliesCount}`, [220, 38, 38]);
-  drawMetricCard(margin + (coverCardW + coverGap) * 2, coverCardW, 'Críticos', `${score.criticalNotCompliesCount}`, [185, 28, 28]);
-  drawMetricCard(margin + (coverCardW + coverGap) * 3, coverCardW, 'Não avaliados', `${score.notEvaluatedCount}`, [100, 116, 139]);
+  drawMetricCard(margin, coverCardW, 'Cumpre', `${score.compliesCount}`, green);
+  drawMetricCard(margin + coverCardW + coverGap, coverCardW, 'Não cumpre', `${score.notCompliesCount}`, red);
+  drawMetricCard(margin + (coverCardW + coverGap) * 2, coverCardW, 'Críticos', `${score.criticalNotCompliesCount}`, redInk);
+  drawMetricCard(margin + (coverCardW + coverGap) * 3, coverCardW, 'Não avaliados', `${score.notEvaluatedCount}`, mutedColor);
   y += 25;
 
 
@@ -874,10 +926,10 @@ export async function generatePDF(
 
   const summaryGap = 4;
   const summaryCardW = (contentW - summaryGap * 3) / 4;
-  drawMetricCard(margin, summaryCardW, 'Conformidades', `${score.compliesCount}`, [22, 163, 74]);
-  drawMetricCard(margin + summaryCardW + summaryGap, summaryCardW, 'Não conformidades', `${score.notCompliesCount}`, [220, 38, 38]);
-  drawMetricCard(margin + (summaryCardW + summaryGap) * 2, summaryCardW, 'Urgentes', `${score.urgentActionsCount}`, [234, 88, 12]);
-  drawMetricCard(margin + (summaryCardW + summaryGap) * 3, summaryCardW, 'Não observados', `${score.notObservedCount}`, [71, 85, 105]);
+  drawMetricCard(margin, summaryCardW, 'Conformidades', `${score.compliesCount}`, green);
+  drawMetricCard(margin + summaryCardW + summaryGap, summaryCardW, 'Não conformidades', `${score.notCompliesCount}`, red);
+  drawMetricCard(margin + (summaryCardW + summaryGap) * 2, summaryCardW, 'Urgentes', `${score.urgentActionsCount}`, amber);
+  drawMetricCard(margin + (summaryCardW + summaryGap) * 3, summaryCardW, 'Não observados', `${score.notObservedCount}`, mutedColor);
   y += 27;
 
   // ── Conformidade por área (sanitária x nutrição) ─────────
@@ -911,23 +963,61 @@ export async function generatePDF(
       doc.roundedRect(ax, y, 2.5, 18, 1, 1, 'F');
       const tx = ax + 7;
       doc.setTextColor(...mutedColor);
-      doc.setFont('helvetica', 'bold');
+      doc.setFont(FB, 'bold');
       doc.setFontSize(7.5);
       const who = (card.consultant || '').trim().split(/\s+/)[0];
       doc.text(`${card.label.toUpperCase()}${who ? ` - ${who.toUpperCase()}` : ''}`, tx, y + 6);
-      doc.setTextColor(...textColor);
+      doc.setTextColor(...ink);
+      doc.setFont(FH, 'normal');
       doc.setFontSize(18);
       doc.text(`${card.pct}%`, tx, y + 14.5);
-      doc.setFont('helvetica', 'normal');
+      doc.setFont(FB, 'normal');
       doc.setFontSize(7.5);
-      doc.setTextColor(...mutedColor);
+      doc.setTextColor(...(classInkMap[card.classif] || mutedColor));
       doc.text(`${card.nc} NC · ${classificationLabel(card.classif as any)}`, tx + 21, y + 14.5);
     });
     y += 24;
   }
 
+  // ── Conformidade por seção (barras) ──────────────────────
+  // O visual que fecha rápido: nome da seção, barra por faixa e o percentual. A
+  // tabela abaixo mantém a contagem detalhada (cumpre / não cumpre / NO / N/A).
+  if (score.scoreBySection.length > 0) {
+    doc.setFont(FH, 'normal');
+    doc.setFontSize(11);
+    doc.setTextColor(...ink);
+    doc.text('Conformidade por seção', margin, y);
+    y += 7.5;
+
+    const labelW = 92;
+    const trackX = margin + labelW;
+    const trackW = contentW - labelW - 16;
+    score.scoreBySection.forEach(s => {
+      if (y > pageH - 30) { doc.addPage(); y = margin; }
+      const pct = Math.round(s.scorePercentage);
+      const fill = bandFill(pct);
+      const inkc = pct >= 85 ? greenInk : pct >= 70 ? amberStrong : redInk;
+      const title = s.sectionTitle.length > 46 ? s.sectionTitle.substring(0, 44) + '…' : s.sectionTitle;
+      doc.setFont(FB, 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(...textColor);
+      doc.text(title, margin, y + 2.7);
+      doc.setFillColor(236, 240, 246);
+      doc.roundedRect(trackX, y, trackW, 3.4, 1.7, 1.7, 'F');
+      doc.setFillColor(...fill);
+      doc.roundedRect(trackX, y, Math.max(1.5, (trackW * pct) / 100), 3.4, 1.7, 1.7, 'F');
+      doc.setFont(FB, 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(...inkc);
+      doc.text(`${pct}%`, margin + contentW, y + 2.9, { align: 'right' });
+      y += 8;
+    });
+    y += 4;
+  }
+
   // Summary table
   autoTable(doc, {
+    styles: { font: FB },
     startY: y,
     head: [['Seção', 'Total', 'Cumpre', 'Não Cumpre', 'NO', 'N/A', '%']],
     body: score.scoreBySection.map(s => {
@@ -955,9 +1045,11 @@ export async function generatePDF(
       score.notApplicableCount,
       `${Math.round(score.scorePercentage)}%`,
     ]],
-    headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontSize: 8, fontStyle: 'bold', cellPadding: 2.5 },
-    footStyles: { fillColor: [226, 232, 240], fontStyle: 'bold', fontSize: 8.5, textColor },
-    bodyStyles: { fontSize: 8.5, textColor, cellPadding: 2.3 },
+    // footStyles precisa repetir cellPadding e valign do corpo — sem isso o TOTAL
+    // usa o padding padrão do autoTable, fica com altura diferente e sai "torto".
+    headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontSize: 8, fontStyle: 'bold', cellPadding: 2.3, valign: 'middle' },
+    footStyles: { fillColor: [226, 232, 240], fontStyle: 'bold', fontSize: 8.5, textColor, cellPadding: 2.3, valign: 'middle' },
+    bodyStyles: { fontSize: 8.5, textColor, cellPadding: 2.3, valign: 'middle' },
     alternateRowStyles: { fillColor: surfaceColor },
     columnStyles: {
       0: { cellWidth: 77 },
@@ -968,19 +1060,28 @@ export async function generatePDF(
       5: { cellWidth: 13, halign: 'center' },
       6: { cellWidth: 14, halign: 'center', fontStyle: 'bold' },
     },
+    // % colorido pela faixa (verde/âmbar/vermelho), inclusive no TOTAL. As barras
+    // por seção agora vivem no bloco "Conformidade por seção", acima — dentro da
+    // célula elas ficavam apertadas e tortas.
+    didParseCell: (data) => {
+      if (data.column.index === 6 && (data.section === 'body' || data.section === 'foot')) {
+        const p = parseInt(String(data.cell.raw), 10) || 0;
+        data.cell.styles.textColor = p >= 85 ? greenInk : p >= 70 ? amberStrong : redInk;
+      }
+    },
     margin: { left: margin, right: margin },
     theme: 'plain',
   });
 
   y = (doc as any).lastAutoTable.finalY + 12;
   doc.setFillColor(255, 251, 235);
-  doc.setDrawColor(253, 230, 138);
+  doc.setDrawColor(...amber);
   doc.roundedRect(margin, y, contentW, 18, 2, 2, 'FD');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
-  doc.setTextColor(146, 64, 14);
+  doc.setFont(FH, 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(...amberStrong);
   doc.text('PRIORIDADE DE TRATAMENTO', margin + 5, y + 7);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(FB,'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(...textColor);
   doc.text(
@@ -1047,19 +1148,22 @@ export async function generatePDF(
     title: string,
     items: InspectionResponse[],
     accent: [number, number, number],
-    background: [number, number, number],
     defaultDeadline: string
   ) => {
     if (items.length === 0) return;
     if (y > pageH - 35) drawPlanContinuation();
 
     const drawGroupHeading = (continuation = false) => {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
+      doc.setFillColor(...accent);
+      doc.circle(margin + 1.5, y - 1.3, 1.5, 'F');
+      doc.setFont(FH, 'normal');
+      doc.setFontSize(10.5);
       doc.setTextColor(...accent);
-      doc.text(`${title}${continuation ? ' - CONTINUAÇÃO' : ''} (${items.length})`, margin, y);
-      y += 8;
+      doc.text(`${title}${continuation ? ' — continuação' : ''} (${items.length})`, margin + 6, y);
+      y += 9;
     };
+    // Respiro antes do título do grupo, para ele não colar no card anterior.
+    y += 8;
     drawGroupHeading();
 
     items.forEach((response) => {
@@ -1077,11 +1181,11 @@ export async function generatePDF(
       const correction = response.correctiveAction || 'Definir medida corretiva e registrar evidência de conclusão.';
       const requirement = item?.description || response.customDescription || 'Requisito avaliado.';
 
-      doc.setFont('helvetica', 'normal');
+      doc.setFont(FB,'normal');
       doc.setFontSize(bodyFontSize);
       const situationLines: string[] = doc.splitTextToSize(situation, cardInnerW);
       const correctionLines: string[] = doc.splitTextToSize(correction, cardInnerW);
-      doc.setFont('helvetica', 'italic');
+      doc.setFont(FB,'italic');
       doc.setFontSize(requirementFontSize);
       const requirementLines: string[] = doc.splitTextToSize(requirement, cardInnerW);
 
@@ -1098,61 +1202,72 @@ export async function generatePDF(
 
       const deadline = response.deadline || defaultDeadline;
       const responsible = response.responsible || 'RT / Gestor';
-      const chipText = `${deadline}  |  ${responsible}`;
+      const chipText = `${deadline}  ·  ${responsible}`;
 
       const drawCardFrame = (height: number, continuation = false) => {
-        doc.setFillColor(...background);
+        // Card branco com trilho colorido à esquerda — não mais o bloco inteiro tingido.
+        doc.setFillColor(255, 255, 255);
         doc.setDrawColor(...borderColor);
+        doc.setLineWidth(0.3);
         doc.roundedRect(margin, y, contentW, height, 2.5, 2.5, 'FD');
         doc.setFillColor(...accent);
         doc.roundedRect(margin, y, 3, height, 1.5, 1.5, 'F');
 
-        doc.setFont('helvetica', 'bold');
+        doc.setFont(FH, 'normal');
         doc.setFontSize(11);
-        doc.setTextColor(...textColor);
-        doc.text(
-          `AÇÃO ${String(cardNumber).padStart(2, '0')}${continuation ? ' - CONTINUAÇÃO' : ''}`,
-          cardInnerX,
-          y + 9
-        );
+        doc.setTextColor(...accent);
+        const codeText = `Ação ${String(cardNumber).padStart(2, '0')}${continuation ? ' — continuação' : ''}`;
+        doc.text(codeText, cardInnerX, y + 9);
 
-        // Selo de reincidência: NC já registrada em visita anterior deste cliente.
+        // Selo de reincidência: âmbar semântico (atenção), sempre com o rótulo escrito.
         if (!continuation && isRecurring) {
-          const titleW = doc.getTextWidth(`AÇÃO ${String(cardNumber).padStart(2, '0')}`);
+          const titleW = doc.getTextWidth(`Ação ${String(cardNumber).padStart(2, '0')}`);
           const tagText = 'REINCIDENTE';
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(7);
+          doc.setFont(FB, 'bold');
+          doc.setFontSize(6.6);
           const tagW = doc.getTextWidth(tagText) + 6;
-          const tagX = cardInnerX + titleW + 4;
-          doc.setFillColor(127, 29, 29); // red-900
-          doc.roundedRect(tagX, y + 4.5, tagW, 6, 2, 2, 'F');
-          doc.setTextColor(255, 255, 255);
-          doc.text(tagText, tagX + 3, y + 8.9);
+          const tagX = cardInnerX + titleW + 5;
+          doc.setFillColor(251, 241, 222);
+          doc.roundedRect(tagX, y + 4.4, tagW, 5.6, 1.8, 1.8, 'F');
+          doc.setTextColor(174, 119, 20);
+          doc.text(tagText, tagX + 3, y + 8.4);
         }
 
+        // Pílula de prazo + responsável: borda leve, tinta escura, prazo em destaque.
         if (!continuation) {
+          doc.setFont(FB, 'bold');
           doc.setFontSize(8);
-          const chipWidth = Math.min(74, doc.getTextWidth(chipText) + 8);
+          const chipWidth = Math.min(82, doc.getTextWidth(chipText) + 9);
+          const chipX = pageW - margin - chipWidth - 5;
           doc.setFillColor(255, 255, 255);
-          doc.roundedRect(pageW - margin - chipWidth - 5, y + 3, chipWidth, 9, 3, 3, 'F');
-          doc.setTextColor(...accent);
-          doc.text(chipText, pageW - margin - chipWidth - 1, y + 8.8);
+          doc.setDrawColor(...borderColor);
+          doc.setLineWidth(0.3);
+          doc.roundedRect(chipX, y + 3, chipWidth, 9, 2.5, 2.5, 'FD');
+          doc.setTextColor(...ink);
+          doc.text(chipText, chipX + 4.5, y + 8.8);
         }
       };
 
-      const drawTextBlock = (label: string, lines: string[], startY: number, isRequirement = false) => {
+      const drawTextBlock = (
+        label: string,
+        lines: string[],
+        startY: number,
+        labelColor: [number, number, number],
+        isRequirement = false
+      ) => {
         let blockY = startY;
         if (isRequirement) {
           doc.setDrawColor(...borderColor);
+          doc.setLineWidth(0.2);
           doc.line(cardInnerX, blockY, margin + contentW - 8, blockY);
           blockY += 5;
         }
-        doc.setFont('helvetica', 'bold');
+        doc.setFont(FH, 'normal');
         doc.setFontSize(8);
-        doc.setTextColor(...mutedColor);
-        doc.text(label, cardInnerX, blockY);
+        doc.setTextColor(...labelColor);
+        doc.text(label, cardInnerX, blockY, { charSpace: 0.2 });
         blockY += 5;
-        doc.setFont('helvetica', isRequirement ? 'italic' : 'normal');
+        doc.setFont(FB, isRequirement ? 'italic' : 'normal');
         doc.setFontSize(isRequirement ? requirementFontSize : bodyFontSize);
         doc.setTextColor(...textColor);
         // Uma linha por vez, com a mesma entrelinha usada para medir o card:
@@ -1168,17 +1283,17 @@ export async function generatePDF(
       if (cardHeight <= fullPageCardHeight) {
         drawCardFrame(cardHeight);
         let cardY = y + 19;
-        cardY = drawTextBlock('SITUAÇÃO ENCONTRADA', situationLines, cardY);
-        cardY = drawTextBlock('AÇÃO RECOMENDADA', correctionLines, cardY);
-        drawTextBlock('REQUISITO AVALIADO', requirementLines, cardY, true);
+        cardY = drawTextBlock('Situação encontrada', situationLines, cardY, accent);
+        cardY = drawTextBlock('Ação recomendada', correctionLines, cardY, teal);
+        drawTextBlock('Requisito avaliado', requirementLines, cardY, mutedColor, true);
         y += cardHeight + 6;
         return;
       }
 
       const blocks = [
-        { label: 'SITUAÇÃO ENCONTRADA', lines: situationLines, isRequirement: false },
-        { label: 'AÇÃO RECOMENDADA', lines: correctionLines, isRequirement: false },
-        { label: 'REQUISITO AVALIADO', lines: requirementLines, isRequirement: true },
+        { label: 'Situação encontrada', lines: situationLines, color: accent, isRequirement: false },
+        { label: 'Ação recomendada', lines: correctionLines, color: teal, isRequirement: false },
+        { label: 'Requisito avaliado', lines: requirementLines, color: mutedColor, isRequirement: true },
       ];
 
       blocks.forEach((block, blockIndex) => {
@@ -1190,25 +1305,25 @@ export async function generatePDF(
           drawGroupHeading(true);
         }
         drawCardFrame(blockHeight, continuation);
-        drawTextBlock(block.label, block.lines, y + 19, block.isRequirement);
+        drawTextBlock(block.label, block.lines, y + 19, block.color, block.isRequirement);
         y += blockHeight + 6;
       });
     });
   };
 
-  drawActionCards('URGENTES - ITENS CRÍTICOS', urgentItems, [185, 28, 28], [254, 242, 242], '15 dias');
-  drawActionCards('IMPORTANTES - NECESSÁRIOS', importantItems, [180, 83, 9], [255, 251, 235], '60 dias');
+  drawActionCards('Urgentes — itens críticos', urgentItems, [176, 42, 42], '15 dias');
+  drawActionCards('Importantes — necessários', importantItems, [174, 119, 20], '60 dias');
 
   // Summary of Conformance — visão por categoria/área (não deixa a página vazia)
   if (y > pageH - 80) { doc.addPage(); y = margin; }
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.setTextColor(34, 197, 94);
-  doc.text('GRUPO 3 — ITENS EM CONFORMIDADE', margin, y);
+  doc.setFont(FH, 'normal');
+  doc.setFontSize(11);
+  doc.setTextColor(21, 115, 71);
+  doc.text('Grupo 3 — itens em conformidade', margin, y);
   y += 6;
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(FB, 'normal');
   doc.setFontSize(9);
-  doc.setTextColor(60, 60, 60);
+  doc.setTextColor(...textColor);
   const overallEvaluated = score.compliesCount + score.notCompliesCount;
   const overallPct = overallEvaluated > 0
     ? Math.round((score.compliesCount / overallEvaluated) * 100)
@@ -1239,13 +1354,15 @@ export async function generatePDF(
 
   if (conformanceRows.length > 0) {
     autoTable(doc, {
+      styles: { font: FB },
       startY: y,
       head: [['Área inspecionada', 'Conformes', 'Avaliados', '% Conformidade']],
       body: conformanceRows.map(r => [r.title, r.complies, r.evaluated, `${r.pct}%`]),
       foot: [['TOTAL', score.compliesCount, overallEvaluated, `${overallPct}%`]],
-      headStyles: { fillColor: [22, 163, 74], textColor: [255, 255, 255], fontSize: 8, fontStyle: 'bold', cellPadding: 2.3 },
-      footStyles: { fillColor: [220, 252, 231], fontStyle: 'bold', fontSize: 8.5, textColor },
-      bodyStyles: { fontSize: 8.5, textColor, cellPadding: 2.2 },
+      // footStyles repete cellPadding/valign do corpo — sem isso o TOTAL sai torto.
+      headStyles: { fillColor: [31, 157, 87], textColor: [255, 255, 255], fontSize: 8, fontStyle: 'bold', cellPadding: 2.2, valign: 'middle' },
+      footStyles: { fillColor: [220, 252, 231], fontStyle: 'bold', fontSize: 8.5, textColor, cellPadding: 2.2, valign: 'middle' },
+      bodyStyles: { fontSize: 8.5, textColor, cellPadding: 2.2, valign: 'middle' },
       alternateRowStyles: { fillColor: surfaceColor },
       columnStyles: {
         0: { cellWidth: 96 },
@@ -1254,9 +1371,9 @@ export async function generatePDF(
         3: { cellWidth: 26, halign: 'center', fontStyle: 'bold' },
       },
       didParseCell: (data) => {
-        if (data.section === 'body' && data.column.index === 3) {
+        if ((data.section === 'body' || data.section === 'foot') && data.column.index === 3) {
           const pctValue = parseInt(String(data.cell.raw)) || 0;
-          data.cell.styles.textColor = pctValue >= 85 ? [22, 101, 52] : pctValue >= 70 ? [180, 83, 9] : [185, 28, 28];
+          data.cell.styles.textColor = pctValue >= 85 ? greenInk : pctValue >= 70 ? amberStrong : redInk;
         }
       },
       margin: { left: margin, right: margin },
@@ -1277,12 +1394,12 @@ export async function generatePDF(
 
   if (compliantItemIds.size > 0) {
     if (y > pageH - 60) { doc.addPage(); y = margin; }
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(FB,'bold');
     doc.setFontSize(10);
     doc.setTextColor(22, 101, 52);
     doc.text('RELAÇÃO DOS ITENS CUMPRIDOS', margin, y);
     y += 5;
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(FB,'normal');
     doc.setFontSize(8.5);
     doc.setTextColor(...mutedColor);
     const compliantSubtitle = recurringItemIds.size > 0
@@ -1313,6 +1430,7 @@ export async function generatePDF(
 
       if (y > pageH - 40) { doc.addPage(); y = margin; }
       autoTable(doc, {
+        styles: { font: FB },
         startY: y,
         head: [[{ content: `${sectionTitle} — ${rows.length} item(ns) em conformidade`, colSpan: 4 }]],
         body: rows,
@@ -1335,7 +1453,7 @@ export async function generatePDF(
 
   if (inspection.observations) {
     if (y + 16 > flowBottom) { doc.addPage(); y = margin; }
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(FB,'bold');
     doc.setFontSize(11);
     doc.setTextColor(...textColor);
     doc.text('Observações Gerais', margin, y);
@@ -1350,13 +1468,13 @@ export async function generatePDF(
     doc.addPage();
     y = margin;
     const drawNonComplianceHeading = (continuation = false) => {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(13);
-      doc.setTextColor(...primaryColor);
-      doc.text(`NÃO CONFORMIDADES IDENTIFICADAS${continuation ? ' - CONTINUAÇÃO' : ''}`, margin, y);
+      doc.setFont(FH, 'normal');
+      doc.setFontSize(14);
+      doc.setTextColor(...ink);
+      doc.text(`Não conformidades identificadas${continuation ? ' — continuação' : ''}`, margin, y);
       y += 3;
-      doc.setDrawColor(...primaryColor);
-      doc.setLineWidth(0.4);
+      doc.setDrawColor(...accent);
+      doc.setLineWidth(0.5);
       doc.line(margin, y, margin + contentW, y);
       y += 10;
     };
@@ -1380,7 +1498,7 @@ export async function generatePDF(
       // texto continuava no alto da página seguinte sem dizer de qual NC era.
       const continueItem: ContinueFlow = () => {
         continueNonCompliancePage();
-        doc.setFont('helvetica', 'bold');
+        doc.setFont(FB,'bold');
         doc.setFontSize(8.6);
         doc.setTextColor(...accent);
         doc.text(`${code} (continuação)`, bodyX, y);
@@ -1436,7 +1554,7 @@ export async function generatePDF(
 
     if (y + 10 > flowBottom) continueNonCompliancePage();
     y += 6;
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(FB,'normal');
     doc.setFontSize(8);
     doc.setTextColor(...mutedColor);
     doc.text(`Ciente do Plano de Ação: ${inspection.accompanistName || 'Representante do Estabelecimento'}`, margin, y);
@@ -1470,16 +1588,16 @@ export async function generatePDF(
     y = margin;
     const evidenceAccent: [number, number, number] = [7, 89, 133];
     const drawEvidenceHeading = (continuation = false) => {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(13);
-      doc.setTextColor(...primaryColor);
-      doc.text(`EVIDÊNCIAS APRESENTADAS PELO CLIENTE${continuation ? ' - CONTINUAÇÃO' : ''}`, margin, y);
+      doc.setFont(FH, 'normal');
+      doc.setFontSize(14);
+      doc.setTextColor(...ink);
+      doc.text(`Evidências apresentadas pelo cliente${continuation ? ' — continuação' : ''}`, margin, y);
       y += 3;
-      doc.setDrawColor(...primaryColor);
-      doc.setLineWidth(0.4);
+      doc.setDrawColor(...accent);
+      doc.setLineWidth(0.5);
       doc.line(margin, y, margin + contentW, y);
       y += 7;
-      doc.setFont('helvetica', 'normal');
+      doc.setFont(FB,'normal');
       doc.setFontSize(8.5);
       doc.setTextColor(...mutedColor);
       const nota = doc.splitTextToSize(
@@ -1527,16 +1645,16 @@ export async function generatePDF(
     y = margin;
     const excellenceAccent: [number, number, number] = [21, 101, 52];
     const drawExcellenceHeading = (continuation = false) => {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(13);
-      doc.setTextColor(...primaryColor);
+      doc.setFont(FH, 'normal');
+      doc.setFontSize(14);
+      doc.setTextColor(...ink);
       doc.text(
-        `PONTOS DE EXCELÊNCIA E SUGESTÕES DE MELHORIA${continuation ? ' - CONTINUAÇÃO' : ''}`,
+        `Pontos de excelência e sugestões de melhoria${continuation ? ' — continuação' : ''}`,
         margin,
         y
       );
       y += 3;
-      doc.setDrawColor(...primaryColor);
+      doc.setDrawColor(...accent);
       doc.setLineWidth(0.4);
       doc.line(margin, y, margin + contentW, y);
       y += 10;
@@ -1558,7 +1676,7 @@ export async function generatePDF(
       const code = `EX-${String(exNum).padStart(3, '0')}`;
       const continueItem: ContinueFlow = () => {
         continueExcellencePage();
-        doc.setFont('helvetica', 'bold');
+        doc.setFont(FB,'bold');
         doc.setFontSize(8.6);
         doc.setTextColor(...excellenceAccent);
         doc.text(`${code} (continuação)`, bodyX, y);
@@ -1624,7 +1742,7 @@ export async function generatePDF(
   }
 
   doc.setTextColor(30, 30, 30);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(FB,'normal');
   doc.setFontSize(9);
   doc.text(inspection.accompanistName || '—', margin, y);
   if (inspection.accompanistRole) {
@@ -1655,26 +1773,26 @@ export async function generatePDF(
     const sigPageW = doc.internal.pageSize.getWidth();
     const sigMargin = 20;
 
-    doc.setFillColor(243, 244, 246);
+    doc.setFillColor(...accentSoft);
     doc.rect(0, 0, sigPageW, 42, 'F');
-    doc.setFillColor(...primaryColor);
+    doc.setFillColor(...accent);
     doc.rect(0, 0, 4, 42, 'F');
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(FH, 'normal');
     doc.setFontSize(18);
-    doc.setTextColor(17, 24, 39);
-    doc.text('ENCERRAMENTO E ASSINATURA', sigMargin + 4, 22);
+    doc.setTextColor(...ink);
+    doc.text('Encerramento e assinatura', sigMargin + 4, 22);
     doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(FB,'normal');
     doc.setTextColor(107, 114, 128);
     doc.text('Declaramos que os dados acima refletem a situação encontrada na data da inspeção.', sigMargin + 4, 34);
 
     let sigY = 60;
     doc.setFontSize(10);
     doc.setTextColor(31, 41, 55);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(FB,'bold');
     doc.text('Consultora Responsável:', sigMargin, sigY);
     sigY += 7;
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(FB,'normal');
     reportConsultants.forEach((consultant) => {
       doc.text(consultant.name || '', sigMargin, sigY);
       sigY += 5;
@@ -1709,7 +1827,7 @@ export async function generatePDF(
     sigY += 10;
 
     // Establishment rep signature area
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(FB,'bold');
     doc.setFontSize(10);
     doc.text('Representante do Estabelecimento:', sigMargin, sigY);
     sigY += 10;
@@ -1770,23 +1888,23 @@ function drawReferencesABNT(
   const pageH = doc.internal.pageSize.getHeight();
   const margin = 20;
   const contentW = pageW - margin * 2;
-  const primaryColor: [number, number, number] = [20, 40, 80];
+  const primaryColor: [number, number, number] = [36, 74, 155];  // #244A9B — azul da marca
 
   doc.addPage();
 
   // Header
-  doc.setFillColor(243, 244, 246);
+  doc.setFillColor(234, 243, 252);
   doc.rect(0, 0, pageW, 42, 'F');
   doc.setFillColor(...primaryColor);
   doc.rect(0, 0, 4, 42, 'F');
 
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(FH, 'normal');
   doc.setFontSize(18);
-  doc.setTextColor(17, 24, 39);
-  doc.text('REFERÊNCIAS LEGISLATIVAS', margin + 4, 22);
+  doc.setTextColor(11, 31, 58);
+  doc.text('Referências legislativas', margin + 4, 22);
 
   doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(FB,'normal');
   doc.setTextColor(107, 114, 128);
   doc.text('Legislações que fundamentam os itens avaliados neste relatório.', margin + 4, 34);
 
@@ -1811,13 +1929,13 @@ function drawReferencesABNT(
     // Reference number bullet
     doc.setFillColor(30, 107, 94);
     doc.circle(margin + 3, y - 1, 2.5, 'F');
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(FB,'bold');
     doc.setFontSize(8);
     doc.setTextColor(255, 255, 255);
     doc.text(`${idx + 1}`, margin + 3, y + 0.5, { align: 'center' });
 
     // Reference text
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(FB,'normal');
     doc.setFontSize(9);
     doc.setTextColor(31, 41, 55);
     const lines = doc.splitTextToSize(abntRef, contentW - 14);
@@ -1827,8 +1945,8 @@ function drawReferencesABNT(
     // If has URL in library
     if (libraryMatch?.url) {
       doc.setFontSize(7.5);
-      doc.setTextColor(30, 107, 94);
-      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(15, 107, 120);
+      doc.setFont(FB, 'italic');
       const urlLine = `Disponível em: <${libraryMatch.url}>`;
       const urlLines = doc.splitTextToSize(urlLine, contentW - 14);
       doc.text(urlLines, margin + 10, y);
@@ -1851,8 +1969,8 @@ function drawReferencesABNT(
     y = noteY;
   }
   doc.setFontSize(7.5);
-  doc.setFont('helvetica', 'italic');
-  doc.setTextColor(156, 163, 175);
+  doc.setFont(FB, 'italic');
+  doc.setTextColor(84, 101, 123);
   doc.text('Legislações vigentes na data da inspeção.', margin, y);
 }
 
@@ -1868,26 +1986,26 @@ function drawConsultedSources(doc: jsPDF, sources?: ReferenceSource[]) {
   const pageH = doc.internal.pageSize.getHeight();
   const margin = 20;
   const contentW = pageW - margin * 2;
-  const primaryColor: [number, number, number] = [20, 40, 80];
+  const primaryColor: [number, number, number] = [36, 74, 155];  // #244A9B — azul da marca
 
   doc.addPage();
 
-  doc.setFillColor(243, 244, 246);
+  doc.setFillColor(234, 243, 252);
   doc.rect(0, 0, pageW, 42, 'F');
   doc.setFillColor(...primaryColor);
   doc.rect(0, 0, 4, 42, 'F');
 
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(FH, 'normal');
   doc.setFontSize(18);
-  doc.setTextColor(17, 24, 39);
-  doc.text('FONTES CONSULTADAS', margin + 4, 22);
+  doc.setTextColor(11, 31, 58);
+  doc.text('Fontes consultadas', margin + 4, 22);
 
   doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(FB,'normal');
   doc.setTextColor(107, 114, 128);
   doc.text('Fontes adicionais consultadas pela consultora durante a inspeção.', margin + 4, 34);
 
-  const linkColor: [number, number, number] = [45, 90, 142];
+  const linkColor: [number, number, number] = [36, 74, 155];  // #244A9B — link da marca
   const textX = margin + 11;
   const textW = contentW - 11;
   const bottom = pageH - 22;
@@ -1896,10 +2014,10 @@ function drawConsultedSources(doc: jsPDF, sources?: ReferenceSource[]) {
   sources.forEach((source, idx) => {
     const { label, hint } = describeUrl(source.url);
 
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(FB,'bold');
     doc.setFontSize(9.5);
     const titleLines: string[] = doc.splitTextToSize(source.title || label, textW);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(FB,'normal');
     doc.setFontSize(8.6);
     const linkLines: string[] = doc.splitTextToSize(label, textW);
     doc.setFontSize(8.4);
@@ -1914,12 +2032,12 @@ function drawConsultedSources(doc: jsPDF, sources?: ReferenceSource[]) {
 
     doc.setFillColor(...linkColor);
     doc.circle(margin + 3.5, y - 1.2, 2.6, 'F');
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(FB,'bold');
     doc.setFontSize(7.6);
     doc.setTextColor(255, 255, 255);
     doc.text(`${idx + 1}`, margin + 3.5, y + 0.6, { align: 'center' });
 
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(FB,'bold');
     doc.setFontSize(9.5);
     doc.setTextColor(31, 41, 55);
     titleLines.forEach((line) => {
@@ -1929,7 +2047,7 @@ function drawConsultedSources(doc: jsPDF, sources?: ReferenceSource[]) {
 
     // Endereço clicável com rótulo legível — a URL crua de busca tinha centenas
     // de caracteres de rastreamento e tomava a página inteira.
-    doc.setFont('helvetica', 'normal');
+    doc.setFont(FB,'normal');
     doc.setFontSize(8.6);
     linkLines.forEach((line, lineIdx) => {
       drawUrlLink(doc, line, textX, y + lineIdx * 4.6, source.url, linkColor);
@@ -1937,7 +2055,7 @@ function drawConsultedSources(doc: jsPDF, sources?: ReferenceSource[]) {
     y += linkLines.length * 4.6;
 
     if (hint) {
-      doc.setFont('helvetica', 'italic');
+      doc.setFont(FB,'italic');
       doc.setFontSize(7.4);
       doc.setTextColor(107, 114, 128);
       doc.text(hint, textX, y + 0.6);
@@ -1946,7 +2064,7 @@ function drawConsultedSources(doc: jsPDF, sources?: ReferenceSource[]) {
 
     if (noteLines.length) {
       y += 1.5;
-      doc.setFont('helvetica', 'normal');
+      doc.setFont(FB,'normal');
       doc.setFontSize(8.4);
       doc.setTextColor(107, 114, 128);
       noteLines.forEach((line) => {
