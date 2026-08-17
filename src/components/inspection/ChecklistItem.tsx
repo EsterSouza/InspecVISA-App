@@ -34,6 +34,9 @@ interface ChecklistItemProps {
   clientDeclaration?: ClientDeclarationForItem;
   onChange: (itemId: string, result: InspectionResponse['result']) => void;
   onUpdateDetails: (itemId: string, details: Partial<InspectionResponse>) => void;
+  /** Avisa a página que o painel de detalhes está aberto: com filtro ligado, o
+   *  item fica na lista enquanto ela escreve, mesmo já tendo saído do filtro. */
+  onDetailsToggle?: (itemId: string, open: boolean) => void;
   onAddPhoto: (itemId: string, photo: Omit<InspectionPhoto, 'id'>) => void | Promise<void>;
   onRemovePhoto: (itemId: string, id: string) => void;
   onEdit?: (itemId: string) => void;
@@ -122,9 +125,6 @@ function ClientEvidencePanel({ evidence }: { evidence: ClientEvidenceForItem[] }
           </div>
         ))}
       </div>
-      <p className="mt-2 text-[10px] leading-relaxed text-sky-900/70">
-        Receber a evidência não conclui a pendência — quem decide se foi cumprido é esta vistoria.
-      </p>
     </div>
   );
 }
@@ -178,6 +178,7 @@ export const ChecklistItem = memo(function ChecklistItem({
   clientDeclaration,
   onChange,
   onUpdateDetails,
+  onDetailsToggle,
   onAddPhoto,
   onRemovePhoto,
   onEdit,
@@ -190,6 +191,10 @@ export const ChecklistItem = memo(function ChecklistItem({
   const [localAction, setLocalAction] = useState(response?.correctiveAction || '');
 
   const [isFocused, setIsFocused] = useState<string | null>(null);
+
+  useEffect(() => {
+    onDetailsToggle?.(item.id, showObs);
+  }, [showObs, item.id, onDetailsToggle]);
 
   // Sugestões do próprio histórico deste item: busca preguiçosa, só quando a
   // consultora abre a seção de observações — evita consultar o Dexie pra cada
@@ -502,11 +507,6 @@ export const ChecklistItem = memo(function ChecklistItem({
               }}
               onBlur={(e) => handleBlur('situationDescription', e.target.value)}
             />
-            {!response?.situationDescription && hasError && (
-              <p className="text-sm text-danger-soft-ink">
-                Sem esta descrição o cliente recebe a pendência sem saber o que foi encontrado.
-              </p>
-            )}
             {!!suggestions?.situationDescription.length && (
               <div className="flex flex-wrap items-center gap-1.5 pt-1">
                 <span className="text-xs font-medium text-navy-3">Já usado antes:</span>
@@ -578,11 +578,6 @@ export const ChecklistItem = memo(function ChecklistItem({
               }}
               onBlur={(e) => handleBlur('correctiveAction', e.target.value)}
             />
-            {isNotCompliant && (
-              <p className="text-xs text-navy-3">
-                Sai assim, palavra por palavra, no portal do cliente e no PDF.
-              </p>
-            )}
             {!!suggestions?.correctiveAction.length && (
               <div className="flex flex-wrap items-center gap-1.5 pt-1">
                 <span className="text-xs font-medium text-navy-3">Já usado antes:</span>

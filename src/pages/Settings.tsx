@@ -394,9 +394,7 @@ export function Settings() {
                   </label>
                 </fieldset>
                 <p className="text-xs text-gray-500">
-                  Desabilitado por enquanto. Hoje o app não tem nenhuma classe de tema escuro implementada —
-                  ligar este seletor sem isso trocaria a opção e não mudaria nada na tela. Ele passa a
-                  funcionar depois que a cor do app inteiro virar token de marca.
+                  Desabilitado por enquanto: o tema escuro ainda não está implementado.
                 </p>
               </CardContent>
             </Card>

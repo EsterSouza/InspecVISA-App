@@ -427,9 +427,8 @@ export function OperationalQueues({ consultantName, clientId, daysAhead }: Opera
         <span className="text-[11px] font-bold uppercase tracking-wide text-emerald-700">Financeiro</span>
         <span className="h-px flex-1 bg-emerald-200" />
       </div>
-      <p className="mb-2.5 text-[11px] text-gray-400">
-        Separado de propósito: pendência de pagamento não é demanda técnica, e o filtro de
-        consultora não se aplica aqui — atraso é da conta, não de quem atende.
+      <p className="mb-2.5 text-[11px] text-gray-500">
+        O filtro de consultora não se aplica aqui: o atraso é da conta.
       </p>
       <BlockCard
         config={FINANCIAL_BLOCK}

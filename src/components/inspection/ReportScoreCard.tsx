@@ -98,13 +98,6 @@ export function ReportScoreCard({ template, responses, previousVisit, isIlpi, re
           <span className="font-semibold tabular-nums text-navy">{recurringCount}</span>
         </div>
       </div>
-      <div className="border-t border-gray-200 px-5 py-3">
-        <p className="text-xs text-navy-3">
-          {previousVisit
-            ? 'Comparação final contra final — as duas visitas terminaram. A diferença é em pontos percentuais, não em por cento.'
-            : 'Sem visita anterior concluída com o mesmo roteiro: comparar com o que não é comparável seria pior que o número sozinho.'}
-        </p>
-      </div>
     </Card>
   );
 }

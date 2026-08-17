@@ -117,7 +117,7 @@ export function DeliveryReceipt({ inspection }: { inspection: Inspection }) {
             <p className="text-sm text-amber-soft-ink">
               <strong>Nada chegou ao portal.</strong> Não há solicitação apontando para esta inspeção,
               então o relatório, a nota e o plano de ação não foram publicados. O PDF que você baixou
-              está correto — o que faltou foi a entrega.
+              está correto: faltou a entrega.
             </p>
           </div>
           {candidates.length > 0 ? (
@@ -172,18 +172,12 @@ export function DeliveryReceipt({ inspection }: { inspection: Inspection }) {
             detalhe={actionItemCount === null
               ? 'Não foi possível conferir agora.'
               : actionItemCount > 0
-                ? `${actionItemCount} ${actionItemCount === 1 ? 'pendência publicada' : 'pendências publicadas'} — as que já estavam abertas foram atualizadas, não duplicadas.`
+                ? `${actionItemCount} ${actionItemCount === 1 ? 'pendência publicada' : 'pendências publicadas'}`
                 : 'Nenhuma pendência publicada para o cliente.'}
           />
         </div>
       )}
 
-      <div className="border-t border-gray-200 px-5 py-3">
-        <p className="text-xs text-navy-3">
-          Este cartão é permanente: aviso passageiro não serve para informação de que você vai
-          precisar amanhã.
-        </p>
-      </div>
     </Card>
   );
 }

@@ -120,9 +120,7 @@ export function ExecutionScorePanel({
               </p>
               {!isCompleted && (
                 <p className="mt-3 text-xs text-navy-3">
-                  A comparação usa a nota <strong>final</strong> da visita anterior. Esta ainda é
-                  parcial: {score.evaluatedItems} dos {score.totalItems} itens respondidos, e o
-                  número muda até o fim.
+                  {score.evaluatedItems} de {score.totalItems} itens respondidos.
                 </p>
               )}
             </>
@@ -177,10 +175,6 @@ export function ExecutionScorePanel({
                 </div>
               );
             })}
-            <p className="text-xs text-navy-3">
-              Cada área compara com a mesma área da visita anterior. Comparar a sanitária com a nota
-              global daria uma diferença que não existe.
-            </p>
           </div>
         </Card>
       )}
@@ -211,12 +205,6 @@ export function ExecutionScorePanel({
                 <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-navy-3" aria-hidden="true" />
               </button>
             ))}
-          </div>
-          <div className="border-t border-gray-200 px-5 py-3">
-            <p className="text-xs text-navy-3">
-              Não conformidade sem texto entra no plano de ação do cliente em branco: ele recebe a
-              pendência sem saber o que foi encontrado nem o que fazer.
-            </p>
           </div>
         </Card>
       )}

@@ -228,8 +228,7 @@ export function InspectionFinishScreen({
                           ? 'não conformidade sem situação ou ação escrita.'
                           : 'não conformidades sem situação ou ação escrita.'}
                       </strong>{' '}
-                      Elas entram no plano de ação do cliente em branco — ele recebe a pendência sem
-                      saber o que foi encontrado nem o que fazer.
+                      Elas entram no plano de ação do cliente em branco.
                       <span className="mt-2 block overflow-hidden rounded-md border border-danger-soft-border">
                         {missingText.map((pend) => (
                           <button
@@ -265,8 +264,7 @@ export function InspectionFinishScreen({
                     <strong className="text-navy">
                       {semPrazo.length} {semPrazo.length === 1 ? 'pendência ficou' : 'pendências ficaram'} sem prazo definido.
                     </strong>{' '}
-                    Elas aparecem no portal, mas nunca contam como vencidas — nem para o cliente,
-                    nem na sua fila do Início. Confira se é isso mesmo.
+                    Aparecem no portal, mas nunca contam como vencidas.
                   </span>
                 </li>
               )}
@@ -377,11 +375,9 @@ export function InspectionFinishScreen({
               </div>
               <div className="rounded-md border border-secondary-200 bg-secondary-100 p-3">
                 <p className="text-sm text-secondary-700">
-                  <strong>Sem assinatura no aparelho.</strong> O relatório é escrito depois da visita, em
-                  casa — pedir a assinatura do acompanhante na hora de encerrar tornava impossível
-                  terminar fora do local. O PDF continua trazendo o nome e a função acima de uma linha em
-                  branco, para assinatura no papel se alguém pedir. A sua assinatura, de consultora,
-                  continua sendo capturada na hora de gerar o PDF.
+                  <strong>Sem assinatura no aparelho.</strong> O PDF traz o nome e a função acima de uma
+                  linha em branco, para assinatura no papel se alguém pedir. A sua assinatura é
+                  capturada na hora de gerar o PDF.
                 </p>
               </div>
             </div>
@@ -415,9 +411,8 @@ export function InspectionFinishScreen({
                 <div className="flex items-start gap-2 rounded-md border border-success-soft-border bg-success-soft p-3">
                   <Check className="mt-0.5 h-4 w-4 shrink-0 text-success-soft-ink" aria-hidden="true" />
                   <p className="text-sm text-success-soft-ink">
-                    <strong>Pronta para entregar.</strong> Há uma solicitação apontando para esta
-                    inspeção — é esse apontamento, e não o agendamento na agenda, que faz o relatório
-                    chegar ao portal.
+                    <strong>Pronta para entregar.</strong> Há uma solicitação do portal apontando para
+                    esta inspeção.
                   </p>
                 </div>
               )}
@@ -482,10 +477,6 @@ export function InspectionFinishScreen({
                     {linking && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Criar um agendamento para esta visita
                   </Button>
-                  <p className="text-xs text-navy-3">
-                    Se a visita nunca teve agendamento, a saída é criar um retroativo aqui mesmo —
-                    bloquear sem oferecer caminho seria prender o relatório.
-                  </p>
                 </>
               )}
             </div>
@@ -499,8 +490,7 @@ export function InspectionFinishScreen({
                 Só gerar o PDF, sem entregar
               </Button>
               <p className="text-xs text-navy-3">
-                A segunda opção gera o arquivo para conferência e <strong>não</strong> publica nada —
-                ela nunca fica bloqueada.
+                A segunda opção gera o arquivo para conferência, sem publicar nada.
               </p>
             </div>
           </Card>

@@ -140,12 +140,6 @@ export function CorrectiveActionsTable({ responses, template, recurringItemIds }
         </div>
       )}
 
-      <div className="border-t border-gray-200 px-5 py-3">
-        <p className="text-xs text-navy-3">
-          <strong>Sem prazo</strong> aparece no portal do cliente, mas nunca conta como vencida — é
-          uma escolha, não uma data esquecida.
-        </p>
-      </div>
     </Card>
   );
 }

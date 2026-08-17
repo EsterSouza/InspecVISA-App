@@ -73,12 +73,51 @@ export function deadlineToDays(deadline: string | undefined): number | null {
   return amount;
 }
 
-function dueDateFor(deadline: string | undefined, baseDate: Date): string | undefined {
+export function dueDateFor(deadline: string | undefined, baseDate: Date): string | undefined {
   const days = deadlineToDays(deadline);
   if (days === null) return undefined;
   const due = new Date(baseDate.getTime());
   due.setDate(due.getDate() + days);
   return toDateKey(due);
+}
+
+/**
+ * Janela de repactuação: prazo que já venceu — ou que vence dentro dela — pode
+ * receber data nova na visita. Fora dela, a data pactuada continua.
+ */
+export const DEADLINE_KEEP_WINDOW_DAYS = 7;
+
+export type RecurringDeadlineKind = 'novo' | 'mantido' | 'repactuado' | 'encurtado';
+
+export interface RecurringDeadline {
+  /** A data que vale no plano de ação do cliente (YYYY-MM-DD). */
+  effective?: string;
+  kind: RecurringDeadlineKind;
+}
+
+/**
+ * Reincidência não reinicia o relógio: um item que ganhou 60 dias na primeira
+ * visita continua vencendo na data combinada lá, mesmo que na visita seguinte a
+ * consultora escolha "60 dias" outra vez. O prazo volta a ser negociável quando
+ * vence (ou está a menos de {@link DEADLINE_KEEP_WINDOW_DAYS} dias de vencer), e
+ * encurtar sempre vale — foi ela quem decidiu apertar.
+ *
+ * A mesma regra está no `on conflict` de `admin_publish_client_action_items`: aqui
+ * ela existe para a tela poder mostrar a data certa antes de publicar.
+ */
+export function resolveRecurringDueDate(
+  pactuated: string | null | undefined,
+  proposed: string | undefined,
+  visitDate: Date,
+): RecurringDeadline {
+  if (!pactuated) return { effective: proposed, kind: 'novo' };
+
+  const limit = new Date(visitDate.getTime());
+  limit.setDate(limit.getDate() + DEADLINE_KEEP_WINDOW_DAYS);
+  if (pactuated <= toDateKey(limit)) return { effective: proposed, kind: 'repactuado' };
+
+  if (proposed && proposed < pactuated) return { effective: proposed, kind: 'encurtado' };
+  return { effective: pactuated, kind: 'mantido' };
 }
 
 /**

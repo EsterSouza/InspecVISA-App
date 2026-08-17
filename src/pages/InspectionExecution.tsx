@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ChevronRight, CloudOff, CheckCircle2, Eye, EyeOff, Loader2, PlusCircle, RefreshCw } from 'lucide-react';
 import { db } from '../db/database';
@@ -98,6 +98,8 @@ async function seedPendingResponses(
   return seeded;
 }
 
+type ItemFilter = 'todos' | 'sem-resposta' | 'nao-cumpre' | 'falta-escrever';
+
 export function InspectionExecution() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -126,7 +128,10 @@ export function InspectionExecution() {
   const [previousVisit, setPreviousVisit] = useState<PreviousVisitScore | null>(null);
   const [openSectionIds, setOpenSectionIds] = useState<Set<string>>(new Set());
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
-  const [itemFilter, setItemFilter] = useState<'todos' | 'sem-resposta' | 'nao-cumpre' | 'falta-escrever'>('todos');
+  const [itemFilter, setItemFilter] = useState<ItemFilter>('todos');
+  // Item em que ela está trabalhando agora: não sai da lista filtrada quando
+  // deixa de casar com o filtro. Zera ao trocar de filtro.
+  const [stickyItemIds, setStickyItemIds] = useState<Set<string>>(new Set());
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [hideClientInfo, setHideClientInfo] = useState(false);
   const [photoHydration, setPhotoHydration] = useState<{ total: number; completed: number; failed: number } | null>(null);
@@ -451,22 +456,52 @@ export function InspectionExecution() {
     };
   }, [visibleSections, responseByItemId, missingText]);
 
-  const itemMatchesFilter = useCallback((itemId: string) => {
-    switch (itemFilter) {
+  const matchesFilter = useCallback((filter: ItemFilter, itemId: string) => {
+    switch (filter) {
       case 'sem-resposta': return !responseByItemId.has(itemId);
       case 'nao-cumpre': return responseByItemId.get(itemId)?.result === 'not_complies';
       case 'falta-escrever': return missingTextItemIds.has(itemId);
       default: return true;
     }
-  }, [itemFilter, responseByItemId, missingTextItemIds]);
+  }, [responseByItemId, missingTextItemIds]);
 
-  // A primeira seção nasce aberta; o índice abre a que for escolhida.
-  useEffect(() => {
-    setOpenSectionIds(prev => {
-      if (prev.size > 0 || visibleSections.length === 0) return prev;
-      return new Set([visibleSections[0].id]);
+  // Responder o item faz ele deixar de casar com o filtro — mas quem está
+  // escrevendo ainda precisa dele na tela para marcar prazo e responsável. O
+  // cartão só sai quando ela recolhe o painel ou troca de filtro.
+  const itemMatchesFilter = useCallback(
+    (itemId: string) => matchesFilter(itemFilter, itemId) || stickyItemIds.has(itemId),
+    [matchesFilter, itemFilter, stickyItemIds],
+  );
+
+  const applyFilter = useCallback((next: ItemFilter) => {
+    setItemFilter(next);
+    setStickyItemIds(new Set());
+    if (next === 'todos') return;
+    setOpenSectionIds(new Set(
+      (visibleSections as any[])
+        .filter(section => section.items.some((item: any) => matchesFilter(next, item.id)))
+        .map(section => section.id),
+    ));
+  }, [visibleSections, matchesFilter]);
+
+  const handleDetailsToggle = useCallback((itemId: string, open: boolean) => {
+    setStickyItemIds(prev => {
+      if (open === prev.has(itemId)) return prev;
+      const copy = new Set(prev);
+      if (open) copy.add(itemId); else copy.delete(itemId);
+      return copy;
     });
-    setActiveSectionId(prev => prev ?? (visibleSections[0]?.id || null));
+  }, []);
+
+  // A primeira seção nasce aberta — uma vez só. Antes isto rodava a cada
+  // recálculo de `visibleSections`, e reabria a seção que ela tinha acabado de
+  // recolher.
+  const sectionsSeeded = useRef(false);
+  useEffect(() => {
+    if (sectionsSeeded.current || visibleSections.length === 0) return;
+    sectionsSeeded.current = true;
+    setOpenSectionIds(new Set([visibleSections[0].id]));
+    setActiveSectionId(visibleSections[0].id);
   }, [visibleSections]);
 
   const goToSection = useCallback((sectionId: string) => {
@@ -484,6 +519,7 @@ export function InspectionExecution() {
       setActiveSectionId(section.id);
     }
     setItemFilter('todos');
+    setStickyItemIds(new Set());
     window.requestAnimationFrame(() => {
       document.getElementById(`item-${itemId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
@@ -539,6 +575,8 @@ export function InspectionExecution() {
     const state = useInspectionStore.getState();
     const existing = state.responses.find(r => r.itemId === itemId);
     const actor = getLocalActor();
+    // Responder é o que tira o item do filtro "sem resposta": ele fica.
+    setStickyItemIds(prev => prev.has(itemId) ? prev : new Set(prev).add(itemId));
     const alreadyConfirmed = new Set(existing?.confirmedClientEvidenceIds || []);
     const pendingEvidence = (clientEvidence.get(itemId) || [])
       .filter(evidence => evidence.status === 'pending' && !alreadyConfirmed.has(evidence.evidenceId));
@@ -1296,7 +1334,7 @@ export function InspectionExecution() {
                 key={value}
                 type="button"
                 aria-pressed={itemFilter === value}
-                onClick={() => setItemFilter(value)}
+                onClick={() => applyFilter(value)}
                 className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-navy-2 hover:bg-gray-50 aria-[pressed=true]:border-primary-700 aria-[pressed=true]:bg-primary-50 aria-[pressed=true]:font-semibold aria-[pressed=true]:text-primary-800"
                 style={{ minHeight: 44 }}
               >
@@ -1313,7 +1351,7 @@ export function InspectionExecution() {
             const visibleItems = section.items.filter((item: any) => itemMatchesFilter(item.id));
             // Com filtro ligado, seção sem item correspondente sai da tela.
             if (itemFilter !== 'todos' && visibleItems.length === 0) return null;
-            const isOpen = itemFilter !== 'todos' || openSectionIds.has(section.id);
+            const isOpen = openSectionIds.has(section.id);
 
             return (
               <div key={section.id} id={`secao-${section.id}`} className="scroll-mt-44">
@@ -1438,6 +1476,7 @@ export function InspectionExecution() {
                           clientDeclaration={clientDeclarations.get(item.id)}
                           onChange={handleResponseChange}
                           onUpdateDetails={handleUpdateDetails}
+                          onDetailsToggle={handleDetailsToggle}
                           onEdit={item.id.startsWith('extra|') ? handleEditExtraItem : undefined}
                           onDelete={item.id.startsWith('extra|') ? handleRemoveExtraItem : undefined}
                           onAddPhoto={handleAddPhoto}
@@ -1463,7 +1502,7 @@ export function InspectionExecution() {
           {itemFilter !== 'todos' && filterCounts[itemFilter] === 0 && (
             <div className="rounded-md border border-gray-200 bg-white p-6 text-center">
               <p className="text-sm text-navy-2">Nenhum item neste filtro.</p>
-              <Button variant="outline" size="sm" className="mt-3" onClick={() => setItemFilter('todos')}>
+              <Button variant="outline" size="sm" className="mt-3" onClick={() => applyFilter('todos')}>
                 Ver todos os itens
               </Button>
             </div>
