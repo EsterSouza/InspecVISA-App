@@ -7,7 +7,7 @@
 
 ## Onde estamos — atualizado em 17/08/2026
 
-**23 cards entregues, 5 na fila.** Card entregue tem o título ~~riscado~~ mais abaixo, com a data
+**24 cards entregues, 4 na fila.** Card entregue tem o título ~~riscado~~ mais abaixo, com a data
 e o commit; card aberto tem ⬜. Esta é a única tabela de estado do documento — se divergir de
 qualquer outra coisa aqui, ela ganha.
 
@@ -15,15 +15,15 @@ qualquer outra coisa aqui, ela ganha.
 
 | Card | O que é | Só depois de |
 |---|---|---|
-| **FE-22** | `Clients` e `Inspections` em tabela densa | — |
 | **FE-25** | `SmartImporter`, o que sobrou de `TemplateDetail`, e as 3 telas de entrada | — |
 | **FE-26** | `PublicSchedule` e `PublicAppointmentStatus` — o que o cliente vê sem login | — |
 | **FE-12** | Tema escuro no app inteiro | — (FE-21 ✅ destravou) |
 | **FE-27** | Gate de regressão visual e a11y — **é o card que fecha o frontend** | FE-12, só para o tema |
 
 O FE-24 tocou o formulário de telas que ainda vão ser redesenhadas (`PublicSchedule` no FE-26,
-`SmartImporter` e `Login` no FE-25, os filtros de `Clients`/`Inspections` no FE-22): a estrutura
-do redesenho é desses cards, o controle já está no sistema e não precisa ser convertido de novo.
+`SmartImporter` e `Login` no FE-25): a estrutura do redesenho é desses cards, o controle já está
+no sistema e não precisa ser convertido de novo. Os filtros de `Clients`/`Inspections` eram desse
+grupo e já foram absorvidos pelo FE-22.
 
 ### ✅ O que já está no ar
 
@@ -53,9 +53,10 @@ do redesenho é desses cards, o controle já está no sistema e não precisa ser
 | FE-23 | `/new` → `/execute` → **encerramento** → `/summary` implementados, em 6 commits | 16/08 | `79fcaaf` … `a47986d`, `0f5849a` |
 | FE-21 | 2.705 classes cruas + 20 hex cravados viram token, família por família, em 8 commits | 17/08 | `bd221e1` … `ca0a35d`, `f82e3a6` |
 | FE-24 | `Field`/`Checkbox`/`Radio` novos e 204 controles crus migrados em 38 arquivos | 17/08 | `37adbe2` |
+| FE-22 | `Clients` e `Inspections` em tabela densa — as últimas listas de cards do admin | 17/08 | (a seguir) |
 
 **Ondas:** 1 (portal) **fechada** · 2 (admin) **fechada** · 3 (fechamento) falta FE-12 e a revisão
-final de a11y · 4 (o admin que falta) em andamento, 10 de 14 entregues.
+final de a11y · 4 (o admin que falta) em andamento, 11 de 14 entregues.
 
 ---
 
@@ -608,9 +609,29 @@ O texto abaixo é o card como foi escrito, mantido para leitura do histórico.
   para 5,96:1.
 - `tsc -b` e `npm run build` limpos depois de cada um dos 8 commits.
 
-### ⬜ FE-22 · Listas restantes viram tabela densa
-`Clients.tsx` e `Inspections.tsx`, seguindo o FE-17 como exemplo aprovado. É o item que estava no
-backlog da Onda 2 sem card próprio.
+### ~~FE-22 · Listas restantes viram tabela densa~~ · ✅ 17/08/2026
+`Clients.tsx` e `Inspections.tsx` seguindo o FE-17 (`Table`/`Pagination` do FE-04b, `usePagedList`,
+10 por página). Era o item que estava no backlog da Onda 2 sem card próprio — **eram as duas
+últimas listas de cards do admin**.
+- **Clientes** — colunas Cliente (nome + responsável/CNPJ) · Categoria · Cidade · Contato · Portal ·
+  ações. A coluna Cliente **ordena** (A→Z / Z→A, `localeCompare` em pt-BR); o resto da ordem de
+  leitura não muda porque busca e categoria continuam sendo filtradas no `loadClients`.
+- **Inspeções** — colunas Cliente (nome + categoria) · Situação · Início · Conclusão · ações.
+  **Sem cabeçalho de ordenação, de propósito:** a ordem é a do domínio (em andamento primeiro,
+  depois data decrescente) e trocá-la por ordenação de coluna esconderia justamente o que está
+  aberto. A Lixeira continua como painel âmbar acima da tabela — não é lista de trabalho, é caixa
+  de recuperação, e virar tabela só a faria disputar atenção com a lista principal.
+- **As ações da linha deixaram de depender de hover.** Em `Clients` os botões de editar/excluir
+  eram `opacity-0 group-hover:opacity-100` — invisíveis no toque, onde não existe hover, e sem
+  nome acessível. Agora são `Button` `ghost` `sm` (44px no toque pela decisão 7) com `aria-label`
+  que diz **de qual cliente** ("Excluir Harmonya"), porque numa tabela "Excluir" repetido em 10
+  linhas não diz nada para quem navega por lista de botões.
+- **Colunas secundárias somem antes de a tabela rolar de lado:** Cidade/Contato saem abaixo de
+  `md`, Portal abaixo de `lg`, Conclusão abaixo de `md`. O `TableContainer` já rola sozinho, mas
+  rolagem lateral para ler o nome do cliente é pior que uma coluna a menos no celular.
+- O `<span className="font-mono">CATEGORIA: X</span>` do card de inspeção morreu junto: o Manual
+  2.0 proíbe monoespaçada usada só para parecer técnica.
+- `tsc -b`, `npm run build` e os 545 testes limpos.
 
 ---
 
@@ -932,9 +953,9 @@ entregou o editor de roteiro sem precisar de arrastar.
 | ~~FE-19~~ ✅ | Configurações | Sonnet 5 | médio | entregue 16/08 |
 | ~~FE-20~~ ✅ | Estados vazio/carregando/erro + `PageHeader` em 7 listas do admin | Sonnet 5 | médio | entregue 16/08 |
 | ~~FE-21~~ ✅ | 2.705 classes + 20 hex → token, família por família | Sonnet 5 | alto | entregue 17/08 |
-| FE-22 | `Clients` e `Inspections` em tabela densa | Codex (medium) | baixo | FE-17 ✅ |
-| FE-23 | Artefato E + fluxo `/new` → `/execute` → `/summary` | Opus 5 | **alto** | protótipo aprovado |
-| FE-24 | ~225 controles crus → `Input`/`Select`/`Textarea`/`Label` | Opus 5 (padrão) · Codex medium (lote) | alto | FE-23 |
+| ~~FE-22~~ ✅ | `Clients` e `Inspections` em tabela densa | Opus 5 | baixo | entregue 17/08 |
+| ~~FE-23~~ ✅ | Artefato E + fluxo `/new` → `/execute` → `/summary` | Opus 5 | **alto** | entregue 16/08 |
+| ~~FE-24~~ ✅ | ~225 controles crus → `Input`/`Select`/`Textarea`/`Label` | Opus 5 | alto | entregue 17/08 |
 | FE-25 | `SmartImporter`, `TemplateDetail` e as telas de entrada | Sonnet 5 | baixo | FE-17b ✅ |
 | FE-26 | `PublicSchedule` + `PublicAppointmentStatus` | Opus 5 | médio | Artefato C ✅ |
 | FE-27 | Gate de regressão visual e a11y | Opus 5 (matriz) · Sonnet 5 (spec) | médio-alto | FE-12, só para a camada de tema |
@@ -946,10 +967,10 @@ em paralelo por serem as duas telas de uso diário. Daqui em diante:
 
 1. ~~**FE-17b**~~ ✅ · ~~**FE-19**~~ ✅ · ~~**FE-20**~~ ✅ — aplicação de padrão já decidido no
    artefato, fecha o que a Onda 4 original abriu.
-2. **FE-23** ✅ **e FE-24** — estrutura real de uso. Vêm antes da cor de propósito.
+2. ~~**FE-23**~~ ✅ ~~**e FE-24**~~ ✅ — estrutura real de uso. Vieram antes da cor, de propósito.
 3. ~~**FE-21**~~ ✅ — convertido em 17/08, com o desenho das telas do FE-23 já congelado (a ordem
    que o handoff pedia, pra não converter cor duas vezes).
-4. **FE-22, FE-25 e FE-26** — as superfícies restantes.
+4. ~~**FE-22**~~ ✅ **, FE-25 e FE-26** — as superfícies restantes.
 5. **FE-12** — o tema escuro é o último de propósito: é o card mais vistoso e o menos estrutural.
 6. **FE-27** — fecha a onda e é o único que autoriza a frase "frontend visual fechado".
 
@@ -1134,6 +1155,7 @@ Tabela de acompanhamento rápido — quem fez o quê e quando. O detalhe de cada
 | 17/08/2026 | **FE-21 — correção de paleta, achada pela Ester usando** | Sonnet 5 | (a seguir) | Vendo o app depois da conversão: badges "quase mortos", `Em Andamento` (âmbar) e `Vencido` (vermelho) indistinguíveis, e o fundo geral "azulado demais". Dois problemas reais, não só gosto. **(1) Os 4 tons "soft" semânticos (`amber-soft`, `success-soft`, `danger-soft`, `teal-soft`) estavam todos na mesma faixa de luminosidade, 92-95%** — só o matiz variava, e a essa luminosidade o olho não separa bem. Medido e mostrado à Ester em 3 opções (atual, e duas mais saturadas); escolhida a mais forte. Novos valores em `tokens.css` **e** `tailwind.config.js` (as duas fontes, como o `design-inspecvisa` manda): `amber-soft` `#FBF0DC`→`#FADA9E`, `success-soft` `#E4F3EB`→`#AEEACA`, `danger-soft` `#FBE9E7`→`#FAA79E`, `teal-soft` `#E3F1F3`→`#ADE3EB`. Contraste com a tinta (`-soft-ink`) reconferido: todos ≥4,5:1 (o mais apertado é `danger-soft-ink`, 4,81:1). `accent-soft`/`primary-50` **não mudou** — é token duplo (badge semântico *e* fundo genérico de hover/ativo em botão, nav, etc.), mexer ali tinha alcance maior que o problema relatado. **(2) O fundo geral era `bg-surface-sunken` em vez de `--bg`.** `tokens.css` sempre teve os dois: `--bg` (`#EEF3F9`, mais claro, fundo de página) e `--surface-sunken` (`#E4ECF6`, mais saturado, só para chrome — sidebar, cabeçalho de tabela, rodapé). A conversão original usou o mesmo token para os dois, então o app inteiro — página **e** chrome — ficou na mesma cor, sem hierarquia. Corrigido: novo token `canvas` no `tailwind.config.js` (`#EEF3F9`), aplicado no `<body>` (`index.css`) e nos **18 wrappers de tela cheia** (`h-screen`/`min-h-screen` + fundo) em `App.tsx` e mais 9 páginas — a maior parte eram estados de carregamento/erro de tela inteira. `bg-surface-sunken` continua correto onde já estava (sidebar, avatar do rail, cabeçalho de tabela). **Ajuste no mesmo dia:** o `--bg` do Manual 2.0 (`#EEF3F9`) ainda pareceu azulado demais mesmo mais claro que o `surface-sunken` — a Ester pediu de volta o cinza neutro que já estava no app antes do FE-21. `canvas` virou `#F9FAFB` (Tailwind `gray-50`, não o `--bg` do Manual). **Divergência registrada:** `tokens.css` continua com `--bg: #EEF3F9`; o app usa outro valor por decisão explícita dela sobre esse token específico — não reabrir sem perguntar de novo. **(3) Achados no caminho, fora do escopo dos dois pedidos:** 3 classes `border-l-*` (borda lateral colorida do calendário e do Dashboard) escaparam da conversão original — o regex de varredura não cobria o modificador de lado (`border-l-`/`border-r-`/etc.); corrigidas para `border-l-success`/`border-l-control`/`border-l-amber`. `docs/prototipos/_src/tokens.css` reconstruído com `build.mjs` pra não divergir do app. Verificado no navegador (`/inspections`) com `getComputedStyle`: fundo da página `rgb(238,243,249)` (`#EEF3F9`, o `canvas` novo), badge "Em Andamento" `rgb(250,218,158)`/`rgb(122,82,16)` (o `amber-soft`/`amber-soft-ink` novos). `tsc -b` e `npm run build` limpos. |
 | 17/08/2026 | **FE-24** — sistema de formulários no app inteiro | Opus 5 | `37adbe2` | Recontado antes de começar: **216** controles crus (213 fora dos primitivos) em 39 arquivos — o FE-23 já tinha derrubado 12 desde os 228 de 16/08. Ao fim: **9**, todas `<input type="file">`, cada uma com um comentário `Exceção FE-24:` na linha de cima (a tabela de exceções está na seção do card). **Primitivos novos:** `Field` (rótulo + controle + ajuda + erro, com o erro carregando ícone **e** texto, nunca só a borda vermelha) e `Checkbox`/`Radio` — a caixa de seleção não tinha primitivo nenhum e era copiada à mão com 5 aparências diferentes. O `Field` fia `id`, `aria-describedby`, `aria-invalid` e `aria-required` **por contexto**, não por `cloneElement`: prop explícita sempre ganha, e o campo funciona igual embrulhado em `<div>`, em grid ou ao lado de um botão. Isso evita repetir a fiação de acessibilidade em ~200 lugares — que era exatamente o motivo de ela não existir na maioria deles. **Primitivos revisados:** a aparência dos três controles virou uma constante só (`controlClasses`), então altura, borda, foco, `disabled`, `readonly` e erro não podem mais divergir entre `Input`, `Select` e `Textarea`; ganharam `hover`, `transition-colors`, `aria-[invalid]`, `read-only:` e **`[@media(pointer:coarse)]:min-h-11`** (decisão 7 — até aqui só o `Button` tinha os 44px no toque). `disabled:opacity-50` saiu: opacidade sobre texto navy dava contraste imprevisível; agora é `surface-sunken` + `ink-3`, medido em 5,00:1. Duas densidades, `default` e `sm` (h-8), as mesmas do `Button` — sem a `sm` cada tela densa do FE-17 teria que reinventar altura e `padding` no `className`, que é o problema que este card fecha. `Input` ganhou `icon` (o par ícone+campo aparecia 6 vezes montado à mão) e `wrapperClassName`, porque com ícone quem carrega o layout é o invólucro. **`Label` alinhado ao Artefato D:** era `text-navy-2` medium, virou `--ink` semibold, e o asterisco de obrigatório virou `--danger-soft-ink` **`aria-hidden`** — o leitor de tela lia "Categoria asterisco"; agora lê "Categoria" e a obrigatoriedade chega por `aria-required`. Isso mudou o nome acessível de 4 campos e quebrou 3 testes do `PortalServiceRequests`, corrigidos para casar por prefixo. **Duplicatas apagadas:** as duas constantes `TEXT_INPUT` (`schedules/appointmentRequestsShared.ts` e `clients/portal/shared.ts`, mesma string em 8 arquivos) — eram o primitivo informal que existia no lugar do real; e os 9 checkboxes de tipo de alimento do `ClientDetails`, que viraram um `map` sobre `FOOD_SEGMENT_LABELS`, que já estava importado no arquivo. Grupos de caixa/opção passaram a `<fieldset>`/`<legend>` em 6 telas — eram `<label>` solto rotulando um grupo, que não rotula nada. **Pendência que o FE-21 deixou para este card, fechada:** o botão "Pagar agora" do `PortalBilling.tsx` era `bg-amber` com texto branco, 2,50:1 e âmbar como ação principal, os dois proibidos pelo Manual 2.0 — virou `primary-700`, 8,31:1. **Fora do primitivo por decisão, não por esquecimento:** os campos do `Login.tsx` (única superfície escura do app até o FE-12) e a edição dentro da célula em `SmartImporter`/`TemplateEditor` continuam passando pelo `Input`, só com a pele trocada por `className` — assim foco, alvo de toque e fiação vêm do sistema mesmo onde a aparência não pode ser a padrão. Contraste dos pares novos medido: rótulo 16,52 · ajuda 7,63 · erro 9,12 · `placeholder` 5,96 · borda de campo 3,61 (mínimo 3) · desabilitado 5,00. `tsc -b` e `npm run build` limpos, 550 testes passando. Verificado no navegador em 1280 e 375px nas duas telas alcançáveis sem credencial (`/cliente` e `/agendar`): rótulo associado ao campo, borda `#7688A2`, 44px de altura no celular, sem rolagem lateral. Depois, com a Ester logada, varridas as telas do admin em 1600, 1280 e 375px: Clientes (lista e modal), ficha do cliente (modal de edição, 17 campos), Configurações, Agendamentos, Solicitações, Legislação (gaveta de verbete, 10 campos), Plano de ação e Inspeções — **uma borda só** (`#7688A2`), **um raio só** (6px), **um corpo só** (14px, e 12px na densidade `sm` das Solicitações), nenhum controle sem nome acessível, e **44px em todos eles a 375px**, incluindo as opções de perfil das Configurações, onde o alvo é o rótulo inteiro. Zero rolagem lateral nas 8 rotas, nas três larguras. Estado de erro conferido submetendo o cadastro vazio: `aria-invalid`, `aria-describedby` apontando para a mensagem, texto com ícone em `#8C1D17` e borda `#B3261E`. **Armadilha de medição anotada:** com o painel do navegador fechado a página não compõe frames e a `transition` nunca avança — `getComputedStyle` devolve a cor do **início** da transição (a borda de erro parecia não estar aplicando). Matar a transição antes de ler resolve. **Continua sem verificação em navegador:** `/agendar` a partir do passo 2, porque o Supabase deste ambiente devolve 401 no calendário público. |
 | 17/08/2026 | **Nome da unidade sumia no celular, achado pela Ester usando** | Opus 5 | `2dc1b2b` | Ela abriu a execução no celular e relatou que não conseguia ler o nome da unidade. Medido em 375px: o `<h1>` tinha **11px de largura** para um texto de **182px** — sobrava a reticência. A causa não é o `truncate`: o bloco de identificação dividia a linha `flex-wrap` com o selo de estado (194px) e quatro botões, e como ele pode encolher até zero (`min-w-0`), o `flex-wrap` entendia que a linha **cabia** e nunca quebrava — quem pagava a conta era o único item elástico. Botão de voltar e identificação viraram um grupo só, com `basis-full` até `sm` (toma a linha inteira, empurra selo e ações para baixo) e `sm:basis-0 sm:flex-1` de volta ao comportamento de hoje no desktop. Conferido: 279px sem truncar a 375px, cabeçalho em uma linha só a 1280px, sem rolagem lateral nas duas. Defeito do FE-23, não do FE-24 — nada do card de formulários toca esse cabeçalho. |
+| 17/08/2026 | **FE-22** — `Clients` e `Inspections` em tabela densa | Opus 5 | (a seguir) | As duas últimas listas de cards do admin, no molde do FE-17 (`Table`/`Pagination`, `usePagedList`, 10 por página). **Clientes:** Cliente (nome + responsável/CNPJ) · Categoria · Cidade · Contato · Portal · ações, com a coluna Cliente ordenável em pt-BR; busca e categoria continuam filtrando no `loadClients`, então a paginação não mente sobre o total. **Inspeções:** Cliente (nome + categoria) · Situação · Início · Conclusão · ações, **sem cabeçalho de ordenação de propósito** — a ordem é do domínio (em andamento primeiro, depois data decrescente) e ordenar por coluna esconderia o que está aberto. A Lixeira segue painel âmbar acima da tabela: é caixa de recuperação, não lista de trabalho. **Achado de acessibilidade corrigido de passagem:** os botões de editar/excluir do `Clients` eram `opacity-0 group-hover:opacity-100` — no toque, onde não existe hover, eram **inalcançáveis**, e não tinham nome acessível; viraram `Button` `ghost` `sm` (44px no toque) com `aria-label` nomeando o cliente da linha, porque "Excluir" repetido em 10 linhas não diz nada em navegação por lista de botões. Colunas secundárias somem antes de a tabela rolar de lado (Cidade/Contato/Conclusão abaixo de `md`, Portal abaixo de `lg`). Morreu junto o `font-mono` do "CATEGORIA:" no card de inspeção — monoespaçada só para parecer técnica é proibida pelo Manual 2.0. `tsc -b`, `npm run build` e os 545 testes limpos. |
 
 ### FE-04a ✅ — detalhe da entrega, e o que ficou pra depois
 

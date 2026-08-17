@@ -17,10 +17,10 @@
 > | Solicitações, Roteiros e Biblioteca sem desenho | FE-17 | ✅ tabela densa + `Drawer` nas três |
 > | Editor de roteiro sem desenho | FE-17b | ✅ master-detail + "Aposentar item" |
 > | Sincronização sem desenho | FE-18 | ✅ linha do tempo, fila que falhou tratada |
-> | Configurações sem desenho | FE-19 | ⬜ aberto |
-> | Estados vazio/carregando/erro e `PageHeader` | FE-20 | ⬜ aberto |
-> | 2.856 classes de cor cruas · 0 `dark:` | FE-21 · FE-12 | ⬜ aberto — recontado em **2.858**, mais **20 hex cravados em TS/TSX** que o de-para não pega |
-> | `Clients` e `Inspections` ainda em cards | FE-22 | ⬜ aberto |
+> | Configurações sem desenho | FE-19 | ✅ nav de seção lateral, salva por seção, seção na URL |
+> | Estados vazio/carregando/erro e `PageHeader` | FE-20 | ✅ padronizados em 7 listas do admin |
+> | 2.856 classes de cor cruas · 0 `dark:` | FE-21 · FE-12 | ✅ **FE-21**: 2.705 classes + 20 hex viraram token (recontado; a auditoria contava também os protótipos HTML) · ⬜ **FE-12** (dark mode) segue aberto |
+> | `Clients` e `Inspections` ainda em cards | FE-22 | ✅ tabela densa + paginação nas duas |
 >
 > **O que este diagnóstico não viu, e foi acrescentado em 16/08 (FE-23 a FE-27):** o fluxo
 > `/new` → `/execute` → `/summary`, os ~225 controles de formulário crus, `SmartImporter` e as
