@@ -64,9 +64,38 @@ function findStaticItem(itemId: string) {
   return null;
 }
 
+/**
+ * Roteiro congelado da visita, buscado no servidor **uma vez por inspeção** e
+ * guardado no registro local. Só é usado quando o item não existe em roteiro
+ * nenhum: é o caso de item apagado do roteiro depois daquela visita.
+ */
+const frozenTemplateCache = new Map<string, ChecklistTemplate | null>();
+
+async function frozenTemplateFor(inspection: Inspection): Promise<ChecklistTemplate | undefined> {
+  if (inspection.reportTemplateSnapshot) return inspection.reportTemplateSnapshot;
+  const cached = frozenTemplateCache.get(inspection.id);
+  if (cached !== undefined) return cached || undefined;
+  if (!navigator.onLine) return undefined;
+
+  try {
+    const { InspectionBundleSyncService } = await import('../services/inspectionBundleSyncService');
+    const template = await InspectionBundleSyncService.getFrozenTemplate(inspection.id);
+    frozenTemplateCache.set(inspection.id, template);
+    if (template) {
+      await db.inspections.update(inspection.id, { reportTemplateSnapshot: template }).catch(() => {});
+    }
+    return template || undefined;
+  } catch (err) {
+    console.warn('[ActionPlan] Roteiro congelado indisponivel:', err);
+    frozenTemplateCache.set(inspection.id, null);
+    return undefined;
+  }
+}
+
 async function resolveResponseMeta(response: InspectionResponse, inspection: Inspection) {
   const template = await templateForInspection(inspection);
-  const found = findItemInTemplate(template, response.itemId) || findStaticItem(response.itemId);
+  let found = findItemInTemplate(template, response.itemId) || findStaticItem(response.itemId);
+  if (!found) found = findItemInTemplate(await frozenTemplateFor(inspection), response.itemId);
   const item = found?.item;
   const section = found?.section as Section | undefined;
 

@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import { db } from '../db/database';
 import type {
+  ChecklistTemplate,
   Inspection,
   InspectionBundlePayload,
   InspectionBundleResult,
@@ -764,6 +765,30 @@ export const InspectionBundleSyncService = {
     }
 
     return synced;
+  },
+
+  /**
+   * O roteiro congelado no relatório desta inspeção (REF-06), lido das versões
+   * publicadas.
+   *
+   * É a única fonte da descrição de um item que depois foi apagado do roteiro
+   * vivo — sem ela, a pendência antiga vira "Item <uuid>" e não casa com nada.
+   * O `select` desce até o roteiro dentro do JSON de propósito: o bundle inteiro
+   * traz fotos em base64, e baixar isso para ler 100 descrições seria absurdo.
+   */
+  async getFrozenTemplate(inspectionId: string): Promise<ChecklistTemplate | null> {
+    const { data, error } = await supabase
+      .from('inspection_report_versions')
+      .select('version, snapshot_json->reportSnapshot->template')
+      .eq('inspection_id', inspectionId)
+      .order('version', { ascending: false })
+      .limit(3);
+
+    if (error) throw error;
+    for (const row of (data || []) as unknown as { template?: ChecklistTemplate }[]) {
+      if (row.template?.sections?.length) return row.template;
+    }
+    return null;
   },
 
   async getLatestReportVersion(inspectionId: string) {
