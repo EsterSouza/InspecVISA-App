@@ -81,10 +81,10 @@ export default {
           hover: '#F4F8FC',
           active: '#E9F1FB',
         },
-        // Fundo de página — --bg (mais claro que --surface-sunken, que é só chrome:
-        // sidebar, cabeçalho de tabela, rodapé). FE-21 tinha confundido os dois,
-        // corrigido em 17/08/2026.
-        canvas: '#EEF3F9',
+        // Fundo de página. Testado com --bg (#EEF3F9, o tom do Manual 2.0) em
+        // 17/08/2026 e revertido no mesmo dia a pedido da Ester: de volta ao
+        // cinza neutro que já estava no app antes do FE-21 (Tailwind gray-50).
+        canvas: '#F9FAFB',
         // Traço decorativo — --border (não delimita controle)
         default: '#CBD9EA',
         // Traço de campo — --border-control (3:1 obrigatório em input/select/checkbox)
