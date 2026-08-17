@@ -17,16 +17,16 @@ const boxBase = cn(
   'disabled:cursor-not-allowed'
 );
 
-function control(
+/** Só as props: a `ref` fica no JSX de quem monta o `<input>` — passá-la para uma função
+ *  durante o render é o que a regra `react-hooks/refs` proíbe, e com razão: de fora não dá
+ *  para saber se a função lê `.current`. */
+function controlProps(
   type: 'checkbox' | 'radio',
-  ref: React.Ref<HTMLInputElement>,
   className: string | undefined,
   aria: ReturnType<typeof useControlAria>,
   props: React.InputHTMLAttributes<HTMLInputElement>
 ) {
-  return (
-    <input type={type} ref={ref} className={cn(boxBase, className)} {...props} {...aria} />
-  );
+  return { type, className: cn(boxBase, className), ...props, ...aria };
 }
 
 /** Alvo de toque de 44px: quem recebe o clique é o rótulo inteiro. */
@@ -39,10 +39,10 @@ const wrapper = cn(
 const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
   ({ className, label, hint, boxClassName, ...props }, ref) => {
     const aria = useControlAria(props);
-    if (!label) return control('checkbox', ref, className, aria, props);
+    if (!label) return <input ref={ref} {...controlProps('checkbox', className, aria, props)} />;
     return (
       <label className={cn(wrapper, className)}>
-        {control('checkbox', ref, boxClassName, aria, props)}
+        <input ref={ref} {...controlProps('checkbox', boxClassName, aria, props)} />
         <span className="min-w-0">
           {label}
           {hint && <span className="mt-0.5 block text-xs text-navy-2">{hint}</span>}
@@ -56,10 +56,10 @@ Checkbox.displayName = 'Checkbox';
 const Radio = React.forwardRef<HTMLInputElement, CheckboxProps>(
   ({ className, label, hint, boxClassName, ...props }, ref) => {
     const aria = useControlAria(props);
-    if (!label) return control('radio', ref, className, aria, props);
+    if (!label) return <input ref={ref} {...controlProps('radio', className, aria, props)} />;
     return (
       <label className={cn(wrapper, className)}>
-        {control('radio', ref, boxClassName, aria, props)}
+        <input ref={ref} {...controlProps('radio', boxClassName, aria, props)} />
         <span className="min-w-0">
           {label}
           {hint && <span className="mt-0.5 block text-xs text-navy-2">{hint}</span>}

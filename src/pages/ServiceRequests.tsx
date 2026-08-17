@@ -522,6 +522,9 @@ export function ServiceRequests() {
   }, [queue, clientId, assignedTo, priority, search]);
 
   useEffect(() => {
+    // DEBT-02: busca de dados em efeito — `load()` comeca com `setLoading(true)`. E o padrao
+    // que a regra pede para resolver com biblioteca de query, e nao ha uma no projeto.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
 

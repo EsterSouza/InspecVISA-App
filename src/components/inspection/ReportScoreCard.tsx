@@ -2,7 +2,7 @@ import React from 'react';
 import { ArrowDown, ArrowUp, Minus } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
-import { calculateAreaScores, classificationBadgeClasses, classificationColor, classificationInk, classificationLabel } from '../../utils/scoring';
+import { calculateAreaScores, classificationBadgeClasses, classificationInk, classificationLabel } from '../../utils/scoring';
 import type { PreviousVisitScore } from '../../utils/previousVisitScore';
 import type { ChecklistTemplate, InspectionResponse } from '../../types';
 

@@ -340,8 +340,11 @@ export function OperationalQueues({ consultantName, clientId, daysAhead }: Opera
   }, [filters]);
 
   useEffect(() => {
+    // DEBT-02: busca de dados em efeito — `loadCounts()` comeca com `setCountsLoading(true)`.
+    // E o padrao que a regra pede para resolver com biblioteca de query, e nao ha uma no projeto.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadCounts();
-    // Trocar filtro fecha as listas expandidas: o que estava carregado não reflete mais o filtro novo.
+    // Trocar filtro fecha as listas expandidas: o que estava carregado nao reflete mais o filtro novo.
     setBlockStates(EMPTY_BLOCK_STATES);
   }, [loadCounts]);
 

@@ -7,6 +7,9 @@ const MAX_SUBJECT_LENGTH = 68;
  */
 export function safeMailSubject(value: unknown): string {
   const normalized = String(value ?? '')
+    // Caractere de controle e o alvo da limpeza, nao um engano: quebra de linha no
+    // Subject e injecao de cabecalho SMTP.
+    // eslint-disable-next-line no-control-regex
     .replace(/[\r\n\u0000-\u001f\u007f]+/g, ' ')
     .replace(/[—–]/g, '-')
     .normalize('NFD')

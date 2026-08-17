@@ -414,7 +414,9 @@ export function InspectionExecution() {
     catch (err) { console.error('getEffectiveTemplate error:', err); return composeChecklistTemplate(template, responses); }
   }, [currentInspection, responses, template]);
 
-  const visibleSections = effectiveTemplate?.sections || [];
+  // `|| []` cria um array novo a cada render e desestabilizava as dependencias de sete
+  // hooks abaixo (useMemo/useCallback/useEffect) — todos recalculavam sempre.
+  const visibleSections = useMemo(() => effectiveTemplate?.sections || [], [effectiveTemplate]);
   // ILPI: a calculadora de dimensionamento mora na seção "Recursos Humanos".
   const isIlpiInspection = (currentInspection?.clientCategory === 'ilpi')
     || ((effectiveTemplate as any)?.category === 'ilpi');
@@ -643,7 +645,7 @@ export function InspectionExecution() {
     } catch (err) {
       console.error('Failed to sync response:', err);
     }
-  }, [clientEvidence, stampInspectionEditor]);
+  }, [clientEvidence, confirm, stampInspectionEditor]);
 
 
   const handleUpdateDetails = useCallback(async (itemId: string, details: Partial<InspectionResponse>) => {
@@ -831,7 +833,7 @@ export function InspectionExecution() {
     } catch (err) {
       console.error('Failed to discontinue extra item:', err);
     }
-  }, [setResponses, stampInspectionEditor]);
+  }, [confirm, setResponses, stampInspectionEditor]);
 
   // Registra (ou atualiza) a não-conformidade de dimensionamento na seção de RH,
   // com situação/ação já preenchidas pela calculadora. Reaproveita o mesmo item

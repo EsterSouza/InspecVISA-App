@@ -82,7 +82,6 @@ export function TemplateEditor() {
     } else {
       setSections([{ id: generateId(), title: 'Nova Seção', order: 1, items: [] }]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isEditing]);
 
   const loadTemplate = async (templateId: string) => {

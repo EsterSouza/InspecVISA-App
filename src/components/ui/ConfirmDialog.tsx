@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Modal } from './Modal';
 import { Button } from './Button';
 import { Input } from './Input';
@@ -60,6 +60,11 @@ export function ConfirmDialog({
 
   useEffect(() => {
     if (!isOpen) return;
+    // DEBT-02: reset ao abrir. O efeito existe pelo foco (linha abaixo), que so pode
+    // rodar depois do `showModal()` do Modal; limpar o texto aqui e o mesmo ciclo, nao
+    // um render a mais. Trocar por remontagem com `key` mexeria no dialogo que guarda
+    // acao destrutiva em 19 telas, sem teste automatizado cobrindo — fica registrado.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTyped('');
     // O `showModal()` do Modal.tsx roda antes deste efeito (efeito de filho
     // dispara antes do de pai) e foca o primeiro elemento focável por conta
@@ -129,8 +134,14 @@ interface PendingConfirm extends ConfirmOptions {
 export function useConfirmDialog() {
   const [pending, setPending] = useState<PendingConfirm | null>(null);
 
-  const confirm = (options: ConfirmOptions): Promise<boolean> =>
-    new Promise((resolve) => setPending({ ...options, resolve }));
+  // Estável: `setPending` não muda, e quem chama guarda o `confirm` em dependência de
+  // `useCallback` (InspectionExecution faz isso duas vezes). Sem o `useCallback` aqui,
+  // incluir `confirm` nas dependências de lá recriaria o callback a cada render.
+  const confirm = useCallback(
+    (options: ConfirmOptions): Promise<boolean> =>
+      new Promise((resolve) => setPending({ ...options, resolve })),
+    []
+  );
 
   const settle = (value: boolean) => {
     pending?.resolve(value);

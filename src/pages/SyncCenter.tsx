@@ -181,7 +181,6 @@ export function SyncCenter() {
     syncedTodayCount: number;
     syncedTodaySince: Date | null;
   }>({ lastSyncedAt: null, syncedTodayCount: 0, syncedTodaySince: null });
-  const [isLoading, setIsLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -189,7 +188,6 @@ export function SyncCenter() {
   const { confirm, confirmDialog } = useConfirmDialog();
 
   const loadData = useCallback(async () => {
-    setIsLoading(true);
     try {
       const FILTER = ['pending', 'syncing', 'failed', 'conflict'];
 
@@ -360,7 +358,6 @@ export function SyncCenter() {
     } catch (err) {
       console.error('[SyncCenter] loadData error:', err);
     } finally {
-      setIsLoading(false);
       setSyncLocked(SyncQueueService.isLocked());
       setLastChecked(new Date());
     }
