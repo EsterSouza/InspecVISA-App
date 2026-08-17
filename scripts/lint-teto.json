@@ -1,5 +1,5 @@
 {
-  "total": 199,
+  "total": 180,
   "areas": {
     "api": 41,
     "scripts": 106,
@@ -7,7 +7,6 @@
     "src/components": 10,
     "src/lib": 1,
     "src/store": 7,
-    "src/types": 19,
     "supabase/functions": 2,
     "vite.config.ts": 1
   }

@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import type { SyncStatus } from '../types';
+import type { LinhaPostgres, SyncStatus } from '../types';
 import { withTimeout } from '../utils/network';
 import { useAuthStore } from '../store/useAuthStore';
 import { getLocalActor } from '../utils/localActor';
@@ -42,8 +42,7 @@ export type SyncableTable = Table<SyncableRecord, string>;
 /** Registro pronto para a fila: já tem data e situação de sincronização preenchidas. */
 export type RegistroEnfileirado = SyncableRecord & { updatedAt: Date; syncStatus: SyncStatus };
 
-/** O que um mapeador entrega para o PostgREST: um objeto de colunas. */
-export type LinhaPostgres = Record<string, unknown>;
+export type { LinhaPostgres };
 
 /** O recorte de uma foto que o upload para o Storage precisa. */
 type FotoParaUpload = {

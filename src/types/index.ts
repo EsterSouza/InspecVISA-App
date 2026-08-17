@@ -32,7 +32,7 @@ export const FOOD_SEGMENT_LABELS: Record<FoodEstablishmentType, string> = {
   industria_artesanal: 'Indústria Artesanal',
 };
 
-export interface Client {
+export interface Client extends SyncBase {
   id: string;
   name: string;
   cnpj?: string;
@@ -54,13 +54,6 @@ export interface Client {
   updatedAt: Date;
   deletedAt?: Date | null;
   tenantId?: string;
-  syncStatus: SyncStatus;
-  dataVerifiedAt?: Date;
-  syncError?: string | null;
-  syncAttempts?: number;
-  localActorId?: string;
-  conflictRemote?: any;
-  conflictLocal?: any;
 }
 
 export interface ClientContact {
@@ -71,14 +64,23 @@ export interface ClientContact {
 
 export type SyncStatus = 'pending' | 'syncing' | 'synced' | 'conflict' | 'failed';
 
+/**
+ * Os campos de sincronização que toda entidade local carrega. Estava declarado aqui e não
+ * era estendido por ninguém: as cinco entidades repetiam as mesmas sete linhas.
+ */
 export interface SyncBase {
   syncStatus: SyncStatus;
   dataVerifiedAt?: Date;
   syncError?: string | null;
   syncAttempts?: number;
   localActorId?: string;
-  conflictRemote?: any;
-  conflictLocal?: any;
+  /**
+   * Snapshot de conflito: a linha inteira do outro lado, como chegou. Quem lê confere o
+   * campo que precisa antes de usar (ver `actorDoSnapshot`, em src/utils/syncCheck.ts);
+   * o painel de integridade só a imprime como JSON.
+   */
+  conflictRemote?: unknown;
+  conflictLocal?: unknown;
 }
 
 export interface ChecklistTemplate {
@@ -151,7 +153,7 @@ export interface ReferenceSource {
   note?: string;
 }
 
-export interface Inspection {
+export interface Inspection extends SyncBase {
   id: string;
   clientId: string;
   templateId: string;
@@ -198,13 +200,6 @@ export interface Inspection {
   updatedAt: Date;
   deletedAt?: Date | null;
   tenantId?: string;
-  syncStatus: SyncStatus;
-  dataVerifiedAt?: Date;
-  syncError?: string | null;
-  syncAttempts?: number;
-  localActorId?: string;
-  conflictRemote?: any;
-  conflictLocal?: any;
 }
 
 export type ResponseResult = 'complies' | 'not_complies' | 'not_applicable' | 'not_observed' | 'not_evaluated';
@@ -217,7 +212,7 @@ export interface CustomItemMeta {
   state: 'active' | 'discontinued';
 }
 
-export interface InspectionResponse {
+export interface InspectionResponse extends SyncBase {
   id: string;
   inspectionId: string;
   itemId: string;
@@ -240,16 +235,9 @@ export interface InspectionResponse {
   updatedAt: Date;
   deletedAt?: Date | null;
   tenantId?: string;
-  syncStatus: SyncStatus;
-  dataVerifiedAt?: Date;
-  syncError?: string | null;
-  syncAttempts?: number;
-  localActorId?: string;
-  conflictRemote?: any;
-  conflictLocal?: any;
 }
 
-export interface InspectionPhoto {
+export interface InspectionPhoto extends SyncBase {
   id: string;
   responseId: string;
   dataUrl: string; // base64 JPEG
@@ -259,21 +247,21 @@ export interface InspectionPhoto {
   updatedAt: Date;
   deletedAt?: Date | null;
   tenantId?: string;
-  syncStatus: SyncStatus;
-  dataVerifiedAt?: Date;
-  syncError?: string | null;
-  syncAttempts?: number;
-  localActorId?: string;
-  conflictRemote?: any;
-  conflictLocal?: any;
 }
 
+/** O que um mapeador entrega para o PostgREST: um objeto de colunas em snake_case. */
+export type LinhaPostgres = Record<string, unknown>;
+
 export interface InspectionBundlePayload {
-  client?: any;
-  inspection: any;
-  responses: any[];
-  photos: any[];
-  schedules?: any[];
+  // Estes cinco são **linhas do Postgres**, não as entidades locais: saem dos
+  // `mapToPostgres` de cada serviço e seguem crus para a API. É o que os distingue do
+  // `reportSnapshot` mais abaixo, que é o retrato da inspeção em entidades locais.
+  client?: LinhaPostgres;
+  /** A linha da inspeção sempre leva o `id`: é por ele que a API identifica o job. */
+  inspection: LinhaPostgres & { id: string };
+  responses: LinhaPostgres[];
+  photos: LinhaPostgres[];
+  schedules?: LinhaPostgres[];
   clientSyncId: string;
   finalizeReport: boolean;
   reportSnapshot?: {
@@ -307,7 +295,8 @@ export interface LocalBackupRecord {
   id: string;
   createdAt: Date;
   reason: 'pre-bundle-sync' | string;
-  payload: any;
+  /** Cópia inteira do banco local, guardada só para restaurar; ninguém lê campo dela. */
+  payload: unknown;
 }
 
 export interface SectionScore {
@@ -364,7 +353,7 @@ export interface ConsultantSettings {
   consultantRole?: 'saude' | 'nutricao' | 'ambos'; // role filter for ILPI
 }
 
-export interface Schedule {
+export interface Schedule extends SyncBase {
   id: string;
   /** Ausente quando o compromisso é um briefing com quem ainda não é cliente. */
   clientId?: string;
@@ -393,13 +382,6 @@ export interface Schedule {
   updatedAt: Date;
   deletedAt?: Date | null;
   tenantId?: string;
-  syncStatus: SyncStatus;
-  dataVerifiedAt?: Date;
-  syncError?: string | null;
-  syncAttempts?: number;
-  localActorId?: string;
-  conflictRemote?: any;
-  conflictLocal?: any;
 }
 
 export interface SyncLog {
@@ -407,7 +389,8 @@ export interface SyncLog {
   timestamp: Date;
   level: 'info' | 'warn' | 'error';
   message: string;
-  details?: any;
+  /** Contexto livre do log, serializado com JSON antes de gravar (ver `logSync`). */
+  details?: unknown;
 }
 
 // ─── Portal Público ───────────────────────────────────────────────────────────
