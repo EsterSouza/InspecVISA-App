@@ -69,6 +69,19 @@ export default {
           'soft-ink': '#8C1D17',
           'soft-border': '#F0C7C2',
         },
+        // Superfície — --surface* (FE-21: de-para de cor, Artefato D)
+        surface: {
+          DEFAULT: '#FFFFFF',
+          sunken: '#E4ECF6',
+          hover: '#F4F8FC',
+          active: '#E9F1FB',
+        },
+        // Traço decorativo — --border (não delimita controle)
+        default: '#CBD9EA',
+        // Traço de campo — --border-control (3:1 obrigatório em input/select/checkbox)
+        control: '#7688A2',
+        // Link/texto azul sobre superfície clara — --accent-ink (distinto de primary-800)
+        'accent-ink': '#1D3D80',
       },
       fontFamily: {
         sans: ['"Source Sans 3"', 'system-ui', 'sans-serif'],
