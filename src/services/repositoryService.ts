@@ -4,11 +4,55 @@ import { withTimeout } from '../utils/network';
 import { useAuthStore } from '../store/useAuthStore';
 import { getLocalActor } from '../utils/localActor';
 import { dataUrlToBlob } from '../utils/imageUtils';
+import { errorMessage } from '../utils/errors';
+import type { Table } from 'dexie';
 
 /**
  * RepositoryService
  * Centralizes Hybrid-Cache and Sync Queue logic.
  */
+
+/**
+ * O que as filas de sincronização exigem de qualquer registro local, seja ele cliente,
+ * inspeção, resposta, foto ou agendamento — os campos que elas de fato leem, e nada além.
+ * Cada entidade traz muito mais; o excesso não atrapalha, é o mínimo que precisa bater.
+ */
+export interface SyncableRecord {
+  id: string;
+  // Data, nao texto: o registro **local** guarda Date. A forma remota (texto ISO) so
+  // aparece no generico de `mergeRemoteRecord`, que aceita as duas.
+  updatedAt?: Date;
+  createdAt?: Date;
+  tenantId?: string;
+  syncStatus?: SyncStatus;
+  syncAttempts?: number;
+  syncError?: string | null;
+  dataVerifiedAt?: Date;
+  localActorId?: string;
+  /** Só fotos. */
+  storagePath?: string;
+  /** Cópia dos dois lados quando o merge detecta divergência. */
+  conflictRemote?: unknown;
+  conflictLocal?: unknown;
+}
+
+/** Tabela do Dexie vista por estas funções: qualquer uma das cinco sincronizáveis. */
+export type SyncableTable = Table<SyncableRecord, string>;
+
+/** Registro pronto para a fila: já tem data e situação de sincronização preenchidas. */
+export type RegistroEnfileirado = SyncableRecord & { updatedAt: Date; syncStatus: SyncStatus };
+
+/** O que um mapeador entrega para o PostgREST: um objeto de colunas. */
+export type LinhaPostgres = Record<string, unknown>;
+
+/** O recorte de uma foto que o upload para o Storage precisa. */
+type FotoParaUpload = {
+  id: string;
+  responseId?: string;
+  dataUrl?: string;
+  storagePath?: string;
+  tenantId?: string;
+};
 
 const activePushes = new Set<string>();
 const TENANT_SCOPED_TABLES = new Set(['clients', 'inspections', 'responses', 'photos', 'schedules']);
@@ -63,7 +107,7 @@ async function confirmRemoteTimestamp(
       .maybeSingle(),
     REMOTE_VERIFY_TIMEOUT_MS,
     timeoutLabel
-  ) as any;
+  ) as { data: { id: string; updated_at: string | null } | null; error: unknown };
 
   if (error || !serverRow?.updated_at) return false;
 
@@ -77,9 +121,9 @@ function isInlineDataUrl(value?: string) {
   return Boolean(value?.startsWith('data:image/'));
 }
 
-async function uploadPhotoToStorage<T extends { id: string; responseId?: string; dataUrl?: string; storagePath?: string; tenantId?: string }>(
+async function uploadPhotoToStorage<T extends FotoParaUpload>(
   record: T,
-  dexieTable: any,
+  dexieTable: SyncableTable,
   tenantId?: string
 ): Promise<T> {
   // Already uploaded on a previous attempt — nothing to do
@@ -106,14 +150,14 @@ async function uploadPhotoToStorage<T extends { id: string; responseId?: string;
       cacheControl: '31536000',
       contentType: blob.type || 'image/jpeg',
       upsert: true,
-      signal: controller.signal,
-    } as any));
+      // `signal` existe no cliente de Storage, mas nao esta no tipo publico de FileOptions.
+    } as Parameters<typeof supabase.storage.from>[0] extends never ? never : Record<string, unknown>));
 
     if (error) {
       console.error(`[PhotoUpload] ${record.id}: Storage error — ${error.message}`);
       throw error;
     }
-  } catch (err: any) {
+  } catch (err) {
     if (controller.signal.aborted) {
       throw new Error(`TIMEOUT: StorageUpload_photos took longer than ${STORAGE_UPLOAD_TIMEOUT_MS}ms`);
     }
@@ -135,9 +179,9 @@ export const RepositoryService = {
     return withTimeout(promise, ms, label);
   },
 
-  async preparePhotoForRemote<T extends { id: string; responseId?: string; dataUrl?: string; storagePath?: string; tenantId?: string }>(
+  async preparePhotoForRemote<T extends FotoParaUpload>(
     record: T,
-    dexieTable: any,
+    dexieTable: SyncableTable,
     tenantId?: string
   ): Promise<T> {
     return uploadPhotoToStorage(record, dexieTable, tenantId);
@@ -149,8 +193,8 @@ export const RepositoryService = {
   async upsert<T extends { id: string; updatedAt: Date; syncStatus: SyncStatus; tenantId?: string }>(
     tableName: string,
     record: T,
-    dexieTable: any,
-    mapToPostgres: (item: T) => any
+    dexieTable: Table<T, string>,
+    mapToPostgres: (item: T) => LinhaPostgres
   ): Promise<T> {
     const tenantId = useAuthStore.getState().tenantInfo?.tenantId;
     const now = new Date();
@@ -158,7 +202,7 @@ export const RepositoryService = {
     const enriched: T = {
       ...record,
       tenantId: record.tenantId || tenantId,
-      localActorId: (record as any).localActorId || currentActorId(),
+      localActorId: (record as { localActorId?: string }).localActorId || currentActorId(),
       updatedAt: now,
       syncStatus: 'pending' as SyncStatus,
       syncAttempts: 0
@@ -178,7 +222,7 @@ export const RepositoryService = {
   },
 
   async mergeRemoteRecord<T extends { id: string; updatedAt?: Date | string; createdAt?: Date | string; syncStatus?: SyncStatus }>(
-    dexieTable: any,
+    dexieTable: SyncableTable,
     remote: T,
     options: { label?: string; preserveLocal?: boolean } = {}
   ): Promise<{ accepted: boolean; conflict: boolean; record: T }> {
@@ -187,14 +231,16 @@ export const RepositoryService = {
 
     if (!local) {
       const record = { ...remote, syncStatus: 'synced' as SyncStatus, dataVerifiedAt: verifiedAt } as T;
-      await dexieTable.put(record);
+      // O generico aceita a forma remota (data em texto); a tabela guarda a local. Quem chama
+      // ja converteu — o cast e a fronteira entre as duas formas, e existia como `any` antes.
+      await dexieTable.put(record as unknown as SyncableRecord);
       return { accepted: true, conflict: false, record };
     }
 
     const remoteUpdatedAt = timestampOf(remote.updatedAt || remote.createdAt);
     const localUpdatedAt = timestampOf(local.updatedAt || local.createdAt);
 
-    if (UNSAFE_LOCAL_STATUSES.includes(local.syncStatus)) {
+    if (local.syncStatus && UNSAFE_LOCAL_STATUSES.includes(local.syncStatus)) {
       const diverged = remoteUpdatedAt > 0 && !sameTimestamp(remote.updatedAt || remote.createdAt, local.updatedAt || local.createdAt);
       if (diverged && options.preserveLocal === false && local.syncStatus !== 'conflict') {
         await dexieTable.update(local.id, {
@@ -204,12 +250,12 @@ export const RepositoryService = {
           conflictLocal: local
         });
       }
-      return { accepted: false, conflict: diverged && options.preserveLocal === false, record: local };
+      return { accepted: false, conflict: diverged && options.preserveLocal === false, record: local as unknown as T };
     }
 
     if (remoteUpdatedAt > localUpdatedAt + 1000 || options.preserveLocal === false) {
       const record = { ...local, ...remote, syncStatus: 'synced' as SyncStatus, dataVerifiedAt: verifiedAt, syncError: null, conflictRemote: undefined, conflictLocal: undefined } as T;
-      await dexieTable.put(record);
+      await dexieTable.put(record as unknown as SyncableRecord);
       return { accepted: true, conflict: false, record };
     }
 
@@ -217,15 +263,18 @@ export const RepositoryService = {
       await dexieTable.update(local.id, { dataVerifiedAt: verifiedAt });
     }
 
-    return { accepted: false, conflict: false, record: local };
+    return { accepted: false, conflict: false, record: local as unknown as T };
   },
 
   async pushToRemote<T extends { id: string; updatedAt: Date; syncStatus: SyncStatus; tenantId?: string; dataVerifiedAt?: Date; syncAttempts?: number }>(
     tableName: string,
     record: T,
-    dexieTable: any,
-    mapToPostgres: (item: T) => any
+    dexieTable: Table<T, string>,
+    mapToPostgres: (item: T) => LinhaPostgres
   ): Promise<boolean> {
+    // Dexie tipa `update` sobre o generico ainda aberto e, assim, recusa ate as chaves que
+    // `SyncableRecord` garante. Esta visao restringe a tabela ao que estas funcoes escrevem.
+    const tabela = dexieTable as unknown as SyncableTable;
     const key = syncKey(tableName, record.id);
     if (activePushes.has(key)) return false;
     activePushes.add(key);
@@ -233,7 +282,7 @@ export const RepositoryService = {
     try {
       const tenantId = record.tenantId || useAuthStore.getState().tenantInfo?.tenantId;
       if (TENANT_SCOPED_TABLES.has(tableName) && !tenantId) {
-        await dexieTable.update(record.id, {
+        await tabela.update(record.id, {
           syncStatus: 'pending',
           syncError: 'Aguardando tenantId para sincronizar'
         });
@@ -242,19 +291,19 @@ export const RepositoryService = {
 
       let recordToPush = { ...record, tenantId } as T;
       if (tenantId && tenantId !== record.tenantId) {
-        await dexieTable.update(record.id, { tenantId });
+        await tabela.update(record.id, { tenantId });
       }
 
-      await dexieTable.update(record.id, { syncStatus: 'syncing' });
+      await tabela.update(record.id, { syncStatus: 'syncing' });
 
       if (tableName === 'photos') {
-        recordToPush = await uploadPhotoToStorage(recordToPush as any, dexieTable, tenantId) as T;
+        recordToPush = await uploadPhotoToStorage(recordToPush as unknown as FotoParaUpload, tabela, tenantId) as unknown as T;
 
         // Guard: never send base64 to the DB column — it causes request timeouts.
         // If the storage upload was skipped or failed, keep the photo pending and abort.
-        if (!(recordToPush as any).storagePath && isInlineDataUrl((record as any).dataUrl)) {
+        if (!(recordToPush as FotoParaUpload).storagePath && isInlineDataUrl((record as unknown as FotoParaUpload).dataUrl)) {
           console.warn(`[PhotoSync] ${record.id}: storage upload incomplete — blocking DB upsert`);
-          await dexieTable.update(record.id, {
+          await tabela.update(record.id, {
             syncStatus: 'pending',
             syncError: 'Aguardando upload para Supabase Storage antes de sincronizar metadados'
           });
@@ -272,26 +321,26 @@ export const RepositoryService = {
 
       if (pushError) throw pushError;
 
-      const current = await dexieTable.get(record.id);
+      const current = await tabela.get(record.id);
       if (current && sameTimestamp(current.updatedAt, recordToPush.updatedAt)) {
-        await dexieTable.update(record.id, { 
+        await tabela.update(record.id, { 
           syncStatus: 'synced', 
           dataVerifiedAt: new Date(),
           syncError: null,
           syncAttempts: 0 
         });
       } else if (current) {
-        await dexieTable.update(record.id, { syncStatus: 'pending' });
+        await tabela.update(record.id, { syncStatus: 'pending' });
       }
       return true;
 
-    } catch (err: any) {
+    } catch (err) {
       const attempts = (record.syncAttempts || 0) + 1;
 
       // TIMEOUT RECOVERY: The push may have succeeded server-side but the HTTP
       // response was too slow to arrive back (e.g. Brazil→US-East RTT on mobile).
       // Before marking as pending/failed, do a lightweight GET to verify.
-      if (err.message?.startsWith('TIMEOUT') && navigator.onLine) {
+      if (errorMessage(err).startsWith('TIMEOUT') && navigator.onLine) {
         try {
           const confirmed = await confirmRemoteTimestamp(
             tableName,
@@ -302,9 +351,9 @@ export const RepositoryService = {
 
           if (confirmed) {
             console.log(`[SyncVerify] ✅ ${tableName}/${record.id}: confirmed synced (response was slow).`);
-            const current = await dexieTable.get(record.id);
+            const current = await tabela.get(record.id);
             if (current && sameTimestamp(current.updatedAt, record.updatedAt)) {
-              await dexieTable.update(record.id, {
+              await tabela.update(record.id, {
                 syncStatus: 'synced',
                 dataVerifiedAt: new Date(),
                 syncError: null,
@@ -320,16 +369,16 @@ export const RepositoryService = {
 
       const shouldMarkFailed = attempts >= 3;
 
-      console.error(`[SyncFailure] ❌ Error in ${tableName}/${record.id}:`, err.message);
+      console.error(`[SyncFailure] ❌ Error in ${tableName}/${record.id}:`, errorMessage(err));
 
-      const current = await dexieTable.get(record.id);
+      const current = await tabela.get(record.id);
       if (current?.syncStatus === 'synced' && sameTimestamp(current.updatedAt, record.updatedAt)) {
         return true;
       }
       if (current && sameTimestamp(current.updatedAt, record.updatedAt)) {
-        await dexieTable.update(record.id, {
+        await tabela.update(record.id, {
           syncStatus: shouldMarkFailed ? 'failed' : 'pending',
-          syncError: err.message,
+          syncError: errorMessage(err),
           syncAttempts: attempts
         });
       }
@@ -343,16 +392,16 @@ export const RepositoryService = {
    * getAll: Returns local data immediately + triggers background refresh
    */
   async getAll<T extends { dataVerifiedAt?: Date }>(
-    dexieTable: any,
+    dexieTable: SyncableTable,
     fetchRemote: () => Promise<T[]>,
     ttlMs: number
   ): Promise<T[]> {
-    const local = await dexieTable.toArray();
+    const local = (await dexieTable.toArray()) as unknown as T[];
     
     // Check if we should refresh based on TTL
     const verifiedTimes = local
-      .map((item: T) => item.dataVerifiedAt?.getTime())
-      .filter((t: any): t is number => !!t);
+      .map((item) => item.dataVerifiedAt?.getTime())
+      .filter((t): t is number => !!t);
 
     const oldestVerified = verifiedTimes.length > 0 ? Math.min(...verifiedTimes) : 0;
     const isStale = local.length === 0 || Date.now() - oldestVerified > ttlMs;
@@ -360,7 +409,7 @@ export const RepositoryService = {
     if (isStale && navigator.onLine) {
       fetchRemote().then(async (remoteData: T[]) => {
         for (const item of remoteData) {
-          await RepositoryService.mergeRemoteRecord(dexieTable, item as any, { label: 'refresh remoto' });
+          await RepositoryService.mergeRemoteRecord(dexieTable, item as unknown as SyncableRecord, { label: 'refresh remoto' });
         }
       }).catch(err => console.warn(`[Repository] Background fetch failed:`, err));
     }
@@ -372,12 +421,12 @@ export const RepositoryService = {
    * processQueue: Processes items individually (sequential)
    * Best for large payloads like photos
    */
-  async processQueue(tableName: string, dexieTable: any, mapToPostgres: (item: any) => any) {
+  async processQueue<T extends RegistroEnfileirado>(tableName: string, dexieTable: Table<T, string>, mapToPostgres: (item: T) => LinhaPostgres) {
     if (!navigator.onLine) return;
  
     const pending = await dexieTable.where('syncStatus').equals('pending').toArray();
     for (const item of pending) {
-      await RepositoryService.pushToRemote(tableName, item as any, dexieTable, mapToPostgres);
+      await RepositoryService.pushToRemote(tableName, item, dexieTable, mapToPostgres);
     }
   },
  
@@ -385,46 +434,51 @@ export const RepositoryService = {
    * processBulkQueue: Processes all items in a single network call (batch)
    * Best for light metadata (clients, inspections, responses, schedules)
    */
-  async processBulkQueue(tableName: string, dexieTable: any, mapToPostgres: (item: any) => any) {
+  async processBulkQueue<T extends RegistroEnfileirado>(tableName: string, dexieTable: Table<T, string>, mapToPostgres: (item: T) => LinhaPostgres) {
     if (!navigator.onLine) return;
+    // Mesma visao restrita do `pushToRemote`: Dexie recusa `update` com o generico aberto.
+    const tabela = dexieTable as unknown as SyncableTable;
  
     const tenantId = useAuthStore.getState().tenantInfo?.tenantId;
     const queuedItems = (await dexieTable
       .where('syncStatus')
       .equals('pending')
       .toArray())
-      .filter((item: any) => !activePushes.has(syncKey(tableName, item.id)));
+      .filter((item) => !activePushes.has(syncKey(tableName, item.id)));
 
     const blockedItems = TENANT_SCOPED_TABLES.has(tableName)
-      ? queuedItems.filter((item: any) => !item.tenantId && !tenantId)
+      ? queuedItems.filter((item) => !item.tenantId && !tenantId)
       : [];
 
     for (const item of blockedItems) {
-      await dexieTable.update(item.id, {
+    // Dexie tipa `update` sobre o generico ainda aberto e, assim, recusa ate as chaves que
+    // `SyncableRecord` garante. Esta visao restringe a tabela ao que estas funcoes escrevem.
+    const tabela = dexieTable as unknown as SyncableTable;
+      await tabela.update(item.id, {
         syncStatus: 'pending',
         syncError: 'Aguardando tenantId para sincronizar'
       });
     }
 
     const items = queuedItems
-      .filter((item: any) => !blockedItems.some((blocked: any) => blocked.id === item.id))
-      .map((item: any) => (!item.tenantId && tenantId ? { ...item, tenantId } : item));
+      .filter((item) => !blockedItems.some((blocked) => blocked.id === item.id))
+      .map((item) => (!item.tenantId && tenantId ? { ...item, tenantId } : item));
 
     for (const item of items) {
-      const current = await dexieTable.get(item.id);
+      const current = await tabela.get(item.id);
       if (item.tenantId && current?.tenantId !== item.tenantId) {
-        await dexieTable.update(item.id, { tenantId: item.tenantId });
+        await tabela.update(item.id, { tenantId: item.tenantId });
       }
     }
  
     if (items.length === 0) return;
  
-    const ids = items.map((i: any) => i.id);
+    const ids = items.map((i) => i.id);
     console.log(`[Repository] 📦 Iniciando Chunked Bulk Upsert para ${tableName} (${items.length} itens total)...`);
  
     try {
       // 1. Mark as 'syncing' locally
-      await dexieTable.where('id').anyOf(ids).modify({ syncStatus: 'syncing' });
+      await tabela.where('id').anyOf(ids).modify({ syncStatus: 'syncing' });
  
       // 2. Prepare payload and Chunk it (max 5 items per request)
       const mappedArray = items.map(mapToPostgres);
@@ -453,30 +507,30 @@ export const RepositoryService = {
       // during the network request.
       const verifiedAt = new Date();
       for (const item of items) {
-        const current = await dexieTable.get(item.id);
+        const current = await tabela.get(item.id);
         if (current && sameTimestamp(current.updatedAt, item.updatedAt)) {
-          await dexieTable.update(item.id, {
+          await tabela.update(item.id, {
             syncStatus: 'synced',
             dataVerifiedAt: verifiedAt,
             syncError: null,
             syncAttempts: 0
           });
         } else if (current) {
-          await dexieTable.update(item.id, { syncStatus: 'pending' });
+          await tabela.update(item.id, { syncStatus: 'pending' });
         }
       }
  
       console.log(`[Repository] ✅ Bulk Upsert completo para ${tableName}.`);
-    } catch (err: any) {
-      console.error(`[Repository] ❌ Erro no Bulk Upsert para ${tableName}:`, err.message);
+    } catch (err) {
+      console.error(`[Repository] ❌ Erro no Bulk Upsert para ${tableName}:`, errorMessage(err));
 
       // 5. Error handling per item — if the chunk timed out, verify each record
       // individually before marking as failed (the server may have persisted them).
-      const isTimeout = err.message?.startsWith('TIMEOUT');
+      const isTimeout = errorMessage(err).startsWith('TIMEOUT');
       for (const item of items) {
         const attempts = (item.syncAttempts || 0) + 1;
         const shouldMarkFailed = attempts >= 3;
-        const current = await dexieTable.get(item.id);
+        const current = await tabela.get(item.id);
         if (!current) continue;
         if (current.syncStatus === 'synced' && sameTimestamp(current.updatedAt, item.updatedAt)) continue;
 
@@ -490,7 +544,7 @@ export const RepositoryService = {
             );
             if (confirmed) {
               if (sameTimestamp(current.updatedAt, item.updatedAt)) {
-                await dexieTable.update(item.id, {
+                await tabela.update(item.id, {
                   syncStatus: 'synced',
                   dataVerifiedAt: new Date(),
                   syncError: null,
@@ -503,9 +557,9 @@ export const RepositoryService = {
         }
 
         if (sameTimestamp(current.updatedAt, item.updatedAt)) {
-          await dexieTable.update(item.id, {
+          await tabela.update(item.id, {
             syncStatus: shouldMarkFailed ? 'failed' : 'pending',
-            syncError: err.message,
+            syncError: errorMessage(err),
             syncAttempts: attempts
           });
         }

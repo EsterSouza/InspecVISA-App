@@ -56,7 +56,7 @@ export interface Client {
   tenantId?: string;
   syncStatus: SyncStatus;
   dataVerifiedAt?: Date;
-  syncError?: string;
+  syncError?: string | null;
   syncAttempts?: number;
   localActorId?: string;
   conflictRemote?: any;
@@ -74,7 +74,7 @@ export type SyncStatus = 'pending' | 'syncing' | 'synced' | 'conflict' | 'failed
 export interface SyncBase {
   syncStatus: SyncStatus;
   dataVerifiedAt?: Date;
-  syncError?: string;
+  syncError?: string | null;
   syncAttempts?: number;
   localActorId?: string;
   conflictRemote?: any;
@@ -200,7 +200,7 @@ export interface Inspection {
   tenantId?: string;
   syncStatus: SyncStatus;
   dataVerifiedAt?: Date;
-  syncError?: string;
+  syncError?: string | null;
   syncAttempts?: number;
   localActorId?: string;
   conflictRemote?: any;
@@ -240,7 +240,7 @@ export interface InspectionResponse {
   tenantId?: string;
   syncStatus: SyncStatus;
   dataVerifiedAt?: Date;
-  syncError?: string;
+  syncError?: string | null;
   syncAttempts?: number;
   localActorId?: string;
   conflictRemote?: any;
@@ -259,7 +259,7 @@ export interface InspectionPhoto {
   tenantId?: string;
   syncStatus: SyncStatus;
   dataVerifiedAt?: Date;
-  syncError?: string;
+  syncError?: string | null;
   syncAttempts?: number;
   localActorId?: string;
   conflictRemote?: any;
@@ -393,7 +393,7 @@ export interface Schedule {
   tenantId?: string;
   syncStatus: SyncStatus;
   dataVerifiedAt?: Date;
-  syncError?: string;
+  syncError?: string | null;
   syncAttempts?: number;
   localActorId?: string;
   conflictRemote?: any;

@@ -211,7 +211,8 @@ function toPhotoIntegrity(photo: InspectionPhoto): PhotoIntegrity {
     dataUrl: photo.dataUrl,
     status: photo.syncStatus,
     updatedAt: photo.updatedAt,
-    syncError: photo.syncError
+    // `syncError` e nulo (nao ausente) depois de uma sincronizacao bem-sucedida.
+    syncError: photo.syncError ?? undefined
   };
 }
 

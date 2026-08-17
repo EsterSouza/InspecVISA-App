@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import type { PostgrestError } from '@supabase/supabase-js';
 import type { ChecklistTemplate, ClientCategory } from '../types';
 import { templates as legacyTemplates } from '../data/templates';
 import { withTimeout } from '../utils/network';
@@ -14,6 +15,86 @@ interface RawImportItem {
   requirementType?: 'legal' | 'good_practice';
 }
 
+/**
+ * Linhas das três tabelas do roteiro, como o PostgREST devolve. Sem tipos gerados do
+ * Supabase (DEBT-02), o contrato mora aqui — e é o mesmo que os mapeadores abaixo leem.
+ */
+interface TemplateRow {
+  id: string;
+  name: string;
+  category: ClientCategory;
+  version: string | null;
+}
+
+interface SectionRow {
+  id: string;
+  template_id: string;
+  title: string;
+  order: number;
+}
+
+interface ItemRow {
+  id: string;
+  section_id: string;
+  description: string;
+  legislation_name: string | null;
+  legislation_url: string | null;
+  weight: number | null;
+  is_critical: boolean | null;
+  requirement_type: 'legal' | 'good_practice' | null;
+  /** Decisão 21 (FE-17b): item aposentado sai das próximas inspeções, não das em andamento. */
+  retired_at: string | null;
+  order: number;
+}
+
+/** Resposta do PostgREST para uma consulta de lista. */
+type Resposta<Row> = { data: Row[] | null; error: PostgrestError | null };
+
+/**
+ * Seção/item **como o editor manda**, que não é a mesma forma que sai do banco: o mesmo
+ * campo pode chegar em camelCase (roteiro local) ou snake_case (linha remota), e o código
+ * lê os dois com `||`. Estava tudo como `any`, o que escondia justamente essa duplicidade.
+ */
+interface ItemInput {
+  id?: string;
+  description: string;
+  legislation?: string;
+  legislation_name?: string;
+  legislationUrl?: string;
+  legislation_url?: string;
+  weight?: number;
+  isCritical?: boolean;
+  is_critical?: boolean;
+  requirementType?: string;
+  requirement_type?: string;
+  retiredAt?: string | null;
+  retired_at?: string | null;
+  order?: number;
+}
+
+interface SectionInput {
+  id?: string;
+  title?: string;
+  order?: number;
+  items?: ItemInput[];
+}
+
+/** O que vai para o `insert` de `checklist_items` (o id só aparece quando é uuid existente). */
+type ItemInsert = {
+  id?: string;
+  section_id: string;
+  description: string;
+  // `undefined` aqui significa coluna omitida no insert, que e o que o codigo sempre fez;
+  // trocar por `null` explicito mudaria o payload enviado.
+  legislation_name: string | null | undefined;
+  legislation_url: string | null;
+  weight: number;
+  is_critical: boolean;
+  requirement_type: string;
+  retired_at?: string | null;
+  order: number;
+};
+
 const TEMPLATE_SYNC_TIMEOUT_MS = 45000;
 const ITEM_SECTION_CHUNK_SIZE = 100;
 const TEMPLATE_TTL_MS = 30 * 60 * 1000; // 30 minutes
@@ -28,7 +109,7 @@ function chunkArray<T>(items: T[], size: number) {
 
 export const TemplateService = {
   async listTemplates() {
-    const { data, error } = await withTimeout<any>(
+    const { data, error } = await withTimeout<Resposta<TemplateRow>>(
       supabase
         .from('checklist_templates')
         .select('*')
@@ -38,7 +119,8 @@ export const TemplateService = {
     );
     
     if (error) throw error;
-    return data;
+    // Nunca devolve null: quem chama guarda direto numa lista.
+    return data ?? [];
   },
 
   async syncAllTemplatesToDexie(): Promise<ChecklistTemplate[]> {
@@ -75,14 +157,14 @@ export const TemplateService = {
         )
       ]);
 
-      const tpls = (tplsResult as any).data || [];
-      const secs = (secsResult as any).data || [];
+      const tpls = (tplsResult as Resposta<TemplateRow>).data || [];
+      const secs = (secsResult as Resposta<SectionRow>).data || [];
 
       if (!tpls.length) return [];
 
       // 2. Fetch items in section chunks to avoid one huge PostgREST request.
-      const sectionIds = secs.map((s: any) => s.id).filter(Boolean);
-      const items: any[] = [];
+      const sectionIds = secs.map((s) => s.id).filter(Boolean);
+      const items: ItemRow[] = [];
       for (const [index, ids] of chunkArray(sectionIds, ITEM_SECTION_CHUNK_SIZE).entries()) {
         const itemsResult = await withTimeout(
           supabase
@@ -94,21 +176,21 @@ export const TemplateService = {
           `SyncItems chunk ${index + 1}`
         );
 
-        const iError = (itemsResult as any).error;
+        const { data: chunkItems, error: iError } = itemsResult as Resposta<ItemRow>;
         if (iError) throw iError;
-        items.push(...((itemsResult as any).data || []));
+        items.push(...(chunkItems || []));
       }
 
       // 3. Optimized mapping
-      const itemsBySection = new Map<string, any[]>();
-      items.forEach((i: any) => {
+      const itemsBySection = new Map<string, ItemRow[]>();
+      items.forEach((i) => {
         const list = itemsBySection.get(i.section_id) || [];
         list.push(i);
         itemsBySection.set(i.section_id, list);
       });
 
-      const sectionsByTemplate = new Map<string, any[]>();
-      secs.forEach((s: any) => {
+      const sectionsByTemplate = new Map<string, SectionRow[]>();
+      secs.forEach((s) => {
         const list = sectionsByTemplate.get(s.template_id) || [];
         list.push(s);
         sectionsByTemplate.set(s.template_id, list);
@@ -117,15 +199,15 @@ export const TemplateService = {
       console.log(`[TemplateService] Successfully fetched ${tpls.length} templates from server.`);
 
       const verifiedAt = new Date();
-      return tpls.map((t: any) => {
-        const tSecs = (sectionsByTemplate.get(t.id) || []).sort((a: any, b: any) => a.order - b.order);
-        const fullSecs = tSecs.map((sec: any) => {
-          const sItems = (itemsBySection.get(sec.id) || []).sort((a: any, b: any) => a.order - b.order);
+      return tpls.map((t) => {
+        const tSecs = (sectionsByTemplate.get(t.id) || []).sort((a, b) => a.order - b.order);
+        const fullSecs = tSecs.map((sec) => {
+          const sItems = (itemsBySection.get(sec.id) || []).sort((a, b) => a.order - b.order);
           return {
             id: sec.id,
             title: sec.title,
             order: sec.order,
-            items: sItems.map((i: any) => ({
+            items: sItems.map((i) => ({
                id: i.id,
                description: i.description,
                legislation: i.legislation_name,
@@ -178,7 +260,7 @@ export const TemplateService = {
       if (sError) throw sError;
 
       // Bulk fetch all items for all sections in one request (instead of N+1)
-      const sectionIds = sections.map((s: any) => s.id);
+      const sectionIds = (sections as SectionRow[]).map((s) => s.id);
       const { data: allItems, error: iError } = sectionIds.length > 0
         ? await supabase
           .from('checklist_items')
@@ -189,8 +271,8 @@ export const TemplateService = {
         : { data: [], error: null };
       if (iError) throw iError;
 
-      const itemsBySection = new Map<string, any[]>();
-      (allItems || []).forEach((i: any) => {
+      const itemsBySection = new Map<string, ItemRow[]>();
+      ((allItems || []) as ItemRow[]).forEach((i) => {
         const list = itemsBySection.get(i.section_id) || [];
         list.push(i);
         itemsBySection.set(i.section_id, list);
@@ -202,11 +284,11 @@ export const TemplateService = {
         category: template.category,
         version: template.version,
         dataVerifiedAt: new Date(),
-        sections: sections.map((sec: any) => ({
+        sections: (sections as SectionRow[]).map((sec) => ({
           id: sec.id,
           title: sec.title,
           order: sec.order,
-          items: (itemsBySection.get(sec.id) || []).map((i: any) => ({
+          items: (itemsBySection.get(sec.id) || []).map((i) => ({
             id: i.id,
             description: i.description,
             legislation: i.legislation_name,
@@ -257,11 +339,11 @@ export const TemplateService = {
     if (!createdSections) throw new Error('Failed to create sections');
 
     // 4. Prepare all items for batch insertion
-    const itemsToInsert: any[] = [];
+    const itemsToInsert: ItemInsert[] = [];
     
     rawData.forEach(item => {
       const sectionTitle = item.section || 'Geral';
-      const section = (createdSections as any[]).find((s: any) => s.title === sectionTitle);
+      const section = (createdSections as SectionRow[]).find((s) => s.title === sectionTitle);
       
       if (section) {
         itemsToInsert.push({
@@ -326,7 +408,7 @@ export const TemplateService = {
       .eq('status', 'in_progress')
       .is('deleted_at', null);
     if (iError) throw iError;
-    const inspectionIds = (openInspections || []).map((i: any) => i.id);
+    const inspectionIds = (openInspections || []).map((i) => i.id);
     if (inspectionIds.length === 0) return {};
 
     const { data: rows, error } = await supabase
@@ -357,11 +439,11 @@ export const TemplateService = {
     return (count && count > 0) ? true : false;
   },
 
-  _isUuid(v: any): boolean {
+  _isUuid(v: unknown): boolean {
     return typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
   },
 
-  async _insertSectionsAndItems(templateId: string, sections: any[]) {
+  async _insertSectionsAndItems(templateId: string, sections: SectionInput[]) {
     // Preserva o id de seções/itens já existentes (uuid) para NÃO quebrar
     // o vínculo com respostas de inspeções; só gera id novo para itens novos.
     const sectionsToInsert = sections.map((sec, idx) => ({
@@ -379,11 +461,11 @@ export const TemplateService = {
     if (sError) throw sError;
     if (!createdSections) throw new Error('Failed to create sections');
 
-    const itemsToInsert: any[] = [];
+    const itemsToInsert: ItemInsert[] = [];
     sections.forEach((sec, sIdx) => {
       const createdSec = createdSections[sIdx];
       if (createdSec && sec.items) {
-        sec.items.forEach((item: any, iIdx: number) => {
+        sec.items.forEach((item, iIdx) => {
           itemsToInsert.push({
             ...(this._isUuid(item.id) ? { id: item.id } : {}),
             section_id: createdSec.id,
@@ -413,7 +495,7 @@ export const TemplateService = {
   async updateFullTemplate(
     templateId: string, 
     templateData: { name: string; category: ClientCategory; version?: string },
-    sections: any[]
+    sections: SectionInput[]
   ) {
     // Edição SEMPRE no lugar (mesmo id), preservando os ids dos itens existentes.
     // Antes, roteiros EM USO eram arquivados e clonados numa nova versão — o que
@@ -449,13 +531,13 @@ export const TemplateService = {
     ];
 
     // 1. Batch check existing names to avoid repeated queries
-    const namesToCheck = allLegacy.map((t: any) => t.name);
+    const namesToCheck = allLegacy.map((t) => t.name);
     const { data: existingTemplates } = await supabase
       .from('checklist_templates')
       .select('name')
       .in('name', namesToCheck);
     
-    const existingNames = new Set(existingTemplates?.map((t: any) => t.name) || []);
+    const existingNames = new Set((existingTemplates || []).map((t: { name: string }) => t.name));
     const seeded = [];
     
     for (const tpl of allLegacy) {
@@ -467,8 +549,8 @@ export const TemplateService = {
       console.log(`Seeding template: ${tpl.name}`);
       
       // We use our existing saveFullTemplate logic by mapping the legacy object to RawImportItem[]
-      const rawItems = tpl.sections.flatMap((sec: any) => 
-        sec.items.map((it: any) => ({
+      const rawItems = tpl.sections.flatMap((sec) => 
+        sec.items.map((it) => ({
           section: sec.title,
           description: it.description,
           legislation: it.legislation,
