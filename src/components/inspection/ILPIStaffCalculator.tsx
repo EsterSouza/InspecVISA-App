@@ -86,9 +86,9 @@ export function ILPIStaffCalculator({
 
   if (!hasResidents) {
     return (
-      <div className="flex items-start gap-3 rounded-lg border border-amber-100 bg-amber-50 p-4">
-        <Info className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
-        <p className="text-sm text-amber-700">
+      <div className="flex items-start gap-3 rounded-lg border border-amber-soft-border bg-amber-soft p-4">
+        <Info className="mt-0.5 h-5 w-5 shrink-0 text-amber-strong" />
+        <p className="text-sm text-amber-soft-ink">
           Preencha o numero de residentes por grau de dependencia para calcular o dimensionamento minimo.
         </p>
       </div>
@@ -103,7 +103,7 @@ export function ILPIStaffCalculator({
   return (
     <div className="space-y-3">
       {residentsMismatch && (
-        <p className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-[11px] font-medium text-amber-700">
+        <p className="flex items-start gap-2 rounded-lg border border-amber-soft-border bg-amber-soft p-2.5 text-[11px] font-medium text-amber-soft-ink">
           <Info className="mt-0.5 h-4 w-4 shrink-0" />
           A soma dos graus ({grausSum}) é diferente do total de residentes informado ({residentsTotal}). Revise os números.
         </p>

@@ -166,7 +166,7 @@ export function ClientPortalManagement({ accounts, clients, onChanged }: ClientP
                   <p className="truncate text-sm font-bold text-navy">{account.name}</p>
                   <span
                     className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
-                      account.payment_status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                      account.payment_status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-amber-soft text-amber-soft-ink'
                     }`}
                   >
                     {account.payment_status === 'paid' ? 'Pago' : 'Pgto pendente'}
@@ -323,7 +323,7 @@ export function ClientPortalManagement({ accounts, clients, onChanged }: ClientP
                 className={`mt-3 rounded-md border p-2 text-xs ${
                   newCode.emailSent
                     ? 'border-green-100 bg-green-50 text-green-700'
-                    : 'border-amber-100 bg-amber-50 text-amber-800'
+                    : 'border-amber-soft-border bg-amber-soft text-amber-soft-ink'
                 }`}
               >
                 {newCode.emailSent

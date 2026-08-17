@@ -42,14 +42,14 @@ export function PortalBilling({
       {hasPayment && payment && (
         <div
           className={`flex flex-col gap-3 rounded-xl border p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between ${
-            payment.status === 'paid' ? 'border-green-200 bg-green-50/70' : 'border-amber-200 bg-amber-50/70'
+            payment.status === 'paid' ? 'border-green-200 bg-green-50/70' : 'border-amber-soft-border bg-amber-soft/70'
           }`}
         >
           <div className="flex items-center gap-3">
             {payment.status === 'paid' ? (
               <CheckCircle2 className="h-6 w-6 shrink-0 text-green-600" />
             ) : (
-              <CreditCard className="h-6 w-6 shrink-0 text-amber-600" />
+              <CreditCard className="h-6 w-6 shrink-0 text-amber-strong" />
             )}
             <div>
               <p className="text-sm font-bold text-navy">
@@ -89,7 +89,7 @@ export function PortalBilling({
                   onClick={() => {
                     onAudit('payment_link_clicked', { label: item.label || 'Pagar agora', index });
                   }}
-                  className="inline-flex items-center justify-center gap-2 rounded-md bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-amber-700"
+                  className="inline-flex items-center justify-center gap-2 rounded-md bg-amber px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-amber-strong"
                 >
                   <CreditCard className="h-4 w-4" />
                   {item.label || 'Pagar agora'}
@@ -99,7 +99,7 @@ export function PortalBilling({
                 type="button"
                 onClick={onAcknowledgePayment}
                 disabled={paymentAckBusy || paymentAckSent}
-                className="inline-flex items-center justify-center gap-2 rounded-md border border-amber-200 bg-surface px-4 py-2.5 text-sm font-semibold text-amber-700 shadow-sm transition-colors hover:bg-amber-50 disabled:opacity-60"
+                className="inline-flex items-center justify-center gap-2 rounded-md border border-amber-soft-border bg-surface px-4 py-2.5 text-sm font-semibold text-amber-soft-ink shadow-sm transition-colors hover:bg-amber-soft disabled:opacity-60"
               >
                 {paymentAckBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                 {paymentAckSent ? 'Aviso enviado' : 'Ja paguei'}

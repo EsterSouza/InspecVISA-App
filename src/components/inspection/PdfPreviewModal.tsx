@@ -233,9 +233,9 @@ export function PdfPreviewModal({
                 Vêm marcadas as legislações citadas pelos itens que você avaliou. As demais são sugestões para a UF e o segmento deste estabelecimento — marque só as que usou.
               </p>
               {uncatalogued.length > 0 && (
-                <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
+                <div className="rounded-xl bg-amber-soft border border-amber-soft-border p-3 text-sm text-amber-soft-ink">
                   <p className="font-semibold">Sem fonte cadastrada — fora do PDF</p>
-                  <p className="text-xs mt-1 text-amber-700">
+                  <p className="text-xs mt-1 text-amber-soft-ink">
                     Estas normas aparecem nos itens mas ainda não têm verbete na biblioteca, então não há autoria nem link oficial para citá-las. Cadastre em Admin → Legislações para que entrem nas próximas referências.
                   </p>
                   <ul className="mt-2 space-y-0.5 text-xs">
@@ -244,7 +244,7 @@ export function PdfPreviewModal({
                 </div>
               )}
               {legislations.length === 0 ? (
-                <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-700">
+                <div className="rounded-xl bg-amber-soft border border-amber-soft-border p-4 text-sm text-amber-soft-ink">
                   Nenhuma legislação cadastrada entre os itens avaliados. O PDF será gerado sem a seção de referências.
                 </div>
               ) : (
@@ -416,7 +416,7 @@ export function PdfPreviewModal({
               </div>
 
               {!skipSignature && !hasSignature && (
-                <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2 border border-amber-200">
+                <p className="text-xs text-amber-strong bg-amber-soft rounded-lg px-3 py-2 border border-amber-soft-border">
                   ⚠️ Assine acima ou marque "Pular assinatura" para continuar.
                 </p>
               )}

@@ -47,7 +47,7 @@ const evidenceLabel: Record<ClientActionEvidenceStatus, string> = {
 const evidenceTheme: Record<ClientActionEvidenceStatus, string> = {
   pending: 'border-sky-200 bg-sky-50 text-sky-800',
   approved: 'border-emerald-200 bg-emerald-50 text-emerald-800',
-  changes_requested: 'border-amber-200 bg-amber-50 text-amber-900',
+  changes_requested: 'border-amber-soft-border bg-amber-soft text-amber-soft-ink',
 };
 
 export type DeclareStatusHandler = (params: {
@@ -282,7 +282,7 @@ const declaredLabel: Record<ClientDeclaredStatus, string> = {
 const declaredTheme: Record<ClientDeclaredStatus, string> = {
   done: 'border-emerald-300 bg-emerald-50 text-emerald-800',
   in_progress: 'border-sky-300 bg-sky-50 text-sky-800',
-  not_done: 'border-orange-300 bg-orange-50 text-orange-900',
+  not_done: 'border-amber-soft-border bg-amber-soft text-amber-soft-ink',
 };
 
 /**
@@ -620,13 +620,13 @@ export function PortalActionPlan({
 
   if (error) {
     return (
-      <section className="mb-6 flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800 sm:flex-row sm:items-center sm:justify-between">
+      <section className="mb-6 flex flex-col gap-2 rounded-xl border border-amber-soft-border bg-amber-soft p-4 text-xs text-amber-soft-ink sm:flex-row sm:items-center sm:justify-between">
         <p role="alert">Não foi possível carregar o plano de ação agora. Atualize a página ou fale com a equipe da consultoria.</p>
         {onRetry && (
           <button
             type="button"
             onClick={onRetry}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-amber-300 bg-surface px-3 text-sm font-semibold text-amber-800 hover:bg-amber-100"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-amber-soft-border bg-surface px-3 text-sm font-semibold text-amber-soft-ink hover:bg-amber-soft"
           >
             <RefreshCw className="h-4 w-4" /> Tentar novamente
           </button>

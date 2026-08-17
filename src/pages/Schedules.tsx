@@ -588,7 +588,7 @@ export function Schedules() {
                           <span className="flex items-center"><Clock className="mr-1.5 h-3.5 w-3.5" /> 
                             {schedule.scheduledAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                           </span>
-                          {schedule.notes && <span className="flex items-center italic truncate max-w-[200px]"><AlertCircle className="mr-1.5 h-3.5 w-3.5 text-amber-500" /> {schedule.notes}</span>}
+                          {schedule.notes && <span className="flex items-center italic truncate max-w-[200px]"><AlertCircle className="mr-1.5 h-3.5 w-3.5 text-amber-strong" /> {schedule.notes}</span>}
                         </div>
                       </div>
                     </div>

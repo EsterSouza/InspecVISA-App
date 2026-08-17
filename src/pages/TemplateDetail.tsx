@@ -39,7 +39,7 @@ interface FullTemplate {
 
 const WEIGHT_LABELS: Record<number, { label: string; color: string; bg: string }> = {
   10: { label: 'Imprescindível', color: 'text-danger-soft-ink', bg: 'bg-danger-soft border-danger-soft-border' },
-  5:  { label: 'Necessário',     color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200' },
+  5:  { label: 'Necessário',     color: 'text-amber-soft-ink', bg: 'bg-amber-soft border-amber-soft-border' },
   2:  { label: 'Recomendado',    color: 'text-accent-ink', bg: 'bg-primary-50 border-primary-200' },
   1:  { label: 'Sugerido',       color: 'text-navy-2', bg: 'bg-surface-sunken border-default' },
 };

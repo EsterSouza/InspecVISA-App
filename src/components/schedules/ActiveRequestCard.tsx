@@ -117,7 +117,7 @@ export function ActiveRequestCard({
                   {STATUS_LABELS[request.status]}
                 </span>
                 {request.report_hidden && (
-                  <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-700">
+                  <span className="flex items-center gap-1 rounded-full bg-amber-soft px-2 py-0.5 text-[10px] font-bold uppercase text-amber-soft-ink">
                     <EyeOff className="h-3 w-3" /> Relatório oculto
                   </span>
                 )}
@@ -340,7 +340,7 @@ export function ActiveRequestCard({
                 size="sm"
                 disabled={busy}
                 onClick={onMarkNotCompleted}
-                className="border-orange-200 text-orange-700 hover:bg-orange-50"
+                className="border-amber-soft-border text-amber-soft-ink hover:bg-amber-soft"
               >
                 <XCircle className="mr-1.5 h-4 w-4" /> Não realizada
               </Button>
@@ -383,7 +383,7 @@ export function ActiveRequestCard({
                 disabled={busy}
                 onClick={onToggleReportHidden}
                 className={request.report_hidden
-                  ? 'border-amber-200 text-amber-700 hover:bg-amber-50'
+                  ? 'border-amber-soft-border text-amber-soft-ink hover:bg-amber-soft'
                   : 'border-default text-navy-2 hover:bg-surface-hover'}
               >
                 {request.report_hidden

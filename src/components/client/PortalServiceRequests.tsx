@@ -37,7 +37,7 @@ import { readStoredAuthor, storeAuthor } from './PortalActionPlan';
 const statusTheme: Record<ServiceRequestStatus, string> = {
   open: 'bg-sky-100 text-sky-800',
   in_progress: 'bg-primary-100 text-accent-ink',
-  awaiting_client: 'bg-amber-100 text-amber-900',
+  awaiting_client: 'bg-amber-soft text-amber-soft-ink',
   resolved: 'bg-emerald-100 text-emerald-800',
   cancelled: 'bg-surface-sunken text-navy-2',
 };
@@ -331,7 +331,7 @@ function ReplyForm({
   };
 
   return (
-    <div className="mt-2.5 border-t border-dashed border-amber-200 pt-2.5">
+    <div className="mt-2.5 border-t border-dashed border-amber-soft-border pt-2.5">
       <textarea
         value={message}
         onChange={(e) => setMessage(e.target.value)}
@@ -396,7 +396,7 @@ function RequestCard({
   return (
     <li
       className={`rounded-lg border px-3 py-2.5 ${
-        waitingClient ? 'border-amber-200 bg-amber-50' : 'border-default bg-surface'
+        waitingClient ? 'border-amber-soft-border bg-amber-soft' : 'border-default bg-surface'
       }`}
     >
       <div className="flex flex-wrap items-center gap-2">
@@ -501,7 +501,7 @@ export function PortalServiceRequests({
 
   if (error) {
     return (
-      <section className="mb-6 flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800 sm:flex-row sm:items-center sm:justify-between">
+      <section className="mb-6 flex flex-col gap-2 rounded-xl border border-amber-soft-border bg-amber-soft p-4 text-xs text-amber-soft-ink sm:flex-row sm:items-center sm:justify-between">
         <p role="alert">
           Não foi possível carregar suas solicitações agora. Atualize a página ou fale com a equipe
           da consultoria.
@@ -510,7 +510,7 @@ export function PortalServiceRequests({
           <button
             type="button"
             onClick={onRetry}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-amber-300 bg-surface px-3 text-sm font-semibold text-amber-800 hover:bg-amber-100"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-amber-soft-border bg-surface px-3 text-sm font-semibold text-amber-soft-ink hover:bg-amber-soft"
           >
             <RefreshCw className="h-4 w-4" /> Tentar novamente
           </button>
@@ -540,7 +540,7 @@ export function PortalServiceRequests({
         <span className="text-xs font-medium text-navy-3">
           {open.length} em andamento
           {waitingClient > 0 && (
-            <span className="ml-1 font-bold text-amber-700">· {waitingClient} aguardando você</span>
+            <span className="ml-1 font-bold text-amber-soft-ink">· {waitingClient} aguardando você</span>
           )}
           {closed.length > 0 && <span className="ml-1">· {closed.length} encerrada(s)</span>}
         </span>

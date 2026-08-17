@@ -221,28 +221,28 @@ export function Inspections() {
 
       <div className="space-y-4">
         {showTrash && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <div className="rounded-xl border border-amber-soft-border bg-amber-soft p-4">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
-                <h2 className="flex items-center gap-2 text-sm font-bold text-amber-900">
+                <h2 className="flex items-center gap-2 text-sm font-bold text-amber-soft-ink">
                   <Trash2 className="h-4 w-4" />
                   Lixeira de relatórios
                 </h2>
-                <p className="text-xs text-amber-700">Relatórios permanecem aqui até serem restaurados ou excluídos definitivamente por você.</p>
+                <p className="text-xs text-amber-soft-ink">Relatórios permanecem aqui até serem restaurados ou excluídos definitivamente por você.</p>
               </div>
-              <Badge variant="outline" className="border-amber-300 bg-surface text-amber-700">{deletedInspections.length}</Badge>
+              <Badge variant="outline" className="border-amber-soft-border bg-surface text-amber-soft-ink">{deletedInspections.length}</Badge>
             </div>
             {deletedInspections.length === 0 ? (
-              <p className="rounded-lg border border-amber-100 bg-surface p-4 text-center text-sm text-navy-3">A Lixeira está vazia.</p>
+              <p className="rounded-lg border border-amber-soft-border bg-surface p-4 text-center text-sm text-navy-3">A Lixeira está vazia.</p>
             ) : <div className="space-y-2">
               {deletedInspections.map(insp => (
-                <div key={insp.id} className="flex items-center justify-between gap-3 rounded-lg border border-amber-100 bg-surface p-3">
+                <div key={insp.id} className="flex items-center justify-between gap-3 rounded-lg border border-amber-soft-border bg-surface p-3">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-bold text-navy">{insp.clientName || 'Cliente'}</p>
                     <p className="text-xs text-navy-3">{formatDateTime(insp.inspectionDate)} • excluída em {insp.deletedAt ? formatDateTime(insp.deletedAt) : '-'}</p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    <Button size="sm" variant="outline" onClick={(e) => handleRestore(e, insp.id)} className="border-amber-300 text-amber-700 hover:bg-amber-50">
+                    <Button size="sm" variant="outline" onClick={(e) => handleRestore(e, insp.id)} className="border-amber-soft-border text-amber-soft-ink hover:bg-amber-soft">
                       <RotateCcw className="mr-2 h-4 w-4" />
                       Restaurar
                     </Button>

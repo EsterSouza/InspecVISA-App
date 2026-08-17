@@ -186,7 +186,7 @@ export function Clients() {
         actions={
           <>
             {!isOnline && (
-              <div className="flex items-center text-amber-600 text-sm font-medium">
+              <div className="flex items-center text-amber-strong text-sm font-medium">
                 <WifiOff className="mr-2 h-4 w-4" /> Offline
               </div>
             )}
@@ -331,7 +331,7 @@ export function Clients() {
                        {client.category?.toUpperCase() || 'SEM CATEGORIA'}
                      </Badge>
                      {client.category === 'alimentos' && client.foodTypes?.map(ft => (
-                       <Badge key={ft} variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                       <Badge key={ft} variant="outline" className="bg-amber-soft text-amber-soft-ink border-amber-soft-border">
                          {FOOD_SEGMENT_LABELS[ft as FoodEstablishmentType] || ft}
                        </Badge>
                      ))}
@@ -389,8 +389,8 @@ export function Clients() {
           </div>
 
           {selectedCategory === 'alimentos' && (
-            <div className="rounded-2xl border border-yellow-200 bg-yellow-50/50 p-4 space-y-3">
-              <label className="block text-xs font-bold uppercase text-yellow-800 tracking-wider">Tipos de Serviço</label>
+            <div className="rounded-2xl border border-amber-soft-border bg-amber-soft/50 p-4 space-y-3">
+              <label className="block text-xs font-bold uppercase text-amber-soft-ink tracking-wider">Tipos de Serviço</label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                 {Object.entries(FOOD_SEGMENT_LABELS).map(([val, label]) => (
                   <label key={val} className="flex items-center space-x-2">

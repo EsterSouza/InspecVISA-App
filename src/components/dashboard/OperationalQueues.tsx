@@ -55,7 +55,7 @@ const TECHNICAL_BLOCKS: BlockConfig[] = [
     label: 'Pedidos de agendamento',
     description: 'Visitas pedidas pelo portal público, ainda sem confirmação.',
     icon: Inbox,
-    accent: 'text-amber-700 bg-amber-50 border-amber-200',
+    accent: 'text-amber-soft-ink bg-amber-soft border-amber-soft-border',
     link: (item) => `/schedules?tab=solicitacoes&requestId=${item.id}`,
   },
   {
@@ -71,7 +71,7 @@ const TECHNICAL_BLOCKS: BlockConfig[] = [
     label: 'Clientes aguardando resposta',
     description: 'A bola está com o cliente.',
     icon: MessageCircleQuestion,
-    accent: 'text-amber-700 bg-amber-50 border-amber-200',
+    accent: 'text-amber-soft-ink bg-amber-soft border-amber-soft-border',
     link: (item) => `/requests?id=${item.id}`,
   },
   {

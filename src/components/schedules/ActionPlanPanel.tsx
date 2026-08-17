@@ -32,7 +32,7 @@ const EVIDENCE_STATUS_LABELS: Record<ClientActionEvidence['status'], string> = {
 const EVIDENCE_STATUS_THEME: Record<ClientActionEvidence['status'], string> = {
   pending: 'bg-sky-100 text-sky-700',
   approved: 'bg-green-100 text-green-700',
-  changes_requested: 'bg-amber-100 text-amber-700',
+  changes_requested: 'bg-amber-soft text-amber-soft-ink',
 };
 
 /**
@@ -164,7 +164,7 @@ export function EvidenceReview({
                 size="sm"
                 disabled={busyId === row.id}
                 onClick={() => void review(row, 'changes_requested', false)}
-                className="text-amber-700 hover:bg-amber-50"
+                className="text-amber-soft-ink hover:bg-amber-soft"
               >
                 <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Devolver
               </Button>
@@ -256,7 +256,7 @@ export function ActionPlanPanel({ requestId, busy }: { requestId: string; busy: 
                   item.status === 'published'
                     ? 'bg-green-100 text-green-700'
                     : item.status === 'hidden'
-                      ? 'bg-amber-100 text-amber-700'
+                      ? 'bg-amber-soft text-amber-soft-ink'
                       : 'bg-surface-sunken text-navy-3'
                 }`}
               >
@@ -287,7 +287,7 @@ export function ActionPlanPanel({ requestId, busy }: { requestId: string; busy: 
               <p
                 className={`mt-1.5 rounded-md px-2 py-1 text-[11px] ${
                   item.client_status === 'not_done'
-                    ? 'bg-orange-50 text-orange-900'
+                    ? 'bg-amber-soft text-amber-soft-ink'
                     : item.client_status === 'in_progress'
                       ? 'bg-sky-50 text-sky-900'
                       : 'bg-emerald-50 text-emerald-900'
@@ -327,7 +327,7 @@ export function ActionPlanPanel({ requestId, busy }: { requestId: string; busy: 
                     size="sm"
                     disabled={savingId === item.id}
                     onClick={() => void changeStatus(item, 'hidden')}
-                    className="text-amber-700 hover:bg-amber-50"
+                    className="text-amber-soft-ink hover:bg-amber-soft"
                   >
                     <EyeOff className="mr-1.5 h-3.5 w-3.5" /> Ocultar
                   </Button>

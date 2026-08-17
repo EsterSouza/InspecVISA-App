@@ -1090,8 +1090,8 @@ export function InspectionExecution() {
   if (!currentInspection) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4 bg-surface-sunken p-8 text-center">
-        <div className="mb-4 rounded-full bg-amber-50 p-3">
-          <RefreshCw className="h-8 w-8 text-amber-600" />
+        <div className="mb-4 rounded-full bg-amber-soft p-3">
+          <RefreshCw className="h-8 w-8 text-amber-strong" />
         </div>
         <p className="text-navy-2 font-semibold">O roteiro desta inspeção não pôde ser carregado.</p>
         <div className="flex flex-col sm:flex-row gap-3 mt-4">

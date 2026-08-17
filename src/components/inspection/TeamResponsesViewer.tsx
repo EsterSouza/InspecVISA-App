@@ -27,7 +27,7 @@ const RESULT_STYLES: Record<ResponseResult, string> = {
   not_complies: 'border-danger-soft-border bg-danger-soft text-danger-soft-ink',
   not_applicable: 'border-default bg-surface-sunken text-navy-2',
   not_observed: 'border-default bg-surface-sunken text-navy-2',
-  not_evaluated: 'border-amber-200 bg-amber-50 text-amber-700',
+  not_evaluated: 'border-amber-soft-border bg-amber-soft text-amber-soft-ink',
 };
 
 function ResponseCard({ item, response }: { item?: ChecklistItem; response?: InspectionResponse }) {
@@ -169,7 +169,7 @@ export function TeamResponsesViewer({ inspectionId, isOpen, onClose, template }:
         )}
 
         {error && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          <div className="rounded-lg border border-amber-soft-border bg-amber-soft p-4 text-sm text-amber-soft-ink">
             <p className="flex items-center gap-2 font-semibold">
               <WifiOff className="h-4 w-4" />
               Não foi possível carregar a visualização
@@ -189,9 +189,9 @@ export function TeamResponsesViewer({ inspectionId, isOpen, onClose, template }:
                 <p className="text-2xl font-bold text-danger-soft-ink">{notCompliantCount}</p>
                 <p className="text-xs font-semibold uppercase text-danger">Não conformes</p>
               </div>
-              <div className="rounded-xl border border-amber-100 bg-amber-50 p-3">
-                <p className="text-2xl font-bold text-amber-700">{pendingCount}</p>
-                <p className="text-xs font-semibold uppercase text-amber-600">Não preenchidos</p>
+              <div className="rounded-xl border border-amber-soft-border bg-amber-soft p-3">
+                <p className="text-2xl font-bold text-amber-soft-ink">{pendingCount}</p>
+                <p className="text-xs font-semibold uppercase text-amber-strong">Não preenchidos</p>
               </div>
               <div className="rounded-xl border border-default bg-surface-sunken p-3">
                 <p className="text-2xl font-bold text-navy">{snapshot.photos.length}</p>

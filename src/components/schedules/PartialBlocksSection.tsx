@@ -252,7 +252,7 @@ export function PartialBlocksSection() {
                   {block.consultant_name || WHO_ALL}
                 </span>
                 {block.recurrence !== 'none' && (
-                  <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                  <span className="rounded-full bg-amber-soft px-2 py-0.5 text-xs font-semibold text-amber-soft-ink">
                     {block.occurrence_index}/{block.occurrence_count}
                   </span>
                 )}

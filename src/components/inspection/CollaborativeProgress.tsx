@@ -69,7 +69,7 @@ export function CollaborativeProgress() {
           {/* Nutrition Progress */}
           <div className="flex-1 space-y-1">
             <div className="flex items-center justify-between text-[10px] uppercase font-bold tracking-wider">
-              <div className="flex items-center text-amber-600">
+              <div className="flex items-center text-amber-strong">
                 <Utensils className="mr-1 h-3 w-3" />
                 Nutrição {myRole === 'nutricao' && '(Você)'}
               </div>
@@ -77,7 +77,7 @@ export function CollaborativeProgress() {
                 {nutritionDone}/{nutritionItems.length} ({Math.round(nutritionProgress)}%)
               </span>
             </div>
-            <ProgressBar value={nutritionProgress} colorClass={nutritionProgress === 100 ? 'bg-green-500' : 'bg-amber-500'} heightClass="h-1.5" />
+            <ProgressBar value={nutritionProgress} colorClass={nutritionProgress === 100 ? 'bg-green-500' : 'bg-amber'} heightClass="h-1.5" />
           </div>
 
           <div className="flex items-center gap-2 bg-surface-sunken px-3 py-1.5 rounded-full border border-default">

@@ -152,7 +152,7 @@ export function Settings() {
           <p className="-mt-4 mb-2 text-xs text-green-600">Perfil carregado da nuvem.</p>
         )}
         {loadStatus === 'failed' && (
-          <p className="-mt-4 mb-2 text-xs text-amber-600">Nao foi possivel carregar o perfil remoto agora.</p>
+          <p className="-mt-4 mb-2 text-xs text-amber-strong">Nao foi possivel carregar o perfil remoto agora.</p>
         )}
       </div>
 
@@ -364,9 +364,9 @@ export function Settings() {
                     <p className="mt-1 text-xs text-navy-3">Só a troca entre chamadas — sem deslocamento.</p>
                   </div>
                 </div>
-                <div className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
-                  <Info className="h-4 w-4 shrink-0 text-amber-700 mt-0.5" aria-hidden="true" />
-                  <p className="text-sm text-amber-800">
+                <div className="flex gap-3 rounded-xl border border-amber-soft-border bg-amber-soft p-4">
+                  <Info className="h-4 w-4 shrink-0 text-amber-soft-ink mt-0.5" aria-hidden="true" />
+                  <p className="text-sm text-amber-soft-ink">
                     Compromisso criado à mão sem modalidade caía, em silêncio, na margem de presencial —
                     a mais larga das duas. A tela de <strong>Agendamentos</strong> agora pede a modalidade
                     ao criar um compromisso manual, exatamente para que essa escolha pare de ser invisível.
@@ -438,14 +438,14 @@ export function Settings() {
               </CardContent>
             </Card>
 
-            <Card className="border-amber-100 bg-amber-50">
+            <Card className="border-amber-soft-border bg-amber-soft">
               <CardContent className="p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
-                    <h3 className="font-semibold text-amber-900 text-lg">Sessão do Usuário</h3>
-                    <p className="text-sm text-amber-700 mt-1">Encerrar sua sessão atual. Você precisará fazer login novamente para acessar os dados.</p>
+                    <h3 className="font-semibold text-amber-soft-ink text-lg">Sessão do Usuário</h3>
+                    <p className="text-sm text-amber-soft-ink mt-1">Encerrar sua sessão atual. Você precisará fazer login novamente para acessar os dados.</p>
                   </div>
-                  <Button variant="outline" onClick={() => signOut()} className="whitespace-nowrap shrink-0 border-amber-300 text-amber-700 hover:bg-amber-100">
+                  <Button variant="outline" onClick={() => signOut()} className="whitespace-nowrap shrink-0 border-amber-soft-border text-amber-soft-ink hover:bg-amber-soft">
                     <LogOut className="mr-2 h-4 w-4" />
                     Sair da Conta
                   </Button>

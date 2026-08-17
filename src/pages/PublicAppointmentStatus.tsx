@@ -258,8 +258,8 @@ export function PublicAppointmentStatus() {
       <div className="min-h-screen bg-surface">
         <PublicHeader />
         <main className="mx-auto max-w-[600px] px-4 py-12">
-          <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-6 text-center shadow-sm">
-            <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-amber-500" />
+          <div className="rounded-2xl border border-amber-soft-border bg-amber-soft/70 p-6 text-center shadow-sm">
+            <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-amber-strong" />
             <h2 className="text-lg font-bold text-navy">Acesso restrito</h2>
             <p className="mt-2 text-sm text-navy-2">
               Entre no Portal do Cliente com e-mail/usuario e senha para consultar relatorios, fotos e anexos.
@@ -381,18 +381,18 @@ export function PublicAppointmentStatus() {
           </div>
         )}
         {isRescheduled && (
-          <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-100 bg-amber-50 p-4">
-            <CalendarClock className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+          <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-soft-border bg-amber-soft p-4">
+            <CalendarClock className="mt-0.5 h-5 w-5 shrink-0 text-amber-strong" />
             <div>
-              <p className="text-sm font-semibold text-amber-700">Inspeção remarcada</p>
-              <p className="mt-0.5 text-xs text-amber-600">
+              <p className="text-sm font-semibold text-amber-soft-ink">Inspeção remarcada</p>
+              <p className="mt-0.5 text-xs text-amber-strong">
                 A data da sua inspeção está sendo reagendada. Nossa equipe entrará em contato para
                 confirmar a nova data.
               </p>
               {status.notes && (
-                <div className="mt-2 rounded-lg border border-amber-200 bg-amber-100/60 p-2.5">
-                  <p className="text-xs font-semibold text-amber-800">Motivo informado pela equipe:</p>
-                  <p className="mt-0.5 text-xs text-amber-700">{status.notes}</p>
+                <div className="mt-2 rounded-lg border border-amber-soft-border bg-amber-soft/60 p-2.5">
+                  <p className="text-xs font-semibold text-amber-soft-ink">Motivo informado pela equipe:</p>
+                  <p className="mt-0.5 text-xs text-amber-soft-ink">{status.notes}</p>
                 </div>
               )}
             </div>

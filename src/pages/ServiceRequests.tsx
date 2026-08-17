@@ -80,7 +80,7 @@ const QUEUE_STATUSES: Record<QueueFilter, ServiceRequestStatus[] | undefined> = 
 const statusTheme: Record<ServiceRequestStatus, string> = {
   open: 'bg-sky-100 text-sky-800',
   in_progress: 'bg-primary-100 text-accent-ink',
-  awaiting_client: 'bg-amber-100 text-amber-900',
+  awaiting_client: 'bg-amber-soft text-amber-soft-ink',
   resolved: 'bg-emerald-100 text-emerald-800',
   cancelled: 'bg-surface-sunken text-navy-2',
 };
@@ -88,7 +88,7 @@ const statusTheme: Record<ServiceRequestStatus, string> = {
 const priorityTheme: Record<ServiceRequestPriority, string> = {
   low: 'bg-surface-sunken text-navy-2',
   normal: 'bg-surface-sunken text-navy-2',
-  high: 'bg-amber-100 text-amber-800',
+  high: 'bg-amber-soft text-amber-soft-ink',
   urgent: 'bg-danger-soft text-danger-soft-ink',
 };
 
@@ -210,7 +210,7 @@ function RequestDetail({
         <span>Aberta em {formatDateTimeBR(request.created_at)}</span>
         <span>· Última movimentação {formatDateTimeBR(request.last_event_at)}</span>
         {waitingOn !== 'none' && stalled >= 3 && (
-          <span className="font-bold text-amber-700">· parada há {stalled} dias</span>
+          <span className="font-bold text-amber-soft-ink">· parada há {stalled} dias</span>
         )}
         {request.sla_hint_date && waitingOn !== 'none' && (
           <span className="inline-flex items-center gap-1">
@@ -349,7 +349,7 @@ function RequestDetail({
             type="button"
             onClick={askClient}
             disabled={busy}
-            className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800 hover:bg-amber-100 disabled:opacity-60"
+            className="inline-flex items-center gap-1 rounded-md border border-amber-soft-border bg-amber-soft px-2.5 py-1 text-[11px] font-bold text-amber-soft-ink hover:bg-amber-soft disabled:opacity-60"
           >
             <Send className="h-3 w-3" /> Perguntar ao cliente
           </button>
@@ -574,7 +574,7 @@ export function ServiceRequests() {
       />
 
       {enabled === false && (
-        <p className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+        <p className="mb-4 flex items-start gap-2 rounded-lg border border-amber-soft-border bg-amber-soft p-3 text-xs text-amber-soft-ink">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <span>
             As solicitações estão <strong>desligadas</strong> no portal deste tenant — nenhum
@@ -647,7 +647,7 @@ export function ServiceRequests() {
       <p className="mb-3 text-xs font-medium text-navy-3">
         {requests.length} solicitação(ões) nesta lista
         {counts.waitingTeam > 0 && <span className="ml-1 font-bold text-primary-700">· {counts.waitingTeam} com a equipe</span>}
-        {counts.waitingClient > 0 && <span className="ml-1 font-bold text-amber-700">· {counts.waitingClient} com o cliente</span>}
+        {counts.waitingClient > 0 && <span className="ml-1 font-bold text-amber-soft-ink">· {counts.waitingClient} com o cliente</span>}
         {counts.unassigned > 0 && <span className="ml-1 font-bold text-danger-soft-ink">· {counts.unassigned} sem responsável</span>}
       </p>
 
@@ -770,7 +770,7 @@ export function ServiceRequests() {
                             <UserRound className="h-3 w-3 text-navy-3" /> {request.assigned_to}
                           </span>
                         ) : (
-                          <span className="text-xs font-semibold text-amber-700">sem responsável</span>
+                          <span className="text-xs font-semibold text-amber-soft-ink">sem responsável</span>
                         )}
                       </TableCell>
                       <TableCell>
@@ -787,7 +787,7 @@ export function ServiceRequests() {
                         {waitingOn === 'none' ? (
                           <span className="text-navy-3">—</span>
                         ) : (
-                          <span className={stalled >= 3 ? 'font-bold text-amber-700' : 'text-navy-2'}>
+                          <span className={stalled >= 3 ? 'font-bold text-amber-soft-ink' : 'text-navy-2'}>
                             {stalled === 0 ? 'hoje' : `${stalled} dia${stalled > 1 ? 's' : ''}`}
                           </span>
                         )}

@@ -84,7 +84,7 @@ export function SyncIndicator({ compact = false }: SyncIndicatorProps) {
 
   if (summary.conflict > 0) {
     return (
-      <div className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-700">
+      <div className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-amber-soft-border bg-amber-soft px-2 py-1 text-[11px] font-semibold text-amber-soft-ink">
         <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
         <span className="truncate">{summary.conflict} conflito{summary.conflict > 1 ? 's' : ''}</span>
       </div>

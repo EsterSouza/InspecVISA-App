@@ -620,7 +620,7 @@ export function InspectionSummary() {
           </div>
         </header>
         <PageShell className="space-y-6 flex-1 overflow-y-auto">
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-amber-800 text-sm">
+          <div className="bg-amber-soft border border-amber-soft-border rounded-xl p-4 text-amber-soft-ink text-sm">
             <strong>⚠️ Roteiro original não encontrado</strong>
             <p className="mt-1">O modelo de inspeção usado neste relatório não está disponível neste dispositivo. Os dados brutos foram preservados ({reportResponses.length} respostas registradas).</p>
           </div>
@@ -686,7 +686,7 @@ export function InspectionSummary() {
               {hideClientInfo ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </Button>
             {needsProvisionalPdfNotice && (
-              <div className="text-[10px] text-amber-600 font-bold bg-amber-50 px-2 py-1 rounded-md border border-amber-100 hidden md:flex items-center gap-1">
+              <div className="text-[10px] text-amber-strong font-bold bg-amber-soft px-2 py-1 rounded-md border border-amber-soft-border hidden md:flex items-center gap-1">
                 <AlertTriangle size={10} />
                 PDF provisorio
               </div>
@@ -695,7 +695,7 @@ export function InspectionSummary() {
               onClick={handleOpenPdfModal} 
               disabled={isGenerating}
               variant={isPdfFinalReady ? 'default' : 'outline'}
-              className={!isPdfFinalReady ? 'border-amber-200 text-amber-700' : ''}
+              className={!isPdfFinalReady ? 'border-amber-soft-border text-amber-soft-ink' : ''}
             >
               {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4 hidden sm:block" />}
               {pdfPhotoProgress
@@ -884,7 +884,7 @@ export function InspectionSummary() {
         <InspectionIntegrityPanel inspectionId={currentInspection.id} />
 
         {needsProvisionalPdfNotice && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <div className="rounded-lg border border-amber-soft-border bg-amber-soft px-4 py-3 text-sm text-amber-soft-ink">
             <strong>PDF provisorio.</strong>
             <p className="mt-1">
               {isInspectionCompleted
@@ -912,7 +912,7 @@ export function InspectionSummary() {
         )}
 
         {!template && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          <div className="rounded-xl border border-amber-soft-border bg-amber-soft p-4 text-sm text-amber-soft-ink">
             <strong>Roteiro original indisponível.</strong>
             <p className="mt-1">
               O relatório foi aberto em modo recuperação com {reportResponses.length} respostas/fotos locais. Não limpe o cache.

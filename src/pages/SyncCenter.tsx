@@ -91,7 +91,7 @@ const STATE_BADGE: Record<TimelineState, 'success' | 'neutral' | 'warning' | 'da
 const STATE_MARK: Record<TimelineState, string> = {
   ok: 'border-green-200 bg-green-50 text-green-700',
   pendente: 'border-default bg-surface-sunken text-navy-3',
-  atencao: 'border-amber-200 bg-amber-50 text-amber-700',
+  atencao: 'border-amber-soft-border bg-amber-soft text-amber-soft-ink',
   erro: 'border-danger-soft-border bg-danger-soft text-danger-soft-ink',
 };
 
@@ -565,7 +565,7 @@ export function SyncCenter() {
       />
 
       {syncLocked && (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-soft-border bg-amber-soft px-4 py-3 text-sm text-amber-soft-ink">
           <Lock className="h-4 w-4 shrink-0" />
           <span>
             <strong>Sincronização travada</strong> — um ciclo anterior não terminou.

@@ -623,7 +623,7 @@ export function ClientDetails() {
                     <div className="p-4 flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <div className={`h-12 w-12 rounded-full flex items-center justify-center text-white font-bold ${
-                          insp.status === 'in_progress' ? 'bg-amber-400' :
+                          insp.status === 'in_progress' ? 'bg-amber' :
                           insp.score.scorePercentage >= 90 ? 'bg-green-500' :
                           insp.score.scorePercentage >= 70 ? 'bg-primary-500' :
                           'bg-danger'
@@ -669,7 +669,7 @@ export function ClientDetails() {
           <Card>
             <CardContent className="p-5">
               <h3 className="text-sm font-bold text-navy mb-4 flex items-center uppercase tracking-wider">
-                <AlertCircle className="mr-2 h-4 w-4 text-amber-500" />
+                <AlertCircle className="mr-2 h-4 w-4 text-amber-strong" />
                 Plano de Ação Aberto
               </h3>
               {!latestActionInspection ? (
@@ -928,7 +928,7 @@ export function ClientDetails() {
                   <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-navy">
                     Pasta personalizada
                   </h3>
-                  <div className="flex items-start gap-2 rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+                  <div className="flex items-start gap-2 rounded-md bg-amber-soft p-3 text-sm text-amber-soft-ink">
                     <Calendar className="mt-0.5 h-4 w-4 shrink-0" />
                     <span>
                       Ainda não entregue.
@@ -961,13 +961,13 @@ export function ClientDetails() {
                   )}
                 </div>
                 {portalAuditError ? (
-                  <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                  <div className="rounded-md border border-amber-soft-border bg-amber-soft p-3 text-sm text-amber-soft-ink">
                     <p className="font-bold">Nao foi possivel ler a trilha de auditoria.</p>
                     <p className="mt-1">
                       Isto nao significa que o cliente nao usou o portal — significa que a leitura
                       falhou. Se persistir, avise no suporte.
                     </p>
-                    <p className="mt-1 break-words text-xs text-amber-700">{portalAuditError}</p>
+                    <p className="mt-1 break-words text-xs text-amber-soft-ink">{portalAuditError}</p>
                   </div>
                 ) : portalAuditEvents.length === 0 ? (
                   <p className="rounded-md bg-surface-sunken p-3 text-sm text-navy-3">
@@ -1020,7 +1020,7 @@ export function ClientDetails() {
           </div>
 
           {selectedCategory === 'alimentos' && (
-            <div className="rounded-md border border-yellow-200 bg-yellow-50 p-4">
+            <div className="rounded-md border border-amber-soft-border bg-amber-soft p-4">
               <label className="block text-sm font-medium text-navy mb-2">Tipos de Serviço de Alimentação</label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                 <label className="flex items-center space-x-2">

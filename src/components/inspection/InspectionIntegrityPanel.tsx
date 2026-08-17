@@ -128,7 +128,7 @@ export function InspectionIntegrityPanel({ inspectionId }: InspectionIntegrityPa
 
   const totalOpen = integrity.pendingCount + integrity.failedCount + integrity.conflictCount;
   const statusTone = integrity.conflictCount > 0
-    ? 'border-amber-200 bg-amber-50'
+    ? 'border-amber-soft-border bg-amber-soft'
     : totalOpen > 0
       ? 'border-primary-100 bg-primary-50'
       : 'border-emerald-100 bg-emerald-50';
@@ -141,7 +141,7 @@ export function InspectionIntegrityPanel({ inspectionId }: InspectionIntegrityPa
             {totalOpen === 0 ? (
               <CheckCircle className="h-4 w-4 text-emerald-600" />
             ) : (
-              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <AlertTriangle className="h-4 w-4 text-amber-strong" />
             )}
             Integridade da inspecao
           </CardTitle>
@@ -275,7 +275,7 @@ function Metric({ label, value, tone, icon }: { label: string; value: number; to
   const toneClass = {
     blue: 'bg-primary-100 text-accent-ink',
     red: 'bg-danger-soft text-danger-soft-ink',
-    amber: 'bg-amber-100 text-amber-800',
+    amber: 'bg-amber-soft text-amber-soft-ink',
     gray: 'bg-surface-sunken text-navy'
   }[tone];
 

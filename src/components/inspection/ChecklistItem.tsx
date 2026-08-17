@@ -68,7 +68,7 @@ const EVIDENCE_LABELS: Record<ClientEvidenceForItem['status'], string> = {
 const EVIDENCE_THEME: Record<ClientEvidenceForItem['status'], string> = {
   pending: 'bg-sky-100 text-sky-800',
   approved: 'bg-green-100 text-green-800',
-  changes_requested: 'bg-amber-100 text-amber-900',
+  changes_requested: 'bg-amber-soft text-amber-soft-ink',
 };
 
 /**
@@ -154,7 +154,7 @@ const DECLARED_LABELS: Record<ClientDeclarationForItem['status'], string> = {
 const DECLARED_THEME: Record<ClientDeclarationForItem['status'], string> = {
   done: 'border-emerald-300 bg-emerald-50 text-emerald-900',
   in_progress: 'border-sky-300 bg-sky-50 text-sky-900',
-  not_done: 'border-orange-300 bg-orange-50 text-orange-900',
+  not_done: 'border-amber-soft-border bg-amber-soft text-amber-soft-ink',
 };
 
 /**
@@ -376,19 +376,19 @@ export const ChecklistItem = memo(function ChecklistItem({
       </div>
 
       {previousNC && (
-        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+        <div className="mt-4 rounded-lg border border-amber-soft-border bg-amber-soft p-4 text-sm text-amber-soft-ink">
           <div className="mb-2 flex flex-wrap items-center gap-2">
-            <Badge variant="warning" className="bg-amber-100 text-amber-800 border-amber-200">
+            <Badge variant="warning" className="bg-amber-soft text-amber-soft-ink border-amber-soft-border">
               Plano de acao anterior
             </Badge>
-            <span className="text-[11px] font-semibold text-amber-700">
+            <span className="text-[11px] font-semibold text-amber-soft-ink">
               {new Date(previousNC.inspectionDate).toLocaleDateString('pt-BR')}
             </span>
             {canReuseTextoAnterior && (
               <button
                 type="button"
                 onClick={handleUseTextoAnterior}
-                className="ml-auto rounded-full border border-amber-300 bg-surface px-2.5 py-0.5 text-[11px] font-bold text-amber-800 shadow-sm transition-colors hover:bg-amber-100"
+                className="ml-auto rounded-full border border-amber-soft-border bg-surface px-2.5 py-0.5 text-[11px] font-bold text-amber-soft-ink shadow-sm transition-colors hover:bg-amber-soft"
               >
                 Usar texto anterior
               </button>
@@ -402,7 +402,7 @@ export const ChecklistItem = memo(function ChecklistItem({
               <p><span className="font-bold">Acao recomendada: </span>{previousNC.correctiveAction}</p>
             )}
             {(previousNC.responsible || previousNC.deadline) && (
-              <p className="text-amber-800">
+              <p className="text-amber-soft-ink">
                 {previousNC.responsible ? `Responsavel: ${previousNC.responsible}` : ''}
                 {previousNC.responsible && previousNC.deadline ? ' | ' : ''}
                 {previousNC.deadline ? `Prazo: ${previousNC.deadline}` : ''}
@@ -416,7 +416,7 @@ export const ChecklistItem = memo(function ChecklistItem({
                   key={photo.id}
                   src={photo.dataUrl}
                   alt="Evidencia da visita anterior"
-                  className="aspect-square rounded-md border border-amber-200 object-cover"
+                  className="aspect-square rounded-md border border-amber-soft-border object-cover"
                 />
               ))}
             </div>

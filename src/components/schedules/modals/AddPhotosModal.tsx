@@ -128,7 +128,7 @@ export function AddPhotosModal({ request, onClose, onAdded }: AddPhotosModalProp
           <p className="mb-6 text-sm text-navy-3">{request.unit_name}</p>
 
           {!request.client_id ? (
-            <p className="rounded-xl border border-amber-100 bg-amber-50 p-4 text-sm text-amber-700">
+            <p className="rounded-xl border border-amber-soft-border bg-amber-soft p-4 text-sm text-amber-soft-ink">
               Esta solicitação ainda não está vinculada a um cliente. Confirme a solicitação
               vinculando um cliente antes de publicar fotos.
             </p>

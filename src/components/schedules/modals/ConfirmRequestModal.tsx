@@ -305,7 +305,7 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
                   {request.email ? (
                     <p className="mt-1">A confirmação será enviada para <strong>{request.email}</strong>.</p>
                   ) : (
-                    <p className="mt-1 font-medium text-amber-700">Sem e-mail informado: a confirmação não será enviada por e-mail.</p>
+                    <p className="mt-1 font-medium text-amber-soft-ink">Sem e-mail informado: a confirmação não será enviada por e-mail.</p>
                   )}
                 </div>
               )}
@@ -347,7 +347,7 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
                     <div className={`rounded-xl border px-3 py-2 text-sm ${
                       selectedClient.email
                         ? 'border-green-100 bg-green-50 text-green-800'
-                        : 'border-amber-200 bg-amber-50 text-amber-900'
+                        : 'border-amber-soft-border bg-amber-soft text-amber-soft-ink'
                     }`}>
                       <p>Vinculado a: <strong>{selectedClient.name}</strong></p>
                       {selectedClient.email ? (

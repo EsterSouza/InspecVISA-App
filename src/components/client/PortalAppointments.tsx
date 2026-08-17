@@ -84,10 +84,10 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_BADGES: Record<string, string> = {
-  requested: 'bg-amber-100 text-amber-700',
+  requested: 'bg-amber-soft text-amber-soft-ink',
   confirmed: 'bg-primary-100 text-accent-ink',
   in_progress: 'bg-primary-100 text-accent-ink',
-  rescheduled: 'bg-orange-100 text-orange-700',
+  rescheduled: 'bg-amber-soft text-amber-soft-ink',
   completed: 'bg-emerald-100 text-emerald-700',
   report_available: 'bg-green-100 text-green-700',
   cancelled: 'bg-surface-sunken text-navy-3',

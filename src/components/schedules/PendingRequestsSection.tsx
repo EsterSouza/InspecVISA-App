@@ -43,10 +43,10 @@ export function PendingRequestsSection({
     <section>
       <div className="mb-4 flex items-center justify-between">
         <h2 className="flex items-center text-lg font-semibold text-navy">
-          <Inbox className="mr-2 h-5 w-5 text-amber-500" />
+          <Inbox className="mr-2 h-5 w-5 text-amber-strong" />
           Solicitações pendentes
           {pending.length > 0 && (
-            <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">
+            <span className="ml-2 rounded-full bg-amber-soft px-2 py-0.5 text-xs font-bold text-amber-soft-ink">
               {pending.length}
             </span>
           )}

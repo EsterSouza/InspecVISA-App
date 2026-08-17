@@ -191,7 +191,7 @@ export function PaymentModal({ account, onClose, onSaved }: PaymentModalProps) {
             <div className="space-y-2">
               <span id="payment-status-label" className="text-sm font-medium text-navy-2">Situação</span>
               <div className="grid grid-cols-2 gap-2" role="group" aria-labelledby="payment-status-label">
-                <button type="button" onClick={() => setStatus('pending')} aria-pressed={status === 'pending'} className={`h-11 rounded-xl border text-sm font-bold ${status === 'pending' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-default text-navy-2'}`}>Pendente</button>
+                <button type="button" onClick={() => setStatus('pending')} aria-pressed={status === 'pending'} className={`h-11 rounded-xl border text-sm font-bold ${status === 'pending' ? 'border-amber-strong bg-amber-soft text-amber-soft-ink' : 'border-default text-navy-2'}`}>Pendente</button>
                 <button type="button" onClick={() => setStatus('paid')} aria-pressed={status === 'paid'} className={`h-11 rounded-xl border text-sm font-bold ${status === 'paid' ? 'border-green-600 bg-green-50 text-green-700' : 'border-default text-navy-2'}`}>Pago</button>
               </div>
             </div>
@@ -204,7 +204,7 @@ export function PaymentModal({ account, onClose, onSaved }: PaymentModalProps) {
                 type="button"
                 variant="outline"
                 size="sm"
-                className="w-full border-amber-200 text-amber-700 hover:bg-amber-50"
+                className="w-full border-amber-soft-border text-amber-soft-ink hover:bg-amber-soft"
                 disabled={sendingOverdue}
                 onClick={() => void handleSendOverdueEmail()}
               >

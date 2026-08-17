@@ -328,11 +328,11 @@ export function AppointmentRequestsPanel({ focusRequestId }: { focusRequestId?: 
   return (
     <div className="space-y-10">
       {partialError && (
-        <div role="alert" className="flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 sm:flex-row sm:items-center sm:justify-between">
+        <div role="alert" className="flex flex-col gap-2 rounded-xl border border-amber-soft-border bg-amber-soft p-3 text-sm text-amber-soft-ink sm:flex-row sm:items-center sm:justify-between">
           <span className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 shrink-0" /> {partialError}
           </span>
-          <Button variant="outline" size="sm" onClick={() => void loadData()} className="min-h-11 border-amber-300 text-amber-800 hover:bg-amber-100">
+          <Button variant="outline" size="sm" onClick={() => void loadData()} className="min-h-11 border-amber-soft-border text-amber-soft-ink hover:bg-amber-soft">
             <RefreshCw className="mr-1.5 h-4 w-4" /> Tentar novamente
           </Button>
         </div>

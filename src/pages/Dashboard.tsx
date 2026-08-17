@@ -534,7 +534,7 @@ export function Dashboard() {
 
             <section className="space-y-4">
               <h2 className="flex items-center text-lg font-semibold text-navy">
-                <AlertTriangle className="mr-2 h-5 w-5 text-amber-500" />
+                <AlertTriangle className="mr-2 h-5 w-5 text-amber-strong" />
                 Problemas Recorrentes
               </h2>
 
@@ -558,7 +558,7 @@ export function Dashboard() {
                     <Card key={issue.id} className="border-l-4 border-l-amber-500">
                       <CardContent className="flex items-start justify-between gap-4 p-4">
                         <p className="line-clamp-2 text-sm font-medium text-navy-2">{issue.description}</p>
-                        <div className="shrink-0 rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800">
+                        <div className="shrink-0 rounded-full bg-amber-soft px-2 py-1 text-xs font-bold text-amber-soft-ink">
                           {issue.count}x
                         </div>
                       </CardContent>
