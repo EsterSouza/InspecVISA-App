@@ -6,7 +6,6 @@
 // ============================================================
 
 import type { ChecklistTemplate, Client } from '../types';
-import { templateIlpiGoias } from './templates_ilpi_go';
 import { alimentosTemplates } from './templates_alimentos';
 import { getExtraSections } from './templates_alimentos_segmentos';
 import { supplementRegistry } from './supplementRegistry';
@@ -273,7 +272,9 @@ export const templates: ChecklistTemplate[] = [
       },
     ],
   },
-  templateIlpiGoias,
+  // Roteiro avulso de Goiás aposentado (17/08/2026): substituído pelo caminho
+  // oficial "Base Federal + Suplemento GO" (supplementRegistry). Ver
+  // [[roteiro-ilpi-go-cobertura-legal-completa]].
   ...alimentosTemplates,
 ];
 

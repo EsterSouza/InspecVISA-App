@@ -215,7 +215,9 @@ export const templateIlpiGoiasSuplement = {
     // ─────────────────────────────────────────────────────────
     {
       targetSectionId: 'sec-fed-01',
-      targetSectionTitle: 'Estrutura Física Geral',
+      // Título exato da seção no Base Federal do banco (com " : ") — o merge por
+      // título é o único caminho quando o federal vem semeado com ids UUID.
+      targetSectionTitle: 'Estrutura Física : Geral',
       items: [
 
         {
@@ -471,7 +473,9 @@ export const templateIlpiGoiasSuplement = {
     // ─────────────────────────────────────────────────────────
     {
       targetSectionId: 'sec-fed-13',
-      targetSectionTitle: 'Documentação Administrativa (complemento)',
+      // Casa a MESMA seção do Bloco 1 (Documentação Administrativa). O sufixo
+      // "(complemento)" quebrava o merge por título no federal do banco (UUID).
+      targetSectionTitle: 'Documentação Administrativa',
       items: [
 
         {
