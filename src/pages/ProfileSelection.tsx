@@ -47,14 +47,14 @@ export function ProfileSelection() {
 
           <button
             onClick={() => handleSelect('ana')}
-             className="w-full relative overflow-hidden group p-6 bg-surface border-2 border-purple-100 hover:border-purple-500 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md text-left flex items-center justify-between"
+             className="w-full relative overflow-hidden group p-6 bg-surface border-2 border-secondary-100 hover:border-secondary-500 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md text-left flex items-center justify-between"
           >
              <div className="relative z-10">
-              <h3 className="text-xl font-bold text-navy group-hover:text-purple-700 transition-colors">Ana</h3>
+              <h3 className="text-xl font-bold text-navy group-hover:text-secondary-700 transition-colors">Ana</h3>
               <p className="text-sm text-navy-3 font-medium">Nutricionista</p>
             </div>
-             <div className="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center group-hover:bg-purple-100 transition-colors">
-               <span className="text-purple-600 font-bold text-lg">A</span>
+             <div className="w-10 h-10 rounded-full bg-secondary-50 flex items-center justify-center group-hover:bg-secondary-100 transition-colors">
+               <span className="text-secondary-600 font-bold text-lg">A</span>
             </div>
           </button>
         </div>

@@ -4,7 +4,7 @@
 
 @layer base {
   body {
-    @apply antialiased font-sans text-gray-900 bg-gray-50 selection:bg-primary-500 selection:text-white;
+    @apply antialiased font-sans text-navy bg-surface-sunken selection:bg-primary-500 selection:text-white;
     -webkit-tap-highlight-color: transparent;
   }
 }

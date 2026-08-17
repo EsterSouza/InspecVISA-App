@@ -190,7 +190,7 @@ export function PortalAccessModal({ account, onClose, onSaved }: PortalAccessMod
                               ? option === 'hidden'
                                 ? 'border-danger bg-danger-soft text-danger-soft-ink'
                                 : option === 'scheduled'
-                                  ? 'border-sky-400 bg-sky-50 text-sky-700'
+                                  ? 'border-secondary-400 bg-secondary-50 text-secondary-700'
                                   : 'border-success bg-success-soft text-success-soft-ink'
                               : 'border-default text-navy-3 hover:bg-surface-hover'
                           }`}

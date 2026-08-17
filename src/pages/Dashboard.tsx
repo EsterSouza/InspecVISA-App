@@ -434,7 +434,7 @@ export function Dashboard() {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <Card>
               <CardContent className="flex items-center gap-4 p-5">
-                <div className="flex h-12 w-12 items-center justify-center rounded-md bg-sky-100 text-sky-700">
+                <div className="flex h-12 w-12 items-center justify-center rounded-md bg-primary-100 text-accent-ink">
                   <ClipboardCheck className="h-6 w-6" />
                 </div>
                 <div>
@@ -456,7 +456,7 @@ export function Dashboard() {
             </Card>
             <Card>
               <CardContent className="flex items-center gap-4 p-5">
-                <div className="flex h-12 w-12 items-center justify-center rounded-md bg-violet-100 text-violet-700">
+                <div className="flex h-12 w-12 items-center justify-center rounded-md bg-primary-100 text-accent-ink">
                   <TrendingUp className="h-6 w-6" />
                 </div>
                 <div>

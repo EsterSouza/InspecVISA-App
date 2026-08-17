@@ -30,7 +30,7 @@ const EVIDENCE_STATUS_LABELS: Record<ClientActionEvidence['status'], string> = {
 };
 
 const EVIDENCE_STATUS_THEME: Record<ClientActionEvidence['status'], string> = {
-  pending: 'bg-sky-100 text-sky-700',
+  pending: 'bg-secondary-100 text-secondary-700',
   approved: 'bg-success-soft text-success-soft-ink',
   changes_requested: 'bg-amber-soft text-amber-soft-ink',
 };
@@ -235,7 +235,7 @@ export function ActionPlanPanel({ requestId, busy }: { requestId: string; busy: 
         <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-navy-3">
           <ClipboardList className="h-3.5 w-3.5" /> Plano de ação no portal · {visible} de {items.length} visível(is)
           {awaitingReview > 0 && (
-            <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold text-sky-700">
+            <span className="rounded-full bg-secondary-100 px-2 py-0.5 text-[10px] font-bold text-secondary-700">
               {awaitingReview} evidência(s) para revisar
             </span>
           )}
@@ -263,7 +263,7 @@ export function ActionPlanPanel({ requestId, busy }: { requestId: string; busy: 
                 {ACTION_STATUS_LABELS[item.status]}
               </span>
               {item.occurrence_count > 1 && (
-                <span className="text-[10px] font-bold uppercase text-purple-700">
+                <span className="text-[10px] font-bold uppercase text-accent-ink">
                   Reincidente ({item.occurrence_count}x)
                 </span>
               )}
@@ -289,7 +289,7 @@ export function ActionPlanPanel({ requestId, busy }: { requestId: string; busy: 
                   item.client_status === 'not_done'
                     ? 'bg-amber-soft text-amber-soft-ink'
                     : item.client_status === 'in_progress'
-                      ? 'bg-sky-50 text-sky-900'
+                      ? 'bg-secondary-50 text-secondary-900'
                       : 'bg-success-soft text-success-soft-ink'
                 }`}
               >

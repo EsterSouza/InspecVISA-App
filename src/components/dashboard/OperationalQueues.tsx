@@ -47,7 +47,7 @@ const TECHNICAL_BLOCKS: BlockConfig[] = [
     label: 'Compromissos próximos',
     description: 'Agenda dos próximos dias, de todos os tipos de visita.',
     icon: CalendarClock,
-    accent: 'text-sky-700 bg-sky-50 border-sky-200',
+    accent: 'text-secondary-700 bg-secondary-50 border-secondary-200',
     link: (item) => `/schedules?scheduleId=${item.id}`,
   },
   {
@@ -79,7 +79,7 @@ const TECHNICAL_BLOCKS: BlockConfig[] = [
     label: 'Evidências aguardando revisão',
     description: 'Prova de correção enviada pelo cliente, ainda sem retorno técnico.',
     icon: FileWarning,
-    accent: 'text-violet-700 bg-violet-50 border-violet-200',
+    accent: 'text-accent-ink bg-primary-50 border-primary-200',
     link: (item) => `/clients/${item.client_id}`,
   },
   {

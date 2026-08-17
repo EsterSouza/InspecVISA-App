@@ -107,7 +107,7 @@ export function SyncIndicator({ compact = false }: SyncIndicatorProps) {
 
   if (summary.syncing > 0 || summary.pending > 0) {
     return (
-      <div className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-[11px] font-semibold text-sky-700">
+      <div className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-secondary-200 bg-secondary-50 px-2 py-1 text-[11px] font-semibold text-secondary-700">
         <RefreshCw className="h-3.5 w-3.5 shrink-0 animate-spin" />
         <span className="truncate">Sync {summary.pending + summary.syncing}</span>
       </div>

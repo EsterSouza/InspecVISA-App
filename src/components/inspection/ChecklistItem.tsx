@@ -66,7 +66,7 @@ const EVIDENCE_LABELS: Record<ClientEvidenceForItem['status'], string> = {
 };
 
 const EVIDENCE_THEME: Record<ClientEvidenceForItem['status'], string> = {
-  pending: 'bg-sky-100 text-sky-800',
+  pending: 'bg-secondary-100 text-secondary-800',
   approved: 'bg-success-soft text-success-soft-ink',
   changes_requested: 'bg-amber-soft text-amber-soft-ink',
 };
@@ -96,13 +96,13 @@ function ClientEvidencePanel({ evidence }: { evidence: ClientEvidenceForItem[] }
   };
 
   return (
-    <div className="mt-3 rounded-lg border border-sky-200 bg-sky-50/70 p-3">
-      <p className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-sky-800">
+    <div className="mt-3 rounded-lg border border-secondary-200 bg-secondary-50/70 p-3">
+      <p className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-secondary-800">
         <FileCheck2 className="h-3.5 w-3.5" /> O que o cliente enviou ({evidence.length})
       </p>
       <div className="space-y-2">
         {evidence.map((row) => (
-          <div key={row.evidenceId} className="rounded-md border border-sky-100 bg-surface px-2.5 py-2">
+          <div key={row.evidenceId} className="rounded-md border border-secondary-100 bg-surface px-2.5 py-2">
             <div className="flex flex-wrap items-center gap-1.5">
               <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${EVIDENCE_THEME[row.status]}`}>
                 {EVIDENCE_LABELS[row.status]}
@@ -133,7 +133,7 @@ function ClientEvidencePanel({ evidence }: { evidence: ClientEvidenceForItem[] }
               type="button"
               onClick={() => void open(row)}
               disabled={openingId === row.evidenceId}
-              className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-sky-800 underline hover:text-sky-950 disabled:opacity-60"
+              className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-secondary-800 underline hover:text-secondary-900 disabled:opacity-60"
             >
               <ExternalLink className="h-3 w-3" />
               {openingId === row.evidenceId ? 'Abrindo...' : row.fileName}
@@ -153,7 +153,7 @@ const DECLARED_LABELS: Record<ClientDeclarationForItem['status'], string> = {
 
 const DECLARED_THEME: Record<ClientDeclarationForItem['status'], string> = {
   done: 'border-success-soft-border bg-success-soft text-success-soft-ink',
-  in_progress: 'border-sky-300 bg-sky-50 text-sky-900',
+  in_progress: 'border-secondary-300 bg-secondary-50 text-secondary-900',
   not_done: 'border-amber-soft-border bg-amber-soft text-amber-soft-ink',
 };
 

@@ -178,7 +178,7 @@ export function ClientPortalManagement({ accounts, clients, onChanged }: ClientP
                     </span>
                   )}
                   {account.scheduling_suspension_mode === 'always_open' && (
-                    <span className="flex items-center gap-1 shrink-0 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold uppercase text-sky-700">
+                    <span className="flex items-center gap-1 shrink-0 rounded-full bg-secondary-100 px-2 py-0.5 text-[10px] font-bold uppercase text-secondary-700">
                       Agenda liberada mesmo em atraso
                     </span>
                   )}

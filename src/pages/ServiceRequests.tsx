@@ -78,7 +78,7 @@ const QUEUE_STATUSES: Record<QueueFilter, ServiceRequestStatus[] | undefined> = 
 };
 
 const statusTheme: Record<ServiceRequestStatus, string> = {
-  open: 'bg-sky-100 text-sky-800',
+  open: 'bg-secondary-100 text-secondary-800',
   in_progress: 'bg-primary-100 text-accent-ink',
   awaiting_client: 'bg-amber-soft text-amber-soft-ink',
   resolved: 'bg-success-soft text-success-soft-ink',

@@ -45,7 +45,7 @@ const evidenceLabel: Record<ClientActionEvidenceStatus, string> = {
 };
 
 const evidenceTheme: Record<ClientActionEvidenceStatus, string> = {
-  pending: 'border-sky-200 bg-sky-50 text-sky-800',
+  pending: 'border-secondary-200 bg-secondary-50 text-secondary-800',
   approved: 'border-success-soft-border bg-success-soft text-success-soft-ink',
   changes_requested: 'border-amber-soft-border bg-amber-soft text-amber-soft-ink',
 };
@@ -281,7 +281,7 @@ const declaredLabel: Record<ClientDeclaredStatus, string> = {
 
 const declaredTheme: Record<ClientDeclaredStatus, string> = {
   done: 'border-success-soft-border bg-success-soft text-success-soft-ink',
-  in_progress: 'border-sky-300 bg-sky-50 text-sky-800',
+  in_progress: 'border-secondary-300 bg-secondary-50 text-secondary-800',
   not_done: 'border-amber-soft-border bg-amber-soft text-amber-soft-ink',
 };
 
@@ -508,7 +508,7 @@ function ActionItemCard({
           )
         )}
         {item.occurrence_count > 1 && (
-          <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-bold uppercase text-purple-700">
+          <span className="rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-bold uppercase text-accent-ink">
             Reincidente ({item.occurrence_count}x)
           </span>
         )}
