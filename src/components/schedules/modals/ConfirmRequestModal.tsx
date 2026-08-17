@@ -346,7 +346,7 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
                   {selectedClient && (
                     <div className={`rounded-xl border px-3 py-2 text-sm ${
                       selectedClient.email
-                        ? 'border-green-100 bg-green-50 text-green-800'
+                        ? 'border-success-soft-border bg-success-soft text-success-soft-ink'
                         : 'border-amber-soft-border bg-amber-soft text-amber-soft-ink'
                     }`}>
                       <p>Vinculado a: <strong>{selectedClient.name}</strong></p>

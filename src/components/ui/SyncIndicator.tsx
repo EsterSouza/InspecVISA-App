@@ -115,7 +115,7 @@ export function SyncIndicator({ compact = false }: SyncIndicatorProps) {
   }
 
   return (
-    <div className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700">
+    <div className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-success-soft-border bg-success-soft px-2 py-1 text-[11px] font-semibold text-success-soft-ink">
       <CheckCircle className="h-3.5 w-3.5 shrink-0" />
       <span className="truncate">{compact ? 'OK' : 'Nuvem OK'}</span>
     </div>

@@ -89,7 +89,7 @@ const STATE_BADGE: Record<TimelineState, 'success' | 'neutral' | 'warning' | 'da
 };
 
 const STATE_MARK: Record<TimelineState, string> = {
-  ok: 'border-green-200 bg-green-50 text-green-700',
+  ok: 'border-success-soft-border bg-success-soft text-success-soft-ink',
   pendente: 'border-default bg-surface-sunken text-navy-3',
   atencao: 'border-amber-soft-border bg-amber-soft text-amber-soft-ink',
   erro: 'border-danger-soft-border bg-danger-soft text-danger-soft-ink',
@@ -552,7 +552,7 @@ export function SyncCenter() {
         }
         actions={
           <>
-            <span className={cn('flex items-center gap-1.5 text-sm font-medium', isOnline ? 'text-green-700' : 'text-danger')}>
+            <span className={cn('flex items-center gap-1.5 text-sm font-medium', isOnline ? 'text-success-soft-ink' : 'text-danger')}>
               {isOnline ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
               {isOnline ? 'Online' : 'Offline'}
             </span>

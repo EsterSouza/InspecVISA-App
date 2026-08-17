@@ -57,11 +57,11 @@ export function CollaborativeProgress() {
                 <Activity className="mr-1 h-3 w-3" />
                 Saúde e Assistência {myRole === 'saude' && '(Você)'}
               </div>
-              <span className={healthProgress === 100 ? 'text-green-600' : 'text-navy-3'}>
+              <span className={healthProgress === 100 ? 'text-success' : 'text-navy-3'}>
                 {healthDone}/{healthItems.length} ({Math.round(healthProgress)}%)
               </span>
             </div>
-            <ProgressBar value={healthProgress} colorClass={healthProgress === 100 ? 'bg-green-500' : 'bg-primary-500'} heightClass="h-1.5" />
+            <ProgressBar value={healthProgress} colorClass={healthProgress === 100 ? 'bg-success' : 'bg-primary-500'} heightClass="h-1.5" />
           </div>
 
           <div className="hidden sm:block w-px h-8 bg-surface-sunken" />
@@ -73,11 +73,11 @@ export function CollaborativeProgress() {
                 <Utensils className="mr-1 h-3 w-3" />
                 Nutrição {myRole === 'nutricao' && '(Você)'}
               </div>
-              <span className={nutritionProgress === 100 ? 'text-green-600' : 'text-navy-3'}>
+              <span className={nutritionProgress === 100 ? 'text-success' : 'text-navy-3'}>
                 {nutritionDone}/{nutritionItems.length} ({Math.round(nutritionProgress)}%)
               </span>
             </div>
-            <ProgressBar value={nutritionProgress} colorClass={nutritionProgress === 100 ? 'bg-green-500' : 'bg-amber'} heightClass="h-1.5" />
+            <ProgressBar value={nutritionProgress} colorClass={nutritionProgress === 100 ? 'bg-success' : 'bg-amber'} heightClass="h-1.5" />
           </div>
 
           <div className="flex items-center gap-2 bg-surface-sunken px-3 py-1.5 rounded-full border border-default">

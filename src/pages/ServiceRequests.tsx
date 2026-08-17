@@ -81,7 +81,7 @@ const statusTheme: Record<ServiceRequestStatus, string> = {
   open: 'bg-sky-100 text-sky-800',
   in_progress: 'bg-primary-100 text-accent-ink',
   awaiting_client: 'bg-amber-soft text-amber-soft-ink',
-  resolved: 'bg-emerald-100 text-emerald-800',
+  resolved: 'bg-success-soft text-success-soft-ink',
   cancelled: 'bg-surface-sunken text-navy-2',
 };
 
@@ -276,7 +276,7 @@ function RequestDetail({
             type="button"
             onClick={() => void apply({ status: 'resolved', note: note.trim() || undefined, noteVisibleToClient: !!note.trim() }, true)}
             disabled={busy}
-            className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
+            className="inline-flex items-center gap-1 rounded-md border border-success-soft-border bg-success-soft px-2.5 py-1 text-[11px] font-bold text-success-soft-ink hover:bg-success-soft disabled:opacity-60"
           >
             <CheckCircle2 className="h-3 w-3" /> Concluir
           </button>
@@ -365,7 +365,7 @@ function RequestDetail({
           href={whatsappLink}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-900"
+          className="inline-flex items-center gap-1 text-[11px] font-semibold text-success-soft-ink hover:text-success-soft-ink"
         >
           <ExternalLink className="h-3 w-3" /> Avisar também pelo WhatsApp
         </a>
@@ -463,7 +463,7 @@ function SlaPanel({
             ))}
           </div>
           {error && <p className="text-[11px] font-medium text-danger-soft-ink">{error}</p>}
-          {saved && <p className="text-[11px] font-medium text-emerald-700">Prazos salvos.</p>}
+          {saved && <p className="text-[11px] font-medium text-success-soft-ink">Prazos salvos.</p>}
           <button
             type="button"
             onClick={() => void save()}

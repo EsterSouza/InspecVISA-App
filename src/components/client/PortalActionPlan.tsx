@@ -46,7 +46,7 @@ const evidenceLabel: Record<ClientActionEvidenceStatus, string> = {
 
 const evidenceTheme: Record<ClientActionEvidenceStatus, string> = {
   pending: 'border-sky-200 bg-sky-50 text-sky-800',
-  approved: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+  approved: 'border-success-soft-border bg-success-soft text-success-soft-ink',
   changes_requested: 'border-amber-soft-border bg-amber-soft text-amber-soft-ink',
 };
 
@@ -280,7 +280,7 @@ const declaredLabel: Record<ClientDeclaredStatus, string> = {
 };
 
 const declaredTheme: Record<ClientDeclaredStatus, string> = {
-  done: 'border-emerald-300 bg-emerald-50 text-emerald-800',
+  done: 'border-success-soft-border bg-success-soft text-success-soft-ink',
   in_progress: 'border-sky-300 bg-sky-50 text-sky-800',
   not_done: 'border-amber-soft-border bg-amber-soft text-amber-soft-ink',
 };
@@ -496,7 +496,7 @@ function ActionItemCard({
           {priorityLabel[item.priority]}
         </span>
         {resolved ? (
-          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-success-soft-ink">
             <CheckCircle2 className="h-3.5 w-3.5" /> Concluído
             {item.resolved_at ? ` em ${formatDateBR(item.resolved_at)}` : ''}
           </span>
@@ -681,7 +681,7 @@ export function PortalActionPlan({
       </div>
 
       {open.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
+        <p className="rounded-lg border border-dashed border-success-soft-border bg-success-soft p-3 text-xs text-success-soft-ink">
           Nenhuma pendência em aberto. Tudo que foi apontado já está concluído.
         </p>
       ) : isGrouped ? (

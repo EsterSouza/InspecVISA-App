@@ -337,7 +337,7 @@ export function Inspections() {
                       </div>
                       {insp.completedAt && (
                         <div className="flex items-center">
-                          <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> 
+                          <CheckCircle className="mr-2 h-4 w-4 text-success" /> 
                           Fim: {formatDateTime(insp.completedAt)}
                         </div>
                       )}

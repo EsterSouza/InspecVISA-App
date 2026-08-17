@@ -192,7 +192,7 @@ export function PaymentModal({ account, onClose, onSaved }: PaymentModalProps) {
               <span id="payment-status-label" className="text-sm font-medium text-navy-2">Situação</span>
               <div className="grid grid-cols-2 gap-2" role="group" aria-labelledby="payment-status-label">
                 <button type="button" onClick={() => setStatus('pending')} aria-pressed={status === 'pending'} className={`h-11 rounded-xl border text-sm font-bold ${status === 'pending' ? 'border-amber-strong bg-amber-soft text-amber-soft-ink' : 'border-default text-navy-2'}`}>Pendente</button>
-                <button type="button" onClick={() => setStatus('paid')} aria-pressed={status === 'paid'} className={`h-11 rounded-xl border text-sm font-bold ${status === 'paid' ? 'border-green-600 bg-green-50 text-green-700' : 'border-default text-navy-2'}`}>Pago</button>
+                <button type="button" onClick={() => setStatus('paid')} aria-pressed={status === 'paid'} className={`h-11 rounded-xl border text-sm font-bold ${status === 'paid' ? 'border-success bg-success-soft text-success-soft-ink' : 'border-default text-navy-2'}`}>Pago</button>
               </div>
             </div>
 
@@ -212,7 +212,7 @@ export function PaymentModal({ account, onClose, onSaved }: PaymentModalProps) {
                 Enviar cobrança por atraso
               </Button>
               {overdueSent && (
-                <div role="status" aria-live="polite" className="rounded-lg border border-green-100 bg-green-50 px-3 py-2 text-xs text-green-700">
+                <div role="status" aria-live="polite" className="rounded-lg border border-success-soft-border bg-success-soft px-3 py-2 text-xs text-success-soft-ink">
                   Aviso de atraso enviado para {account.email}.
                 </div>
               )}
@@ -223,7 +223,7 @@ export function PaymentModal({ account, onClose, onSaved }: PaymentModalProps) {
             )}
 
             {sent && (
-              <div role="status" aria-live="polite" className="rounded-xl border border-green-100 bg-green-50 p-3 text-sm text-green-700">
+              <div role="status" aria-live="polite" className="rounded-xl border border-success-soft-border bg-success-soft p-3 text-sm text-success-soft-ink">
                 Link de pagamento enviado para {account.email}.
               </div>
             )}

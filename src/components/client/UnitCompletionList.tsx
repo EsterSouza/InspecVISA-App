@@ -13,7 +13,7 @@ interface UnitCompletionListProps {
 
 function meterColor(pct: number | null): string {
   if (pct == null) return 'bg-surface-sunken';
-  if (pct >= 85) return 'bg-emerald-600';
+  if (pct >= 85) return 'bg-success';
   if (pct < 65) return 'bg-amber';
   return 'bg-primary-700';
 }

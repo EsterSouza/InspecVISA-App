@@ -146,7 +146,7 @@ export function NewVisitModal({ clients, onClose, onCreated }: NewVisitModalProp
                 )}
               </div>
               {selectedClient && (
-                <div className="rounded-xl border border-green-100 bg-green-50 px-3 py-2 text-sm text-green-800">
+                <div className="rounded-xl border border-success-soft-border bg-success-soft px-3 py-2 text-sm text-success-soft-ink">
                   Visita vinculada a: <strong>{selectedClient.name}</strong>
                 </div>
               )}

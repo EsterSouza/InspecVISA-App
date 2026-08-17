@@ -474,8 +474,8 @@ export function PublicSchedule() {
       <div className="min-h-screen bg-surface">
         <PublicHeader />
         <main className="mx-auto max-w-[640px] px-4 py-10">
-          <div className="rounded-xl border border-green-100 bg-green-50/70 p-6 text-center shadow-sm">
-            <CheckCircle2 className="mx-auto mb-4 h-12 w-12 text-green-600" aria-hidden="true" />
+          <div className="rounded-xl border border-success-soft-border bg-success-soft/70 p-6 text-center shadow-sm">
+            <CheckCircle2 className="mx-auto mb-4 h-12 w-12 text-success" aria-hidden="true" />
             <h1 className="text-xl font-bold text-navy">Solicitação enviada</h1>
             <p className="mt-2 text-sm text-navy-2">Nossa equipe analisará o pedido e retornará com a confirmação.</p>
             <div className="mt-6 rounded-lg border border-default bg-surface p-4">

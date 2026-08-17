@@ -23,7 +23,7 @@ const RESULT_LABELS: Record<ResponseResult, string> = {
 };
 
 const RESULT_STYLES: Record<ResponseResult, string> = {
-  complies: 'border-green-200 bg-green-50 text-green-700',
+  complies: 'border-success-soft-border bg-success-soft text-success-soft-ink',
   not_complies: 'border-danger-soft-border bg-danger-soft text-danger-soft-ink',
   not_applicable: 'border-default bg-surface-sunken text-navy-2',
   not_observed: 'border-default bg-surface-sunken text-navy-2',

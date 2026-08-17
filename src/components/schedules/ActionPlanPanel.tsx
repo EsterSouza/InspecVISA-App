@@ -31,7 +31,7 @@ const EVIDENCE_STATUS_LABELS: Record<ClientActionEvidence['status'], string> = {
 
 const EVIDENCE_STATUS_THEME: Record<ClientActionEvidence['status'], string> = {
   pending: 'bg-sky-100 text-sky-700',
-  approved: 'bg-green-100 text-green-700',
+  approved: 'bg-success-soft text-success-soft-ink',
   changes_requested: 'bg-amber-soft text-amber-soft-ink',
 };
 
@@ -142,7 +142,7 @@ export function EvidenceReview({
                 size="sm"
                 disabled={busyId === row.id}
                 onClick={() => void review(row, 'approved', false)}
-                className="text-green-700 hover:bg-green-50"
+                className="text-success-soft-ink hover:bg-success-soft"
               >
                 <CheckCircle className="mr-1.5 h-3.5 w-3.5" /> Aprovar
               </Button>
@@ -254,7 +254,7 @@ export function ActionPlanPanel({ requestId, busy }: { requestId: string; busy: 
               <span
                 className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
                   item.status === 'published'
-                    ? 'bg-green-100 text-green-700'
+                    ? 'bg-success-soft text-success-soft-ink'
                     : item.status === 'hidden'
                       ? 'bg-amber-soft text-amber-soft-ink'
                       : 'bg-surface-sunken text-navy-3'
@@ -290,7 +290,7 @@ export function ActionPlanPanel({ requestId, busy }: { requestId: string; busy: 
                     ? 'bg-amber-soft text-amber-soft-ink'
                     : item.client_status === 'in_progress'
                       ? 'bg-sky-50 text-sky-900'
-                      : 'bg-emerald-50 text-emerald-900'
+                      : 'bg-success-soft text-success-soft-ink'
                 }`}
               >
                 <span className="font-bold uppercase">
@@ -312,7 +312,7 @@ export function ActionPlanPanel({ requestId, busy }: { requestId: string; busy: 
                   size="sm"
                   disabled={savingId === item.id}
                   onClick={() => void changeStatus(item, 'published')}
-                  className="text-green-700 hover:bg-green-50"
+                  className="text-success-soft-ink hover:bg-success-soft"
                 >
                   {item.status === 'resolved'
                     ? <><RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Reabrir</>

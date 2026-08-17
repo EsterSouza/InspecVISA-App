@@ -113,7 +113,7 @@ export function SignaturePad({ onSave, onClear }: SignaturePadProps) {
         <Button variant="outline" size="sm" onClick={clear} className="flex-1">
           <Eraser className="mr-2 h-4 w-4" /> Limpar
         </Button>
-        <Button size="sm" onClick={save} disabled={isEmpty} className="flex-1 bg-green-600 hover:bg-green-700">
+        <Button size="sm" onClick={save} disabled={isEmpty} className="flex-1 bg-success hover:bg-success-soft-ink">
           <Check className="mr-2 h-4 w-4" /> Salvar Assinatura
         </Button>
       </div>

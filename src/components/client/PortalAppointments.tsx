@@ -88,8 +88,8 @@ const STATUS_BADGES: Record<string, string> = {
   confirmed: 'bg-primary-100 text-accent-ink',
   in_progress: 'bg-primary-100 text-accent-ink',
   rescheduled: 'bg-amber-soft text-amber-soft-ink',
-  completed: 'bg-emerald-100 text-emerald-700',
-  report_available: 'bg-green-100 text-green-700',
+  completed: 'bg-success-soft text-success-soft-ink',
+  report_available: 'bg-success-soft text-success-soft-ink',
   cancelled: 'bg-surface-sunken text-navy-3',
 };
 

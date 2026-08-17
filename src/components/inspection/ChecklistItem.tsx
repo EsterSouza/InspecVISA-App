@@ -67,7 +67,7 @@ const EVIDENCE_LABELS: Record<ClientEvidenceForItem['status'], string> = {
 
 const EVIDENCE_THEME: Record<ClientEvidenceForItem['status'], string> = {
   pending: 'bg-sky-100 text-sky-800',
-  approved: 'bg-green-100 text-green-800',
+  approved: 'bg-success-soft text-success-soft-ink',
   changes_requested: 'bg-amber-soft text-amber-soft-ink',
 };
 
@@ -152,7 +152,7 @@ const DECLARED_LABELS: Record<ClientDeclarationForItem['status'], string> = {
 };
 
 const DECLARED_THEME: Record<ClientDeclarationForItem['status'], string> = {
-  done: 'border-emerald-300 bg-emerald-50 text-emerald-900',
+  done: 'border-success-soft-border bg-success-soft text-success-soft-ink',
   in_progress: 'border-sky-300 bg-sky-50 text-sky-900',
   not_done: 'border-amber-soft-border bg-amber-soft text-amber-soft-ink',
 };

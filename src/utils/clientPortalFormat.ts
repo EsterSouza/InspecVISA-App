@@ -29,7 +29,7 @@ export function paymentLinks(payment: { link: string | null; links?: { label?: s
 }
 
 export function scoreColor(score: number): string {
-  if (score >= 85) return 'text-green-700 bg-green-100';
+  if (score >= 85) return 'text-success-soft-ink bg-success-soft';
   if (score >= 60) return 'text-amber-soft-ink bg-amber-soft';
   return 'text-danger-soft-ink bg-danger-soft';
 }

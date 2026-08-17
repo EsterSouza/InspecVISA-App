@@ -97,7 +97,7 @@ const FINANCIAL_BLOCK: BlockConfig = {
   label: 'Pendências financeiras',
   description: 'Contas com pagamento em atraso além da carência configurada.',
   icon: Banknote,
-  accent: 'text-emerald-800 bg-emerald-50 border-emerald-200',
+  accent: 'text-success-soft-ink bg-success-soft border-success-soft-border',
   // Uma conta pode cobrir várias unidades — não há um único "registro de origem" para linkar.
 };
 
@@ -423,9 +423,9 @@ export function OperationalQueues({ consultantName, clientId, daysAhead }: Opera
       </div>
 
       <div className="mb-2 mt-6 flex items-center gap-2">
-        <span className="h-px flex-1 bg-emerald-200" />
-        <span className="text-[11px] font-bold uppercase tracking-wide text-emerald-700">Financeiro</span>
-        <span className="h-px flex-1 bg-emerald-200" />
+        <span className="h-px flex-1 bg-success-soft" />
+        <span className="text-[11px] font-bold uppercase tracking-wide text-success-soft-ink">Financeiro</span>
+        <span className="h-px flex-1 bg-success-soft" />
       </div>
       <p className="mb-2.5 text-[11px] text-navy-3">
         O filtro de consultora não se aplica aqui: o atraso é da conta.

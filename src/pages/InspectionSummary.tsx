@@ -629,9 +629,9 @@ export function InspectionSummary() {
             <p className="mt-1 text-navy-3">Template ID: <code className="text-xs">{currentInspection?.templateId}</code></p>
             <p className="text-sm text-navy-3 mt-1 mb-6">Concluída em {formatDateTime(currentInspection?.completedAt || currentInspection?.createdAt || new Date())}</p>
             <div className="grid grid-cols-3 gap-4 max-w-sm mx-auto">
-              <div className="bg-green-50 rounded-xl p-4 text-center">
-                <p className="text-2xl font-bold text-green-700">{reportResponses.filter(r => r.result === 'complies').length}</p>
-                <p className="text-xs text-green-600 font-semibold mt-1">Cumpre</p>
+              <div className="bg-success-soft rounded-xl p-4 text-center">
+                <p className="text-2xl font-bold text-success-soft-ink">{reportResponses.filter(r => r.result === 'complies').length}</p>
+                <p className="text-xs text-success font-semibold mt-1">Cumpre</p>
               </div>
               <div className="bg-danger-soft rounded-xl p-4 text-center">
                 <p className="text-2xl font-bold text-danger-soft-ink">{nonCompliantResponses.length}</p>

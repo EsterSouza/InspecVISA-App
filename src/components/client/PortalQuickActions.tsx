@@ -70,7 +70,7 @@ export function PortalQuickActions({
           <Link
             to="/cliente/pastas"
             onClick={() => onAudit('sanitary_folders_page_opened', { unit_count: folderUnits.length })}
-            className={`${actionClassName} border-emerald-200 bg-surface text-emerald-800 hover:bg-emerald-50`}
+            className={`${actionClassName} border-success-soft-border bg-surface text-success-soft-ink hover:bg-success-soft`}
           >
             <FolderOpen className="h-4 w-4" />
             {folderUnits.length === 1
@@ -104,7 +104,7 @@ export function PortalQuickActions({
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => onAudit('support_whatsapp_clicked')}
-            className={`${actionClassName} border-green-700 bg-green-700 text-white hover:bg-green-800`}
+            className={`${actionClassName} border-success-soft-ink bg-success-soft-ink text-white hover:bg-success-soft-ink`}
           >
             <MessageCircle className="h-4 w-4" /> Falar com a consultoria <ExternalLink className="h-3.5 w-3.5" />
           </a>

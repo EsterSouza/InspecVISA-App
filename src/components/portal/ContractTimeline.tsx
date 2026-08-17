@@ -144,12 +144,12 @@ export function ContractTimeline({ unit }: ContractTimelineProps) {
                   </span>
                 )}
                 {m.completedDate && (
-                  <span className="inline-flex items-center gap-1 font-medium text-emerald-700">
+                  <span className="inline-flex items-center gap-1 font-medium text-success-soft-ink">
                     <CalendarCheck className="h-3 w-3" /> Realizado: {m.completedDate}
                   </span>
                 )}
                 {m.completedStatus && (
-                  <span className="inline-flex items-center gap-1 font-medium text-emerald-700">
+                  <span className="inline-flex items-center gap-1 font-medium text-success-soft-ink">
                     <CalendarCheck className="h-3 w-3" /> {m.completedStatus}
                   </span>
                 )}

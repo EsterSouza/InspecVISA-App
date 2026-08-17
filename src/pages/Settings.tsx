@@ -149,7 +149,7 @@ export function Settings() {
           <p className="-mt-4 mb-2 text-xs text-primary-600">Carregando perfil salvo na nuvem...</p>
         )}
         {loadStatus === 'loaded' && (
-          <p className="-mt-4 mb-2 text-xs text-green-600">Perfil carregado da nuvem.</p>
+          <p className="-mt-4 mb-2 text-xs text-success">Perfil carregado da nuvem.</p>
         )}
         {loadStatus === 'failed' && (
           <p className="-mt-4 mb-2 text-xs text-amber-strong">Nao foi possivel carregar o perfil remoto agora.</p>

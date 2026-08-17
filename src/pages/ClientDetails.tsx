@@ -624,7 +624,7 @@ export function ClientDetails() {
                       <div className="flex items-center gap-4">
                         <div className={`h-12 w-12 rounded-full flex items-center justify-center text-white font-bold ${
                           insp.status === 'in_progress' ? 'bg-amber' :
-                          insp.score.scorePercentage >= 90 ? 'bg-green-500' :
+                          insp.score.scorePercentage >= 90 ? 'bg-success' :
                           insp.score.scorePercentage >= 70 ? 'bg-primary-500' :
                           'bg-danger'
                         }`}>
@@ -914,7 +914,7 @@ export function ClientDetails() {
                     href={client.personalizedSanitaryFolderUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-success px-3 py-2 text-sm font-bold text-white hover:bg-success-soft-ink"
                   >
                     Abrir Drive <ExternalLink className="h-3.5 w-3.5" />
                   </a>
@@ -1132,12 +1132,12 @@ export function ClientDetails() {
             </div>
           </div>
 
-          <div className="rounded-md border border-emerald-100 bg-emerald-50/60 p-4">
+          <div className="rounded-md border border-success-soft-border bg-success-soft/60 p-4">
             <label className="flex items-center gap-2 text-sm font-semibold text-navy">
               <input
                 type="checkbox"
                 {...register('hasPersonalizedSanitaryFolder')}
-                className="rounded text-emerald-600 focus:ring-emerald-500"
+                className="rounded text-success focus:ring-success"
               />
               Cliente tem pasta sanitaria personalizada
             </label>
@@ -1160,13 +1160,13 @@ export function ClientDetails() {
             </div>
           </div>
 
-          <div className="rounded-md border border-emerald-100 bg-emerald-50/60 p-4 space-y-3">
+          <div className="rounded-md border border-success-soft-border bg-success-soft/60 p-4 space-y-3">
             <p className="text-sm font-semibold text-navy">Marcos do cronograma do contrato</p>
             <label className="flex items-center gap-2 text-sm font-medium text-navy-2">
               <input
                 type="checkbox"
                 {...register('hasAuditService')}
-                className="rounded text-emerald-600 focus:ring-emerald-500"
+                className="rounded text-success focus:ring-success"
               />
               Cliente tem auditoria contratada
             </label>
@@ -1174,7 +1174,7 @@ export function ClientDetails() {
               <input
                 type="checkbox"
                 {...register('hasOnlineFollowup')}
-                className="rounded text-emerald-600 focus:ring-emerald-500"
+                className="rounded text-success focus:ring-success"
               />
               Cliente tem acompanhamento online contratado
             </label>

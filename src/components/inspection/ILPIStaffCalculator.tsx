@@ -20,13 +20,13 @@ interface ILPIStaffCalculatorProps {
 
 function StatusIcon({ ok }: { ok: boolean }) {
   return ok
-    ? <CheckCircle2 className="h-5 w-5 text-green-600" />
+    ? <CheckCircle2 className="h-5 w-5 text-success" />
     : <AlertTriangle className="h-5 w-5 text-danger" />;
 }
 
 function Delta({ ok, actual, required }: { ok: boolean; actual: number; required: number }) {
   return (
-    <p className={`text-xl font-bold ${ok ? 'text-green-600' : 'text-danger'}`}>
+    <p className={`text-xl font-bold ${ok ? 'text-success' : 'text-danger'}`}>
       {ok ? `+${actual - required}` : `-${required - actual}`}
     </p>
   );
@@ -108,11 +108,11 @@ export function ILPIStaffCalculator({
           A soma dos graus ({grausSum}) é diferente do total de residentes informado ({residentsTotal}). Revise os números.
         </p>
       )}
-      <Card className={summary.caregiversOk ? 'bg-green-50 border-green-200' : 'bg-danger-soft border-danger-soft-border'}>
+      <Card className={summary.caregiversOk ? 'bg-success-soft border-success-soft-border' : 'bg-danger-soft border-danger-soft-border'}>
         <CardContent className="space-y-3 p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Users2 className={summary.caregiversOk ? 'text-green-600' : 'text-danger'} />
+              <Users2 className={summary.caregiversOk ? 'text-success' : 'text-danger'} />
               <h4 className="text-sm font-bold text-navy">{caregiverTitle}</h4>
             </div>
             <StatusIcon ok={summary.caregiversOk} />
@@ -144,11 +144,11 @@ export function ILPIStaffCalculator({
       </Card>
 
       {isRJ && summary.nursingTechs.total > 0 && (
-        <Card className={summary.nursingTechsOk ? 'bg-green-50 border-green-200' : 'bg-danger-soft border-danger-soft-border'}>
+        <Card className={summary.nursingTechsOk ? 'bg-success-soft border-success-soft-border' : 'bg-danger-soft border-danger-soft-border'}>
           <CardContent className="space-y-3 p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Users2 className={summary.nursingTechsOk ? 'text-green-600' : 'text-danger'} />
+                <Users2 className={summary.nursingTechsOk ? 'text-success' : 'text-danger'} />
                 <h4 className="text-sm font-bold text-navy">Técnicos/Auxiliares de enfermagem — Lei RJ nº 8.049/2018</h4>
               </div>
               <StatusIcon ok={summary.nursingTechsOk} />
@@ -171,11 +171,11 @@ export function ILPIStaffCalculator({
       )}
 
       {summary.cleaningStaff.total > 0 && (
-        <Card className={summary.cleaningStaffOk ? 'bg-green-50 border-green-200' : 'bg-danger-soft border-danger-soft-border'}>
+        <Card className={summary.cleaningStaffOk ? 'bg-success-soft border-success-soft-border' : 'bg-danger-soft border-danger-soft-border'}>
           <CardContent className="space-y-3 p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Users2 className={summary.cleaningStaffOk ? 'text-green-600' : 'text-danger'} />
+                <Users2 className={summary.cleaningStaffOk ? 'text-success' : 'text-danger'} />
                 <h4 className="text-sm font-bold text-navy">Profissionais de limpeza</h4>
               </div>
               <StatusIcon ok={summary.cleaningStaffOk} />

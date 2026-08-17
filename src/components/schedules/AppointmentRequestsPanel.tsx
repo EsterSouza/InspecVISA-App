@@ -487,8 +487,8 @@ export function AppointmentRequestsPanel({ focusRequestId }: { focusRequestId?: 
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <Card role="dialog" aria-modal="true" aria-labelledby="event-notify-title" className="w-full max-w-sm shadow-2xl">
             <CardContent className="p-6 text-center">
-              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-                <CheckCircle className="h-6 w-6 text-green-600" />
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-success-soft">
+                <CheckCircle className="h-6 w-6 text-success" />
               </div>
               <h3 id="event-notify-title" className="text-lg font-bold text-navy">
                 {EVENT_NOTIFY_TITLES[eventNotify.kind]}
@@ -502,7 +502,7 @@ export function AppointmentRequestsPanel({ focusRequestId }: { focusRequestId?: 
                   href={eventNotify.result.whatsappLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-green-200 bg-green-50 px-4 py-2.5 text-sm font-semibold text-green-700 hover:bg-green-100"
+                  className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-success-soft-border bg-success-soft px-4 py-2.5 text-sm font-semibold text-success-soft-ink hover:bg-success-soft"
                 >
                   <Phone className="h-4 w-4" /> Avisar no WhatsApp
                 </a>

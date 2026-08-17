@@ -42,12 +42,12 @@ export function PortalBilling({
       {hasPayment && payment && (
         <div
           className={`flex flex-col gap-3 rounded-xl border p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between ${
-            payment.status === 'paid' ? 'border-green-200 bg-green-50/70' : 'border-amber-soft-border bg-amber-soft/70'
+            payment.status === 'paid' ? 'border-success-soft-border bg-success-soft/70' : 'border-amber-soft-border bg-amber-soft/70'
           }`}
         >
           <div className="flex items-center gap-3">
             {payment.status === 'paid' ? (
-              <CheckCircle2 className="h-6 w-6 shrink-0 text-green-600" />
+              <CheckCircle2 className="h-6 w-6 shrink-0 text-success" />
             ) : (
               <CreditCard className="h-6 w-6 shrink-0 text-amber-strong" />
             )}
@@ -72,7 +72,7 @@ export function PortalBilling({
                 <p className="text-xs text-navy-3">Opcoes no link: Pix, boleto, NuPay e cartao de credito/debito.</p>
               )}
               {paymentAckSent && (
-                <p className="mt-1 text-xs font-medium text-green-700">
+                <p className="mt-1 text-xs font-medium text-success-soft-ink">
                   Aviso recebido. A equipe vai conferir o pagamento.
                 </p>
               )}

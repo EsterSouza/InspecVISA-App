@@ -40,7 +40,7 @@ export function CopyLinkButton({ url, label, variant = 'full', className }: Copy
       aria-label={copied ? `Link copiado — ${label}` : `Copiar link público (sem senha) — ${label}`}
       className={className || (compact ? compactClassName : fullClassName)}
     >
-      {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+      {copied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
       {copied ? 'Copiado' : compact ? 'Link' : 'Copiar link'}
       {copied && <span className="sr-only" aria-live="polite">Link copiado</span>}
     </button>

@@ -625,7 +625,7 @@ export function Schedules() {
                      <span className="text-xs text-navy-3">{formatDateTime(schedule.scheduledAt)}</span>
                    </div>
                    {schedule.status === 'completed' ? (
-                     <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">CONCLUÍDO</span>
+                     <span className="text-[10px] bg-success-soft text-success-soft-ink px-2 py-0.5 rounded-full font-bold">CONCLUÍDO</span>
                    ) : (
                      <span className="text-[10px] bg-surface-sunken text-navy-3 px-2 py-0.5 rounded-full font-bold uppercase">{schedule.status}</span>
                    )}
@@ -690,7 +690,7 @@ export function Schedules() {
                     )}
                   </div>
                   {selectedClient && (
-                    <div className="rounded-xl border border-green-100 bg-green-50 px-3 py-2 text-sm text-green-800">
+                    <div className="rounded-xl border border-success-soft-border bg-success-soft px-3 py-2 text-sm text-success-soft-ink">
                       Agendamento vinculado a: <strong>{selectedClient.name}</strong>
                     </div>
                   )}

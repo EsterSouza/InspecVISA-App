@@ -55,7 +55,7 @@ const STATE_LABELS: Record<WeekCalendarEventState, string> = {
 };
 
 const STATE_EVENT_CLASSES: Record<WeekCalendarEventState, string> = {
-  confirmado: 'border-emerald-300 border-l-emerald-600 bg-emerald-50 text-emerald-900',
+  confirmado: 'border-success-soft-border border-l-emerald-600 bg-success-soft text-success-soft-ink',
   'a-confirmar': 'border-default border-l-gray-400 border-l-dashed bg-surface-sunken text-navy-2',
   atencao: 'border-amber-soft-border border-l-amber bg-amber-soft text-amber-soft-ink',
   padrao: 'border-primary-200 border-l-primary-700 bg-primary-50 text-primary-900',
@@ -69,7 +69,7 @@ const STATE_BADGE_VARIANT: Record<WeekCalendarEventState, 'success' | 'neutral' 
 };
 
 const STATE_DOT_CLASSES: Record<WeekCalendarEventState, string> = {
-  confirmado: 'border-emerald-600 bg-emerald-50',
+  confirmado: 'border-success bg-success-soft',
   'a-confirmar': 'border-control bg-surface-sunken',
   atencao: 'border-amber bg-amber-soft',
   padrao: 'border-primary-700 bg-primary-50',

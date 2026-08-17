@@ -14,7 +14,7 @@ const buttonVariants = cva(
         outline: 'border border-control bg-transparent hover:bg-surface-hover text-navy-2',
         ghost: 'hover:bg-surface-active hover:text-navy',
         danger: 'bg-danger text-white hover:bg-danger-hover shadow-sm',
-        success: 'bg-green-600 text-white hover:bg-green-700 shadow-sm',
+        success: 'bg-success text-white hover:bg-success-soft-ink shadow-sm',
       },
       size: {
         default: 'h-10 px-4 py-2',

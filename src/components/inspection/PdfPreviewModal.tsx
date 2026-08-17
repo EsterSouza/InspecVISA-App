@@ -278,7 +278,7 @@ export function PdfPreviewModal({
                       )}
 
                       {legTags.get(leg) === 'segmento' && (
-                        <span className="shrink-0 mt-0.5 text-[9px] font-bold uppercase tracking-wide bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">
+                        <span className="shrink-0 mt-0.5 text-[9px] font-bold uppercase tracking-wide bg-success-soft text-success-soft-ink px-1.5 py-0.5 rounded">
                           Sugestão
                         </span>
                       )}

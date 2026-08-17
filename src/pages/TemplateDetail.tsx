@@ -207,7 +207,7 @@ export function TemplateDetail() {
               { icon: ClipboardList, label: 'Seções', value: stats.sections, color: 'text-primary-600', bg: 'bg-primary-50' },
               { icon: CheckCircle2, label: 'Itens Totais', value: stats.total, color: 'text-accent-ink', bg: 'bg-primary-50' },
               { icon: AlertTriangle, label: 'Itens Críticos', value: stats.critical, color: 'text-danger', bg: 'bg-danger-soft' },
-              { icon: BookOpen, label: 'Com Legislação', value: stats.withLegislation, color: 'text-green-600', bg: 'bg-green-50' },
+              { icon: BookOpen, label: 'Com Legislação', value: stats.withLegislation, color: 'text-success', bg: 'bg-success-soft' },
               { icon: Archive, label: 'Aposentados', value: stats.retired, color: 'text-navy-3', bg: 'bg-surface-sunken' },
             ].map(({ icon: Icon, label, value, color, bg }) => (
               <div key={label} className="bg-surface rounded-2xl border border-default p-5 flex items-center gap-4 shadow-sm">

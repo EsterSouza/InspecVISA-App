@@ -445,7 +445,7 @@ export function Dashboard() {
             </Card>
             <Card>
               <CardContent className="flex items-center gap-4 p-5">
-                <div className="flex h-12 w-12 items-center justify-center rounded-md bg-emerald-100 text-emerald-700">
+                <div className="flex h-12 w-12 items-center justify-center rounded-md bg-success-soft text-success-soft-ink">
                   <CheckCircle2 className="h-6 w-6" />
                 </div>
                 <div>
@@ -548,7 +548,7 @@ export function Dashboard() {
               ) : recurringIssues.length === 0 ? (
                 <Card className="border-dashed bg-surface-sunken">
                   <CardContent className="flex flex-col items-center justify-center p-8 text-center">
-                    <CheckCircle2 className="mb-3 h-10 w-10 text-emerald-400" />
+                    <CheckCircle2 className="mb-3 h-10 w-10 text-success" />
                     <p className="text-sm font-medium text-navy-2">Nenhuma não conformidade frequente detectada.</p>
                   </CardContent>
                 </Card>

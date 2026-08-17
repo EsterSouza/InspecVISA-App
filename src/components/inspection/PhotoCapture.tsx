@@ -244,7 +244,7 @@ function PhotoSyncBadge({ photo }: { photo: InspectionPhoto }) {
 
   const status = photo.syncStatus;
   const config = {
-    synced: { label: 'OK', className: 'bg-emerald-600 text-white', icon: CheckCircle },
+    synced: { label: 'OK', className: 'bg-success text-white', icon: CheckCircle },
     pending: { label: 'Pendente', className: 'bg-primary-600 text-white', icon: Clock },
     syncing: { label: 'Enviando', className: 'bg-primary-600 text-white', icon: Clock },
     failed: { label: 'Falha', className: 'bg-danger text-white', icon: XCircle },

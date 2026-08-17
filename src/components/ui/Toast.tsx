@@ -5,7 +5,7 @@ import { cn } from '../../lib/utils';
 
 const VARIANT_STYLES: Record<ToastItem['variant'], string> = {
   default: 'border-default bg-surface text-navy',
-  success: 'border-green-200 bg-green-50 text-green-900',
+  success: 'border-success-soft-border bg-success-soft text-success-soft-ink',
   danger: 'border-danger-soft-border bg-danger-soft text-danger-soft-ink',
   warning: 'border-amber-soft-border bg-amber-soft text-amber-soft-ink',
 };

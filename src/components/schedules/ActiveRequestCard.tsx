@@ -144,7 +144,7 @@ export function ActiveRequestCard({
                   </span>
                 )}
                 <span className="flex items-center gap-1 text-xs text-navy-3">
-                  <Gauge className="h-3.5 w-3.5 text-emerald-600" />
+                  <Gauge className="h-3.5 w-3.5 text-success" />
                   <label htmlFor={`compliance-score-${request.id}`}>Conformidade:</label>
                   <input
                     id={`compliance-score-${request.id}`}
@@ -167,7 +167,7 @@ export function ActiveRequestCard({
                       if (Number.isFinite(n)) onSetCompliance(n);
                     }}
                     aria-label="Salvar conformidade"
-                    className="rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] font-bold text-emerald-700 hover:bg-emerald-100"
+                    className="rounded bg-success-soft px-1.5 py-0.5 text-[11px] font-bold text-success-soft-ink hover:bg-success-soft"
                   >
                     Salvar
                   </button>
@@ -255,7 +255,7 @@ export function ActiveRequestCard({
                   </a>
                 )}
               </div>
-              {meetingSaved && <p role="status" className="mt-1 text-xs font-medium text-emerald-700">Link salvo e disponível no portal do cliente.</p>}
+              {meetingSaved && <p role="status" className="mt-1 text-xs font-medium text-success-soft-ink">Link salvo e disponível no portal do cliente.</p>}
             </div>
           )}
 
@@ -307,7 +307,7 @@ export function ActiveRequestCard({
                   disabled={busy}
                   onClick={onRetryNotification}
                   title={notificationStatus.sentAt ? `Enviado em ${formatCreatedAt(notificationStatus.sentAt)}. Clicar não reenvia — só confirma que já foi entregue.` : undefined}
-                  className="min-h-11 border-green-200 text-green-700 hover:bg-green-50"
+                  className="min-h-11 border-success-soft-border text-success-soft-ink hover:bg-success-soft"
                 >
                   <CheckCircle className="mr-1.5 h-4 w-4" /> E-mail já enviado
                 </Button>
@@ -329,7 +329,7 @@ export function ActiveRequestCard({
                 size="sm"
                 disabled={busy}
                 onClick={onMarkCompleted}
-                className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                className="border-success-soft-border text-success-soft-ink hover:bg-success-soft"
               >
                 <CheckCircle className="mr-1.5 h-4 w-4" /> Inspeção concluída
               </Button>
@@ -350,7 +350,7 @@ export function ActiveRequestCard({
               size="sm"
               disabled={busy}
               onClick={() => reportInputRef.current?.click()}
-              className="text-green-700 border-green-200 hover:bg-green-50"
+              className="text-success-soft-ink border-success-soft-border hover:bg-success-soft"
             >
               <FileUp className="mr-1.5 h-4 w-4" /> Publicar relatório
             </Button>

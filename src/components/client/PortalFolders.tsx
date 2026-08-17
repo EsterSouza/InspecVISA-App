@@ -86,7 +86,7 @@ export function PortalFolders({ mainDriveFolderUrl, units, onOpen }: PortalFolde
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => onOpen(unit.client_name)}
-                    className="inline-flex h-9 items-center gap-1.5 rounded-md border border-emerald-200 bg-surface px-3 text-xs font-semibold text-emerald-800 hover:bg-emerald-50"
+                    className="inline-flex h-9 items-center gap-1.5 rounded-md border border-success-soft-border bg-surface px-3 text-xs font-semibold text-success-soft-ink hover:bg-success-soft"
                   >
                     <FolderOpen className="h-3.5 w-3.5" /> Abrir <ExternalLink className="h-3 w-3" />
                   </a>

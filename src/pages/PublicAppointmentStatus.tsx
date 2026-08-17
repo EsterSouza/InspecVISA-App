@@ -126,7 +126,7 @@ function attachmentIcon(asset: AppointmentAttachment) {
   if (mime.includes('word') || name.endsWith('.doc') || name.endsWith('.docx')) {
     return <FileType className="h-5 w-5 text-accent-ink" />;
   }
-  if (mime.startsWith('image/')) return <ImageIcon className="h-5 w-5 text-emerald-600" />;
+  if (mime.startsWith('image/')) return <ImageIcon className="h-5 w-5 text-success" />;
   return <Paperclip className="h-5 w-5 text-navy-3" />;
 }
 
@@ -618,15 +618,15 @@ export function PublicAppointmentStatus() {
         {unit && <ContractTimeline unit={unit} />}
 
         {status.has_personalized_sanitary_folder && status.personalized_sanitary_folder_url && (
-          <section className="mb-6 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-5 shadow-sm">
-            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-emerald-700">
+          <section className="mb-6 rounded-2xl border border-success-soft-border bg-success-soft/60 p-5 shadow-sm">
+            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-success-soft-ink">
               Pasta sanitaria personalizada
             </h3>
             <a
               href={status.personalized_sanitary_folder_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-success px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-success-soft-ink"
             >
               <FolderOpen className="h-4 w-4" />
               Abrir pasta no Drive
@@ -636,8 +636,8 @@ export function PublicAppointmentStatus() {
 
         {/* Relatório e anexos — só exibe quando há algo publicado ou quando o status indica disponibilidade */}
         {(status.status === 'report_available' || hasDeliverables) ? (
-        <section className="mb-6 rounded-2xl border border-green-100 bg-surface p-5 shadow-sm">
-            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-green-700">
+        <section className="mb-6 rounded-2xl border border-success-soft-border bg-surface p-5 shadow-sm">
+            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-success-soft-ink">
               Relatório, fotos e anexos
             </h3>
 
@@ -647,7 +647,7 @@ export function PublicAppointmentStatus() {
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => auditAsset('report_download_clicked', reportPdf)}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-green-700"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-success px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-success-soft-ink"
               >
                 <Download className="h-4 w-4" />
                 Baixar relatório (PDF)

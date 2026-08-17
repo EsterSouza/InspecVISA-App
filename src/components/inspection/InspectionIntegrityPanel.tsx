@@ -131,7 +131,7 @@ export function InspectionIntegrityPanel({ inspectionId }: InspectionIntegrityPa
     ? 'border-amber-soft-border bg-amber-soft'
     : totalOpen > 0
       ? 'border-primary-100 bg-primary-50'
-      : 'border-emerald-100 bg-emerald-50';
+      : 'border-success-soft-border bg-success-soft';
 
   return (
     <Card className={statusTone}>
@@ -139,7 +139,7 @@ export function InspectionIntegrityPanel({ inspectionId }: InspectionIntegrityPa
         <div className="min-w-0">
           <CardTitle className="flex items-center gap-2 text-sm">
             {totalOpen === 0 ? (
-              <CheckCircle className="h-4 w-4 text-emerald-600" />
+              <CheckCircle className="h-4 w-4 text-success" />
             ) : (
               <AlertTriangle className="h-4 w-4 text-amber-strong" />
             )}
@@ -185,7 +185,7 @@ export function InspectionIntegrityPanel({ inspectionId }: InspectionIntegrityPa
             )}
           </div>
         ) : (
-          <div className="flex items-center gap-2 rounded-md bg-surface p-3 text-xs text-emerald-700">
+          <div className="flex items-center gap-2 rounded-md bg-surface p-3 text-xs text-success-soft-ink">
             <Cloud className="h-4 w-4" />
             Respostas, fotos e dados gerais estao sincronizados.
           </div>

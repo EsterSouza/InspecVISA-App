@@ -38,7 +38,7 @@ const statusTheme: Record<ServiceRequestStatus, string> = {
   open: 'bg-sky-100 text-sky-800',
   in_progress: 'bg-primary-100 text-accent-ink',
   awaiting_client: 'bg-amber-soft text-amber-soft-ink',
-  resolved: 'bg-emerald-100 text-emerald-800',
+  resolved: 'bg-success-soft text-success-soft-ink',
   cancelled: 'bg-surface-sunken text-navy-2',
 };
 
@@ -461,7 +461,7 @@ function RequestCard({
       )}
 
       {closed && request.status === 'resolved' && (
-        <p className="mt-2 flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-[11px] text-emerald-800">
+        <p className="mt-2 flex items-center gap-1.5 rounded-md border border-success-soft-border bg-success-soft px-2 py-1.5 text-[11px] text-success-soft-ink">
           <CheckCircle2 className="h-3.5 w-3.5" />
           Concluída{request.closed_at ? ` em ${formatDateBR(request.closed_at)}` : ''}. Precisa de mais
           alguma coisa? Registre uma solicitação nova.
@@ -547,7 +547,7 @@ export function PortalServiceRequests({
       </div>
 
       {flash && (
-        <p className="mb-3 flex items-start justify-between gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+        <p className="mb-3 flex items-start justify-between gap-2 rounded-md border border-success-soft-border bg-success-soft px-3 py-2 text-xs text-success-soft-ink">
           <span>{flash}</span>
           <button type="button" onClick={() => setFlash(null)} aria-label="Fechar aviso">
             <X className="h-3.5 w-3.5" />
