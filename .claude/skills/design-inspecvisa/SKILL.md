@@ -119,6 +119,26 @@ Do Artefato E, **aprovadas pela Ester e implementadas no FE-23 em 16/08/2026**:
     vincular offline não escreve nada e a agenda mostra verde. "Só gerar o PDF" nunca é bloqueado.
 33. **Prazo é só a lista**, com **"Sem prazo definido"** dentro dela — e "sem prazo" é estado
     próprio (selo), nunca ausência silenciosa.
+34. **Reincidência não reinicia o prazo** (17/08, usando o fluxo em campo). A data pactuada na
+    primeira visita continua valendo; escolher "60 dias" de novo não empurra o vencimento para
+    frente. Ela volta a ser negociável quando **vence, ou está a 7 dias de vencer** — aí a
+    escolha desta visita passa a valer, inclusive "sem prazo". **Encurtar sempre vale.** A regra
+    vive nos dois lados: `resolveRecurringDueDate` (para a tela dizer qual data vale **antes** de
+    publicar) e o `on conflict` de `admin_publish_client_action_items` (para nenhum outro caminho
+    de publicação reiniciar o relógio em silêncio).
+
+## Duas coisas que a verificação por DOM não pega
+
+Aprendido em 17/08, com quatro defeitos que só apareceram usando o fluxo:
+
+- **Estado derivado que ignora o clique.** `isOpen = filtroLigado || abertas.has(id)` fazia o
+  cabeçalho do acordeão não ter efeito nenhum com filtro ligado. Medir a tela parada não
+  encontra isso: só clicar duas vezes no mesmo lugar encontra.
+- **Efeito que semeia estado sem trava.** Semear "a primeira seção nasce aberta" com dependência
+  num `useMemo` que recalcula a cada resposta reabre o que a pessoa acabou de recolher. Semeadura
+  é uma vez: `useRef`, não `prev.size === 0`.
+- E o item **não pode sumir sob o cursor**: quando terminar de escrever tira o item do filtro,
+  ele fica até a pessoa recolher o painel ou trocar de filtro.
 
 ## Armadilhas de CSS que já custaram tempo
 

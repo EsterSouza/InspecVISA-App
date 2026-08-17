@@ -1033,6 +1033,23 @@ export const AppointmentAdminService = {
     return { created: data?.created ?? 0, updated: data?.updated ?? 0 };
   },
 
+  /**
+   * Prazos já pactuados e ainda abertos desta unidade, por requisito do roteiro.
+   *
+   * A execução usa isto para não reiniciar o relógio de uma pendência reincidente:
+   * item resolvido fica de fora de propósito — reaparecer depois de resolvido é
+   * ocorrência nova, e aí o prazo conta desta visita.
+   */
+  async listOpenActionItemDeadlines(clientId: string): Promise<Map<string, string | null>> {
+    const { data, error } = await supabase
+      .from('client_action_items')
+      .select('source_item_id, due_date, status')
+      .eq('client_id', clientId)
+      .neq('status', 'resolved');
+    if (error) throw error;
+    return new Map((data || []).map(row => [row.source_item_id as string, (row.due_date as string | null) ?? null]));
+  },
+
   async listActionItems(requestId: string): Promise<ClientActionItem[]> {
     const { data, error } = await supabase
       .from('client_action_items')

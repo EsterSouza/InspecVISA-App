@@ -93,6 +93,8 @@ export interface RecurringDeadline {
   /** A data que vale no plano de ação do cliente (YYYY-MM-DD). */
   effective?: string;
   kind: RecurringDeadlineKind;
+  /** O prazo pactuado já tinha vencido na data desta visita. */
+  expired: boolean;
 }
 
 /**
@@ -110,14 +112,15 @@ export function resolveRecurringDueDate(
   proposed: string | undefined,
   visitDate: Date,
 ): RecurringDeadline {
-  if (!pactuated) return { effective: proposed, kind: 'novo' };
+  if (!pactuated) return { effective: proposed, kind: 'novo', expired: false };
 
+  const expired = pactuated < toDateKey(visitDate);
   const limit = new Date(visitDate.getTime());
   limit.setDate(limit.getDate() + DEADLINE_KEEP_WINDOW_DAYS);
-  if (pactuated <= toDateKey(limit)) return { effective: proposed, kind: 'repactuado' };
+  if (pactuated <= toDateKey(limit)) return { effective: proposed, kind: 'repactuado', expired };
 
-  if (proposed && proposed < pactuated) return { effective: proposed, kind: 'encurtado' };
-  return { effective: pactuated, kind: 'mantido' };
+  if (proposed && proposed < pactuated) return { effective: proposed, kind: 'encurtado', expired };
+  return { effective: pactuated, kind: 'mantido', expired };
 }
 
 /**
@@ -133,7 +136,9 @@ function priorityFor(item: ChecklistItem | undefined): ClientActionItemPayload['
 export function buildClientActionItems(
   nonCompliantResponses: InspectionResponse[],
   items: ChecklistItem[],
-  inspectionDate: Date
+  inspectionDate: Date,
+  /** Prazos já pactuados e abertos desta unidade, por `source_item_id`. */
+  pactuatedDueDates?: Map<string, string | null>
 ): ClientActionItemPayload[] {
   const itemById = new Map(items.map((item) => [item.id, item]));
   const baseDate = Number.isNaN(inspectionDate?.getTime?.()) ? new Date() : inspectionDate;
@@ -142,6 +147,8 @@ export function buildClientActionItems(
     .filter((response) => !!response.itemId)
     .map((response) => {
       const item = itemById.get(response.itemId);
+      const proposed = dueDateFor(response.deadline, baseDate);
+      const pactuated = pactuatedDueDates?.get(response.itemId);
       return {
         source_item_id: response.itemId,
         title: item?.description || response.customDescription || 'Requisito avaliado',
@@ -150,7 +157,7 @@ export function buildClientActionItems(
           response.correctiveAction?.trim() || 'Definir medida corretiva e registrar evidência de conclusão.',
         priority: priorityFor(item),
         responsible: response.responsible?.trim() || undefined,
-        due_date: dueDateFor(response.deadline, baseDate),
+        due_date: resolveRecurringDueDate(pactuated, proposed, baseDate).effective,
       };
     });
 }

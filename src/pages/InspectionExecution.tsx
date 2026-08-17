@@ -15,6 +15,7 @@ import { ClientService } from '../services/clientService';
 import { InspectionService } from '../services/inspectionService';
 import { InspectionBundleSyncService } from '../services/inspectionBundleSyncService';
 import { ScheduleService } from '../services/scheduleService';
+import { AppointmentAdminService } from '../services/appointmentAdminService';
 import { getLocalActor } from '../utils/localActor';
 import { belongsToActiveTenant, filterByActiveTenant } from '../utils/localScope';
 import { buildRecoveryTemplate } from '../utils/templateRecovery';
@@ -126,6 +127,8 @@ export function InspectionExecution() {
   const [clientEvidence, setClientEvidence] = useState<ClientEvidenceByItem>(new Map());
   const [clientDeclarations, setClientDeclarations] = useState<ClientDeclarationByItem>(new Map());
   const [previousVisit, setPreviousVisit] = useState<PreviousVisitScore | null>(null);
+  /** Prazo já pactuado e aberto no portal, por requisito (`source_item_id`). */
+  const [pactuatedDeadlines, setPactuatedDeadlines] = useState<Map<string, string | null>>(new Map());
   const [openSectionIds, setOpenSectionIds] = useState<Set<string>>(new Set());
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [itemFilter, setItemFilter] = useState<ItemFilter>('todos');
@@ -346,6 +349,12 @@ export function InspectionExecution() {
           void hydrateAndGetPreviousVisitScore(enrichedInsp.clientId, id, enrichedInsp.templateId)
             .then(setPreviousVisit)
             .catch((err) => console.warn('[Inspection] Nota da visita anterior indisponivel:', err));
+
+          // Prazos que já estão valendo no portal desta unidade: reincidência não
+          // reinicia a contagem, e a tela precisa mostrar a data que vale.
+          void AppointmentAdminService.listOpenActionItemDeadlines(enrichedInsp.clientId)
+            .then(setPactuatedDeadlines)
+            .catch((err) => console.warn('[Inspection] Prazos pactuados indisponiveis:', err));
 
           // Evidências são carregadas sem bloquear a abertura do roteiro em campo.
           void ClientEvidenceService.byItemForClient(enrichedInsp.clientId)
@@ -1474,6 +1483,8 @@ export function InspectionExecution() {
                           previousNC={previousNCs.get(item.id)}
                           clientEvidence={clientEvidence.get(item.id)}
                           clientDeclaration={clientDeclarations.get(item.id)}
+                          visitDate={currentInspection.inspectionDate}
+                          pactuatedDueDate={pactuatedDeadlines.get(item.id)}
                           onChange={handleResponseChange}
                           onUpdateDetails={handleUpdateDetails}
                           onDetailsToggle={handleDetailsToggle}

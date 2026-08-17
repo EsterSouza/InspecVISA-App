@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { buildClientActionItems, deadlineToDays } from '../../utils/clientActionPlan';
+import { buildClientActionItems, deadlineToDays, resolveRecurringDueDate } from '../../utils/clientActionPlan';
 import type { ChecklistItem, InspectionResponse } from '../../types';
 
 function response(overrides: Partial<InspectionResponse> = {}): InspectionResponse {
@@ -55,6 +55,46 @@ describe('P360-010 - prazo em texto livre', () => {
   });
 });
 
+describe('prazo de pendência reincidente', () => {
+  // Visita de 17/08/2026; a mesma regra roda no `on conflict` da RPC de publicação.
+  const visita = new Date(2026, 7, 17);
+
+  test('sem prazo pactuado, o prazo desta visita entra', () => {
+    expect(resolveRecurringDueDate(null, '2026-10-16', visita)).toEqual({
+      effective: '2026-10-16', kind: 'novo', expired: false,
+    });
+  });
+
+  test('prazo pactuado longe do vencimento é mantido', () => {
+    expect(resolveRecurringDueDate('2026-09-21', '2026-10-16', visita)).toEqual({
+      effective: '2026-09-21', kind: 'mantido', expired: false,
+    });
+  });
+
+  test('prazo vencido volta a ser negociável', () => {
+    expect(resolveRecurringDueDate('2026-07-10', '2026-10-16', visita)).toEqual({
+      effective: '2026-10-16', kind: 'repactuado', expired: true,
+    });
+  });
+
+  test('prazo vencendo dentro da janela de 7 dias também é repactuado', () => {
+    expect(resolveRecurringDueDate('2026-08-22', '2026-10-16', visita).kind).toBe('repactuado');
+    expect(resolveRecurringDueDate('2026-08-25', '2026-10-16', visita).kind).toBe('mantido');
+  });
+
+  test('encurtar o prazo sempre vale', () => {
+    expect(resolveRecurringDueDate('2026-09-21', '2026-08-24', visita)).toEqual({
+      effective: '2026-08-24', kind: 'encurtado', expired: false,
+    });
+  });
+
+  test('escolher "sem prazo" não apaga data pactuada que ainda vale', () => {
+    expect(resolveRecurringDueDate('2026-09-21', undefined, visita).effective).toBe('2026-09-21');
+    // Já vencida, é repactuação de verdade: fica sem data porque foi escolha.
+    expect(resolveRecurringDueDate('2026-07-10', undefined, visita).effective).toBeUndefined();
+  });
+});
+
 describe('P360-010 - projeção do plano de ação', () => {
   test('data o prazo a partir da visita', () => {
     const [projected] = buildClientActionItems(
@@ -107,6 +147,28 @@ describe('P360-010 - projeção do plano de ação', () => {
     );
     expect(projected.title).toBe('Item acrescentado na visita');
     expect(projected.priority).toBe('recommended');
+  });
+
+  test('reincidência não reinicia o prazo já pactuado', () => {
+    // Item ganhou 60 dias na visita de 08/02 (vence 09/04) e reaparece na visita
+    // de 10/03, com "60 dias" outra vez: continua vencendo 09/04, não 09/05.
+    const [projected] = buildClientActionItems(
+      [response({ deadline: '60 dias' })],
+      [item()],
+      inspectionDate,
+      new Map([['item-1', '2026-04-09']]),
+    );
+    expect(projected.due_date).toBe('2026-04-09');
+  });
+
+  test('prazo vencido é repactuado a partir desta visita', () => {
+    const [projected] = buildClientActionItems(
+      [response({ deadline: '30 dias' })],
+      [item()],
+      inspectionDate,
+      new Map([['item-1', '2026-02-01']]),
+    );
+    expect(projected.due_date).toBe('2026-04-09');
   });
 
   test('leva situação, ação e responsável digitados', () => {

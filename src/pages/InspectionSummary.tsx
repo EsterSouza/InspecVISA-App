@@ -498,9 +498,21 @@ export function InspectionSummary() {
              // o cliente acompanha a pendência sem nunca tocar em `responses`. Republicar o
              // mesmo relatório é idempotente e item já resolvido não é sobrescrito.
              const { buildClientActionItems } = await import('../utils/clientActionPlan');
+             // Pendência reincidente não reinicia o prazo: a data já pactuada continua,
+             // exceto se venceu (ou está vencendo) ou se a nova é mais curta. A mesma
+             // regra está no `on conflict` da RPC — aqui é para o PDF e o portal
+             // publicarem a mesma data.
+             const pactuatedDeadlines = await AppointmentAdminService
+               .listOpenActionItemDeadlines(currentInspection.clientId)
+               .catch(() => new Map<string, string | null>());
              await AppointmentAdminService.publishActionItems(
                linkedRequest,
-               buildClientActionItems(nonCompliantResponses, allItemsList, currentInspection.inspectionDate)
+               buildClientActionItems(
+                 nonCompliantResponses,
+                 allItemsList,
+                 currentInspection.inspectionDate,
+                 pactuatedDeadlines,
+               )
              );
            } catch (scoreErr) {
              console.warn('[Summary] Falha ao gravar scores/plano de acao do portal automaticamente:', scoreErr);

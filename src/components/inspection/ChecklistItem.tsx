@@ -5,7 +5,12 @@ import { Badge } from '../ui/Badge';
 import { Label } from '../ui/Label';
 import { Select } from '../ui/Select';
 import { Textarea } from '../ui/Textarea';
-import { DEADLINE_OPTIONS, RESPONSIBLE_OPTIONS } from '../../utils/clientActionPlan';
+import {
+  DEADLINE_OPTIONS,
+  RESPONSIBLE_OPTIONS,
+  dueDateFor,
+  resolveRecurringDueDate,
+} from '../../utils/clientActionPlan';
 import { PhotoCapture } from './PhotoCapture';
 import { LinkCapture } from './LinkCapture';
 import type { ChecklistItem as ItemType, InspectionResponse, InspectionPhoto } from '../../types';
@@ -24,6 +29,13 @@ function isInlineImage(value?: string | null) {
   return /^data:image\/(jpeg|jpg|png|webp);base64,/i.test(value || '');
 }
 
+/** `2026-09-21` → `21/09/2026`, sem passar por `new Date` (que puxaria fuso). */
+function formatDay(key?: string | null): string {
+  if (!key) return '';
+  const [year, month, day] = key.split('-');
+  return `${day}/${month}/${year}`;
+}
+
 interface ChecklistItemProps {
   item: ItemType;
   response?: InspectionResponse;
@@ -32,6 +44,10 @@ interface ChecklistItemProps {
   clientEvidence?: ClientEvidenceForItem[];
   /** PORT-03 — a situação que o cliente declarou, inclusive "ainda não fiz" com o motivo. */
   clientDeclaration?: ClientDeclarationForItem;
+  /** Data desta visita: é dela que um prazo novo é contado. */
+  visitDate?: Date;
+  /** Prazo já pactuado e aberto no portal para este requisito (YYYY-MM-DD). */
+  pactuatedDueDate?: string | null;
   onChange: (itemId: string, result: InspectionResponse['result']) => void;
   onUpdateDetails: (itemId: string, details: Partial<InspectionResponse>) => void;
   /** Avisa a página que o painel de detalhes está aberto: com filtro ligado, o
@@ -176,6 +192,8 @@ export const ChecklistItem = memo(function ChecklistItem({
   previousNC,
   clientEvidence,
   clientDeclaration,
+  visitDate,
+  pactuatedDueDate,
   onChange,
   onUpdateDetails,
   onDetailsToggle,
@@ -243,6 +261,14 @@ export const ChecklistItem = memo(function ChecklistItem({
 
   const isSelected = !!response?.result;
   const isNotCompliant = response?.result === 'not_complies';
+
+  // Prazo de pendência reincidente: a data combinada na primeira vez continua
+  // valendo. Ela volta a ser negociável quando vence (ou está perto), e encurtar
+  // sempre vale. Só faz sentido em NC, e só quando há prazo aberto no portal.
+  const baseVisitDate = visitDate ?? new Date();
+  const prazo = isNotCompliant && pactuatedDueDate
+    ? resolveRecurringDueDate(pactuatedDueDate, dueDateFor(deadlineValue, baseVisitDate), baseVisitDate)
+    : null;
   const hasError = isNotCompliant && (!response?.situationDescription || !response?.correctiveAction);
 
   // Preenche só os campos ainda vazios com o texto da visita anterior — nunca
@@ -644,11 +670,27 @@ export const ChecklistItem = memo(function ChecklistItem({
                   <option value={deadlineValue}>{deadlineValue}</option>
                 )}
               </Select>
-              <p className="text-xs text-navy-3">
-                Vira data no plano de ação do cliente, contada a partir da visita.{' '}
-                <strong>Sem prazo definido</strong> é uma escolha legítima — a pendência aparece no
-                portal, mas nunca fica vencida.
-              </p>
+              {prazo ? (
+                <p className={cn('text-xs', prazo.expired ? 'text-amber-soft-ink' : 'text-navy-3')}>
+                  {prazo.kind === 'mantido' && (
+                    <>Prazo em vigor no portal: vence <strong>{formatDay(pactuatedDueDate)}</strong>.
+                    {' '}A reincidência não reinicia a contagem; escolher aqui só encurta.</>
+                  )}
+                  {prazo.kind === 'encurtado' && (
+                    <>Vencia {formatDay(pactuatedDueDate)}. Sua escolha encurta para{' '}
+                    <strong>{formatDay(prazo.effective)}</strong>.</>
+                  )}
+                  {prazo.kind === 'repactuado' && (
+                    <>
+                      Prazo em vigor {prazo.expired ? 'venceu' : 'vence'} em{' '}
+                      {formatDay(pactuatedDueDate)}: o escolhido aqui passa a valer
+                      {prazo.effective ? <>, vencendo <strong>{formatDay(prazo.effective)}</strong></> : ' sem data'}.
+                    </>
+                  )}
+                </p>
+              ) : (
+                <p className="text-xs text-navy-3">Contado a partir da data da visita.</p>
+              )}
             </div>
           </div>
 
