@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ChevronRight, CloudOff, CheckCircle2, Eye, EyeOff, Loader2, PlusCircle, WifiOff, X, RefreshCw } from 'lucide-react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, ChevronRight, CloudOff, CheckCircle2, Eye, EyeOff, Loader2, PlusCircle, RefreshCw } from 'lucide-react';
 import { db } from '../db/database';
 import { getTemplateById, getEffectiveTemplate } from '../data/templates';
 import { type ChecklistTemplate, type Inspection, type InspectionResponse, type InspectionPhoto } from '../types';
@@ -37,14 +37,13 @@ import {
 
 
 import { Button } from '../components/ui/Button';
-import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { SectionAccordion } from '../components/inspection/SectionAccordion';
 import { ChecklistItem } from '../components/inspection/ChecklistItem';
 import { ExecutionScorePanel, type MissingText } from '../components/inspection/ExecutionScorePanel';
 import { ExecutionSectionIndex } from '../components/inspection/ExecutionSectionIndex';
 import { TeamResponsesViewer } from '../components/inspection/TeamResponsesViewer';
-import { SignaturePad } from '../components/ui/SignaturePad';
+import { InspectionFinishScreen } from '../components/inspection/InspectionFinishScreen';
 import { Modal } from '../components/ui/Modal';
 import { Input } from '../components/ui/Input';
 import { Label } from '../components/ui/Label';
@@ -104,6 +103,10 @@ export function InspectionExecution() {
   const navigate = useNavigate();
   const state = location.state as { inspectionId: string; linkedScheduleId?: string };
   const linkedScheduleId = state?.linkedScheduleId;
+  // O encerramento é uma etapa com URL própria (`?etapa=encerrar`), não um modal:
+  // decisão irreversível merece a tela inteira, a rolagem inteira e o botão voltar.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const isFinishStep = searchParams.get('etapa') === 'encerrar';
   const {
     currentInspection,
     responses,
@@ -847,13 +850,13 @@ export function InspectionExecution() {
     state.setCurrentInspection({ ...state.currentInspection, [field]: value, lastEditedBy: actor.name, updatedAt: new Date() });
   }, []);
 
-  const [showSignatureModal, setShowSignatureModal] = useState(false);
-  const [signature, setSignature] = useState<string | null>(null);
-
+  // Decisão 31: a assinatura do acompanhante sai do encerramento. O campo
+  // `signatureDataUrl` continua no tipo e no banco — relatório antigo que já tem
+  // assinatura continua imprimindo a dele —, mas nada mais a exige aqui.
   const [isFinishing, setIsFinishing] = useState(false);
 
   const handleConfirmFinish = async () => {
-    if (!currentInspection || !signature) return;
+    if (!currentInspection) return;
     const ok = await confirm({ title: 'Encerrar inspeção?', confirmLabel: 'Encerrar inspeção', tone: 'default' });
     if (!ok) return;
     if (!navigator.onLine) {
@@ -892,14 +895,12 @@ export function InspectionExecution() {
         const pending = expectedConsultants.filter(name => !finalizedBy.some(f => f.name === name));
         await InspectionService.updateInspection(currentInspection.id, {
           finalizedBy,
-          signatureDataUrl: signature,
           lastEditedBy: actor.name,
           status: 'in_progress',
         });
         setCurrentInspection({
           ...currentInspection,
           finalizedBy,
-          signatureDataUrl: signature,
           lastEditedBy: actor.name,
           status: 'in_progress',
           updatedAt: new Date(),
@@ -912,7 +913,6 @@ export function InspectionExecution() {
           + 'sem as suas respostas.'
         );
         setIsFinishing(false);
-        setShowSignatureModal(false);
         return;
       }
 
@@ -922,7 +922,6 @@ export function InspectionExecution() {
       const draftInspection: Inspection = {
         ...currentInspection,
         status: 'in_progress',
-        signatureDataUrl: signature,
         finalizedBy,
         lastEditedBy: actor.name,
         reportTemplateSnapshot,
@@ -956,7 +955,6 @@ export function InspectionExecution() {
       const updates: Partial<Inspection> = {
         status: 'completed' as const,
         completedAt: new Date(),
-        signatureDataUrl: signature,
         finalizedBy,
         lastEditedBy: actor.name,
       };
@@ -1001,7 +999,6 @@ export function InspectionExecution() {
       );
     } finally {
       setIsFinishing(false);
-      setShowSignatureModal(false);
     }
   };
 
@@ -1060,6 +1057,37 @@ export function InspectionExecution() {
   const isCompleted = currentInspection.status === 'completed';
   const usingRecoveryTemplate = !template;
   const displayClientName = hideClientInfo ? 'Cliente oculto' : currentInspection.clientName;
+
+  // ─── ENCERRAR E ENTREGAR ──────────────────────────────────────────────────
+  if (isFinishStep && !isCompleted && effectiveTemplate) {
+    const voltarAoRoteiro = () => setSearchParams({}, { state: location.state });
+    return (
+      <>
+        <InspectionFinishScreen
+          inspection={currentInspection}
+          template={effectiveTemplate as ChecklistTemplate}
+          responses={responses}
+          missingText={missingText}
+          isIlpi={isIlpiInspection}
+          isFinishing={isFinishing}
+          accompanistName={currentInspection.accompanistName || ''}
+          accompanistRole={currentInspection.accompanistRole || ''}
+          onAccompanistChange={(field, value) => setCurrentInspection({
+            ...currentInspection,
+            [field]: value,
+            updatedAt: new Date(),
+          })}
+          onGoToItem={(itemId) => { voltarAoRoteiro(); goToItem(itemId); }}
+          onBack={voltarAoRoteiro}
+          onFinish={handleConfirmFinish}
+          // Nunca bloqueado: gerar o PDF para conferência não publica nada — o
+          // `shouldSyncFinalSnapshot` do relatório só dispara com a inspeção concluída.
+          onPdfOnly={() => navigate('/summary', { state: { inspectionId: currentInspection.id } })}
+        />
+        {confirmDialog}
+      </>
+    );
+  }
 
   const totalItems = filterCounts.todos;
   const answeredItems = totalItems - filterCounts['sem-resposta'];
@@ -1147,7 +1175,7 @@ export function InspectionExecution() {
               {hideClientInfo ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </Button>
             {!isCompleted && (
-              <Button onClick={() => setShowSignatureModal(true)}>
+              <Button onClick={() => setSearchParams({ etapa: 'encerrar' }, { state: location.state })}>
                 Encerrar e entregar
               </Button>
             )}
@@ -1514,27 +1542,6 @@ export function InspectionExecution() {
         </div>
       </Modal>
 
-      {showSignatureModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <Card className="w-full max-w-lg shadow-2xl rounded-3xl overflow-hidden animate-in zoom-in-95">
-            <div className="bg-primary-600 p-6 text-white flex justify-between">
-              <h3 className="font-bold text-lg">Assinatura de Encerramento</h3>
-              <button onClick={() => setShowSignatureModal(false)}><X className="h-6 w-6" /></button>
-            </div>
-            <CardContent className="p-6 space-y-6">
-              <div className="bg-primary-50 p-4 rounded-xl space-y-1">
-                <p className="text-xs text-primary-400 font-bold uppercase">Acompanhante</p>
-                <p className="text-primary-900 font-bold">{currentInspection.accompanistName || 'Não Informado'}</p>
-              </div>
-              <SignaturePad onSave={setSignature} onClear={() => setSignature(null)} />
-              <Button className="w-full h-12 bg-primary-600 font-bold text-lg" disabled={!signature || isFinishing} onClick={handleConfirmFinish}>
-                {isFinishing ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
-                {isFinishing ? 'FINALIZANDO...' : 'CONFIRMAR E FINALIZAR'}
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      )}
       {confirmDialog}
     </div>
   );

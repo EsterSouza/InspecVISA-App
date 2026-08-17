@@ -1590,11 +1590,18 @@ export async function generatePDF(
     size: 9, font: 'italic', color: mutedColor, lineH: 5, x: margin, width: contentW,
   }) + 15;
 
-  // Accomplice Signature
+  // Acompanhante. Decisão 31 do FE-23: a assinatura deixou de ser capturada no
+  // aparelho — o relatório é fechado em casa, quando não há mais ninguém para
+  // assinar. Relatório antigo que já tem a assinatura gravada continua
+  // imprimindo a dele; sem ela, sai uma linha em branco sobre o nome, para
+  // assinatura no papel se alguém pedir.
   if (inspection.signatureDataUrl) {
     try {
       doc.addImage(inspection.signatureDataUrl, 'PNG', margin, y - 15, 60, 15);
     } catch { /* skip */ }
+  } else {
+    doc.setDrawColor(200, 200, 200);
+    doc.line(margin, y - 4, margin + 80, y - 4);
   }
 
   doc.setTextColor(30, 30, 30);
