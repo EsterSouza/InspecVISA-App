@@ -17,8 +17,8 @@ export function MobileScoreBar({ template: propTemplate }: MobileScoreBarProps) 
 
   const score = calculateScore(responses, template.sections);
 
-  // Mesma classificação do `ScorePanel` — a barra do celular não pode discordar
-  // do painel do desktop. Tons da marca; faixa lima descontinuada (decisão 27).
+  // Mesma classificação do painel do desktop — a barra do celular não pode
+  // discordar dele. Tons da marca; faixa lima descontinuada (decisão 27).
   const TONS = {
     critical: { text: 'text-danger-soft-ink', bg: 'bg-danger-soft' },
     regular: { text: 'text-amber-soft-ink', bg: 'bg-amber-soft' },

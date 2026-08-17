@@ -15,8 +15,16 @@ import type { Inspection, InspectionResponse, ChecklistTemplate, ReferenceSource
 import { Button } from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { PageShell } from '../components/ui/PageShell';
+import { PageHeader } from '../components/ui/PageHeader';
+import { Input } from '../components/ui/Input';
+import { Label } from '../components/ui/Label';
+import { Select } from '../components/ui/Select';
 import { formatDateTime } from '../utils/imageUtils';
-import { ScorePanel } from '../components/inspection/ScorePanel';
+import { DeliveryReceipt } from '../components/inspection/DeliveryReceipt';
+import { ReportScoreCard } from '../components/inspection/ReportScoreCard';
+import { CorrectiveActionsTable } from '../components/inspection/CorrectiveActionsTable';
+import { hydrateAndGetPreviousVisitScore, type PreviousVisitScore } from '../utils/previousVisitScore';
+import { getRecurringItemIdsForClient } from '../utils/actionPlanContext';
 import { PdfPreviewModal } from '../components/inspection/PdfPreviewModal';
 import { checkReportReadiness, type ReadinessResult } from '../utils/syncCheck';
 import { InspectionIntegrityPanel } from '../components/inspection/InspectionIntegrityPanel';
@@ -61,6 +69,9 @@ export function InspectionSummary() {
   const [readiness, setReadiness] = useState<ReadinessResult | null>(null);
   const [photoHydration, setPhotoHydration] = useState<{ total: number; completed: number; failed: number } | null>(null);
   const [pdfPhotoProgress, setPdfPhotoProgress] = useState<{ total: number; completed: number; failed: number } | null>(null);
+  // Comparação final contra final e reincidência — decisões 29 e 26 do FE-23.
+  const [previousVisit, setPreviousVisit] = useState<PreviousVisitScore | null>(null);
+  const [recurringItemIds, setRecurringItemIds] = useState<Set<string>>(new Set());
 
   const attachPhotosToResponses = (baseResponses: InspectionResponse[], photos: any[]) => {
     return baseResponses.map(response => ({
@@ -250,6 +261,23 @@ export function InspectionSummary() {
     }
   }, [currentInspection, responses]);
 
+  // Nota da visita anterior e reincidências: alimentam a comparação final contra
+  // final e a coluna de reincidência da tabela de ações corretivas.
+  const inspectionId = currentInspection?.id;
+  const inspectionClientId = currentInspection?.clientId;
+  const inspectionTemplateId = currentInspection?.templateId;
+  useEffect(() => {
+    if (!inspectionId || !inspectionClientId || !inspectionTemplateId) return;
+    let active = true;
+    void hydrateAndGetPreviousVisitScore(inspectionClientId, inspectionId, inspectionTemplateId)
+      .then((result) => { if (active) setPreviousVisit(result); })
+      .catch((err) => console.warn('[Summary] Nota da visita anterior indisponivel:', err));
+    void getRecurringItemIdsForClient(inspectionClientId, inspectionId)
+      .then((ids) => { if (active) setRecurringItemIds(ids); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [inspectionId, inspectionClientId, inspectionTemplateId]);
+
   const handleSaveMetadata = async () => {
     if (!currentInspection) return;
     setSavingMeta(true);
@@ -374,7 +402,6 @@ export function InspectionSummary() {
        const shouldSyncFinalSnapshot = currentInspection.status === 'completed' && currentReadiness.isReady && navigator.onLine;
        await new Promise(resolve => setTimeout(resolve, 100));
        const { generatePDF } = await import('../utils/pdfGenerator');
-       const { getRecurringItemIdsForClient } = await import('../utils/actionPlanContext');
        const recurringItemIds = await getRecurringItemIdsForClient(currentInspection.clientId, currentInspection.id)
          .catch(() => new Set<string>());
        // Evidência confirmada pela consultora precisa ser recarregada como aprovada antes
@@ -673,32 +700,31 @@ export function InspectionSummary() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-500 uppercase">Cliente</label>
-                  <select 
+                <div>
+                  <Label htmlFor="clientId" className="mb-1.5">Cliente</Label>
+                  <Select
                     id="clientId"
                     name="clientId"
+                    className="h-11"
                     value={currentInspection.clientId}
                     onChange={(e) => setInspection({...currentInspection, clientId: e.target.value})}
-                    className="w-full border-gray-300 rounded-lg text-sm shadow-sm focus:ring-primary-500 focus:border-primary-500"
                   >
                     {allClients.map((c, index) => (
                       <option key={c.id} value={c.id}>
                         {hideClientInfo ? (c.id === currentInspection.clientId ? 'Cliente atual' : `Cliente ${index + 1}`) : c.name}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-gray-500 uppercase">Acompanhante</label>
-                  <input 
-                    type="text" 
+                <div>
+                  <Label htmlFor="accompanistName" className="mb-1.5">Acompanhante</Label>
+                  <Input
                     id="accompanistName"
                     name="accompanistName"
+                    className="h-11"
                     value={currentInspection.accompanistName || ''}
                     onChange={(e) => setInspection({...currentInspection, accompanistName: e.target.value})}
-                    className="w-full border-gray-300 rounded-lg text-sm shadow-sm focus:ring-primary-500 focus:border-primary-500"
-                    placeholder="Nome do acompanhante..."
+                    placeholder="Nome de quem recebeu a visita"
                   />
                 </div>
               </div>
@@ -707,116 +733,125 @@ export function InspectionSummary() {
                 <div className="pt-4 border-t border-primary-100 space-y-3">
                   <p className="text-[10px] font-bold text-primary-700 uppercase">Dados Tecnicos ILPI</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-gray-500 font-semibold uppercase">Capacidade</label>
-                      <input
-                        type="number"
-                        id="ilpiCapacity"
-                        name="ilpiCapacity"
-                        value={currentInspection.ilpiCapacity || 0}
-                        onChange={(e) => setInspection({...currentInspection, ilpiCapacity: parseInt(e.target.value) || 0})}
-                        className="w-full border-gray-300 rounded-lg text-sm shadow-sm"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-gray-500 font-semibold uppercase">Numero de Residentes</label>
-                      <input
-                        type="number"
-                        id="residentsTotal"
-                        name="residentsTotal"
-                        value={currentInspection.residentsTotal || 0}
-                        onChange={(e) => setInspection({...currentInspection, residentsTotal: parseInt(e.target.value) || 0})}
-                        className="w-full border-gray-300 rounded-lg text-sm shadow-sm"
-                      />
-                    </div>
+                    <div>
+                        <Label htmlFor="ilpiCapacity" className="mb-1.5">Capacidade</Label>
+                        <Input
+                          type="number"
+                          inputMode="numeric"
+                          id="ilpiCapacity"
+                          name="ilpiCapacity"
+                          className="h-11"
+                          value={currentInspection.ilpiCapacity || 0}
+                          onChange={(e) => setInspection({...currentInspection, ilpiCapacity: parseInt(e.target.value) || 0})}
+                        />
+                      </div>
+                    <div>
+                        <Label htmlFor="residentsTotal" className="mb-1.5">Número de residentes</Label>
+                        <Input
+                          type="number"
+                          inputMode="numeric"
+                          id="residentsTotal"
+                          name="residentsTotal"
+                          className="h-11"
+                          value={currentInspection.residentsTotal || 0}
+                          onChange={(e) => setInspection({...currentInspection, residentsTotal: parseInt(e.target.value) || 0})}
+                        />
+                      </div>
                   </div>
                   <p className="text-[10px] font-bold text-primary-700 uppercase">Residentes por Grau de Dependência</p>
                   <div className="grid grid-cols-3 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-gray-500 font-semibold uppercase">Grau I</label>
-                      <input 
-                        type="number" 
-                        id="dependencyLevel1"
-                        name="dependencyLevel1"
-                        value={currentInspection.dependencyLevel1 || 0}
-                        onChange={(e) => setInspection({...currentInspection, dependencyLevel1: parseInt(e.target.value) || 0})}
-                        className="w-full border-gray-300 rounded-lg text-sm shadow-sm"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-gray-500 font-semibold uppercase">Grau II</label>
-                      <input 
-                        type="number" 
-                        id="dependencyLevel2"
-                        name="dependencyLevel2"
-                        value={currentInspection.dependencyLevel2 || 0}
-                        onChange={(e) => setInspection({...currentInspection, dependencyLevel2: parseInt(e.target.value) || 0})}
-                        className="w-full border-gray-300 rounded-lg text-sm shadow-sm"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-gray-500 font-semibold uppercase">Grau III</label>
-                      <input 
-                        type="number" 
-                        id="dependencyLevel3"
-                        name="dependencyLevel3"
-                        value={currentInspection.dependencyLevel3 || 0}
-                        onChange={(e) => setInspection({...currentInspection, dependencyLevel3: parseInt(e.target.value) || 0})}
-                        className="w-full border-gray-300 rounded-lg text-sm shadow-sm"
-                      />
-                    </div>
+                    <div>
+                        <Label htmlFor="dependencyLevel1" className="mb-1.5">Grau I</Label>
+                        <Input
+                          type="number"
+                          inputMode="numeric"
+                          id="dependencyLevel1"
+                          name="dependencyLevel1"
+                          className="h-11"
+                          value={currentInspection.dependencyLevel1 || 0}
+                          onChange={(e) => setInspection({...currentInspection, dependencyLevel1: parseInt(e.target.value) || 0})}
+                        />
+                      </div>
+                    <div>
+                        <Label htmlFor="dependencyLevel2" className="mb-1.5">Grau II</Label>
+                        <Input
+                          type="number"
+                          inputMode="numeric"
+                          id="dependencyLevel2"
+                          name="dependencyLevel2"
+                          className="h-11"
+                          value={currentInspection.dependencyLevel2 || 0}
+                          onChange={(e) => setInspection({...currentInspection, dependencyLevel2: parseInt(e.target.value) || 0})}
+                        />
+                      </div>
+                    <div>
+                        <Label htmlFor="dependencyLevel3" className="mb-1.5">Grau III</Label>
+                        <Input
+                          type="number"
+                          inputMode="numeric"
+                          id="dependencyLevel3"
+                          name="dependencyLevel3"
+                          className="h-11"
+                          value={currentInspection.dependencyLevel3 || 0}
+                          onChange={(e) => setInspection({...currentInspection, dependencyLevel3: parseInt(e.target.value) || 0})}
+                        />
+                      </div>
                   </div>
                   <p className="text-[10px] font-bold text-primary-700 uppercase">Equipe em Turno</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-gray-500 font-semibold uppercase">Cuidadores em turno</label>
-                      <input
-                        type="number"
-                        id="observedStaff"
-                        name="observedStaff"
-                        value={currentInspection.observedStaff || 0}
-                        onChange={(e) => setInspection({...currentInspection, observedStaff: parseInt(e.target.value) || 0})}
-                        className="w-full border-gray-300 rounded-lg text-sm shadow-sm"
-                      />
-                    </div>
-                    {isRioState(currentInspection.state) && (
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-gray-500 font-semibold uppercase">Tecnicos de Enfermagem</label>
-                        <input
+                    <div>
+                        <Label htmlFor="observedStaff" className="mb-1.5">Cuidadores em turno</Label>
+                        <Input
                           type="number"
+                          inputMode="numeric"
+                          id="observedStaff"
+                          name="observedStaff"
+                          className="h-11"
+                          value={currentInspection.observedStaff || 0}
+                          onChange={(e) => setInspection({...currentInspection, observedStaff: parseInt(e.target.value) || 0})}
+                        />
+                      </div>
+                    {isRioState(currentInspection.state) && (
+                      <div>
+                        <Label htmlFor="observedNursingTechs" className="mb-1.5">Técnicos de enfermagem</Label>
+                        <Input
+                          type="number"
+                          inputMode="numeric"
                           id="observedNursingTechs"
                           name="observedNursingTechs"
+                          className="h-11"
                           value={currentInspection.observedNursingTechs || 0}
                           onChange={(e) => setInspection({...currentInspection, observedNursingTechs: parseInt(e.target.value) || 0})}
-                          className="w-full border-gray-300 rounded-lg text-sm shadow-sm"
                         />
                       </div>
                     )}
                   </div>
                   <p className="text-[10px] font-bold text-primary-700 uppercase">Limpeza</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-gray-500 font-semibold uppercase">Area util aproximada (m2)</label>
-                      <input
-                        type="number"
-                        id="usableAreaM2"
-                        name="usableAreaM2"
-                        value={currentInspection.usableAreaM2 || 0}
-                        onChange={(e) => setInspection({...currentInspection, usableAreaM2: parseInt(e.target.value) || 0})}
-                        className="w-full border-gray-300 rounded-lg text-sm shadow-sm"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-gray-500 font-semibold uppercase">Profissionais de limpeza observados</label>
-                      <input
-                        type="number"
-                        id="observedCleaningStaff"
-                        name="observedCleaningStaff"
-                        value={currentInspection.observedCleaningStaff || 0}
-                        onChange={(e) => setInspection({...currentInspection, observedCleaningStaff: parseInt(e.target.value) || 0})}
-                        className="w-full border-gray-300 rounded-lg text-sm shadow-sm"
-                      />
-                    </div>
+                    <div>
+                        <Label htmlFor="usableAreaM2" className="mb-1.5">Área útil aproximada (m²)</Label>
+                        <Input
+                          type="number"
+                          inputMode="numeric"
+                          id="usableAreaM2"
+                          name="usableAreaM2"
+                          className="h-11"
+                          value={currentInspection.usableAreaM2 || 0}
+                          onChange={(e) => setInspection({...currentInspection, usableAreaM2: parseInt(e.target.value) || 0})}
+                        />
+                      </div>
+                    <div>
+                        <Label htmlFor="observedCleaningStaff" className="mb-1.5">Profissionais de limpeza observados</Label>
+                        <Input
+                          type="number"
+                          inputMode="numeric"
+                          id="observedCleaningStaff"
+                          name="observedCleaningStaff"
+                          className="h-11"
+                          value={currentInspection.observedCleaningStaff || 0}
+                          onChange={(e) => setInspection({...currentInspection, observedCleaningStaff: parseInt(e.target.value) || 0})}
+                        />
+                      </div>
                   </div>
                 </div>
               )}
@@ -868,87 +903,47 @@ export function InspectionSummary() {
           </div>
         )}
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mt-6">
-          <div className="p-8 sm:p-12 text-center border-b border-gray-100 pb-8">
-            <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">{displayClientName}</h1>
-            <p className="mt-2 text-gray-500 font-medium">{displayTemplate?.name}</p>
-            <p className="text-sm text-gray-400 mt-1">Concluída em {formatDateTime(currentInspection.completedAt || new Date())}</p>
-          </div>
-          
-          <div className="p-6 sm:p-8 bg-gray-50 space-y-8">
-            <ScorePanel inspection={currentInspection} responses={reportResponses} template={displayTemplate} />
+        <PageHeader
+          className="mt-6"
+          title={displayClientName}
+          description={
+            <>
+              {displayTemplate?.name}
+              {isInspectionCompleted && ` · concluída em ${formatDateTime(currentInspection.completedAt || new Date())}`}
+              {currentInspection.consultantNames?.length ? ` · ${currentInspection.consultantNames.join(' e ')}` : ''}
+            </>
+          }
+        />
 
-            {/* List of Non-Conformities */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-red-500" />
-                Ações Corretivas Necessárias ({nonCompliantResponses.length})
-              </h3>
-              
-              <div className="space-y-3">
-                {nonCompliantResponses
-                  .map((nc) => {
-                    const it = displayTemplate?.sections.flatMap(s => s.items).find(i => i.id === nc.itemId);
-                    return (
-                      <div key={nc.id} className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm space-y-2">
-                        <div className="flex justify-between items-start gap-3">
-                          <p className="text-sm font-bold text-gray-800">
-                            {it?.description || nc.customDescription || 'Item sem descrição'}
-                          </p>
-                          {it?.isCritical && (
-                            <span className="shrink-0 bg-red-100 text-red-700 text-[9px] font-black px-2 py-0.5 rounded-full uppercase">Crítico</span>
-                          )}
-                        </div>
-                        
-                        {(nc.situationDescription || nc.correctiveAction) ? (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-gray-50">
-                            {nc.situationDescription && (
-                              <div className="space-y-0.5">
-                                <p className="text-[9px] font-bold text-gray-400 uppercase">Situação</p>
-                                <p className="text-xs text-gray-600 italic leading-relaxed">{nc.situationDescription}</p>
-                              </div>
-                            )}
-                            {nc.correctiveAction && (
-                              <div className="space-y-0.5">
-                                <p className="text-[9px] font-bold text-gray-400 uppercase">Ação Recomenda</p>
-                                <p className="text-xs text-gray-700 font-medium leading-relaxed">{nc.correctiveAction}</p>
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <p className="text-[10px] text-gray-400 italic">Nenhuma descrição ou ação preenchida localmente.</p>
-                        )}
-
-                        <div className="flex items-center justify-between pt-2">
-                          <div className="flex gap-4">
-                            <div className="flex flex-col">
-                              <span className="text-[8px] font-bold text-gray-400 uppercase">Prazo</span>
-                              <span className="text-[10px] font-bold text-gray-700">{nc.deadline || 'A definir'}</span>
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-[8px] font-bold text-gray-400 uppercase">Responsável</span>
-                              <span className="text-[10px] font-bold text-gray-700">{nc.responsible || 'RT / Gestor'}</span>
-                            </div>
-                          </div>
-                          {nc.photos && nc.photos.length > 0 && (
-                            <div className="bg-blue-50 text-blue-600 text-[9px] font-bold px-2 py-1 rounded-md flex items-center gap-1">
-                              {nc.photos.length} {nc.photos.length === 1 ? 'foto' : 'fotos'}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                
-                {nonCompliantResponses.length === 0 && (
-                  <div className="py-12 text-center bg-white rounded-xl border border-dashed border-gray-200">
-                    <p className="text-gray-400 text-sm">Nenhuma não conformidade registrada.</p>
-                  </div>
-                )}
+        {/* Recibo de entrega ao lado do resultado: o que chegou ao portal e o que
+            não chegou fica escrito, permanentemente (decisões 26 e 32). */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+          {isInspectionCompleted
+            ? <DeliveryReceipt inspection={currentInspection} />
+            : (
+              <div className="rounded-md border border-amber-soft-border bg-amber-soft p-4 text-sm text-amber-soft-ink">
+                <strong>Esta inspeção ainda está em andamento.</strong>
+                <p className="mt-1">
+                  Nada foi publicado no portal. Volte ao roteiro e use <strong>Encerrar e entregar</strong>{' '}
+                  quando o relatório estiver pronto.
+                </p>
               </div>
-            </div>
-          </div>
+            )}
+          <ReportScoreCard
+            template={displayTemplate}
+            responses={reportResponses}
+            previousVisit={previousVisit}
+            isIlpi={displayTemplate.category === 'ilpi'}
+            recurringCount={nonCompliantResponses.filter(r => recurringItemIds.has(r.itemId)).length}
+          />
         </div>
+
+        <CorrectiveActionsTable
+          responses={nonCompliantResponses}
+          template={displayTemplate}
+          recurringItemIds={recurringItemIds}
+        />
+
       </PageShell>
 
       <div className="pb-10"></div>
