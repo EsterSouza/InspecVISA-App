@@ -39,7 +39,7 @@ const statusTheme: Record<ServiceRequestStatus, string> = {
   in_progress: 'bg-indigo-100 text-indigo-800',
   awaiting_client: 'bg-amber-100 text-amber-900',
   resolved: 'bg-emerald-100 text-emerald-800',
-  cancelled: 'bg-gray-100 text-gray-600',
+  cancelled: 'bg-surface-sunken text-navy-2',
 };
 
 export type CreateServiceRequestHandler = (input: CreateServiceRequestInput) => Promise<{
@@ -143,17 +143,17 @@ function NewRequestForm({
   const selectedCategory = SERVICE_REQUEST_CATEGORIES.find((item) => item.value === category);
 
   return (
-    <form onSubmit={handleSubmit} className="mt-3 space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+    <form onSubmit={handleSubmit} className="mt-3 space-y-3 rounded-lg border border-default bg-surface-sunken p-3">
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1">
-          <label htmlFor="service-request-unit" className="text-xs font-semibold text-gray-700">
+          <label htmlFor="service-request-unit" className="text-xs font-semibold text-navy-2">
             Unidade *
           </label>
           <select
             id="service-request-unit"
             value={clientId}
             onChange={(e) => setClientId(e.target.value)}
-            className="w-full rounded-md border border-gray-200 bg-white p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+            className="w-full rounded-md border border-control bg-surface p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
           >
             <option value="">Selecione</option>
             {units.map((unit) => (
@@ -165,14 +165,14 @@ function NewRequestForm({
         </div>
 
         <div className="space-y-1">
-          <label htmlFor="service-request-category" className="text-xs font-semibold text-gray-700">
+          <label htmlFor="service-request-category" className="text-xs font-semibold text-navy-2">
             Categoria *
           </label>
           <select
             id="service-request-category"
             value={category}
             onChange={(e) => setCategory(e.target.value as ServiceRequestCategory)}
-            className="w-full rounded-md border border-gray-200 bg-white p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+            className="w-full rounded-md border border-control bg-surface p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
           >
             <option value="">Selecione</option>
             {SERVICE_REQUEST_CATEGORIES.map((item) => (
@@ -181,12 +181,12 @@ function NewRequestForm({
               </option>
             ))}
           </select>
-          {selectedCategory && <p className="text-[11px] text-gray-500">{selectedCategory.hint}</p>}
+          {selectedCategory && <p className="text-[11px] text-navy-3">{selectedCategory.hint}</p>}
         </div>
       </div>
 
       <div className="space-y-1">
-        <label htmlFor="service-request-subject" className="text-xs font-semibold text-gray-700">
+        <label htmlFor="service-request-subject" className="text-xs font-semibold text-navy-2">
           Assunto *
         </label>
         <input
@@ -196,12 +196,12 @@ function NewRequestForm({
           onChange={(e) => setSubject(e.target.value)}
           maxLength={160}
           placeholder="Ex.: renovação do alvará sanitário"
-          className="w-full rounded-md border border-gray-200 p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+          className="w-full rounded-md border border-control p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
         />
       </div>
 
       <div className="space-y-1">
-        <label htmlFor="service-request-description" className="text-xs font-semibold text-gray-700">
+        <label htmlFor="service-request-description" className="text-xs font-semibold text-navy-2">
           O que você precisa *
         </label>
         <textarea
@@ -211,7 +211,7 @@ function NewRequestForm({
           rows={4}
           maxLength={4000}
           placeholder="Conte o contexto: o que aconteceu, o que já tentaram e qual é a dúvida ou o pedido."
-          className="w-full rounded-md border border-gray-200 p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+          className="w-full rounded-md border border-control p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
         />
       </div>
 
@@ -224,8 +224,8 @@ function NewRequestForm({
         data-testid="service-request-file"
       />
       {file ? (
-        <p className="flex flex-wrap items-center gap-1.5 text-xs text-gray-700">
-          <Paperclip className="h-3.5 w-3.5 text-gray-400" />
+        <p className="flex flex-wrap items-center gap-1.5 text-xs text-navy-2">
+          <Paperclip className="h-3.5 w-3.5 text-navy-3" />
           <span className="font-medium">{file.name}</span>
           <button
             type="button"
@@ -233,7 +233,7 @@ function NewRequestForm({
               setFile(null);
               if (fileRef.current) fileRef.current.value = '';
             }}
-            className="text-[11px] font-semibold text-gray-500 hover:text-gray-800"
+            className="text-[11px] font-semibold text-navy-3 hover:text-navy"
           >
             remover
           </button>
@@ -243,11 +243,11 @@ function NewRequestForm({
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
-            className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-100"
+            className="inline-flex items-center gap-1.5 rounded-md border border-default bg-surface px-2.5 py-1.5 text-xs font-semibold text-navy-2 hover:bg-surface-active"
           >
             <Paperclip className="h-3.5 w-3.5" /> Anexar arquivo (opcional)
           </button>
-          <span className="text-[11px] text-gray-500">{EVIDENCE_LIMITS_LABEL}</span>
+          <span className="text-[11px] text-navy-3">{EVIDENCE_LIMITS_LABEL}</span>
         </div>
       )}
 
@@ -259,7 +259,7 @@ function NewRequestForm({
           maxLength={120}
           placeholder="Seu nome (opcional)"
           aria-label="Seu nome"
-          className="w-full rounded-md border border-gray-200 p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+          className="w-full rounded-md border border-control p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
         />
         <input
           type="text"
@@ -268,7 +268,7 @@ function NewRequestForm({
           maxLength={120}
           placeholder="Sua função (opcional)"
           aria-label="Sua função"
-          className="w-full rounded-md border border-gray-200 p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+          className="w-full rounded-md border border-control p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
         />
       </div>
 
@@ -282,7 +282,7 @@ function NewRequestForm({
         {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
         Registrar solicitação
       </button>
-      <p className="text-[11px] text-gray-500">
+      <p className="text-[11px] text-navy-3">
         A consultoria acompanha por aqui e responde nesta mesma solicitação. Este canal não é
         atendimento imediato — para urgência sanitária, ligue para a equipe.
       </p>
@@ -339,7 +339,7 @@ function ReplyForm({
         maxLength={2000}
         placeholder="Responda o que a consultoria pediu"
         aria-label="Sua resposta"
-        className="w-full rounded-md border border-gray-200 p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+        className="w-full rounded-md border border-control p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
       />
       <div className="mt-2 grid gap-2 sm:grid-cols-2">
         <input
@@ -349,7 +349,7 @@ function ReplyForm({
           maxLength={120}
           placeholder="Seu nome (opcional)"
           aria-label="Seu nome na resposta"
-          className="w-full rounded-md border border-gray-200 p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+          className="w-full rounded-md border border-control p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
         />
         <input
           type="text"
@@ -358,7 +358,7 @@ function ReplyForm({
           maxLength={120}
           placeholder="Sua função (opcional)"
           aria-label="Sua função na resposta"
-          className="w-full rounded-md border border-gray-200 p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+          className="w-full rounded-md border border-control p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
         />
       </div>
       {error && <p className="mt-2 text-[11px] font-medium text-red-700">{error}</p>}
@@ -396,26 +396,26 @@ function RequestCard({
   return (
     <li
       className={`rounded-lg border px-3 py-2.5 ${
-        waitingClient ? 'border-amber-200 bg-amber-50' : 'border-gray-100 bg-white'
+        waitingClient ? 'border-amber-200 bg-amber-50' : 'border-default bg-surface'
       }`}
     >
       <div className="flex flex-wrap items-center gap-2">
-        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-600">
+        <span className="rounded-full bg-surface-sunken px-2 py-0.5 text-[10px] font-bold text-navy-2">
           Nº {request.request_number}
         </span>
         <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${statusTheme[request.status]}`}>
           {SERVICE_REQUEST_CLIENT_STATUS_LABELS[request.status]}
         </span>
-        <span className="text-[11px] text-gray-500">
+        <span className="text-[11px] text-navy-3">
           {SERVICE_REQUEST_CATEGORY_LABELS[request.category]}
         </span>
-        {showUnitName && <span className="text-[11px] text-gray-500">· {request.unit_name}</span>}
+        {showUnitName && <span className="text-[11px] text-navy-3">· {request.unit_name}</span>}
       </div>
 
-      <p className="mt-1.5 text-sm font-semibold text-gray-900">{request.subject}</p>
-      <p className="mt-1 whitespace-pre-wrap text-xs text-gray-600">{request.description}</p>
+      <p className="mt-1.5 text-sm font-semibold text-navy">{request.subject}</p>
+      <p className="mt-1 whitespace-pre-wrap text-xs text-navy-2">{request.description}</p>
 
-      <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-gray-500">
+      <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-navy-3">
         <span>Aberta em {formatDateBR(request.created_at)}</span>
         <span>· Última atualização em {formatDateBR(request.last_event_at)}</span>
         {request.assigned_to && (
@@ -435,7 +435,7 @@ function RequestCard({
         não estima, não diz "em breve" e não promete nada — é o ponto do card.
       */}
       {request.sla_hint_date && !closed && (
-        <p className="mt-1 flex items-center gap-1 text-[11px] text-gray-500">
+        <p className="mt-1 flex items-center gap-1 text-[11px] text-navy-3">
           <Clock3 className="h-3 w-3" />
           Retorno previsto até {formatDateBR(request.sla_hint_date)} · prazo informativo
         </p>
@@ -443,16 +443,16 @@ function RequestCard({
 
       {request.events.length > 1 && (
         <details className="mt-2">
-          <summary className="cursor-pointer text-[11px] font-semibold text-gray-500 hover:text-gray-700">
+          <summary className="cursor-pointer text-[11px] font-semibold text-navy-3 hover:text-navy-2">
             Histórico · {request.events.length} registro(s)
           </summary>
-          <ul className="mt-1.5 space-y-1.5 border-l border-gray-200 pl-2.5">
+          <ul className="mt-1.5 space-y-1.5 border-l border-default pl-2.5">
             {request.events.map((event) => (
-              <li key={event.id} className="text-[11px] text-gray-600">
-                <span className="font-semibold text-gray-700">
+              <li key={event.id} className="text-[11px] text-navy-2">
+                <span className="font-semibold text-navy-2">
                   {event.actor_kind === 'client' ? 'Você' : event.actor_name || 'Consultoria'}
                 </span>
-                <span className="text-gray-500"> · {formatDateBR(event.created_at)}</span>
+                <span className="text-navy-3"> · {formatDateBR(event.created_at)}</span>
                 {event.note && <p className="whitespace-pre-wrap">{event.note}</p>}
               </li>
             ))}
@@ -496,7 +496,7 @@ export function PortalServiceRequests({
   };
 
   if (loading) {
-    return <section className="mb-6 h-28 animate-pulse rounded-xl border border-gray-200 bg-gray-50" aria-hidden="true" />;
+    return <section className="mb-6 h-28 animate-pulse rounded-xl border border-default bg-surface-sunken" aria-hidden="true" />;
   }
 
   if (error) {
@@ -510,7 +510,7 @@ export function PortalServiceRequests({
           <button
             type="button"
             onClick={onRetry}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-800 hover:bg-amber-100"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-amber-300 bg-surface px-3 text-sm font-semibold text-amber-800 hover:bg-amber-100"
           >
             <RefreshCw className="h-4 w-4" /> Tentar novamente
           </button>
@@ -528,16 +528,16 @@ export function PortalServiceRequests({
     <section
       id="portal-service-requests"
       aria-labelledby="portal-service-requests-title"
-      className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+      className="mb-6 rounded-xl border border-default bg-surface p-4 shadow-sm"
     >
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h3
           id="portal-service-requests-title"
-          className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-gray-700"
+          className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-navy-2"
         >
           <Headset className="h-4 w-4 text-primary-700" /> Solicitações
         </h3>
-        <span className="text-xs font-medium text-gray-500">
+        <span className="text-xs font-medium text-navy-3">
           {open.length} em andamento
           {waitingClient > 0 && (
             <span className="ml-1 font-bold text-amber-700">· {waitingClient} aguardando você</span>
@@ -584,7 +584,7 @@ export function PortalServiceRequests({
       )}
 
       {requests.length === 0 ? (
-        <p className="mt-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-3 text-xs text-gray-600">
+        <p className="mt-3 rounded-lg border border-dashed border-default bg-surface-sunken p-3 text-xs text-navy-2">
           Você ainda não abriu nenhuma solicitação. Use este canal para pedir apoio da consultoria
           em documentação, licenciamento, obra, treinamento ou dúvida de rotina — cada pedido
           ganha um número e você acompanha o andamento por aqui.
@@ -606,7 +606,7 @@ export function PortalServiceRequests({
 
       {closed.length > 0 && (
         <details className="mt-3">
-          <summary className="cursor-pointer text-xs font-semibold text-gray-500 hover:text-gray-700">
+          <summary className="cursor-pointer text-xs font-semibold text-navy-3 hover:text-navy-2">
             Encerradas · {closed.length} solicitação(ões)
           </summary>
           <ul className="mt-2 space-y-2">

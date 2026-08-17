@@ -31,7 +31,7 @@ function MoreDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
           return (
             <div key={group.label ?? `group-${groupIndex}`}>
               {group.label && (
-                <p className="mb-1 px-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                <p className="mb-1 px-1 text-[10px] font-bold uppercase tracking-widest text-navy-3">
                   {group.label}
                 </p>
               )}
@@ -45,7 +45,7 @@ function MoreDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
                       onClick={onClose}
                       className={({ isActive }) =>
                         `flex h-11 w-full items-center gap-3 rounded-md px-3 text-sm font-semibold transition-colors ${
-                          isActive ? 'bg-primary-50 text-primary-800' : 'text-gray-600 hover:bg-gray-50'
+                          isActive ? 'bg-primary-50 text-primary-800' : 'text-navy-2 hover:bg-surface-hover'
                         }`
                       }
                     >
@@ -71,7 +71,7 @@ export function BottomNav() {
 
   return (
     <>
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white pb-safe lg:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-default bg-surface pb-safe lg:hidden">
         <div className="flex justify-center -mt-4 mb-2 pointer-events-none">
           <div className="pointer-events-auto scale-90 origin-bottom">
             <SyncIndicator />
@@ -86,7 +86,7 @@ export function BottomNav() {
                 to={item.to}
                 className={({ isActive }) =>
                   `flex flex-col items-center justify-center space-y-1 p-2 ${
-                    isActive ? 'text-primary-600' : 'text-gray-500 hover:text-gray-900'
+                    isActive ? 'text-primary-600' : 'text-navy-3 hover:text-navy'
                   }`
                 }
               >
@@ -117,7 +117,7 @@ export function BottomNav() {
             <button
               type="button"
               onClick={() => setMoreOpen(true)}
-              className="flex flex-col items-center justify-center space-y-1 p-2 text-gray-500 hover:text-gray-900"
+              className="flex flex-col items-center justify-center space-y-1 p-2 text-navy-3 hover:text-navy"
               aria-haspopup="dialog"
               aria-expanded={moreOpen}
             >

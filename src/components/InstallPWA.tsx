@@ -82,11 +82,11 @@ export function InstallPWA() {
 
   return (
     <div className="fixed inset-x-0 bottom-20 z-40 px-3 sm:bottom-4 sm:left-auto sm:right-4 sm:max-w-sm">
-      <div className="relative rounded-xl border border-primary-100 bg-white p-4 shadow-lg">
+      <div className="relative rounded-xl border border-primary-100 bg-surface p-4 shadow-lg">
         <button
           type="button"
           onClick={dismiss}
-          className="absolute right-2 top-2 rounded-md p-1 text-gray-400 hover:bg-gray-100"
+          className="absolute right-2 top-2 rounded-md p-1 text-navy-3 hover:bg-surface-active"
           aria-label="Fechar aviso de instalação"
         >
           <X className="h-4 w-4" />
@@ -95,13 +95,13 @@ export function InstallPWA() {
         <div className="flex items-start gap-3 pr-5">
           <img src="/pwa-192x192.png" alt="" className="h-10 w-10 shrink-0 rounded-lg" />
           <div className="min-w-0">
-            <p className="text-sm font-bold text-gray-900">Instalar o InspecVISA</p>
-            <p className="mt-0.5 text-xs text-gray-500">
+            <p className="text-sm font-bold text-navy">Instalar o InspecVISA</p>
+            <p className="mt-0.5 text-xs text-navy-3">
               Acesse mais rápido pela tela inicial, como um aplicativo.
             </p>
 
             {iosMode || iosHelp ? (
-              <p className="mt-2 flex items-center gap-1 text-xs text-gray-600">
+              <p className="mt-2 flex items-center gap-1 text-xs text-navy-2">
                 Toque em <Share className="inline h-3.5 w-3.5" /> <span className="font-semibold">Compartilhar</span> e depois em
                 <span className="font-semibold"> "Adicionar à Tela de Início"</span>.
               </p>

@@ -52,7 +52,7 @@ export function Tabs({ items, value, onChange, className, ...rest }: TabsProps) 
   };
 
   return (
-    <div className={cn('border-b border-gray-200', className)}>
+    <div className={cn('border-b border-default', className)}>
       <div
         ref={listRef}
         role="tablist"
@@ -75,10 +75,10 @@ export function Tabs({ items, value, onChange, className, ...rest }: TabsProps) 
               tabIndex={selected ? 0 : -1}
               onClick={() => onChange(item.value)}
               className={cn(
-                'relative h-[42px] min-w-[80px] whitespace-nowrap px-4 text-sm font-semibold text-gray-500 transition-colors',
+                'relative h-[42px] min-w-[80px] whitespace-nowrap px-4 text-sm font-semibold text-navy-3 transition-colors',
                 'after:absolute after:inset-x-3 after:-bottom-px after:h-0.5 after:origin-center after:scale-x-0 after:bg-primary-700 after:transition-transform after:duration-200',
-                selected ? 'text-primary-700 after:scale-x-100' : 'hover:text-gray-900',
-                item.disabled && 'cursor-not-allowed opacity-40 hover:text-gray-500'
+                selected ? 'text-primary-700 after:scale-x-100' : 'hover:text-navy',
+                item.disabled && 'cursor-not-allowed opacity-40 hover:text-navy-3'
               )}
             >
               {item.label}
@@ -86,7 +86,7 @@ export function Tabs({ items, value, onChange, className, ...rest }: TabsProps) 
                 <span
                   className={cn(
                     'ml-2 rounded px-1.5 py-0.5 text-[11px] tabular-nums',
-                    selected ? 'bg-primary-50 text-primary-700' : 'bg-gray-100 text-gray-500'
+                    selected ? 'bg-primary-50 text-primary-700' : 'bg-surface-sunken text-navy-3'
                   )}
                 >
                   {item.count}

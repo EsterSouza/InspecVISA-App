@@ -90,7 +90,7 @@ export function SignaturePad({ onSave, onClear }: SignaturePadProps) {
 
   return (
     <div className="space-y-4">
-      <div className="relative border-2 border-dashed border-gray-300 rounded-xl bg-white overflow-hidden touch-none">
+      <div className="relative border-2 border-dashed border-control rounded-xl bg-surface overflow-hidden touch-none">
         <canvas
           ref={canvasRef}
           className="w-full h-48 cursor-crosshair"
@@ -103,7 +103,7 @@ export function SignaturePad({ onSave, onClear }: SignaturePadProps) {
           onTouchEnd={stopDrawing}
         />
         {isEmpty && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-gray-400 text-sm italic">
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-navy-3 text-sm italic">
             Assine aqui com o dedo ou mouse
           </div>
         )}

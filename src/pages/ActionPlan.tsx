@@ -210,28 +210,28 @@ export function ActionPlan() {
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <div className="relative flex-1 sm:max-w-xs">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-3" />
           <input
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar no texto da pendência"
             aria-label="Buscar pendência"
-            className="h-10 w-full rounded-md border border-gray-300 pl-9 pr-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="h-10 w-full rounded-md border border-control pl-9 pr-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
           />
         </div>
         <select
           value={clientId}
           onChange={(e) => setClientId(e.target.value)}
           aria-label="Cliente"
-          className="h-10 rounded-md border border-gray-300 bg-white px-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="h-10 rounded-md border border-control bg-surface px-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
         >
           <option value="">Todos os clientes</option>
           {clients.map((c) => (
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </select>
-        <div className="inline-flex gap-0.5 rounded-md border border-gray-200 bg-gray-50 p-0.5">
+        <div className="inline-flex gap-0.5 rounded-md border border-default bg-surface-sunken p-0.5">
           {(Object.keys(SEGMENT_LABELS) as Segment[]).map((key) => (
             <button
               key={key}
@@ -239,7 +239,7 @@ export function ActionPlan() {
               aria-pressed={segment === key}
               onClick={() => setSegment(key)}
               className={`rounded px-3 py-1.5 text-sm font-semibold transition-colors ${
-                segment === key ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500 hover:text-gray-900'
+                segment === key ? 'bg-surface text-primary-700 shadow-sm' : 'text-navy-3 hover:text-navy'
               }`}
             >
               {SEGMENT_LABELS[key]} <span className="tabular-nums">{counts[key]}</span>
@@ -304,7 +304,7 @@ export function ActionPlan() {
                     >
                       <TableCell primary className="max-w-[420px]">
                         <p className="truncate">{item.title}</p>
-                        <p className="truncate text-xs font-normal text-gray-500">
+                        <p className="truncate text-xs font-normal text-navy-3">
                           {clientsById.get(item.client_id)?.name || 'Cliente'}
                         </p>
                       </TableCell>
@@ -325,7 +325,7 @@ export function ActionPlan() {
                             {CLIENT_STATUS_LABELS[item.client_status]}
                           </Badge>
                         ) : (
-                          <span className="text-gray-400">—</span>
+                          <span className="text-navy-3">—</span>
                         )}
                       </TableCell>
                     </TableRow>
@@ -376,18 +376,18 @@ export function ActionPlan() {
         {selectedItem && (
           <div className="space-y-5 text-sm">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Situação encontrada</p>
-              <p className="mt-1 text-gray-800">{selectedItem.situation}</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-navy-3">Situação encontrada</p>
+              <p className="mt-1 text-navy">{selectedItem.situation}</p>
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">O que fazer</p>
-              <p className="mt-1 text-gray-800">{selectedItem.recommended_action}</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-navy-3">O que fazer</p>
+              <p className="mt-1 text-navy">{selectedItem.recommended_action}</p>
             </div>
 
             <div className="flex flex-wrap gap-x-6 gap-y-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Prazo</p>
-                <p className="mt-1 tabular-nums text-gray-800">{formatDateBR(selectedItem.due_date)}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-navy-3">Prazo</p>
+                <p className="mt-1 tabular-nums text-navy">{formatDateBR(selectedItem.due_date)}</p>
                 {isOverdue(selectedItem) && selectedItem.due_date && (
                   <p className="mt-0.5 text-xs font-semibold text-amber-strong">
                     Vencido há {daysOverdue(selectedItem.due_date)} dia(s)
@@ -395,11 +395,11 @@ export function ActionPlan() {
                 )}
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Responsável</p>
-                <p className="mt-1 text-gray-800">{selectedItem.responsible || '—'}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-navy-3">Responsável</p>
+                <p className="mt-1 text-navy">{selectedItem.responsible || '—'}</p>
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Cliente</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-navy-3">Cliente</p>
                 <button
                   type="button"
                   onClick={() => navigate(`/clients/${selectedItem.client_id}`)}
@@ -413,16 +413,16 @@ export function ActionPlan() {
 
             {selectedItem.client_status && (
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Resposta do cliente</p>
-                <div className="mt-1 rounded-md border border-gray-200 bg-gray-50 p-2.5">
+                <p className="text-xs font-semibold uppercase tracking-wide text-navy-3">Resposta do cliente</p>
+                <div className="mt-1 rounded-md border border-default bg-surface-sunken p-2.5">
                   <Badge variant={CLIENT_STATUS_BADGE[selectedItem.client_status]}>
                     {CLIENT_STATUS_LABELS[selectedItem.client_status]}
                   </Badge>
                   {selectedItem.client_status_note && (
-                    <p className="mt-1.5 text-gray-700">“{selectedItem.client_status_note}”</p>
+                    <p className="mt-1.5 text-navy-2">“{selectedItem.client_status_note}”</p>
                   )}
                   {selectedItem.client_status_by_name && (
-                    <p className="mt-1 text-xs text-gray-500">
+                    <p className="mt-1 text-xs text-navy-3">
                       — {selectedItem.client_status_by_name}
                       {selectedItem.client_status_by_role ? ` (${selectedItem.client_status_by_role})` : ''}
                       {selectedItem.client_status_at ? ` · ${formatDateBR(selectedItem.client_status_at)}` : ''}
@@ -433,11 +433,11 @@ export function ActionPlan() {
             )}
 
             <div>
-              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Evidência</p>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-navy-3">Evidência</p>
               {evidenceLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                <Loader2 className="h-4 w-4 animate-spin text-navy-3" />
               ) : evidence.length === 0 ? (
-                <p className="text-xs text-gray-500">Nenhuma evidência enviada.</p>
+                <p className="text-xs text-navy-3">Nenhuma evidência enviada.</p>
               ) : (
                 <EvidenceReview evidence={evidence} onReviewed={() => loadEvidence(selectedItem.id)} />
               )}

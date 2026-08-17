@@ -61,7 +61,7 @@ export function PortalQuickActions({
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => onAudit('main_drive_folder_opened')}
-            className={`${actionClassName} border-primary-200 bg-white text-primary-800 hover:bg-primary-100`}
+            className={`${actionClassName} border-primary-200 bg-surface text-primary-800 hover:bg-primary-100`}
           >
             <FolderOpen className="h-4 w-4" /> Abrir pasta principal completa <ExternalLink className="h-3.5 w-3.5" />
           </a>
@@ -70,7 +70,7 @@ export function PortalQuickActions({
           <Link
             to="/cliente/pastas"
             onClick={() => onAudit('sanitary_folders_page_opened', { unit_count: folderUnits.length })}
-            className={`${actionClassName} border-emerald-200 bg-white text-emerald-800 hover:bg-emerald-50`}
+            className={`${actionClassName} border-emerald-200 bg-surface text-emerald-800 hover:bg-emerald-50`}
           >
             <FolderOpen className="h-4 w-4" />
             {folderUnits.length === 1
@@ -84,7 +84,7 @@ export function PortalQuickActions({
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => onAudit('portal_tutorial_opened')}
-            className={`${actionClassName} border-primary-200 bg-white text-primary-800 hover:bg-primary-100`}
+            className={`${actionClassName} border-primary-200 bg-surface text-primary-800 hover:bg-primary-100`}
           >
             <FileText className="h-4 w-4" /> Abrir tutorial do portal (PDF) <ExternalLink className="h-3.5 w-3.5" />
           </a>

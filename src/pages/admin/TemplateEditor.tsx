@@ -319,17 +319,17 @@ export function TemplateEditor() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="min-h-screen bg-surface-sunken pb-24">
       {/* HEADER */}
-      <div className="sticky top-0 z-20 bg-white border-b border-gray-100 shadow-sm">
+      <div className="sticky top-0 z-20 bg-surface border-b border-default shadow-sm">
         <div className="max-w-[1600px] mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4 min-w-0">
             <Button variant="ghost" size="icon" onClick={() => navigate('/templates')} className="rounded-xl shrink-0">
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div className="min-w-0">
-              <h1 className="text-lg font-bold text-gray-900 truncate">{isEditing ? 'Editar Roteiro' : 'Novo Roteiro'}</h1>
-              {isEditing && <p className="text-xs text-gray-500 font-medium">Edita no lugar — não cria versão nova</p>}
+              <h1 className="text-lg font-bold text-navy truncate">{isEditing ? 'Editar Roteiro' : 'Novo Roteiro'}</h1>
+              {isEditing && <p className="text-xs text-navy-3 font-medium">Edita no lugar — não cria versão nova</p>}
             </div>
           </div>
           <Button onClick={handleSave} disabled={isSaving}>
@@ -390,7 +390,7 @@ export function TemplateEditor() {
               const blocked = sectionHasPersistedItem(section);
               return (
                 <Card key={section.id} className="overflow-hidden">
-                  <div className="bg-gray-50 border-b border-gray-100 p-3 flex items-center gap-2">
+                  <div className="bg-surface-sunken border-b border-default p-3 flex items-center gap-2">
                     <div className="flex flex-col shrink-0">
                       <Button variant="ghost" size="icon" className="h-6 w-6" disabled={sIdx === 0} onClick={() => moveSection(sIdx, 'up')}>
                         <ArrowUp className="h-3 w-3" />
@@ -401,7 +401,7 @@ export function TemplateEditor() {
                     </div>
                     <input
                       type="text"
-                      className="flex-1 min-w-0 bg-transparent font-bold text-sm text-gray-900 border-none p-0 focus:ring-0 placeholder-gray-400"
+                      className="flex-1 min-w-0 bg-transparent font-bold text-sm text-navy border-none p-0 focus:ring-0 placeholder-navy-3"
                       value={section.title}
                       onChange={(e) => updateSectionTitle(section.id, e.target.value)}
                       placeholder="Nome da Seção"
@@ -409,7 +409,7 @@ export function TemplateEditor() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 shrink-0 text-gray-400 hover:text-red-500 hover:bg-red-50 disabled:opacity-30"
+                      className="h-7 w-7 shrink-0 text-navy-3 hover:text-red-500 hover:bg-red-50 disabled:opacity-30"
                       disabled={blocked}
                       title={blocked ? 'Aposente os itens desta seção antes de removê-la' : 'Remover seção'}
                       onClick={() => removeSection(section.id)}
@@ -419,7 +419,7 @@ export function TemplateEditor() {
                   </div>
 
                   {section.items.length > 0 && (
-                    <div className="divide-y divide-gray-50">
+                    <div className="divide-y divide-surface-sunken">
                       {section.items.map((item, iIdx) => {
                         const isSelected = selected?.sectionId === section.id && selected.itemId === item.id;
                         const openCount = openResponseCounts[item.id] || 0;
@@ -438,13 +438,13 @@ export function TemplateEditor() {
                               onClick={() => setSelected({ sectionId: section.id, itemId: item.id })}
                               className={cn(
                                 'flex-1 min-w-0 flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-xs',
-                                isSelected ? 'font-semibold text-primary-800' : 'text-gray-700 hover:bg-gray-50'
+                                isSelected ? 'font-semibold text-primary-800' : 'text-navy-2 hover:bg-surface-hover'
                               )}
                             >
                               <span className={cn(
                                 'truncate',
-                                item.retiredAt && 'text-gray-400 line-through',
-                                !item.description && 'italic text-gray-400'
+                                item.retiredAt && 'text-navy-3 line-through',
+                                !item.description && 'italic text-navy-3'
                               )}>
                                 {item.description || 'Nova pergunta…'}
                               </span>
@@ -467,7 +467,7 @@ export function TemplateEditor() {
                   )}
 
                   <div className="p-2">
-                    <Button variant="ghost" size="sm" className="w-full border border-dashed border-gray-200" onClick={() => addItem(section.id)}>
+                    <Button variant="ghost" size="sm" className="w-full border border-dashed border-default" onClick={() => addItem(section.id)}>
                       <Plus className="h-3.5 w-3.5 mr-1.5" /> Item
                     </Button>
                   </div>
@@ -494,8 +494,8 @@ export function TemplateEditor() {
               <Card className="p-6 space-y-6 overflow-visible">
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{selectedSection.title}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">Item {selectedIndex + 1} de {selectedSection.items.length}</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-navy-3">{selectedSection.title}</p>
+                    <p className="text-xs text-navy-3 mt-0.5">Item {selectedIndex + 1} de {selectedSection.items.length}</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <Button variant="ghost" size="sm" onClick={() => duplicateItem(selectedSection.id, selectedItem, selectedIndex)}>
@@ -523,8 +523,8 @@ export function TemplateEditor() {
                 </div>
 
                 {selectedItem.retiredAt && (
-                  <div className="flex items-start gap-3 p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-600">
-                    <Archive className="h-4 w-4 shrink-0 mt-0.5 text-gray-400" />
+                  <div className="flex items-start gap-3 p-3 bg-surface-sunken border border-default rounded-xl text-xs text-navy-2">
+                    <Archive className="h-4 w-4 shrink-0 mt-0.5 text-navy-3" />
                     <p>
                       Aposentado em {formatDateBR(selectedItem.retiredAt)}.
                       <Badge variant="neutral" className="ml-2 align-middle">Aposentado</Badge>
@@ -591,10 +591,10 @@ export function TemplateEditor() {
                   </div>
                   <div>
                     <Label>&nbsp;</Label>
-                    <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700 h-10">
+                    <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-navy-2 h-10">
                       <input
                         type="checkbox"
-                        className="rounded border-gray-300 text-red-600 focus:ring-red-500 h-4 w-4 cursor-pointer"
+                        className="rounded border-control text-red-600 focus:ring-red-500 h-4 w-4 cursor-pointer"
                         checked={selectedItem.isCritical}
                         onChange={(e) => updateItem(selectedSection.id, selectedItem.id, 'isCritical', e.target.checked)}
                       />
@@ -611,7 +611,7 @@ export function TemplateEditor() {
                       <option value="legal">Legal (norma vigente)</option>
                       <option value="good_practice">Boa prática (sem base legal)</option>
                     </Select>
-                    <p className="mt-1 text-[11px] text-gray-400 leading-snug">
+                    <p className="mt-1 text-[11px] text-navy-3 leading-snug">
                       Não entra no cálculo da nota — só muda o rótulo da legislação e a página de
                       referências do PDF.
                     </p>

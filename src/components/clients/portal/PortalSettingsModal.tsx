@@ -21,9 +21,9 @@ const FEATURE_FLAGS: { key: 'quick_access_enabled' | 'multi_purpose_schedule' | 
 function SettingsSkeleton() {
   return (
     <div className="space-y-4" role="status" aria-label="Carregando configurações">
-      <div className="h-16 animate-pulse rounded-xl bg-gray-100" />
-      <div className="h-16 animate-pulse rounded-xl bg-gray-100" />
-      <div className="h-24 animate-pulse rounded-xl bg-gray-100" />
+      <div className="h-16 animate-pulse rounded-xl bg-surface-sunken" />
+      <div className="h-16 animate-pulse rounded-xl bg-surface-sunken" />
+      <div className="h-24 animate-pulse rounded-xl bg-surface-sunken" />
       <span className="sr-only">Carregando configurações institucionais do portal...</span>
     </div>
   );
@@ -78,8 +78,8 @@ export function PortalSettingsModal({ onClose, onSaved }: PortalSettingsModalPro
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
       <Card role="dialog" aria-modal="true" aria-labelledby="portal-settings-title" className="max-h-[90vh] w-full max-w-lg overflow-y-auto shadow-2xl">
         <CardContent className="p-6">
-          <h3 id="portal-settings-title" className="mb-1 text-xl font-bold text-gray-900">Configurações institucionais do portal</h3>
-          <p className="mb-5 text-sm text-gray-500">
+          <h3 id="portal-settings-title" className="mb-1 text-xl font-bold text-navy">Configurações institucionais do portal</h3>
+          <p className="mb-5 text-sm text-navy-3">
             Estes dados valem para todas as contas deste tenant e podem ser alterados sem novo deploy.
           </p>
 
@@ -95,7 +95,7 @@ export function PortalSettingsModal({ onClose, onSaved }: PortalSettingsModalPro
             </div>
           ) : settings ? (
             <div className="space-y-4">
-              <div className="space-y-1.5 text-sm font-medium text-gray-700">
+              <div className="space-y-1.5 text-sm font-medium text-navy-2">
                 <label htmlFor="portal-settings-tutorial">Tutorial padrão do portal (PDF)</label>
                 <input
                   id="portal-settings-tutorial"
@@ -105,13 +105,13 @@ export function PortalSettingsModal({ onClose, onSaved }: PortalSettingsModalPro
                   placeholder="https://.../tutorial.pdf"
                   className={`${TEXT_INPUT} font-normal`}
                 />
-                <span className="block text-xs font-normal text-gray-500">
+                <span className="block text-xs font-normal text-navy-3">
                   Vale para quem não tem tutorial próprio. Para dar um PDF só a um cliente, use o
                   campo da conta em Editar acesso. URL HTTPS.
                 </span>
               </div>
 
-              <div className="space-y-1.5 text-sm font-medium text-gray-700">
+              <div className="space-y-1.5 text-sm font-medium text-navy-2">
                 <label htmlFor="portal-settings-whatsapp">WhatsApp de suporte</label>
                 <input
                   id="portal-settings-whatsapp"
@@ -122,25 +122,25 @@ export function PortalSettingsModal({ onClose, onSaved }: PortalSettingsModalPro
                   maxLength={40}
                   className={`${TEXT_INPUT} font-normal`}
                 />
-                <span className="block text-xs font-normal text-gray-500">Canal institucional exibido ao cliente quando habilitado.</span>
+                <span className="block text-xs font-normal text-navy-3">Canal institucional exibido ao cliente quando habilitado.</span>
               </div>
 
-              <div className="space-y-2 rounded-xl border border-gray-100 bg-gray-50 p-3">
-                <p className="text-sm font-medium text-gray-700">Recursos habilitados por tenant</p>
+              <div className="space-y-2 rounded-xl border border-default bg-surface-sunken p-3">
+                <p className="text-sm font-medium text-navy-2">Recursos habilitados por tenant</p>
                 {FEATURE_FLAGS.map(({ key, label }) => (
-                  <label key={key} className="flex items-center gap-2 text-sm text-gray-700">
+                  <label key={key} className="flex items-center gap-2 text-sm text-navy-2">
                     <input
                       type="checkbox"
                       checked={settings[key] === true}
                       onChange={(e) => setFlag(key, e.target.checked)}
-                      className="h-4 w-4 rounded border-gray-300 text-primary-600"
+                      className="h-4 w-4 rounded border-control text-primary-600"
                     />
                     {label}
                   </label>
                 ))}
               </div>
 
-              <div className="space-y-1.5 text-sm font-medium text-gray-700">
+              <div className="space-y-1.5 text-sm font-medium text-navy-2">
                 <label htmlFor="portal-settings-grace-days">Tolerância de atraso (dias)</label>
                 <input
                   id="portal-settings-grace-days"
@@ -153,7 +153,7 @@ export function PortalSettingsModal({ onClose, onSaved }: PortalSettingsModalPro
                   }
                   className={`${TEXT_INPUT} font-normal`}
                 />
-                <span className="block text-xs font-normal text-gray-500">
+                <span className="block text-xs font-normal text-navy-3">
                   Dias depois do vencimento antes de a conta contar como em atraso. Só conta quando há data de
                   vencimento cadastrada, e é o que dispara a suspensão automática de agendamento.
                 </span>

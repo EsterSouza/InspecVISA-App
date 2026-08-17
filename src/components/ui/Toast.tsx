@@ -4,7 +4,7 @@ import { useToastStore, type ToastItem } from '../../store/useToastStore';
 import { cn } from '../../lib/utils';
 
 const VARIANT_STYLES: Record<ToastItem['variant'], string> = {
-  default: 'border-gray-200 bg-white text-gray-900',
+  default: 'border-default bg-surface text-navy',
   success: 'border-green-200 bg-green-50 text-green-900',
   danger: 'border-red-200 bg-red-50 text-red-900',
   warning: 'border-amber-soft-border bg-amber-soft text-amber-soft-ink',

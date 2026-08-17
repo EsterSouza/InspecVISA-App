@@ -45,7 +45,7 @@ export function PublishedFilesPanel({ requestId, busy }: { requestId: string; bu
 
   if (loading && files.length === 0) {
     return (
-      <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 text-xs text-gray-500">
+      <div className="rounded-xl border border-default bg-surface-sunken p-3 text-xs text-navy-3">
         Carregando arquivos publicados...
       </div>
     );
@@ -54,18 +54,18 @@ export function PublishedFilesPanel({ requestId, busy }: { requestId: string; bu
   if (files.length === 0) return null;
 
   return (
-    <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+    <div className="rounded-xl border border-default bg-surface-sunken p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Relatórios e anexos no portal</p>
+        <p className="text-xs font-bold uppercase tracking-wide text-navy-3">Relatórios e anexos no portal</p>
         <button type="button" onClick={loadFiles} className="text-xs font-semibold text-primary-700 hover:text-primary-900">
           Atualizar
         </button>
       </div>
       <div className="space-y-2">
         {files.map((file) => (
-          <div key={file.id} className="flex items-center gap-2 rounded-lg border border-gray-100 bg-white px-3 py-2">
-            <Paperclip className="h-4 w-4 shrink-0 text-gray-400" />
-            <span className="min-w-0 flex-1 break-words text-sm text-gray-700">
+          <div key={file.id} className="flex items-center gap-2 rounded-lg border border-default bg-surface px-3 py-2">
+            <Paperclip className="h-4 w-4 shrink-0 text-navy-3" />
+            <span className="min-w-0 flex-1 break-words text-sm text-navy-2">
               {file.file_name || (file.kind === 'report_pdf' ? 'Relatório PDF' : 'Anexo')}
             </span>
             {file.signed_url && (

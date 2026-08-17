@@ -48,7 +48,7 @@ export function Pagination({ page, pageCount, onPageChange, totalItems, pageSize
     <nav
       aria-label="Paginação"
       className={cn(
-        'flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 bg-white px-4 py-2 text-sm text-gray-500',
+        'flex flex-wrap items-center justify-between gap-3 border-t border-default bg-surface px-4 py-2 text-sm text-navy-3',
         className
       )}
     >
@@ -59,14 +59,14 @@ export function Pagination({ page, pageCount, onPageChange, totalItems, pageSize
           onClick={() => onPageChange(page - 1)}
           disabled={page <= 1}
           aria-label="Página anterior"
-          className="flex h-[30px] w-[30px] items-center justify-center rounded text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+          className="flex h-[30px] w-[30px] items-center justify-center rounded text-navy-3 transition-colors hover:bg-surface-active hover:text-navy disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
 
         {pages.map((p, index) =>
           p === 'ellipsis' ? (
-            <span key={`ellipsis-${index}`} aria-hidden="true" className="px-1 text-gray-400">
+            <span key={`ellipsis-${index}`} aria-hidden="true" className="px-1 text-navy-3">
               …
             </span>
           ) : (
@@ -77,7 +77,7 @@ export function Pagination({ page, pageCount, onPageChange, totalItems, pageSize
               onClick={() => onPageChange(p)}
               className={cn(
                 'h-[30px] min-w-[30px] rounded px-2 text-sm font-semibold tabular-nums transition-colors',
-                p === page ? 'bg-primary-700 text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
+                p === page ? 'bg-primary-700 text-white' : 'text-navy-3 hover:bg-surface-active hover:text-navy'
               )}
             >
               {p}
@@ -90,7 +90,7 @@ export function Pagination({ page, pageCount, onPageChange, totalItems, pageSize
           onClick={() => onPageChange(page + 1)}
           disabled={page >= pageCount}
           aria-label="Próxima página"
-          className="flex h-[30px] w-[30px] items-center justify-center rounded text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+          className="flex h-[30px] w-[30px] items-center justify-center rounded text-navy-3 transition-colors hover:bg-surface-active hover:text-navy disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
         >
           <ChevronRight className="h-4 w-4" />
         </button>

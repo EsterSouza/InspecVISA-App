@@ -64,7 +64,7 @@ interface ClientPortalShellProps {
 }
 
 const emptyState = (message: string) => (
-  <div className="rounded-lg border border-dashed border-gray-200 bg-white p-8 text-center text-sm text-navy-2">
+  <div className="rounded-lg border border-dashed border-default bg-surface p-8 text-center text-sm text-navy-2">
     {message}
   </div>
 );
@@ -136,7 +136,7 @@ export function ClientPortalShell({
 
   return (
     <>
-      <header className="border-b border-gray-200 bg-white">
+      <header className="border-b border-default bg-surface">
         <div className="mx-auto max-w-6xl px-4 pt-6 sm:px-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -166,7 +166,7 @@ export function ClientPortalShell({
               <button
                 type="button"
                 onClick={onLogout}
-                className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-navy-2 hover:bg-gray-50"
+                className="inline-flex items-center gap-1.5 rounded-md border border-default bg-surface px-3 py-2 text-xs font-medium text-navy-2 hover:bg-surface-hover"
               >
                 <LogOut className="h-3.5 w-3.5" /> Sair
               </button>
@@ -203,7 +203,7 @@ export function ClientPortalShell({
 
       <main className="mx-auto max-w-6xl px-4 py-8 pb-16 sm:px-6">
         {blockedFeatures.length > 0 && (
-          <section className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-navy-2">
+          <section className="mb-6 rounded-lg border border-default bg-surface-sunken p-4 text-sm text-navy-2">
             <span className="font-semibold text-navy">
               {blockedFeatures.join(', ')}{' '}
               {blockedFeatures.length === 1 ? 'está temporariamente indisponível' : 'estão temporariamente indisponíveis'}{' '}

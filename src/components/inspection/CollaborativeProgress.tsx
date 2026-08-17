@@ -46,7 +46,7 @@ export function CollaborativeProgress() {
   const myRole = settings.consultantRole || 'saude';
 
   return (
-    <div className="bg-white border-b border-gray-200 px-4 py-3 shadow-sm sm:px-6">
+    <div className="bg-surface border-b border-default px-4 py-3 shadow-sm sm:px-6">
       <div className="mx-auto max-w-7xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           
@@ -57,14 +57,14 @@ export function CollaborativeProgress() {
                 <Activity className="mr-1 h-3 w-3" />
                 Saúde e Assistência {myRole === 'saude' && '(Você)'}
               </div>
-              <span className={healthProgress === 100 ? 'text-green-600' : 'text-gray-500'}>
+              <span className={healthProgress === 100 ? 'text-green-600' : 'text-navy-3'}>
                 {healthDone}/{healthItems.length} ({Math.round(healthProgress)}%)
               </span>
             </div>
             <ProgressBar value={healthProgress} colorClass={healthProgress === 100 ? 'bg-green-500' : 'bg-blue-500'} heightClass="h-1.5" />
           </div>
 
-          <div className="hidden sm:block w-px h-8 bg-gray-200" />
+          <div className="hidden sm:block w-px h-8 bg-surface-sunken" />
 
           {/* Nutrition Progress */}
           <div className="flex-1 space-y-1">
@@ -73,16 +73,16 @@ export function CollaborativeProgress() {
                 <Utensils className="mr-1 h-3 w-3" />
                 Nutrição {myRole === 'nutricao' && '(Você)'}
               </div>
-              <span className={nutritionProgress === 100 ? 'text-green-600' : 'text-gray-500'}>
+              <span className={nutritionProgress === 100 ? 'text-green-600' : 'text-navy-3'}>
                 {nutritionDone}/{nutritionItems.length} ({Math.round(nutritionProgress)}%)
               </span>
             </div>
             <ProgressBar value={nutritionProgress} colorClass={nutritionProgress === 100 ? 'bg-green-500' : 'bg-amber-500'} heightClass="h-1.5" />
           </div>
 
-          <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
-            <Users2 className="h-3 w-3 text-gray-400" />
-            <span className="text-[10px] font-bold text-gray-600 uppercase">Equipe Online</span>
+          <div className="flex items-center gap-2 bg-surface-sunken px-3 py-1.5 rounded-full border border-default">
+            <Users2 className="h-3 w-3 text-navy-3" />
+            <span className="text-[10px] font-bold text-navy-2 uppercase">Equipe Online</span>
           </div>
         </div>
       </div>

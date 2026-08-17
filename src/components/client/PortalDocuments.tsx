@@ -54,7 +54,7 @@ function DocumentBadges({ visit }: { visit: ClientPortalVisit }) {
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
       {badges.map(({ key, label, icon: Icon }) => (
-        <span key={key} className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-800">
+        <span key={key} className="inline-flex items-center gap-1.5 text-sm font-medium text-navy">
           <Icon className="h-4 w-4 shrink-0 text-primary-600" />
           {label}
         </span>
@@ -76,7 +76,7 @@ export function PortalDocuments({ visits, loading }: PortalDocumentsProps) {
 
   if (loading) {
     return (
-      <section className="mb-6 h-16 animate-pulse rounded-xl border border-gray-200 bg-gray-50" aria-hidden="true" />
+      <section className="mb-6 h-16 animate-pulse rounded-xl border border-default bg-surface-sunken" aria-hidden="true" />
     );
   }
 
@@ -88,7 +88,7 @@ export function PortalDocuments({ visits, loading }: PortalDocumentsProps) {
 
   if (stats.every((s) => s.value === 0)) {
     return (
-      <section className="rounded-xl border border-dashed border-gray-200 bg-white p-4 text-center text-xs text-gray-500">
+      <section className="rounded-xl border border-dashed border-default bg-surface p-4 text-center text-xs text-navy-3">
         Nenhum relatório, foto ou anexo disponível ainda.
       </section>
     );
@@ -106,14 +106,14 @@ export function PortalDocuments({ visits, loading }: PortalDocumentsProps) {
     <div className="space-y-6">
       <section
         aria-label="Documentos"
-        className="flex items-center divide-x divide-gray-100 rounded-xl border border-gray-200 bg-white shadow-sm"
+        className="flex items-center divide-x divide-default rounded-xl border border-default bg-surface shadow-sm"
       >
         {stats.map(({ key, label, value, icon: Icon }) => (
           <div key={key} className="flex flex-1 items-center gap-2.5 px-4 py-3">
             <Icon className="h-4 w-4 shrink-0 text-primary-600" />
             <div>
-              <p className="text-lg font-black leading-none text-gray-950">{value}</p>
-              <p className="text-[10px] font-bold uppercase leading-tight text-gray-500">{label}</p>
+              <p className="text-lg font-black leading-none text-navy">{value}</p>
+              <p className="text-[10px] font-bold uppercase leading-tight text-navy-3">{label}</p>
             </div>
           </div>
         ))}

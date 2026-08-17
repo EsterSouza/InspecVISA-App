@@ -25,7 +25,7 @@ export function PortalUnitFilter({ entries, totalCount, selectedId, onChange }: 
     `inline-flex h-[34px] items-center gap-2 rounded-md border px-3 text-sm font-semibold transition-colors ${
       active
         ? 'border-primary-700 bg-primary-700 text-white'
-        : 'border-gray-300 bg-white text-navy-2 hover:border-navy-3'
+        : 'border-control bg-surface text-navy-2 hover:border-navy-3'
     }`;
 
   return (
@@ -39,7 +39,7 @@ export function PortalUnitFilter({ entries, totalCount, selectedId, onChange }: 
           id="portal-unit-filter"
           value={selectedId ?? ''}
           onChange={(e) => onChange(e.target.value || null)}
-          className="mb-5 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-navy focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 sm:hidden"
+          className="mb-5 w-full rounded-md border border-control bg-surface px-3 py-2 text-sm text-navy focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100 sm:hidden"
         >
           <option value="">Todas as unidades ({totalCount})</option>
           {entries.map((entry) => (
@@ -55,7 +55,7 @@ export function PortalUnitFilter({ entries, totalCount, selectedId, onChange }: 
           Todas as unidades
           <span
             className={`rounded-sm px-1.5 py-0.5 text-[11px] font-bold tabular-nums ${
-              selectedId === null ? 'bg-white/20 text-white' : 'bg-gray-100 text-navy-2'
+              selectedId === null ? 'bg-surface/20 text-white' : 'bg-surface-sunken text-navy-2'
             }`}
           >
             {totalCount}
@@ -71,7 +71,7 @@ export function PortalUnitFilter({ entries, totalCount, selectedId, onChange }: 
             {entry.name}
             <span
               className={`rounded-sm px-1.5 py-0.5 text-[11px] font-bold tabular-nums ${
-                selectedId === entry.id ? 'bg-white/20 text-white' : 'bg-gray-100 text-navy-2'
+                selectedId === entry.id ? 'bg-surface/20 text-white' : 'bg-surface-sunken text-navy-2'
               }`}
             >
               {entry.count}

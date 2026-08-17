@@ -107,14 +107,14 @@ export function NewVisitModal({ clients, onClose, onCreated }: NewVisitModalProp
         className="max-h-[90vh] w-full max-w-lg overflow-y-auto shadow-2xl"
       >
         <CardContent className="p-6">
-          <h3 id="new-visit-title" className="mb-1 text-xl font-bold text-gray-900">Nova visita</h3>
-          <p className="mb-5 text-sm text-gray-500">
+          <h3 id="new-visit-title" className="mb-1 text-xl font-bold text-navy">Nova visita</h3>
+          <p className="mb-5 text-sm text-navy-3">
             Cria a visita já confirmada e vinculada ao cliente. Ela aparece no portal do cliente.
           </p>
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <label htmlFor="new-visit-client-search" className="text-sm font-medium text-gray-700">Cliente / unidade</label>
+              <label htmlFor="new-visit-client-search" className="text-sm font-medium text-navy-2">Cliente / unidade</label>
               <input
                 id="new-visit-client-search"
                 type="text"
@@ -126,23 +126,23 @@ export function NewVisitModal({ clients, onClose, onCreated }: NewVisitModalProp
                 }}
                 className={TEXT_INPUT.replace('p-3', 'p-2.5')}
               />
-              <div className="max-h-44 overflow-y-auto rounded-xl border border-gray-200 bg-white">
+              <div className="max-h-44 overflow-y-auto rounded-xl border border-default bg-surface">
                 {filtered.length > 0 ? (
                   filtered.slice(0, 8).map((c) => (
                     <button
                       key={c.id}
                       type="button"
                       onClick={() => selectClient(c)}
-                      className={`flex w-full items-center justify-between gap-3 border-b border-gray-100 px-3 py-2 text-left text-sm last:border-b-0 hover:bg-primary-50 ${
-                        clientId === c.id ? 'bg-primary-50 text-primary-700' : 'text-gray-700'
+                      className={`flex w-full items-center justify-between gap-3 border-b border-default px-3 py-2 text-left text-sm last:border-b-0 hover:bg-primary-50 ${
+                        clientId === c.id ? 'bg-primary-50 text-primary-700' : 'text-navy-2'
                       }`}
                     >
                       <span className="font-medium">{c.name}</span>
-                      <span className="shrink-0 text-xs text-gray-500">{c.category?.toUpperCase()}</span>
+                      <span className="shrink-0 text-xs text-navy-3">{c.category?.toUpperCase()}</span>
                     </button>
                   ))
                 ) : (
-                  <div className="px-3 py-2 text-sm text-gray-500">Nenhum cliente encontrado.</div>
+                  <div className="px-3 py-2 text-sm text-navy-3">Nenhum cliente encontrado.</div>
                 )}
               </div>
               {selectedClient && (
@@ -162,7 +162,7 @@ export function NewVisitModal({ clients, onClose, onCreated }: NewVisitModalProp
                     if (c.city) setMunicipality(c.city);
                   }
                 }}
-                className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm"
+                className="w-full rounded-xl border border-control bg-surface p-3 text-sm"
               >
                 <option value="">Selecione...</option>
                 {filtered.map((c) => (
@@ -173,12 +173,12 @@ export function NewVisitModal({ clients, onClose, onCreated }: NewVisitModalProp
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label htmlFor="new-visit-date" className="text-sm font-medium text-gray-700">Data</label>
+                <label htmlFor="new-visit-date" className="text-sm font-medium text-navy-2">Data</label>
                 {/* Sem data mínima: permite registrar visitas retroativas e lançar relatórios antigos. */}
                 <input id="new-visit-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className={TEXT_INPUT} />
               </div>
               <div className="space-y-1.5">
-                <label htmlFor="new-visit-time" className="text-sm font-medium text-gray-700">Horário</label>
+                <label htmlFor="new-visit-time" className="text-sm font-medium text-navy-2">Horário</label>
                 <input id="new-visit-time" type="time" value={time} onChange={(e) => setTime(e.target.value)} className={TEXT_INPUT} />
               </div>
             </div>
@@ -188,7 +188,7 @@ export function NewVisitModal({ clients, onClose, onCreated }: NewVisitModalProp
                 type="button"
                 onClick={() => setAttendanceMode('presencial')}
                 aria-pressed={attendanceMode === 'presencial'}
-                className={`h-11 rounded-xl border text-sm font-bold ${attendanceMode === 'presencial' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600'}`}
+                className={`h-11 rounded-xl border text-sm font-bold ${attendanceMode === 'presencial' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-default text-navy-2'}`}
               >
                 Presencial
               </button>
@@ -196,7 +196,7 @@ export function NewVisitModal({ clients, onClose, onCreated }: NewVisitModalProp
                 type="button"
                 onClick={() => setAttendanceMode('online')}
                 aria-pressed={attendanceMode === 'online'}
-                className={`h-11 rounded-xl border text-sm font-bold ${attendanceMode === 'online' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600'}`}
+                className={`h-11 rounded-xl border text-sm font-bold ${attendanceMode === 'online' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-default text-navy-2'}`}
               >
                 Online
               </button>
@@ -213,7 +213,7 @@ export function NewVisitModal({ clients, onClose, onCreated }: NewVisitModalProp
 
             {attendanceMode === 'online' && (
               <div className="space-y-1.5">
-                <label htmlFor="new-visit-meeting-url" className="text-sm font-medium text-gray-700">
+                <label htmlFor="new-visit-meeting-url" className="text-sm font-medium text-navy-2">
                   Link da videoconferência
                 </label>
                 <input

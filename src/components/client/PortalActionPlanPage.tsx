@@ -94,8 +94,8 @@ export function PortalActionPlanPage({
       )}
 
       {isMulti && sortedStats.length > 0 && (
-        <div className="mb-6 rounded-lg border border-gray-200 bg-white shadow-sm">
-          <div className="border-b border-gray-200 px-4 py-3">
+        <div className="mb-6 rounded-lg border border-default bg-surface shadow-sm">
+          <div className="border-b border-default px-4 py-3">
             <h2 className="font-title text-base font-semibold text-navy">Comparativo de cumprimento</h2>
           </div>
           <div className="p-4">

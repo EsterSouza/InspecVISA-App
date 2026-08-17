@@ -90,7 +90,7 @@ const STATUS_BADGES: Record<string, string> = {
   rescheduled: 'bg-orange-100 text-orange-700',
   completed: 'bg-emerald-100 text-emerald-700',
   report_available: 'bg-green-100 text-green-700',
-  cancelled: 'bg-gray-100 text-gray-500',
+  cancelled: 'bg-surface-sunken text-navy-3',
 };
 
 // Visitas ainda não entregues: quando a conta está suspensa por pagamento,
@@ -103,7 +103,7 @@ function visitDisplayStatus(status: string, suspended: boolean): { label: string
   }
   return {
     label: STATUS_LABELS[status] || status,
-    badge: STATUS_BADGES[status] || 'bg-gray-100 text-gray-500',
+    badge: STATUS_BADGES[status] || 'bg-surface-sunken text-navy-3',
   };
 }
 
@@ -132,7 +132,7 @@ export function PortalAppointments({
 
   if (loading) {
     return (
-      <div className="mb-8 h-64 animate-pulse rounded-xl border border-gray-200 bg-gray-50" aria-hidden="true" />
+      <div className="mb-8 h-64 animate-pulse rounded-xl border border-default bg-surface-sunken" aria-hidden="true" />
     );
   }
 
@@ -204,19 +204,19 @@ export function PortalAppointments({
         </div>
       )}
 
-      <section className="mb-8 rounded-xl border border-gray-200 bg-white p-3 shadow-sm sm:p-4">
+      <section className="mb-8 rounded-xl border border-default bg-surface p-3 shadow-sm sm:p-4">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-gray-700">
+          <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-navy-2">
             <CalendarDays className="h-4 w-4 shrink-0 text-primary-700" />
             Calendário de compromissos
           </h3>
-          <div className="flex gap-1 rounded-lg bg-gray-100 p-1">
+          <div className="flex gap-1 rounded-lg bg-surface-sunken p-1">
             <button
               type="button"
               onClick={() => setAgendaView('semana')}
               aria-pressed={agendaView === 'semana'}
               className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
-                agendaView === 'semana' ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                agendaView === 'semana' ? 'bg-surface text-primary-700 shadow-sm' : 'text-navy-3 hover:text-navy-2'
               }`}
             >
               Semana
@@ -226,7 +226,7 @@ export function PortalAppointments({
               onClick={() => setAgendaView('lista')}
               aria-pressed={agendaView === 'lista'}
               className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
-                agendaView === 'lista' ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                agendaView === 'lista' ? 'bg-surface text-primary-700 shadow-sm' : 'text-navy-3 hover:text-navy-2'
               }`}
             >
               Lista
@@ -244,30 +244,30 @@ export function PortalAppointments({
         )}
       </section>
 
-      <section className="mb-5 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-        <header className="flex items-center gap-2 border-b border-gray-100 bg-gray-50/70 px-5 py-3.5">
+      <section className="mb-5 overflow-hidden rounded-xl border border-default bg-surface shadow-sm">
+        <header className="flex items-center gap-2 border-b border-default bg-surface-sunken/70 px-5 py-3.5">
           <CalendarDays className="h-4 w-4 shrink-0 text-primary-700" />
-          <h3 className="text-sm font-bold text-gray-900">Agendamentos e arquivos</h3>
-          <span className="ml-auto text-xs text-gray-500">
+          <h3 className="text-sm font-bold text-navy">Agendamentos e arquivos</h3>
+          <span className="ml-auto text-xs text-navy-3">
             {visits.length} visita{visits.length === 1 ? '' : 's'}
           </span>
         </header>
         {agendaRows.length === 0 ? (
-          <p className="px-5 py-6 text-center text-sm text-gray-500">Nenhum compromisso registrado ainda.</p>
+          <p className="px-5 py-6 text-center text-sm text-navy-3">Nenhum compromisso registrado ainda.</p>
         ) : (
-          <ul className="divide-y divide-gray-50">
+          <ul className="divide-y divide-surface-sunken">
             {agendaRows.map((row) => {
               if (row.kind === 'milestone') {
                 const item = row.item;
                 const Icon = item.icon === 'delivered' ? CalendarCheck : item.icon === 'folder' ? FolderOpen : CalendarClock;
                 const content = (
                   <div className="flex items-center gap-3 px-4 py-3 sm:px-5">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-gray-50 text-gray-500">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-surface-sunken text-navy-3">
                       <Icon className="h-5 w-5" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-gray-900">{item.label}</p>
-                      <p className="truncate text-xs text-gray-500">
+                      <p className="truncate text-sm font-semibold text-navy">{item.label}</p>
+                      <p className="truncate text-xs text-navy-3">
                         {formatDateBR(item.date)} · {item.unitName}
                         {item.city ? ` · ${item.city}` : ''}
                       </p>
@@ -306,14 +306,14 @@ export function PortalAppointments({
                       <span className="text-base font-black leading-none">{d ? d.getDate() : '--'}</span>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-gray-900">{visit.unitName}</p>
-                      <p className="truncate text-xs text-gray-500">
+                      <p className="truncate text-sm font-semibold text-navy">{visit.unitName}</p>
+                      <p className="truncate text-xs text-navy-3">
                         {formatDateBR(visit.requested_date)}
                         {visit.requested_time ? ` às ${visit.requested_time}` : ''}
                         {visit.attendance_mode === 'online' ? ' · Online' : visit.city ? ` · ${visit.city}` : ''}
                       </p>
                       {((visit.report_count || 0) > 0 || (visit.photo_count || 0) > 0 || (visit.attachment_count || 0) > 0) && (
-                        <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-gray-500">
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-navy-3">
                           {(visit.report_count || 0) > 0 && (
                             <span className="inline-flex items-center gap-1">
                               <FileText className="h-3 w-3" /> {visit.report_count}

@@ -22,9 +22,9 @@ function monthInputValue(competenceMonth: string): string {
 function InvoicesSkeleton() {
   return (
     <div className="space-y-2" role="status" aria-label="Carregando notas fiscais">
-      <div className="h-10 animate-pulse rounded-lg bg-gray-100" />
-      <div className="h-10 animate-pulse rounded-lg bg-gray-100" />
-      <div className="h-10 animate-pulse rounded-lg bg-gray-100" />
+      <div className="h-10 animate-pulse rounded-lg bg-surface-sunken" />
+      <div className="h-10 animate-pulse rounded-lg bg-surface-sunken" />
+      <div className="h-10 animate-pulse rounded-lg bg-surface-sunken" />
       <span className="sr-only">Carregando notas fiscais...</span>
     </div>
   );
@@ -104,29 +104,29 @@ export function InvoicesModal({ account, onClose }: InvoicesModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
       <Card role="dialog" aria-modal="true" aria-labelledby="invoices-title" className="max-h-[90vh] w-full max-w-lg overflow-y-auto shadow-2xl">
         <CardContent className="p-6">
-          <h3 id="invoices-title" className="mb-1 text-xl font-bold text-gray-900">Notas fiscais</h3>
-          <p className="mb-5 text-sm text-gray-500">{account.name}</p>
+          <h3 id="invoices-title" className="mb-1 text-xl font-bold text-navy">Notas fiscais</h3>
+          <p className="mb-5 text-sm text-navy-3">{account.name}</p>
 
-          <div className="mb-5 space-y-3 rounded-xl border border-gray-100 bg-gray-50 p-3">
+          <div className="mb-5 space-y-3 rounded-xl border border-default bg-surface-sunken p-3">
             <div className="grid gap-2 sm:grid-cols-[160px_1fr]">
-              <div className="space-y-1 text-xs font-medium text-gray-700">
+              <div className="space-y-1 text-xs font-medium text-navy-2">
                 <label htmlFor="invoice-month">Mês de competência</label>
                 <input
                   id="invoice-month"
                   type="month"
                   value={month}
                   onChange={(e) => setMonth(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 p-2 text-sm"
+                  className="w-full rounded-lg border border-control p-2 text-sm"
                 />
               </div>
-              <div className="space-y-1 text-xs font-medium text-gray-700">
+              <div className="space-y-1 text-xs font-medium text-navy-2">
                 <label htmlFor="invoice-file">Arquivo (PDF)</label>
                 <input
                   id="invoice-file"
                   type="file"
                   accept="application/pdf"
                   onChange={(e) => setFile(e.target.files?.[0] || null)}
-                  className="w-full rounded-lg border border-gray-300 bg-white p-1.5 text-sm"
+                  className="w-full rounded-lg border border-control bg-surface p-1.5 text-sm"
                 />
               </div>
             </div>
@@ -150,16 +150,16 @@ export function InvoicesModal({ account, onClose }: InvoicesModalProps) {
               </Button>
             </div>
           ) : invoices.length === 0 ? (
-            <p className="py-6 text-center text-sm text-gray-500">Nenhuma nota fiscal enviada ainda.</p>
+            <p className="py-6 text-center text-sm text-navy-3">Nenhuma nota fiscal enviada ainda.</p>
           ) : (
-            <ul className="divide-y divide-gray-100">
+            <ul className="divide-y divide-default">
               {invoices.map((invoice) => (
                 <li key={invoice.id} className="flex items-center gap-3 py-2.5">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-gray-900">
+                    <p className="truncate text-sm font-semibold text-navy">
                       {monthInputValue(invoice.competence_month)}
                     </p>
-                    <p className="truncate text-xs text-gray-500">{invoice.file_name}</p>
+                    <p className="truncate text-xs text-navy-3">{invoice.file_name}</p>
                   </div>
                   {invoice.signed_url && (
                     <a

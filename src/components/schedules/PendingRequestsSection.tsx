@@ -42,7 +42,7 @@ export function PendingRequestsSection({
   return (
     <section>
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="flex items-center text-lg font-semibold text-gray-900">
+        <h2 className="flex items-center text-lg font-semibold text-navy">
           <Inbox className="mr-2 h-5 w-5 text-amber-500" />
           Solicitações pendentes
           {pending.length > 0 && (
@@ -57,8 +57,8 @@ export function PendingRequestsSection({
       </div>
 
       {pending.length === 0 ? (
-        <Card className="border-dashed bg-gray-50 py-10 text-center">
-          <p className="text-sm text-gray-500">Nenhuma solicitação pendente do portal público.</p>
+        <Card className="border-dashed bg-surface-sunken py-10 text-center">
+          <p className="text-sm text-navy-3">Nenhuma solicitação pendente do portal público.</p>
         </Card>
       ) : (
         <div className="grid gap-4">
@@ -71,8 +71,8 @@ export function PendingRequestsSection({
               <CardContent className="p-5">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
-                    <h3 className="font-bold text-gray-900">{request.unit_name}</h3>
-                    <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
+                    <h3 className="font-bold text-navy">{request.unit_name}</h3>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-navy-3">
                       <span className="flex items-center">
                         <MapPin className="mr-1 h-3.5 w-3.5" /> {request.district}
                       </span>
@@ -88,12 +88,12 @@ export function PendingRequestsSection({
                           <Phone className="mr-1 h-3.5 w-3.5" /> {request.phone}
                         </span>
                       )}
-                      <span className="flex items-center text-xs text-gray-500">
+                      <span className="flex items-center text-xs text-navy-3">
                         <Clock className="mr-1 h-3 w-3" /> recebida em {formatCreatedAt(request.created_at)}
                       </span>
                     </div>
                     {request.notes && (
-                      <p className="mt-2 text-sm italic text-gray-500">“{request.notes}”</p>
+                      <p className="mt-2 text-sm italic text-navy-3">“{request.notes}”</p>
                     )}
                   </div>
                   <div className="flex shrink-0 items-center gap-2">

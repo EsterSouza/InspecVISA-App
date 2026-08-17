@@ -130,7 +130,7 @@ export function ClientPortalManagement({ accounts, clients, onChanged }: ClientP
   return (
     <section>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="flex items-center text-lg font-semibold text-gray-900">
+        <h2 className="flex items-center text-lg font-semibold text-navy">
           <KeyRound className="mr-2 h-5 w-5 text-primary-600" />
           Portal do Cliente — acessos
         </h2>
@@ -144,26 +144,26 @@ export function ClientPortalManagement({ accounts, clients, onChanged }: ClientP
         </div>
       </div>
 
-      <p className="mb-4 text-sm text-gray-500">
+      <p className="mb-4 text-sm text-navy-3">
         O cliente entra em <span className="font-mono font-medium text-primary-700">{portalUrl}</span>{' '}
         com e-mail/usuario e senha permanente, e acompanha todas as unidades vinculadas (agendamentos,
         relatorios, fotos e anexos).
       </p>
 
       {accounts.length === 0 ? (
-        <Card className="border-dashed bg-gray-50 py-8 text-center">
-          <p className="text-sm text-gray-500">Nenhum acesso criado ainda.</p>
+        <Card className="border-dashed bg-surface-sunken py-8 text-center">
+          <p className="text-sm text-navy-3">Nenhum acesso criado ainda.</p>
         </Card>
       ) : (
         <div className="space-y-2">
           {accounts.map((account) => (
             <div
               key={account.id}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-100 bg-white p-3"
+              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-default bg-surface p-3"
             >
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="truncate text-sm font-bold text-gray-900">{account.name}</p>
+                  <p className="truncate text-sm font-bold text-navy">{account.name}</p>
                   <span
                     className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
                       account.payment_status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
@@ -183,10 +183,10 @@ export function ClientPortalManagement({ accounts, clients, onChanged }: ClientP
                     </span>
                   )}
                 </div>
-                <p className="truncate text-xs text-gray-500">
+                <p className="truncate text-xs text-navy-3">
                   {account.email} · {account.client_ids.length} unidade{account.client_ids.length === 1 ? '' : 's'}
                 </p>
-                <p className="mt-1 max-w-2xl truncate text-xs text-gray-500">
+                <p className="mt-1 max-w-2xl truncate text-xs text-navy-3">
                   Unidades: {account.client_ids.map((id) => clientNameMap.get(id) || id).join(', ')}
                 </p>
               </div>
@@ -313,8 +313,8 @@ export function ClientPortalManagement({ accounts, clients, onChanged }: ClientP
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <Card role="dialog" aria-modal="true" aria-labelledby="new-code-title" className="w-full max-w-sm shadow-2xl">
             <CardContent className="p-6 text-center">
-              <h3 id="new-code-title" className="text-lg font-bold text-gray-900">Senha gerada</h3>
-              <p className="mt-1 text-sm text-gray-500">
+              <h3 id="new-code-title" className="text-lg font-bold text-navy">Senha gerada</h3>
+              <p className="mt-1 text-sm text-navy-3">
                 Envie ao cliente. Esta senha permanece valida ate voce gerar uma nova.
               </p>
               <div
@@ -330,13 +330,13 @@ export function ClientPortalManagement({ accounts, clients, onChanged }: ClientP
                   ? 'E-mail enviado automaticamente para o cliente.'
                   : `E-mail nao enviado. ${newCode.emailError || 'Copie os dados e envie manualmente.'}`}
               </div>
-              <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
-                <p className="text-xs font-semibold text-gray-500">{newCode.accountName}</p>
-                <p className="text-xs text-gray-500">{newCode.email}</p>
-                <p className="mt-1 font-mono text-2xl font-bold tracking-widest text-gray-900">
+              <div className="mt-4 rounded-xl border border-default bg-surface-sunken p-4">
+                <p className="text-xs font-semibold text-navy-3">{newCode.accountName}</p>
+                <p className="text-xs text-navy-3">{newCode.email}</p>
+                <p className="mt-1 font-mono text-2xl font-bold tracking-widest text-navy">
                   {newCode.code}
                 </p>
-                <p className="mt-2 text-xs text-gray-500">
+                <p className="mt-2 text-xs text-navy-3">
                   {newCode.unitCount} unidade{newCode.unitCount === 1 ? '' : 's'} vinculada{newCode.unitCount === 1 ? '' : 's'}
                 </p>
               </div>

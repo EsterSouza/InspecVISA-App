@@ -351,11 +351,11 @@ export function ClientPortal() {
   // ─── Carregando painel ───────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-surface-sunken">
         <PublicHeader />
         <div className="flex flex-col items-center justify-center py-24" role="status" aria-live="polite">
           <div className="mb-3 h-8 w-8 animate-pulse rounded-full bg-primary-100" aria-hidden="true" />
-          <div className="h-3 w-40 animate-pulse rounded bg-gray-200" aria-hidden="true" />
+          <div className="h-3 w-40 animate-pulse rounded bg-surface-sunken" aria-hidden="true" />
           <span className="sr-only">Carregando seu painel...</span>
         </div>
       </div>
@@ -365,19 +365,19 @@ export function ClientPortal() {
   // ─── Login do cliente ────────────────────────────────────────
   if (!token || !overview) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-surface-sunken">
         <PublicHeader />
         <main className="mx-auto max-w-[440px] px-4 py-12">
-          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-bold text-gray-900">Portal do Cliente</h2>
-            <p className="mt-1 text-sm text-gray-500">
+          <div className="rounded-xl border border-default bg-surface p-6 shadow-sm">
+            <h2 className="text-xl font-bold text-navy">Portal do Cliente</h2>
+            <p className="mt-1 text-sm text-navy-3">
               Acompanhe seus compromissos, relatórios, fotos e anexos de todas as suas unidades.
             </p>
 
             <form onSubmit={handleLogin} className="mt-6 space-y-4">
               <div className="space-y-1.5">
-                <label htmlFor="portal-login-identifier" className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
-                  <Mail className="h-4 w-4 text-gray-400" aria-hidden="true" /> E-mail ou usuario
+                <label htmlFor="portal-login-identifier" className="flex items-center gap-1.5 text-sm font-medium text-navy-2">
+                  <Mail className="h-4 w-4 text-navy-3" aria-hidden="true" /> E-mail ou usuario
                 </label>
                 <input
                   id="portal-login-identifier"
@@ -386,12 +386,12 @@ export function ClientPortal() {
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   placeholder="contato@suaempresa.com.br ou usuario"
-                  className="w-full rounded-md border border-gray-300 p-3 text-sm placeholder:text-gray-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+                  className="w-full rounded-md border border-control p-3 text-sm placeholder:text-navy-3 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
                 />
               </div>
               <div className="space-y-1.5">
-                <label htmlFor="portal-login-password" className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
-                  <KeyRound className="h-4 w-4 text-gray-400" aria-hidden="true" /> Senha
+                <label htmlFor="portal-login-password" className="flex items-center gap-1.5 text-sm font-medium text-navy-2">
+                  <KeyRound className="h-4 w-4 text-navy-3" aria-hidden="true" /> Senha
                 </label>
                 <input
                   id="portal-login-password"
@@ -400,7 +400,7 @@ export function ClientPortal() {
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                   placeholder="Senha permanente fornecida pela consultoria"
-                  className="w-full rounded-md border border-gray-300 p-3 text-sm placeholder:text-gray-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+                  className="w-full rounded-md border border-control p-3 text-sm placeholder:text-navy-3 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
                 />
               </div>
 
@@ -420,7 +420,7 @@ export function ClientPortal() {
               </button>
             </form>
 
-            <p className="mt-6 border-t border-gray-100 pt-4 text-xs text-gray-400">
+            <p className="mt-6 border-t border-default pt-4 text-xs text-navy-3">
               Ainda não tem acesso? Solicite a senha à equipe da consultoria. Para acompanhar
               uma única visita, use o link do protocolo recebido no agendamento.
             </p>
@@ -447,7 +447,7 @@ export function ClientPortal() {
   const totalVisits = overview.units.reduce((sum, u) => sum + u.visits.length, 0);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-surface-sunken">
       <PublicHeader />
       <ClientPortalShell
         overview={overview}

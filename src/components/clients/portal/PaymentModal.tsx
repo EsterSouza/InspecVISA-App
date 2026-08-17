@@ -91,12 +91,12 @@ export function PaymentModal({ account, onClose, onSaved }: PaymentModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
       <Card role="dialog" aria-modal="true" aria-labelledby="payment-title" className="max-h-[90vh] w-full max-w-md overflow-y-auto shadow-2xl">
         <CardContent className="p-6">
-          <h3 id="payment-title" className="mb-1 text-xl font-bold text-gray-900">Pagamento</h3>
-          <p className="mb-5 text-sm text-gray-500">{account.name}</p>
+          <h3 id="payment-title" className="mb-1 text-xl font-bold text-navy">Pagamento</h3>
+          <p className="mb-5 text-sm text-navy-3">{account.name}</p>
 
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <label htmlFor="payment-link" className="text-sm font-medium text-gray-700">Link de pagamento</label>
+              <label htmlFor="payment-link" className="text-sm font-medium text-navy-2">Link de pagamento</label>
               <input
                 id="payment-link"
                 type="url"
@@ -112,13 +112,13 @@ export function PaymentModal({ account, onClose, onSaved }: PaymentModalProps) {
                 placeholder="Cole o link (Mercado Pago, Pix, Stripe...)"
                 className={TEXT_INPUT}
               />
-              <p className="text-xs text-gray-500">O link deve oferecer Pix, boleto, NuPay e cartao de credito/debito no provedor de pagamento.</p>
-              <p className="text-xs text-gray-500">O cliente vê um botão "Pagar agora" no portal enquanto estiver pendente.</p>
+              <p className="text-xs text-navy-3">O link deve oferecer Pix, boleto, NuPay e cartao de credito/debito no provedor de pagamento.</p>
+              <p className="text-xs text-navy-3">O cliente vê um botão "Pagar agora" no portal enquanto estiver pendente.</p>
             </div>
 
-            <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+            <div className="rounded-xl border border-default bg-surface-sunken p-3">
               <div className="mb-2 flex items-center justify-between gap-2">
-                <span id="payment-extra-links-label" className="text-sm font-medium text-gray-700">Links adicionais</span>
+                <span id="payment-extra-links-label" className="text-sm font-medium text-navy-2">Links adicionais</span>
                 <Button
                   type="button"
                   variant="outline"
@@ -138,7 +138,7 @@ export function PaymentModal({ account, onClose, onSaved }: PaymentModalProps) {
                       value={paymentLink.label || ''}
                       onChange={(e) => setPaymentLinks((prev) => prev.map((item, i) => i === index ? { ...item, label: e.target.value } : item))}
                       placeholder={index === 0 ? 'Principal' : 'Ex: Mensalidade'}
-                      className="rounded-xl border border-gray-300 p-2.5 text-sm placeholder:text-gray-500"
+                      className="rounded-xl border border-control p-2.5 text-sm placeholder:text-navy-3"
                     />
                     <label htmlFor={`payment-link-url-${index}`} className="sr-only">URL do link {index + 1}</label>
                     <input
@@ -150,7 +150,7 @@ export function PaymentModal({ account, onClose, onSaved }: PaymentModalProps) {
                         if (index === 0) setLink(e.target.value);
                       }}
                       placeholder="https://..."
-                      className="rounded-xl border border-gray-300 p-2.5 text-sm placeholder:text-gray-500"
+                      className="rounded-xl border border-control p-2.5 text-sm placeholder:text-navy-3"
                     />
                     {paymentLinks.length > 1 && (
                       <button
@@ -168,16 +168,16 @@ export function PaymentModal({ account, onClose, onSaved }: PaymentModalProps) {
             </div>
 
             <div className="space-y-2">
-              <span id="payment-type-label" className="text-sm font-medium text-gray-700">Tipo de pagamento</span>
+              <span id="payment-type-label" className="text-sm font-medium text-navy-2">Tipo de pagamento</span>
               <div className="grid grid-cols-2 gap-2" role="group" aria-labelledby="payment-type-label">
-                <button type="button" onClick={() => setType('monthly')} aria-pressed={type === 'monthly'} className={`h-11 rounded-xl border text-sm font-bold ${type === 'monthly' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600'}`}>Mensal</button>
-                <button type="button" onClick={() => setType('one_time')} aria-pressed={type === 'one_time'} className={`h-11 rounded-xl border text-sm font-bold ${type === 'one_time' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600'}`}>Único</button>
+                <button type="button" onClick={() => setType('monthly')} aria-pressed={type === 'monthly'} className={`h-11 rounded-xl border text-sm font-bold ${type === 'monthly' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-default text-navy-2'}`}>Mensal</button>
+                <button type="button" onClick={() => setType('one_time')} aria-pressed={type === 'one_time'} className={`h-11 rounded-xl border text-sm font-bold ${type === 'one_time' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-default text-navy-2'}`}>Único</button>
               </div>
             </div>
 
             {type === 'monthly' && (
               <div className="space-y-1.5">
-                <label htmlFor="payment-due-date" className="text-sm font-medium text-gray-700">Data limite do pagamento mensal</label>
+                <label htmlFor="payment-due-date" className="text-sm font-medium text-navy-2">Data limite do pagamento mensal</label>
                 <input
                   id="payment-due-date"
                   type="date"
@@ -189,17 +189,17 @@ export function PaymentModal({ account, onClose, onSaved }: PaymentModalProps) {
             )}
 
             <div className="space-y-2">
-              <span id="payment-status-label" className="text-sm font-medium text-gray-700">Situação</span>
+              <span id="payment-status-label" className="text-sm font-medium text-navy-2">Situação</span>
               <div className="grid grid-cols-2 gap-2" role="group" aria-labelledby="payment-status-label">
-                <button type="button" onClick={() => setStatus('pending')} aria-pressed={status === 'pending'} className={`h-11 rounded-xl border text-sm font-bold ${status === 'pending' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-gray-200 text-gray-600'}`}>Pendente</button>
-                <button type="button" onClick={() => setStatus('paid')} aria-pressed={status === 'paid'} className={`h-11 rounded-xl border text-sm font-bold ${status === 'paid' ? 'border-green-600 bg-green-50 text-green-700' : 'border-gray-200 text-gray-600'}`}>Pago</button>
+                <button type="button" onClick={() => setStatus('pending')} aria-pressed={status === 'pending'} className={`h-11 rounded-xl border text-sm font-bold ${status === 'pending' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-default text-navy-2'}`}>Pendente</button>
+                <button type="button" onClick={() => setStatus('paid')} aria-pressed={status === 'paid'} className={`h-11 rounded-xl border text-sm font-bold ${status === 'paid' ? 'border-green-600 bg-green-50 text-green-700' : 'border-default text-navy-2'}`}>Pago</button>
               </div>
             </div>
 
             {/* Suspender agendamento saiu daqui: virou modo (auto/exceção/manual) em
                 "Acesso do portal", junto com as demais travas do que o cliente enxerga.
                 Aqui fica só dinheiro. */}
-            <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 space-y-3">
+            <div className="rounded-xl border border-default bg-surface-sunken p-3 space-y-3">
               <Button
                 type="button"
                 variant="outline"

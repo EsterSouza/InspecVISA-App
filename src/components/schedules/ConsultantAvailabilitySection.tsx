@@ -63,17 +63,17 @@ export function ConsultantAvailabilitySection() {
 
   return (
     <section>
-      <h2 className="mb-2 flex items-center text-lg font-semibold text-gray-900">
+      <h2 className="mb-2 flex items-center text-lg font-semibold text-navy">
         <CalendarClock className="mr-2 h-5 w-5 text-primary-600" />
         Disponibilidade por consultora
       </h2>
-      <p className="mb-4 text-sm text-gray-500">
+      <p className="mb-4 text-sm text-navy-3">
         Em quais dias e turnos cada consultora aparece na agenda (grade fixa de 09:30 às 17:00). Quem não
         estiver marcado aqui não aparece como opção nesse dia/turno para clientes nem no Portal do Cliente.
       </p>
 
       {loading ? (
-        <div role="status" className="flex h-24 items-center justify-center gap-2 text-sm text-gray-600">
+        <div role="status" className="flex h-24 items-center justify-center gap-2 text-sm text-navy-2">
           <Loader2 className="h-5 w-5 animate-spin text-primary-600" /> Carregando disponibilidade...
         </div>
       ) : loadError ? (
@@ -83,21 +83,21 @@ export function ConsultantAvailabilitySection() {
           {SCHEDULE_CONSULTANTS.map((consultant) => (
             <Card key={consultant} className="shadow-sm">
               <CardContent className="p-4">
-                <h3 className="mb-3 text-sm font-bold text-gray-900">{consultant}</h3>
+                <h3 className="mb-3 text-sm font-bold text-navy">{consultant}</h3>
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[420px] border-collapse text-center text-sm">
                     <thead>
                       <tr>
-                        <th className="w-20 text-left text-xs font-semibold text-gray-500"></th>
+                        <th className="w-20 text-left text-xs font-semibold text-navy-3"></th>
                         {WEEKDAYS.map((day) => (
-                          <th key={day.value} className="pb-1 text-xs font-semibold text-gray-500">{day.label}</th>
+                          <th key={day.value} className="pb-1 text-xs font-semibold text-navy-3">{day.label}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {PERIODS.map((period) => (
                         <tr key={period.value}>
-                          <td className="pr-2 text-left text-xs font-semibold text-gray-600">{period.label}</td>
+                          <td className="pr-2 text-left text-xs font-semibold text-navy-2">{period.label}</td>
                           {WEEKDAYS.map((day) => {
                             const active = isAvailable(consultant, day.value, period.value);
                             const key = `${consultant}-${day.value}-${period.value}`;
@@ -112,7 +112,7 @@ export function ConsultantAvailabilitySection() {
                                   className={`min-h-11 w-full rounded-md border text-xs font-semibold transition-colors ${
                                     active
                                       ? 'border-primary-600 bg-primary-600 text-white'
-                                      : 'border-gray-200 bg-gray-50 text-gray-400 hover:bg-gray-100'
+                                      : 'border-default bg-surface-sunken text-navy-3 hover:bg-surface-active'
                                   } disabled:opacity-50`}
                                 >
                                   {busyKey === key ? <Loader2 className="mx-auto h-3.5 w-3.5 animate-spin" /> : active ? 'Livre' : '—'}

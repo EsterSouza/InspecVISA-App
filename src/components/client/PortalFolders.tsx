@@ -33,7 +33,7 @@ export function PortalFolders({ mainDriveFolderUrl, units, onOpen }: PortalFolde
 
   if (!mainFolderUrl && folderUnits.length === 0) {
     return (
-      <section className="rounded-lg border border-dashed border-gray-200 bg-white p-8 text-center text-sm text-navy-2">
+      <section className="rounded-lg border border-dashed border-default bg-surface p-8 text-center text-sm text-navy-2">
         Nenhuma pasta sanitária cadastrada ainda.
       </section>
     );
@@ -49,8 +49,8 @@ export function PortalFolders({ mainDriveFolderUrl, units, onOpen }: PortalFolde
       </div>
 
       {mainFolderUrl && (
-        <div className="mb-6 rounded-lg border border-gray-200 bg-white shadow-sm">
-          <div className="border-b border-gray-200 px-4 py-3">
+        <div className="mb-6 rounded-lg border border-default bg-surface shadow-sm">
+          <div className="border-b border-default px-4 py-3">
             <h2 className="font-title text-base font-semibold text-navy">Pasta principal completa</h2>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3 p-4">
@@ -72,11 +72,11 @@ export function PortalFolders({ mainDriveFolderUrl, units, onOpen }: PortalFolde
       )}
 
       {folderUnits.length > 0 && (
-        <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
-          <div className="border-b border-gray-200 px-4 py-3">
+        <div className="rounded-lg border border-default bg-surface shadow-sm">
+          <div className="border-b border-default px-4 py-3">
             <h2 className="font-title text-base font-semibold text-navy">Por unidade</h2>
           </div>
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-default">
             {folderUnits.map(({ unit, url }) => (
               <div key={unit.client_id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                 <p className="min-w-0 truncate text-sm font-semibold text-navy">{unit.client_name}</p>
@@ -86,7 +86,7 @@ export function PortalFolders({ mainDriveFolderUrl, units, onOpen }: PortalFolde
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => onOpen(unit.client_name)}
-                    className="inline-flex h-9 items-center gap-1.5 rounded-md border border-emerald-200 bg-white px-3 text-xs font-semibold text-emerald-800 hover:bg-emerald-50"
+                    className="inline-flex h-9 items-center gap-1.5 rounded-md border border-emerald-200 bg-surface px-3 text-xs font-semibold text-emerald-800 hover:bg-emerald-50"
                   >
                     <FolderOpen className="h-3.5 w-3.5" /> Abrir <ExternalLink className="h-3 w-3" />
                   </a>

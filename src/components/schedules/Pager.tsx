@@ -13,7 +13,7 @@ export function Pager({ page, totalPages, onChange }: PagerProps) {
       <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => onChange(page - 1)}>
         Anterior
       </Button>
-      <span className="text-xs font-semibold text-gray-500" aria-live="polite">
+      <span className="text-xs font-semibold text-navy-3" aria-live="polite">
         Página {page} de {totalPages}
       </span>
       <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => onChange(page + 1)}>

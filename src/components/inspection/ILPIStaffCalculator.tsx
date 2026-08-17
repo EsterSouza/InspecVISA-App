@@ -113,27 +113,27 @@ export function ILPIStaffCalculator({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Users2 className={summary.caregiversOk ? 'text-green-600' : 'text-red-600'} />
-              <h4 className="text-sm font-bold text-gray-900">{caregiverTitle}</h4>
+              <h4 className="text-sm font-bold text-navy">{caregiverTitle}</h4>
             </div>
             <StatusIcon ok={summary.caregiversOk} />
           </div>
 
-          <div className="grid grid-cols-3 gap-2 text-center text-[10px] font-bold uppercase text-gray-500">
-            <div className="rounded bg-white/60 p-2">{caregiverRatios[0]}<br /><span className="text-base text-gray-800">{summary.caregivers.grau1}</span></div>
-            <div className="rounded bg-white/60 p-2">{caregiverRatios[1]}<br /><span className="text-base text-gray-800">{summary.caregivers.grau2}</span></div>
-            <div className="rounded bg-white/60 p-2">{caregiverRatios[2]}<br /><span className="text-base text-gray-800">{summary.caregivers.grau3}</span></div>
+          <div className="grid grid-cols-3 gap-2 text-center text-[10px] font-bold uppercase text-navy-3">
+            <div className="rounded bg-surface/60 p-2">{caregiverRatios[0]}<br /><span className="text-base text-navy">{summary.caregivers.grau1}</span></div>
+            <div className="rounded bg-surface/60 p-2">{caregiverRatios[1]}<br /><span className="text-base text-navy">{summary.caregivers.grau2}</span></div>
+            <div className="rounded bg-surface/60 p-2">{caregiverRatios[2]}<br /><span className="text-base text-navy">{summary.caregivers.grau3}</span></div>
           </div>
 
-          <p className="rounded bg-white/60 p-2 text-[10px] leading-relaxed text-gray-600">
-            <span className="font-bold uppercase tracking-wide text-gray-500">Memória de cálculo: </span>
+          <p className="rounded bg-surface/60 p-2 text-[10px] leading-relaxed text-navy-2">
+            <span className="font-bold uppercase tracking-wide text-navy-3">Memória de cálculo: </span>
             Grau I {level1}÷20={summary.caregivers.grau1} · Grau II {level2}÷10={summary.caregivers.grau2} · Grau III {level3}÷{d3}={summary.caregivers.grau3}
-            {' '}→ mínimo <span className="font-bold text-gray-800">{summary.caregivers.total}</span> cuidador(es)/turno.
+            {' '}→ mínimo <span className="font-bold text-navy">{summary.caregivers.total}</span> cuidador(es)/turno.
           </p>
 
-          <div className="flex items-end justify-between border-t border-gray-200 pt-3">
+          <div className="flex items-end justify-between border-t border-default pt-3">
             <div>
               <p className="text-xs text-navy-2">Total necessario por turno</p>
-              <p className="text-2xl font-black text-gray-900">{summary.caregivers.total}</p>
+              <p className="text-2xl font-black text-navy">{summary.caregivers.total}</p>
             </div>
             <div className="text-right">
               <p className="text-xs text-navy-2">Déficit / superávit</p>
@@ -149,17 +149,17 @@ export function ILPIStaffCalculator({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Users2 className={summary.nursingTechsOk ? 'text-green-600' : 'text-red-600'} />
-                <h4 className="text-sm font-bold text-gray-900">Técnicos/Auxiliares de enfermagem — Lei RJ nº 8.049/2018</h4>
+                <h4 className="text-sm font-bold text-navy">Técnicos/Auxiliares de enfermagem — Lei RJ nº 8.049/2018</h4>
               </div>
               <StatusIcon ok={summary.nursingTechsOk} />
             </div>
             <p className="text-xs text-navy-2">
               Minimo: Grau II 1:15 ({summary.nursingTechs.grau2}) e Grau III 1:10 ({summary.nursingTechs.grau3}).
             </p>
-            <div className="flex items-end justify-between border-t border-gray-200 pt-3">
+            <div className="flex items-end justify-between border-t border-default pt-3">
               <div>
                 <p className="text-xs text-navy-2">Total mínimo exigido pela Lei RJ nº 8.049/2018</p>
-                <p className="text-2xl font-black text-gray-900">{summary.nursingTechs.total}</p>
+                <p className="text-2xl font-black text-navy">{summary.nursingTechs.total}</p>
               </div>
               <div className="text-right">
                 <p className="text-xs text-navy-2">Déficit / superávit</p>
@@ -176,17 +176,17 @@ export function ILPIStaffCalculator({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Users2 className={summary.cleaningStaffOk ? 'text-green-600' : 'text-red-600'} />
-                <h4 className="text-sm font-bold text-gray-900">Profissionais de limpeza</h4>
+                <h4 className="text-sm font-bold text-navy">Profissionais de limpeza</h4>
               </div>
               <StatusIcon ok={summary.cleaningStaffOk} />
             </div>
             <p className="text-xs text-navy-2">
               Minimo: 1 profissional para cada 100 m2 ou fracao de área interna informada ({summary.cleaningStaff.areaM2} m2).
             </p>
-            <div className="flex items-end justify-between border-t border-gray-200 pt-3">
+            <div className="flex items-end justify-between border-t border-default pt-3">
               <div>
                 <p className="text-xs text-navy-2">Total necessario por turno</p>
-                <p className="text-2xl font-black text-gray-900">{summary.cleaningStaff.total}</p>
+                <p className="text-2xl font-black text-navy">{summary.cleaningStaff.total}</p>
               </div>
               <div className="text-right">
                 <p className="text-xs text-navy-2">Déficit / superávit</p>

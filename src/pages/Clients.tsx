@@ -199,14 +199,14 @@ export function Clients() {
         }
       />
 
-      <div className="mb-6 flex gap-1 rounded-xl bg-gray-100 p-1">
+      <div className="mb-6 flex gap-1 rounded-xl bg-surface-sunken p-1">
         <button
           type="button"
           onClick={() => setActiveTab('clientes')}
           className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
             activeTab === 'clientes'
-              ? 'bg-white text-primary-700 shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'
+              ? 'bg-surface text-primary-700 shadow-sm'
+              : 'text-navy-3 hover:text-navy-2'
           }`}
         >
           Clientes
@@ -216,8 +216,8 @@ export function Clients() {
           onClick={() => setActiveTab('portal')}
           className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
             activeTab === 'portal'
-              ? 'bg-white text-primary-700 shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'
+              ? 'bg-surface text-primary-700 shadow-sm'
+              : 'text-navy-3 hover:text-navy-2'
           }`}
         >
           Portal do Cliente
@@ -234,17 +234,17 @@ export function Clients() {
       <>
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="relative col-span-1 sm:col-span-2">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-navy-3" />
           <input
             type="text"
             placeholder="Buscar por nome, CNPJ..."
-            className="h-10 w-full rounded-xl border border-gray-200 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+            className="h-10 w-full rounded-xl border border-control pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary-500 outline-none"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         <select
-          className="h-10 w-full rounded-xl border border-gray-200 px-3 text-sm focus:ring-2 focus:ring-primary-500 outline-none bg-white"
+          className="h-10 w-full rounded-xl border border-control px-3 text-sm focus:ring-2 focus:ring-primary-500 outline-none bg-surface"
           value={filterCat}
           onChange={(e) => setFilterCat(e.target.value as any)}
         >
@@ -257,7 +257,7 @@ export function Clients() {
 
       <div className="space-y-4">
         {loadError ? (
-          <div className="rounded-2xl border border-gray-100 bg-white">
+          <div className="rounded-2xl border border-default bg-surface">
             <EmptyState
               role="alert"
               icon={<AlertTriangle className="h-8 w-8 text-red-500" />}
@@ -285,7 +285,7 @@ export function Clients() {
             ))}
           </div>
         ) : clients.length === 0 ? (
-          <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-white">
+          <div className="rounded-2xl border-2 border-dashed border-default bg-surface">
             {search || filterCat !== 'all' ? (
               <EmptyState
                 icon={<FilterX className="h-8 w-8" />}
@@ -322,7 +322,7 @@ export function Clients() {
                 return (
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h3 className="text-lg font-bold text-gray-900 group-hover:text-primary-700 transition-colors">{client.name}</h3>
+                  <h3 className="text-lg font-bold text-navy group-hover:text-primary-700 transition-colors">{client.name}</h3>
                   <div className="mt-1 flex flex-wrap gap-2">
                      <Badge variant={
                        client.category === 'estetica' ? 'success' : 
@@ -342,18 +342,18 @@ export function Clients() {
                        </Badge>
                      )}
                   </div>
-                  <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 text-sm text-gray-600">
+                  <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 text-sm text-navy-2">
                     {(client.contacts?.length ? client.contacts : [{ phone: client.phone }]).filter((contact) => contact.phone).slice(0, 2).map((contact, index) => (
                       <div key={index} className="flex items-center">
-                        <Phone className="mr-2 h-4 w-4 text-gray-400" /> {contact.phone}
+                        <Phone className="mr-2 h-4 w-4 text-navy-3" /> {contact.phone}
                       </div>
                     ))}
-                    {client.address && <div className="flex items-center col-span-1 sm:col-span-2"><MapPin className="mr-2 h-4 w-4 text-gray-400" /> {client.address}</div>}
+                    {client.address && <div className="flex items-center col-span-1 sm:col-span-2"><MapPin className="mr-2 h-4 w-4 text-navy-3" /> {client.address}</div>}
                   </div>
                 </div>
                 <div className="flex gap-1 ml-4 group-hover:opacity-100 opacity-0 transition-opacity">
-                  <button onClick={(e) => handleEdit(client, e)} className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-xl"><Edit2 className="h-5 w-5" /></button>
-                  <button onClick={(e) => handleDelete(client, e)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl"><Trash2 className="h-5 w-5" /></button>
+                  <button onClick={(e) => handleEdit(client, e)} className="p-2 text-navy-3 hover:text-primary-600 hover:bg-primary-50 rounded-xl"><Edit2 className="h-5 w-5" /></button>
+                  <button onClick={(e) => handleDelete(client, e)} className="p-2 text-navy-3 hover:text-red-600 hover:bg-red-50 rounded-xl"><Trash2 className="h-5 w-5" /></button>
                 </div>
               </div>
                 );
@@ -368,23 +368,23 @@ export function Clients() {
       <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditingClient(null); setClientContacts([{ name: '', phone: '', email: '' }]); reset(); }} title={editingClient ? "Editar Cliente" : "Novo Cliente"}>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Nome do Estabelecimento *</label>
-            <input {...register('name', { required: true })} className="mt-1 h-11 w-full rounded-xl border border-gray-200 px-4 focus:ring-2 focus:ring-primary-500 outline-none" />
+            <label className="block text-sm font-medium text-navy-2">Nome do Estabelecimento *</label>
+            <input {...register('name', { required: true })} className="mt-1 h-11 w-full rounded-xl border border-control px-4 focus:ring-2 focus:ring-primary-500 outline-none" />
             {errors.name && <span className="text-xs text-red-500">Obrigatório</span>}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">Categoria *</label>
-              <select {...register('category', { required: true })} className="mt-1 h-11 w-full rounded-xl border border-gray-200 px-4 focus:ring-2 focus:ring-primary-500 outline-none bg-white">
+              <label className="block text-sm font-medium text-navy-2">Categoria *</label>
+              <select {...register('category', { required: true })} className="mt-1 h-11 w-full rounded-xl border border-control px-4 focus:ring-2 focus:ring-primary-500 outline-none bg-surface">
                 <option value="estetica">Estética</option>
                 <option value="ilpi">ILPI</option>
                 <option value="alimentos">Alimentos</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">CNPJ</label>
-              <input {...register('cnpj')} className="mt-1 h-11 w-full rounded-xl border border-gray-200 px-4 focus:ring-2 focus:ring-primary-500 outline-none" />
+              <label className="block text-sm font-medium text-navy-2">CNPJ</label>
+              <input {...register('cnpj')} className="mt-1 h-11 w-full rounded-xl border border-control px-4 focus:ring-2 focus:ring-primary-500 outline-none" />
             </div>
           </div>
 
@@ -395,16 +395,16 @@ export function Clients() {
                 {Object.entries(FOOD_SEGMENT_LABELS).map(([val, label]) => (
                   <label key={val} className="flex items-center space-x-2">
                     <input type="checkbox" value={val} {...register('foodTypes')} className="rounded text-primary-600" />
-                    <span className="text-gray-700">{label}</span>
+                    <span className="text-navy-2">{label}</span>
                   </label>
                 ))}
               </div>
             </div>
           )}
 
-          <div className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4">
+          <div className="rounded-2xl border border-default bg-surface-sunken/70 p-4">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <label className="text-sm font-semibold text-gray-800">Responsáveis e contatos</label>
+              <label className="text-sm font-semibold text-navy">Responsáveis e contatos</label>
               <Button
                 type="button"
                 variant="outline"
@@ -417,20 +417,20 @@ export function Clients() {
             </div>
             <div className="space-y-3">
               {clientContacts.map((contact, index) => (
-                <div key={index} className="grid gap-3 rounded-xl border border-gray-100 bg-white p-3 sm:grid-cols-3">
+                <div key={index} className="grid gap-3 rounded-xl border border-default bg-surface p-3 sm:grid-cols-3">
                   <input
                     type="text"
                     value={contact.name || ''}
                     onChange={(e) => setClientContacts((prev) => prev.map((item, i) => i === index ? { ...item, name: e.target.value } : item))}
                     placeholder="Responsável"
-                    className="h-10 rounded-xl border border-gray-200 px-3 text-sm outline-none focus:ring-2 focus:ring-primary-500"
+                    className="h-10 rounded-xl border border-control px-3 text-sm outline-none focus:ring-2 focus:ring-primary-500"
                   />
                   <input
                     type="tel"
                     value={contact.phone || ''}
                     onChange={(e) => setClientContacts((prev) => prev.map((item, i) => i === index ? { ...item, phone: e.target.value } : item))}
                     placeholder="Telefone"
-                    className="h-10 rounded-xl border border-gray-200 px-3 text-sm outline-none focus:ring-2 focus:ring-primary-500"
+                    className="h-10 rounded-xl border border-control px-3 text-sm outline-none focus:ring-2 focus:ring-primary-500"
                   />
                   <div className="flex gap-2">
                     <input
@@ -438,7 +438,7 @@ export function Clients() {
                       value={contact.email || ''}
                       onChange={(e) => setClientContacts((prev) => prev.map((item, i) => i === index ? { ...item, email: e.target.value } : item))}
                       placeholder="E-mail"
-                      className="h-10 min-w-0 flex-1 rounded-xl border border-gray-200 px-3 text-sm outline-none focus:ring-2 focus:ring-primary-500"
+                      className="h-10 min-w-0 flex-1 rounded-xl border border-control px-3 text-sm outline-none focus:ring-2 focus:ring-primary-500"
                     />
                     {clientContacts.length > 1 && (
                       <button
@@ -458,12 +458,12 @@ export function Clients() {
 
           <div className="grid grid-cols-2 gap-4 pt-2">
             <div className="col-span-2 sm:col-span-1">
-              <label className="block text-sm font-medium text-gray-700">Cidade</label>
-              <input {...register('city')} className="mt-1 h-11 w-full rounded-xl border border-gray-200 px-4 focus:ring-2 focus:ring-primary-500 outline-none" />
+              <label className="block text-sm font-medium text-navy-2">Cidade</label>
+              <input {...register('city')} className="mt-1 h-11 w-full rounded-xl border border-control px-4 focus:ring-2 focus:ring-primary-500 outline-none" />
             </div>
             <div className="col-span-2 sm:col-span-1">
-              <label className="block text-sm font-medium text-gray-700">Estado</label>
-              <select {...register('state')} className="mt-1 h-11 w-full rounded-xl border border-gray-200 px-4 focus:ring-2 focus:ring-primary-500 outline-none bg-white">
+              <label className="block text-sm font-medium text-navy-2">Estado</label>
+              <select {...register('state')} className="mt-1 h-11 w-full rounded-xl border border-control px-4 focus:ring-2 focus:ring-primary-500 outline-none bg-surface">
                 <option value="">Selecione</option>
                 {UF_OPTIONS.map(({ uf, name }) => (
                   <option key={uf} value={uf}>{uf} — {name}</option>

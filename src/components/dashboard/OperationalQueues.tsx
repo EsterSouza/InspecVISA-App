@@ -185,28 +185,28 @@ function ItemRow({
   const content = (
     <>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-xs font-bold text-gray-900">
+        <p className="truncate text-xs font-bold text-navy">
           {item.title || item.account_name || 'Sem título'}
         </p>
-        <p className="truncate text-[11px] text-gray-500">
+        <p className="truncate text-[11px] text-navy-3">
           {item.client_name || (item.client_names && item.client_names.join(', ')) || ''}
           {item.type ? ` · ${item.type}` : ''}
         </p>
       </div>
       <div className="shrink-0 text-right">
-        <p className="text-[11px] font-semibold text-gray-600">
+        <p className="text-[11px] font-semibold text-navy-2">
           {block === 'appointments' || block === 'appointment_requests_pending'
             ? formatDateTime(item.due_at)
             : formatDate(item.due_at)}
         </p>
         {(item.responsible || item.assigned_to) && (
-          <p className="text-[10px] text-gray-400">{item.responsible || item.assigned_to}</p>
+          <p className="text-[10px] text-navy-3">{item.responsible || item.assigned_to}</p>
         )}
       </div>
     </>
   );
 
-  const rowClass = 'flex w-full items-center gap-3 rounded-lg border border-gray-100 bg-white p-2.5 text-left hover:bg-gray-50';
+  const rowClass = 'flex w-full items-center gap-3 rounded-lg border border-default bg-surface p-2.5 text-left hover:bg-surface-hover';
 
   return config.link ? (
     <Link to={config.link(item)} className={rowClass}>
@@ -234,7 +234,7 @@ function BlockCard({
   const hasError = count?.error;
 
   return (
-    <div className={`rounded-xl border bg-white shadow-sm ${hasError ? 'border-red-200' : 'border-gray-200'}`}>
+    <div className={`rounded-xl border bg-surface shadow-sm ${hasError ? 'border-red-200' : 'border-default'}`}>
       <button
         type="button"
         onClick={onToggle}
@@ -245,8 +245,8 @@ function BlockCard({
             <Icon className="h-4.5 w-4.5" />
           </span>
           <div>
-            <p className="text-sm font-bold text-gray-900">{config.label}</p>
-            <p className="text-[11px] text-gray-500">{config.description}</p>
+            <p className="text-sm font-bold text-navy">{config.label}</p>
+            <p className="text-[11px] text-navy-3">{config.description}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -255,32 +255,32 @@ function BlockCard({
               indisponível
             </span>
           ) : count?.count === undefined ? (
-            <Loader2 className="h-4 w-4 animate-spin text-gray-300" />
+            <Loader2 className="h-4 w-4 animate-spin text-navy-3" />
           ) : (
             <span
               className={`rounded-full px-2.5 py-1 text-sm font-black ${
-                count.count > 0 ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-400'
+                count.count > 0 ? 'bg-navy text-white' : 'bg-surface-sunken text-navy-3'
               }`}
             >
               {count.count}
             </span>
           )}
-          {state.expanded ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+          {state.expanded ? <ChevronUp className="h-4 w-4 text-navy-3" /> : <ChevronDown className="h-4 w-4 text-navy-3" />}
         </div>
       </button>
 
       {state.expanded && (
-        <div className="space-y-2 border-t border-dashed border-gray-200 p-3">
+        <div className="space-y-2 border-t border-dashed border-default p-3">
           {state.loading && state.items.length === 0 ? (
             <div className="flex justify-center py-6">
-              <Loader2 className="h-5 w-5 animate-spin text-gray-300" />
+              <Loader2 className="h-5 w-5 animate-spin text-navy-3" />
             </div>
           ) : state.error ? (
             <p className="rounded-md border border-red-100 bg-red-50 p-2.5 text-xs text-red-700">
               Não deu para carregar esta lista agora: {state.error}
             </p>
           ) : state.items.length === 0 ? (
-            <p className="py-4 text-center text-xs text-gray-400">Nada por aqui.</p>
+            <p className="py-4 text-center text-xs text-navy-3">Nada por aqui.</p>
           ) : (
             <>
               {state.items.map((item) => (
@@ -291,7 +291,7 @@ function BlockCard({
                   type="button"
                   onClick={onLoadMore}
                   disabled={state.loading}
-                  className="w-full rounded-md border border-gray-200 py-1.5 text-[11px] font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-60"
+                  className="w-full rounded-md border border-default py-1.5 text-[11px] font-semibold text-navy-2 hover:bg-surface-hover disabled:opacity-60"
                 >
                   {state.loading ? 'Carregando…' : `Carregar mais (${state.totalCount - state.items.length} restantes)`}
                 </button>
@@ -391,13 +391,13 @@ export function OperationalQueues({ consultantName, clientId, daysAhead }: Opera
   return (
     <div>
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-gray-500">
+        <h2 className="text-sm font-bold uppercase tracking-wide text-navy-3">
           O que exige ação agora
         </h2>
         <button
           type="button"
           onClick={loadCounts}
-          className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+          className="inline-flex items-center gap-1.5 rounded-md border border-default bg-surface px-3 py-2 text-xs font-semibold text-navy-2 hover:bg-surface-hover"
         >
           <RefreshCw className="h-3.5 w-3.5" /> Atualizar
         </button>
@@ -427,7 +427,7 @@ export function OperationalQueues({ consultantName, clientId, daysAhead }: Opera
         <span className="text-[11px] font-bold uppercase tracking-wide text-emerald-700">Financeiro</span>
         <span className="h-px flex-1 bg-emerald-200" />
       </div>
-      <p className="mb-2.5 text-[11px] text-gray-500">
+      <p className="mb-2.5 text-[11px] text-navy-3">
         O filtro de consultora não se aplica aqui: o atraso é da conta.
       </p>
       <BlockCard

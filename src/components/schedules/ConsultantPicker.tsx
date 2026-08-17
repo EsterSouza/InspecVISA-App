@@ -8,7 +8,7 @@ interface ConsultantPickerProps {
 export function ConsultantPicker({ selected, onToggle }: ConsultantPickerProps) {
   return (
     <div className="space-y-1.5">
-      <span id="consultant-picker-label" className="text-sm font-medium text-gray-700">
+      <span id="consultant-picker-label" className="text-sm font-medium text-navy-2">
         Consultora(s) responsável(is)
       </span>
       <div className="flex flex-wrap gap-2" role="group" aria-labelledby="consultant-picker-label">
@@ -23,7 +23,7 @@ export function ConsultantPicker({ selected, onToggle }: ConsultantPickerProps) 
               className={`min-h-11 rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
                 active
                   ? 'bg-primary-600 text-white shadow-sm'
-                  : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                  : 'border border-default bg-surface text-navy-2 hover:bg-surface-hover'
               }`}
             >
               {name}
@@ -31,7 +31,7 @@ export function ConsultantPicker({ selected, onToggle }: ConsultantPickerProps) 
           );
         })}
       </div>
-      <p className="text-xs text-gray-500">A inspeção criada a partir desta visita herda quem você marcar.</p>
+      <p className="text-xs text-navy-3">A inspeção criada a partir desta visita herda quem você marcar.</p>
     </div>
   );
 }

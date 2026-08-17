@@ -41,8 +41,8 @@ export function LinkCapture({ inputId, links, onChange }: LinkCaptureProps) {
 
   return (
     <div className="space-y-2">
-      <label htmlFor={inputId} className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
-        <Link2 className="h-4 w-4 text-gray-400" /> Link / fonte consultada
+      <label htmlFor={inputId} className="flex items-center gap-1.5 text-sm font-medium text-navy-2">
+        <Link2 className="h-4 w-4 text-navy-3" /> Link / fonte consultada
       </label>
       <div className="flex gap-2">
         <input
@@ -52,7 +52,7 @@ export function LinkCapture({ inputId, links, onChange }: LinkCaptureProps) {
           onChange={(e) => { setDraft(e.target.value); setError(null); }}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addLink(); } }}
           placeholder="https://..."
-          className="min-h-11 w-full flex-1 rounded-md border border-gray-300 px-3 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+          className="min-h-11 w-full flex-1 rounded-md border border-control px-3 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
         />
         <button
           type="button"
@@ -67,7 +67,7 @@ export function LinkCapture({ inputId, links, onChange }: LinkCaptureProps) {
       {links.length > 0 && (
         <ul className="space-y-1.5">
           {links.map((link, index) => (
-            <li key={`${link}-${index}`} className="flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
+            <li key={`${link}-${index}`} className="flex items-center gap-2 rounded-md border border-default bg-surface-sunken px-3 py-2 text-sm">
               <a
                 href={link}
                 target="_blank"
@@ -81,7 +81,7 @@ export function LinkCapture({ inputId, links, onChange }: LinkCaptureProps) {
               <button
                 type="button"
                 onClick={() => removeLink(index)}
-                className="shrink-0 rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-500"
+                className="shrink-0 rounded p-1 text-navy-3 hover:bg-red-50 hover:text-red-500"
                 aria-label={`Remover link ${link}`}
               >
                 <Trash2 className="h-3.5 w-3.5" />

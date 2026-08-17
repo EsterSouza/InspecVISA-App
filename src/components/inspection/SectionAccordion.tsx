@@ -37,13 +37,13 @@ export function SectionAccordion({
   const isCritical = notCompliesCount > 0;
 
   return (
-    <div className="mb-4 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-all">
+    <div className="mb-4 overflow-hidden rounded-xl border border-default bg-surface shadow-sm transition-all">
       {/* Header */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         className={cn(
-          "flex w-full items-center justify-between p-4 text-left transition-colors hover:bg-gray-50",
-          isComplete ? "bg-gray-50/50" : "bg-white"
+          "flex w-full items-center justify-between p-4 text-left transition-colors hover:bg-surface-hover",
+          isComplete ? "bg-surface-sunken/50" : "bg-surface"
         )}
       >
         <div className="flex-1 pr-4">
@@ -63,9 +63,9 @@ export function SectionAccordion({
             </span>
             {evaluatedItems > 0 && (
               <>
-                <span className="h-1 w-1 rounded-full bg-gray-300" />
+                <span className="h-1 w-1 rounded-full bg-navy-3" />
                 <span className="font-medium text-success-soft-ink">{compliesCount} conformes</span>
-                <span className="h-1 w-1 rounded-full bg-gray-300" />
+                <span className="h-1 w-1 rounded-full bg-navy-3" />
                 <span className={notCompliesCount > 0 ? "font-medium text-danger-soft-ink" : ""}>
                   {notCompliesCount} não conformes
                 </span>
@@ -75,7 +75,7 @@ export function SectionAccordion({
         </div>
         
         {/* Expand Icon */}
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-navy-2">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-sunken text-navy-2">
           {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
         </div>
       </button>
@@ -88,7 +88,7 @@ export function SectionAccordion({
         )}
       >
         <div className="overflow-hidden">
-          <div className="border-t border-gray-100 bg-gray-50 p-4 sm:p-6 space-y-6">
+          <div className="border-t border-default bg-surface-sunken p-4 sm:p-6 space-y-6">
             {children}
           </div>
         </div>

@@ -18,10 +18,10 @@ export function ActionPlanModal({ requestId, title, onClose }: ActionPlanModalPr
         className="max-h-[90vh] w-full max-w-2xl overflow-y-auto shadow-2xl"
       >
         <CardContent className="p-6">
-          <h3 id="action-plan-modal-title" className="mb-1 text-xl font-bold text-gray-900">
+          <h3 id="action-plan-modal-title" className="mb-1 text-xl font-bold text-navy">
             Plano de ação no portal
           </h3>
-          <p className="mb-6 text-sm text-gray-500">{title}</p>
+          <p className="mb-6 text-sm text-navy-3">{title}</p>
 
           <ActionPlanPanel requestId={requestId} busy={false} />
 

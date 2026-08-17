@@ -130,14 +130,14 @@ export function VoiceDictationButton({ onTranscript, className }: VoiceDictation
           'flex h-7 w-7 shrink-0 items-center justify-center rounded-full border transition-colors [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11',
           isListening
             ? 'animate-pulse border-red-400 bg-red-50 text-red-600'
-            : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-primary-600',
+            : 'border-default bg-surface text-navy-3 hover:bg-surface-hover hover:text-primary-600',
           className
         )}
       >
         {isListening ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
       </button>
       {isListening && (
-        <span className="ml-2 max-w-[180px] truncate text-[11px] italic text-gray-400">
+        <span className="ml-2 max-w-[180px] truncate text-[11px] italic text-navy-3">
           {interimText ? `"${interimText}"` : STATUS_LABEL[status]}
         </span>
       )}

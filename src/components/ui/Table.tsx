@@ -9,7 +9,7 @@ import { cn } from '../../lib/utils';
  */
 export const TableContainer = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, children, ...props }, ref) => (
-    <div ref={ref} className={cn('overflow-hidden rounded-lg border border-gray-200 bg-white', className)} {...props}>
+    <div ref={ref} className={cn('overflow-hidden rounded-lg border border-default bg-surface', className)} {...props}>
       <div className="overflow-x-auto">{children}</div>
     </div>
   )
@@ -45,10 +45,10 @@ export const TableRow = React.forwardRef<HTMLTableRowElement, TableRowProps>(
       ref={ref}
       aria-selected={selected || undefined}
       className={cn(
-        'border-b border-gray-100 last:border-0 transition-colors',
+        'border-b border-default last:border-0 transition-colors',
         group
-          ? 'sticky top-[38px] z-[5] bg-gray-50 font-title text-xs font-bold text-gray-900'
-          : 'hover:bg-gray-50',
+          ? 'sticky top-[38px] z-[5] bg-surface-sunken font-title text-xs font-bold text-navy'
+          : 'hover:bg-surface-hover',
         selected && !group && 'bg-primary-50',
         className
       )}
@@ -74,7 +74,7 @@ export const TableHead = React.forwardRef<HTMLTableCellElement, TableHeadProps>(
         scope="col"
         aria-sort={isSorted ? sortDirection : undefined}
         className={cn(
-          'sticky top-0 z-10 h-[38px] whitespace-nowrap border-b border-gray-200 bg-gray-50 px-4 text-left text-xs font-semibold text-gray-500',
+          'sticky top-0 z-10 h-[38px] whitespace-nowrap border-b border-default bg-surface-sunken px-4 text-left text-xs font-semibold text-navy-3',
           align === 'right' && 'text-right',
           className
         )}
@@ -85,7 +85,7 @@ export const TableHead = React.forwardRef<HTMLTableCellElement, TableHeadProps>(
             type="button"
             onClick={onSort}
             className={cn(
-              'inline-flex items-center gap-1 bg-transparent p-0 text-xs font-semibold text-inherit transition-colors hover:text-gray-900',
+              'inline-flex items-center gap-1 bg-transparent p-0 text-xs font-semibold text-inherit transition-colors hover:text-navy',
               isSorted && 'text-primary-700 hover:text-primary-700',
               align === 'right' && 'flex-row-reverse'
             )}
@@ -119,9 +119,9 @@ export const TableCell = React.forwardRef<HTMLTableCellElement, TableCellProps>(
     <td
       ref={ref}
       className={cn(
-        'h-11 px-4 align-middle text-gray-700',
+        'h-11 px-4 align-middle text-navy-2',
         align === 'right' && 'text-right tabular-nums',
-        primary && 'font-semibold text-gray-900',
+        primary && 'font-semibold text-navy',
         className
       )}
       {...props}

@@ -93,11 +93,11 @@ export function ConfirmDialog({
         </div>
       }
     >
-      <div className="space-y-3 text-sm text-gray-700">
+      <div className="space-y-3 text-sm text-navy-2">
         {description && <div>{description}</div>}
 
         {consequences && consequences.length > 0 && (
-          <ul className="list-disc space-y-1 pl-5 text-gray-600">
+          <ul className="list-disc space-y-1 pl-5 text-navy-2">
             {consequences.map((item, index) => (
               <li key={index}>{item}</li>
             ))}
@@ -106,8 +106,8 @@ export function ConfirmDialog({
 
         {needsTyping && (
           <div className="pt-1">
-            <label className="mb-1 block text-xs font-semibold text-gray-600">
-              Digite <span className="font-mono font-bold text-gray-900">{confirmWord}</span> para confirmar
+            <label className="mb-1 block text-xs font-semibold text-navy-2">
+              Digite <span className="font-mono font-bold text-navy">{confirmWord}</span> para confirmar
             </label>
             <Input
               value={typed}

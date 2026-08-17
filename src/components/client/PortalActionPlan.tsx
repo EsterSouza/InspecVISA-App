@@ -35,7 +35,7 @@ const priorityLabel: Record<ClientActionItemPriority, string> = {
 const priorityTheme: Record<ClientActionItemPriority, string> = {
   urgent: 'bg-red-100 text-red-700',
   important: 'bg-amber-soft text-amber-soft-ink',
-  recommended: 'bg-gray-100 text-navy-2',
+  recommended: 'bg-surface-sunken text-navy-2',
 };
 
 const evidenceLabel: Record<ClientActionEvidenceStatus, string> = {
@@ -187,7 +187,7 @@ function EvidenceUpload({
   const alreadySent = item.evidence_count > 0;
 
   return (
-    <div className="mt-2.5 border-t border-dashed border-gray-200 pt-2.5">
+    <div className="mt-2.5 border-t border-dashed border-default pt-2.5">
       <input
         ref={inputRef}
         type="file"
@@ -207,12 +207,12 @@ function EvidenceUpload({
             {alreadySent ? <RefreshCw className="h-3.5 w-3.5" /> : <Paperclip className="h-3.5 w-3.5" />}
             {alreadySent ? 'Enviar outra evidência' : 'Enviar evidência'}
           </button>
-          <span className="text-[11px] text-gray-500">{EVIDENCE_LIMITS_LABEL}</span>
+          <span className="text-[11px] text-navy-3">{EVIDENCE_LIMITS_LABEL}</span>
         </div>
       ) : (
         <div className="space-y-2">
-          <p className="flex items-center gap-1.5 text-xs text-gray-700">
-            <Paperclip className="h-3.5 w-3.5 text-gray-400" />
+          <p className="flex items-center gap-1.5 text-xs text-navy-2">
+            <Paperclip className="h-3.5 w-3.5 text-navy-3" />
             <span className="font-medium">{file.name}</span>
           </p>
           <textarea
@@ -221,7 +221,7 @@ function EvidenceUpload({
             rows={2}
             maxLength={1000}
             placeholder="Quer explicar o que foi feito? (opcional)"
-            className="w-full rounded-md border border-gray-200 p-2 text-xs placeholder:text-gray-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+            className="w-full rounded-md border border-control p-2 text-xs placeholder:text-navy-3 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
           />
           <div className="grid gap-2 sm:grid-cols-2">
             <input
@@ -231,7 +231,7 @@ function EvidenceUpload({
               maxLength={120}
               placeholder="Seu nome"
               aria-label="Seu nome"
-              className="w-full rounded-md border border-gray-200 p-2 text-xs placeholder:text-gray-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+              className="w-full rounded-md border border-control p-2 text-xs placeholder:text-navy-3 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
             />
             <input
               type="text"
@@ -240,10 +240,10 @@ function EvidenceUpload({
               maxLength={120}
               placeholder="Sua função"
               aria-label="Sua função"
-              className="w-full rounded-md border border-gray-200 p-2 text-xs placeholder:text-gray-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+              className="w-full rounded-md border border-control p-2 text-xs placeholder:text-navy-3 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
             />
           </div>
-          <p className="text-[11px] text-gray-500">
+          <p className="text-[11px] text-navy-3">
             O nome e a função ficam registrados no relatório junto com a evidência.
           </p>
           <div className="flex flex-wrap gap-2">
@@ -260,7 +260,7 @@ function EvidenceUpload({
               type="button"
               onClick={reset}
               disabled={busy}
-              className="rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60"
+              className="rounded-md border border-default px-3 py-1.5 text-xs font-medium text-navy-2 hover:bg-surface-hover disabled:opacity-60"
             >
               Cancelar
             </button>
@@ -335,8 +335,8 @@ function DeclareStatus({
   };
 
   return (
-    <div className="mt-2.5 border-t border-dashed border-gray-200 pt-2.5">
-      <p className="mb-1.5 text-[11px] font-semibold text-gray-600">
+    <div className="mt-2.5 border-t border-dashed border-default pt-2.5">
+      <p className="mb-1.5 text-[11px] font-semibold text-navy-2">
         {item.client_status ? 'Mudou de situação?' : 'Em que pé está?'}
       </p>
       <div className="flex flex-wrap gap-1.5">
@@ -346,7 +346,7 @@ function DeclareStatus({
             type="button"
             onClick={() => { setChoice(option); setError(null); }}
             className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors ${
-              choice === option ? declaredTheme[option] : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+              choice === option ? declaredTheme[option] : 'border-default bg-surface text-navy-2 hover:bg-surface-hover'
             }`}
           >
             {declaredLabel[option]}
@@ -363,7 +363,7 @@ function DeclareStatus({
             maxLength={1000}
             placeholder={choice === 'not_done' ? 'Por que ainda não foi feito? *' : 'Quer detalhar? (opcional)'}
             aria-label="Detalhe da situação"
-            className="w-full rounded-md border border-gray-200 p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+            className="w-full rounded-md border border-control p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
           />
           <div className="grid gap-2 sm:grid-cols-2">
             <input
@@ -373,7 +373,7 @@ function DeclareStatus({
               maxLength={120}
               placeholder="Seu nome"
               aria-label="Seu nome na resposta"
-              className="w-full rounded-md border border-gray-200 p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+              className="w-full rounded-md border border-control p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
             />
             <input
               type="text"
@@ -382,7 +382,7 @@ function DeclareStatus({
               maxLength={120}
               placeholder="Sua função"
               aria-label="Sua função na resposta"
-              className="w-full rounded-md border border-gray-200 p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+              className="w-full rounded-md border border-control p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
             />
           </div>
           <div className="flex flex-wrap gap-2">
@@ -399,7 +399,7 @@ function DeclareStatus({
               type="button"
               onClick={() => { setChoice(null); setNote(''); setError(null); }}
               disabled={busy}
-              className="rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60"
+              className="rounded-md border border-default px-3 py-1.5 text-xs font-medium text-navy-2 hover:bg-surface-hover disabled:opacity-60"
             >
               Cancelar
             </button>
@@ -488,7 +488,7 @@ function ActionItemCard({
   return (
     <li
       className={`rounded-lg border p-3 ${
-        resolved ? 'border-gray-100 bg-gray-50' : item.is_overdue ? 'border-amber-soft-border bg-amber-soft/60' : 'border-gray-200 bg-white'
+        resolved ? 'border-default bg-surface-sunken' : item.is_overdue ? 'border-amber-soft-border bg-amber-soft/60' : 'border-default bg-surface'
       }`}
     >
       <div className="mb-1.5 flex flex-wrap items-center gap-2">
@@ -522,7 +522,7 @@ function ActionItemCard({
         {item.recommended_action}
       </p>
 
-      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-gray-500">
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-navy-3">
         <span className="inline-flex items-center gap-1">
           <CalendarClock className="h-3.5 w-3.5" />
           {item.due_date ? `Prazo ${formatDateBR(item.due_date)}` : 'Prazo a combinar'}
@@ -615,7 +615,7 @@ export function PortalActionPlan({
   };
 
   if (loading) {
-    return <section className="mb-6 h-28 animate-pulse rounded-xl border border-gray-200 bg-gray-50" aria-hidden="true" />;
+    return <section className="mb-6 h-28 animate-pulse rounded-xl border border-default bg-surface-sunken" aria-hidden="true" />;
   }
 
   if (error) {
@@ -626,7 +626,7 @@ export function PortalActionPlan({
           <button
             type="button"
             onClick={onRetry}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-800 hover:bg-amber-100"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-amber-300 bg-surface px-3 text-sm font-semibold text-amber-800 hover:bg-amber-100"
           >
             <RefreshCw className="h-4 w-4" /> Tentar novamente
           </button>
@@ -640,14 +640,14 @@ export function PortalActionPlan({
   if (items.length === 0) {
     if (!alwaysShow) return null;
     return (
-      <section aria-labelledby="portal-action-plan" className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <section aria-labelledby="portal-action-plan" className="mb-6 rounded-xl border border-default bg-surface p-4 shadow-sm">
         <h3
           id="portal-action-plan"
           className="mb-2 flex items-center gap-2 font-title text-base font-semibold text-navy"
         >
           <ClipboardList className="h-4 w-4 text-primary-700" /> Plano de ação
         </h3>
-        <p className="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-3 text-xs text-gray-600">
+        <p className="rounded-lg border border-dashed border-default bg-surface-sunken p-3 text-xs text-navy-2">
           Nenhuma pendência publicada para esta unidade ainda. Assim que a consultoria publicar o
           plano de ação desta inspeção, ele aparece aqui — e é por aqui que você responde o que já
           foi corrigido, anexa a evidência ou avisa o que ainda não deu para fazer.
@@ -665,7 +665,7 @@ export function PortalActionPlan({
   const groups = isGrouped ? groupOpenItemsByUnit(open) : [];
 
   return (
-    <section aria-labelledby="portal-action-plan" className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+    <section aria-labelledby="portal-action-plan" className="mb-6 rounded-xl border border-default bg-surface p-4 shadow-sm">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h3
           id="portal-action-plan"
@@ -688,7 +688,7 @@ export function PortalActionPlan({
         <div className="space-y-4">
           {groups.map((group) => (
             <div key={group.clientId}>
-              <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-t-lg border border-gray-200 bg-gray-50 px-3 py-2">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-t-lg border border-default bg-surface-sunken px-3 py-2">
                 <h4 className="font-title text-sm font-semibold text-navy">{group.unitName}</h4>
                 <span className="text-[11px] font-medium text-navy-2">
                   {group.items.length} pendente{group.items.length === 1 ? '' : 's'}
@@ -748,7 +748,7 @@ export function PortalActionPlan({
 
       {resolved.length > 0 && (
         <details className="mt-3">
-          <summary className="cursor-pointer text-xs font-semibold text-gray-500 hover:text-gray-700">
+          <summary className="cursor-pointer text-xs font-semibold text-navy-3 hover:text-navy-2">
             Histórico · {resolved.length} pendência(s) concluída(s)
           </summary>
           <ul className="mt-2 space-y-2">

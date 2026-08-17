@@ -124,8 +124,8 @@ export function AddPhotosModal({ request, onClose, onAdded }: AddPhotosModalProp
         className="max-h-[90vh] w-full max-w-2xl overflow-y-auto shadow-2xl"
       >
         <CardContent className="p-6">
-          <h3 id="add-photos-title" className="mb-1 text-xl font-bold text-gray-900">Adicionar fotos ao portal</h3>
-          <p className="mb-6 text-sm text-gray-500">{request.unit_name}</p>
+          <h3 id="add-photos-title" className="mb-1 text-xl font-bold text-navy">Adicionar fotos ao portal</h3>
+          <p className="mb-6 text-sm text-navy-3">{request.unit_name}</p>
 
           {!request.client_id ? (
             <p className="rounded-xl border border-amber-100 bg-amber-50 p-4 text-sm text-amber-700">
@@ -137,13 +137,13 @@ export function AddPhotosModal({ request, onClose, onAdded }: AddPhotosModalProp
               <Loader2 className="h-6 w-6 animate-spin text-primary-600" />
             </div>
           ) : inspections.length === 0 ? (
-            <p className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-sm text-gray-500">
+            <p className="rounded-xl border border-default bg-surface-sunken p-4 text-sm text-navy-3">
               Nenhuma inspeção encontrada para o cliente vinculado.
             </p>
           ) : (
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <label htmlFor="add-photos-inspection" className="text-sm font-medium text-gray-700">Inspeção</label>
+                <label htmlFor="add-photos-inspection" className="text-sm font-medium text-navy-2">Inspeção</label>
                 <select
                   id="add-photos-inspection"
                   value={selectedInspectionId}
@@ -151,7 +151,7 @@ export function AddPhotosModal({ request, onClose, onAdded }: AddPhotosModalProp
                     setSelectedInspectionId(e.target.value);
                     setSelectedPhotoIds(new Set());
                   }}
-                  className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm"
+                  className="w-full rounded-xl border border-control bg-surface p-3 text-sm"
                 >
                   <option value="">Selecione a inspeção...</option>
                   {inspections.map((insp) => (
@@ -169,14 +169,14 @@ export function AddPhotosModal({ request, onClose, onAdded }: AddPhotosModalProp
                   <Loader2 className="h-6 w-6 animate-spin text-primary-600" />
                 </div>
               ) : selectedInspectionId && photos.length === 0 ? (
-                <p className="rounded-xl border border-gray-100 bg-gray-50 p-4 text-sm text-gray-500">
+                <p className="rounded-xl border border-default bg-surface-sunken p-4 text-sm text-navy-3">
                   Esta inspeção não possui fotos sincronizadas no Storage.
                 </p>
               ) : (
                 photos.length > 0 && (
                   <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-navy-3">
                       {selectedPhotoIds.size} de {photos.length} selecionada(s)
                     </span>
                     <button
@@ -198,7 +198,7 @@ export function AddPhotosModal({ request, onClose, onAdded }: AddPhotosModalProp
                           aria-pressed={selected}
                           aria-label={photo.caption || 'Foto da inspeção'}
                           className={`relative aspect-square overflow-hidden rounded-xl border-2 transition-all ${
-                            selected ? 'border-primary-600 ring-2 ring-primary-200' : 'border-gray-200'
+                            selected ? 'border-primary-600 ring-2 ring-primary-200' : 'border-default'
                           }`}
                         >
                           {photo.previewUrl ? (
@@ -208,7 +208,7 @@ export function AddPhotosModal({ request, onClose, onAdded }: AddPhotosModalProp
                               className="h-full w-full object-cover"
                             />
                           ) : (
-                            <div className="flex h-full w-full items-center justify-center bg-gray-100 text-xs text-gray-500">
+                            <div className="flex h-full w-full items-center justify-center bg-surface-sunken text-xs text-navy-3">
                               sem preview
                             </div>
                           )}
@@ -226,17 +226,17 @@ export function AddPhotosModal({ request, onClose, onAdded }: AddPhotosModalProp
               )}
 
               {published.length > 0 && (
-                <div className="space-y-2 border-t border-gray-100 pt-4">
-                  <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
+                <div className="space-y-2 border-t border-default pt-4">
+                  <p className="text-xs font-bold uppercase tracking-wide text-navy-3">
                     Já publicadas no portal ({published.length})
                   </p>
                   <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                     {published.map((p) => (
-                      <div key={p.id} className="group relative aspect-square overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+                      <div key={p.id} className="group relative aspect-square overflow-hidden rounded-xl border border-default bg-surface-sunken">
                         {p.previewUrl ? (
                           <img src={p.previewUrl} alt={p.caption || ''} className="h-full w-full object-cover" />
                         ) : (
-                          <div className="flex h-full w-full items-center justify-center text-xs text-gray-500">foto</div>
+                          <div className="flex h-full w-full items-center justify-center text-xs text-navy-3">foto</div>
                         )}
                         <button
                           type="button"

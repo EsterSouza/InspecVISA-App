@@ -67,14 +67,14 @@ export function EditPortalUnitsModal({ account, clients, onClose, onSaved }: Edi
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
       <Card role="dialog" aria-modal="true" aria-labelledby="edit-portal-units-title" className="max-h-[90vh] w-full max-w-lg overflow-y-auto shadow-2xl">
         <CardContent className="p-6">
-          <h3 id="edit-portal-units-title" className="mb-1 text-xl font-bold text-gray-900">Editar acesso</h3>
-          <p className="mb-5 text-sm text-gray-500">
+          <h3 id="edit-portal-units-title" className="mb-1 text-xl font-bold text-navy">Editar acesso</h3>
+          <p className="mb-5 text-sm text-navy-3">
             {account.name} — {selectedIds.size} unidade{selectedIds.size === 1 ? '' : 's'} vinculada
             {selectedIds.size === 1 ? '' : 's'}
           </p>
 
           <div className="mb-4 grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5 text-sm font-medium text-gray-700">
+            <div className="space-y-1.5 text-sm font-medium text-navy-2">
               <label htmlFor="edit-portal-email">E-mail de acesso</label>
               <input
                 id="edit-portal-email"
@@ -84,7 +84,7 @@ export function EditPortalUnitsModal({ account, clients, onClose, onSaved }: Edi
                 className={`${TEXT_INPUT} font-normal`}
               />
             </div>
-            <div className="space-y-1.5 text-sm font-medium text-gray-700">
+            <div className="space-y-1.5 text-sm font-medium text-navy-2">
               <label htmlFor="edit-portal-username">Nome de usuario</label>
               <input
                 id="edit-portal-username"
@@ -97,7 +97,7 @@ export function EditPortalUnitsModal({ account, clients, onClose, onSaved }: Edi
             </div>
           </div>
 
-          <div className="mb-4 space-y-1.5 text-sm font-medium text-gray-700">
+          <div className="mb-4 space-y-1.5 text-sm font-medium text-navy-2">
             <label htmlFor="edit-portal-drive-folder">Pasta Principal Completa da conta</label>
             <input
               id="edit-portal-drive-folder"
@@ -107,12 +107,12 @@ export function EditPortalUnitsModal({ account, clients, onClose, onSaved }: Edi
               placeholder="https://drive.google.com/..."
               className={`${TEXT_INPUT} font-normal`}
             />
-            <span className="block text-xs font-normal text-gray-500">
+            <span className="block text-xs font-normal text-navy-3">
               Pasta raiz única desta conta. Não altera as Pastas Sanitárias Personalizadas de cada unidade.
             </span>
           </div>
 
-          <div className="mb-4 space-y-1.5 text-sm font-medium text-gray-700">
+          <div className="mb-4 space-y-1.5 text-sm font-medium text-navy-2">
             <label htmlFor="edit-portal-tutorial">Tutorial do portal desta conta</label>
             <input
               id="edit-portal-tutorial"
@@ -122,7 +122,7 @@ export function EditPortalUnitsModal({ account, clients, onClose, onSaved }: Edi
               placeholder="https://drive.google.com/..."
               className={`${TEXT_INPUT} font-normal`}
             />
-            <span className="block text-xs font-normal text-gray-500">
+            <span className="block text-xs font-normal text-navy-3">
               PDF que este cliente vê nos acessos rápidos. Em branco, ele recebe o tutorial padrão
               configurado em Configurações do portal.
             </span>
@@ -137,22 +137,22 @@ export function EditPortalUnitsModal({ account, clients, onClose, onSaved }: Edi
             onChange={(e) => setSearch(e.target.value)}
             className={`mb-2 ${TEXT_INPUT} p-2.5`}
           />
-          <div className="max-h-64 space-y-1 overflow-y-auto rounded-xl border border-gray-100 p-2">
+          <div className="max-h-64 space-y-1 overflow-y-auto rounded-xl border border-default p-2">
             {filtered.length === 0 ? (
-              <p className="p-2 text-sm text-gray-500">Nenhuma unidade encontrada.</p>
+              <p className="p-2 text-sm text-navy-3">Nenhuma unidade encontrada.</p>
             ) : (
               filtered.map((client) => (
                 <label
                   key={client.id}
-                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-gray-50"
+                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-surface-hover"
                 >
                   <input
                     type="checkbox"
                     checked={selectedIds.has(client.id)}
                     onChange={() => toggle(client.id)}
-                    className="h-4 w-4 rounded border-gray-300 text-primary-600"
+                    className="h-4 w-4 rounded border-control text-primary-600"
                   />
-                  <span className="min-w-0 flex-1 truncate text-gray-800">{client.name}</span>
+                  <span className="min-w-0 flex-1 truncate text-navy">{client.name}</span>
                 </label>
               ))
             )}

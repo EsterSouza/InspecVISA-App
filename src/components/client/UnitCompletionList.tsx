@@ -12,7 +12,7 @@ interface UnitCompletionListProps {
 }
 
 function meterColor(pct: number | null): string {
-  if (pct == null) return 'bg-gray-200';
+  if (pct == null) return 'bg-surface-sunken';
   if (pct >= 85) return 'bg-emerald-600';
   if (pct < 65) return 'bg-amber';
   return 'bg-primary-700';
@@ -23,7 +23,7 @@ export function UnitCompletionList({ stats, onSelect, shareUrlByUnit }: UnitComp
   return (
     <div>
       {(onSelect || shareUrlByUnit) && (
-        <p className="mb-3 flex items-start gap-1.5 rounded-md bg-gray-50 p-2.5 text-[11px] leading-snug text-navy-2">
+        <p className="mb-3 flex items-start gap-1.5 rounded-md bg-surface-sunken p-2.5 text-[11px] leading-snug text-navy-2">
           <Link2 className="mt-0.5 h-3 w-3 shrink-0" />
           <span>
             {onSelect && shareUrlByUnit
@@ -34,7 +34,7 @@ export function UnitCompletionList({ stats, onSelect, shareUrlByUnit }: UnitComp
           </span>
         </p>
       )}
-      <div className="divide-y divide-gray-100">
+      <div className="divide-y divide-default">
         {stats.map((u) => {
           const shareUrl = shareUrlByUnit?.[u.clientId];
           return (
@@ -57,7 +57,7 @@ export function UnitCompletionList({ stats, onSelect, shareUrlByUnit }: UnitComp
                   </span>
                 )}
               </div>
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-100">
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-sunken">
                 <div className={`h-full rounded-full ${meterColor(u.pctDone)}`} style={{ width: `${u.pctDone ?? 0}%` }} />
               </div>
               <span className="w-20 shrink-0 text-right text-xs font-medium tabular-nums text-navy-2">

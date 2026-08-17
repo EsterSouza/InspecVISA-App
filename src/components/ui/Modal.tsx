@@ -64,17 +64,17 @@ export function Modal({
       onClose={handleClose}
       onClick={handleBackdropClick}
       className={cn(
-        'w-full max-w-lg overflow-hidden rounded-xl bg-white p-0 text-gray-900 shadow-2xl',
+        'w-full max-w-lg overflow-hidden rounded-xl bg-surface p-0 text-navy shadow-2xl',
         'backdrop:bg-black/50',
         'animate-in fade-in zoom-in-95 duration-200',
         className
       )}
     >
-      <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-        <div className="text-lg font-semibold text-gray-900">{title}</div>
+      <div className="flex items-center justify-between border-b border-default px-6 py-4">
+        <div className="text-lg font-semibold text-navy">{title}</div>
         <button
           onClick={onClose}
-          className="rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-500"
+          className="rounded-full p-2 text-navy-3 transition-colors hover:bg-surface-active hover:text-navy-3"
         >
           <X className="h-5 w-5" />
         </button>
@@ -82,7 +82,7 @@ export function Modal({
 
       <div className="max-h-[70vh] overflow-y-auto p-6">{children}</div>
 
-      {footer && <div className="border-t border-gray-100 bg-gray-50 px-6 py-4">{footer}</div>}
+      {footer && <div className="border-t border-default bg-surface-sunken px-6 py-4">{footer}</div>}
     </dialog>
   );
 }

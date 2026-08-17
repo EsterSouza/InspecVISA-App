@@ -272,15 +272,15 @@ export function ClientDetails() {
   const renderAuditEvent = (event: ClientPortalAuditEvent) => {
     const detail = formatAuditPayload(event);
     return (
-      <li key={event.id} className="rounded-md border border-gray-100 p-3 text-xs">
+      <li key={event.id} className="rounded-md border border-default p-3 text-xs">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="font-bold text-gray-800">
+            <p className="font-bold text-navy">
               {portalAuditLabels[event.event_type] || event.event_type}
             </p>
-            {detail && <p className="mt-0.5 truncate text-gray-500">{detail}</p>}
+            {detail && <p className="mt-0.5 truncate text-navy-3">{detail}</p>}
           </div>
-          <span className="shrink-0 text-right text-[10px] font-medium text-gray-400">
+          <span className="shrink-0 text-right text-[10px] font-medium text-navy-3">
             {new Date(event.created_at).toLocaleString('pt-BR', {
               day: '2-digit',
               month: '2-digit',
@@ -476,13 +476,13 @@ export function ClientDetails() {
   };
 
   if (loading) {
-    return <div className="p-8 text-center text-gray-500">Carregando detalhes...</div>;
+    return <div className="p-8 text-center text-navy-3">Carregando detalhes...</div>;
   }
 
   if (loadError || !client) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-gray-50 p-8 text-center">
-        <p className="max-w-md font-semibold text-gray-700">{loadError || 'Cliente nao encontrado.'}</p>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-surface-sunken p-8 text-center">
+        <p className="max-w-md font-semibold text-navy-2">{loadError || 'Cliente nao encontrado.'}</p>
         <Button variant="outline" onClick={() => navigate('/clients')}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Voltar para Clientes
         </Button>
@@ -524,7 +524,7 @@ export function ClientDetails() {
         </Button>
         <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
           <div className="min-w-0">
-            <h1 className="text-2xl font-bold text-gray-900">{client.name}</h1>
+            <h1 className="text-2xl font-bold text-navy">{client.name}</h1>
             <div className="mt-1 flex flex-wrap items-center gap-2">
               <Badge variant="default">{client.category?.toUpperCase() || 'SEM CATEGORIA'}</Badge>
               {client.category === 'alimentos' && client.foodTypes?.map(ft => (
@@ -532,7 +532,7 @@ export function ClientDetails() {
                   {FOOD_SEGMENT_LABELS[ft] || ft}
                 </Badge>
               ))}
-              <span className="text-sm text-gray-500">Cód: {client.id.substring(0, 8)}</span>
+              <span className="text-sm text-navy-3">Cód: {client.id.substring(0, 8)}</span>
               {portalAccount ? (
                 <Badge variant="success">Portal ativo</Badge>
               ) : (
@@ -548,16 +548,16 @@ export function ClientDetails() {
             </div>
             <dl className="mt-4 grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-3">
               <div>
-                <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500">Responsável</dt>
-                <dd className="mt-0.5 text-sm text-gray-900">{client.responsibleName || 'Não informado'}</dd>
+                <dt className="text-xs font-semibold uppercase tracking-wide text-navy-3">Responsável</dt>
+                <dd className="mt-0.5 text-sm text-navy">{client.responsibleName || 'Não informado'}</dd>
               </div>
               <div>
-                <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500">Telefone</dt>
-                <dd className="mt-0.5 text-sm text-gray-900">{client.phone || '—'}</dd>
+                <dt className="text-xs font-semibold uppercase tracking-wide text-navy-3">Telefone</dt>
+                <dd className="mt-0.5 text-sm text-navy">{client.phone || '—'}</dd>
               </div>
               <div>
-                <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500">Endereço</dt>
-                <dd className="mt-0.5 text-sm text-gray-900">{client.address || '—'}</dd>
+                <dt className="text-xs font-semibold uppercase tracking-wide text-navy-3">Endereço</dt>
+                <dd className="mt-0.5 text-sm text-navy">{client.address || '—'}</dd>
               </div>
             </dl>
           </div>
@@ -595,13 +595,13 @@ export function ClientDetails() {
 
               {chartData.length > 1 ? (
                 <div className="h-64 w-full">
-                  <Suspense fallback={<div className="h-full animate-pulse rounded-xl bg-gray-50" />}>
+                  <Suspense fallback={<div className="h-full animate-pulse rounded-xl bg-surface-sunken" />}>
                     <ComplianceTrendChart data={chartData} />
                   </Suspense>
                 </div>
               ) : (
-                <div className="flex items-center gap-2 rounded-xl border border-dashed border-gray-200 px-4 py-3 text-sm text-gray-500">
-                  <Activity className="h-4 w-4 shrink-0 text-gray-400" />
+                <div className="flex items-center gap-2 rounded-xl border border-dashed border-default px-4 py-3 text-sm text-navy-3">
+                  <Activity className="h-4 w-4 shrink-0 text-navy-3" />
                   <p>Dados insuficientes para gerar gráfico — realize pelo menos 2 inspeções concluídas.</p>
                 </div>
               )}
@@ -611,15 +611,15 @@ export function ClientDetails() {
           {/* History */}
           <div className="space-y-4">
             <h2 className="text-lg font-semibold flex items-center px-1">
-              <FileText className="mr-2 h-5 w-5 text-gray-500" />
+              <FileText className="mr-2 h-5 w-5 text-navy-3" />
               Histórico de Visitas
             </h2>
             {inspections.length === 0 ? (
-              <p className="p-8 text-center text-gray-500 bg-gray-50 rounded-xl border border-dashed">Nenhuma visita registrada.</p>
+              <p className="p-8 text-center text-navy-3 bg-surface-sunken rounded-xl border border-dashed">Nenhuma visita registrada.</p>
             ) : (
               <div className="space-y-3">
                 {inspections.map((insp) => (
-                  <Card key={insp.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => navigate(insp.status === 'in_progress' ? '/execute' : '/summary', { state: { inspectionId: insp.id }})}>
+                  <Card key={insp.id} className="hover:bg-surface-hover transition-colors cursor-pointer" onClick={() => navigate(insp.status === 'in_progress' ? '/execute' : '/summary', { state: { inspectionId: insp.id }})}>
                     <div className="p-4 flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <div className={`h-12 w-12 rounded-full flex items-center justify-center text-white font-bold ${
@@ -631,31 +631,31 @@ export function ClientDetails() {
                           {insp.status === 'completed' ? `${Math.round(insp.score.scorePercentage)}%` : '?'}
                         </div>
                         <div>
-                          <p className="font-medium text-gray-900">{formatDateTime(insp.createdAt)}</p>
+                          <p className="font-medium text-navy">{formatDateTime(insp.createdAt)}</p>
                           <div className="flex items-center gap-2 mt-0.5">
                             <Badge variant={insp.status === 'completed' ? 'success' : 'warning'}>
                               {insp.status === 'completed' ? 'Finalizada' : 'Em andamento'}
                             </Badge>
-                            <span className="text-xs text-gray-400">•</span>
-                            <span className="text-xs text-gray-500">{insp.score.compliesCount} conformidades</span>
+                            <span className="text-xs text-navy-3">•</span>
+                            <span className="text-xs text-navy-3">{insp.score.compliesCount} conformidades</span>
                           </div>
                           {insp.status === 'completed' && client.category === 'ilpi' && insp.areaScores.isSplit && (
                             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] font-semibold">
-                              <span className="text-gray-600">
+                              <span className="text-navy-2">
                                 {insp.areaScores.sanitary.areaLabel}
                                 {insp.areaScores.sanitary.consultant ? ` (${insp.areaScores.sanitary.consultant.split(/\s+/)[0]})` : ''}
-                                <span className="ml-1 text-gray-900">{Math.round(insp.areaScores.sanitary.score.scorePercentage)}%</span>
+                                <span className="ml-1 text-navy">{Math.round(insp.areaScores.sanitary.score.scorePercentage)}%</span>
                               </span>
-                              <span className="text-gray-600">
+                              <span className="text-navy-2">
                                 {insp.areaScores.nutrition.areaLabel}
                                 {insp.areaScores.nutrition.consultant ? ` (${insp.areaScores.nutrition.consultant.split(/\s+/)[0]})` : ''}
-                                <span className="ml-1 text-gray-900">{Math.round(insp.areaScores.nutrition.score.scorePercentage)}%</span>
+                                <span className="ml-1 text-navy">{Math.round(insp.areaScores.nutrition.score.scorePercentage)}%</span>
                               </span>
                             </div>
                           )}
                         </div>
                       </div>
-                      <ChevronRight className="h-5 w-5 text-gray-300" />
+                      <ChevronRight className="h-5 w-5 text-navy-3" />
                     </div>
                   </Card>
                 ))}
@@ -668,15 +668,15 @@ export function ClientDetails() {
         <div className="space-y-6">
           <Card>
             <CardContent className="p-5">
-              <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center uppercase tracking-wider">
+              <h3 className="text-sm font-bold text-navy mb-4 flex items-center uppercase tracking-wider">
                 <AlertCircle className="mr-2 h-4 w-4 text-amber-500" />
                 Plano de Ação Aberto
               </h3>
               {!latestActionInspection ? (
-                <p className="text-sm text-gray-500 bg-gray-50 p-3 rounded">Aguardando primeira inspeção concluída.</p>
+                <p className="text-sm text-navy-3 bg-surface-sunken p-3 rounded">Aguardando primeira inspeção concluída.</p>
               ) : (
                 <div className="space-y-3">
-                  <p className="text-xs text-gray-500 mb-2">Baseado na ultima visita ({openActionItems.length} itens pendentes):</p>
+                  <p className="text-xs text-navy-3 mb-2">Baseado na ultima visita ({openActionItems.length} itens pendentes):</p>
                   <Button size="sm" className="w-full text-xs" disabled={openActionItems.length === 0} onClick={openActionPlan}>
                     Abrir Plano de Acao
                   </Button>
@@ -691,13 +691,13 @@ export function ClientDetails() {
           {/* Não Conformidades Recorrentes (≥2x neste cliente) */}
           <Card>
             <CardContent className="p-5">
-              <h3 className="text-sm font-bold text-gray-900 mb-1 flex items-center uppercase tracking-wider">
+              <h3 className="text-sm font-bold text-navy mb-1 flex items-center uppercase tracking-wider">
                 <AlertTriangle className="mr-2 h-4 w-4 text-red-500" />
                 NC Recorrentes
               </h3>
-              <p className="text-[10px] text-gray-400 mb-4">Itens com ≥ 2 falhas neste cliente</p>
+              <p className="text-[10px] text-navy-3 mb-4">Itens com ≥ 2 falhas neste cliente</p>
               {recurringActionItems.length === 0 ? (
-                <p className="text-xs text-gray-500 bg-gray-50 p-3 rounded text-center">
+                <p className="text-xs text-navy-3 bg-surface-sunken p-3 rounded text-center">
                   {inspections.length === 0
                     ? 'Aguardando inspeções.'
                     : '✅ Nenhuma NC repetida detectada.'}
@@ -765,7 +765,7 @@ export function ClientDetails() {
                                 )}
                               </span>
                             )}
-                            <span className="min-w-0 truncate font-normal text-gray-700">
+                            <span className="min-w-0 truncate font-normal text-navy-2">
                               {asset.file_name || ASSET_KIND_LABELS[asset.kind]}
                             </span>
                           </span>
@@ -823,7 +823,7 @@ export function ClientDetails() {
             <Card>
               <CardContent className="p-5">
                 <div className="mb-4 flex items-center justify-between gap-2">
-                  <h3 className="flex items-center text-sm font-bold uppercase tracking-wider text-gray-900">
+                  <h3 className="flex items-center text-sm font-bold uppercase tracking-wider text-navy">
                     Portal do Cliente
                   </h3>
                   {portalAccount && (
@@ -835,23 +835,23 @@ export function ClientDetails() {
                 </div>
                 {portalAccount ? (
                   <div className="space-y-3 text-sm">
-                    <div className="rounded-md bg-gray-50 p-3">
-                      <p className="text-xs font-bold uppercase text-gray-400">Link direto</p>
-                      <p className="mt-1 break-all font-mono text-xs text-gray-700">{portalDirectUrl}</p>
+                    <div className="rounded-md bg-surface-sunken p-3">
+                      <p className="text-xs font-bold uppercase text-navy-3">Link direto</p>
+                      <p className="mt-1 break-all font-mono text-xs text-navy-2">{portalDirectUrl}</p>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="rounded-md border border-gray-100 p-2">
-                        <p className="font-bold text-gray-400">Usuário</p>
+                      <div className="rounded-md border border-default p-2">
+                        <p className="font-bold text-navy-3">Usuário</p>
                         <p className="mt-1 truncate font-mono">{portalAccount.username || '-'}</p>
                       </div>
-                      <div className="rounded-md border border-gray-100 p-2">
+                      <div className="rounded-md border border-default p-2">
                         <div className="flex items-center justify-between gap-1">
-                          <p className="font-bold text-gray-400">Senha</p>
+                          <p className="font-bold text-navy-3">Senha</p>
                           {(portalAccount.access_code_plain || newAccessCode) && (
                             <button
                               type="button"
                               onClick={() => copyCredentialField('password', portalAccount.access_code_plain || newAccessCode || '')}
-                              className="text-gray-400 hover:text-gray-700"
+                              className="text-navy-3 hover:text-navy-2"
                               aria-label="Copiar senha"
                             >
                               {copiedField === 'password' ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
@@ -863,13 +863,13 @@ export function ClientDetails() {
                         </p>
                       </div>
                     </div>
-                    <div className="rounded-md border border-gray-100 p-2">
+                    <div className="rounded-md border border-default p-2">
                       <div className="flex items-center justify-between gap-1">
-                        <p className="text-xs font-bold text-gray-400">Token</p>
+                        <p className="text-xs font-bold text-navy-3">Token</p>
                         <button
                           type="button"
                           onClick={() => copyCredentialField('token', portalAccount.portal_token)}
-                          className="text-gray-400 hover:text-gray-700"
+                          className="text-navy-3 hover:text-navy-2"
                           aria-label="Copiar token"
                         >
                           {copiedField === 'token' ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
@@ -893,7 +893,7 @@ export function ClientDetails() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    <p className="rounded-md bg-gray-50 p-3 text-sm text-gray-500">
+                    <p className="rounded-md bg-surface-sunken p-3 text-sm text-navy-3">
                       Este cliente ainda nao tem acesso ao painel.
                     </p>
                     <Button size="sm" className="w-full text-xs" disabled={accessBusy} onClick={createPortalAccess}>
@@ -907,7 +907,7 @@ export function ClientDetails() {
             {client.hasPersonalizedSanitaryFolder && client.personalizedSanitaryFolderUrl && (
               <Card>
                 <CardContent className="p-5">
-                  <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-900">
+                  <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-navy">
                     Pasta personalizada
                   </h3>
                   <a
@@ -925,7 +925,7 @@ export function ClientDetails() {
             {client.hasPersonalizedSanitaryFolder && !client.personalizedSanitaryFolderUrl && (
               <Card>
                 <CardContent className="p-5">
-                  <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-gray-900">
+                  <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-navy">
                     Pasta personalizada
                   </h3>
                   <div className="flex items-start gap-2 rounded-md bg-amber-50 p-3 text-sm text-amber-800">
@@ -951,7 +951,7 @@ export function ClientDetails() {
             <Card>
               <CardContent className="p-5">
                 <div className="mb-3 flex items-center justify-between gap-2">
-                  <h3 className="flex items-center text-sm font-bold uppercase tracking-wider text-gray-900">
+                  <h3 className="flex items-center text-sm font-bold uppercase tracking-wider text-navy">
                     Auditoria do portal
                   </h3>
                   {portalAuditEvents.length > 5 && (
@@ -970,7 +970,7 @@ export function ClientDetails() {
                     <p className="mt-1 break-words text-xs text-amber-700">{portalAuditError}</p>
                   </div>
                 ) : portalAuditEvents.length === 0 ? (
-                  <p className="rounded-md bg-gray-50 p-3 text-sm text-gray-500">
+                  <p className="rounded-md bg-surface-sunken p-3 text-sm text-navy-3">
                     Nenhuma atividade registrada ainda.
                   </p>
                 ) : (
@@ -991,20 +991,20 @@ export function ClientDetails() {
       >
         <form id="edit-client-form" onSubmit={handleSubmit(onEditSubmit)} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Nome do Estabelecimento *</label>
+            <label className="block text-sm font-medium text-navy-2">Nome do Estabelecimento *</label>
             <input 
               {...register('name', { required: true })} 
-              className="mt-1 h-10 w-full rounded-md border border-gray-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500" 
+              className="mt-1 h-10 w-full rounded-md border border-control px-3 focus:outline-none focus:ring-2 focus:ring-primary-500" 
             />
             {errors.name && <span className="text-xs text-red-500">Campo obrigatório</span>}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">Categoria *</label>
+              <label className="block text-sm font-medium text-navy-2">Categoria *</label>
               <select 
                 {...register('category', { required: true })}
-                className="mt-1 h-10 w-full rounded-md border border-gray-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
+                className="mt-1 h-10 w-full rounded-md border border-control px-3 focus:outline-none focus:ring-2 focus:ring-primary-500 bg-surface"
               >
                 <option value="">Selecione...</option>
                 <option value="estetica">Estética e Beleza</option>
@@ -1014,14 +1014,14 @@ export function ClientDetails() {
               {errors.category && <span className="text-xs text-red-500">Campo obrigatório</span>}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">CNPJ</label>
-              <input {...register('cnpj')} className="mt-1 h-10 w-full rounded-md border border-gray-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+              <label className="block text-sm font-medium text-navy-2">CNPJ</label>
+              <input {...register('cnpj')} className="mt-1 h-10 w-full rounded-md border border-control px-3 focus:outline-none focus:ring-2 focus:ring-primary-500" />
             </div>
           </div>
 
           {selectedCategory === 'alimentos' && (
             <div className="rounded-md border border-yellow-200 bg-yellow-50 p-4">
-              <label className="block text-sm font-medium text-gray-800 mb-2">Tipos de Serviço de Alimentação</label>
+              <label className="block text-sm font-medium text-navy mb-2">Tipos de Serviço de Alimentação</label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                 <label className="flex items-center space-x-2">
                   <input type="checkbox" value="servico_alimentacao" {...register('foodTypes')} className="rounded text-primary-600 focus:ring-primary-500" />
@@ -1064,24 +1064,24 @@ export function ClientDetails() {
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Responsável pelo local</label>
-            <input {...register('responsibleName')} className="mt-1 h-10 w-full rounded-md border border-gray-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+            <label className="block text-sm font-medium text-navy-2">Responsável pelo local</label>
+            <input {...register('responsibleName')} className="mt-1 h-10 w-full rounded-md border border-control px-3 focus:outline-none focus:ring-2 focus:ring-primary-500" />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">Telefone</label>
-              <input {...register('phone')} className="mt-1 h-10 w-full rounded-md border border-gray-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+              <label className="block text-sm font-medium text-navy-2">Telefone</label>
+              <input {...register('phone')} className="mt-1 h-10 w-full rounded-md border border-control px-3 focus:outline-none focus:ring-2 focus:ring-primary-500" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">E-mail</label>
-              <input {...register('email')} type="email" className="mt-1 h-10 w-full rounded-md border border-gray-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+              <label className="block text-sm font-medium text-navy-2">E-mail</label>
+              <input {...register('email')} type="email" className="mt-1 h-10 w-full rounded-md border border-control px-3 focus:outline-none focus:ring-2 focus:ring-primary-500" />
             </div>
           </div>
 
-          <div className="rounded-md border border-gray-100 bg-gray-50/70 p-4">
+          <div className="rounded-md border border-default bg-surface-sunken/70 p-4">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <label className="text-sm font-semibold text-gray-800">Responsáveis e contatos</label>
+              <label className="text-sm font-semibold text-navy">Responsáveis e contatos</label>
               <Button
                 type="button"
                 variant="outline"
@@ -1093,20 +1093,20 @@ export function ClientDetails() {
             </div>
             <div className="space-y-3">
               {clientContacts.map((contact, index) => (
-                <div key={index} className="grid gap-3 rounded-md border border-gray-100 bg-white p-3 sm:grid-cols-3">
+                <div key={index} className="grid gap-3 rounded-md border border-default bg-surface p-3 sm:grid-cols-3">
                   <input
                     type="text"
                     value={contact.name || ''}
                     onChange={(e) => setClientContacts((prev) => prev.map((item, i) => i === index ? { ...item, name: e.target.value } : item))}
                     placeholder="Responsável"
-                    className="h-10 rounded-md border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    className="h-10 rounded-md border border-control px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
                   <input
                     type="tel"
                     value={contact.phone || ''}
                     onChange={(e) => setClientContacts((prev) => prev.map((item, i) => i === index ? { ...item, phone: e.target.value } : item))}
                     placeholder="Telefone"
-                    className="h-10 rounded-md border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    className="h-10 rounded-md border border-control px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
                   <div className="flex gap-2">
                     <input
@@ -1114,7 +1114,7 @@ export function ClientDetails() {
                       value={contact.email || ''}
                       onChange={(e) => setClientContacts((prev) => prev.map((item, i) => i === index ? { ...item, email: e.target.value } : item))}
                       placeholder="E-mail"
-                      className="h-10 min-w-0 flex-1 rounded-md border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      className="h-10 min-w-0 flex-1 rounded-md border border-control px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                     />
                     {clientContacts.length > 1 && (
                       <button
@@ -1133,7 +1133,7 @@ export function ClientDetails() {
           </div>
 
           <div className="rounded-md border border-emerald-100 bg-emerald-50/60 p-4">
-            <label className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+            <label className="flex items-center gap-2 text-sm font-semibold text-navy">
               <input
                 type="checkbox"
                 {...register('hasPersonalizedSanitaryFolder')}
@@ -1142,27 +1142,27 @@ export function ClientDetails() {
               Cliente tem pasta sanitaria personalizada
             </label>
             <div className="mt-3">
-              <label className="block text-sm font-medium text-gray-700">Link do Drive da pasta personalizada</label>
+              <label className="block text-sm font-medium text-navy-2">Link do Drive da pasta personalizada</label>
               <input
                 {...register('personalizedSanitaryFolderUrl')}
                 type="url"
                 placeholder="https://drive.google.com/..."
-                className="mt-1 h-10 w-full rounded-md border border-gray-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="mt-1 h-10 w-full rounded-md border border-control px-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
             </div>
             <div className="mt-3">
-              <label className="block text-sm font-medium text-gray-700">Previsão de entrega da pasta</label>
+              <label className="block text-sm font-medium text-navy-2">Previsão de entrega da pasta</label>
               <input
                 {...register('personalizedSanitaryFolderExpectedDeliveryDate')}
                 type="date"
-                className="mt-1 h-10 w-full rounded-md border border-gray-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="mt-1 h-10 w-full rounded-md border border-control px-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
             </div>
           </div>
 
           <div className="rounded-md border border-emerald-100 bg-emerald-50/60 p-4 space-y-3">
-            <p className="text-sm font-semibold text-gray-800">Marcos do cronograma do contrato</p>
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+            <p className="text-sm font-semibold text-navy">Marcos do cronograma do contrato</p>
+            <label className="flex items-center gap-2 text-sm font-medium text-navy-2">
               <input
                 type="checkbox"
                 {...register('hasAuditService')}
@@ -1170,7 +1170,7 @@ export function ClientDetails() {
               />
               Cliente tem auditoria contratada
             </label>
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+            <label className="flex items-center gap-2 text-sm font-medium text-navy-2">
               <input
                 type="checkbox"
                 {...register('hasOnlineFollowup')}
@@ -1182,21 +1182,21 @@ export function ClientDetails() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">Cidade</label>
-              <input {...register('city')} className="mt-1 h-10 w-full rounded-md border border-gray-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+              <label className="block text-sm font-medium text-navy-2">Cidade</label>
+              <input {...register('city')} className="mt-1 h-10 w-full rounded-md border border-control px-3 focus:outline-none focus:ring-2 focus:ring-primary-500" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Estado (UF)</label>
-              <input {...register('state')} className="mt-1 h-10 w-full rounded-md border border-gray-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+              <label className="block text-sm font-medium text-navy-2">Estado (UF)</label>
+              <input {...register('state')} className="mt-1 h-10 w-full rounded-md border border-control px-3 focus:outline-none focus:ring-2 focus:ring-primary-500" />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Endereço Completo</label>
-            <textarea {...register('address')} rows={2} className="mt-1 w-full rounded-md border border-gray-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none" />
+            <label className="block text-sm font-medium text-navy-2">Endereço Completo</label>
+            <textarea {...register('address')} rows={2} className="mt-1 w-full rounded-md border border-control p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none" />
           </div>
 
-          <div className="mt-6 flex justify-end space-x-3 pt-4 border-t border-gray-100">
+          <div className="mt-6 flex justify-end space-x-3 pt-4 border-t border-default">
             <Button variant="outline" type="button" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
             <Button type="submit" form="edit-client-form">Salvar Alterações</Button>
           </div>
@@ -1211,22 +1211,22 @@ export function ClientDetails() {
         <form onSubmit={createConfirmedVisit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">Data *</label>
+              <label className="block text-sm font-medium text-navy-2">Data *</label>
               <input
                 type="date"
                 required
                 value={visitDate}
                 onChange={(e) => setVisitDate(e.target.value)}
-                className="mt-1 h-10 w-full rounded-md border border-gray-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="mt-1 h-10 w-full rounded-md border border-control px-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Hora</label>
+              <label className="block text-sm font-medium text-navy-2">Hora</label>
               <input
                 type="time"
                 value={visitTime}
                 onChange={(e) => setVisitTime(e.target.value)}
-                className="mt-1 h-10 w-full rounded-md border border-gray-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="mt-1 h-10 w-full rounded-md border border-control px-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
             </div>
           </div>
@@ -1236,7 +1236,7 @@ export function ClientDetails() {
               type="button"
               onClick={() => setVisitMode('presencial')}
               className={`h-10 rounded-md border text-sm font-bold ${
-                visitMode === 'presencial' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600'
+                visitMode === 'presencial' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-default text-navy-2'
               }`}
             >
               Presencial
@@ -1245,7 +1245,7 @@ export function ClientDetails() {
               type="button"
               onClick={() => setVisitMode('online')}
               className={`h-10 rounded-md border text-sm font-bold ${
-                visitMode === 'online' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600'
+                visitMode === 'online' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-default text-navy-2'
               }`}
             >
               Online
@@ -1254,17 +1254,17 @@ export function ClientDetails() {
 
           {visitMode === 'presencial' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700">Bairro/local do atendimento</label>
+              <label className="block text-sm font-medium text-navy-2">Bairro/local do atendimento</label>
               <input
                 value={visitDistrict}
                 onChange={(e) => setVisitDistrict(e.target.value)}
                 placeholder={client.city || 'Bairro'}
-                className="mt-1 h-10 w-full rounded-md border border-gray-300 px-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="mt-1 h-10 w-full rounded-md border border-control px-3 focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
             </div>
           )}
 
-          <div className="mt-6 flex justify-end gap-3 border-t border-gray-100 pt-4">
+          <div className="mt-6 flex justify-end gap-3 border-t border-default pt-4">
             <Button variant="outline" type="button" onClick={() => setIsVisitModalOpen(false)}>
               Cancelar
             </Button>
@@ -1298,8 +1298,8 @@ function RecurringNCItem({ nc }: { nc: PreviousNCContext }) {
           {nc.count}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold leading-snug text-gray-800">{nc.description}</p>
-          {nc.sectionTitle && <p className="mt-1 text-[10px] text-gray-500">{nc.sectionTitle}</p>}
+          <p className="text-xs font-semibold leading-snug text-navy">{nc.description}</p>
+          {nc.sectionTitle && <p className="mt-1 text-[10px] text-navy-3">{nc.sectionTitle}</p>}
           {(nc.correctiveAction || nc.situationDescription) && (
             <p className="mt-1 text-[10px] font-medium text-red-700 group-open:hidden">
               {nc.correctiveAction || nc.situationDescription}
@@ -1307,21 +1307,21 @@ function RecurringNCItem({ nc }: { nc: PreviousNCContext }) {
           )}
         </div>
       </summary>
-      <div className="mt-3 space-y-2 border-t border-red-100 pt-3 text-xs text-gray-700">
+      <div className="mt-3 space-y-2 border-t border-red-100 pt-3 text-xs text-navy-2">
         {nc.situationDescription && (
           <div>
-            <span className="font-bold text-gray-900">Situacao: </span>
+            <span className="font-bold text-navy">Situacao: </span>
             {nc.situationDescription}
           </div>
         )}
         {nc.correctiveAction && (
           <div>
-            <span className="font-bold text-gray-900">Acao: </span>
+            <span className="font-bold text-navy">Acao: </span>
             {nc.correctiveAction}
           </div>
         )}
         {(nc.responsible || nc.deadline) && (
-          <div className="flex flex-wrap gap-2 text-[11px] text-gray-500">
+          <div className="flex flex-wrap gap-2 text-[11px] text-navy-3">
             {nc.responsible && <span>Responsavel: {nc.responsible}</span>}
             {nc.deadline && <span>Prazo: {nc.deadline}</span>}
           </div>
@@ -1338,7 +1338,7 @@ function RecurringNCItem({ nc }: { nc: PreviousNCContext }) {
             ))}
           </div>
         ) : (
-          <div className="flex items-center gap-1 text-[11px] text-gray-400">
+          <div className="flex items-center gap-1 text-[11px] text-navy-3">
             <ImageIcon className="h-3 w-3" />
             Sem foto local anexada
           </div>

@@ -353,7 +353,7 @@ export function Dashboard() {
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         {consultants.length > 1 && (
           <div className="flex flex-wrap items-center gap-2">
-            <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-navy-3">
               <Users className="h-4 w-4" />
               Consultora
             </span>
@@ -364,7 +364,7 @@ export function Dashboard() {
                 className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
                   consultantFilter === TEAM_FILTER
                     ? 'bg-primary-600 text-white shadow-sm'
-                    : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                    : 'border border-default bg-surface text-navy-2 hover:bg-surface-hover'
                 }`}
               >
                 Toda a equipe
@@ -377,7 +377,7 @@ export function Dashboard() {
                   className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
                     consultantFilter === name
                       ? 'bg-primary-600 text-white shadow-sm'
-                      : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                      : 'border border-default bg-surface text-navy-2 hover:bg-surface-hover'
                   }`}
                 >
                   {name}
@@ -391,7 +391,7 @@ export function Dashboard() {
             value={clientId}
             onChange={(e) => setClientId(e.target.value)}
             aria-label="Filtrar por unidade"
-            className="rounded-md border border-gray-200 px-2.5 py-1.5 text-xs"
+            className="rounded-md border border-control px-2.5 py-1.5 text-xs"
           >
             <option value="">Todas as unidades</option>
             {clients.map((client) => (
@@ -402,7 +402,7 @@ export function Dashboard() {
             value={daysAhead}
             onChange={(e) => setDaysAhead(Number(e.target.value))}
             aria-label="Janela de compromissos próximos"
-            className="rounded-md border border-gray-200 px-2.5 py-1.5 text-xs"
+            className="rounded-md border border-control px-2.5 py-1.5 text-xs"
           >
             {DAYS_AHEAD_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>Próximos {option.label}</option>
@@ -426,11 +426,11 @@ export function Dashboard() {
         daysAhead={daysAhead}
       />
 
-      <details className="mt-8 rounded-xl border border-gray-200 bg-white">
-        <summary className="cursor-pointer list-none px-5 py-4 text-sm font-bold uppercase tracking-wide text-gray-500 hover:text-gray-700">
+      <details className="mt-8 rounded-xl border border-default bg-surface">
+        <summary className="cursor-pointer list-none px-5 py-4 text-sm font-bold uppercase tracking-wide text-navy-3 hover:text-navy-2">
           Desempenho
         </summary>
-        <div className="space-y-8 border-t border-gray-100 px-5 pb-6 pt-5">
+        <div className="space-y-8 border-t border-default px-5 pb-6 pt-5">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <Card>
               <CardContent className="flex items-center gap-4 p-5">
@@ -438,8 +438,8 @@ export function Dashboard() {
                   <ClipboardCheck className="h-6 w-6" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-gray-950">{stats.totalActive}</div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">Ativas</div>
+                  <div className="text-2xl font-bold text-navy">{stats.totalActive}</div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-navy-3">Ativas</div>
                 </div>
               </CardContent>
             </Card>
@@ -449,8 +449,8 @@ export function Dashboard() {
                   <CheckCircle2 className="h-6 w-6" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-gray-950">{stats.totalCompleted}</div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">Concluídas</div>
+                  <div className="text-2xl font-bold text-navy">{stats.totalCompleted}</div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-navy-3">Concluídas</div>
                 </div>
               </CardContent>
             </Card>
@@ -460,8 +460,8 @@ export function Dashboard() {
                   <TrendingUp className="h-6 w-6" />
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-gray-950">{stats.avgScore}%</div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  <div className="text-2xl font-bold text-navy">{stats.avgScore}%</div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-navy-3">
                     Média de conformidade
                   </div>
                 </div>
@@ -472,10 +472,10 @@ export function Dashboard() {
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <section className="space-y-4">
               <div className="flex items-center justify-between gap-3">
-                <h2 className="text-lg font-semibold text-gray-900">
+                <h2 className="text-lg font-semibold text-navy">
                   Visitas Recentes
                   {consultantFilter !== TEAM_FILTER && (
-                    <span className="ml-2 text-sm font-normal text-gray-500">· {filterLabel}</span>
+                    <span className="ml-2 text-sm font-normal text-navy-3">· {filterLabel}</span>
                   )}
                 </h2>
                 <Button variant="ghost" size="sm" onClick={() => navigate('/inspections')}>
@@ -485,17 +485,17 @@ export function Dashboard() {
               </div>
 
               {isLoading ? (
-                <Card className="border-dashed bg-gray-50">
-                  <CardContent className="flex items-center justify-center gap-2 p-8 text-sm text-gray-500">
+                <Card className="border-dashed bg-surface-sunken">
+                  <CardContent className="flex items-center justify-center gap-2 p-8 text-sm text-navy-3">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Carregando inspeções
                   </CardContent>
                 </Card>
               ) : recentInspections.length === 0 ? (
-                <Card className="border-dashed bg-gray-50">
+                <Card className="border-dashed bg-surface-sunken">
                   <CardContent className="flex flex-col items-center justify-center p-8 text-center">
-                    <ClipboardCheck className="mb-3 h-10 w-10 text-gray-300" />
-                    <p className="text-sm font-medium text-gray-600">Nenhuma inspeção registrada.</p>
+                    <ClipboardCheck className="mb-3 h-10 w-10 text-navy-3" />
+                    <p className="text-sm font-medium text-navy-2">Nenhuma inspeção registrada.</p>
                   </CardContent>
                 </Card>
               ) : (
@@ -508,10 +508,10 @@ export function Dashboard() {
                     >
                       <div className="flex items-center justify-between gap-4 p-4">
                         <div className="min-w-0 space-y-1">
-                          <h3 className="truncate text-sm font-semibold text-gray-900">
+                          <h3 className="truncate text-sm font-semibold text-navy">
                             {inspection.clientName || 'Cliente'}
                           </h3>
-                          <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-navy-3">
                             <span>{formatDateTime(inspection.createdAt)}</span>
                             <Badge
                               variant={inspection.status === 'completed' ? 'success' : 'warning'}
@@ -520,11 +520,11 @@ export function Dashboard() {
                               {inspection.status === 'completed' ? 'Finalizada' : 'Em andamento'}
                             </Badge>
                             {consultantFilter === TEAM_FILTER && consultantsOf(inspection).length > 0 && (
-                              <span className="text-gray-400">· {consultantsOf(inspection).join(', ')}</span>
+                              <span className="text-navy-3">· {consultantsOf(inspection).join(', ')}</span>
                             )}
                           </div>
                         </div>
-                        <ArrowRight className="h-4 w-4 shrink-0 text-gray-400" />
+                        <ArrowRight className="h-4 w-4 shrink-0 text-navy-3" />
                       </div>
                     </Card>
                   ))}
@@ -533,23 +533,23 @@ export function Dashboard() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="flex items-center text-lg font-semibold text-gray-900">
+              <h2 className="flex items-center text-lg font-semibold text-navy">
                 <AlertTriangle className="mr-2 h-5 w-5 text-amber-500" />
                 Problemas Recorrentes
               </h2>
 
               {isLoading ? (
-                <Card className="border-dashed bg-gray-50">
-                  <CardContent className="flex items-center justify-center gap-2 p-8 text-sm text-gray-500">
+                <Card className="border-dashed bg-surface-sunken">
+                  <CardContent className="flex items-center justify-center gap-2 p-8 text-sm text-navy-3">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Analisando histórico
                   </CardContent>
                 </Card>
               ) : recurringIssues.length === 0 ? (
-                <Card className="border-dashed bg-gray-50">
+                <Card className="border-dashed bg-surface-sunken">
                   <CardContent className="flex flex-col items-center justify-center p-8 text-center">
                     <CheckCircle2 className="mb-3 h-10 w-10 text-emerald-400" />
-                    <p className="text-sm font-medium text-gray-600">Nenhuma não conformidade frequente detectada.</p>
+                    <p className="text-sm font-medium text-navy-2">Nenhuma não conformidade frequente detectada.</p>
                   </CardContent>
                 </Card>
               ) : (
@@ -557,7 +557,7 @@ export function Dashboard() {
                   {recurringIssues.map((issue) => (
                     <Card key={issue.id} className="border-l-4 border-l-amber-500">
                       <CardContent className="flex items-start justify-between gap-4 p-4">
-                        <p className="line-clamp-2 text-sm font-medium text-gray-700">{issue.description}</p>
+                        <p className="line-clamp-2 text-sm font-medium text-navy-2">{issue.description}</p>
                         <div className="shrink-0 rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800">
                           {issue.count}x
                         </div>

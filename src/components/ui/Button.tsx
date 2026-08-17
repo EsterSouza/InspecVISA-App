@@ -11,8 +11,8 @@ const buttonVariants = cva(
       variant: {
         default: 'bg-primary-700 text-white hover:bg-primary-800 shadow-sm',
         secondary: 'bg-secondary-100 text-secondary-700 hover:bg-secondary-200',
-        outline: 'border border-gray-300 bg-transparent hover:bg-gray-50 text-gray-700',
-        ghost: 'hover:bg-gray-100 hover:text-gray-900',
+        outline: 'border border-control bg-transparent hover:bg-surface-hover text-navy-2',
+        ghost: 'hover:bg-surface-active hover:text-navy',
         danger: 'bg-red-600 text-white hover:bg-red-700 shadow-sm',
         success: 'bg-green-600 text-white hover:bg-green-700 shadow-sm',
       },

@@ -54,7 +54,7 @@ function Block({ n, title, aside, children }: {
 }) {
   return (
     <Card>
-      <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-5 py-3.5">
+      <div className="flex items-center justify-between gap-3 border-b border-default px-5 py-3.5">
         <h2 className="text-sm font-semibold text-navy">{n} · {title}</h2>
         {aside}
       </div>
@@ -452,7 +452,7 @@ export function NewInspection() {
               </Field>
             </div>
 
-            <div className="max-h-[22rem] overflow-y-auto border-t border-gray-200">
+            <div className="max-h-[22rem] overflow-y-auto border-t border-default">
               {filteredClients.length === 0 ? (
                 <p className="px-5 py-6 text-sm text-navy-3">
                   Nenhum local corresponde a “{clientQuery}”.{' '}
@@ -471,7 +471,7 @@ export function NewInspection() {
                       setSelectedClient(client);
                       setSelectedTemplate(null);
                     }}
-                    className={`flex w-full items-start gap-3 border-b border-gray-100 px-5 py-3 text-left last:border-b-0 hover:bg-gray-50 ${isSelected ? 'bg-primary-50' : ''}`}
+                    className={`flex w-full items-start gap-3 border-b border-default px-5 py-3 text-left last:border-b-0 hover:bg-surface-hover ${isSelected ? 'bg-primary-50' : ''}`}
                     style={{ minHeight: 44 }}
                   >
                     <Badge variant="neutral" className="mt-0.5 shrink-0 uppercase">{client.category}</Badge>
@@ -509,7 +509,7 @@ export function NewInspection() {
                   return (
                     <label
                       key={t.id}
-                      className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 ${isSelected ? 'border-primary-700 bg-primary-50' : 'border-gray-200'}`}
+                      className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 ${isSelected ? 'border-primary-700 bg-primary-50' : 'border-default'}`}
                       style={{ minHeight: 44 }}
                     >
                       <input
@@ -571,7 +571,7 @@ export function NewInspection() {
                 </div>
 
                 {selectedClient.category === 'ilpi' && (
-                  <div className="border-t border-gray-100 pt-5">
+                  <div className="border-t border-default pt-5">
                     <p className="font-medium text-navy">Dados do ILPI</p>
                     <p className="mb-3 text-xs text-navy-3">
                       Trazidos do último relatório desta unidade. Confira e ajuste.
@@ -615,7 +615,7 @@ export function NewInspection() {
         {/* ── coluna do resumo ─────────────────────────────────────────── */}
         <div className="space-y-4 lg:sticky lg:top-6 lg:self-start">
           <Card>
-            <div className="border-b border-gray-200 px-5 py-3.5">
+            <div className="border-b border-default px-5 py-3.5">
               <h2 className="text-sm font-semibold text-navy">Antes de começar</h2>
             </div>
             <div className="space-y-4 p-5">
@@ -636,7 +636,7 @@ export function NewInspection() {
                 <p className="font-medium text-navy">{dateLabel}</p>
               </div>
 
-              <hr className="border-gray-200" />
+              <hr className="border-default" />
 
               {/* O vínculo com o agendamento aparece ANTES de começar: é ele que
                   faz o relatório chegar ao portal do cliente no fim. */}
@@ -670,7 +670,7 @@ export function NewInspection() {
               lado do botão — é a informação que decide se deve ou não clicar. */}
           {readyForVisit && (
             <Card>
-              <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-5 py-3.5">
+              <div className="flex items-center justify-between gap-3 border-b border-default px-5 py-3.5">
                 <h2 className="text-sm font-semibold text-navy">Visitas recentes aqui</h2>
                 {existingVisits.length > 0 && (
                   <Badge variant="warning">{existingVisits.length} nos últimos 31 dias</Badge>
@@ -706,7 +706,7 @@ export function NewInspection() {
                           variant="outline"
                           size="sm"
                           fullWidth
-                          className="mt-3 bg-white"
+                          className="mt-3 bg-surface"
                           onClick={() => continueExistingInspection(inspection)}
                         >
                           Continuar este relatório

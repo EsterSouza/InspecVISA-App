@@ -37,15 +37,15 @@ const EVENT_NOTIFY_TITLES: Record<EventNotifyKind, string> = {
 function LoadingSkeleton() {
   return (
     <div className="space-y-10" role="status" aria-label="Carregando solicitações">
-      <div className="h-16 animate-pulse rounded-xl bg-gray-100" />
+      <div className="h-16 animate-pulse rounded-xl bg-surface-sunken" />
       <div className="space-y-4">
-        <div className="h-6 w-48 animate-pulse rounded bg-gray-100" />
-        <div className="h-24 animate-pulse rounded-xl bg-gray-100" />
-        <div className="h-24 animate-pulse rounded-xl bg-gray-100" />
+        <div className="h-6 w-48 animate-pulse rounded bg-surface-sunken" />
+        <div className="h-24 animate-pulse rounded-xl bg-surface-sunken" />
+        <div className="h-24 animate-pulse rounded-xl bg-surface-sunken" />
       </div>
       <div className="space-y-4">
-        <div className="h-6 w-40 animate-pulse rounded bg-gray-100" />
-        <div className="h-16 animate-pulse rounded-xl bg-gray-100" />
+        <div className="h-6 w-40 animate-pulse rounded bg-surface-sunken" />
+        <div className="h-16 animate-pulse rounded-xl bg-surface-sunken" />
       </div>
       <span className="sr-only">Carregando solicitações...</span>
     </div>
@@ -341,8 +341,8 @@ export function AppointmentRequestsPanel({ focusRequestId }: { focusRequestId?: 
       {/* ─── Nova visita (agendamento direto pela equipe) ───── */}
       <div className="flex items-center justify-between rounded-xl border border-primary-100 bg-primary-50/50 p-4">
         <div>
-          <p className="text-sm font-bold text-gray-900">Agendar você mesma</p>
-          <p className="text-xs text-gray-500">
+          <p className="text-sm font-bold text-navy">Agendar você mesma</p>
+          <p className="text-xs text-navy-3">
             Cria uma visita já confirmada e vinculada ao cliente — aparece no portal dele com rastreio completo.
           </p>
         </div>
@@ -490,11 +490,11 @@ export function AppointmentRequestsPanel({ focusRequestId }: { focusRequestId?: 
               <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
                 <CheckCircle className="h-6 w-6 text-green-600" />
               </div>
-              <h3 id="event-notify-title" className="text-lg font-bold text-gray-900">
+              <h3 id="event-notify-title" className="text-lg font-bold text-navy">
                 {EVENT_NOTIFY_TITLES[eventNotify.kind]}
               </h3>
-              <p className="mt-1 text-sm text-gray-500">{eventNotify.unitName}</p>
-              <p className="mt-3 rounded-lg bg-gray-50 p-3 text-sm text-gray-700" aria-live="polite">
+              <p className="mt-1 text-sm text-navy-3">{eventNotify.unitName}</p>
+              <p className="mt-3 rounded-lg bg-surface-sunken p-3 text-sm text-navy-2" aria-live="polite">
                 {deliveryMessage(eventNotify.kind, eventNotify.result)}
               </p>
               {eventNotify.result.whatsappLink ? (
@@ -507,7 +507,7 @@ export function AppointmentRequestsPanel({ focusRequestId }: { focusRequestId?: 
                   <Phone className="h-4 w-4" /> Avisar no WhatsApp
                 </a>
               ) : (
-                <p className="mt-4 text-xs text-gray-500">Cliente sem WhatsApp cadastrado.</p>
+                <p className="mt-4 text-xs text-navy-3">Cliente sem WhatsApp cadastrado.</p>
               )}
               <Button variant="ghost" className="mt-2 w-full" onClick={() => setEventNotify(null)}>
                 Fechar

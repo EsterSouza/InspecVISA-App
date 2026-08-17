@@ -115,8 +115,8 @@ export function SmartImporter() {
     <div className="space-y-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Importador Inteligente</h2>
-          <p className="text-gray-500">Transforme documentos PDF, Word ou Excel em roteiros digitais.</p>
+          <h2 className="text-2xl font-bold text-navy">Importador Inteligente</h2>
+          <p className="text-navy-3">Transforme documentos PDF, Word ou Excel em roteiros digitais.</p>
         </div>
         <Button variant="outline" onClick={() => navigate('/templates')}>Cancelar</Button>
       </div>
@@ -131,7 +131,7 @@ export function SmartImporter() {
               <label className="text-sm font-medium">Nome do Roteiro</label>
               <input 
                 type="text" 
-                className="w-full rounded-lg border border-gray-200 p-2.5"
+                className="w-full rounded-lg border border-control p-2.5"
                 placeholder="Ex: ROI Estética II - 2024"
                 value={templateName}
                 onChange={(e) => setTemplateName(e.target.value)}
@@ -140,7 +140,7 @@ export function SmartImporter() {
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Categoria</label>
               <select 
-                className="w-full rounded-lg border border-gray-200 p-2.5"
+                className="w-full rounded-lg border border-control p-2.5"
                 value={category}
                 onChange={(e) => setCategory(e.target.value as any)}
               >
@@ -157,17 +157,17 @@ export function SmartImporter() {
             <CardTitle className="text-xs font-bold uppercase text-primary-700">Upload de Documento</CardTitle>
           </CardHeader>
           <CardContent>
-            <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-2xl p-8 cursor-pointer hover:border-primary-400 hover:bg-primary-50 transition-all group">
+            <label className="flex flex-col items-center justify-center border-2 border-dashed border-default rounded-2xl p-8 cursor-pointer hover:border-primary-400 hover:bg-primary-50 transition-all group">
               {isParsingFile ? (
                 <div className="flex flex-col items-center">
                   <Loader2 className="h-10 w-10 text-primary-600 animate-spin mb-2" />
-                  <p className="text-sm font-medium text-gray-600">Extraindo texto do arquivo...</p>
+                  <p className="text-sm font-medium text-navy-2">Extraindo texto do arquivo...</p>
                 </div>
               ) : (
                 <>
-                  <FileUp className="h-10 w-10 text-gray-400 group-hover:text-primary-500 mb-2" />
-                  <span className="text-sm font-medium text-gray-600">Clique para selecionar PDF, Word ou TypeScript</span>
-                  <span className="text-xs text-gray-400 mt-1">Sincronização automática de itens</span>
+                  <FileUp className="h-10 w-10 text-navy-3 group-hover:text-primary-500 mb-2" />
+                  <span className="text-sm font-medium text-navy-2">Clique para selecionar PDF, Word ou TypeScript</span>
+                  <span className="text-xs text-navy-3 mt-1">Sincronização automática de itens</span>
                 </>
               )}
               <input type="file" className="hidden" accept=".pdf,.docx,.ts,.tsx" onChange={handleFileUpload} disabled={isParsingFile} />
@@ -184,7 +184,7 @@ export function SmartImporter() {
               <Badge>Control+V da Planilha</Badge>
             </label>
             <textarea 
-              className="w-full rounded-lg border border-gray-200 p-3 text-xs font-mono min-h-[150px] outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full rounded-lg border border-control p-3 text-xs font-mono min-h-[150px] outline-none focus:ring-2 focus:ring-primary-500"
               placeholder="Eixo	Item	Descrição	Lei"
               value={pastedText}
               onChange={(e) => setPastedText(e.target.value)}
@@ -198,7 +198,7 @@ export function SmartImporter() {
 
       {items.length > 0 && (
         <Card className="border-primary-100 shadow-xl overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between border-b bg-gray-50 px-6 py-4">
+          <CardHeader className="flex flex-row items-center justify-between border-b bg-surface-sunken px-6 py-4">
             <CardTitle className="text-sm font-bold uppercase text-primary-700">
               Revisão dos Itens EXTRAÍDOS ({items.length})
             </CardTitle>
@@ -211,15 +211,15 @@ export function SmartImporter() {
           </CardHeader>
           <div className="max-h-[600px] overflow-y-auto">
             <table className="w-full text-left table-fixed">
-              <thead className="bg-white sticky top-0 border-b border-gray-100 shadow-sm">
-                <tr className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+              <thead className="bg-surface sticky top-0 border-b border-default shadow-sm">
+                <tr className="text-[10px] font-bold text-navy-3 uppercase tracking-widest">
                   <th className="px-6 py-3 w-1/4">Seção</th>
                   <th className="px-6 py-3 w-1/2">Descrição</th>
                   <th className="px-6 py-3 w-1/4">Legislação</th>
                   <th className="px-6 py-3 w-10"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-surface-sunken">
                 {items.map((item, idx) => (
                   <tr key={idx} className="hover:bg-primary-50/30 transition-colors">
                     <td className="px-6 py-4 align-top">
@@ -235,7 +235,7 @@ export function SmartImporter() {
                     </td>
                     <td className="px-6 py-4 align-top">
                       <textarea 
-                        className="bg-transparent text-gray-600 w-full outline-none focus:text-gray-900 text-xs resize-none"
+                        className="bg-transparent text-navy-2 w-full outline-none focus:text-navy text-xs resize-none"
                         value={item.description}
                         rows={2}
                         onChange={(e) => {
@@ -257,7 +257,7 @@ export function SmartImporter() {
                       />
                     </td>
                     <td className="px-6 py-4 align-top">
-                      <button onClick={() => setItems(items.filter((_, i) => i !== idx))} className="text-gray-300 hover:text-red-500">
+                      <button onClick={() => setItems(items.filter((_, i) => i !== idx))} className="text-navy-3 hover:text-red-500">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </td>
@@ -273,5 +273,5 @@ export function SmartImporter() {
 }
 
 function Badge({ children }: { children: React.ReactNode }) {
-  return <span className="px-2 py-0.5 bg-gray-100 rounded-full text-[10px] text-gray-500 font-bold ml-2">{children}</span>;
+  return <span className="px-2 py-0.5 bg-surface-sunken rounded-full text-[10px] text-navy-3 font-bold ml-2">{children}</span>;
 }

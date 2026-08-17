@@ -127,7 +127,7 @@ function attachmentIcon(asset: AppointmentAttachment) {
     return <FileType className="h-5 w-5 text-blue-600" />;
   }
   if (mime.startsWith('image/')) return <ImageIcon className="h-5 w-5 text-emerald-600" />;
-  return <Paperclip className="h-5 w-5 text-gray-500" />;
+  return <Paperclip className="h-5 w-5 text-navy-3" />;
 }
 
 export function PublicAppointmentStatus() {
@@ -237,14 +237,14 @@ export function PublicAppointmentStatus() {
   // ─── Loading inicial ─────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-surface">
         <PublicHeader />
         <main className="mx-auto max-w-2xl px-4 py-8" role="status" aria-live="polite">
-          <div className="mb-6 h-24 animate-pulse rounded-2xl bg-gray-100" aria-hidden="true" />
+          <div className="mb-6 h-24 animate-pulse rounded-2xl bg-surface-sunken" aria-hidden="true" />
           <div className="space-y-3">
-            <div className="h-5 w-1/2 animate-pulse rounded bg-gray-100" aria-hidden="true" />
-            <div className="h-20 animate-pulse rounded-xl bg-gray-100" aria-hidden="true" />
-            <div className="h-20 animate-pulse rounded-xl bg-gray-100" aria-hidden="true" />
+            <div className="h-5 w-1/2 animate-pulse rounded bg-surface-sunken" aria-hidden="true" />
+            <div className="h-20 animate-pulse rounded-xl bg-surface-sunken" aria-hidden="true" />
+            <div className="h-20 animate-pulse rounded-xl bg-surface-sunken" aria-hidden="true" />
           </div>
           <span className="sr-only">Consultando sua solicitação...</span>
         </main>
@@ -255,13 +255,13 @@ export function PublicAppointmentStatus() {
   // ─── Token inválido ──────────────────────────────────────────
   if (invalidToken || !status) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-surface">
         <PublicHeader />
         <main className="mx-auto max-w-[600px] px-4 py-12">
           <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-6 text-center shadow-sm">
             <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-amber-500" />
-            <h2 className="text-lg font-bold text-gray-900">Acesso restrito</h2>
-            <p className="mt-2 text-sm text-gray-600">
+            <h2 className="text-lg font-bold text-navy">Acesso restrito</h2>
+            <p className="mt-2 text-sm text-navy-2">
               Entre no Portal do Cliente com e-mail/usuario e senha para consultar relatorios, fotos e anexos.
             </p>
             <Link
@@ -336,12 +336,12 @@ export function PublicAppointmentStatus() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-surface">
       <PublicHeader />
       <main className="mx-auto max-w-3xl px-4 py-8 pb-16 sm:px-6">
         <Link
           to="/cliente"
-          className="mb-4 inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
+          className="mb-4 inline-flex items-center gap-2 rounded-xl border border-default bg-surface px-4 py-2.5 text-sm font-semibold text-navy-2 shadow-sm transition-colors hover:bg-surface-hover"
         >
           <Home className="h-4 w-4" />
           Voltar ao painel do cliente
@@ -361,9 +361,9 @@ export function PublicAppointmentStatus() {
         />
 
         {/* Protocolo */}
-        <div className="mb-6 rounded-2xl border border-gray-100 bg-gray-50 p-5 text-center shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Protocolo</p>
-          <p className="mt-1 font-mono text-3xl font-bold tracking-widest text-gray-900">
+        <div className="mb-6 rounded-2xl border border-default bg-surface-sunken p-5 text-center shadow-sm">
+          <p className="text-xs font-medium uppercase tracking-wide text-navy-3">Protocolo</p>
+          <p className="mt-1 font-mono text-3xl font-bold tracking-widest text-navy">
             {formatProtocol(token || '')}
           </p>
         </div>
@@ -420,7 +420,7 @@ export function PublicAppointmentStatus() {
               <div className="mt-2 flex flex-wrap gap-2">
                 <Link
                   to="/cliente"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-surface px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50"
                 >
                   <Home className="h-3.5 w-3.5" /> Ver pagamento no portal
                 </Link>
@@ -447,8 +447,8 @@ export function PublicAppointmentStatus() {
         )}
 
         {/* Linha do tempo */}
-        <section className="mb-6 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-600">
+        <section className="mb-6 rounded-2xl border border-default bg-surface p-5 shadow-sm">
+          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-navy-2">
             Andamento
           </h3>
           <ol className="space-y-0">
@@ -462,7 +462,7 @@ export function PublicAppointmentStatus() {
                   {!isLast && (
                     <span
                       className={`absolute left-[13px] top-7 h-[calc(100%-20px)] w-0.5 ${
-                        done ? 'bg-primary-500' : 'bg-gray-200'
+                        done ? 'bg-primary-500' : 'bg-surface-sunken'
                       }`}
                     />
                   )}
@@ -472,7 +472,7 @@ export function PublicAppointmentStatus() {
                         ? 'border-primary-500 bg-primary-500 text-white'
                         : current
                           ? 'border-primary-600 bg-primary-600 text-white shadow-md shadow-primary-200'
-                          : 'border-gray-200 bg-white text-gray-300'
+                          : 'border-default bg-surface text-navy-3'
                     }`}
                   >
                     {done ? (
@@ -487,8 +487,8 @@ export function PublicAppointmentStatus() {
                         current
                           ? 'font-bold text-primary-700'
                           : done
-                            ? 'text-gray-700'
-                            : 'text-gray-400'
+                            ? 'text-navy-2'
+                            : 'text-navy-3'
                       }`}
                     >
                       {step.label}
@@ -506,38 +506,38 @@ export function PublicAppointmentStatus() {
         </section>
 
         {/* Informações da solicitação */}
-        <section className="mb-6 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-600">
+        <section className="mb-6 rounded-2xl border border-default bg-surface p-5 shadow-sm">
+          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-navy-2">
             Dados da solicitação
           </h3>
           <dl className="space-y-3 text-sm">
             <div className="flex items-start gap-3">
-              <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
+              <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-navy-3" />
               <div>
-                <dt className="text-xs text-gray-500">Unidade</dt>
-                <dd className="break-words font-medium text-gray-900">{status.unit_name}</dd>
+                <dt className="text-xs text-navy-3">Unidade</dt>
+                <dd className="break-words font-medium text-navy">{status.unit_name}</dd>
               </div>
             </div>
             <div className="flex items-start gap-3">
-              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-navy-3" />
               <div>
-                <dt className="text-xs text-gray-500">Atendimento</dt>
-                <dd className="font-medium text-gray-900">{status.district}</dd>
+                <dt className="text-xs text-navy-3">Atendimento</dt>
+                <dd className="font-medium text-navy">{status.district}</dd>
                 {status.attendance_mode === 'presencial' && status.municipality && (
-                  <dd className="text-xs text-gray-500">{status.municipality}</dd>
+                  <dd className="text-xs text-navy-3">{status.municipality}</dd>
                 )}
                 {status.attendance_mode === 'online' && (
-                  <dd className="flex items-center gap-1 text-xs text-gray-500">
+                  <dd className="flex items-center gap-1 text-xs text-navy-3">
                     <Monitor className="h-3 w-3" /> Online
                   </dd>
                 )}
               </div>
             </div>
             <div className="flex items-start gap-3">
-              <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
+              <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-navy-3" />
               <div>
-                <dt className="text-xs text-gray-500">Data solicitada</dt>
-                <dd className="font-medium text-gray-900">
+                <dt className="text-xs text-navy-3">Data solicitada</dt>
+                <dd className="font-medium text-navy">
                   {formatDateBR(status.requested_date)}
                   {status.requested_time ? ` às ${status.requested_time}` : ''}
                   {status.requested_period && PERIOD_LABELS[status.requested_period]
@@ -571,15 +571,15 @@ export function PublicAppointmentStatus() {
 
         {/* Adicionar ao calendário — só quando o compromisso está confirmado */}
         {calendarInput && (
-          <section className="mb-6 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-            <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-600">
+          <section className="mb-6 rounded-2xl border border-default bg-surface p-5 shadow-sm">
+            <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-navy-2">
               <CalendarPlus className="h-4 w-4" /> Adicionar ao calendário
             </h3>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={handleDownloadIcs}
-                className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                className="inline-flex items-center gap-2 rounded-lg border border-default bg-surface px-3.5 py-2 text-xs font-semibold text-navy-2 hover:bg-surface-hover"
               >
                 <Download className="h-3.5 w-3.5" /> Baixar .ics
               </button>
@@ -587,7 +587,7 @@ export function PublicAppointmentStatus() {
                 href={buildGoogleCalendarLink(calendarInput)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                className="inline-flex items-center gap-2 rounded-lg border border-default bg-surface px-3.5 py-2 text-xs font-semibold text-navy-2 hover:bg-surface-hover"
               >
                 Google Calendar
               </a>
@@ -595,7 +595,7 @@ export function PublicAppointmentStatus() {
                 href={buildOutlookCalendarLink(calendarInput)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                className="inline-flex items-center gap-2 rounded-lg border border-default bg-surface px-3.5 py-2 text-xs font-semibold text-navy-2 hover:bg-surface-hover"
               >
                 Outlook
               </a>
@@ -609,7 +609,7 @@ export function PublicAppointmentStatus() {
             <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-primary-700">
               Prazo do relatório
             </h3>
-            <p className="text-sm font-medium text-gray-800">
+            <p className="text-sm font-medium text-navy">
               {formatReportDueDate(status.report_due_at, status.report_due_source)}
             </p>
           </section>
@@ -636,7 +636,7 @@ export function PublicAppointmentStatus() {
 
         {/* Relatório e anexos — só exibe quando há algo publicado ou quando o status indica disponibilidade */}
         {(status.status === 'report_available' || hasDeliverables) ? (
-        <section className="mb-6 rounded-2xl border border-green-100 bg-white p-5 shadow-sm">
+        <section className="mb-6 rounded-2xl border border-green-100 bg-surface p-5 shadow-sm">
             <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-green-700">
               Relatório, fotos e anexos
             </h3>
@@ -664,16 +664,16 @@ export function PublicAppointmentStatus() {
                 </div>
               </div>
             ) : status.status === 'report_available' ? (
-              <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
+              <div className="rounded-xl border border-dashed border-default bg-surface-sunken p-4 text-sm text-navy-3">
                 O relatório está sendo disponibilizado. Atualize a página em alguns instantes.
               </div>
             ) : null}
 
             {photos.length > 0 ? (
               <div className="mt-6">
-                <h4 className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <h4 className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-navy-3">
                   <span>Fotos da inspeção</span>
-                  <span className="text-gray-500">{photos.length} foto{photos.length === 1 ? '' : 's'}</span>
+                  <span className="text-navy-3">{photos.length} foto{photos.length === 1 ? '' : 's'}</span>
                 </h4>
                 <button
                   type="button"
@@ -694,9 +694,9 @@ export function PublicAppointmentStatus() {
               </div>
             ) : suspended && photoCount > 0 ? (
               <div className="mt-6">
-                <h4 className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <h4 className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-navy-3">
                   <span>Fotos da inspeção</span>
-                  <span className="text-gray-500">{photoCount} foto{photoCount === 1 ? '' : 's'}</span>
+                  <span className="text-navy-3">{photoCount} foto{photoCount === 1 ? '' : 's'}</span>
                 </h4>
                 <div className="flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-3 text-sm font-semibold text-red-600">
                   <Lock className="h-4 w-4" />
@@ -707,7 +707,7 @@ export function PublicAppointmentStatus() {
 
             {attachments.length > 0 && (
               <div className="mt-6">
-                <h4 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <h4 className="mb-3 text-xs font-semibold uppercase tracking-wide text-navy-3">
                   Anexos
                 </h4>
                 <ul className="space-y-2">
@@ -719,18 +719,18 @@ export function PublicAppointmentStatus() {
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={() => auditAsset('attachment_download_clicked', asset)}
-                          className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 p-3 transition-colors hover:bg-gray-100"
+                          className="flex items-center gap-3 rounded-xl border border-default bg-surface-sunken p-3 transition-colors hover:bg-surface-active"
                         >
                           {attachmentIcon(asset)}
-                          <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-800">
+                          <span className="min-w-0 flex-1 truncate text-sm font-medium text-navy">
                             {asset.file_name || 'Anexo'}
                           </span>
-                          <Download className="h-4 w-4 shrink-0 text-gray-400" />
+                          <Download className="h-4 w-4 shrink-0 text-navy-3" />
                         </a>
                       ) : (
-                        <div className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 p-3 opacity-70">
+                        <div className="flex items-center gap-3 rounded-xl border border-default bg-surface-sunken p-3 opacity-70">
                           {suspended ? <Lock className="h-5 w-5 shrink-0 text-red-500" /> : attachmentIcon(asset)}
-                          <span className="min-w-0 flex-1 truncate text-sm text-gray-500">
+                          <span className="min-w-0 flex-1 truncate text-sm text-navy-3">
                             {asset.file_name || 'Anexo'} (indisponível)
                           </span>
                         </div>
@@ -749,7 +749,7 @@ export function PublicAppointmentStatus() {
             type="button"
             onClick={() => void load(true)}
             disabled={refreshing}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-5 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-60"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-default bg-surface px-5 py-3 text-sm font-medium text-navy-2 transition-colors hover:bg-surface-hover disabled:opacity-60"
           >
             {refreshing ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -838,7 +838,7 @@ function PhotoLightbox({ photos, index, onClose, onNavigate, onDownload }: Photo
                 e.stopPropagation();
                 onDownload(photo);
               }}
-              className="rounded-full bg-white/10 p-2 hover:bg-white/20"
+              className="rounded-full bg-surface/10 p-2 hover:bg-surface/20"
               title="Baixar foto"
             >
               <Download className="h-5 w-5" />
@@ -847,7 +847,7 @@ function PhotoLightbox({ photos, index, onClose, onNavigate, onDownload }: Photo
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full bg-white/10 p-2 hover:bg-white/20"
+            className="rounded-full bg-surface/10 p-2 hover:bg-surface/20"
             title="Fechar"
           >
             <X className="h-5 w-5" />
@@ -860,7 +860,7 @@ function PhotoLightbox({ photos, index, onClose, onNavigate, onDownload }: Photo
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); go(-1); }}
-            className="absolute left-2 z-10 rounded-full bg-white/10 p-2 text-white hover:bg-white/20 sm:left-4 sm:p-3"
+            className="absolute left-2 z-10 rounded-full bg-surface/10 p-2 text-white hover:bg-surface/20 sm:left-4 sm:p-3"
             title="Anterior"
           >
             <ChevronLeft className="h-6 w-6" />
@@ -884,7 +884,7 @@ function PhotoLightbox({ photos, index, onClose, onNavigate, onDownload }: Photo
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); go(1); }}
-            className="absolute right-2 z-10 rounded-full bg-white/10 p-2 text-white hover:bg-white/20 sm:right-4 sm:p-3"
+            className="absolute right-2 z-10 rounded-full bg-surface/10 p-2 text-white hover:bg-surface/20 sm:right-4 sm:p-3"
             title="Próxima"
           >
             <ChevronRight className="h-6 w-6" />

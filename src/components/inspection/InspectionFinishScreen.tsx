@@ -195,7 +195,7 @@ export function InspectionFinishScreen({
         <div className="min-w-0 space-y-5">
           {/* ── Antes de encerrar ─────────────────────────────────────── */}
           <Card>
-            <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-5 py-3.5">
+            <div className="flex items-center justify-between gap-3 border-b border-default px-5 py-3.5">
               <h2 className="text-sm font-semibold text-navy">Antes de encerrar</h2>
               {pontosDeAtencao > 0 && (
                 <Badge variant="warning">
@@ -235,10 +235,10 @@ export function InspectionFinishScreen({
                             key={pend.itemId}
                             type="button"
                             onClick={() => onGoToItem(pend.itemId)}
-                            className="flex w-full items-start gap-3 border-b border-gray-100 bg-white px-3 py-2.5 text-left last:border-b-0 hover:bg-gray-50"
+                            className="flex w-full items-start gap-3 border-b border-default bg-surface px-3 py-2.5 text-left last:border-b-0 hover:bg-surface-hover"
                             style={{ minHeight: 44 }}
                           >
-                            <span className="mt-0.5 shrink-0 rounded bg-gray-100 px-1.5 text-xs font-semibold tabular-nums text-navy-2">
+                            <span className="mt-0.5 shrink-0 rounded bg-surface-sunken px-1.5 text-xs font-semibold tabular-nums text-navy-2">
                               {pend.order}
                             </span>
                             <span className="min-w-0 flex-1">
@@ -284,7 +284,7 @@ export function InspectionFinishScreen({
 
           {/* ── O que vai acontecer ───────────────────────────────────── */}
           <Card>
-            <div className="border-b border-gray-200 px-5 py-3.5">
+            <div className="border-b border-default px-5 py-3.5">
               <h2 className="text-sm font-semibold text-navy">O que vai acontecer ao confirmar</h2>
             </div>
             <ul className="space-y-4 p-5 text-sm text-navy-2">
@@ -339,7 +339,7 @@ export function InspectionFinishScreen({
                 </span>
               </li>
             </ul>
-            <div className="border-t border-gray-200 px-5 py-3">
+            <div className="border-t border-default px-5 py-3">
               <p className="text-sm text-navy-3">
                 O que <strong>não</strong> acontece: nada é apagado, e você pode reabrir a inspeção depois.
                 Reabrir não retira o que o cliente já viu.
@@ -349,7 +349,7 @@ export function InspectionFinishScreen({
 
           {/* ── Quem acompanhou ───────────────────────────────────────── */}
           <Card>
-            <div className="border-b border-gray-200 px-5 py-3.5">
+            <div className="border-b border-default px-5 py-3.5">
               <h2 className="text-sm font-semibold text-navy">Quem acompanhou a visita</h2>
             </div>
             <div className="space-y-4 p-5">
@@ -387,7 +387,7 @@ export function InspectionFinishScreen({
         {/* ── Entrega ao portal ─────────────────────────────────────────── */}
         <div className="space-y-4 lg:sticky lg:top-6 lg:self-start">
           <Card>
-            <div className="border-b border-gray-200 px-5 py-3.5">
+            <div className="border-b border-default px-5 py-3.5">
               <h2 className="text-sm font-semibold text-navy">Entrega ao portal</h2>
             </div>
             <div className="space-y-3 p-5">
@@ -481,7 +481,7 @@ export function InspectionFinishScreen({
               )}
             </div>
 
-            <div className="flex flex-col gap-2 border-t border-gray-200 p-5">
+            <div className="flex flex-col gap-2 border-t border-default p-5">
               <Button size="lg" fullWidth disabled={!podeEntregar} onClick={onFinish}>
                 {isFinishing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Encerrar e entregar

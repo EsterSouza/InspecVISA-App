@@ -12,7 +12,7 @@ export function ProgressBar({ value, colorClass = 'bg-primary-500', className, h
   const safeValue = Math.min(Math.max(value, 0), 100);
   
   return (
-    <div className={cn("w-full overflow-hidden rounded-full bg-gray-200", heightClass, className)}>
+    <div className={cn("w-full overflow-hidden rounded-full bg-surface-sunken", heightClass, className)}>
       <div
         className={cn("h-full transition-all duration-500 ease-out", colorClass)}
         style={{ width: `${safeValue}%` }}

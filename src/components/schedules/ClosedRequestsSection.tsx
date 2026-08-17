@@ -54,9 +54,9 @@ export function ClosedRequestsSection({
         onClick={onToggleShow}
         aria-expanded={show}
         aria-controls="closed-requests-list"
-        className="mb-4 flex items-center text-lg font-semibold text-gray-500 hover:text-gray-800"
+        className="mb-4 flex items-center text-lg font-semibold text-navy-3 hover:text-navy"
       >
-        <CheckCircle className="mr-2 h-5 w-5 text-gray-400" />
+        <CheckCircle className="mr-2 h-5 w-5 text-navy-3" />
         Encerradas ({closed.length}) <span aria-hidden="true">&nbsp;{show ? '▾' : '▸'}</span>
       </button>
 
@@ -84,16 +84,16 @@ export function ClosedRequestsSection({
             ) : (
               <div
                 key={request.id}
-                className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50/60 p-3 text-sm"
+                className="flex items-center justify-between rounded-xl border border-default bg-surface-sunken/60 p-3 text-sm"
               >
                 <div className="flex min-w-0 items-center gap-2">
-                  <span className="truncate font-medium text-gray-500">{request.unit_name}</span>
+                  <span className="truncate font-medium text-navy-3">{request.unit_name}</span>
                   <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${STATUS_BADGES[request.status]}`}>
                     {STATUS_LABELS[request.status]}
                   </span>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <span className="text-xs text-gray-500">{formatDateBR(request.requested_date)}</span>
+                  <span className="text-xs text-navy-3">{formatDateBR(request.requested_date)}</span>
                   <Button
                     variant="ghost"
                     size="sm"

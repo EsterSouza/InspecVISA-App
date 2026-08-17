@@ -7,12 +7,12 @@ export function AccessDenied() {
   const navigate = useNavigate();
 
   return (
-    <div className="flex h-screen flex-col items-center justify-center bg-gray-50 p-6 text-center">
+    <div className="flex h-screen flex-col items-center justify-center bg-surface-sunken p-6 text-center">
       <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-red-100">
         <ShieldOff className="h-10 w-10 text-red-500" />
       </div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-2">Acesso negado</h1>
-      <p className="text-gray-500 mb-8 max-w-sm">
+      <h1 className="text-2xl font-bold text-navy mb-2">Acesso negado</h1>
+      <p className="text-navy-3 mb-8 max-w-sm">
         Você não tem permissão para acessar esta página.
       </p>
       <Button onClick={() => navigate(-1)} variant="outline">

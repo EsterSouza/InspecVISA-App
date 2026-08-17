@@ -125,19 +125,19 @@ export function ContractTimeline({ unit }: ContractTimelineProps) {
   if (milestones.length === 0) return null;
 
   return (
-    <section className="mb-6 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-      <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-600">
+    <section className="mb-6 rounded-2xl border border-default bg-surface p-5 shadow-sm">
+      <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-navy-2">
         Cronograma do contrato
       </h3>
       <ul className="space-y-3">
         {milestones.map((m) => (
-          <li key={m.key} className="flex items-start gap-3 rounded-xl border border-gray-100 bg-gray-50 p-3">
+          <li key={m.key} className="flex items-start gap-3 rounded-xl border border-default bg-surface-sunken p-3">
             <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-100 text-primary-700">
               {m.icon}
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-gray-900">{m.label}</p>
-              <div className="mt-0.5 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-500">
+              <p className="text-sm font-medium text-navy">{m.label}</p>
+              <div className="mt-0.5 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-navy-3">
                 {m.plannedLabel && (
                   <span className="inline-flex items-center gap-1">
                     <CalendarClock className="h-3 w-3" /> Previsto: {m.plannedLabel}
@@ -154,7 +154,7 @@ export function ContractTimeline({ unit }: ContractTimelineProps) {
                   </span>
                 )}
                 {!m.plannedLabel && !m.completedDate && !m.completedStatus && (
-                  <span className="text-gray-500">Sem data prevista</span>
+                  <span className="text-navy-3">Sem data prevista</span>
                 )}
               </div>
             </div>

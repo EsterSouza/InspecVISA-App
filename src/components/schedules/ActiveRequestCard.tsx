@@ -110,7 +110,7 @@ export function ActiveRequestCard({
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h3 className="font-bold text-gray-900">{request.unit_name}</h3>
+                <h3 className="font-bold text-navy">{request.unit_name}</h3>
                 <span
                   className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${STATUS_BADGES[request.status]}`}
                 >
@@ -122,7 +122,7 @@ export function ActiveRequestCard({
                   </span>
                 )}
               </div>
-              <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
+              <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-navy-3">
                 <span className="flex items-center">
                   <MapPin className="mr-1 h-3.5 w-3.5" /> {request.district}
                 </span>
@@ -143,7 +143,7 @@ export function ActiveRequestCard({
                     {request.report_due_source === 'manual' ? ' (manual)' : ''}
                   </span>
                 )}
-                <span className="flex items-center gap-1 text-xs text-gray-500">
+                <span className="flex items-center gap-1 text-xs text-navy-3">
                   <Gauge className="h-3.5 w-3.5 text-emerald-600" />
                   <label htmlFor={`compliance-score-${request.id}`}>Conformidade:</label>
                   <input
@@ -154,7 +154,7 @@ export function ActiveRequestCard({
                     value={scoreInput}
                     onChange={(e) => setScoreInput(e.target.value)}
                     placeholder="—"
-                    className="w-14 rounded border border-gray-200 px-1.5 py-0.5 text-xs"
+                    className="w-14 rounded border border-control px-1.5 py-0.5 text-xs"
                   />
                   %
                   <button
@@ -173,10 +173,10 @@ export function ActiveRequestCard({
                   </button>
                 </span>
                 {showIlpiAreaScores && onSetAreaScores && (
-                  <span className="flex items-center gap-1 text-xs text-gray-500">
+                  <span className="flex items-center gap-1 text-xs text-navy-3">
                     <Gauge className="h-3.5 w-3.5 text-indigo-600" />
                     <span id={`area-scores-label-${request.id}`}>Por área (ILPI):</span>
-                    <label htmlFor={`sanitary-score-${request.id}`} className="text-[11px] font-semibold text-gray-500">
+                    <label htmlFor={`sanitary-score-${request.id}`} className="text-[11px] font-semibold text-navy-3">
                       San
                     </label>
                     <input
@@ -187,9 +187,9 @@ export function ActiveRequestCard({
                       value={sanitaryInput}
                       onChange={(e) => setSanitaryInput(e.target.value)}
                       placeholder="—"
-                      className="w-12 rounded border border-gray-200 px-1.5 py-0.5 text-xs"
+                      className="w-12 rounded border border-control px-1.5 py-0.5 text-xs"
                     />
-                    <label htmlFor={`nutrition-score-${request.id}`} className="text-[11px] font-semibold text-gray-500">
+                    <label htmlFor={`nutrition-score-${request.id}`} className="text-[11px] font-semibold text-navy-3">
                       Nut
                     </label>
                     <input
@@ -200,7 +200,7 @@ export function ActiveRequestCard({
                       value={nutritionInput}
                       onChange={(e) => setNutritionInput(e.target.value)}
                       placeholder="—"
-                      className="w-12 rounded border border-gray-200 px-1.5 py-0.5 text-xs"
+                      className="w-12 rounded border border-control px-1.5 py-0.5 text-xs"
                     />
                     %
                     <button
@@ -229,7 +229,7 @@ export function ActiveRequestCard({
 
           {request.attendance_mode === 'online' && (
             <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3">
-              <label htmlFor={`meeting-url-${request.id}`} className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+              <label htmlFor={`meeting-url-${request.id}`} className="flex items-center gap-2 text-sm font-semibold text-navy">
                 <Video className="h-4 w-4 text-blue-700" /> Link da videoconferência
               </label>
               <div className="mt-2 flex flex-col gap-2 sm:flex-row">
@@ -243,7 +243,7 @@ export function ActiveRequestCard({
                     setMeetingSaved(false);
                   }}
                   placeholder="https://meet.google.com/..."
-                  className="h-11 min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+                  className="h-11 min-w-0 flex-1 rounded-lg border border-control bg-surface px-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
                 />
                 <Button type="button" variant="outline" size="sm" className="min-h-11" disabled={meetingBusy} onClick={() => void saveMeetingUrl()}>
                   {meetingBusy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Video className="mr-1.5 h-4 w-4" />}
@@ -259,7 +259,7 @@ export function ActiveRequestCard({
             </div>
           )}
 
-          <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-3">
+          <div className="flex flex-wrap gap-2 border-t border-default pt-3">
             <input
               ref={reportInputRef}
               type="file"
@@ -384,7 +384,7 @@ export function ActiveRequestCard({
                 onClick={onToggleReportHidden}
                 className={request.report_hidden
                   ? 'border-amber-200 text-amber-700 hover:bg-amber-50'
-                  : 'border-gray-200 text-gray-600 hover:bg-gray-50'}
+                  : 'border-default text-navy-2 hover:bg-surface-hover'}
               >
                 {request.report_hidden
                   ? <><Eye className="mr-1.5 h-4 w-4" /> Mostrar ao cliente</>

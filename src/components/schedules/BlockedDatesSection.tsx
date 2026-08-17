@@ -52,11 +52,11 @@ export function BlockedDatesSection({ blockedDates, onChanged }: BlockedDatesSec
 
   return (
     <section>
-      <h2 className="mb-2 flex items-center text-lg font-semibold text-gray-900">
+      <h2 className="mb-2 flex items-center text-lg font-semibold text-navy">
         <CalendarOff className="mr-2 h-5 w-5 text-primary-600" />
         Datas bloqueadas
       </h2>
-      <p className="mb-4 text-sm text-gray-500">
+      <p className="mb-4 text-sm text-navy-3">
         Feriados, férias e compromissos: os dias bloqueados desaparecem do calendário público.
       </p>
 
@@ -64,7 +64,7 @@ export function BlockedDatesSection({ blockedDates, onChanged }: BlockedDatesSec
         <CardContent className="p-4">
           <form onSubmit={handleAdd} className="flex flex-wrap items-end gap-3">
             <div className="space-y-1.5">
-              <label htmlFor="blocked-date-day" className="block text-xs font-medium text-gray-600">Data</label>
+              <label htmlFor="blocked-date-day" className="block text-xs font-medium text-navy-2">Data</label>
               <input
                 id="blocked-date-day"
                 type="date"
@@ -72,16 +72,16 @@ export function BlockedDatesSection({ blockedDates, onChanged }: BlockedDatesSec
                 value={day}
                 min={toDateKey(new Date())}
                 onChange={(e) => setDay(e.target.value)}
-                className="rounded-xl border border-gray-300 p-2.5 text-sm"
+                className="rounded-xl border border-control p-2.5 text-sm"
               />
             </div>
             <div className="space-y-1.5">
-              <label htmlFor="blocked-date-who" className="block text-xs font-medium text-gray-600">Quem</label>
+              <label htmlFor="blocked-date-who" className="block text-xs font-medium text-navy-2">Quem</label>
               <select
                 id="blocked-date-who"
                 value={who}
                 onChange={(e) => setWho(e.target.value)}
-                className="rounded-xl border border-gray-300 bg-white p-2.5 text-sm"
+                className="rounded-xl border border-control bg-surface p-2.5 text-sm"
               >
                 <option value={WHO_ALL}>Todas (feriado)</option>
                 {SCHEDULE_CONSULTANTS.map((name) => (
@@ -90,7 +90,7 @@ export function BlockedDatesSection({ blockedDates, onChanged }: BlockedDatesSec
               </select>
             </div>
             <div className="min-w-[180px] flex-1 space-y-1.5">
-              <label htmlFor="blocked-date-reason" className="block text-xs font-medium text-gray-600">Motivo (opcional)</label>
+              <label htmlFor="blocked-date-reason" className="block text-xs font-medium text-navy-2">Motivo (opcional)</label>
               <input
                 id="blocked-date-reason"
                 type="text"
@@ -109,21 +109,21 @@ export function BlockedDatesSection({ blockedDates, onChanged }: BlockedDatesSec
       </Card>
 
       {blockedDates.length === 0 ? (
-        <p className="text-sm text-gray-500">Nenhuma data bloqueada nos próximos dias.</p>
+        <p className="text-sm text-navy-3">Nenhuma data bloqueada nos próximos dias.</p>
       ) : (
         <div className="space-y-2">
           {blockedDates.map((row) => (
             <div
               key={row.id}
-              className="flex items-center justify-between rounded-xl border border-gray-100 bg-white p-3"
+              className="flex items-center justify-between rounded-xl border border-default bg-surface p-3"
             >
               <div className="flex items-center gap-3 text-sm">
-                <CalendarOff className="h-4 w-4 text-gray-400" />
-                <span className="font-medium text-gray-800">{formatDateBR(row.day)}</span>
-                <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${row.consultant_name ? 'bg-primary-50 text-primary-700' : 'bg-gray-100 text-gray-600'}`}>
+                <CalendarOff className="h-4 w-4 text-navy-3" />
+                <span className="font-medium text-navy">{formatDateBR(row.day)}</span>
+                <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${row.consultant_name ? 'bg-primary-50 text-primary-700' : 'bg-surface-sunken text-navy-2'}`}>
                   {row.consultant_name || WHO_ALL}
                 </span>
-                {row.reason && <span className="text-gray-500">{row.reason}</span>}
+                {row.reason && <span className="text-navy-3">{row.reason}</span>}
               </div>
               <Button
                 variant="ghost"

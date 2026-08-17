@@ -113,7 +113,7 @@ export function PhotoCapture({ inputId, photos, onAddPhoto, onRemovePhoto }: Pho
         <Button
           type="button"
           variant="outline"
-          className="flex-1 flex items-center justify-center space-x-2 border-dashed border-2 bg-gray-50 py-4 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+          className="flex-1 flex items-center justify-center space-x-2 border-dashed border-2 bg-surface-sunken py-4 text-navy-2 hover:bg-surface-active hover:text-navy"
           onClick={() => document.getElementById(`${inputId}-camera`)?.click()}
           disabled={isCompressing}
         >
@@ -124,7 +124,7 @@ export function PhotoCapture({ inputId, photos, onAddPhoto, onRemovePhoto }: Pho
         <Button
           type="button"
           variant="outline"
-          className="flex-1 flex items-center justify-center space-x-2 border-dashed border-2 bg-gray-50 py-4 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+          className="flex-1 flex items-center justify-center space-x-2 border-dashed border-2 bg-surface-sunken py-4 text-navy-2 hover:bg-surface-active hover:text-navy"
           onClick={() => document.getElementById(`${inputId}-gallery`)?.click()}
           disabled={isCompressing}
         >
@@ -132,7 +132,7 @@ export function PhotoCapture({ inputId, photos, onAddPhoto, onRemovePhoto }: Pho
           <span>Galeria</span>
         </Button>
       </div>
-      <p className="mt-2 text-[10px] text-gray-500 text-center italic">
+      <p className="mt-2 text-[10px] text-navy-3 text-center italic">
         {isCompressing
           ? (compressProgress ? `Processando foto ${compressProgress.current} de ${compressProgress.total}...` : 'Processando imagem...')
           : `${photos.length} foto(s) registrada(s)`}
@@ -178,7 +178,7 @@ function PhotoTile({ photo, onPreview, onRemove }: { photo: InspectionPhoto; onP
   const hasHydrationError = Boolean(photo.syncError?.includes('ainda nao baixou'));
 
   return (
-    <div className="group relative aspect-square overflow-hidden rounded-lg border border-gray-200 bg-gray-100">
+    <div className="group relative aspect-square overflow-hidden rounded-lg border border-default bg-surface-sunken">
       {hasLocalImage ? (
         <img
           src={photo.dataUrl}
@@ -187,18 +187,18 @@ function PhotoTile({ photo, onPreview, onRemove }: { photo: InspectionPhoto; onP
           onClick={() => onPreview(photo.dataUrl)}
         />
       ) : (
-        <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-slate-50 p-3 text-center text-[11px] font-semibold text-slate-500">
+        <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-surface-sunken p-3 text-center text-[11px] font-semibold text-navy-3">
           {hasHydrationError ? (
             <>
               <XCircle className="h-5 w-5 text-amber-500" />
               <span>Foto no servidor</span>
-              <span className="font-normal text-slate-400">Tente abrir online novamente</span>
+              <span className="font-normal text-navy-3">Tente abrir online novamente</span>
             </>
           ) : (
             <>
               <Clock className="h-5 w-5 animate-pulse text-blue-500" />
               <span>Baixando foto</span>
-              <span className="font-normal text-slate-400">As respostas ja estao visiveis</span>
+              <span className="font-normal text-navy-3">As respostas ja estao visiveis</span>
             </>
           )}
         </div>
@@ -210,7 +210,7 @@ function PhotoTile({ photo, onPreview, onRemove }: { photo: InspectionPhoto; onP
           <button
             type="button"
             onClick={() => onPreview(photo.dataUrl)}
-            className="rounded-full bg-white/20 p-2 text-white hover:bg-white/40"
+            className="rounded-full bg-surface/20 p-2 text-white hover:bg-surface/40"
           >
             <Maximize className="h-4 w-4" />
           </button>

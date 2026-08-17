@@ -39,7 +39,7 @@ function StatCard({ label, value, foot, tone }: { label: string; value: number; 
   return (
     <div
       className={`rounded-lg border p-4 shadow-sm ${
-        tone === 'attention' ? 'border-amber-soft-border bg-amber-soft' : 'border-gray-200 bg-white'
+        tone === 'attention' ? 'border-amber-soft-border bg-amber-soft' : 'border-default bg-surface'
       }`}
     >
       <p className={`text-xs font-semibold ${tone === 'attention' ? 'text-amber-soft-ink' : 'text-navy-2'}`}>{label}</p>
@@ -120,7 +120,7 @@ export function PortalOverview({
             </Link>
             <Link
               to="/cliente/agenda"
-              className="inline-flex items-center justify-center gap-1.5 rounded-md border border-primary-200 bg-white px-4 py-2.5 text-sm font-semibold text-primary-800 hover:bg-primary-100"
+              className="inline-flex items-center justify-center gap-1.5 rounded-md border border-primary-200 bg-surface px-4 py-2.5 text-sm font-semibold text-primary-800 hover:bg-primary-100"
             >
               Ver a próxima visita
             </Link>
@@ -153,8 +153,8 @@ export function PortalOverview({
       </div>
 
       {isMulti && sortedStats.length > 0 && (
-        <div className="mb-6 rounded-lg border border-gray-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+        <div className="mb-6 rounded-lg border border-default bg-surface shadow-sm">
+          <div className="flex items-center justify-between border-b border-default px-4 py-3">
             <h2 className="font-title text-base font-semibold text-navy">Cumprimento por unidade</h2>
             <Link to="/cliente/plano-de-acao" className="text-xs font-semibold text-primary-700 hover:text-primary-900">
               Ver pendências
@@ -171,8 +171,8 @@ export function PortalOverview({
       )}
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
-          <div className="border-b border-gray-200 px-4 py-3">
+        <div className="rounded-lg border border-default bg-surface shadow-sm">
+          <div className="border-b border-default px-4 py-3">
             <h2 className="font-title text-base font-semibold text-navy">Última entrega</h2>
           </div>
           <div className="p-4">
@@ -182,7 +182,7 @@ export function PortalOverview({
                 <p className="mt-1 text-xs text-navy-2">{formatDateBR(lastReport.requested_date)}</p>
                 <Link
                   to={`/cliente/visita/${lastReport.public_token}`}
-                  className="mt-4 inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-2 text-xs font-semibold text-navy hover:bg-gray-50"
+                  className="mt-4 inline-flex items-center gap-1.5 rounded-md border border-control px-3 py-2 text-xs font-semibold text-navy hover:bg-surface-hover"
                 >
                   <Download className="h-3.5 w-3.5" /> Ver relatório
                 </Link>
@@ -192,8 +192,8 @@ export function PortalOverview({
             )}
           </div>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
-          <div className="border-b border-gray-200 px-4 py-3">
+        <div className="rounded-lg border border-default bg-surface shadow-sm">
+          <div className="border-b border-default px-4 py-3">
             <h2 className="font-title text-base font-semibold text-navy">Próxima visita</h2>
           </div>
           <div className="p-4">
@@ -206,7 +206,7 @@ export function PortalOverview({
                 </p>
                 <Link
                   to="/cliente/agenda"
-                  className="mt-4 inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-2 text-xs font-semibold text-navy hover:bg-gray-50"
+                  className="mt-4 inline-flex items-center gap-1.5 rounded-md border border-control px-3 py-2 text-xs font-semibold text-navy hover:bg-surface-hover"
                 >
                   <FileText className="h-3.5 w-3.5" /> Ver agenda
                 </Link>

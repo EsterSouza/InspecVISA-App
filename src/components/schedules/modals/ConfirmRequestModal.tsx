@@ -168,28 +168,28 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
         className="max-h-[90vh] w-full max-w-lg overflow-y-auto shadow-2xl"
       >
         <CardContent className="p-6">
-          <h3 id="confirm-request-title" className="mb-1 text-xl font-bold text-gray-900">Confirmar solicitação</h3>
-          <p className="mb-3 text-sm text-gray-500">
+          <h3 id="confirm-request-title" className="mb-1 text-xl font-bold text-navy">Confirmar solicitação</h3>
+          <p className="mb-3 text-sm text-navy-3">
             {request.unit_name} — {request.district}
           </p>
 
           {request.subject && (
-            <div className="mb-6 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
-              <span className="font-semibold text-gray-900">Motivo informado pelo cliente: </span>
+            <div className="mb-6 rounded-xl border border-default bg-surface-sunken px-3 py-2 text-sm text-navy-2">
+              <span className="font-semibold text-navy">Motivo informado pelo cliente: </span>
               “{request.subject}”
             </div>
           )}
 
           <form onSubmit={handleConfirm} className="space-y-4">
             <div className="space-y-1.5">
-              <label htmlFor="confirm-request-type" className="text-sm font-medium text-gray-700">
+              <label htmlFor="confirm-request-type" className="text-sm font-medium text-navy-2">
                 Tipo de compromisso
               </label>
               <select
                 id="confirm-request-type"
                 value={appointmentType}
                 onChange={(e) => handleAppointmentTypeChange(e.target.value as AppointmentType)}
-                className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm"
+                className="w-full rounded-xl border border-control bg-surface p-3 text-sm"
               >
                 {appointmentTypeOptions.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -197,7 +197,7 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-navy-3">
                 O cliente solicitou como “{APPOINTMENT_TYPE_RULES[request.appointment_type].label}”. Troque para
                 “Inspeção” se for o caso — só assim é possível iniciar a inspeção, publicar relatório e fotos.
               </p>
@@ -206,7 +206,7 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
                 id="confirm-request-duration"
                 value={durationMinutes}
                 onChange={(e) => setDurationMinutes(Number(e.target.value))}
-                className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm"
+                className="w-full rounded-xl border border-control bg-surface p-3 text-sm"
               >
                 {publicAppointmentDurations(appointmentType).map((duration) => (
                   <option key={duration} value={duration}>{formatDuration(duration)}</option>
@@ -216,7 +216,7 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label htmlFor="confirm-request-date" className="text-sm font-medium text-gray-700">Data confirmada *</label>
+                <label htmlFor="confirm-request-date" className="text-sm font-medium text-navy-2">Data confirmada *</label>
                 <input
                   id="confirm-request-date"
                   type="date"
@@ -227,7 +227,7 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
                 />
               </div>
               <div className="space-y-1.5">
-                <label htmlFor="confirm-request-time" className="text-sm font-medium text-gray-700">Horário</label>
+                <label htmlFor="confirm-request-time" className="text-sm font-medium text-navy-2">Horário</label>
                 <input
                   id="confirm-request-time"
                   type="time"
@@ -240,7 +240,7 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
 
             {request.attendance_mode === 'online' && (
               <div className="space-y-1.5">
-                <label htmlFor="confirm-request-meeting-url" className="text-sm font-medium text-gray-700">
+                <label htmlFor="confirm-request-meeting-url" className="text-sm font-medium text-navy-2">
                   Link da videoconferência
                 </label>
                 <input
@@ -256,7 +256,7 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
             )}
 
             <div className="space-y-2">
-              <span id="confirm-request-client-label" className="text-sm font-medium text-gray-700">Cliente</span>
+              <span id="confirm-request-client-label" className="text-sm font-medium text-navy-2">Cliente</span>
               <div className="flex gap-2" role="group" aria-labelledby="confirm-request-client-label">
                 <button
                   type="button"
@@ -265,7 +265,7 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
                   className={`flex-1 rounded-xl border p-2.5 text-sm font-medium ${
                     clientMode === 'existing'
                       ? 'border-primary-600 bg-primary-50 text-primary-700'
-                      : 'border-gray-200 text-gray-600'
+                      : 'border-default text-navy-2'
                   }`}
                 >
                   Vincular existente
@@ -277,7 +277,7 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
                   className={`flex-1 rounded-xl border p-2.5 text-sm font-medium ${
                     clientMode === 'new'
                       ? 'border-primary-600 bg-primary-50 text-primary-700'
-                      : 'border-gray-200 text-gray-600'
+                      : 'border-default text-navy-2'
                   }`}
                 >
                   Criar novo
@@ -290,7 +290,7 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
                     className={`flex-1 rounded-xl border p-2.5 text-sm font-medium ${
                       clientMode === 'none'
                         ? 'border-primary-600 bg-primary-50 text-primary-700'
-                        : 'border-gray-200 text-gray-600'
+                        : 'border-default text-navy-2'
                     }`}
                   >
                     Sem cliente (lead)
@@ -299,7 +299,7 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
               </div>
 
               {clientMode === 'none' && (
-                <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                <div className="rounded-xl border border-default bg-surface-sunken px-3 py-2 text-sm text-navy-2">
                   <p>Este compromisso fica sem cliente vinculado, com os dados que a pessoa informou:</p>
                   <p className="mt-1"><strong>{request.responsible_name || request.unit_name}</strong>{request.phone ? ` — ${request.phone}` : ''}</p>
                   {request.email ? (
@@ -324,23 +324,23 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
                     }}
                     className={TEXT_INPUT}
                   />
-                  <div className="max-h-44 overflow-y-auto rounded-xl border border-gray-200 bg-white">
+                  <div className="max-h-44 overflow-y-auto rounded-xl border border-default bg-surface">
                     {filteredClients.length > 0 ? (
                       filteredClients.slice(0, 8).map((c) => (
                         <button
                           key={c.id}
                           type="button"
                           onClick={() => selectExistingClient(c)}
-                          className={`flex w-full items-center justify-between gap-3 border-b border-gray-100 px-3 py-2 text-left text-sm last:border-b-0 hover:bg-primary-50 ${
-                            selectedClientId === c.id ? 'bg-primary-50 text-primary-700' : 'text-gray-700'
+                          className={`flex w-full items-center justify-between gap-3 border-b border-default px-3 py-2 text-left text-sm last:border-b-0 hover:bg-primary-50 ${
+                            selectedClientId === c.id ? 'bg-primary-50 text-primary-700' : 'text-navy-2'
                           }`}
                         >
                           <span className="font-medium">{c.name}</span>
-                          <span className="shrink-0 text-xs text-gray-500">{c.category?.toUpperCase()}</span>
+                          <span className="shrink-0 text-xs text-navy-3">{c.category?.toUpperCase()}</span>
                         </button>
                       ))
                     ) : (
-                      <div className="px-3 py-2 text-sm text-gray-500">Nenhum cliente encontrado.</div>
+                      <div className="px-3 py-2 text-sm text-navy-3">Nenhum cliente encontrado.</div>
                     )}
                   </div>
                   {selectedClient && (
@@ -366,7 +366,7 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
                       const c = clients.find((x) => x.id === e.target.value);
                       if (c) setClientSearch(c.name);
                     }}
-                    className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm"
+                    className="w-full rounded-xl border border-control bg-surface p-3 text-sm"
                   >
                     <option value="">Selecione um cliente...</option>
                     {filteredClients.map((c) => (
@@ -392,14 +392,14 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
                     id="confirm-request-new-client-category"
                     value={newClientCategory}
                     onChange={(e) => setNewClientCategory(e.target.value as Client['category'])}
-                    className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm"
+                    className="w-full rounded-xl border border-control bg-surface p-3 text-sm"
                   >
                     <option value="estetica">Estética</option>
                     <option value="ilpi">ILPI</option>
                     <option value="alimentos">Alimentos</option>
                   </select>
                   <div className="sm:col-span-2">
-                    <label htmlFor="confirm-request-new-client-email" className="text-sm font-medium text-gray-700">
+                    <label htmlFor="confirm-request-new-client-email" className="text-sm font-medium text-navy-2">
                       E-mail oficial do cliente
                     </label>
                     <input
@@ -410,7 +410,7 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
                       placeholder="cliente@empresa.com.br"
                       className={`${TEXT_INPUT} mt-1.5`}
                     />
-                    <p className="mt-1 text-xs text-gray-500">Depois de criar o cliente, este cadastro será a única fonte usada nas confirmações.</p>
+                    <p className="mt-1 text-xs text-navy-3">Depois de criar o cliente, este cadastro será a única fonte usada nas confirmações.</p>
                   </div>
                 </div>
               ) : null}
@@ -419,7 +419,7 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
             <ConsultantPicker selected={selectedConsultants} onToggle={toggleConsultant} />
 
             <div className="space-y-1.5">
-              <label htmlFor="confirm-request-due-date" className="text-sm font-medium text-gray-700">
+              <label htmlFor="confirm-request-due-date" className="text-sm font-medium text-navy-2">
                 Prazo manual do relatório (opcional)
               </label>
               <input
@@ -429,7 +429,7 @@ export function ConfirmRequestModal({ request, clients, onClose, onConfirmed }: 
                 onChange={(e) => setManualDueDate(e.target.value)}
                 className={TEXT_INPUT}
               />
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-navy-3">
                 Se vazio, o portal mostra o prazo padrão de 5 dias úteis após a inspeção.
               </p>
             </div>

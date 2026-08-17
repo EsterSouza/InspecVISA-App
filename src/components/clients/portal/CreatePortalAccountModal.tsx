@@ -64,8 +64,8 @@ export function CreatePortalAccountModal({ clients, onClose, onCreated }: Create
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
       <Card role="dialog" aria-modal="true" aria-labelledby="create-portal-account-title" className="max-h-[90vh] w-full max-w-lg overflow-y-auto shadow-2xl">
         <CardContent className="p-6">
-          <h3 id="create-portal-account-title" className="mb-1 text-xl font-bold text-gray-900">Criar acesso do cliente</h3>
-          <p className="mb-5 text-sm text-gray-500">
+          <h3 id="create-portal-account-title" className="mb-1 text-xl font-bold text-navy">Criar acesso do cliente</h3>
+          <p className="mb-5 text-sm text-navy-3">
             Ideal para franquias e redes: um login acompanha várias unidades.
           </p>
 
@@ -90,7 +90,7 @@ export function CreatePortalAccountModal({ clients, onClose, onCreated }: Create
             />
 
             <div className="space-y-2">
-              <label htmlFor="create-portal-unit-search" className="text-sm font-medium text-gray-700">
+              <label htmlFor="create-portal-unit-search" className="text-sm font-medium text-navy-2">
                 Unidades vinculadas ({selectedIds.size} selecionada{selectedIds.size === 1 ? '' : 's'})
               </label>
               <input
@@ -101,22 +101,22 @@ export function CreatePortalAccountModal({ clients, onClose, onCreated }: Create
                 onChange={(e) => setSearch(e.target.value)}
                 className={TEXT_INPUT.replace('p-3', 'p-2.5')}
               />
-              <div className="max-h-48 space-y-1 overflow-y-auto rounded-xl border border-gray-100 p-2">
+              <div className="max-h-48 space-y-1 overflow-y-auto rounded-xl border border-default p-2">
                 {filtered.length === 0 ? (
-                  <p className="p-2 text-sm text-gray-500">Nenhuma unidade encontrada.</p>
+                  <p className="p-2 text-sm text-navy-3">Nenhuma unidade encontrada.</p>
                 ) : (
                   filtered.map((client) => (
                     <label
                       key={client.id}
-                      className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-gray-50"
+                      className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-surface-hover"
                     >
                       <input
                         type="checkbox"
                         checked={selectedIds.has(client.id)}
                         onChange={() => toggle(client.id)}
-                        className="h-4 w-4 rounded border-gray-300 text-primary-600"
+                        className="h-4 w-4 rounded border-control text-primary-600"
                       />
-                      <span className="min-w-0 flex-1 truncate text-gray-800">{client.name}</span>
+                      <span className="min-w-0 flex-1 truncate text-navy">{client.name}</span>
                     </label>
                   ))
                 )}

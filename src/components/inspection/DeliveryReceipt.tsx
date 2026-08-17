@@ -25,7 +25,7 @@ function Linha({ entregue, titulo, detalhe, acao }: {
   acao?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-start gap-3 border-b border-gray-100 px-5 py-3 last:border-b-0">
+    <div className="flex flex-wrap items-start gap-3 border-b border-default px-5 py-3 last:border-b-0">
       <Badge variant={entregue ? 'success' : 'warning'} className="mt-0.5 shrink-0 gap-1">
         {entregue
           ? <><Check className="h-3 w-3" aria-hidden="true" /> entregue</>
@@ -94,7 +94,7 @@ export function DeliveryReceipt({ inspection }: { inspection: Inspection }) {
 
   return (
     <Card>
-      <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-5 py-3.5">
+      <div className="flex items-center justify-between gap-3 border-b border-default px-5 py-3.5">
         <h2 className="text-sm font-semibold text-navy">Entrega ao portal</h2>
         <Button variant="ghost" size="sm" onClick={() => void load()} disabled={loading}>
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}

@@ -82,12 +82,12 @@ const statusTheme: Record<ServiceRequestStatus, string> = {
   in_progress: 'bg-indigo-100 text-indigo-800',
   awaiting_client: 'bg-amber-100 text-amber-900',
   resolved: 'bg-emerald-100 text-emerald-800',
-  cancelled: 'bg-gray-100 text-gray-600',
+  cancelled: 'bg-surface-sunken text-navy-2',
 };
 
 const priorityTheme: Record<ServiceRequestPriority, string> = {
-  low: 'bg-gray-100 text-gray-600',
-  normal: 'bg-gray-100 text-gray-700',
+  low: 'bg-surface-sunken text-navy-2',
+  normal: 'bg-surface-sunken text-navy-2',
   high: 'bg-amber-100 text-amber-800',
   urgent: 'bg-red-100 text-red-700',
 };
@@ -189,7 +189,7 @@ function RequestDetail({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-600">
+        <span className="rounded-full bg-surface-sunken px-2 py-0.5 text-[10px] font-bold text-navy-2">
           Nº {request.request_number}
         </span>
         <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${statusTheme[request.status]}`}>
@@ -198,15 +198,15 @@ function RequestDetail({
         <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${priorityTheme[request.priority]}`}>
           {SERVICE_REQUEST_PRIORITY_LABELS[request.priority]}
         </span>
-        <span className="text-[11px] font-medium text-gray-500">
+        <span className="text-[11px] font-medium text-navy-3">
           {SERVICE_REQUEST_CATEGORY_LABELS[request.category]}
         </span>
-        <span className="text-[11px] text-gray-400">· {unitName}</span>
+        <span className="text-[11px] text-navy-3">· {unitName}</span>
       </div>
 
-      <p className="whitespace-pre-wrap text-sm text-gray-700">{request.description}</p>
+      <p className="whitespace-pre-wrap text-sm text-navy-2">{request.description}</p>
 
-      <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-gray-400">
+      <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-navy-3">
         <span>Aberta em {formatDateTimeBR(request.created_at)}</span>
         <span>· Última movimentação {formatDateTimeBR(request.last_event_at)}</span>
         {waitingOn !== 'none' && stalled >= 3 && (
@@ -226,21 +226,21 @@ function RequestDetail({
         <button
           type="button"
           onClick={() => void openAttachment()}
-          className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 px-2 py-1 text-[11px] font-semibold text-gray-700 hover:bg-gray-50"
+          className="inline-flex items-center gap-1.5 rounded-md border border-default px-2 py-1 text-[11px] font-semibold text-navy-2 hover:bg-surface-hover"
         >
           <Paperclip className="h-3 w-3" /> {request.attachment_name}
-          <ExternalLink className="h-3 w-3 text-gray-400" />
+          <ExternalLink className="h-3 w-3 text-navy-3" />
         </button>
       )}
 
       {/* ─── Ações ─── */}
-      <div className="flex flex-wrap items-center gap-1.5 border-t border-dashed border-gray-200 pt-3">
+      <div className="flex flex-wrap items-center gap-1.5 border-t border-dashed border-default pt-3">
         <select
           value={request.assigned_to || ''}
           onChange={(e) => void apply({ assignedTo: e.target.value || null })}
           disabled={busy}
           aria-label="Responsável"
-          className="rounded-md border border-gray-200 px-2 py-1 text-[11px] font-medium text-gray-700"
+          className="rounded-md border border-control px-2 py-1 text-[11px] font-medium text-navy-2"
         >
           <option value="">Sem responsável</option>
           {CONSULTANTS.map((name) => (
@@ -253,7 +253,7 @@ function RequestDetail({
           onChange={(e) => void apply({ priority: e.target.value as ServiceRequestPriority })}
           disabled={busy}
           aria-label="Prioridade"
-          className="rounded-md border border-gray-200 px-2 py-1 text-[11px] font-medium text-gray-700"
+          className="rounded-md border border-control px-2 py-1 text-[11px] font-medium text-navy-2"
         >
           {(Object.keys(SERVICE_REQUEST_PRIORITY_LABELS) as ServiceRequestPriority[]).map((value) => (
             <option key={value} value={value}>{SERVICE_REQUEST_PRIORITY_LABELS[value]}</option>
@@ -287,32 +287,32 @@ function RequestDetail({
             type="button"
             onClick={() => void apply({ status: 'in_progress' })}
             disabled={busy}
-            className="rounded-md border border-gray-200 px-2.5 py-1 text-[11px] font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+            className="rounded-md border border-default px-2.5 py-1 text-[11px] font-semibold text-navy-2 hover:bg-surface-hover disabled:opacity-60"
           >
             Reabrir
           </button>
         )}
       </div>
 
-      <div className="space-y-2.5 rounded-lg border border-gray-100 bg-gray-50 p-2.5">
-        <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Histórico</p>
+      <div className="space-y-2.5 rounded-lg border border-default bg-surface-sunken p-2.5">
+        <p className="text-xs font-bold uppercase tracking-wide text-navy-3">Histórico</p>
         <ul className="space-y-1.5">
-          {events.length === 0 && <li className="text-[11px] text-gray-400">Sem registros ainda.</li>}
+          {events.length === 0 && <li className="text-[11px] text-navy-3">Sem registros ainda.</li>}
           {events.map((event) => (
-            <li key={event.id} className="text-[11px] text-gray-600">
-              <span className="font-semibold text-gray-700">
+            <li key={event.id} className="text-[11px] text-navy-2">
+              <span className="font-semibold text-navy-2">
                 {event.actor_kind === 'client' ? 'Cliente' : event.actor_name || 'Equipe'}
               </span>
-              <span className="text-gray-400"> · {formatDateTimeBR(event.created_at)}</span>
+              <span className="text-navy-3"> · {formatDateTimeBR(event.created_at)}</span>
               {event.to_status && (
-                <span className="ml-1 rounded bg-white px-1 text-[10px] font-semibold text-gray-500">
+                <span className="ml-1 rounded bg-surface px-1 text-[10px] font-semibold text-navy-3">
                   {SERVICE_REQUEST_STATUS_LABELS[event.to_status]}
                 </span>
               )}
               {!event.visible_to_client && event.actor_kind === 'staff' && (
-                <span className="ml-1 text-[10px] font-semibold uppercase text-gray-400">interna</span>
+                <span className="ml-1 text-[10px] font-semibold uppercase text-navy-3">interna</span>
               )}
-              {event.note && <p className="whitespace-pre-wrap text-gray-700">{event.note}</p>}
+              {event.note && <p className="whitespace-pre-wrap text-navy-2">{event.note}</p>}
             </li>
           ))}
         </ul>
@@ -324,9 +324,9 @@ function RequestDetail({
           maxLength={2000}
           placeholder="Escreva para o cliente ou registre uma nota interna"
           aria-label="Nota da solicitação"
-          className="w-full rounded-md border border-gray-200 p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
+          className="w-full rounded-md border border-control p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
         />
-        <label className="flex items-center gap-1.5 text-[11px] font-medium text-gray-600">
+        <label className="flex items-center gap-1.5 text-[11px] font-medium text-navy-2">
           <input
             type="checkbox"
             checked={noteVisible}
@@ -341,7 +341,7 @@ function RequestDetail({
             type="button"
             onClick={() => void apply({ note: note.trim(), noteVisibleToClient: noteVisible })}
             disabled={busy || !note.trim()}
-            className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-gray-700 hover:bg-gray-100 disabled:opacity-60"
+            className="inline-flex items-center gap-1 rounded-md border border-default bg-surface px-2.5 py-1 text-[11px] font-semibold text-navy-2 hover:bg-surface-active disabled:opacity-60"
           >
             <MessageSquare className="h-3 w-3" /> Registrar nota
           </button>
@@ -354,7 +354,7 @@ function RequestDetail({
             <Send className="h-3 w-3" /> Perguntar ao cliente
           </button>
         </div>
-        <p className="text-[11px] text-gray-400">
+        <p className="text-[11px] text-navy-3">
           "Perguntar ao cliente" passa a solicitação para a fila dele e envia o aviso. A nota
           vai junto — sem ela, ele vê que está esperando e não sabe o quê.
         </p>
@@ -371,7 +371,7 @@ function RequestDetail({
         </a>
       )}
 
-      {busy && <p className="flex items-center gap-1 text-[11px] text-gray-400"><Loader2 className="h-3 w-3 animate-spin" /> salvando…</p>}
+      {busy && <p className="flex items-center gap-1 text-[11px] text-navy-3"><Loader2 className="h-3 w-3 animate-spin" /> salvando…</p>}
       {error && <p className="text-[11px] font-medium text-red-700">{error}</p>}
     </div>
   );
@@ -424,13 +424,13 @@ function SlaPanel({
   };
 
   return (
-    <div className="mb-4 rounded-lg border border-gray-200 bg-white p-3">
+    <div className="mb-4 rounded-lg border border-default bg-surface p-3">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
         className="flex w-full items-center justify-between gap-2 text-left"
       >
-        <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-gray-600">
+        <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-navy-2">
           <Clock3 className="h-3.5 w-3.5" /> Prazo informativo de retorno
         </span>
         <span className="text-[11px] font-semibold text-primary-700">
@@ -440,14 +440,14 @@ function SlaPanel({
 
       {open && (
         <div className="mt-3 space-y-2">
-          <p className="text-[11px] text-gray-500">
+          <p className="text-[11px] text-navy-3">
             Em dias corridos, contados da abertura. O número é congelado na solicitação no
             momento em que ela nasce — mudar aqui não reescreve o que já foi dito a ninguém.
             Deixe em branco para não prometer nada nessa categoria.
           </p>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {[{ value: 'default', label: 'Padrão (todas)' }, ...SERVICE_REQUEST_CATEGORIES].map((category) => (
-              <label key={category.value} className="flex items-center justify-between gap-2 rounded-md border border-gray-100 px-2 py-1.5 text-[11px] text-gray-700">
+              <label key={category.value} className="flex items-center justify-between gap-2 rounded-md border border-default px-2 py-1.5 text-[11px] text-navy-2">
                 <span>{category.label}</span>
                 <input
                   type="number"
@@ -457,7 +457,7 @@ function SlaPanel({
                   onChange={(e) => setDraft((prev) => ({ ...prev, [category.value]: e.target.value }))}
                   placeholder="—"
                   aria-label={`Prazo para ${category.label}`}
-                  className="w-16 rounded border border-gray-200 px-1.5 py-0.5 text-right"
+                  className="w-16 rounded border border-control px-1.5 py-0.5 text-right"
                 />
               </label>
             ))}
@@ -566,7 +566,7 @@ export function ServiceRequests() {
           <button
             type="button"
             onClick={load}
-            className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+            className="inline-flex items-center gap-1.5 rounded-md border border-default bg-surface px-3 py-2 text-xs font-semibold text-navy-2 hover:bg-surface-hover"
           >
             <RefreshCw className="h-3.5 w-3.5" /> Atualizar
           </button>
@@ -592,7 +592,7 @@ export function ServiceRequests() {
             type="button"
             onClick={() => setQueue(value)}
             className={`rounded-md px-3 py-1.5 text-xs font-bold ${
-              queue === value ? 'bg-primary-700 text-white' : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+              queue === value ? 'bg-primary-700 text-white' : 'border border-default bg-surface text-navy-2 hover:bg-surface-hover'
             }`}
           >
             {QUEUE_LABELS[value]}
@@ -607,13 +607,13 @@ export function ServiceRequests() {
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Assunto ou número"
           aria-label="Buscar solicitação"
-          className="rounded-md border border-gray-200 px-2.5 py-1.5 text-xs"
+          className="rounded-md border border-control px-2.5 py-1.5 text-xs"
         />
         <select
           value={clientId}
           onChange={(e) => setClientId(e.target.value)}
           aria-label="Filtrar por unidade"
-          className="rounded-md border border-gray-200 px-2.5 py-1.5 text-xs"
+          className="rounded-md border border-control px-2.5 py-1.5 text-xs"
         >
           <option value="">Todas as unidades</option>
           {clients.map((client) => (
@@ -624,7 +624,7 @@ export function ServiceRequests() {
           value={assignedTo}
           onChange={(e) => setAssignedTo(e.target.value)}
           aria-label="Filtrar por responsável"
-          className="rounded-md border border-gray-200 px-2.5 py-1.5 text-xs"
+          className="rounded-md border border-control px-2.5 py-1.5 text-xs"
         >
           <option value="">Qualquer responsável</option>
           {CONSULTANTS.map((name) => (
@@ -635,7 +635,7 @@ export function ServiceRequests() {
           value={priority}
           onChange={(e) => setPriority(e.target.value as ServiceRequestPriority | '')}
           aria-label="Filtrar por prioridade"
-          className="rounded-md border border-gray-200 px-2.5 py-1.5 text-xs"
+          className="rounded-md border border-control px-2.5 py-1.5 text-xs"
         >
           <option value="">Qualquer prioridade</option>
           {(Object.keys(SERVICE_REQUEST_PRIORITY_LABELS) as ServiceRequestPriority[]).map((value) => (
@@ -644,7 +644,7 @@ export function ServiceRequests() {
         </select>
       </div>
 
-      <p className="mb-3 text-xs font-medium text-gray-500">
+      <p className="mb-3 text-xs font-medium text-navy-3">
         {requests.length} solicitação(ões) nesta lista
         {counts.waitingTeam > 0 && <span className="ml-1 font-bold text-primary-700">· {counts.waitingTeam} com a equipe</span>}
         {counts.waitingClient > 0 && <span className="ml-1 font-bold text-amber-700">· {counts.waitingClient} com o cliente</span>}
@@ -652,7 +652,7 @@ export function ServiceRequests() {
       </p>
 
       {error && requests.length === 0 ? (
-        <div className="rounded-md border border-gray-200 bg-white">
+        <div className="rounded-md border border-default bg-surface">
           <EmptyState
             role="alert"
             icon={<AlertTriangle className="h-8 w-8 text-red-500" />}
@@ -758,16 +758,16 @@ export function ServiceRequests() {
                       <TableCell align="right">{formatDateBR(request.created_at)}</TableCell>
                       <TableCell primary className="max-w-[200px]">
                         <p className="truncate">{clientNames.get(request.client_id) || 'Unidade'}</p>
-                        <p className="truncate text-xs font-normal text-gray-500">Nº {request.request_number}</p>
+                        <p className="truncate text-xs font-normal text-navy-3">Nº {request.request_number}</p>
                       </TableCell>
                       <TableCell className="max-w-[280px]">
-                        <p className="truncate font-medium text-gray-900">{request.subject}</p>
-                        <p className="truncate text-xs text-gray-500">{SERVICE_REQUEST_CATEGORY_LABELS[request.category]}</p>
+                        <p className="truncate font-medium text-navy">{request.subject}</p>
+                        <p className="truncate text-xs text-navy-3">{SERVICE_REQUEST_CATEGORY_LABELS[request.category]}</p>
                       </TableCell>
                       <TableCell>
                         {request.assigned_to ? (
-                          <span className="inline-flex items-center gap-1 text-xs text-gray-700">
-                            <UserRound className="h-3 w-3 text-gray-400" /> {request.assigned_to}
+                          <span className="inline-flex items-center gap-1 text-xs text-navy-2">
+                            <UserRound className="h-3 w-3 text-navy-3" /> {request.assigned_to}
                           </span>
                         ) : (
                           <span className="text-xs font-semibold text-amber-700">sem responsável</span>
@@ -785,9 +785,9 @@ export function ServiceRequests() {
                       </TableCell>
                       <TableCell align="right">
                         {waitingOn === 'none' ? (
-                          <span className="text-gray-400">—</span>
+                          <span className="text-navy-3">—</span>
                         ) : (
-                          <span className={stalled >= 3 ? 'font-bold text-amber-700' : 'text-gray-700'}>
+                          <span className={stalled >= 3 ? 'font-bold text-amber-700' : 'text-navy-2'}>
                             {stalled === 0 ? 'hoje' : `${stalled} dia${stalled > 1 ? 's' : ''}`}
                           </span>
                         )}

@@ -180,7 +180,7 @@ export function Settings() {
                       : 'bg-primary-50 text-primary-700'
                     : section.danger
                       ? 'text-red-600 hover:bg-red-50'
-                      : 'text-gray-600 hover:bg-gray-100'
+                      : 'text-navy-2 hover:bg-surface-active'
                 )}
               >
                 <Icon className="h-4 w-4 shrink-0" />
@@ -200,41 +200,41 @@ export function Settings() {
                 <form onSubmit={saveForm} className="space-y-6">
                   <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Nome Completo</label>
+                      <label className="text-sm font-medium text-navy-2">Nome Completo</label>
                       <input
                         type="text"
                         required
                         value={settings.name}
                         onChange={(e) => updateSettings({ name: e.target.value })}
-                        className="w-full rounded-md border border-gray-300 p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        className="w-full rounded-md border border-control p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                         placeholder="Seu nome"
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Nome da Empresa (Opcional)</label>
+                      <label className="text-sm font-medium text-navy-2">Nome da Empresa (Opcional)</label>
                       <input
                         type="text"
                         value={settings.companyName || ''}
                         onChange={(e) => updateSettings({ companyName: e.target.value })}
-                        className="w-full rounded-md border border-gray-300 p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        className="w-full rounded-md border border-control p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                         placeholder="Nome exibido no rodapé do PDF"
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Telefone de Contato</label>
+                      <label className="text-sm font-medium text-navy-2">Telefone de Contato</label>
                       <input
                         type="text"
                         value={settings.phone || ''}
                         onChange={(e) => updateSettings({ phone: e.target.value })}
-                        className="w-full rounded-md border border-gray-300 p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        className="w-full rounded-md border border-control p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                         placeholder="(00) 00000-0000"
                       />
                     </div>
 
                     <div className="space-y-2 col-span-1 sm:col-span-2">
-                      <label className="text-sm font-medium text-gray-700">Perfil de Atuação (Filtro de Roteiro)</label>
+                      <label className="text-sm font-medium text-navy-2">Perfil de Atuação (Filtro de Roteiro)</label>
                       <div className="flex flex-wrap gap-4 mt-1">
                         <label className="flex items-center space-x-2 cursor-pointer">
                           <input
@@ -245,7 +245,7 @@ export function Settings() {
                             onChange={() => updateSettings({ consultantRole: 'ambos' })}
                             className="text-primary-600 focus:ring-primary-500 w-4 h-4"
                           />
-                          <span className="text-sm text-gray-700">Todas as áreas (Completo)</span>
+                          <span className="text-sm text-navy-2">Todas as áreas (Completo)</span>
                         </label>
                         <label className="flex items-center space-x-2 cursor-pointer">
                           <input
@@ -256,7 +256,7 @@ export function Settings() {
                             onChange={() => updateSettings({ consultantRole: 'saude' })}
                             className="text-primary-600 focus:ring-primary-500 w-4 h-4"
                           />
-                          <span className="text-sm text-gray-700">Assistência à Saúde (Ester)</span>
+                          <span className="text-sm text-navy-2">Assistência à Saúde (Ester)</span>
                         </label>
                         <label className="flex items-center space-x-2 cursor-pointer">
                           <input
@@ -267,43 +267,43 @@ export function Settings() {
                             onChange={() => updateSettings({ consultantRole: 'nutricao' })}
                             className="text-primary-600 focus:ring-primary-500 w-4 h-4"
                           />
-                          <span className="text-sm text-gray-700">Nutrição/UAN (Ana)</span>
+                          <span className="text-sm text-navy-2">Nutrição/UAN (Ana)</span>
                         </label>
                       </div>
-                      <p className="text-xs text-gray-500 mt-1">Isso afetará quais seções aparecerão no roteiro ILPI.</p>
+                      <p className="text-xs text-navy-3 mt-1">Isso afetará quais seções aparecerão no roteiro ILPI.</p>
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Tipo de Registro profissional</label>
+                      <label className="text-sm font-medium text-navy-2">Tipo de Registro profissional</label>
                       <input
                         type="text"
                         value={settings.professionalIdLabel || ''}
                         onChange={(e) => updateSettings({ professionalIdLabel: e.target.value })}
-                        className="w-full rounded-md border border-gray-300 p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        className="w-full rounded-md border border-control p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                         placeholder="Ex: CRBM, CRN, CRM..."
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-700">Número do Registro</label>
+                      <label className="text-sm font-medium text-navy-2">Número do Registro</label>
                       <input
                         type="text"
                         value={settings.professionalId || ''}
                         onChange={(e) => updateSettings({ professionalId: e.target.value })}
-                        className="w-full rounded-md border border-gray-300 p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        className="w-full rounded-md border border-control p-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                         placeholder="Ex: 123456-7"
                       />
                     </div>
                   </div>
 
-                  <div className="pt-4 border-t border-gray-100">
-                    <h4 className="text-sm font-medium text-gray-900 mb-4">Logotipo para o Relatório (PDF)</h4>
+                  <div className="pt-4 border-t border-default">
+                    <h4 className="text-sm font-medium text-navy mb-4">Logotipo para o Relatório (PDF)</h4>
                     <div className="flex items-center space-x-6">
-                      <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-gray-300 bg-gray-50">
+                      <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-control bg-surface-sunken">
                         {settings.logoDataUrl ? (
                           <img src={settings.logoDataUrl} alt="Logo" className="h-full w-full object-contain p-2" />
                         ) : (
-                          <span className="text-xs text-gray-400">Sem logo</span>
+                          <span className="text-xs text-navy-3">Sem logo</span>
                         )}
                       </div>
                       <div className="space-y-3">
@@ -325,12 +325,12 @@ export function Settings() {
                             </Button>
                           )}
                         </div>
-                        <p className="text-xs text-gray-500">Recomendado: Imagem retangular ou quadrada c/ fundo transparente (PNG).</p>
+                        <p className="text-xs text-navy-3">Recomendado: Imagem retangular ou quadrada c/ fundo transparente (PNG).</p>
                       </div>
                     </div>
                   </div>
 
-                  <div className="pt-6 border-t border-gray-100 flex justify-end">
+                  <div className="pt-6 border-t border-default flex justify-end">
                     <Button type="submit" disabled={profileSaveStatus === 'saving'} className="min-w-[120px]">
                       {profileSaveStatus === 'saving' ? 'Salvando...' : profileSaveStatus === 'saved' ? 'Salvo ✓' : (
                         <><Save className="mr-2 h-4 w-4" /> Salvar Perfil</>
@@ -348,20 +348,20 @@ export function Settings() {
                 <CardTitle>Margem de agenda por modalidade</CardTitle>
               </CardHeader>
               <CardContent className="space-y-5">
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-navy-3">
                   Regra fixa do sistema — ainda não editável por aqui. É o que hoje reserva (ou libera) o
                   horário ao redor de um compromisso na agenda.
                 </p>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div className="rounded-xl border border-gray-200 p-4">
-                    <p className="text-sm font-semibold text-gray-900">Presencial</p>
-                    <p className="mt-1 text-sm text-gray-600">1 hora antes · 3 horas depois</p>
-                    <p className="mt-1 text-xs text-gray-500">Reserva o deslocamento até e a partir da visita.</p>
+                  <div className="rounded-xl border border-default p-4">
+                    <p className="text-sm font-semibold text-navy">Presencial</p>
+                    <p className="mt-1 text-sm text-navy-2">1 hora antes · 3 horas depois</p>
+                    <p className="mt-1 text-xs text-navy-3">Reserva o deslocamento até e a partir da visita.</p>
                   </div>
-                  <div className="rounded-xl border border-gray-200 p-4">
-                    <p className="text-sm font-semibold text-gray-900">Online</p>
-                    <p className="mt-1 text-sm text-gray-600">30 minutos antes · 2 horas depois</p>
-                    <p className="mt-1 text-xs text-gray-500">Só a troca entre chamadas — sem deslocamento.</p>
+                  <div className="rounded-xl border border-default p-4">
+                    <p className="text-sm font-semibold text-navy">Online</p>
+                    <p className="mt-1 text-sm text-navy-2">30 minutos antes · 2 horas depois</p>
+                    <p className="mt-1 text-xs text-navy-3">Só a troca entre chamadas — sem deslocamento.</p>
                   </div>
                 </div>
                 <div className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
@@ -386,14 +386,14 @@ export function Settings() {
                   <legend className="sr-only">Tema</legend>
                   <label className="flex items-center space-x-2">
                     <input type="radio" name="theme" checked={settings.theme !== 'dark'} readOnly className="h-4 w-4" />
-                    <span className="text-sm text-gray-700">Claro</span>
+                    <span className="text-sm text-navy-2">Claro</span>
                   </label>
                   <label className="flex items-center space-x-2">
                     <input type="radio" name="theme" checked={settings.theme === 'dark'} readOnly className="h-4 w-4" />
-                    <span className="text-sm text-gray-700">Escuro</span>
+                    <span className="text-sm text-navy-2">Escuro</span>
                   </label>
                 </fieldset>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-navy-3">
                   Desabilitado por enquanto: o tema escuro ainda não está implementado.
                 </p>
               </CardContent>
@@ -473,7 +473,7 @@ export function Settings() {
         </div>
       </div>
 
-      <div className="text-center text-xs text-gray-400 pb-10">
+      <div className="text-center text-xs text-navy-3 pb-10">
         InspecVISA PWA v1.0.0 • Dados salvos localmente
       </div>
       {confirmDialog}

@@ -20,7 +20,7 @@ export function Sidebar() {
 
   return (
     <aside
-      className={`sticky top-0 hidden h-screen shrink-0 flex-col border-r border-gray-200 bg-white transition-[width] duration-200 lg:flex ${
+      className={`sticky top-0 hidden h-screen shrink-0 flex-col border-r border-default bg-surface transition-[width] duration-200 lg:flex ${
         collapsed ? 'w-16' : 'w-72'
       }`}
     >
@@ -33,8 +33,8 @@ export function Sidebar() {
           />
           {!collapsed && (
             <div className="min-w-0">
-              <p className="truncate text-lg font-black tracking-tight text-gray-950">InspecVISA</p>
-              <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+              <p className="truncate text-lg font-black tracking-tight text-navy">InspecVISA</p>
+              <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-navy-3">
                 Gestão sanitária
               </p>
             </div>
@@ -76,11 +76,11 @@ export function Sidebar() {
         {groups.map((group, groupIndex) => (
           <div key={group.label ?? `group-${groupIndex}`} className={groupIndex > 0 ? 'pt-3' : undefined}>
             {group.label && !collapsed && (
-              <p className="mb-1 px-3 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+              <p className="mb-1 px-3 text-[10px] font-bold uppercase tracking-widest text-navy-3">
                 {group.label}
               </p>
             )}
-            {group.label && collapsed && <div className="mx-2 mb-2 border-t border-gray-100" />}
+            {group.label && collapsed && <div className="mx-2 mb-2 border-t border-default" />}
             <div className="space-y-1">
               {group.items.map((item) => {
                 const Icon = item.icon;
@@ -95,7 +95,7 @@ export function Sidebar() {
                       } ${
                         isActive
                           ? 'bg-primary-50 text-primary-800'
-                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-950'
+                          : 'text-navy-2 hover:bg-surface-hover hover:text-navy'
                       }`
                     }
                   >
@@ -103,7 +103,7 @@ export function Sidebar() {
                       <>
                         <Icon
                           className={`h-4 w-4 shrink-0 ${
-                            isActive ? 'text-primary-700' : 'text-gray-400 group-hover:text-gray-600'
+                            isActive ? 'text-primary-700' : 'text-navy-3 group-hover:text-navy-2'
                           }`}
                         />
                         {!collapsed && <span className="truncate">{item.label}</span>}
@@ -124,11 +124,11 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <div className={`border-t border-gray-100 ${collapsed ? 'p-2' : 'p-4'}`}>
+      <div className={`border-t border-default ${collapsed ? 'p-2' : 'p-4'}`}>
         {collapsed ? (
           <div className="mb-2 flex flex-col items-center gap-2">
             <Tooltip content={`${displayName} · ${tenantInfo?.role ?? 'staff'}`} side="right" className="block">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-gray-100 text-sm font-bold text-gray-700">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-surface-sunken text-sm font-bold text-navy-2">
                 {initials}
               </div>
             </Tooltip>
@@ -136,7 +136,7 @@ export function Sidebar() {
               <button
                 type="button"
                 onClick={signOut}
-                className="flex h-9 w-full items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                className="flex h-9 w-full items-center justify-center rounded-md text-navy-3 transition-colors hover:bg-red-50 hover:text-red-600"
                 aria-label="Sair"
               >
                 <LogOut className="h-4 w-4" />
@@ -145,17 +145,17 @@ export function Sidebar() {
           </div>
         ) : (
           <div className="mb-2 flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-gray-100 text-sm font-bold text-gray-700">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-surface-sunken text-sm font-bold text-navy-2">
               {initials}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-bold text-gray-950">{displayName}</p>
-              <p className="truncate text-xs font-medium capitalize text-gray-500">{tenantInfo?.role ?? 'staff'}</p>
+              <p className="truncate text-sm font-bold text-navy">{displayName}</p>
+              <p className="truncate text-xs font-medium capitalize text-navy-3">{tenantInfo?.role ?? 'staff'}</p>
             </div>
             <button
               type="button"
               onClick={signOut}
-              className="rounded-md p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+              className="rounded-md p-2 text-navy-3 transition-colors hover:bg-red-50 hover:text-red-600"
               title="Sair"
               aria-label="Sair"
             >
@@ -168,7 +168,7 @@ export function Sidebar() {
             <button
               type="button"
               onClick={toggleCollapsed}
-              className="flex h-9 w-full items-center justify-center gap-2 rounded-md text-xs font-semibold text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-700"
+              className="flex h-9 w-full items-center justify-center gap-2 rounded-md text-xs font-semibold text-navy-3 transition-colors hover:bg-surface-hover hover:text-navy-2"
               aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
               aria-pressed={collapsed}
             >

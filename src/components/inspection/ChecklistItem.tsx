@@ -102,29 +102,29 @@ function ClientEvidencePanel({ evidence }: { evidence: ClientEvidenceForItem[] }
       </p>
       <div className="space-y-2">
         {evidence.map((row) => (
-          <div key={row.evidenceId} className="rounded-md border border-sky-100 bg-white px-2.5 py-2">
+          <div key={row.evidenceId} className="rounded-md border border-sky-100 bg-surface px-2.5 py-2">
             <div className="flex flex-wrap items-center gap-1.5">
               <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${EVIDENCE_THEME[row.status]}`}>
                 {EVIDENCE_LABELS[row.status]}
               </span>
-              <span className="text-[11px] text-gray-500">
+              <span className="text-[11px] text-navy-3">
                 {new Date(row.submittedAt).toLocaleDateString('pt-BR')}
               </span>
               {row.byName && (
-                <span className="text-[11px] font-medium text-gray-700">
+                <span className="text-[11px] font-medium text-navy-2">
                   {row.byName}
                   {row.byRole ? ` — ${row.byRole}` : ''}
                 </span>
               )}
             </div>
             {row.clientNote && (
-              <p className="mt-1 break-words text-xs text-gray-800">
+              <p className="mt-1 break-words text-xs text-navy">
                 <span className="font-semibold">Alegação: </span>
                 {row.clientNote}
               </p>
             )}
             {row.reviewNote && (
-              <p className="mt-1 break-words text-[11px] text-gray-600">
+              <p className="mt-1 break-words text-[11px] text-navy-2">
                 <span className="font-semibold">Sua orientação: </span>
                 {row.reviewNote}
               </p>
@@ -305,14 +305,14 @@ export const ChecklistItem = memo(function ChecklistItem({
   // Estado em três canais: a cor, a FORMA do traço da esquerda (contínuo para
   // resolvido, tracejado para pendente) e a palavra escrita nos selos.
   const getBorderColor = () => {
-    if (!isSelected) return 'border-l-4 border-dashed border-l-amber border-gray-200';
-    if (response.result === 'complies') return 'border-l-4 border-l-success border-gray-200';
-    if (isNotCompliant) return 'border-l-4 border-l-danger border-gray-200';
-    return 'border-l-4 border-l-navy-3 border-gray-200';
+    if (!isSelected) return 'border-l-4 border-dashed border-l-amber border-default';
+    if (response.result === 'complies') return 'border-l-4 border-l-success border-default';
+    if (isNotCompliant) return 'border-l-4 border-l-danger border-default';
+    return 'border-l-4 border-l-navy-3 border-default';
   };
 
   return (
-    <div id={`item-${item.id}`} className={cn('scroll-mt-44 rounded-lg border bg-white p-5 shadow-sm', getBorderColor())}>
+    <div id={`item-${item.id}`} className={cn('scroll-mt-44 rounded-lg border bg-surface p-5 shadow-sm', getBorderColor())}>
       <div className="flex items-start justify-between">
         <div className="min-w-0 flex-1 space-y-2 pr-4">
           {/* Header row with badges */}
@@ -329,7 +329,7 @@ export const ChecklistItem = memo(function ChecklistItem({
             )}
             {!isSelected && <Badge variant="warning">sem resposta</Badge>}
             {item.legislation && (
-              <span className="inline-flex items-center rounded-full border border-gray-300 px-2 py-0.5 text-xs font-medium text-navy-2">
+              <span className="inline-flex items-center rounded-full border border-control px-2 py-0.5 text-xs font-medium text-navy-2">
                 {item.legislation}
                 {legislationUrlForItem(item) && (
                   <a
@@ -388,7 +388,7 @@ export const ChecklistItem = memo(function ChecklistItem({
               <button
                 type="button"
                 onClick={handleUseTextoAnterior}
-                className="ml-auto rounded-full border border-amber-300 bg-white px-2.5 py-0.5 text-[11px] font-bold text-amber-800 shadow-sm transition-colors hover:bg-amber-100"
+                className="ml-auto rounded-full border border-amber-300 bg-surface px-2.5 py-0.5 text-[11px] font-bold text-amber-800 shadow-sm transition-colors hover:bg-amber-100"
               >
                 Usar texto anterior
               </button>
@@ -437,8 +437,8 @@ export const ChecklistItem = memo(function ChecklistItem({
         {([
           ['complies', 'Cumpre', 'border-success bg-success-soft text-success-soft-ink'],
           ['not_complies', 'Não cumpre', 'border-danger bg-danger-soft text-danger-soft-ink'],
-          ['not_applicable', 'Não se aplica', 'border-navy-3 bg-gray-100 text-navy'],
-          ['not_observed', 'Não observado', 'border-navy-3 bg-gray-100 text-navy'],
+          ['not_applicable', 'Não se aplica', 'border-navy-3 bg-surface-sunken text-navy'],
+          ['not_observed', 'Não observado', 'border-navy-3 bg-surface-sunken text-navy'],
         ] as const).map(([value, label, selectedClasses]) => {
           const selected = response?.result === value;
           return (
@@ -451,7 +451,7 @@ export const ChecklistItem = memo(function ChecklistItem({
                 'flex h-[52px] items-center justify-center gap-1.5 rounded-md border px-2 text-[13px] font-semibold',
                 selected
                   ? `${selectedClasses} ring-1`
-                  : 'border-gray-300 bg-white text-navy-2 hover:bg-gray-50'
+                  : 'border-control bg-surface text-navy-2 hover:bg-surface-hover'
               )}
             >
               {value === 'complies' && <Check className="h-4 w-4 shrink-0" aria-hidden="true" />}
@@ -493,7 +493,7 @@ export const ChecklistItem = memo(function ChecklistItem({
       {showObs && isSelected && (
         // O painel deixa de mudar de cor entre índigo e vermelho conforme o
         // resultado — a informação já está na borda esquerda do cartão.
-        <div className="mt-6 space-y-5 rounded-md border border-gray-200 bg-gray-50 p-5">
+        <div className="mt-6 space-y-5 rounded-md border border-default bg-surface-sunken p-5">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-navy">
               {isNotCompliant ? <AlertTriangle className="h-4 w-4" aria-hidden="true" /> : <FileCheck2 className="h-4 w-4" aria-hidden="true" />}
@@ -505,7 +505,7 @@ export const ChecklistItem = memo(function ChecklistItem({
               type="button"
               onClick={() => setShowObs(false)}
               aria-expanded
-              className="rounded-md px-2 py-1 text-sm font-medium text-navy-2 hover:bg-gray-100 [@media(pointer:coarse)]:min-h-11"
+              className="rounded-md px-2 py-1 text-sm font-medium text-navy-2 hover:bg-surface-active [@media(pointer:coarse)]:min-h-11"
             >
               Recolher
             </button>
@@ -545,7 +545,7 @@ export const ChecklistItem = memo(function ChecklistItem({
                       onUpdateDetails(item.id, { situationDescription: text });
                     }}
                     title={text}
-                    className="max-w-[220px] truncate rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-navy-2 hover:bg-gray-50 [@media(pointer:coarse)]:min-h-11"
+                    className="max-w-[220px] truncate rounded-md border border-control bg-surface px-2.5 py-1.5 text-xs font-medium text-navy-2 hover:bg-surface-hover [@media(pointer:coarse)]:min-h-11"
                   >
                     {text}
                   </button>
@@ -582,7 +582,7 @@ export const ChecklistItem = memo(function ChecklistItem({
                       setLocalAction(newVal);
                       onUpdateDetails(item.id, { correctiveAction: newVal });
                     }}
-                    className="rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-navy-2 hover:bg-gray-50 [@media(pointer:coarse)]:min-h-11"
+                    className="rounded-md border border-control bg-surface px-2.5 py-1.5 text-xs font-medium text-navy-2 hover:bg-surface-hover [@media(pointer:coarse)]:min-h-11"
                   >
                     {verb}
                   </button>
@@ -616,7 +616,7 @@ export const ChecklistItem = memo(function ChecklistItem({
                       onUpdateDetails(item.id, { correctiveAction: text });
                     }}
                     title={text}
-                    className="max-w-[220px] truncate rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-navy-2 hover:bg-gray-50 [@media(pointer:coarse)]:min-h-11"
+                    className="max-w-[220px] truncate rounded-md border border-control bg-surface px-2.5 py-1.5 text-xs font-medium text-navy-2 hover:bg-surface-hover [@media(pointer:coarse)]:min-h-11"
                   >
                     {text}
                   </button>

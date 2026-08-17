@@ -44,7 +44,7 @@ export function PortalCompliance({ units }: PortalComplianceProps) {
     .sort((a, b) => a.score - b.score);
 
   return (
-    <section className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+    <section className="mb-6 rounded-xl border border-default bg-surface p-4 shadow-sm">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="flex items-center gap-2 font-title text-base font-semibold text-navy">
           <TrendingUp className="h-4 w-4 text-primary-700" /> Conformidade da rede
@@ -56,7 +56,7 @@ export function PortalCompliance({ units }: PortalComplianceProps) {
 
       {chartData.length >= 2 && (
         <div className="mb-4 h-48 w-full">
-          <Suspense fallback={<div className="h-full animate-pulse rounded-lg bg-gray-50" />}>
+          <Suspense fallback={<div className="h-full animate-pulse rounded-lg bg-surface-sunken" />}>
             <ComplianceTrendChart data={chartData} />
           </Suspense>
         </div>
@@ -66,14 +66,14 @@ export function PortalCompliance({ units }: PortalComplianceProps) {
         {perUnit.map((u) => (
           <div key={u.name}>
             <div className="flex items-center gap-3">
-              <span className="w-40 shrink-0 truncate text-xs font-medium text-gray-700">{u.name}</span>
-              <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-gray-100">
+              <span className="w-40 shrink-0 truncate text-xs font-medium text-navy-2">{u.name}</span>
+              <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-surface-sunken">
                 <div
                   className={`h-full rounded-full ${u.score >= 85 ? 'bg-green-500' : u.score >= 60 ? 'bg-amber-500' : 'bg-red-500'}`}
                   style={{ width: `${u.score}%` }}
                 />
               </div>
-              <span className="hidden w-24 shrink-0 text-right text-[10px] font-bold uppercase tracking-tight text-gray-500 sm:inline">
+              <span className="hidden w-24 shrink-0 text-right text-[10px] font-bold uppercase tracking-tight text-navy-3 sm:inline">
                 {classificationLabel(classificationFromPercent(u.score))}
               </span>
               <span className={`w-12 shrink-0 rounded px-1.5 py-0.5 text-center text-xs font-bold ${scoreColor(u.score)}`}>
@@ -81,12 +81,12 @@ export function PortalCompliance({ units }: PortalComplianceProps) {
               </span>
             </div>
             {(u.sanitary !== null || u.nutrition !== null) && (
-              <div className="mt-0.5 flex flex-wrap gap-x-4 gap-y-0.5 text-[10px] font-semibold text-gray-500 sm:ml-[10.75rem]">
+              <div className="mt-0.5 flex flex-wrap gap-x-4 gap-y-0.5 text-[10px] font-semibold text-navy-3 sm:ml-[10.75rem]">
                 {u.sanitary !== null && (
-                  <span>Sanitária <span className="text-gray-800">{u.sanitary}%</span></span>
+                  <span>Sanitária <span className="text-navy">{u.sanitary}%</span></span>
                 )}
                 {u.nutrition !== null && (
-                  <span>Nutrição <span className="text-gray-800">{u.nutrition}%</span></span>
+                  <span>Nutrição <span className="text-navy">{u.nutrition}%</span></span>
                 )}
               </div>
             )}

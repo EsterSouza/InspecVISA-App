@@ -29,7 +29,7 @@ export function MobileScoreBar({ template: propTemplate }: MobileScoreBarProps) 
   const colors = { bar: classificationColor(score.classification), ...TONS[score.classification] };
 
   return (
-    <div className={`lg:hidden border-b border-gray-100 px-4 py-2 ${colors.bg}`}>
+    <div className={`lg:hidden border-b border-default px-4 py-2 ${colors.bg}`}>
       <div className="flex items-center justify-between gap-4">
         {/* Score */}
         <div className="flex items-baseline gap-1 shrink-0">
@@ -40,7 +40,7 @@ export function MobileScoreBar({ template: propTemplate }: MobileScoreBarProps) 
         </div>
 
         {/* Progress bar */}
-        <div className="flex-1 h-2 bg-white/70 rounded-full overflow-hidden">
+        <div className="flex-1 h-2 bg-surface/70 rounded-full overflow-hidden">
           <div
             className="h-full rounded-full transition-all duration-700"
             style={{ width: `${score.scorePercentage}%`, backgroundColor: colors.bar }}

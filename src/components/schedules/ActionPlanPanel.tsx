@@ -99,27 +99,27 @@ export function EvidenceReview({
   if (evidence.length === 0) return null;
 
   return (
-    <div className="mt-2 space-y-1.5 border-t border-dashed border-gray-200 pt-2">
-      <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">
+    <div className="mt-2 space-y-1.5 border-t border-dashed border-default pt-2">
+      <p className="text-[10px] font-bold uppercase tracking-wide text-navy-3">
         Evidências do cliente · {evidence.length}
       </p>
       {evidence.map((row) => (
-        <div key={row.id} className="rounded-md bg-gray-50 px-2.5 py-2">
+        <div key={row.id} className="rounded-md bg-surface-sunken px-2.5 py-2">
           <div className="flex flex-wrap items-center gap-2">
             <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${EVIDENCE_STATUS_THEME[row.status]}`}>
               {EVIDENCE_STATUS_LABELS[row.status]}
             </span>
-            <span className="break-all text-[11px] font-medium text-gray-700">{row.file_name}</span>
-            <span className="text-[11px] text-gray-500">{formatDateBR(row.submitted_at)}</span>
+            <span className="break-all text-[11px] font-medium text-navy-2">{row.file_name}</span>
+            <span className="text-[11px] text-navy-3">{formatDateBR(row.submitted_at)}</span>
           </div>
           {row.client_note && (
-            <p className="mt-1 break-words text-[11px] text-gray-600">
+            <p className="mt-1 break-words text-[11px] text-navy-2">
               <span className="font-semibold">Cliente: </span>
               {row.client_note}
             </p>
           )}
           {row.review_note && (
-            <p className="mt-1 break-words text-[11px] text-gray-600">
+            <p className="mt-1 break-words text-[11px] text-navy-2">
               <span className="font-semibold">Sua orientação: </span>
               {row.review_note}
             </p>
@@ -131,7 +131,7 @@ export function EvidenceReview({
               size="sm"
               disabled={busyId === row.id}
               onClick={() => void openFile(row)}
-              className="text-gray-700 hover:bg-gray-100"
+              className="text-navy-2 hover:bg-surface-active"
             >
               <Paperclip className="mr-1.5 h-3.5 w-3.5" /> Abrir arquivo
             </Button>
@@ -169,7 +169,7 @@ export function EvidenceReview({
                 <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Devolver
               </Button>
             )}
-            {busyId === row.id && <Loader2 className="h-4 w-4 animate-spin text-gray-400" />}
+            {busyId === row.id && <Loader2 className="h-4 w-4 animate-spin text-navy-3" />}
           </div>
         </div>
       ))}
@@ -212,7 +212,7 @@ export function ActionPlanPanel({ requestId, busy }: { requestId: string; busy: 
 
   if (loading && items.length === 0) {
     return (
-      <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 text-xs text-gray-500">
+      <div className="rounded-xl border border-default bg-surface-sunken p-3 text-xs text-navy-3">
         Carregando plano de ação do portal...
       </div>
     );
@@ -220,7 +220,7 @@ export function ActionPlanPanel({ requestId, busy }: { requestId: string; busy: 
 
   if (items.length === 0) {
     return (
-      <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 text-xs text-gray-500">
+      <div className="rounded-xl border border-default bg-surface-sunken p-3 text-xs text-navy-3">
         Nenhum item de plano de ação para esta visita.
       </div>
     );
@@ -230,9 +230,9 @@ export function ActionPlanPanel({ requestId, busy }: { requestId: string; busy: 
   const awaitingReview = evidence.filter((row) => row.status === 'pending').length;
 
   return (
-    <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
+    <div className="rounded-xl border border-default bg-surface-sunken p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-gray-500">
+        <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-navy-3">
           <ClipboardList className="h-3.5 w-3.5" /> Plano de ação no portal · {visible} de {items.length} visível(is)
           {awaitingReview > 0 && (
             <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold text-sky-700">
@@ -246,9 +246,9 @@ export function ActionPlanPanel({ requestId, busy }: { requestId: string; busy: 
       </div>
       <div className="space-y-2">
         {items.map((item) => (
-          <div key={item.id} className="rounded-lg border border-gray-100 bg-white px-3 py-2">
+          <div key={item.id} className="rounded-lg border border-default bg-surface px-3 py-2">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold uppercase text-gray-600">
+              <span className="rounded-full bg-surface-sunken px-2 py-0.5 text-[10px] font-bold uppercase text-navy-2">
                 {ACTION_PRIORITY_LABELS[item.priority]}
               </span>
               <span
@@ -257,7 +257,7 @@ export function ActionPlanPanel({ requestId, busy }: { requestId: string; busy: 
                     ? 'bg-green-100 text-green-700'
                     : item.status === 'hidden'
                       ? 'bg-amber-100 text-amber-700'
-                      : 'bg-gray-100 text-gray-500'
+                      : 'bg-surface-sunken text-navy-3'
                 }`}
               >
                 {ACTION_STATUS_LABELS[item.status]}
@@ -267,19 +267,19 @@ export function ActionPlanPanel({ requestId, busy }: { requestId: string; busy: 
                   Reincidente ({item.occurrence_count}x)
                 </span>
               )}
-              <span className="text-[11px] text-gray-500">
+              <span className="text-[11px] text-navy-3">
                 {item.due_date ? `Prazo ${formatDateBR(item.due_date)}` : 'Sem prazo'}
                 {item.responsible ? ` · ${item.responsible}` : ''}
               </span>
             </div>
-            <p className="mt-1 break-words text-sm font-semibold text-gray-800">{item.title}</p>
-            <dl className="mt-1.5 space-y-1 text-[11px] text-gray-600">
+            <p className="mt-1 break-words text-sm font-semibold text-navy">{item.title}</p>
+            <dl className="mt-1.5 space-y-1 text-[11px] text-navy-2">
               <div>
-                <dt className="inline font-semibold text-gray-700">Situação encontrada: </dt>
+                <dt className="inline font-semibold text-navy-2">Situação encontrada: </dt>
                 <dd className="inline break-words">{item.situation}</dd>
               </div>
               <div>
-                <dt className="inline font-semibold text-gray-700">O que fazer: </dt>
+                <dt className="inline font-semibold text-navy-2">O que fazer: </dt>
                 <dd className="inline break-words">{item.recommended_action}</dd>
               </div>
             </dl>
@@ -343,7 +343,7 @@ export function ActionPlanPanel({ requestId, busy }: { requestId: string; busy: 
                   </Button>
                 </>
               )}
-              {savingId === item.id && <Loader2 className="h-4 w-4 animate-spin text-gray-400" />}
+              {savingId === item.id && <Loader2 className="h-4 w-4 animate-spin text-navy-3" />}
             </div>
             <EvidenceReview
               evidence={evidence.filter((row) => row.action_item_id === item.id)}

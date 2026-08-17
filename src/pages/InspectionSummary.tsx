@@ -591,8 +591,8 @@ export function InspectionSummary() {
   // Guard: no inspection at all
   if (!currentInspection) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-gray-50 p-8 text-center">
-        <p className="text-gray-600 font-semibold">Inspeção não encontrada.</p>
+      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-surface-sunken p-8 text-center">
+        <p className="text-navy-2 font-semibold">Inspeção não encontrada.</p>
         <button onClick={() => navigate('/inspections')} className="text-primary-600 underline text-sm">Voltar para Inspeções</button>
       </div>
     );
@@ -603,10 +603,10 @@ export function InspectionSummary() {
   // Template missing: show summary with warning, don't block!
   if (!displayTemplate) {
     return (
-      <div className="flex h-screen flex-col bg-gray-50 pb-16 lg:pb-0">
-        <header className="sticky top-0 z-30 border-b border-gray-200 bg-white px-4 py-3 shadow-sm sm:px-6">
+      <div className="flex h-screen flex-col bg-surface-sunken pb-16 lg:pb-0">
+        <header className="sticky top-0 z-30 border-b border-default bg-surface px-4 py-3 shadow-sm sm:px-6">
           <div className="mx-auto flex max-w-7xl items-center justify-between">
-            <button onClick={() => navigate('/inspections')} className="flex items-center text-gray-500 hover:text-gray-900 text-sm font-medium gap-2">
+            <button onClick={() => navigate('/inspections')} className="flex items-center text-navy-3 hover:text-navy text-sm font-medium gap-2">
               ← Voltar
             </button>
             <Button
@@ -624,10 +624,10 @@ export function InspectionSummary() {
             <strong>⚠️ Roteiro original não encontrado</strong>
             <p className="mt-1">O modelo de inspeção usado neste relatório não está disponível neste dispositivo. Os dados brutos foram preservados ({reportResponses.length} respostas registradas).</p>
           </div>
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center">
-            <h1 className="text-2xl font-extrabold text-gray-900">{displayClientName}</h1>
-            <p className="mt-1 text-gray-500">Template ID: <code className="text-xs">{currentInspection?.templateId}</code></p>
-            <p className="text-sm text-gray-400 mt-1 mb-6">Concluída em {formatDateTime(currentInspection?.completedAt || currentInspection?.createdAt || new Date())}</p>
+          <div className="bg-surface rounded-2xl shadow-sm border border-default p-8 text-center">
+            <h1 className="text-2xl font-extrabold text-navy">{displayClientName}</h1>
+            <p className="mt-1 text-navy-3">Template ID: <code className="text-xs">{currentInspection?.templateId}</code></p>
+            <p className="text-sm text-navy-3 mt-1 mb-6">Concluída em {formatDateTime(currentInspection?.completedAt || currentInspection?.createdAt || new Date())}</p>
             <div className="grid grid-cols-3 gap-4 max-w-sm mx-auto">
               <div className="bg-green-50 rounded-xl p-4 text-center">
                 <p className="text-2xl font-bold text-green-700">{reportResponses.filter(r => r.result === 'complies').length}</p>
@@ -637,9 +637,9 @@ export function InspectionSummary() {
                 <p className="text-2xl font-bold text-red-700">{nonCompliantResponses.length}</p>
                 <p className="text-xs text-red-600 font-semibold mt-1">Não Cumpre</p>
               </div>
-              <div className="bg-gray-50 rounded-xl p-4 text-center">
-                <p className="text-2xl font-bold text-gray-700">{reportResponses.length}</p>
-                <p className="text-xs text-gray-500 font-semibold mt-1">Total</p>
+              <div className="bg-surface-sunken rounded-xl p-4 text-center">
+                <p className="text-2xl font-bold text-navy-2">{reportResponses.length}</p>
+                <p className="text-xs text-navy-3 font-semibold mt-1">Total</p>
               </div>
             </div>
           </div>
@@ -651,13 +651,13 @@ export function InspectionSummary() {
   // const scoreColor = scoreArea ? classificationColor(scoreArea.classification) : '#94a3b8';
 
   return (
-    <div className="flex h-screen flex-col bg-gray-50 pb-safe pb-16 lg:pb-0">
+    <div className="flex h-screen flex-col bg-surface-sunken pb-safe pb-16 lg:pb-0">
       {/* Header */}
-      <header className="sticky top-0 z-30 border-b border-gray-200 bg-white px-4 py-3 shadow-sm sm:px-6">
+      <header className="sticky top-0 z-30 border-b border-default bg-surface px-4 py-3 shadow-sm sm:px-6">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <div className="flex items-center space-x-2">
             <Button variant="ghost" size="icon" onClick={() => navigate('/inspections')}>
-              <ArrowLeft className="h-5 w-5 text-gray-600" />
+              <ArrowLeft className="h-5 w-5 text-navy-2" />
             </Button>
             <Button 
               variant="outline" 

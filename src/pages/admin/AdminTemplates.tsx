@@ -122,18 +122,18 @@ export function AdminTemplates() {
       />
 
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-navy-3" />
         <input
           type="text"
           placeholder="Pesquisar roteiros por nome ou categoria..."
-          className="w-full rounded-xl border border-gray-200 pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 outline-none"
+          className="w-full rounded-xl border border-control pl-10 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 outline-none"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
 
       {loadError ? (
-        <div className="rounded-2xl border border-gray-200 bg-white">
+        <div className="rounded-2xl border border-default bg-surface">
           <EmptyState
             role="alert"
             icon={<AlertTriangle className="h-8 w-8 text-red-500" />}
@@ -246,13 +246,13 @@ export function AdminTemplates() {
                         {inUse > 0 ? (
                           <span className="font-semibold text-amber-strong">{inUse}</span>
                         ) : (
-                          <span className="text-gray-400">0</span>
+                          <span className="text-navy-3">0</span>
                         )}
                       </TableCell>
                       <TableCell>{formatDateBR(template.updated_at)}</TableCell>
                       <TableCell>
                         {template.isStatic ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-gray-500">
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-navy-3">
                             <Lock className="h-3 w-3" /> Padrão
                           </span>
                         ) : (
@@ -261,7 +261,7 @@ export function AdminTemplates() {
                       </TableCell>
                       <TableCell align="right">
                         {template.isStatic ? (
-                          <span className="text-xs italic text-gray-400">somente leitura</span>
+                          <span className="text-xs italic text-navy-3">somente leitura</span>
                         ) : (
                           <Button
                             variant="ghost"

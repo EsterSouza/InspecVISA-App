@@ -90,7 +90,7 @@ const STATE_BADGE: Record<TimelineState, 'success' | 'neutral' | 'warning' | 'da
 
 const STATE_MARK: Record<TimelineState, string> = {
   ok: 'border-green-200 bg-green-50 text-green-700',
-  pendente: 'border-gray-200 bg-gray-50 text-gray-500',
+  pendente: 'border-default bg-surface-sunken text-navy-3',
   atencao: 'border-amber-200 bg-amber-50 text-amber-700',
   erro: 'border-red-200 bg-red-50 text-red-700',
 };
@@ -579,31 +579,31 @@ export function SyncCenter() {
 
       {/* Quatro indicadores */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <p className="text-xs font-medium text-gray-500">Última sincronização</p>
-          <p className="mt-1 text-xl font-bold text-gray-900">
+        <div className="rounded-lg border border-default bg-surface p-4">
+          <p className="text-xs font-medium text-navy-3">Última sincronização</p>
+          <p className="mt-1 text-xl font-bold text-navy">
             {indicators.lastSyncedAt ? timeHHMM(indicators.lastSyncedAt) : '—'}
           </p>
-          <p className="mt-0.5 text-xs text-gray-500">
+          <p className="mt-0.5 text-xs text-navy-3">
             {indicators.lastSyncedAt ? timeAgo(indicators.lastSyncedAt) : 'ainda sem sincronização'}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <p className="text-xs font-medium text-gray-500">Na fila</p>
-          <p className="mt-1 text-xl font-bold text-gray-900">{queueCount}</p>
-          <p className="mt-0.5 text-xs text-gray-500">{queueBreakdown || 'fila vazia'}</p>
+        <div className="rounded-lg border border-default bg-surface p-4">
+          <p className="text-xs font-medium text-navy-3">Na fila</p>
+          <p className="mt-1 text-xl font-bold text-navy">{queueCount}</p>
+          <p className="mt-0.5 text-xs text-navy-3">{queueBreakdown || 'fila vazia'}</p>
         </div>
-        <div className={cn('rounded-lg border p-4', failedCount > 0 ? 'border-red-200 bg-red-50' : 'border-gray-200 bg-white')}>
-          <p className={cn('text-xs font-medium', failedCount > 0 ? 'text-red-700' : 'text-gray-500')}>Falharam</p>
-          <p className={cn('mt-1 text-xl font-bold', failedCount > 0 ? 'text-red-700' : 'text-gray-900')}>{failedCount}</p>
-          <p className={cn('mt-0.5 text-xs', failedCount > 0 ? 'text-red-700' : 'text-gray-500')}>
+        <div className={cn('rounded-lg border p-4', failedCount > 0 ? 'border-red-200 bg-red-50' : 'border-default bg-surface')}>
+          <p className={cn('text-xs font-medium', failedCount > 0 ? 'text-red-700' : 'text-navy-3')}>Falharam</p>
+          <p className={cn('mt-1 text-xl font-bold', failedCount > 0 ? 'text-red-700' : 'text-navy')}>{failedCount}</p>
+          <p className={cn('mt-0.5 text-xs', failedCount > 0 ? 'text-red-700' : 'text-navy-3')}>
             {failedCount > 0 ? `${failedBreakdown} — precisa de decisão sua` : 'nenhuma pendência'}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
-          <p className="text-xs font-medium text-gray-500">Enviados hoje</p>
-          <p className="mt-1 text-xl font-bold text-gray-900">{indicators.syncedTodayCount}</p>
-          <p className="mt-0.5 text-xs text-gray-500">
+        <div className="rounded-lg border border-default bg-surface p-4">
+          <p className="text-xs font-medium text-navy-3">Enviados hoje</p>
+          <p className="mt-1 text-xl font-bold text-navy">{indicators.syncedTodayCount}</p>
+          <p className="mt-0.5 text-xs text-navy-3">
             {indicators.syncedTodayCount === 0
               ? 'nenhum envio hoje ainda'
               : failedCount === 0
@@ -614,8 +614,8 @@ export function SyncCenter() {
       </div>
 
       {/* Manutenção */}
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
-        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Manutenção</span>
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-default bg-surface-sunken px-3 py-2.5">
+        <span className="text-xs font-semibold uppercase tracking-wide text-navy-3">Manutenção</span>
         <Button variant="outline" size="sm" onClick={handleRetryAll} disabled={isBusy || !isOnline}>
           <Play className={cn('mr-1.5 h-3.5 w-3.5', actionLoading === 'retryAll' && 'animate-pulse')} />
           Tentar tudo
@@ -634,7 +634,7 @@ export function SyncCenter() {
         <Card className="min-w-0">
           <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
             <CardTitle className="text-base">Linha do tempo</CardTitle>
-            <span className="text-xs text-gray-500">mais recente primeiro · nesta sessão</span>
+            <span className="text-xs text-navy-3">mais recente primeiro · nesta sessão</span>
           </CardHeader>
           <CardContent className="pt-0">
             {timeline.length === 0 ? (
@@ -656,7 +656,7 @@ export function SyncCenter() {
                           aria-hidden="true"
                           className={cn(
                             'absolute left-4 top-8 bottom-0 border-l-2',
-                            entry.state === 'pendente' ? 'border-dashed border-gray-300' : 'border-solid border-gray-200'
+                            entry.state === 'pendente' ? 'border-dashed border-control' : 'border-solid border-default'
                           )}
                         />
                       )}
@@ -664,14 +664,14 @@ export function SyncCenter() {
                         <Icon className="h-4 w-4" />
                       </span>
                       <div className="min-w-0 flex-1 pt-0.5">
-                        <p className="text-xs text-gray-500 tabular-nums">{entry.meta}</p>
-                        <p className="mt-0.5 flex flex-wrap items-center gap-2 text-sm font-semibold text-gray-900">
+                        <p className="text-xs text-navy-3 tabular-nums">{entry.meta}</p>
+                        <p className="mt-0.5 flex flex-wrap items-center gap-2 text-sm font-semibold text-navy">
                           {entry.title}
                           <Badge variant={STATE_BADGE[entry.state]}>{STATE_WORD[entry.state]}</Badge>
                         </p>
-                        {entry.detail && <p className="mt-1 break-words text-xs text-gray-500">{entry.detail}</p>}
+                        {entry.detail && <p className="mt-1 break-words text-xs text-navy-3">{entry.detail}</p>}
                         {!!entry.item?.syncAttempts && (
-                          <p className="mt-0.5 text-xs text-gray-500">Tentativas: {entry.item.syncAttempts}</p>
+                          <p className="mt-0.5 text-xs text-navy-3">Tentativas: {entry.item.syncAttempts}</p>
                         )}
                         {(entry.state === 'erro' || entry.state === 'atencao') && entry.item && (
                           <div className="mt-2 flex flex-wrap gap-2">
@@ -718,13 +718,13 @@ export function SyncCenter() {
                   <span className={cn('flex h-6 w-6 shrink-0 items-center justify-center rounded-full border', STATE_MARK[state])}>
                     <Icon className="h-3.5 w-3.5" />
                   </span>
-                  <p className="text-xs text-gray-600">
-                    <span className="font-semibold text-gray-900">{STATE_WORD[state]}</span> — {LEGEND_TEXT[state]}
+                  <p className="text-xs text-navy-2">
+                    <span className="font-semibold text-navy">{STATE_WORD[state]}</span> — {LEGEND_TEXT[state]}
                   </p>
                 </div>
               );
             })}
-            <p className="pt-1 text-xs text-gray-500">
+            <p className="pt-1 text-xs text-navy-3">
               Estado em três canais: cor de fundo, forma do traço e a palavra. Nenhum deles sozinho.
             </p>
           </CardContent>

@@ -1066,16 +1066,16 @@ export function InspectionExecution() {
   // ─── RENDER STATES ────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-3 bg-gray-50">
+      <div className="flex h-screen flex-col items-center justify-center gap-3 bg-surface-sunken">
         <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
-        <p className="text-sm text-gray-500 font-medium">Carregando inspeção...</p>
+        <p className="text-sm text-navy-3 font-medium">Carregando inspeção...</p>
       </div>
     );
   }
 
   if (loadError) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-gray-50 p-8 text-center">
+      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-surface-sunken p-8 text-center">
         <p className="text-red-600 font-semibold">{loadError}</p>
         <Button onClick={loadData} variant="outline" className="gap-2">
           <RefreshCw className="h-4 w-4" /> Tentar Novamente
@@ -1089,11 +1089,11 @@ export function InspectionExecution() {
 
   if (!currentInspection) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-gray-50 p-8 text-center">
+      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-surface-sunken p-8 text-center">
         <div className="mb-4 rounded-full bg-amber-50 p-3">
           <RefreshCw className="h-8 w-8 text-amber-600" />
         </div>
-        <p className="text-gray-600 font-semibold">O roteiro desta inspeção não pôde ser carregado.</p>
+        <p className="text-navy-2 font-semibold">O roteiro desta inspeção não pôde ser carregado.</p>
         <div className="flex flex-col sm:flex-row gap-3 mt-4">
           <Button 
             variant="default"
@@ -1162,8 +1162,8 @@ export function InspectionExecution() {
     .length;
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50 pb-safe pb-16 lg:pb-0">
-      <header className="sticky top-0 z-30 border-b border-gray-200 bg-white px-4 py-3 sm:px-6">
+    <div className="flex min-h-screen flex-col bg-surface-sunken pb-safe pb-16 lg:pb-0">
+      <header className="sticky top-0 z-30 border-b border-default bg-surface px-4 py-3 sm:px-6">
         <div className="mx-auto w-full max-w-[1600px] space-y-3">
           {/* Trilha: a execução não é uma ilha sem volta. */}
           <nav aria-label="Trilha" className="flex items-center gap-1.5 text-xs text-navy-3">
@@ -1277,7 +1277,7 @@ export function InspectionExecution() {
             <span className="text-sm font-semibold tabular-nums text-navy">
               {answeredItems} de {totalItems} respondidos
             </span>
-            <span className="h-2 min-w-[120px] flex-1 overflow-hidden rounded-full bg-gray-100">
+            <span className="h-2 min-w-[120px] flex-1 overflow-hidden rounded-full bg-surface-sunken">
               <span className="block h-full rounded-full bg-primary-700" style={{ width: `${progressPct}%` }} />
             </span>
             {criticalNotComplies > 0 && (
@@ -1358,7 +1358,7 @@ export function InspectionExecution() {
                 type="button"
                 aria-pressed={itemFilter === value}
                 onClick={() => applyFilter(value)}
-                className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-navy-2 hover:bg-gray-50 aria-[pressed=true]:border-primary-700 aria-[pressed=true]:bg-primary-50 aria-[pressed=true]:font-semibold aria-[pressed=true]:text-primary-800"
+                className="inline-flex items-center gap-1.5 rounded-md border border-control bg-surface px-3 py-2 text-sm text-navy-2 hover:bg-surface-hover aria-[pressed=true]:border-primary-700 aria-[pressed=true]:bg-primary-50 aria-[pressed=true]:font-semibold aria-[pressed=true]:text-primary-800"
                 style={{ minHeight: 44 }}
               >
                 {label}
@@ -1396,7 +1396,7 @@ export function InspectionExecution() {
                       título "Recursos Humanos" (roteiros salvos no banco usam id UUID). */}
                   {(section.id === 'sec-fed-12'
                     || (isIlpiInspection && /recursos\s+humanos/i.test(section.title || ''))) && (
-                    <div className="mb-6 space-y-4 rounded-md border border-gray-200 bg-white p-4">
+                    <div className="mb-6 space-y-4 rounded-md border border-default bg-surface p-4">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <h3 className="text-sm font-semibold text-navy">Dimensionamento ILPI</h3>
                         {isRioState(currentInspection.state) && (
@@ -1419,7 +1419,7 @@ export function InspectionExecution() {
                           </div>
                         ))}
                       </div>
-                      <div className="grid grid-cols-1 gap-4 border-b border-gray-200 pb-4 sm:grid-cols-2">
+                      <div className="grid grid-cols-1 gap-4 border-b border-default pb-4 sm:grid-cols-2">
                         <div>
                           <Label htmlFor="observedStaff" className="mb-1.5">Cuidadores em turno</Label>
                           <Input
@@ -1445,7 +1445,7 @@ export function InspectionExecution() {
                           />
                         </div>
                       </div>
-                      <div className="grid grid-cols-1 gap-4 border-b border-gray-200 pb-4 sm:grid-cols-2">
+                      <div className="grid grid-cols-1 gap-4 border-b border-default pb-4 sm:grid-cols-2">
                         <div>
                           <Label htmlFor="usableAreaM2" className="mb-1.5">Área útil aproximada (m²)</Label>
                           <Input
@@ -1525,7 +1525,7 @@ export function InspectionExecution() {
           })}
 
           {itemFilter !== 'todos' && filterCounts[itemFilter] === 0 && (
-            <div className="rounded-md border border-gray-200 bg-white p-6 text-center">
+            <div className="rounded-md border border-default bg-surface p-6 text-center">
               <p className="text-sm text-navy-2">Nenhum item neste filtro.</p>
               <Button variant="outline" size="sm" className="mt-3" onClick={() => applyFilter('todos')}>
                 Ver todos os itens
@@ -1586,7 +1586,7 @@ export function InspectionExecution() {
               autoFocus
             />
           </div>
-          <label className="flex min-h-11 items-center gap-3 rounded-lg border border-gray-200 px-3">
+          <label className="flex min-h-11 items-center gap-3 rounded-lg border border-default px-3">
             <input
               type="checkbox"
               checked={extraCritical}
@@ -1595,7 +1595,7 @@ export function InspectionExecution() {
                 if (event.target.checked) setExtraWeight(10);
               }}
             />
-            <span className="text-sm font-medium text-gray-800">Item crítico</span>
+            <span className="text-sm font-medium text-navy">Item crítico</span>
           </label>
           <div>
             <Label htmlFor="extra-weight">Peso na pontuação</Label>
@@ -1608,7 +1608,7 @@ export function InspectionExecution() {
             >
               {CUSTOM_ITEM_WEIGHTS.map(weight => <option key={weight} value={weight}>{weight}</option>)}
             </Select>
-            <p className="mt-2 text-xs text-gray-500">Itens críticos usam peso 10. Itens originais do roteiro continuam valendo 1 ponto.</p>
+            <p className="mt-2 text-xs text-navy-3">Itens críticos usam peso 10. Itens originais do roteiro continuam valendo 1 ponto.</p>
           </div>
         </div>
       </Modal>

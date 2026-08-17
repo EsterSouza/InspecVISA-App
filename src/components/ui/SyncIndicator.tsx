@@ -75,7 +75,7 @@ export function SyncIndicator({ compact = false }: SyncIndicatorProps) {
 
   if (!isOnline) {
     return (
-      <div className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-[11px] font-semibold text-gray-500">
+      <div className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-default bg-surface-sunken px-2 py-1 text-[11px] font-semibold text-navy-3">
         <CloudOff className="h-3.5 w-3.5 shrink-0" />
         <span className="truncate">{compact ? 'Offline' : 'Modo offline'}</span>
       </div>

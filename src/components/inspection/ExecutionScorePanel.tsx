@@ -95,7 +95,7 @@ export function ExecutionScorePanel({
   return (
     <div className="space-y-4">
       <Card>
-        <div className="border-b border-gray-200 px-5 py-3.5">
+        <div className="border-b border-default px-5 py-3.5">
           <h2 className="text-sm font-semibold text-navy">
             {isCompleted ? 'Resultado' : 'Resultado parcial'}
           </h2>
@@ -126,14 +126,14 @@ export function ExecutionScorePanel({
             </>
           )}
         </div>
-        <div className="border-t border-gray-200">
+        <div className="border-t border-default">
           {[
             ['Cumpre', score.compliesCount, 'text-navy'],
             ['Não cumpre', score.notCompliesCount, 'text-danger-soft-ink'],
             ['Não se aplica', score.notApplicableCount, 'text-navy'],
             ['Não observado', score.notObservedCount, 'text-navy'],
           ].map(([label, value, tone]) => (
-            <div key={label as string} className="flex items-center justify-between border-b border-gray-100 px-5 py-2 last:border-b-0">
+            <div key={label as string} className="flex items-center justify-between border-b border-default px-5 py-2 last:border-b-0">
               <span className="text-sm text-navy-2">{label}</span>
               <span className={`font-semibold tabular-nums ${tone}`}>{value}</span>
             </div>
@@ -145,7 +145,7 @@ export function ExecutionScorePanel({
           compara com a MESMA área da visita anterior. */}
       {isIlpi && areas.isSplit && (
         <Card>
-          <div className="border-b border-gray-200 px-5 py-3.5">
+          <div className="border-b border-default px-5 py-3.5">
             <h2 className="text-sm font-semibold text-navy">Por área</h2>
           </div>
           <div className="space-y-4 p-5">
@@ -163,7 +163,7 @@ export function ExecutionScorePanel({
                     </span>
                     <span className="font-semibold tabular-nums text-navy">{areaPct}%</span>
                   </div>
-                  <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-gray-100">
+                  <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-surface-sunken">
                     <div
                       className="h-full rounded-full"
                       style={{ width: `${areaPct}%`, backgroundColor: classificationColor(area.score.classification) }}
@@ -182,7 +182,7 @@ export function ExecutionScorePanel({
       {/* Falta escrever — lista clicável, não contagem (decisão 30). */}
       {missingText.length > 0 && (
         <Card>
-          <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-5 py-3.5">
+          <div className="flex items-center justify-between gap-3 border-b border-default px-5 py-3.5">
             <h2 className="text-sm font-semibold text-navy">Falta escrever</h2>
             <Badge variant="danger" className="tabular-nums">{missingText.length}</Badge>
           </div>
@@ -192,10 +192,10 @@ export function ExecutionScorePanel({
                 key={pend.itemId}
                 type="button"
                 onClick={() => onGoToItem(pend.itemId)}
-                className="flex w-full items-start gap-3 border-b border-gray-100 px-5 py-3 text-left last:border-b-0 hover:bg-gray-50"
+                className="flex w-full items-start gap-3 border-b border-default px-5 py-3 text-left last:border-b-0 hover:bg-surface-hover"
                 style={{ minHeight: 44 }}
               >
-                <span className="mt-0.5 shrink-0 rounded bg-gray-100 px-1.5 text-xs font-semibold tabular-nums text-navy-2">
+                <span className="mt-0.5 shrink-0 rounded bg-surface-sunken px-1.5 text-xs font-semibold tabular-nums text-navy-2">
                   {pend.order}
                 </span>
                 <span className="min-w-0 flex-1">
@@ -211,12 +211,12 @@ export function ExecutionScorePanel({
 
       {!isCompleted && (unanswered > 0 || photoQueueCount > 0) && (
         <Card>
-          <div className="border-b border-gray-200 px-5 py-3.5">
+          <div className="border-b border-default px-5 py-3.5">
             <h2 className="text-sm font-semibold text-navy">Falta responder</h2>
           </div>
           <div>
             {unanswered > 0 && (
-              <p className="border-b border-gray-100 px-5 py-2 text-sm text-navy-2">
+              <p className="border-b border-default px-5 py-2 text-sm text-navy-2">
                 {unanswered} {unanswered === 1 ? 'item ainda sem resposta' : 'itens ainda sem resposta'}
               </p>
             )}
@@ -227,7 +227,7 @@ export function ExecutionScorePanel({
             )}
           </div>
           {unanswered > 0 && (
-            <div className="border-t border-gray-200 p-3">
+            <div className="border-t border-default p-3">
               <Button variant="outline" size="sm" fullWidth onClick={onGoToFirstUnanswered}>
                 Ir para o primeiro sem resposta
               </Button>

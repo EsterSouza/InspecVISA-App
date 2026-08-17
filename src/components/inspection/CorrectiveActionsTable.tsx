@@ -57,7 +57,7 @@ export function CorrectiveActionsTable({ responses, template, recurringItemIds }
 
   return (
     <Card>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-5 py-3.5">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-default px-5 py-3.5">
         <h2 className="text-sm font-semibold text-navy">Ações corretivas — {linhas.length}</h2>
         <div className="flex flex-wrap gap-2" role="group" aria-label="Filtrar por gravidade">
           {([
@@ -71,7 +71,7 @@ export function CorrectiveActionsTable({ responses, template, recurringItemIds }
               type="button"
               aria-pressed={filtro === value}
               onClick={() => setFiltro(value)}
-              className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-navy-2 hover:bg-gray-50 aria-[pressed=true]:border-primary-700 aria-[pressed=true]:bg-primary-50 aria-[pressed=true]:font-semibold aria-[pressed=true]:text-primary-800"
+              className="inline-flex items-center gap-1.5 rounded-md border border-control bg-surface px-3 py-2 text-sm text-navy-2 hover:bg-surface-hover aria-[pressed=true]:border-primary-700 aria-[pressed=true]:bg-primary-50 aria-[pressed=true]:font-semibold aria-[pressed=true]:text-primary-800"
               style={{ minHeight: 44 }}
             >
               {label}
@@ -98,7 +98,7 @@ export function CorrectiveActionsTable({ responses, template, recurringItemIds }
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-left text-sm">
             <thead>
-              <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-navy-3">
+              <tr className="border-b border-default text-xs uppercase tracking-wide text-navy-3">
                 <th scope="col" className="px-5 py-2 font-semibold">Requisito</th>
                 <th scope="col" className="px-3 py-2 font-semibold">Situação encontrada</th>
                 <th scope="col" className="px-3 py-2 font-semibold">O que precisa ser feito</th>
@@ -108,7 +108,7 @@ export function CorrectiveActionsTable({ responses, template, recurringItemIds }
             </thead>
             <tbody>
               {visiveis.map((l) => (
-                <tr key={l.response.id} className="border-b border-gray-100 align-top last:border-b-0">
+                <tr key={l.response.id} className="border-b border-default align-top last:border-b-0">
                   <td className="px-5 py-3">
                     <p className="font-medium text-navy">{l.titulo}</p>
                     <span className="mt-1 flex flex-wrap gap-1.5">

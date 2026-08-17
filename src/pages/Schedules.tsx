@@ -420,7 +420,7 @@ export function Schedules() {
       />
 
       {loadError && schedules.length === 0 ? (
-        <div className="rounded-2xl border border-gray-200 bg-white">
+        <div className="rounded-2xl border border-default bg-surface">
           <EmptyState
             role="alert"
             icon={<AlertTriangle className="h-8 w-8 text-red-500" />}
@@ -462,12 +462,12 @@ export function Schedules() {
             <p className="mt-1 text-sm text-primary-800">
               Envie este link para o cliente escolher data e horario disponivel.
             </p>
-            <div className="mt-2 truncate rounded-lg border border-primary-100 bg-white px-3 py-2 text-xs font-medium text-primary-900">
+            <div className="mt-2 truncate rounded-lg border border-primary-100 bg-surface px-3 py-2 text-xs font-medium text-primary-900">
               {publicScheduleUrl}
             </div>
           </div>
           <div className="flex shrink-0 gap-2">
-            <Button variant="outline" size="sm" onClick={copyPublicScheduleLink} className="border-primary-200 bg-white text-primary-700 hover:bg-primary-50">
+            <Button variant="outline" size="sm" onClick={copyPublicScheduleLink} className="border-primary-200 bg-surface text-primary-700 hover:bg-primary-50">
               <Copy className="mr-1.5 h-4 w-4" />
               {linkCopied ? 'Copiado' : 'Copiar'}
             </Button>
@@ -480,14 +480,14 @@ export function Schedules() {
       </div>
 
       {/* Abas: agenda interna x solicitações do portal público */}
-      <div className="mb-8 flex gap-1 rounded-xl bg-gray-100 p-1">
+      <div className="mb-8 flex gap-1 rounded-xl bg-surface-sunken p-1">
         <button
           type="button"
           onClick={() => setActiveTab('agenda')}
           className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
             activeTab === 'agenda'
-              ? 'bg-white text-primary-700 shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'
+              ? 'bg-surface text-primary-700 shadow-sm'
+              : 'text-navy-3 hover:text-navy-2'
           }`}
         >
           Agenda
@@ -497,8 +497,8 @@ export function Schedules() {
           onClick={() => setActiveTab('solicitacoes')}
           className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
             activeTab === 'solicitacoes'
-              ? 'bg-white text-primary-700 shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'
+              ? 'bg-surface text-primary-700 shadow-sm'
+              : 'text-navy-3 hover:text-navy-2'
           }`}
         >
           Pedidos de Visita
@@ -509,19 +509,19 @@ export function Schedules() {
         <AppointmentRequestsPanel focusRequestId={focusRequestId} />
       ) : (
       <div className="space-y-8">
-        <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+        <section className="rounded-2xl border border-default bg-surface p-4 shadow-sm">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="flex items-center text-lg font-semibold text-gray-900">
+            <h2 className="flex items-center text-lg font-semibold text-navy">
               <Calendar className="mr-2 h-5 w-5 text-primary-600" />
               Agenda
             </h2>
-            <div className="flex gap-1 rounded-lg bg-gray-100 p-1">
+            <div className="flex gap-1 rounded-lg bg-surface-sunken p-1">
               <button
                 type="button"
                 onClick={() => setAgendaView('semana')}
                 aria-pressed={agendaView === 'semana'}
                 className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
-                  agendaView === 'semana' ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                  agendaView === 'semana' ? 'bg-surface text-primary-700 shadow-sm' : 'text-navy-3 hover:text-navy-2'
                 }`}
               >
                 Semana
@@ -531,7 +531,7 @@ export function Schedules() {
                 onClick={() => setAgendaView('lista')}
                 aria-pressed={agendaView === 'lista'}
                 className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
-                  agendaView === 'lista' ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                  agendaView === 'lista' ? 'bg-surface text-primary-700 shadow-sm' : 'text-navy-3 hover:text-navy-2'
                 }`}
               >
                 Lista
@@ -550,12 +550,12 @@ export function Schedules() {
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+          <h2 className="text-lg font-semibold text-navy mb-4 flex items-center">
             <Clock className="mr-2 h-5 w-5 text-primary-600" />
             Próximas Visitas
           </h2>
           {upcomingSchedules.length === 0 ? (
-            <Card className="border-dashed bg-gray-50">
+            <Card className="border-dashed bg-surface-sunken">
               <EmptyState
                 icon={<Calendar className="h-8 w-8" />}
                 title="Nenhuma visita agendada"
@@ -583,8 +583,8 @@ export function Schedules() {
                         </span>
                       </div>
                       <div>
-                        <h3 className="font-bold text-gray-900 text-sm">{schedule.clientName || 'Cliente'}</h3>
-                        <div className="flex items-center space-x-4 mt-1 text-sm text-gray-500">
+                        <h3 className="font-bold text-navy text-sm">{schedule.clientName || 'Cliente'}</h3>
+                        <div className="flex items-center space-x-4 mt-1 text-sm text-navy-3">
                           <span className="flex items-center"><Clock className="mr-1.5 h-3.5 w-3.5" /> 
                             {schedule.scheduledAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                           </span>
@@ -599,7 +599,7 @@ export function Schedules() {
                            Iniciar
                          </Button>
                        )}
-                       <Button variant="ghost" size="sm" onClick={() => handleEdit(schedule)} className="text-gray-500 hover:bg-gray-50">
+                       <Button variant="ghost" size="sm" onClick={() => handleEdit(schedule)} className="text-navy-3 hover:bg-surface-hover">
                          <Edit2 className="h-4 w-4" />
                        </Button>
                        <Button variant="ghost" size="sm" onClick={() => handleDelete(schedule.id)} className="text-red-500 hover:bg-red-50">
@@ -615,19 +615,19 @@ export function Schedules() {
 
         {pastSchedules.length > 0 && (
           <section>
-            <h2 className="text-lg font-semibold text-gray-600 mb-4">Finalizados recentemente</h2>
+            <h2 className="text-lg font-semibold text-navy-2 mb-4">Finalizados recentemente</h2>
             <div className="space-y-2">
               {pastSchedules.map(schedule => (
-                 <div key={schedule.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-100 opacity-60">
+                 <div key={schedule.id} className="flex items-center justify-between p-3 bg-surface rounded-lg border border-default opacity-60">
                    <div className="flex items-center space-x-3">
-                     <CheckCircle className="h-4 w-4 text-gray-400" />
-                     <span className="text-sm font-medium text-gray-700">{schedule.clientName}</span>
-                     <span className="text-xs text-gray-500">{formatDateTime(schedule.scheduledAt)}</span>
+                     <CheckCircle className="h-4 w-4 text-navy-3" />
+                     <span className="text-sm font-medium text-navy-2">{schedule.clientName}</span>
+                     <span className="text-xs text-navy-3">{formatDateTime(schedule.scheduledAt)}</span>
                    </div>
                    {schedule.status === 'completed' ? (
                      <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">CONCLUÍDO</span>
                    ) : (
-                     <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-bold uppercase">{schedule.status}</span>
+                     <span className="text-[10px] bg-surface-sunken text-navy-3 px-2 py-0.5 rounded-full font-bold uppercase">{schedule.status}</span>
                    )}
                  </div>
               ))}
@@ -643,19 +643,19 @@ export function Schedules() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <Card role="dialog" aria-modal="true" aria-labelledby="schedule-modal-title" className="w-full max-w-lg shadow-2xl">
             <CardContent className="p-6">
-              <h3 id="schedule-modal-title" className="text-xl font-bold text-gray-900 mb-6">
+              <h3 id="schedule-modal-title" className="text-xl font-bold text-navy mb-6">
                 {isEditing ? 'Editar Agendamento' : 'Agendar Nova Inspeção'}
               </h3>
               <form onSubmit={handleSchedule} className="space-y-4">
                 <div className="space-y-2">
-                  <label htmlFor="schedule-client-search" className="text-sm font-medium text-gray-700 flex items-center">
-                    <User className="mr-2 h-4 w-4 text-gray-400" aria-hidden="true" /> Cliente
+                  <label htmlFor="schedule-client-search" className="text-sm font-medium text-navy-2 flex items-center">
+                    <User className="mr-2 h-4 w-4 text-navy-3" aria-hidden="true" /> Cliente
                     {clientOptionalForEdit && (
-                      <span className="ml-1.5 font-normal text-gray-400">(opcional — briefing sem cliente)</span>
+                      <span className="ml-1.5 font-normal text-navy-3">(opcional — briefing sem cliente)</span>
                     )}
                   </label>
                   {clientOptionalForEdit && !selectedClientId && (
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-navy-3">
                       Este briefing não tem cliente vinculado. Deixe em branco para manter assim, ou busque abaixo para vincular agora.
                     </p>
                   )}
@@ -668,25 +668,25 @@ export function Schedules() {
                       setClientSearch(e.target.value);
                       setSelectedClientId('');
                     }}
-                    className="w-full rounded-xl border border-gray-300 p-3 text-sm placeholder:text-gray-500"
+                    className="w-full rounded-xl border border-control p-3 text-sm placeholder:text-navy-3"
                   />
-                  <div className="max-h-44 overflow-y-auto rounded-xl border border-gray-200 bg-white">
+                  <div className="max-h-44 overflow-y-auto rounded-xl border border-default bg-surface">
                     {filteredClients.length > 0 ? (
                       filteredClients.slice(0, 8).map((client) => (
                         <button
                           key={client.id}
                           type="button"
                           onClick={() => selectClient(client)}
-                          className={`flex w-full items-center justify-between gap-3 border-b border-gray-100 px-3 py-2 text-left text-sm last:border-b-0 hover:bg-primary-50 ${
-                            selectedClientId === client.id ? 'bg-primary-50 text-primary-700' : 'text-gray-700'
+                          className={`flex w-full items-center justify-between gap-3 border-b border-default px-3 py-2 text-left text-sm last:border-b-0 hover:bg-primary-50 ${
+                            selectedClientId === client.id ? 'bg-primary-50 text-primary-700' : 'text-navy-2'
                           }`}
                         >
                           <span className="font-medium">{client.name}</span>
-                          <span className="shrink-0 text-xs text-gray-500">{client.category?.toUpperCase()}</span>
+                          <span className="shrink-0 text-xs text-navy-3">{client.category?.toUpperCase()}</span>
                         </button>
                       ))
                     ) : (
-                      <div className="px-3 py-2 text-sm text-gray-500">Nenhum cliente encontrado.</div>
+                      <div className="px-3 py-2 text-sm text-navy-3">Nenhum cliente encontrado.</div>
                     )}
                   </div>
                   {selectedClient && (
@@ -698,8 +698,8 @@ export function Schedules() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label htmlFor="schedule-date" className="text-sm font-medium text-gray-700 flex items-center">
-                      <Calendar className="mr-2 h-4 w-4 text-gray-400" aria-hidden="true" /> Data
+                    <label htmlFor="schedule-date" className="text-sm font-medium text-navy-2 flex items-center">
+                      <Calendar className="mr-2 h-4 w-4 text-navy-3" aria-hidden="true" /> Data
                     </label>
                     {/* Sem data mínima: a equipe pode registrar visitas retroativas
                         para lançar relatórios de inspeções já realizadas. */}
@@ -709,12 +709,12 @@ export function Schedules() {
                       required
                       value={scheduledDate}
                       onChange={(e) => setScheduledDate(e.target.value)}
-                      className="w-full rounded-xl border border-gray-300 p-3 text-sm"
+                      className="w-full rounded-xl border border-control p-3 text-sm"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label htmlFor="schedule-time" className="text-sm font-medium text-gray-700 flex items-center">
-                      <Clock className="mr-2 h-4 w-4 text-gray-400" aria-hidden="true" /> Horário
+                    <label htmlFor="schedule-time" className="text-sm font-medium text-navy-2 flex items-center">
+                      <Clock className="mr-2 h-4 w-4 text-navy-3" aria-hidden="true" /> Horário
                     </label>
                     <input
                       id="schedule-time"
@@ -722,13 +722,13 @@ export function Schedules() {
                       required
                       value={scheduledTime}
                       onChange={(e) => setScheduledTime(e.target.value)}
-                      className="w-full rounded-xl border border-gray-300 p-3 text-sm"
+                      className="w-full rounded-xl border border-control p-3 text-sm"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <span id="schedule-attendance-label" className="text-sm font-medium text-gray-700">
+                  <span id="schedule-attendance-label" className="text-sm font-medium text-navy-2">
                     Modalidade <span className="text-red-500">*</span>
                   </span>
                   <div className="grid grid-cols-2 gap-2" role="group" aria-labelledby="schedule-attendance-label">
@@ -736,7 +736,7 @@ export function Schedules() {
                       type="button"
                       onClick={() => setAttendanceMode('presencial')}
                       aria-pressed={attendanceMode === 'presencial'}
-                      className={`h-11 rounded-xl border text-sm font-bold ${attendanceMode === 'presencial' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600'}`}
+                      className={`h-11 rounded-xl border text-sm font-bold ${attendanceMode === 'presencial' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-default text-navy-2'}`}
                     >
                       Presencial
                     </button>
@@ -744,28 +744,28 @@ export function Schedules() {
                       type="button"
                       onClick={() => setAttendanceMode('online')}
                       aria-pressed={attendanceMode === 'online'}
-                      className={`h-11 rounded-xl border text-sm font-bold ${attendanceMode === 'online' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600'}`}
+                      className={`h-11 rounded-xl border text-sm font-bold ${attendanceMode === 'online' ? 'border-primary-600 bg-primary-50 text-primary-700' : 'border-default text-navy-2'}`}
                     >
                       Online
                     </button>
                   </div>
-                  <p className="text-xs text-gray-500">Define a margem de conflito reservada na agenda: presencial reserva deslocamento, online só a troca entre chamadas.</p>
+                  <p className="text-xs text-navy-3">Define a margem de conflito reservada na agenda: presencial reserva deslocamento, online só a troca entre chamadas.</p>
                 </div>
 
                 {!isEditing && (
-                  <div className="space-y-2 rounded-xl border border-gray-200 bg-gray-50 p-3">
-                    <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                  <div className="space-y-2 rounded-xl border border-default bg-surface-sunken p-3">
+                    <label className="flex items-center gap-2 text-sm font-medium text-navy-2">
                       <input
                         type="checkbox"
                         checked={repeatMonthly}
                         onChange={(e) => setRepeatMonthly(e.target.checked)}
-                        className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        className="h-4 w-4 rounded border-control text-primary-600 focus:ring-primary-500"
                       />
                       Repetir mensalmente (mesmo dia/horário)
                     </label>
                     {repeatMonthly && (
                       <div className="flex items-center gap-2 pl-6">
-                        <label htmlFor="schedule-repeat-count" className="text-sm text-gray-600">Quantas visitas:</label>
+                        <label htmlFor="schedule-repeat-count" className="text-sm text-navy-2">Quantas visitas:</label>
                         <input
                           id="schedule-repeat-count"
                           type="number"
@@ -773,16 +773,16 @@ export function Schedules() {
                           max={12}
                           value={repeatCount}
                           onChange={(e) => setRepeatCount(Math.min(12, Math.max(2, Number(e.target.value) || 2)))}
-                          className="w-20 rounded-lg border border-gray-300 p-2 text-sm"
+                          className="w-20 rounded-lg border border-control p-2 text-sm"
                         />
-                        <span className="text-xs text-gray-500">(cria {repeatCount} agendamentos independentes, um por mês)</span>
+                        <span className="text-xs text-navy-3">(cria {repeatCount} agendamentos independentes, um por mês)</span>
                       </div>
                     )}
                   </div>
                 )}
 
                 <div className="space-y-2">
-                  <span id="schedule-consultants-label" className="text-sm font-medium text-gray-700">Consultora(s) responsável(is)</span>
+                  <span id="schedule-consultants-label" className="text-sm font-medium text-navy-2">Consultora(s) responsável(is)</span>
                   <div className="flex flex-wrap gap-2" role="group" aria-labelledby="schedule-consultants-label">
                     {CONSULTANTS.map((name) => {
                       const active = selectedConsultants.includes(name);
@@ -795,7 +795,7 @@ export function Schedules() {
                           className={`min-h-11 rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
                             active
                               ? 'bg-primary-600 text-white shadow-sm'
-                              : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                              : 'border border-default bg-surface text-navy-2 hover:bg-surface-hover'
                           }`}
                         >
                           {name}
@@ -803,17 +803,17 @@ export function Schedules() {
                       );
                     })}
                   </div>
-                  <p className="text-xs text-gray-500">A inspeção criada a partir desta visita herda quem você marcar aqui.</p>
+                  <p className="text-xs text-navy-3">A inspeção criada a partir desta visita herda quem você marcar aqui.</p>
                 </div>
 
                 <div className="space-y-2">
-                  <label htmlFor="schedule-notes" className="text-sm font-medium text-gray-700">Observações (Opcional)</label>
+                  <label htmlFor="schedule-notes" className="text-sm font-medium text-navy-2">Observações (Opcional)</label>
                   <textarea
                     id="schedule-notes"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     rows={3}
-                    className="w-full rounded-xl border border-gray-300 p-3 text-sm placeholder:text-gray-500"
+                    className="w-full rounded-xl border border-control p-3 text-sm placeholder:text-navy-3"
                     placeholder="Ex: Levar checklist extra..."
                   />
                 </div>

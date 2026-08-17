@@ -60,7 +60,7 @@ export function ActiveRequestsSection({
         onClick={onToggleShow}
         aria-expanded={show}
         aria-controls="active-requests-list"
-        className="mb-4 flex items-center text-lg font-semibold text-gray-900 hover:text-primary-700"
+        className="mb-4 flex items-center text-lg font-semibold text-navy hover:text-primary-700"
       >
         <CheckCircle className="mr-2 h-5 w-5 text-primary-600" />
         Solicitações ativas
@@ -69,14 +69,14 @@ export function ActiveRequestsSection({
             {active.length}
           </span>
         )}
-        <span className="ml-2 text-sm text-gray-500" aria-hidden="true">{show ? '▾' : '▸'}</span>
+        <span className="ml-2 text-sm text-navy-3" aria-hidden="true">{show ? '▾' : '▸'}</span>
       </button>
 
       {show && (
         <div id="active-requests-list">
           {active.length === 0 ? (
-            <Card className="border-dashed bg-gray-50 py-10 text-center">
-              <p className="text-sm text-gray-500">Nenhuma solicitação ativa no momento.</p>
+            <Card className="border-dashed bg-surface-sunken py-10 text-center">
+              <p className="text-sm text-navy-3">Nenhuma solicitação ativa no momento.</p>
             </Card>
           ) : (
             <div className="grid gap-4">

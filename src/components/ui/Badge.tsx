@@ -11,8 +11,8 @@ export function Badge({ className, variant = 'default', ...props }: BadgeProps) 
     success: 'bg-green-100 text-green-800',
     warning: 'bg-yellow-100 text-yellow-800',
     danger: 'bg-red-100 text-red-800',
-    neutral: 'bg-gray-100 text-gray-800',
-    outline: 'border border-gray-300 text-gray-800',
+    neutral: 'bg-surface-sunken text-navy',
+    outline: 'border border-control text-navy',
   };
 
   return (

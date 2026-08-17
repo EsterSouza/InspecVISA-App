@@ -52,22 +52,22 @@ export function Drawer({ isOpen, onClose, title, children, footer, side = 'right
       onClose={handleClose}
       onClick={handleBackdropClick}
       className={cn(
-        'h-dvh max-h-dvh w-full max-w-[420px] overflow-hidden bg-white p-0 text-gray-900 shadow-2xl',
+        'h-dvh max-h-dvh w-full max-w-[420px] overflow-hidden bg-surface p-0 text-navy shadow-2xl',
         'backdrop:bg-navy/50',
         'my-0',
         side === 'right'
-          ? 'ml-auto mr-0 border-l border-gray-200 animate-in slide-in-from-right duration-200'
-          : 'ml-0 mr-auto border-r border-gray-200 animate-in slide-in-from-left duration-200',
+          ? 'ml-auto mr-0 border-l border-default animate-in slide-in-from-right duration-200'
+          : 'ml-0 mr-auto border-r border-default animate-in slide-in-from-left duration-200',
         className
       )}
     >
       <div className="flex h-full flex-col">
-        <div className="flex flex-none items-center justify-between gap-3 border-b border-gray-200 px-5 py-4">
-          <div className="min-w-0 text-base font-semibold text-gray-900">{title}</div>
+        <div className="flex flex-none items-center justify-between gap-3 border-b border-default px-5 py-4">
+          <div className="min-w-0 text-base font-semibold text-navy">{title}</div>
           <button
             onClick={onClose}
             aria-label="Fechar"
-            className="flex-none rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-500"
+            className="flex-none rounded-full p-2 text-navy-3 transition-colors hover:bg-surface-active hover:text-navy-3"
           >
             <X className="h-5 w-5" />
           </button>
@@ -75,7 +75,7 @@ export function Drawer({ isOpen, onClose, title, children, footer, side = 'right
 
         <div className="flex-1 overflow-y-auto p-5">{children}</div>
 
-        {footer && <div className="flex-none border-t border-gray-200 bg-gray-50 px-5 py-4">{footer}</div>}
+        {footer && <div className="flex-none border-t border-default bg-surface-sunken px-5 py-4">{footer}</div>}
       </div>
     </dialog>
   );

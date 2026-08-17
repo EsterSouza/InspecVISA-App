@@ -41,7 +41,7 @@ const WEIGHT_LABELS: Record<number, { label: string; color: string; bg: string }
   10: { label: 'Imprescindível', color: 'text-red-700', bg: 'bg-red-50 border-red-200' },
   5:  { label: 'Necessário',     color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200' },
   2:  { label: 'Recomendado',    color: 'text-blue-700', bg: 'bg-blue-50 border-blue-200' },
-  1:  { label: 'Sugerido',       color: 'text-gray-600', bg: 'bg-gray-50 border-gray-200' },
+  1:  { label: 'Sugerido',       color: 'text-navy-2', bg: 'bg-surface-sunken border-default' },
 };
 
 function getWeightInfo(weight?: number) {
@@ -153,9 +153,9 @@ export function TemplateDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-surface-sunken">
       {/* ── HEADER ─────────────────────────────────────────── */}
-      <div className="sticky top-0 z-20 bg-white border-b border-gray-100 shadow-sm">
+      <div className="sticky top-0 z-20 bg-surface border-b border-default shadow-sm">
         <div className="max-w-[1600px] mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" onClick={() => navigate('/templates')} className="rounded-xl shrink-0">
@@ -163,9 +163,9 @@ export function TemplateDetail() {
             </Button>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-lg font-bold text-gray-900 truncate">{template.name}</h1>
+                <h1 className="text-lg font-bold text-navy truncate">{template.name}</h1>
                 {template.isStatic && (
-                  <span className="flex items-center gap-1 text-[10px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full font-semibold shrink-0">
+                  <span className="flex items-center gap-1 text-[10px] text-navy-3 bg-surface-sunken px-2 py-0.5 rounded-full font-semibold shrink-0">
                     <Lock className="h-3 w-3" /> Padrão — somente leitura
                   </span>
                 )}
@@ -175,7 +175,7 @@ export function TemplateDetail() {
                   {CATEGORY_LABELS[template.category] || template.category}
                 </Badge>
                 {template.version && (
-                  <span className="text-[10px] text-gray-400 font-semibold">v{template.version}</span>
+                  <span className="text-[10px] text-navy-3 font-semibold">v{template.version}</span>
                 )}
               </div>
             </div>
@@ -190,7 +190,7 @@ export function TemplateDetail() {
             </button>
             <button
               onClick={collapseAll}
-              className="text-xs text-gray-500 hover:text-gray-700 font-semibold px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+              className="text-xs text-navy-3 hover:text-navy-2 font-semibold px-3 py-1.5 rounded-lg hover:bg-surface-active transition-colors"
             >
               Recolher tudo
             </button>
@@ -208,15 +208,15 @@ export function TemplateDetail() {
               { icon: CheckCircle2, label: 'Itens Totais', value: stats.total, color: 'text-blue-600', bg: 'bg-blue-50' },
               { icon: AlertTriangle, label: 'Itens Críticos', value: stats.critical, color: 'text-red-600', bg: 'bg-red-50' },
               { icon: BookOpen, label: 'Com Legislação', value: stats.withLegislation, color: 'text-green-600', bg: 'bg-green-50' },
-              { icon: Archive, label: 'Aposentados', value: stats.retired, color: 'text-gray-500', bg: 'bg-gray-100' },
+              { icon: Archive, label: 'Aposentados', value: stats.retired, color: 'text-navy-3', bg: 'bg-surface-sunken' },
             ].map(({ icon: Icon, label, value, color, bg }) => (
-              <div key={label} className="bg-white rounded-2xl border border-gray-100 p-5 flex items-center gap-4 shadow-sm">
+              <div key={label} className="bg-surface rounded-2xl border border-default p-5 flex items-center gap-4 shadow-sm">
                 <div className={`h-10 w-10 rounded-xl ${bg} flex items-center justify-center shrink-0`}>
                   <Icon className={`h-5 w-5 ${color}`} />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-gray-900">{value}</p>
-                  <p className="text-xs text-gray-500 font-medium">{label}</p>
+                  <p className="text-2xl font-bold text-navy">{value}</p>
+                  <p className="text-xs text-navy-3 font-medium">{label}</p>
                 </div>
               </div>
             ))}
@@ -225,7 +225,7 @@ export function TemplateDetail() {
 
         {/* ── LEGEND ────────────────────────────────────────── */}
         <div className="flex flex-wrap gap-3 items-center">
-          <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Legenda de peso:</span>
+          <span className="text-xs text-navy-3 font-semibold uppercase tracking-wider">Legenda de peso:</span>
           {Object.entries(WEIGHT_LABELS).map(([w, info]) => (
             <span key={w} className={`text-[11px] font-semibold border rounded-full px-2.5 py-0.5 ${info.color} ${info.bg}`}>
               {info.label}
@@ -246,11 +246,11 @@ export function TemplateDetail() {
             return (
               <div
                 key={section.id}
-                className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-all"
+                className="bg-surface rounded-2xl border border-default shadow-sm overflow-hidden transition-all"
               >
                 {/* Section header */}
                 <button
-                  className="w-full flex items-center justify-between p-5 hover:bg-gray-50 transition-colors text-left"
+                  className="w-full flex items-center justify-between p-5 hover:bg-surface-hover transition-colors text-left"
                   onClick={() => toggleSection(section.id)}
                 >
                   <div className="flex items-center gap-3 min-w-0">
@@ -258,9 +258,9 @@ export function TemplateDetail() {
                       <span className="text-sm font-bold text-primary-600">{idx + 1}</span>
                     </div>
                     <div className="min-w-0">
-                      <h3 className="font-bold text-gray-900 text-sm truncate">{section.title}</h3>
+                      <h3 className="font-bold text-navy text-sm truncate">{section.title}</h3>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[11px] text-gray-400">{items.length} itens</span>
+                        <span className="text-[11px] text-navy-3">{items.length} itens</span>
                         {criticalCount > 0 && (
                           <span className="text-[11px] text-red-600 font-semibold flex items-center gap-0.5">
                             <AlertTriangle className="h-3 w-3" /> {criticalCount} críticos
@@ -271,17 +271,17 @@ export function TemplateDetail() {
                   </div>
                   <div className="shrink-0 ml-4">
                     {isExpanded
-                      ? <ChevronDown className="h-5 w-5 text-gray-400" />
-                      : <ChevronRight className="h-5 w-5 text-gray-400" />
+                      ? <ChevronDown className="h-5 w-5 text-navy-3" />
+                      : <ChevronRight className="h-5 w-5 text-navy-3" />
                     }
                   </div>
                 </button>
 
                 {/* Items list */}
                 {isExpanded && (
-                  <div className="border-t border-gray-50 divide-y divide-gray-50">
+                  <div className="border-t border-default divide-y divide-surface-sunken">
                     {items.length === 0 ? (
-                      <div className="px-6 py-6 text-center text-sm text-gray-400 italic">
+                      <div className="px-6 py-6 text-center text-sm text-navy-3 italic">
                         Nenhum item nesta seção.
                       </div>
                     ) : (
@@ -290,21 +290,21 @@ export function TemplateDetail() {
                         return (
                           <div
                             key={item.id}
-                            className={`px-5 py-4 flex gap-4 hover:bg-gray-50/70 transition-colors ${item.isCritical ? 'border-l-2 border-red-400' : ''} ${item.retiredAt ? 'opacity-60' : ''}`}
+                            className={`px-5 py-4 flex gap-4 hover:bg-surface-hover/70 transition-colors ${item.isCritical ? 'border-l-2 border-red-400' : ''} ${item.retiredAt ? 'opacity-60' : ''}`}
                           >
                             {/* Item number */}
                             <div className="shrink-0 w-7 pt-0.5 text-right">
-                              <span className="text-xs font-bold text-gray-300">{itemIdx + 1}</span>
+                              <span className="text-xs font-bold text-navy-3">{itemIdx + 1}</span>
                             </div>
 
                             {/* Item content */}
                             <div className="flex-1 min-w-0 space-y-2">
-                              <p className={`text-sm leading-relaxed ${item.retiredAt ? 'text-gray-500 line-through' : 'text-gray-800'}`}>{item.description}</p>
+                              <p className={`text-sm leading-relaxed ${item.retiredAt ? 'text-navy-3 line-through' : 'text-navy'}`}>{item.description}</p>
 
                               <div className="flex flex-wrap gap-2 items-center">
                                 {/* Retired badge */}
                                 {item.retiredAt && (
-                                  <span className="flex items-center gap-0.5 text-[10px] font-bold text-gray-500 bg-gray-100 border border-gray-200 rounded-full px-2 py-0.5">
+                                  <span className="flex items-center gap-0.5 text-[10px] font-bold text-navy-3 bg-surface-sunken border border-default rounded-full px-2 py-0.5">
                                     <Archive className="h-2.5 w-2.5" /> APOSENTADO
                                   </span>
                                 )}
@@ -323,8 +323,8 @@ export function TemplateDetail() {
 
                                 {/* Legislation */}
                                 {item.legislation && (
-                                  <span className="flex items-center gap-1 text-[10px] text-gray-500 font-medium">
-                                    <Scale className="h-3 w-3 text-gray-400 shrink-0" />
+                                  <span className="flex items-center gap-1 text-[10px] text-navy-3 font-medium">
+                                    <Scale className="h-3 w-3 text-navy-3 shrink-0" />
                                     <span className="truncate max-w-[300px]">{item.legislation}</span>
                                   </span>
                                 )}

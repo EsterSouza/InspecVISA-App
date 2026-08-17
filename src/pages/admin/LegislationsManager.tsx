@@ -334,14 +334,14 @@ export function LegislationsManager() {
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <div className="relative flex-1 sm:max-w-xs">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-3" />
           <input
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por número, órgão ou assunto"
             aria-label="Buscar legislação"
-            className="h-10 w-full rounded-md border border-gray-300 pl-9 pr-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="h-10 w-full rounded-md border border-control pl-9 pr-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
           />
         </div>
         <select
@@ -349,7 +349,7 @@ export function LegislationsManager() {
           onChange={(e) => setEsfera(e.target.value)}
           aria-label="Esfera"
           disabled={rowsAreGaps}
-          className="h-10 rounded-md border border-gray-300 bg-white px-3 text-sm disabled:opacity-50"
+          className="h-10 rounded-md border border-control bg-surface px-3 text-sm disabled:opacity-50"
         >
           <option value="">Todas as esferas</option>
           <option value="federal">Federal</option>
@@ -362,14 +362,14 @@ export function LegislationsManager() {
           onChange={(e) => setOrgao(e.target.value)}
           aria-label="Órgão"
           disabled={rowsAreGaps}
-          className="h-10 rounded-md border border-gray-300 bg-white px-3 text-sm disabled:opacity-50"
+          className="h-10 rounded-md border border-control bg-surface px-3 text-sm disabled:opacity-50"
         >
           <option value="">Todos os órgãos</option>
           {authorityOptions.map((a) => (
             <option key={a} value={a}>{a}</option>
           ))}
         </select>
-        <div className="inline-flex gap-0.5 rounded-md border border-gray-200 bg-gray-50 p-0.5">
+        <div className="inline-flex gap-0.5 rounded-md border border-default bg-surface-sunken p-0.5">
           {(Object.keys(SEGMENT_LABELS) as Segment[]).map((key) => (
             <button
               key={key}
@@ -377,7 +377,7 @@ export function LegislationsManager() {
               aria-pressed={segment === key}
               onClick={() => setSegment(key)}
               className={`rounded px-3 py-1.5 text-sm font-semibold transition-colors ${
-                segment === key ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-500 hover:text-gray-900'
+                segment === key ? 'bg-surface text-primary-700 shadow-sm' : 'text-navy-3 hover:text-navy'
               }`}
             >
               {SEGMENT_LABELS[key]} <span className="tabular-nums">{counts[key]}</span>
@@ -393,7 +393,7 @@ export function LegislationsManager() {
       )}
 
       {loadError ? (
-        <div className="rounded-md border border-gray-200 bg-white">
+        <div className="rounded-md border border-default bg-surface">
           <EmptyState
             role="alert"
             icon={<AlertTriangle className="h-8 w-8 text-red-500" />}
@@ -472,10 +472,10 @@ export function LegislationsManager() {
                   pagedGaps.map((gap) => (
                     <TableRow key={gap.key}>
                       <TableCell primary>{gap.name}</TableCell>
-                      <TableCell><span className="text-gray-400">—</span></TableCell>
-                      <TableCell><span className="text-gray-400">—</span></TableCell>
+                      <TableCell><span className="text-navy-3">—</span></TableCell>
+                      <TableCell><span className="text-navy-3">—</span></TableCell>
                       <TableCell className="max-w-[320px]">
-                        <p className="truncate text-xs text-gray-500">{gap.templateNames.join(' · ')}</p>
+                        <p className="truncate text-xs text-navy-3">{gap.templateNames.join(' · ')}</p>
                       </TableCell>
                       <TableCell align="right">{gap.count}</TableCell>
                       <TableCell>
@@ -539,7 +539,7 @@ export function LegislationsManager() {
                     </TableCell>
                     <TableCell>{leg.uf ? `Estadual — ${leg.uf}` : 'Federal'}</TableCell>
                     <TableCell className="max-w-[320px]">
-                      <p className="truncate text-gray-700">{leg.summary || '—'}</p>
+                      <p className="truncate text-navy-2">{leg.summary || '—'}</p>
                     </TableCell>
                     <TableCell align="right">{linkedCount(leg)}</TableCell>
                     <TableCell>
@@ -610,21 +610,21 @@ export function LegislationsManager() {
               <p className="rounded-md bg-amber-soft p-2 text-xs font-bold text-amber-soft-ink">PADRÃO (não persistido)</p>
             )}
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Resumo</p>
-              <p className="mt-1 text-gray-800">{detailEntry.summary || 'Sem resumo disponível.'}</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-navy-3">Resumo</p>
+              <p className="mt-1 text-navy">{detailEntry.summary || 'Sem resumo disponível.'}</p>
             </div>
             <div className="flex flex-wrap gap-x-6 gap-y-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Autoria</p>
-                <p className="mt-1 text-gray-800">{detailEntry.authority || '—'}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-navy-3">Autoria</p>
+                <p className="mt-1 text-navy">{detailEntry.authority || '—'}</p>
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Esfera</p>
-                <p className="mt-1 text-gray-800">{detailEntry.uf ? `Estadual — ${detailEntry.uf}` : 'Federal'}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-navy-3">Esfera</p>
+                <p className="mt-1 text-navy">{detailEntry.uf ? `Estadual — ${detailEntry.uf}` : 'Federal'}</p>
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Vigência</p>
-                <p className="mt-1 text-gray-800">
+                <p className="text-xs font-semibold uppercase tracking-wide text-navy-3">Vigência</p>
+                <p className="mt-1 text-navy">
                   {detailEntry.status === 'revogada' ? 'Revogada' : detailEntry.status === 'vigente_com_alteracoes' ? 'Vigente com alterações' : 'Vigente'}
                 </p>
               </div>
@@ -638,7 +638,7 @@ export function LegislationsManager() {
             )}
             {detailEntry.segments && detailEntry.segments.length > 0 && (
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Segmentos</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-navy-3">Segmentos</p>
                 <div className="mt-1 flex flex-wrap gap-1.5">
                   {detailEntry.segments.map(seg => (
                     <Badge key={seg} variant="neutral">{SEGMENT_OPTIONS.find(o => o.value === seg)?.label || seg}</Badge>
@@ -647,8 +647,8 @@ export function LegislationsManager() {
               </div>
             )}
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Itens ligados</p>
-              <p className="mt-1 text-gray-800">{linkedCount(detailEntry)} item(ns) de roteiro citam esta norma.</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-navy-3">Itens ligados</p>
+              <p className="mt-1 text-navy">{linkedCount(detailEntry)} item(ns) de roteiro citam esta norma.</p>
             </div>
             {detailEntry.url && (
               <a
@@ -662,8 +662,8 @@ export function LegislationsManager() {
             )}
             {detailEntry.research_notes && (
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Notas de pesquisa</p>
-                <p className="mt-1 whitespace-pre-wrap rounded-md border border-gray-100 bg-gray-50 p-3 text-xs text-gray-700">
+                <p className="text-xs font-semibold uppercase tracking-wide text-navy-3">Notas de pesquisa</p>
+                <p className="mt-1 whitespace-pre-wrap rounded-md border border-default bg-surface-sunken p-3 text-xs text-navy-2">
                   {detailEntry.research_notes}
                 </p>
               </div>
@@ -688,45 +688,45 @@ export function LegislationsManager() {
       >
         <div className="space-y-4">
           <div>
-            <label className="mb-1 block text-xs font-semibold text-gray-600">Nome (Ex: RDC nº 63/2011) *</label>
+            <label className="mb-1 block text-xs font-semibold text-navy-2">Nome (Ex: RDC nº 63/2011) *</label>
             <input
-              className="w-full rounded-lg border border-gray-200 p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+              className="w-full rounded-lg border border-control p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-semibold text-gray-600">Resumo ou ementa *</label>
+            <label className="mb-1 block text-xs font-semibold text-navy-2">Resumo ou ementa *</label>
             <textarea
-              className="h-24 w-full resize-none rounded-lg border border-gray-200 p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+              className="h-24 w-full resize-none rounded-lg border border-control p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
               value={form.summary}
               onChange={(e) => setForm({ ...form, summary: e.target.value })}
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-semibold text-gray-600">URL do documento oficial</label>
+            <label className="mb-1 block text-xs font-semibold text-navy-2">URL do documento oficial</label>
             <input
-              className="w-full rounded-lg border border-gray-200 p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+              className="w-full rounded-lg border border-control p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
               value={form.url}
               onChange={(e) => setForm({ ...form, url: e.target.value })}
               placeholder="https://..."
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-semibold text-gray-600">Autoria (entra na citação do relatório)</label>
+            <label className="mb-1 block text-xs font-semibold text-navy-2">Autoria (entra na citação do relatório)</label>
             <input
-              className="w-full rounded-lg border border-gray-200 p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+              className="w-full rounded-lg border border-control p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
               value={form.authority}
               onChange={(e) => setForm({ ...form, authority: e.target.value })}
               placeholder="Ex: BRASIL. Ministério da Saúde"
             />
-            <p className="mt-1 text-xs text-gray-500">Sem autoria a norma é citada só pelo nome. O relatório nunca deduz o órgão.</p>
+            <p className="mt-1 text-xs text-navy-3">Sem autoria a norma é citada só pelo nome. O relatório nunca deduz o órgão.</p>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-xs font-semibold text-gray-600">UF (estadual/municipal)</label>
+              <label className="mb-1 block text-xs font-semibold text-navy-2">UF (estadual/municipal)</label>
               <select
-                className="w-full rounded-lg border border-gray-200 bg-white p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+                className="w-full rounded-lg border border-control bg-surface p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
                 value={toUF(form.uf)}
                 onChange={(e) => setForm({ ...form, uf: e.target.value })}
               >
@@ -737,9 +737,9 @@ export function LegislationsManager() {
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-gray-600">Situação</label>
+              <label className="mb-1 block text-xs font-semibold text-navy-2">Situação</label>
               <select
-                className="w-full rounded-lg border border-gray-200 bg-white p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+                className="w-full rounded-lg border border-control bg-surface p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
                 value={form.status}
                 onChange={(e) => setForm({ ...form, status: e.target.value as LegislationStatus })}
               >
@@ -749,9 +749,9 @@ export function LegislationsManager() {
           </div>
           {form.status === 'revogada' && (
             <div>
-              <label className="mb-1 block text-xs font-semibold text-gray-600">Substituída por</label>
+              <label className="mb-1 block text-xs font-semibold text-navy-2">Substituída por</label>
               <input
-                className="w-full rounded-lg border border-gray-200 p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+                className="w-full rounded-lg border border-control p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
                 value={form.replacedBy}
                 onChange={(e) => setForm({ ...form, replacedBy: e.target.value })}
                 placeholder="Ex: RDC Anvisa nº 222/2018 — deixe em branco se não houver substituto"
@@ -759,7 +759,7 @@ export function LegislationsManager() {
             </div>
           )}
           <div>
-            <label className="mb-1 block text-xs font-semibold text-gray-600">Segmentos aplicáveis (vazio = todos)</label>
+            <label className="mb-1 block text-xs font-semibold text-navy-2">Segmentos aplicáveis (vazio = todos)</label>
             <div className="flex flex-wrap gap-2">
               {SEGMENT_OPTIONS.map(opt => (
                 <button
@@ -769,7 +769,7 @@ export function LegislationsManager() {
                   className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
                     form.segments.includes(opt.value)
                       ? 'border-primary-300 bg-primary-50 text-primary-700'
-                      : 'border-gray-200 bg-gray-50 text-gray-400'
+                      : 'border-default bg-surface-sunken text-navy-3'
                   }`}
                 >
                   {opt.label}
@@ -778,14 +778,14 @@ export function LegislationsManager() {
             </div>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-semibold text-gray-600">Notas de pesquisa (artigos consultados, trechos, decisões)</label>
+            <label className="mb-1 block text-xs font-semibold text-navy-2">Notas de pesquisa (artigos consultados, trechos, decisões)</label>
             <textarea
-              className="h-28 w-full resize-y rounded-lg border border-gray-200 p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+              className="h-28 w-full resize-y rounded-lg border border-control p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
               value={form.researchNotes}
               onChange={(e) => setForm({ ...form, researchNotes: e.target.value })}
               placeholder="Ex.: Art. 25 trata de circulações internas — largura mínima 1,00m..."
             />
-            <p className="mt-1 text-xs text-gray-500">Cache de pesquisa: guarde aqui o que já foi lido dessa norma para não pesquisar de novo depois.</p>
+            <p className="mt-1 text-xs text-navy-3">Cache de pesquisa: guarde aqui o que já foi lido dessa norma para não pesquisar de novo depois.</p>
           </div>
         </div>
       </Drawer>

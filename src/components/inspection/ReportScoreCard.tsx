@@ -41,7 +41,7 @@ export function ReportScoreCard({ template, responses, previousVisit, isIlpi, re
 
   return (
     <Card>
-      <div className="border-b border-gray-200 px-5 py-3.5">
+      <div className="border-b border-default px-5 py-3.5">
         <h2 className="text-sm font-semibold text-navy">Resultado</h2>
       </div>
       <div className="px-5 py-6 text-center">
@@ -64,10 +64,10 @@ export function ReportScoreCard({ template, responses, previousVisit, isIlpi, re
           </p>
         )}
       </div>
-      <div className="border-t border-gray-200">
+      <div className="border-t border-default">
         {split && (
           <>
-            <div className="flex items-center gap-3 border-b border-gray-100 px-5 py-2">
+            <div className="flex items-center gap-3 border-b border-default px-5 py-2">
               <span className="min-w-0 flex-1 truncate text-sm text-navy-2">
                 {areas.sanitary.areaLabel}
                 {areas.sanitary.consultant && <span className="text-navy-3"> · {areas.sanitary.consultant.split(/\s+/)[0]}</span>}
@@ -77,7 +77,7 @@ export function ReportScoreCard({ template, responses, previousVisit, isIlpi, re
                 <DeltaChip current={areas.sanitary.score.scorePercentage} previous={previousVisit.sanitary} />
               )}
             </div>
-            <div className="flex items-center gap-3 border-b border-gray-100 px-5 py-2">
+            <div className="flex items-center gap-3 border-b border-default px-5 py-2">
               <span className="min-w-0 flex-1 truncate text-sm text-navy-2">
                 {areas.nutrition.areaLabel}
                 {areas.nutrition.consultant && <span className="text-navy-3"> · {areas.nutrition.consultant.split(/\s+/)[0]}</span>}
@@ -89,7 +89,7 @@ export function ReportScoreCard({ template, responses, previousVisit, isIlpi, re
             </div>
           </>
         )}
-        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-2">
+        <div className="flex items-center justify-between border-b border-default px-5 py-2">
           <span className="text-sm text-navy-2">Não conformidades críticas</span>
           <span className="font-semibold tabular-nums text-danger-soft-ink">{score.criticalNotCompliesCount}</span>
         </div>

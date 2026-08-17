@@ -199,17 +199,17 @@ export function Inspections() {
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="relative col-span-1 sm:col-span-2">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-navy-3" />
           <input
             type="text"
             placeholder="Buscar por cliente, consultor..."
-            className="h-10 w-full rounded-md border border-gray-300 pl-10 pr-4 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="h-10 w-full rounded-md border border-control pl-10 pr-4 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         <select
-          className="h-10 w-full rounded-md border border-gray-300 px-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 bg-white"
+          className="h-10 w-full rounded-md border border-control px-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 bg-surface"
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value as any)}
         >
@@ -230,16 +230,16 @@ export function Inspections() {
                 </h2>
                 <p className="text-xs text-amber-700">Relatórios permanecem aqui até serem restaurados ou excluídos definitivamente por você.</p>
               </div>
-              <Badge variant="outline" className="border-amber-300 bg-white text-amber-700">{deletedInspections.length}</Badge>
+              <Badge variant="outline" className="border-amber-300 bg-surface text-amber-700">{deletedInspections.length}</Badge>
             </div>
             {deletedInspections.length === 0 ? (
-              <p className="rounded-lg border border-amber-100 bg-white p-4 text-center text-sm text-gray-500">A Lixeira está vazia.</p>
+              <p className="rounded-lg border border-amber-100 bg-surface p-4 text-center text-sm text-navy-3">A Lixeira está vazia.</p>
             ) : <div className="space-y-2">
               {deletedInspections.map(insp => (
-                <div key={insp.id} className="flex items-center justify-between gap-3 rounded-lg border border-amber-100 bg-white p-3">
+                <div key={insp.id} className="flex items-center justify-between gap-3 rounded-lg border border-amber-100 bg-surface p-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-bold text-gray-900">{insp.clientName || 'Cliente'}</p>
-                    <p className="text-xs text-gray-500">{formatDateTime(insp.inspectionDate)} • excluída em {insp.deletedAt ? formatDateTime(insp.deletedAt) : '-'}</p>
+                    <p className="truncate text-sm font-bold text-navy">{insp.clientName || 'Cliente'}</p>
+                    <p className="text-xs text-navy-3">{formatDateTime(insp.inspectionDate)} • excluída em {insp.deletedAt ? formatDateTime(insp.deletedAt) : '-'}</p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     <Button size="sm" variant="outline" onClick={(e) => handleRestore(e, insp.id)} className="border-amber-300 text-amber-700 hover:bg-amber-50">
@@ -258,7 +258,7 @@ export function Inspections() {
         )}
 
         {loadError ? (
-          <div className="rounded-xl border border-gray-200 bg-white">
+          <div className="rounded-xl border border-default bg-surface">
             <EmptyState
               role="alert"
               icon={<AlertTriangle className="h-8 w-8 text-red-500" />}
@@ -286,7 +286,7 @@ export function Inspections() {
             ))}
           </div>
         ) : inspections.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50">
+          <div className="rounded-xl border border-dashed border-control bg-surface-sunken">
             {search || filterStatus !== 'all' ? (
               <EmptyState
                 icon={<FilterX className="h-8 w-8" />}
@@ -322,7 +322,7 @@ export function Inspections() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-center space-x-3">
-                      <h3 className="text-lg font-bold text-gray-900">{insp.clientName}</h3>
+                      <h3 className="text-lg font-bold text-navy">{insp.clientName}</h3>
                       {insp.status === 'in_progress' ? (
                         <Badge variant="warning" className="animate-pulse"><Activity className="mr-1 h-3 w-3" /> Em Andamento</Badge>
                       ) : (
@@ -330,9 +330,9 @@ export function Inspections() {
                       )}
                     </div>
                     
-                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-600">
+                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-navy-2">
                       <div className="flex items-center">
-                        <Calendar className="mr-2 h-4 w-4 text-gray-400" /> 
+                        <Calendar className="mr-2 h-4 w-4 text-navy-3" /> 
                         Início: {formatDateTime(insp.createdAt)}
                       </div>
                       {insp.completedAt && (
@@ -342,7 +342,7 @@ export function Inspections() {
                         </div>
                       )}
                       {insp.clientCategory && (
-                        <div className="col-span-1 sm:col-span-2 text-xs font-semibold text-gray-500 tracking-wider font-mono">
+                        <div className="col-span-1 sm:col-span-2 text-xs font-semibold text-navy-3 tracking-wider font-mono">
                           CATEGORIA: {insp.clientCategory.toUpperCase()}
                         </div>
                       )}
@@ -352,7 +352,7 @@ export function Inspections() {
                   <div className="flex items-center space-x-2">
                     <Button 
                       variant="outline" 
-                      className="bg-white"
+                      className="bg-surface"
                       onClick={(e) => {
                          e.stopPropagation();
                          navigate(insp.status === 'in_progress' ? '/execute' : '/summary', { state: { inspectionId: insp.id }});

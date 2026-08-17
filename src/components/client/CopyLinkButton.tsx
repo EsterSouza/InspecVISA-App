@@ -14,8 +14,8 @@ interface CopyLinkButtonProps {
   className?: string;
 }
 
-const fullClassName = 'inline-flex h-9 items-center gap-1.5 rounded-md border border-gray-200 px-3 text-xs font-semibold text-navy-2 hover:bg-gray-50 hover:text-primary-700';
-const compactClassName = 'inline-flex h-8 shrink-0 items-center gap-1 rounded-md border border-gray-200 px-2 text-[11px] font-semibold text-navy-2 hover:bg-gray-50 hover:text-primary-700';
+const fullClassName = 'inline-flex h-9 items-center gap-1.5 rounded-md border border-default px-3 text-xs font-semibold text-navy-2 hover:bg-surface-hover hover:text-primary-700';
+const compactClassName = 'inline-flex h-8 shrink-0 items-center gap-1 rounded-md border border-default px-2 text-[11px] font-semibold text-navy-2 hover:bg-surface-hover hover:text-primary-700';
 
 /** Botão de copiar link com feedback local — mesmo padrão usado em `ClientPortalManagement`. */
 export function CopyLinkButton({ url, label, variant = 'full', className }: CopyLinkButtonProps) {

@@ -19,7 +19,7 @@ export function ExecutionSectionIndex({ sections, activeId, onSelect }: {
 }) {
   return (
     <Card>
-      <div className="border-b border-gray-200 px-4 py-3">
+      <div className="border-b border-default px-4 py-3">
         <h2 className="text-sm font-semibold text-navy">Seções</h2>
       </div>
       <nav aria-label="Seções do roteiro">
@@ -32,12 +32,12 @@ export function ExecutionSectionIndex({ sections, activeId, onSelect }: {
               type="button"
               aria-current={activeId === section.id ? 'true' : undefined}
               onClick={() => onSelect(section.id)}
-              className={`flex w-full items-start gap-2 border-b border-gray-100 px-4 py-3 text-left last:border-b-0 hover:bg-gray-50 aria-[current]:bg-primary-50`}
+              className={`flex w-full items-start gap-2 border-b border-default px-4 py-3 text-left last:border-b-0 hover:bg-surface-hover aria-[current]:bg-primary-50`}
               style={{ minHeight: 44 }}
             >
               <span className="min-w-0 flex-1">
                 <span className="block text-sm text-navy">{section.label}</span>
-                <span className="mt-1.5 block h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+                <span className="mt-1.5 block h-1.5 w-full overflow-hidden rounded-full bg-surface-sunken">
                   <span
                     className={`block h-full rounded-full ${done ? 'bg-success' : 'bg-primary-700'}`}
                     style={{ width: `${pct}%` }}

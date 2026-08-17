@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 
 export function PublicHeader() {
   return (
-    <header className="border-b border-primary-100 bg-white">
+    <header className="border-b border-primary-100 bg-surface">
       <Link
         to="/cliente"
         className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-4 transition-opacity hover:opacity-85 sm:px-6"
@@ -13,7 +13,7 @@ export function PublicHeader() {
           className="h-11 w-11 rounded-xl shadow-sm"
         />
         <div>
-          <h1 className="text-lg font-bold leading-tight text-gray-900">InspecVISA</h1>
+          <h1 className="text-lg font-bold leading-tight text-navy">InspecVISA</h1>
           <p className="text-xs font-medium uppercase tracking-wide text-primary-700">
             HUB TREINAVISA SERVIÇOS
           </p>

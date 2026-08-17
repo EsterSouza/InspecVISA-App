@@ -35,8 +35,8 @@ export function DueDateModal({ request, onClose, onSaved }: DueDateModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
       <Card role="dialog" aria-modal="true" aria-labelledby="due-date-title" className="w-full max-w-sm shadow-2xl">
         <CardContent className="p-6">
-          <h3 id="due-date-title" className="mb-1 text-lg font-bold text-gray-900">Prazo manual do relatório</h3>
-          <p className="mb-4 text-sm text-gray-500">{request.unit_name}</p>
+          <h3 id="due-date-title" className="mb-1 text-lg font-bold text-navy">Prazo manual do relatório</h3>
+          <p className="mb-4 text-sm text-navy-3">{request.unit_name}</p>
           <label htmlFor="due-date-input" className="sr-only">Data limite do relatório</label>
           <input
             id="due-date-input"
