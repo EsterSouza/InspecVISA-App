@@ -24,7 +24,7 @@ const RESULT_LABELS: Record<ResponseResult, string> = {
 
 const RESULT_STYLES: Record<ResponseResult, string> = {
   complies: 'border-green-200 bg-green-50 text-green-700',
-  not_complies: 'border-red-200 bg-red-50 text-red-700',
+  not_complies: 'border-danger-soft-border bg-danger-soft text-danger-soft-ink',
   not_applicable: 'border-default bg-surface-sunken text-navy-2',
   not_observed: 'border-default bg-surface-sunken text-navy-2',
   not_evaluated: 'border-amber-200 bg-amber-50 text-amber-700',
@@ -185,9 +185,9 @@ export function TeamResponsesViewer({ inspectionId, isOpen, onClose, template }:
                 <p className="text-2xl font-bold text-navy">{answeredCount}</p>
                 <p className="text-xs font-semibold uppercase text-navy-3">Itens respondidos</p>
               </div>
-              <div className="rounded-xl border border-red-100 bg-red-50 p-3">
-                <p className="text-2xl font-bold text-red-700">{notCompliantCount}</p>
-                <p className="text-xs font-semibold uppercase text-red-600">Não conformes</p>
+              <div className="rounded-xl border border-danger-soft-border bg-danger-soft p-3">
+                <p className="text-2xl font-bold text-danger-soft-ink">{notCompliantCount}</p>
+                <p className="text-xs font-semibold uppercase text-danger">Não conformes</p>
               </div>
               <div className="rounded-xl border border-amber-100 bg-amber-50 p-3">
                 <p className="text-2xl font-bold text-amber-700">{pendingCount}</p>

@@ -156,7 +156,7 @@ export function PaymentModal({ account, onClose, onSaved }: PaymentModalProps) {
                       <button
                         type="button"
                         onClick={() => setPaymentLinks((prev) => prev.filter((_, i) => i !== index))}
-                        className="flex h-11 w-11 items-center justify-center rounded-xl text-red-500 hover:bg-red-50"
+                        className="flex h-11 w-11 items-center justify-center rounded-xl text-danger hover:bg-danger-soft"
                         aria-label={`Remover link ${paymentLink.label || index + 1}`}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -219,7 +219,7 @@ export function PaymentModal({ account, onClose, onSaved }: PaymentModalProps) {
             </div>
 
             {error && (
-              <div role="alert" className="rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+              <div role="alert" className="rounded-xl border border-danger-soft-border bg-danger-soft p-3 text-sm text-danger-soft-ink">{error}</div>
             )}
 
             {sent && (

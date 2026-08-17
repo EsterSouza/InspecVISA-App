@@ -130,7 +130,7 @@ export function BlockedDatesSection({ blockedDates, onChanged }: BlockedDatesSec
                 size="sm"
                 disabled={busyId === row.id}
                 onClick={() => void handleRemove(row)}
-                className="text-red-500 hover:bg-red-50"
+                className="text-danger hover:bg-danger-soft"
                 aria-label={`Remover bloqueio de ${formatDateBR(row.day)}`}
               >
                 <Trash2 className="h-4 w-4" />

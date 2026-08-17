@@ -176,10 +176,10 @@ export function Settings() {
                   'flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 text-sm font-semibold transition-colors lg:w-full',
                   selected
                     ? section.danger
-                      ? 'bg-red-50 text-red-700'
+                      ? 'bg-danger-soft text-danger-soft-ink'
                       : 'bg-primary-50 text-primary-700'
                     : section.danger
-                      ? 'text-red-600 hover:bg-red-50'
+                      ? 'text-danger hover:bg-danger-soft'
                       : 'text-navy-2 hover:bg-surface-active'
                 )}
               >
@@ -320,7 +320,7 @@ export function Settings() {
                             Fazer Upload
                           </Button>
                           {settings.logoDataUrl && (
-                            <Button type="button" variant="ghost" size="sm" onClick={removeLogo} className="text-red-500 hover:bg-red-50 hover:text-red-600">
+                            <Button type="button" variant="ghost" size="sm" onClick={removeLogo} className="text-danger hover:bg-danger-soft hover:text-danger">
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           )}
@@ -455,12 +455,12 @@ export function Settings() {
           </TabPanel>
 
           <TabPanel value="risco" activeValue={activeSection} className="pt-0 space-y-6">
-            <Card className="border-red-100 bg-red-50">
+            <Card className="border-danger-soft-border bg-danger-soft">
               <CardContent className="p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
-                    <h3 className="font-semibold text-red-900 text-lg">Zona de Perigo</h3>
-                    <p className="text-sm text-red-700 mt-1">Apagar todos os dados locais do aplicativo. Esta ação não pode ser desfeita e os dados não sincronizados serão perdidos.</p>
+                    <h3 className="font-semibold text-danger-soft-ink text-lg">Zona de Perigo</h3>
+                    <p className="text-sm text-danger-soft-ink mt-1">Apagar todos os dados locais do aplicativo. Esta ação não pode ser desfeita e os dados não sincronizados serão perdidos.</p>
                   </div>
                   <Button variant="danger" onClick={handleClearData} className="whitespace-nowrap shrink-0">
                     <Trash2 className="mr-2 h-4 w-4" />

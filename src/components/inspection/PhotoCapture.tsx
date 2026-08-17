@@ -221,7 +221,7 @@ function PhotoTile({ photo, onPreview, onRemove }: { photo: InspectionPhoto; onP
             e.stopPropagation();
             onRemove();
           }}
-          className="rounded-full bg-red-500/80 p-2 text-white hover:bg-red-600"
+          className="rounded-full bg-danger/80 p-2 text-white hover:bg-danger-hover"
         >
           <Trash2 className="h-4 w-4" />
         </button>
@@ -247,7 +247,7 @@ function PhotoSyncBadge({ photo }: { photo: InspectionPhoto }) {
     synced: { label: 'OK', className: 'bg-emerald-600 text-white', icon: CheckCircle },
     pending: { label: 'Pendente', className: 'bg-primary-600 text-white', icon: Clock },
     syncing: { label: 'Enviando', className: 'bg-primary-600 text-white', icon: Clock },
-    failed: { label: 'Falha', className: 'bg-red-600 text-white', icon: XCircle },
+    failed: { label: 'Falha', className: 'bg-danger text-white', icon: XCircle },
     conflict: { label: 'Conflito', className: 'bg-amber-500 text-white', icon: AlertTriangle }
   }[status];
   const Icon = config.icon;

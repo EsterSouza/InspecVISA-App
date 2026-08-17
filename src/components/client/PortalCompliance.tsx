@@ -69,7 +69,7 @@ export function PortalCompliance({ units }: PortalComplianceProps) {
               <span className="w-40 shrink-0 truncate text-xs font-medium text-navy-2">{u.name}</span>
               <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-surface-sunken">
                 <div
-                  className={`h-full rounded-full ${u.score >= 85 ? 'bg-green-500' : u.score >= 60 ? 'bg-amber-500' : 'bg-red-500'}`}
+                  className={`h-full rounded-full ${u.score >= 85 ? 'bg-green-500' : u.score >= 60 ? 'bg-amber-500' : 'bg-danger'}`}
                   style={{ width: `${u.score}%` }}
                 />
               </div>

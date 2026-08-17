@@ -396,7 +396,7 @@ export function LegislationsManager() {
         <div className="rounded-md border border-default bg-surface">
           <EmptyState
             role="alert"
-            icon={<AlertTriangle className="h-8 w-8 text-red-500" />}
+            icon={<AlertTriangle className="h-8 w-8 text-danger" />}
             title="Não deu para carregar a biblioteca"
             description={loadError}
             action={
@@ -594,7 +594,7 @@ export function LegislationsManager() {
         footer={
           detailEntry && !isDefaultEntry(detailEntry.id) && (
             <div className="flex justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={() => void handleDelete(detailEntry)} className="text-red-600 hover:bg-red-50">
+              <Button variant="outline" size="sm" onClick={() => void handleDelete(detailEntry)} className="text-danger hover:bg-danger-soft">
                 <Trash2 className="mr-2 h-4 w-4" /> Excluir
               </Button>
               <Button size="sm" onClick={() => openEdit(detailEntry)}>
@@ -630,7 +630,7 @@ export function LegislationsManager() {
               </div>
             </div>
             {detailEntry.status === 'revogada' && (
-              <p className="rounded-md border border-red-100 bg-red-50 p-2.5 text-xs text-red-800">
+              <p className="rounded-md border border-danger-soft-border bg-danger-soft p-2.5 text-xs text-danger-soft-ink">
                 {detailEntry.replaced_by
                   ? <>Substituída por <span className="font-semibold">{detailEntry.replaced_by}</span>.</>
                   : 'Revogada sem substituto — reapontar mecanicamente produz citação errada em relatório assinado.'}

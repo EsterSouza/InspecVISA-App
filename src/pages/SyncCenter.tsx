@@ -92,7 +92,7 @@ const STATE_MARK: Record<TimelineState, string> = {
   ok: 'border-green-200 bg-green-50 text-green-700',
   pendente: 'border-default bg-surface-sunken text-navy-3',
   atencao: 'border-amber-200 bg-amber-50 text-amber-700',
-  erro: 'border-red-200 bg-red-50 text-red-700',
+  erro: 'border-danger-soft-border bg-danger-soft text-danger-soft-ink',
 };
 
 const STATE_ICON: Record<TimelineState, React.FC<{ className?: string }>> = {
@@ -552,7 +552,7 @@ export function SyncCenter() {
         }
         actions={
           <>
-            <span className={cn('flex items-center gap-1.5 text-sm font-medium', isOnline ? 'text-green-700' : 'text-red-600')}>
+            <span className={cn('flex items-center gap-1.5 text-sm font-medium', isOnline ? 'text-green-700' : 'text-danger')}>
               {isOnline ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
               {isOnline ? 'Online' : 'Offline'}
             </span>
@@ -593,10 +593,10 @@ export function SyncCenter() {
           <p className="mt-1 text-xl font-bold text-navy">{queueCount}</p>
           <p className="mt-0.5 text-xs text-navy-3">{queueBreakdown || 'fila vazia'}</p>
         </div>
-        <div className={cn('rounded-lg border p-4', failedCount > 0 ? 'border-red-200 bg-red-50' : 'border-default bg-surface')}>
-          <p className={cn('text-xs font-medium', failedCount > 0 ? 'text-red-700' : 'text-navy-3')}>Falharam</p>
-          <p className={cn('mt-1 text-xl font-bold', failedCount > 0 ? 'text-red-700' : 'text-navy')}>{failedCount}</p>
-          <p className={cn('mt-0.5 text-xs', failedCount > 0 ? 'text-red-700' : 'text-navy-3')}>
+        <div className={cn('rounded-lg border p-4', failedCount > 0 ? 'border-danger-soft-border bg-danger-soft' : 'border-default bg-surface')}>
+          <p className={cn('text-xs font-medium', failedCount > 0 ? 'text-danger-soft-ink' : 'text-navy-3')}>Falharam</p>
+          <p className={cn('mt-1 text-xl font-bold', failedCount > 0 ? 'text-danger-soft-ink' : 'text-navy')}>{failedCount}</p>
+          <p className={cn('mt-0.5 text-xs', failedCount > 0 ? 'text-danger-soft-ink' : 'text-navy-3')}>
             {failedCount > 0 ? `${failedBreakdown} — precisa de decisão sua` : 'nenhuma pendência'}
           </p>
         </div>

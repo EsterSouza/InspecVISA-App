@@ -173,7 +173,7 @@ export function ClientPortalManagement({ accounts, clients, onChanged }: ClientP
                     {account.payment_type ? ` · ${account.payment_type === 'monthly' ? 'mensal' : 'único'}` : ''}
                   </span>
                   {account.scheduling_suspension_mode === 'suspended' && (
-                    <span className="flex items-center gap-1 shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold uppercase text-red-700">
+                    <span className="flex items-center gap-1 shrink-0 rounded-full bg-danger-soft px-2 py-0.5 text-[10px] font-bold uppercase text-danger-soft-ink">
                       <CalendarOff className="h-3 w-3" /> Agendamento suspenso
                     </span>
                   )}
@@ -270,7 +270,7 @@ export function ClientPortalManagement({ accounts, clients, onChanged }: ClientP
                   size="sm"
                   disabled={busyId === account.id}
                   onClick={() => void handleDelete(account)}
-                  className="text-red-500 hover:bg-red-50"
+                  className="text-danger hover:bg-danger-soft"
                   title="Remover acesso"
                   aria-label={`Remover acesso de ${account.name}`}
                 >

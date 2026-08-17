@@ -260,7 +260,7 @@ export function Clients() {
           <div className="rounded-2xl border border-default bg-surface">
             <EmptyState
               role="alert"
-              icon={<AlertTriangle className="h-8 w-8 text-red-500" />}
+              icon={<AlertTriangle className="h-8 w-8 text-danger" />}
               title="Não deu para carregar os clientes"
               description={loadError}
               action={
@@ -353,7 +353,7 @@ export function Clients() {
                 </div>
                 <div className="flex gap-1 ml-4 group-hover:opacity-100 opacity-0 transition-opacity">
                   <button onClick={(e) => handleEdit(client, e)} className="p-2 text-navy-3 hover:text-primary-600 hover:bg-primary-50 rounded-xl"><Edit2 className="h-5 w-5" /></button>
-                  <button onClick={(e) => handleDelete(client, e)} className="p-2 text-navy-3 hover:text-red-600 hover:bg-red-50 rounded-xl"><Trash2 className="h-5 w-5" /></button>
+                  <button onClick={(e) => handleDelete(client, e)} className="p-2 text-navy-3 hover:text-danger hover:bg-danger-soft rounded-xl"><Trash2 className="h-5 w-5" /></button>
                 </div>
               </div>
                 );
@@ -370,7 +370,7 @@ export function Clients() {
           <div>
             <label className="block text-sm font-medium text-navy-2">Nome do Estabelecimento *</label>
             <input {...register('name', { required: true })} className="mt-1 h-11 w-full rounded-xl border border-control px-4 focus:ring-2 focus:ring-primary-500 outline-none" />
-            {errors.name && <span className="text-xs text-red-500">Obrigatório</span>}
+            {errors.name && <span className="text-xs text-danger">Obrigatório</span>}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -444,7 +444,7 @@ export function Clients() {
                       <button
                         type="button"
                         onClick={() => setClientContacts((prev) => prev.filter((_, i) => i !== index))}
-                        className="rounded-xl p-2 text-red-500 hover:bg-red-50"
+                        className="rounded-xl p-2 text-danger hover:bg-danger-soft"
                         title="Remover contato"
                       >
                         <Trash2 className="h-4 w-4" />

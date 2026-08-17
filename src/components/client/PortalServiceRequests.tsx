@@ -272,7 +272,7 @@ function NewRequestForm({
         />
       </div>
 
-      {error && <p className="text-[11px] font-medium text-red-700">{error}</p>}
+      {error && <p className="text-[11px] font-medium text-danger-soft-ink">{error}</p>}
 
       <button
         type="submit"
@@ -361,7 +361,7 @@ function ReplyForm({
           className="w-full rounded-md border border-control p-2 text-xs focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100"
         />
       </div>
-      {error && <p className="mt-2 text-[11px] font-medium text-red-700">{error}</p>}
+      {error && <p className="mt-2 text-[11px] font-medium text-danger-soft-ink">{error}</p>}
       <button
         type="button"
         onClick={() => void handleSend()}

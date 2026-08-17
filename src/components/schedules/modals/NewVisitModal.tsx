@@ -231,7 +231,7 @@ export function NewVisitModal({ clients, onClose, onCreated }: NewVisitModalProp
             <ConsultantPicker selected={selectedConsultants} onToggle={toggleConsultant} />
 
             {error && (
-              <div role="alert" className="rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+              <div role="alert" className="rounded-xl border border-danger-soft-border bg-danger-soft p-3 text-sm text-danger-soft-ink">{error}</div>
             )}
 
             <div className="flex gap-3 pt-1">

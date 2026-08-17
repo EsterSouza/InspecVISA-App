@@ -8,8 +8,8 @@ export function AccessDenied() {
 
   return (
     <div className="flex h-screen flex-col items-center justify-center bg-surface-sunken p-6 text-center">
-      <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-red-100">
-        <ShieldOff className="h-10 w-10 text-red-500" />
+      <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-danger-soft">
+        <ShieldOff className="h-10 w-10 text-danger" />
       </div>
       <h1 className="text-2xl font-bold text-navy mb-2">Acesso negado</h1>
       <p className="text-navy-3 mb-8 max-w-sm">

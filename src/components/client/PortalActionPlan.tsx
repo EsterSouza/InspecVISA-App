@@ -33,7 +33,7 @@ const priorityLabel: Record<ClientActionItemPriority, string> = {
 };
 
 const priorityTheme: Record<ClientActionItemPriority, string> = {
-  urgent: 'bg-red-100 text-red-700',
+  urgent: 'bg-danger-soft text-danger-soft-ink',
   important: 'bg-amber-soft text-amber-soft-ink',
   recommended: 'bg-surface-sunken text-navy-2',
 };
@@ -268,7 +268,7 @@ function EvidenceUpload({
         </div>
       )}
 
-      {error && <p className="mt-2 text-[11px] font-medium text-red-700">{error}</p>}
+      {error && <p className="mt-2 text-[11px] font-medium text-danger-soft-ink">{error}</p>}
     </div>
   );
 }
@@ -407,7 +407,7 @@ function DeclareStatus({
         </div>
       )}
 
-      {error && <p className="mt-2 text-[11px] font-medium text-red-700">{error}</p>}
+      {error && <p className="mt-2 text-[11px] font-medium text-danger-soft-ink">{error}</p>}
     </div>
   );
 }

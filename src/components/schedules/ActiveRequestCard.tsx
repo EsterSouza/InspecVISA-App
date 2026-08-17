@@ -397,7 +397,7 @@ export function ActiveRequestCard({
                 size="sm"
                 disabled={busy}
                 onClick={onCancel}
-                className="ml-auto text-red-500 hover:bg-red-50"
+                className="ml-auto text-danger hover:bg-danger-soft"
                 aria-label="Cancelar solicitação"
               >
                 <XCircle className="h-4 w-4" />
@@ -408,7 +408,7 @@ export function ActiveRequestCard({
               size="sm"
               disabled={busy}
               onClick={onDelete}
-              className={`${isClosed ? 'ml-auto' : ''} text-red-600 hover:bg-red-50`}
+              className={`${isClosed ? 'ml-auto' : ''} text-danger hover:bg-danger-soft`}
             >
               <Trash2 className="mr-1.5 h-4 w-4" />
               Excluir

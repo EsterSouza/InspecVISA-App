@@ -77,7 +77,7 @@ export function ConsultantAvailabilitySection() {
           <Loader2 className="h-5 w-5 animate-spin text-primary-600" /> Carregando disponibilidade...
         </div>
       ) : loadError ? (
-        <div role="alert" className="rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">{loadError}</div>
+        <div role="alert" className="rounded-xl border border-danger-soft-border bg-danger-soft p-3 text-sm text-danger-soft-ink">{loadError}</div>
       ) : (
         <div className="space-y-4">
           {SCHEDULE_CONSULTANTS.map((consultant) => (

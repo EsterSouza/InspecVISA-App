@@ -1076,7 +1076,7 @@ export function InspectionExecution() {
   if (loadError) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4 bg-surface-sunken p-8 text-center">
-        <p className="text-red-600 font-semibold">{loadError}</p>
+        <p className="text-danger font-semibold">{loadError}</p>
         <Button onClick={loadData} variant="outline" className="gap-2">
           <RefreshCw className="h-4 w-4" /> Tentar Novamente
         </Button>

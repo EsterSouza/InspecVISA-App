@@ -405,7 +405,7 @@ export function ClientPortal() {
               </div>
 
               {error && (
-                <div role="alert" className="rounded-md border border-red-100 bg-red-50 p-3 text-sm text-red-700">
+                <div role="alert" className="rounded-md border border-danger-soft-border bg-danger-soft p-3 text-sm text-danger-soft-ink">
                   {error}
                 </div>
               )}

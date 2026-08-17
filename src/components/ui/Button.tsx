@@ -13,7 +13,7 @@ const buttonVariants = cva(
         secondary: 'bg-secondary-100 text-secondary-700 hover:bg-secondary-200',
         outline: 'border border-control bg-transparent hover:bg-surface-hover text-navy-2',
         ghost: 'hover:bg-surface-active hover:text-navy',
-        danger: 'bg-red-600 text-white hover:bg-red-700 shadow-sm',
+        danger: 'bg-danger text-white hover:bg-danger-hover shadow-sm',
         success: 'bg-green-600 text-white hover:bg-green-700 shadow-sm',
       },
       size: {

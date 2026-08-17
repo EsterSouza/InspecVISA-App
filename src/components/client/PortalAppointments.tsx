@@ -99,7 +99,7 @@ const SUSPENDABLE_VISIT_STATUSES = new Set(['requested', 'confirmed', 'in_progre
 
 function visitDisplayStatus(status: string, suspended: boolean): { label: string; badge: string } {
   if (suspended && SUSPENDABLE_VISIT_STATUSES.has(status)) {
-    return { label: 'Suspenso', badge: 'bg-red-100 text-red-700' };
+    return { label: 'Suspenso', badge: 'bg-danger-soft text-danger-soft-ink' };
   }
   return {
     label: STATUS_LABELS[status] || status,
@@ -190,12 +190,12 @@ export function PortalAppointments({
   return (
     <>
       {schedulingSuspended && (
-        <div className="mb-8 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+        <div className="mb-8 rounded-xl border border-danger-soft-border bg-danger-soft p-4 text-sm text-danger-soft-ink">
           <div className="flex items-start gap-2">
-            <CalendarOff className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
+            <CalendarOff className="mt-0.5 h-5 w-5 shrink-0 text-danger" />
             <div>
               <p className="font-bold">Agendamentos suspensos</p>
-              <p className="mt-1 text-red-700">
+              <p className="mt-1 text-danger-soft-ink">
                 Os novos agendamentos estão temporariamente suspensos por pendência de pagamento.
                 Regularize o pagamento para liberar novas solicitações de horário.
               </p>

@@ -303,18 +303,18 @@ export function AppointmentRequestsPanel({ focusRequestId }: { focusRequestId?: 
 
   if (loadError) {
     return (
-      <Card className="border-red-100 bg-red-50/70 shadow-sm">
+      <Card className="border-danger-soft-border bg-danger-soft/70 shadow-sm">
         <CardContent className="p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div role="alert">
-              <h2 className="text-sm font-bold text-red-800">Não foi possível carregar as solicitações</h2>
-              <p className="mt-1 text-sm text-red-700">{loadError}</p>
+              <h2 className="text-sm font-bold text-danger-soft-ink">Não foi possível carregar as solicitações</h2>
+              <p className="mt-1 text-sm text-danger-soft-ink">{loadError}</p>
             </div>
             <Button
               variant="outline"
               size="sm"
               onClick={() => void loadData()}
-              className="min-h-11 border-red-200 text-red-700 hover:bg-red-100"
+              className="min-h-11 border-danger-soft-border text-danger-soft-ink hover:bg-danger-soft"
             >
               <RefreshCw className="mr-1.5 h-4 w-4" />
               Tentar novamente

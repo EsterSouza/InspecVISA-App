@@ -243,7 +243,7 @@ export function AddPhotosModal({ request, onClose, onAdded }: AddPhotosModalProp
                           disabled={removingId === p.id}
                           onClick={() => void handleRemovePublished(p.id)}
                           aria-label="Remover foto do portal"
-                          className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-600/90 text-white opacity-0 transition-opacity hover:bg-red-700 group-hover:opacity-100 focus-visible:opacity-100"
+                          className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-danger/90 text-white opacity-0 transition-opacity hover:bg-danger-hover group-hover:opacity-100 focus-visible:opacity-100"
                         >
                           {removingId === p.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-4 w-4" />}
                         </button>
@@ -256,7 +256,7 @@ export function AddPhotosModal({ request, onClose, onAdded }: AddPhotosModalProp
           )}
 
           {error && (
-            <div role="alert" className="mt-4 rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">
+            <div role="alert" className="mt-4 rounded-xl border border-danger-soft-border bg-danger-soft p-3 text-sm text-danger-soft-ink">
               {error}
             </div>
           )}

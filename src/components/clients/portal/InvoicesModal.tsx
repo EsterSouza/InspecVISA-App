@@ -137,13 +137,13 @@ export function InvoicesModal({ account, onClose }: InvoicesModalProps) {
           </div>
 
           {error && (
-            <div role="alert" className="mb-4 rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+            <div role="alert" className="mb-4 rounded-xl border border-danger-soft-border bg-danger-soft p-3 text-sm text-danger-soft-ink">{error}</div>
           )}
 
           {loading ? (
             <InvoicesSkeleton />
           ) : loadError ? (
-            <div className="rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">
+            <div className="rounded-xl border border-danger-soft-border bg-danger-soft p-3 text-sm text-danger-soft-ink">
               <p role="alert">{loadError}</p>
               <Button variant="outline" size="sm" className="mt-2 min-h-11" onClick={() => void load()}>
                 <RefreshCw className="mr-1.5 h-4 w-4" /> Tentar novamente
@@ -176,7 +176,7 @@ export function InvoicesModal({ account, onClose }: InvoicesModalProps) {
                     type="button"
                     disabled={deletingId === invoice.id}
                     onClick={() => void handleDelete(invoice)}
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-red-500 hover:bg-red-50"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-danger hover:bg-danger-soft"
                     aria-label={`Remover nota fiscal de ${monthInputValue(invoice.competence_month)}`}
                   >
                     {deletingId === invoice.id ? (

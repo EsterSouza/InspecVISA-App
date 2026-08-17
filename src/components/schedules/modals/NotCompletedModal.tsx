@@ -43,7 +43,7 @@ export function NotCompletedModal({ request, onClose, onSaved }: NotCompletedMod
 
           <div className="space-y-1.5">
             <label htmlFor="not-completed-reason" className="text-sm font-medium text-navy-2">
-              Motivo <span className="text-red-500">*</span>
+              Motivo <span className="text-danger">*</span>
             </label>
             <textarea
               id="not-completed-reason"
@@ -59,7 +59,7 @@ export function NotCompletedModal({ request, onClose, onSaved }: NotCompletedMod
           </div>
 
           {error && (
-            <div role="alert" className="mt-3 rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">
+            <div role="alert" className="mt-3 rounded-xl border border-danger-soft-border bg-danger-soft p-3 text-sm text-danger-soft-ink">
               {error}
             </div>
           )}

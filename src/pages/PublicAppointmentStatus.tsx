@@ -122,7 +122,7 @@ function formatDateBR(value: string | null): string {
 function attachmentIcon(asset: AppointmentAttachment) {
   const name = (asset.file_name || '').toLowerCase();
   const mime = (asset.mime_type || '').toLowerCase();
-  if (mime.includes('pdf') || name.endsWith('.pdf')) return <FileText className="h-5 w-5 text-red-500" />;
+  if (mime.includes('pdf') || name.endsWith('.pdf')) return <FileText className="h-5 w-5 text-danger" />;
   if (mime.includes('word') || name.endsWith('.doc') || name.endsWith('.docx')) {
     return <FileType className="h-5 w-5 text-accent-ink" />;
   }
@@ -370,11 +370,11 @@ export function PublicAppointmentStatus() {
 
         {/* Banners de estado especial */}
         {isCancelled && (
-          <div className="mb-6 flex items-start gap-3 rounded-xl border border-red-100 bg-red-50 p-4">
-            <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
+          <div className="mb-6 flex items-start gap-3 rounded-xl border border-danger-soft-border bg-danger-soft p-4">
+            <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-danger" />
             <div>
-              <p className="text-sm font-semibold text-red-700">Solicitação cancelada</p>
-              <p className="mt-0.5 text-xs text-red-600">
+              <p className="text-sm font-semibold text-danger-soft-ink">Solicitação cancelada</p>
+              <p className="mt-0.5 text-xs text-danger">
                 Esta solicitação foi cancelada. Se precisar, faça um novo agendamento.
               </p>
             </div>
@@ -400,11 +400,11 @@ export function PublicAppointmentStatus() {
         )}
 
         {suspended && (
-          <div className="mb-6 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
-            <Lock className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
+          <div className="mb-6 flex items-start gap-3 rounded-xl border border-danger-soft-border bg-danger-soft p-4">
+            <Lock className="mt-0.5 h-5 w-5 shrink-0 text-danger" />
             <div className="min-w-0">
-              <p className="text-sm font-bold text-red-700">Arquivos temporariamente indisponíveis</p>
-              <p className="mt-0.5 text-xs text-red-600">
+              <p className="text-sm font-bold text-danger-soft-ink">Arquivos temporariamente indisponíveis</p>
+              <p className="mt-0.5 text-xs text-danger">
                 {reportsBlocked && photosBlocked
                   ? 'O relatório, as fotos e os anexos desta inspeção'
                   : reportsBlocked
@@ -413,14 +413,14 @@ export function PublicAppointmentStatus() {
                 não estão disponíveis no momento. Fale com a equipe da consultoria para liberar.
               </p>
               {status.payment_due_date && (
-                <p className="mt-1 text-xs font-semibold text-red-700">
+                <p className="mt-1 text-xs font-semibold text-danger-soft-ink">
                   Vencimento: {formatDateBR(status.payment_due_date)}
                 </p>
               )}
               <div className="mt-2 flex flex-wrap gap-2">
                 <Link
                   to="/cliente"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-surface px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-danger-soft-border bg-surface px-3 py-1.5 text-xs font-semibold text-danger-soft-ink hover:bg-danger-soft"
                 >
                   <Home className="h-3.5 w-3.5" /> Ver pagamento no portal
                 </Link>
@@ -429,7 +429,7 @@ export function PublicAppointmentStatus() {
                     href={status.payment_link}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-danger px-3 py-1.5 text-xs font-bold text-white hover:bg-danger-hover"
                   >
                     Pagar agora
                   </a>
@@ -653,11 +653,11 @@ export function PublicAppointmentStatus() {
                 Baixar relatório (PDF)
               </a>
             ) : suspended && hasReport ? (
-              <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
-                <Lock className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
+              <div className="flex items-start gap-3 rounded-xl border border-danger-soft-border bg-danger-soft p-4">
+                <Lock className="mt-0.5 h-5 w-5 shrink-0 text-danger" />
                 <div>
-                  <p className="text-sm font-semibold text-red-700">Relatório disponível — indisponível no momento</p>
-                  <p className="mt-0.5 text-xs text-red-600">
+                  <p className="text-sm font-semibold text-danger-soft-ink">Relatório disponível — indisponível no momento</p>
+                  <p className="mt-0.5 text-xs text-danger">
                     O relatório desta inspeção já está pronto, mas não está liberado no seu portal
                     agora. Fale com a equipe da consultoria.
                   </p>
@@ -698,7 +698,7 @@ export function PublicAppointmentStatus() {
                   <span>Fotos da inspeção</span>
                   <span className="text-navy-3">{photoCount} foto{photoCount === 1 ? '' : 's'}</span>
                 </h4>
-                <div className="flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-3 text-sm font-semibold text-red-600">
+                <div className="flex items-center justify-center gap-2 rounded-xl border border-danger-soft-border bg-danger-soft px-5 py-3 text-sm font-semibold text-danger">
                   <Lock className="h-4 w-4" />
                   Galeria não liberada no momento
                 </div>
@@ -729,7 +729,7 @@ export function PublicAppointmentStatus() {
                         </a>
                       ) : (
                         <div className="flex items-center gap-3 rounded-xl border border-default bg-surface-sunken p-3 opacity-70">
-                          {suspended ? <Lock className="h-5 w-5 shrink-0 text-red-500" /> : attachmentIcon(asset)}
+                          {suspended ? <Lock className="h-5 w-5 shrink-0 text-danger" /> : attachmentIcon(asset)}
                           <span className="min-w-0 flex-1 truncate text-sm text-navy-3">
                             {asset.file_name || 'Anexo'} (indisponível)
                           </span>

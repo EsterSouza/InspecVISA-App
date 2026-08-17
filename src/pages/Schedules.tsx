@@ -423,7 +423,7 @@ export function Schedules() {
         <div className="rounded-2xl border border-default bg-surface">
           <EmptyState
             role="alert"
-            icon={<AlertTriangle className="h-8 w-8 text-red-500" />}
+            icon={<AlertTriangle className="h-8 w-8 text-danger" />}
             title="Não deu para carregar a agenda"
             description={loadError}
             action={
@@ -602,7 +602,7 @@ export function Schedules() {
                        <Button variant="ghost" size="sm" onClick={() => handleEdit(schedule)} className="text-navy-3 hover:bg-surface-hover">
                          <Edit2 className="h-4 w-4" />
                        </Button>
-                       <Button variant="ghost" size="sm" onClick={() => handleDelete(schedule.id)} className="text-red-500 hover:bg-red-50">
+                       <Button variant="ghost" size="sm" onClick={() => handleDelete(schedule.id)} className="text-danger hover:bg-danger-soft">
                          <Trash2 className="h-4 w-4" />
                        </Button>
                     </div>
@@ -729,7 +729,7 @@ export function Schedules() {
 
                 <div className="space-y-2">
                   <span id="schedule-attendance-label" className="text-sm font-medium text-navy-2">
-                    Modalidade <span className="text-red-500">*</span>
+                    Modalidade <span className="text-danger">*</span>
                   </span>
                   <div className="grid grid-cols-2 gap-2" role="group" aria-labelledby="schedule-attendance-label">
                     <button

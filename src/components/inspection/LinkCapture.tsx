@@ -62,7 +62,7 @@ export function LinkCapture({ inputId, links, onChange }: LinkCaptureProps) {
           <Plus className="h-4 w-4" /> Adicionar
         </button>
       </div>
-      {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
+      {error && <p role="alert" className="text-xs text-danger">{error}</p>}
 
       {links.length > 0 && (
         <ul className="space-y-1.5">
@@ -81,7 +81,7 @@ export function LinkCapture({ inputId, links, onChange }: LinkCaptureProps) {
               <button
                 type="button"
                 onClick={() => removeLink(index)}
-                className="shrink-0 rounded p-1 text-navy-3 hover:bg-red-50 hover:text-red-500"
+                className="shrink-0 rounded p-1 text-navy-3 hover:bg-danger-soft hover:text-danger"
                 aria-label={`Remover link ${link}`}
               >
                 <Trash2 className="h-3.5 w-3.5" />

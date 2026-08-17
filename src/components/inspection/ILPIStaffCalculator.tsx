@@ -21,12 +21,12 @@ interface ILPIStaffCalculatorProps {
 function StatusIcon({ ok }: { ok: boolean }) {
   return ok
     ? <CheckCircle2 className="h-5 w-5 text-green-600" />
-    : <AlertTriangle className="h-5 w-5 text-red-600" />;
+    : <AlertTriangle className="h-5 w-5 text-danger" />;
 }
 
 function Delta({ ok, actual, required }: { ok: boolean; actual: number; required: number }) {
   return (
-    <p className={`text-xl font-bold ${ok ? 'text-green-600' : 'text-red-600'}`}>
+    <p className={`text-xl font-bold ${ok ? 'text-green-600' : 'text-danger'}`}>
       {ok ? `+${actual - required}` : `-${required - actual}`}
     </p>
   );
@@ -108,11 +108,11 @@ export function ILPIStaffCalculator({
           A soma dos graus ({grausSum}) é diferente do total de residentes informado ({residentsTotal}). Revise os números.
         </p>
       )}
-      <Card className={summary.caregiversOk ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}>
+      <Card className={summary.caregiversOk ? 'bg-green-50 border-green-200' : 'bg-danger-soft border-danger-soft-border'}>
         <CardContent className="space-y-3 p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Users2 className={summary.caregiversOk ? 'text-green-600' : 'text-red-600'} />
+              <Users2 className={summary.caregiversOk ? 'text-green-600' : 'text-danger'} />
               <h4 className="text-sm font-bold text-navy">{caregiverTitle}</h4>
             </div>
             <StatusIcon ok={summary.caregiversOk} />
@@ -144,11 +144,11 @@ export function ILPIStaffCalculator({
       </Card>
 
       {isRJ && summary.nursingTechs.total > 0 && (
-        <Card className={summary.nursingTechsOk ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}>
+        <Card className={summary.nursingTechsOk ? 'bg-green-50 border-green-200' : 'bg-danger-soft border-danger-soft-border'}>
           <CardContent className="space-y-3 p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Users2 className={summary.nursingTechsOk ? 'text-green-600' : 'text-red-600'} />
+                <Users2 className={summary.nursingTechsOk ? 'text-green-600' : 'text-danger'} />
                 <h4 className="text-sm font-bold text-navy">Técnicos/Auxiliares de enfermagem — Lei RJ nº 8.049/2018</h4>
               </div>
               <StatusIcon ok={summary.nursingTechsOk} />
@@ -171,11 +171,11 @@ export function ILPIStaffCalculator({
       )}
 
       {summary.cleaningStaff.total > 0 && (
-        <Card className={summary.cleaningStaffOk ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}>
+        <Card className={summary.cleaningStaffOk ? 'bg-green-50 border-green-200' : 'bg-danger-soft border-danger-soft-border'}>
           <CardContent className="space-y-3 p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Users2 className={summary.cleaningStaffOk ? 'text-green-600' : 'text-red-600'} />
+                <Users2 className={summary.cleaningStaffOk ? 'text-green-600' : 'text-danger'} />
                 <h4 className="text-sm font-bold text-navy">Profissionais de limpeza</h4>
               </div>
               <StatusIcon ok={summary.cleaningStaffOk} />
@@ -198,7 +198,7 @@ export function ILPIStaffCalculator({
       )}
 
       {!summary.allOk && (
-        <p className="rounded bg-red-100 p-2 text-[11px] font-medium text-red-700">
+        <p className="rounded bg-danger-soft p-2 text-[11px] font-medium text-danger-soft-ink">
           Atencao: ha nao conformidade no dimensionamento de pessoal. Tecnico de enfermagem nao substitui cuidador no calculo de cuidadores.
         </p>
       )}
@@ -207,7 +207,7 @@ export function ILPIStaffCalculator({
         <button
           type="button"
           onClick={() => onRegisterFinding(buildFinding())}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-red-700"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-danger px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-danger-hover"
         >
           <AlertTriangle className="h-4 w-4" />
           Registrar não-conformidade do dimensionamento

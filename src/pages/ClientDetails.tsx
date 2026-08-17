@@ -565,7 +565,7 @@ export function ClientDetails() {
             <Button variant="outline" size="sm" onClick={() => { reset(client); setIsModalOpen(true); }}>
               <Edit2 className="mr-2 h-4 w-4" /> Editar
             </Button>
-            <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={handleDelete}>
+            <Button variant="outline" size="sm" className="text-danger hover:text-danger-soft-ink hover:bg-danger-soft" onClick={handleDelete}>
               <Trash2 className="mr-2 h-4 w-4" /> Excluir
             </Button>
             <Button variant="outline" size="sm" onClick={() => setIsVisitModalOpen(true)}>
@@ -626,7 +626,7 @@ export function ClientDetails() {
                           insp.status === 'in_progress' ? 'bg-amber-400' :
                           insp.score.scorePercentage >= 90 ? 'bg-green-500' :
                           insp.score.scorePercentage >= 70 ? 'bg-primary-500' :
-                          'bg-red-500'
+                          'bg-danger'
                         }`}>
                           {insp.status === 'completed' ? `${Math.round(insp.score.scorePercentage)}%` : '?'}
                         </div>
@@ -692,7 +692,7 @@ export function ClientDetails() {
           <Card>
             <CardContent className="p-5">
               <h3 className="text-sm font-bold text-navy mb-1 flex items-center uppercase tracking-wider">
-                <AlertTriangle className="mr-2 h-4 w-4 text-red-500" />
+                <AlertTriangle className="mr-2 h-4 w-4 text-danger" />
                 NC Recorrentes
               </h3>
               <p className="text-[10px] text-navy-3 mb-4">Itens com ≥ 2 falhas neste cliente</p>
@@ -789,7 +789,7 @@ export function ClientDetails() {
                               size="sm"
                               disabled={removingAssetId === asset.id}
                               onClick={() => void removePublishedAsset(asset)}
-                              className="text-red-600 hover:bg-red-50"
+                              className="text-danger hover:bg-danger-soft"
                               aria-label={`Remover ${asset.file_name || ASSET_KIND_LABELS[asset.kind]} do portal`}
                             >
                               {removingAssetId === asset.id ? (
@@ -996,7 +996,7 @@ export function ClientDetails() {
               {...register('name', { required: true })} 
               className="mt-1 h-10 w-full rounded-md border border-control px-3 focus:outline-none focus:ring-2 focus:ring-primary-500" 
             />
-            {errors.name && <span className="text-xs text-red-500">Campo obrigatório</span>}
+            {errors.name && <span className="text-xs text-danger">Campo obrigatório</span>}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -1011,7 +1011,7 @@ export function ClientDetails() {
                 <option value="ilpi">ILPI</option>
                 <option value="alimentos">Alimentos</option>
               </select>
-              {errors.category && <span className="text-xs text-red-500">Campo obrigatório</span>}
+              {errors.category && <span className="text-xs text-danger">Campo obrigatório</span>}
             </div>
             <div>
               <label className="block text-sm font-medium text-navy-2">CNPJ</label>
@@ -1120,7 +1120,7 @@ export function ClientDetails() {
                       <button
                         type="button"
                         onClick={() => setClientContacts((prev) => prev.filter((_, i) => i !== index))}
-                        className="rounded-md p-2 text-red-500 hover:bg-red-50"
+                        className="rounded-md p-2 text-danger hover:bg-danger-soft"
                         title="Remover contato"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -1292,22 +1292,22 @@ export function ClientDetails() {
 
 function RecurringNCItem({ nc }: { nc: PreviousNCContext }) {
   return (
-    <details className="group rounded-lg border border-red-100 bg-red-50 p-3">
+    <details className="group rounded-lg border border-danger-soft-border bg-danger-soft p-3">
       <summary className="flex cursor-pointer list-none items-start gap-3">
-        <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+        <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-danger text-[10px] font-bold text-white">
           {nc.count}
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold leading-snug text-navy">{nc.description}</p>
           {nc.sectionTitle && <p className="mt-1 text-[10px] text-navy-3">{nc.sectionTitle}</p>}
           {(nc.correctiveAction || nc.situationDescription) && (
-            <p className="mt-1 text-[10px] font-medium text-red-700 group-open:hidden">
+            <p className="mt-1 text-[10px] font-medium text-danger-soft-ink group-open:hidden">
               {nc.correctiveAction || nc.situationDescription}
             </p>
           )}
         </div>
       </summary>
-      <div className="mt-3 space-y-2 border-t border-red-100 pt-3 text-xs text-navy-2">
+      <div className="mt-3 space-y-2 border-t border-danger-soft-border pt-3 text-xs text-navy-2">
         {nc.situationDescription && (
           <div>
             <span className="font-bold text-navy">Situacao: </span>
@@ -1333,7 +1333,7 @@ function RecurringNCItem({ nc }: { nc: PreviousNCContext }) {
                 key={photo.id}
                 src={photo.dataUrl}
                 alt="Evidencia anterior"
-                className="aspect-square rounded-md border border-red-100 object-cover"
+                className="aspect-square rounded-md border border-danger-soft-border object-cover"
               />
             ))}
           </div>

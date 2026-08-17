@@ -31,7 +31,7 @@ export function paymentLinks(payment: { link: string | null; links?: { label?: s
 export function scoreColor(score: number): string {
   if (score >= 85) return 'text-green-700 bg-green-100';
   if (score >= 60) return 'text-amber-700 bg-amber-100';
-  return 'text-red-700 bg-red-100';
+  return 'text-danger-soft-ink bg-danger-soft';
 }
 
 /** Unidade selecionada no filtro do portal. `null` significa "Todas". */

@@ -66,7 +66,7 @@ export function ProfileSelection() {
           
           <button
             onClick={() => signOut()}
-            className="flex items-center text-red-500 hover:text-red-700 text-xs font-bold transition-colors"
+            className="flex items-center text-danger hover:text-danger-soft-ink text-xs font-bold transition-colors"
           >
             <LogOut className="w-3 h-3 mr-1" />
             Sair da Conta

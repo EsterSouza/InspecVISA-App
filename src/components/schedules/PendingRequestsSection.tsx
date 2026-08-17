@@ -117,7 +117,7 @@ export function PendingRequestsSection({
                       size="sm"
                       disabled={busy === request.id}
                       onClick={() => onCancel(request)}
-                      className="text-red-500 hover:bg-red-50"
+                      className="text-danger hover:bg-danger-soft"
                       aria-label={`Cancelar solicitação de ${request.unit_name}`}
                     >
                       <XCircle className="h-4 w-4" />
@@ -127,7 +127,7 @@ export function PendingRequestsSection({
                       size="sm"
                       disabled={busy === request.id}
                       onClick={() => onDelete(request)}
-                      className="text-red-600 hover:bg-red-50"
+                      className="text-danger hover:bg-danger-soft"
                       aria-label={`Excluir solicitação de ${request.unit_name}`}
                     >
                       <Trash2 className="h-4 w-4" />

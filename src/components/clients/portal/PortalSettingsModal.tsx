@@ -87,7 +87,7 @@ export function PortalSettingsModal({ onClose, onSaved }: PortalSettingsModalPro
             <SettingsSkeleton />
           ) : loadError ? (
             <div className="space-y-4">
-              <div role="alert" className="rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">{loadError}</div>
+              <div role="alert" className="rounded-xl border border-danger-soft-border bg-danger-soft p-3 text-sm text-danger-soft-ink">{loadError}</div>
               <Button type="button" variant="outline" className="min-h-11 w-full" onClick={load}>
                 <RefreshCw className="mr-1.5 h-4 w-4" /> Tentar novamente
               </Button>
@@ -160,7 +160,7 @@ export function PortalSettingsModal({ onClose, onSaved }: PortalSettingsModalPro
               </div>
 
               {error && (
-                <div role="alert" className="rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+                <div role="alert" className="rounded-xl border border-danger-soft-border bg-danger-soft p-3 text-sm text-danger-soft-ink">{error}</div>
               )}
 
               <div className="flex gap-3 pt-1">
@@ -173,7 +173,7 @@ export function PortalSettingsModal({ onClose, onSaved }: PortalSettingsModalPro
             </div>
           ) : (
             <div className="space-y-4">
-              <div role="alert" className="rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">
+              <div role="alert" className="rounded-xl border border-danger-soft-border bg-danger-soft p-3 text-sm text-danger-soft-ink">
                 Não foi possível carregar as configurações.
               </div>
               <Button type="button" variant="ghost" className="w-full" onClick={onClose}>Fechar</Button>

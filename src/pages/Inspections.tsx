@@ -261,7 +261,7 @@ export function Inspections() {
           <div className="rounded-xl border border-default bg-surface">
             <EmptyState
               role="alert"
-              icon={<AlertTriangle className="h-8 w-8 text-red-500" />}
+              icon={<AlertTriangle className="h-8 w-8 text-danger" />}
               title="Não deu para carregar as inspeções"
               description={loadError}
               action={
@@ -378,7 +378,7 @@ export function Inspections() {
 
                     <Button 
                       variant="ghost" 
-                      className="text-red-500 hover:bg-red-50 hover:text-red-600 px-3"
+                      className="text-danger hover:bg-danger-soft hover:text-danger px-3"
                       onClick={(e) => handleDelete(e, insp.id)}
                       title="Excluir Inspeção"
                     >

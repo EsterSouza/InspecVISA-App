@@ -136,7 +136,7 @@ export function Sidebar() {
               <button
                 type="button"
                 onClick={signOut}
-                className="flex h-9 w-full items-center justify-center rounded-md text-navy-3 transition-colors hover:bg-red-50 hover:text-red-600"
+                className="flex h-9 w-full items-center justify-center rounded-md text-navy-3 transition-colors hover:bg-danger-soft hover:text-danger"
                 aria-label="Sair"
               >
                 <LogOut className="h-4 w-4" />
@@ -155,7 +155,7 @@ export function Sidebar() {
             <button
               type="button"
               onClick={signOut}
-              className="rounded-md p-2 text-navy-3 transition-colors hover:bg-red-50 hover:text-red-600"
+              className="rounded-md p-2 text-navy-3 transition-colors hover:bg-danger-soft hover:text-danger"
               title="Sair"
               aria-label="Sair"
             >

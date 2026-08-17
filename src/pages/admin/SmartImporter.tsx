@@ -203,7 +203,7 @@ export function SmartImporter() {
               Revisão dos Itens EXTRAÍDOS ({items.length})
             </CardTitle>
             <div className="flex gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setItems([])} className="text-red-600 hover:bg-red-50">Zerar</Button>
+              <Button variant="ghost" size="sm" onClick={() => setItems([])} className="text-danger hover:bg-danger-soft">Zerar</Button>
               <Button size="sm" onClick={handleSave} disabled={isSaving || !templateName} className="shadow-lg shadow-primary-200">
                 {isSaving ? 'Salvando...' : <><Save className="h-4 w-4 mr-2" /> Finalizar e Criar Roteiro</>}
               </Button>
@@ -257,7 +257,7 @@ export function SmartImporter() {
                       />
                     </td>
                     <td className="px-6 py-4 align-top">
-                      <button onClick={() => setItems(items.filter((_, i) => i !== idx))} className="text-navy-3 hover:text-red-500">
+                      <button onClick={() => setItems(items.filter((_, i) => i !== idx))} className="text-navy-3 hover:text-danger">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </td>

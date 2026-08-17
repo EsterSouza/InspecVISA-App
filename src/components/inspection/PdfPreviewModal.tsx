@@ -310,7 +310,7 @@ export function PdfPreviewModal({
                       <button
                         type="button"
                         onClick={() => removeSource(source.id)}
-                        className="shrink-0 p-1 rounded hover:bg-red-50 text-navy-3 hover:text-red-500 transition-colors"
+                        className="shrink-0 p-1 rounded hover:bg-danger-soft text-navy-3 hover:text-danger transition-colors"
                         aria-label={`Remover fonte ${source.title || source.url}`}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -322,7 +322,7 @@ export function PdfPreviewModal({
 
               <div className="rounded-xl border border-default p-3 space-y-2">
                 <div>
-                  <label htmlFor="source-url" className="text-xs font-medium text-navy-2">Link <span className="text-red-500">*</span></label>
+                  <label htmlFor="source-url" className="text-xs font-medium text-navy-2">Link <span className="text-danger">*</span></label>
                   <input
                     id="source-url"
                     type="url"
@@ -331,7 +331,7 @@ export function PdfPreviewModal({
                     placeholder="https://..."
                     className="mt-1 w-full min-h-10 rounded-md border border-control px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-100"
                   />
-                  {sourceUrlError && <p role="alert" className="mt-1 text-xs text-red-600">{sourceUrlError}</p>}
+                  {sourceUrlError && <p role="alert" className="mt-1 text-xs text-danger">{sourceUrlError}</p>}
                 </div>
                 <div>
                   <label htmlFor="source-title" className="text-xs font-medium text-navy-2">Título</label>
@@ -400,7 +400,7 @@ export function PdfPreviewModal({
               <div className="flex items-center justify-between">
                 <button
                   onClick={clearCanvas}
-                  className="flex items-center gap-1.5 text-sm text-navy-3 hover:text-red-500 transition-colors"
+                  className="flex items-center gap-1.5 text-sm text-navy-3 hover:text-danger transition-colors"
                 >
                   <Trash2 className="h-3.5 w-3.5" /> Limpar
                 </button>

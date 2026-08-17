@@ -84,7 +84,7 @@ export function Login() {
               </div>
 
               {error && (
-                <div className="p-3 rounded-lg bg-red-500/20 border border-red-500/30 text-red-200 text-sm animate-shake">
+                <div className="p-3 rounded-lg bg-danger/20 border border-danger/30 text-danger-soft text-sm animate-shake">
                   {error}
                 </div>
               )}

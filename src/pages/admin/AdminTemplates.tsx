@@ -136,7 +136,7 @@ export function AdminTemplates() {
         <div className="rounded-2xl border border-default bg-surface">
           <EmptyState
             role="alert"
-            icon={<AlertTriangle className="h-8 w-8 text-red-500" />}
+            icon={<AlertTriangle className="h-8 w-8 text-danger" />}
             title="Não deu para carregar os roteiros"
             description={loadError}
             action={

@@ -38,7 +38,7 @@ interface FullTemplate {
 }
 
 const WEIGHT_LABELS: Record<number, { label: string; color: string; bg: string }> = {
-  10: { label: 'Imprescindível', color: 'text-red-700', bg: 'bg-red-50 border-red-200' },
+  10: { label: 'Imprescindível', color: 'text-danger-soft-ink', bg: 'bg-danger-soft border-danger-soft-border' },
   5:  { label: 'Necessário',     color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200' },
   2:  { label: 'Recomendado',    color: 'text-accent-ink', bg: 'bg-primary-50 border-primary-200' },
   1:  { label: 'Sugerido',       color: 'text-navy-2', bg: 'bg-surface-sunken border-default' },
@@ -143,8 +143,8 @@ export function TemplateDetail() {
   if (error || !template) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4 p-8 text-center">
-        <AlertTriangle className="h-12 w-12 text-red-400" />
-        <p className="text-red-600 font-semibold">{error || 'Roteiro não encontrado.'}</p>
+        <AlertTriangle className="h-12 w-12 text-danger" />
+        <p className="text-danger font-semibold">{error || 'Roteiro não encontrado.'}</p>
         <Button onClick={() => navigate('/templates')} variant="outline">
           <ArrowLeft className="mr-2 h-4 w-4" /> Voltar aos Roteiros
         </Button>
@@ -206,7 +206,7 @@ export function TemplateDetail() {
             {[
               { icon: ClipboardList, label: 'Seções', value: stats.sections, color: 'text-primary-600', bg: 'bg-primary-50' },
               { icon: CheckCircle2, label: 'Itens Totais', value: stats.total, color: 'text-accent-ink', bg: 'bg-primary-50' },
-              { icon: AlertTriangle, label: 'Itens Críticos', value: stats.critical, color: 'text-red-600', bg: 'bg-red-50' },
+              { icon: AlertTriangle, label: 'Itens Críticos', value: stats.critical, color: 'text-danger', bg: 'bg-danger-soft' },
               { icon: BookOpen, label: 'Com Legislação', value: stats.withLegislation, color: 'text-green-600', bg: 'bg-green-50' },
               { icon: Archive, label: 'Aposentados', value: stats.retired, color: 'text-navy-3', bg: 'bg-surface-sunken' },
             ].map(({ icon: Icon, label, value, color, bg }) => (
@@ -231,7 +231,7 @@ export function TemplateDetail() {
               {info.label}
             </span>
           ))}
-          <span className="flex items-center gap-1 text-[11px] font-semibold text-red-700 bg-red-50 border border-red-200 rounded-full px-2.5 py-0.5">
+          <span className="flex items-center gap-1 text-[11px] font-semibold text-danger-soft-ink bg-danger-soft border border-danger-soft-border rounded-full px-2.5 py-0.5">
             <AlertTriangle className="h-3 w-3" /> Crítico
           </span>
         </div>
@@ -262,7 +262,7 @@ export function TemplateDetail() {
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-[11px] text-navy-3">{items.length} itens</span>
                         {criticalCount > 0 && (
-                          <span className="text-[11px] text-red-600 font-semibold flex items-center gap-0.5">
+                          <span className="text-[11px] text-danger font-semibold flex items-center gap-0.5">
                             <AlertTriangle className="h-3 w-3" /> {criticalCount} críticos
                           </span>
                         )}
@@ -290,7 +290,7 @@ export function TemplateDetail() {
                         return (
                           <div
                             key={item.id}
-                            className={`px-5 py-4 flex gap-4 hover:bg-surface-hover/70 transition-colors ${item.isCritical ? 'border-l-2 border-red-400' : ''} ${item.retiredAt ? 'opacity-60' : ''}`}
+                            className={`px-5 py-4 flex gap-4 hover:bg-surface-hover/70 transition-colors ${item.isCritical ? 'border-l-2 border-danger' : ''} ${item.retiredAt ? 'opacity-60' : ''}`}
                           >
                             {/* Item number */}
                             <div className="shrink-0 w-7 pt-0.5 text-right">
@@ -316,7 +316,7 @@ export function TemplateDetail() {
 
                                 {/* Critical badge */}
                                 {item.isCritical && (
-                                  <span className="flex items-center gap-0.5 text-[10px] font-bold text-red-700 bg-red-50 border border-red-200 rounded-full px-2 py-0.5">
+                                  <span className="flex items-center gap-0.5 text-[10px] font-bold text-danger-soft-ink bg-danger-soft border border-danger-soft-border rounded-full px-2 py-0.5">
                                     <AlertTriangle className="h-2.5 w-2.5" /> CRÍTICO
                                   </span>
                                 )}

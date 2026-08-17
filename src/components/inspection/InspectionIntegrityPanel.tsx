@@ -251,7 +251,7 @@ function IssueRow({ issue, onInspect }: { issue: IntegrityIssue; onInspect: (iss
           <p className="mt-0.5 text-navy-3">{issue.table} - {issue.updatedAt?.toLocaleString('pt-BR') || 'sem data'}</p>
           {issue.localActorId && <p className="mt-0.5 text-navy-3">Local: {formatActor(issue.localActorId)}</p>}
           {issue.remoteActorId && <p className="mt-0.5 text-navy-3">Remoto: {formatActor(issue.remoteActorId)}</p>}
-          {issue.syncError && <p className="mt-1 text-red-600">{issue.syncError}</p>}
+          {issue.syncError && <p className="mt-1 text-danger">{issue.syncError}</p>}
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {issue.status === 'conflict' && (
@@ -274,7 +274,7 @@ function IssueRow({ issue, onInspect }: { issue: IntegrityIssue; onInspect: (iss
 function Metric({ label, value, tone, icon }: { label: string; value: number; tone: 'blue' | 'red' | 'amber' | 'gray'; icon?: React.ReactNode }) {
   const toneClass = {
     blue: 'bg-primary-100 text-accent-ink',
-    red: 'bg-red-100 text-red-800',
+    red: 'bg-danger-soft text-danger-soft-ink',
     amber: 'bg-amber-100 text-amber-800',
     gray: 'bg-surface-sunken text-navy'
   }[tone];

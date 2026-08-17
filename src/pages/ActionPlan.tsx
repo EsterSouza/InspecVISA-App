@@ -249,7 +249,7 @@ export function ActionPlan() {
       </div>
 
       {loadError ? (
-        <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <div className="rounded-md border border-danger-soft-border bg-danger-soft p-4 text-sm text-danger-soft-ink">
           Não deu para carregar o plano de ação: {loadError}
         </div>
       ) : loading && items.length === 0 ? (

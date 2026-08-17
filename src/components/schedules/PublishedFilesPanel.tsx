@@ -85,7 +85,7 @@ export function PublishedFilesPanel({ requestId, busy }: { requestId: string; bu
               size="sm"
               disabled={removingId === file.id}
               onClick={() => void handleRemove(file)}
-              className="text-red-600 hover:bg-red-50"
+              className="text-danger hover:bg-danger-soft"
               aria-label={`Remover ${file.file_name || 'arquivo'} do portal`}
             >
               {removingId === file.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}

@@ -159,7 +159,7 @@ export function EditPortalUnitsModal({ account, clients, onClose, onSaved }: Edi
           </div>
 
           {error && (
-            <div role="alert" className="mt-4 rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">
+            <div role="alert" className="mt-4 rounded-xl border border-danger-soft-border bg-danger-soft p-3 text-sm text-danger-soft-ink">
               {error}
             </div>
           )}

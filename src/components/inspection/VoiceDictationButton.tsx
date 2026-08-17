@@ -129,7 +129,7 @@ export function VoiceDictationButton({ onTranscript, className }: VoiceDictation
           // No dedo o alvo vai a 44px (decisão 7); no ponteiro fino continua discreto.
           'flex h-7 w-7 shrink-0 items-center justify-center rounded-full border transition-colors [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11',
           isListening
-            ? 'animate-pulse border-red-400 bg-red-50 text-red-600'
+            ? 'animate-pulse border-danger bg-danger-soft text-danger'
             : 'border-default bg-surface text-navy-3 hover:bg-surface-hover hover:text-primary-600',
           className
         )}
@@ -142,7 +142,7 @@ export function VoiceDictationButton({ onTranscript, className }: VoiceDictation
         </span>
       )}
       {errorMessage && (
-        <div className="absolute right-0 top-9 z-10 w-64 rounded-md border border-red-200 bg-red-50 p-2 text-[11px] leading-snug text-red-700 shadow-lg">
+        <div className="absolute right-0 top-9 z-10 w-64 rounded-md border border-danger-soft-border bg-danger-soft p-2 text-[11px] leading-snug text-danger-soft-ink shadow-lg">
           {errorMessage}
           <button type="button" onClick={() => setErrorMessage(null)} className="ml-1 font-bold underline">
             Ok

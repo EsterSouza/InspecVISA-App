@@ -341,7 +341,7 @@ export function TemplateEditor() {
 
       <PageShell className="space-y-6">
         {error && (
-          <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl flex items-center gap-3">
+          <div className="p-4 bg-danger-soft border border-danger-soft-border text-danger-soft-ink rounded-xl flex items-center gap-3">
             <AlertTriangle className="h-5 w-5 shrink-0" />
             <span className="text-sm font-semibold">{error}</span>
           </div>
@@ -409,7 +409,7 @@ export function TemplateEditor() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 shrink-0 text-navy-3 hover:text-red-500 hover:bg-red-50 disabled:opacity-30"
+                      className="h-7 w-7 shrink-0 text-navy-3 hover:text-danger hover:bg-danger-soft disabled:opacity-30"
                       disabled={blocked}
                       title={blocked ? 'Aposente os itens desta seção antes de removê-la' : 'Remover seção'}
                       onClick={() => removeSection(section.id)}
@@ -449,7 +449,7 @@ export function TemplateEditor() {
                                 {item.description || 'Nova pergunta…'}
                               </span>
                               {item.isCritical && (
-                                <span className="h-1.5 w-1.5 rounded-full bg-red-500 shrink-0" title="Item crítico" />
+                                <span className="h-1.5 w-1.5 rounded-full bg-danger shrink-0" title="Item crítico" />
                               )}
                               {openCount > 0 && (
                                 <span
@@ -502,7 +502,7 @@ export function TemplateEditor() {
                       <Copy className="h-3.5 w-3.5 mr-1.5" /> Duplicar
                     </Button>
                     {!isPersistedId(selectedItem.id) ? (
-                      <Button variant="ghost" size="sm" className="text-red-600 hover:bg-red-50" onClick={() => removeItem(selectedSection.id, selectedItem.id)}>
+                      <Button variant="ghost" size="sm" className="text-danger hover:bg-danger-soft" onClick={() => removeItem(selectedSection.id, selectedItem.id)}>
                         <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Remover
                       </Button>
                     ) : selectedItem.retiredAt ? (
@@ -594,7 +594,7 @@ export function TemplateEditor() {
                     <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-navy-2 h-10">
                       <input
                         type="checkbox"
-                        className="rounded border-control text-red-600 focus:ring-red-500 h-4 w-4 cursor-pointer"
+                        className="rounded border-control text-danger focus:ring-danger h-4 w-4 cursor-pointer"
                         checked={selectedItem.isCritical}
                         onChange={(e) => updateItem(selectedSection.id, selectedItem.id, 'isCritical', e.target.checked)}
                       />

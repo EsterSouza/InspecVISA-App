@@ -87,7 +87,7 @@ const TECHNICAL_BLOCKS: BlockConfig[] = [
     label: 'Planos de ação vencidos',
     description: 'Prazo publicado no portal já passou.',
     icon: AlertTriangle,
-    accent: 'text-red-700 bg-red-50 border-red-200',
+    accent: 'text-danger-soft-ink bg-danger-soft border-danger-soft-border',
     link: (item) => `/plano-de-acao?item=${item.id}`,
   },
 ];
@@ -234,7 +234,7 @@ function BlockCard({
   const hasError = count?.error;
 
   return (
-    <div className={`rounded-xl border bg-surface shadow-sm ${hasError ? 'border-red-200' : 'border-default'}`}>
+    <div className={`rounded-xl border bg-surface shadow-sm ${hasError ? 'border-danger-soft-border' : 'border-default'}`}>
       <button
         type="button"
         onClick={onToggle}
@@ -251,7 +251,7 @@ function BlockCard({
         </div>
         <div className="flex items-center gap-2">
           {hasError ? (
-            <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700">
+            <span className="rounded-full bg-danger-soft px-2 py-0.5 text-[10px] font-bold text-danger-soft-ink">
               indisponível
             </span>
           ) : count?.count === undefined ? (
@@ -276,7 +276,7 @@ function BlockCard({
               <Loader2 className="h-5 w-5 animate-spin text-navy-3" />
             </div>
           ) : state.error ? (
-            <p className="rounded-md border border-red-100 bg-red-50 p-2.5 text-xs text-red-700">
+            <p className="rounded-md border border-danger-soft-border bg-danger-soft p-2.5 text-xs text-danger-soft-ink">
               Não deu para carregar esta lista agora: {state.error}
             </p>
           ) : state.items.length === 0 ? (
@@ -404,7 +404,7 @@ export function OperationalQueues({ consultantName, clientId, daysAhead }: Opera
       </div>
 
       {countsError && (
-        <p className="mb-4 rounded-md border border-red-100 bg-red-50 p-3 text-xs text-red-700">
+        <p className="mb-4 rounded-md border border-danger-soft-border bg-danger-soft p-3 text-xs text-danger-soft-ink">
           Não deu para carregar os números do painel: {countsError}
         </p>
       )}

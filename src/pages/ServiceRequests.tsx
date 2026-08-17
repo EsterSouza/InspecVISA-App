@@ -89,7 +89,7 @@ const priorityTheme: Record<ServiceRequestPriority, string> = {
   low: 'bg-surface-sunken text-navy-2',
   normal: 'bg-surface-sunken text-navy-2',
   high: 'bg-amber-100 text-amber-800',
-  urgent: 'bg-red-100 text-red-700',
+  urgent: 'bg-danger-soft text-danger-soft-ink',
 };
 
 function errorMessage(err: unknown): string {
@@ -372,7 +372,7 @@ function RequestDetail({
       )}
 
       {busy && <p className="flex items-center gap-1 text-[11px] text-navy-3"><Loader2 className="h-3 w-3 animate-spin" /> salvando…</p>}
-      {error && <p className="text-[11px] font-medium text-red-700">{error}</p>}
+      {error && <p className="text-[11px] font-medium text-danger-soft-ink">{error}</p>}
     </div>
   );
 }
@@ -462,7 +462,7 @@ function SlaPanel({
               </label>
             ))}
           </div>
-          {error && <p className="text-[11px] font-medium text-red-700">{error}</p>}
+          {error && <p className="text-[11px] font-medium text-danger-soft-ink">{error}</p>}
           {saved && <p className="text-[11px] font-medium text-emerald-700">Prazos salvos.</p>}
           <button
             type="button"
@@ -648,14 +648,14 @@ export function ServiceRequests() {
         {requests.length} solicitação(ões) nesta lista
         {counts.waitingTeam > 0 && <span className="ml-1 font-bold text-primary-700">· {counts.waitingTeam} com a equipe</span>}
         {counts.waitingClient > 0 && <span className="ml-1 font-bold text-amber-700">· {counts.waitingClient} com o cliente</span>}
-        {counts.unassigned > 0 && <span className="ml-1 font-bold text-red-700">· {counts.unassigned} sem responsável</span>}
+        {counts.unassigned > 0 && <span className="ml-1 font-bold text-danger-soft-ink">· {counts.unassigned} sem responsável</span>}
       </p>
 
       {error && requests.length === 0 ? (
         <div className="rounded-md border border-default bg-surface">
           <EmptyState
             role="alert"
-            icon={<AlertTriangle className="h-8 w-8 text-red-500" />}
+            icon={<AlertTriangle className="h-8 w-8 text-danger" />}
             title="Não deu para carregar as solicitações"
             description={error}
             action={
@@ -691,7 +691,7 @@ export function ServiceRequests() {
       ) : (
         <>
         {error && (
-          <p className="mb-3 rounded-md border border-red-100 bg-red-50 p-3 text-xs text-red-700">{error}</p>
+          <p className="mb-3 rounded-md border border-danger-soft-border bg-danger-soft p-3 text-xs text-danger-soft-ink">{error}</p>
         )}
         <TableContainer>
           <Table>

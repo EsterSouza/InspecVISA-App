@@ -633,9 +633,9 @@ export function InspectionSummary() {
                 <p className="text-2xl font-bold text-green-700">{reportResponses.filter(r => r.result === 'complies').length}</p>
                 <p className="text-xs text-green-600 font-semibold mt-1">Cumpre</p>
               </div>
-              <div className="bg-red-50 rounded-xl p-4 text-center">
-                <p className="text-2xl font-bold text-red-700">{nonCompliantResponses.length}</p>
-                <p className="text-xs text-red-600 font-semibold mt-1">Não Cumpre</p>
+              <div className="bg-danger-soft rounded-xl p-4 text-center">
+                <p className="text-2xl font-bold text-danger-soft-ink">{nonCompliantResponses.length}</p>
+                <p className="text-xs text-danger font-semibold mt-1">Não Cumpre</p>
               </div>
               <div className="bg-surface-sunken rounded-xl p-4 text-center">
                 <p className="text-2xl font-bold text-navy-2">{reportResponses.length}</p>

@@ -412,8 +412,8 @@ export function Dashboard() {
       </div>
 
       {error && (
-        <Card className="mb-6 border-red-200 bg-red-50">
-          <CardContent className="flex items-center gap-3 p-4 text-sm text-red-700">
+        <Card className="mb-6 border-danger-soft-border bg-danger-soft">
+          <CardContent className="flex items-center gap-3 p-4 text-sm text-danger-soft-ink">
             <AlertTriangle className="h-5 w-5 shrink-0" />
             <span>{error}</span>
           </CardContent>

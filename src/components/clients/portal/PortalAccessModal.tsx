@@ -108,7 +108,7 @@ export function PortalAccessModal({ account, onClose, onSaved }: PortalAccessMod
           <p className="mb-5 text-sm text-navy-3">{account.name}</p>
 
           {error && (
-            <div role="alert" className="mb-4 rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">{error}</div>
+            <div role="alert" className="mb-4 rounded-xl border border-danger-soft-border bg-danger-soft p-3 text-sm text-danger-soft-ink">{error}</div>
           )}
 
           <div className="mb-5 rounded-xl border border-default bg-surface-sunken p-3">
@@ -188,7 +188,7 @@ export function PortalAccessModal({ account, onClose, onSaved }: PortalAccessMod
                           className={`h-9 rounded-lg border text-xs font-bold transition-colors ${
                             state === option
                               ? option === 'hidden'
-                                ? 'border-red-400 bg-red-50 text-red-700'
+                                ? 'border-danger bg-danger-soft text-danger-soft-ink'
                                 : option === 'scheduled'
                                   ? 'border-sky-400 bg-sky-50 text-sky-700'
                                   : 'border-green-500 bg-green-50 text-green-700'

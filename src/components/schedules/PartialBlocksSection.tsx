@@ -235,7 +235,7 @@ export function PartialBlocksSection() {
           <Loader2 className="h-5 w-5 animate-spin text-primary-600" /> Carregando bloqueios...
         </div>
       ) : loadError ? (
-        <div role="alert" className="rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">{loadError}</div>
+        <div role="alert" className="rounded-xl border border-danger-soft-border bg-danger-soft p-3 text-sm text-danger-soft-ink">{loadError}</div>
       ) : blocks.length === 0 ? (
         <p className="text-sm text-navy-3">Nenhum bloqueio parcial ativo.</p>
       ) : (
@@ -263,7 +263,7 @@ export function PartialBlocksSection() {
                 size="sm"
                 disabled={busyId === block.id}
                 onClick={() => void handleCancel(block)}
-                className="text-red-500 hover:bg-red-50"
+                className="text-danger hover:bg-danger-soft"
                 aria-label={`Remover bloqueio de ${formatBlockRange(block.starts_at, block.ends_at)}`}
               >
                 <Trash2 className="h-4 w-4" />
