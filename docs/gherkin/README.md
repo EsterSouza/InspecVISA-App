@@ -24,10 +24,10 @@ suíte SQL, ou código), para não virar documentação que mente.
 | Arquivo | Domínio |
 |---|---|
 | `inspecao.feature` | Abertura, semeadura por recorte, itens extras, finalização e congelamento |
-| `plano-de-acao.feature` | Projeção da NC, prazo, dedup, resolução, relatório oculto |
+| `plano-de-acao.feature` | Projeção da NC, prazo, dedup, resolução, relatório oculto, **revisão da evidência e o caminho dela até a próxima visita e o relatório** |
 | `portal-cliente.feature` | Navegação, unidades, link público, declaração de status, evidência |
 | `agendamento.feature` | Calendário semana/lista, solicitação, confirmação |
 | `referencias-relatorio.feature` | Referência curada, autoria, revogada/substituta, UF, só o citado |
-| `painel-operacional.feature` | Os seis blocos, filtro por consultora, relatório oculto, sem prazo |
+| `painel-operacional.feature` | Os seis blocos, filtro por consultora, relatório oculto, sem prazo, **destino do clique bloco a bloco** |
 | `seguranca-multitenant.feature` | Isolamento por tenant, grants nos dois papéis, buckets privados |
 | `aplicabilidade.feature` | **Alvo, não comportamento atual.** Motor de condicionais: três estados, preservação de resposta, congelamento, offline e colaboração (COND-01) |

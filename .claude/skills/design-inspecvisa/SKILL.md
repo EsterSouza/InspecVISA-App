@@ -186,7 +186,7 @@ Aprendido em 17/08, com quatro defeitos que só apareceram usando o fluxo:
 
 **Não deduzir do código nem perguntar.** A tabela **"Onde estamos"**, no topo de
 `docs/HANDOFF-FRONTEND.md`, é a única fonte: card entregue tem o título ~~riscado~~ com data e
-commit, card aberto tem ⬜. Em 18/08/2026: 26 entregues, 2 na fila (FE-12 e FE-27, nessa ordem).
+commit, card aberto tem ⬜. Em 18/08/2026: 26 entregues, 3 na fila (FE-28, FE-12 e FE-27, nessa ordem).
 
 **Ao fechar um card, atualizar no mesmo commit:** a tabela "Onde estamos" (riscar o título do card
 e tirá-lo da fila), o "Registro de execução" do handoff, e a linha da rota em

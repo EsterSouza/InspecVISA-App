@@ -1,7 +1,9 @@
 # Handoff único — InspecVISA
 
-**Última atualização:** 15/08/2026 (BRT), com o roteiro publicado de estética e terapias integrativas
-para São Paulo capital ·
+**Última atualização:** 18/08/2026 (BRT) — card **REL-04** aberto: a evidência do cliente casa com o
+requisito só por `source_item_id` e some quando a unidade troca de roteiro (ver § REL-04). Antes
+disso, 15/08/2026, com o roteiro publicado de estética e terapias integrativas para São Paulo
+capital ·
 **Branch:** `main`, sincronizada com `origin/main` · O estado da seção 2 foi verificado em 03/08/2026,
 com as correções de 04/08 e 05/08 anotadas nas tabelas.
 
@@ -372,6 +374,7 @@ citavam a numeração do *roteiro anexo* ao 45.585 (5.5.9, 6.4.1, 7.1…), que �
 | **P360-011** | Evidências do cliente e revisão técnica | Opus 5 | alto | P360-010 | ✅ **concluído 07/08/2026** · aplicado em produção (migration + bucket privado + 2 edge functions); prova de ponta a ponta feita contra produção, depois apagada |
 | **PORT-02** | Link do relatório por unidade e autoria da evidência | Opus 5 | alto | P360-011 | ✅ **concluído 07/08/2026** · aplicado em produção; provado contra a visita real da Icaraí |
 | **REL-03** | Evidência do cliente na nova vistoria e no relatório final | Opus 5 | alto | PORT-02 | ✅ **concluído 07/08/2026** · só código (sem migration); fecha o ciclo sanitário |
+| **REL-04** | A evidência do cliente sobrevive à troca de roteiro | Opus 5 | médio | REL-03 (concluído) | ⬜ **aberto 18/08/2026** · casamento por `source_item_id` quebra quando o roteiro muda; a reincidência já traduz por descrição, a evidência não |
 | **PORT-03** | O cliente declara a situação do item (inclusive "não fiz") | Opus 5 | médio | PORT-02 | ✅ **concluído 07/08/2026** · aplicado em produção |
 | **P360-012** | Solicitações estruturadas de consultoria | Opus 5 | alto | — | ✅ **concluído 08/08/2026** · aplicado em produção (2 migrations + bucket privado + 2 edge functions); inclui o backfill retroativo do plano de ação, com 306 pendências projetadas em 16 unidades |
 | **P360-013** | Painel operacional das consultoras | Sonnet 5 | alto | 010, 011, 012 | ✅ **concluído 08/08/2026** · aplicado em produção (migration só de funções, sem tabela nova); rota `/painel` nova, sem mexer no Dashboard existente |
@@ -383,7 +386,7 @@ citavam a numeração do *roteiro anexo* ao 45.585 (5.5.9, 6.4.1, 7.1…), que �
 | **SEC-01** | Endurecer o que a revisão do P360-015 encontrou | Opus 5 | médio | P360-015 (concluído) | ✅ **concluído 08/08/2026** · aplicado em produção (2 migrations), autorizado pela Ester; 50 execuções E2E depois do revoke |
 | **DEBT-03** | Pontas soltas do repositório | Haiku 4.5 | baixo | — | ✅ **concluído 05/08** |
 
-Ordem sugerida: **REF-05**, depois a onda do **Portal 360**. O REF-06 saiu na frente porque era
+Ordem sugerida: **REL-04** e **REF-05**, depois a onda do **Portal 360**. O REF-06 saiu na frente porque era
 integridade de dado de cliente real e crescia com o tempo; foi concluído em 06/08, e a precondição
 que segurava o REF-05 também.
 (INFRA-01, INFRA-02, EST-01, EST-02, PROD-01, PROD-02, PROD-03, REF-01, REF-02, REF-03, REF-04 e
@@ -2672,6 +2675,51 @@ em leitura.
 Commit: `df3eca0`.
 
 ---
+
+## REL-04 — A evidência do cliente sobrevive à troca de roteiro ⬜ aberto 18/08/2026
+
+**Modelo:** Opus 5 · **Esforço:** médio · **Depende de:** REL-03 (concluído) · **Prioridade:** P1 sanitário
+
+**Como apareceu:** em 18/08/2026, explicando à Ester o ciclo evidência → revisão → próxima visita
+→ relatório (pergunta dela: *"como as fotos que ela enviou entram no próximo relatório que eu fizer
+de auditoria na próxima visita?"*). O ciclo funciona — e tem um ponto cego que ninguém tinha
+medido.
+
+**O problema, em uma frase:** `ClientEvidenceService.byItemForClient` casa a evidência com o
+requisito **só** por `source_item_id`; se a unidade passar a ser inspecionada por outro roteiro, ou
+o item for reescrito com id novo, a prova que o cliente mandou some do item na vistoria seguinte e
+do relatório — sem aviso nenhum.
+
+**Por que isso é grave e não é teórico:** é exatamente a mesma família de falha que a reincidência
+já teve e resolveu. `getRecurringItemIdsForClient` (`src/utils/actionPlanContext.ts`) traduz
+**por descrição normalizada** (`normalizeRequirementText`) quando o id da resposta antiga não
+existe mais no roteiro atual. A evidência não faz essa tradução. E trocar de roteiro é rotina
+aqui: ILPI tem base federal + suplemento regional, itens são aposentados no editor (FE-17b), e o
+REF-05/REF-06 já reescreveram item no lugar.
+
+**O que fazer:**
+
+- Espelhar a tradução da reincidência em `ClientEvidenceService.byItemForClient`: quando o
+  `source_item_id` não existir no roteiro da inspeção atual, resolver a descrição do item de
+  origem e casar pelo índice de requisitos (`buildRequirementIndex` + `normalizeRequirementText`).
+- A tradução vale para os **dois** consumidores, porque saem da mesma consulta: a caixa do item na
+  execução (`ChecklistItem` → `ClientEvidencePanel`) e o relatório (`prepareForReport` →
+  `drawClientEvidence` / `drawClientDeclaration`).
+- Custo: resolver descrição exige leitura do roteiro de origem. Traduzir **só** o que não casou por
+  id, como a reincidência já faz — não pagar a conta no caminho comum.
+- Empate (duas descrições normalizadas iguais no roteiro novo): casar com o primeiro e **não**
+  duplicar a evidência em dois itens.
+
+**Aceite:**
+
+- Teste com dois roteiros: evidência gravada com o id do roteiro A aparece no item equivalente do
+  roteiro B, na execução e no PDF, com o mesmo status (só imagem **aprovada** vira figura).
+- Item que não tem equivalente no roteiro novo não some em silêncio: decidir com a Ester entre
+  ignorar ou listar como "evidência sem item correspondente" — **não** inventar item.
+- Nenhuma consulta nova no caminho em que o id casa; a execução continua abrindo offline sem
+  esperar por isso.
+- Cenário do `docs/gherkin/plano-de-acao.feature` ("Trocar o roteiro da unidade desliga o casamento
+  da evidência") reescrito para o comportamento novo.
 
 ## REL-03 — Evidência do cliente na nova vistoria e no relatório final ✅ concluído 07/08/2026
 

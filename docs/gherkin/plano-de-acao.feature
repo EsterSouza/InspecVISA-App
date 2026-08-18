@@ -113,7 +113,8 @@ Funcionalidade: Plano de ação projetado para o cliente
     E a imagem **aprovada** vira figura no PDF, com autor e data na legenda
     E evidência pendente ou devolvida aparece como texto, nunca como figura aceita
 
-  # Limite conhecido, registrado em 18/08/2026 (ainda sem card).
+  # Limite conhecido, registrado em 18/08/2026. Card **REL-04** (docs/HANDOFF.md) o fecha:
+  # quando ele sair, este cenário passa a descrever a tradução por descrição, não a perda.
   Cenário: Trocar o roteiro da unidade desliga o casamento da evidência
     Dado uma evidência gravada com o `source_item_id` do roteiro antigo
     Quando a unidade passa a ser inspecionada por outro roteiro
