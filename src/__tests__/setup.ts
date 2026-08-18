@@ -4,6 +4,17 @@ import { expect, vi } from 'vitest';
 
 expect.extend(toHaveNoViolations);
 
+// jsdom ainda não implementa `<dialog>`: sem isto, qualquer teste que abra o `Modal` ou a
+// galeria de fotos do FE-26 quebra em `showModal is not a function`.
+const dialogProto = globalThis.HTMLDialogElement?.prototype;
+if (dialogProto && !dialogProto.showModal) {
+  dialogProto.showModal = function showModal(this: HTMLDialogElement) { this.open = true; };
+  dialogProto.close = function close(this: HTMLDialogElement) {
+    this.open = false;
+    this.dispatchEvent(new Event('close'));
+  };
+}
+
 // Mock do Supabase para não precisar de conexão real nos testes unitários
 vi.mock('../lib/supabase', () => ({
   supabase: {

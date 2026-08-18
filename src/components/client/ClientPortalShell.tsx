@@ -147,7 +147,7 @@ export function ClientPortalShell({
                 {initials(overview.account_name)}
               </span>
               <div>
-                <p className="font-title text-lg font-semibold leading-tight text-navy">{overview.account_name}</p>
+                <h1 className="font-title text-lg font-semibold leading-tight text-navy">{overview.account_name}</h1>
                 <p className="text-xs text-navy-2">
                   Portal do Cliente · {overview.units.length} unidade{overview.units.length === 1 ? '' : 's'} ·{' '}
                   {totalVisits} compromisso{totalVisits === 1 ? '' : 's'}

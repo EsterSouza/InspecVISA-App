@@ -6,6 +6,7 @@ import { formatDateBR, parseDateParts } from '../../utils/clientPortalFormat';
 import { toDateKey } from '../../utils/date';
 import { WeekCalendar, type WeekCalendarEvent, type WeekCalendarEventState, type WeekCalendarWeek } from '../ui/WeekCalendar';
 import { addDays, formatWeekPeriod, mondayOf } from '../../utils/weekCalendarDates';
+import { APPOINTMENT_STATUS_LABELS } from '../../utils/appointmentType';
 
 export type PortalAppointmentVisit = ClientPortalVisit & { unitName: string; city: string | null };
 
@@ -73,16 +74,6 @@ function buildServiceDateItems(visits: PortalAppointmentVisit[], units: ClientPo
   return items;
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  requested: 'Solicitada',
-  confirmed: 'Confirmada',
-  in_progress: 'Em andamento',
-  rescheduled: 'Remarcada',
-  completed: 'Relatório em andamento',
-  report_available: 'Relatório disponível',
-  cancelled: 'Cancelada',
-};
-
 const STATUS_BADGES: Record<string, string> = {
   requested: 'bg-amber-soft text-amber-soft-ink',
   confirmed: 'bg-primary-100 text-accent-ink',
@@ -102,7 +93,7 @@ function visitDisplayStatus(status: string, suspended: boolean): { label: string
     return { label: 'Suspenso', badge: 'bg-danger-soft text-danger-soft-ink' };
   }
   return {
-    label: STATUS_LABELS[status] || status,
+    label: APPOINTMENT_STATUS_LABELS[status] || status,
     badge: STATUS_BADGES[status] || 'bg-surface-sunken text-navy-3',
   };
 }

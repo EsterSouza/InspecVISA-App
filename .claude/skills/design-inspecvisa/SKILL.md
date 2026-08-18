@@ -127,6 +127,18 @@ Do Artefato E, **aprovadas pela Ester e implementadas no FE-23 em 16/08/2026**:
     publicar) e o `on conflict` de `admin_publish_client_action_items` (para nenhum outro caminho
     de publicação reiniciar o relógio em silêncio).
 
+Do FE-26, em 18/08/2026:
+
+35. **A largura tem duas, não uma.** `PageShell` (1600px) é o admin; **`PublicShell` (760px)** é o
+    que o cliente vê sem login — coluna única, fundo `canvas`, marca e rodapé de identidade. Não é
+    exceção do `PageShell`: é o outro lado do par. Texto corrido dentro dela continua em 68ch.
+36. **A marca não é o `<h1>`.** O `<h1>` de cada página é a tarefa de quem está ali; o
+    `PublicHeader` só carrega a identidade — e alinha com a coluna da página (`widthClassName`):
+    1152px no portal, 760px nas públicas.
+37. **Sobreposição em tela cheia é `<dialog>`**, nunca `<div>` fixo — vale para a galeria de fotos
+    como já valia para o `Modal`. Nos testes, o polyfill de `showModal`/`close` mora no
+    `src/__tests__/setup.ts`: jsdom ainda não implementa `<dialog>`.
+
 ## Duas coisas que a verificação por DOM não pega
 
 Aprendido em 17/08, com quatro defeitos que só apareceram usando o fluxo:
@@ -166,8 +178,7 @@ Aprendido em 17/08, com quatro defeitos que só apareceram usando o fluxo:
 
 **Não deduzir do código nem perguntar.** A tabela **"Onde estamos"**, no topo de
 `docs/HANDOFF-FRONTEND.md`, é a única fonte: card entregue tem o título ~~riscado~~ com data e
-commit, card aberto tem ⬜. Em 17/08/2026: 23 entregues, 5 na fila (FE-22, FE-25, FE-26,
-FE-12, FE-27 — nessa ordem).
+commit, card aberto tem ⬜. Em 18/08/2026: 26 entregues, 2 na fila (FE-12 e FE-27, nessa ordem).
 
 **Ao fechar um card, atualizar no mesmo commit:** a tabela "Onde estamos" (riscar o título do card
 e tirá-lo da fila), o "Registro de execução" do handoff, e a linha da rota em

@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   AlertTriangle,
-  Building2,
   CalendarClock,
   CalendarDays,
   CalendarPlus,
@@ -38,12 +37,29 @@ import {
   type SubmitEvidenceHandler,
 } from '../components/client/PortalActionPlan';
 import { formatReportDueDate } from '../utils/businessDays';
-import { PublicHeader } from '../components/public/PublicHeader';
+import { PublicShell } from '../components/public/PublicShell';
+import { Badge, type BadgeProps } from '../components/ui/Badge';
+import { Button } from '../components/ui/Button';
+import { buttonVariants } from '../components/ui/buttonVariants';
+import { Card } from '../components/ui/Card';
+import { Skeleton } from '../components/ui/Skeleton';
+import { cn } from '../lib/utils';
 import { formatProtocol } from '../utils/protocol';
-import { APPOINTMENT_TYPE_RULES, normalizeAppointmentType } from '../utils/appointmentType';
+import { APPOINTMENT_STATUS_LABELS, APPOINTMENT_TYPE_RULES, normalizeAppointmentType } from '../utils/appointmentType';
 import { buildIcs, downloadIcs } from '../utils/ics';
 import { buildGoogleCalendarLink, buildOutlookCalendarLink } from '../utils/calendarLinks';
 import { ContractTimeline } from '../components/portal/ContractTimeline';
+
+/** Três canais, não só cor: o selo carrega a palavra e a linha do tempo carrega a posição. */
+const STATUS_TONES: Record<string, BadgeProps['variant']> = {
+  requested: 'warning',
+  confirmed: 'default',
+  in_progress: 'default',
+  rescheduled: 'warning',
+  completed: 'success',
+  report_available: 'success',
+  cancelled: 'neutral',
+};
 
 const PERIOD_LABELS: Record<string, string> = {
   manha: 'Manhã',
@@ -119,15 +135,20 @@ function formatDateBR(value: string | null): string {
   return `${d}/${m}/${y}`;
 }
 
+/**
+ * O tipo do arquivo é dito pela forma do ícone e pelo nome, não pela cor: vermelho
+ * e verde têm significado fixo no sistema (erro e sucesso) e um PDF não é um erro.
+ */
 function attachmentIcon(asset: AppointmentAttachment) {
   const name = (asset.file_name || '').toLowerCase();
   const mime = (asset.mime_type || '').toLowerCase();
-  if (mime.includes('pdf') || name.endsWith('.pdf')) return <FileText className="h-5 w-5 text-danger" />;
+  const className = 'h-5 w-5 shrink-0 text-navy-2';
+  if (mime.includes('pdf') || name.endsWith('.pdf')) return <FileText className={className} aria-hidden="true" />;
   if (mime.includes('word') || name.endsWith('.doc') || name.endsWith('.docx')) {
-    return <FileType className="h-5 w-5 text-accent-ink" />;
+    return <FileType className={className} aria-hidden="true" />;
   }
-  if (mime.startsWith('image/')) return <ImageIcon className="h-5 w-5 text-success" />;
-  return <Paperclip className="h-5 w-5 text-navy-3" />;
+  if (mime.startsWith('image/')) return <ImageIcon className={className} aria-hidden="true" />;
+  return <Paperclip className={className} aria-hidden="true" />;
 }
 
 export function PublicAppointmentStatus() {
@@ -237,43 +258,36 @@ export function PublicAppointmentStatus() {
   // ─── Loading inicial ─────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen bg-surface">
-        <PublicHeader />
-        <main className="mx-auto max-w-2xl px-4 py-8" role="status" aria-live="polite">
-          <div className="mb-6 h-24 animate-pulse rounded-2xl bg-surface-sunken" aria-hidden="true" />
-          <div className="space-y-3">
-            <div className="h-5 w-1/2 animate-pulse rounded bg-surface-sunken" aria-hidden="true" />
-            <div className="h-20 animate-pulse rounded-xl bg-surface-sunken" aria-hidden="true" />
-            <div className="h-20 animate-pulse rounded-xl bg-surface-sunken" aria-hidden="true" />
-          </div>
-          <span className="sr-only">Consultando sua solicitação...</span>
-        </main>
-      </div>
+      <PublicShell role="status" aria-live="polite">
+        <Skeleton className="mb-6 h-24 rounded-lg" />
+        <div className="space-y-3">
+          <Skeleton className="h-5 w-1/2" />
+          <Skeleton className="h-20 rounded-lg" />
+          <Skeleton className="h-20 rounded-lg" />
+        </div>
+        <span className="sr-only">Consultando sua solicitação...</span>
+      </PublicShell>
     );
   }
 
-  // ─── Token inválido ──────────────────────────────────────────
+  // ─── Link que não abre nada ──────────────────────────────────
   if (invalidToken || !status) {
     return (
-      <div className="min-h-screen bg-surface">
-        <PublicHeader />
-        <main className="mx-auto max-w-[600px] px-4 py-12">
-          <div className="rounded-2xl border border-amber-soft-border bg-amber-soft/70 p-6 text-center shadow-sm">
-            <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-amber-strong" />
-            <h2 className="text-lg font-bold text-navy">Acesso restrito</h2>
-            <p className="mt-2 text-sm text-navy-2">
-              Entre no Portal do Cliente com e-mail/usuario e senha para consultar relatorios, fotos e anexos.
-            </p>
-            <Link
-              to="/cliente"
-              className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-primary-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700"
-            >
-              <Home className="h-4 w-4" />
-              Entrar no portal
-            </Link>
-          </div>
-        </main>
-      </div>
+      <PublicShell>
+        <Card className="border-amber-soft-border bg-amber-soft/70 p-6 text-center">
+          <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-amber-strong" aria-hidden="true" />
+          <h1 className="font-title text-xl font-semibold text-navy">Não encontramos esta solicitação</h1>
+          <p className="mx-auto mt-2 max-w-[52ch] text-sm text-navy-2">
+            O link pode ter vindo incompleto ou já não valer mais. Confira o endereço que você
+            recebeu ou entre no Portal do Cliente com seu e-mail e senha para ver relatórios, fotos
+            e anexos de todas as suas unidades.
+          </p>
+          <Link to="/cliente" className={cn(buttonVariants(), 'mt-6 gap-2')}>
+            <Home className="h-4 w-4" aria-hidden="true" />
+            Entrar no portal
+          </Link>
+        </Card>
+      </PublicShell>
     );
   }
 
@@ -334,440 +348,416 @@ export function PublicAppointmentStatus() {
       caption: asset.caption,
     }, { appointmentToken: token, attachmentId: asset.id });
   };
+  const statusLabel = APPOINTMENT_STATUS_LABELS[status.status] || status.status;
+  const statusTone = STATUS_TONES[status.status] || 'neutral';
 
   return (
-    <div className="min-h-screen bg-surface">
-      <PublicHeader />
-      <main className="mx-auto max-w-3xl px-4 py-8 pb-16 sm:px-6">
+    <PublicShell>
+      {accountToken && (
         <Link
           to="/cliente"
-          className="mb-4 inline-flex items-center gap-2 rounded-xl border border-default bg-surface px-4 py-2.5 text-sm font-semibold text-navy-2 shadow-sm transition-colors hover:bg-surface-hover"
+          className="mb-4 inline-flex min-h-11 items-center gap-2 rounded-md text-sm font-semibold text-accent-ink underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
         >
-          <Home className="h-4 w-4" />
-          Voltar ao painel do cliente
+          <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+          Voltar ao Portal do Cliente
         </Link>
+      )}
 
-        {/* PORT-02/03: o plano de ação vem PRIMEIRO. Quando o relatório é aberto pelo link, é
-            para isto que o gestor da casa entra — responder o que já corrigiu, anexar a prova ou
-            avisar o que ainda não deu para fazer. Deixar isso no rodapé, abaixo do protocolo e
-            da linha do tempo, escondia justamente a parte que exige ação dele. */}
-        <PortalActionPlan
-          items={actionItems}
-          error={actionItemsError}
-          onSubmitEvidence={handleSubmitEvidence}
-          onDeclareStatus={handleDeclareStatus}
-          alwaysShow
-          defaultAuthorName={status.unit_name}
-        />
-
-        {/* Protocolo */}
-        <div className="mb-6 rounded-2xl border border-default bg-surface-sunken p-5 text-center shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-wide text-navy-3">Protocolo</p>
-          <p className="mt-1 font-mono text-3xl font-bold tracking-widest text-navy">
-            {formatProtocol(token || '')}
-          </p>
+      <div className="mb-6">
+        <p className="text-sm font-semibold text-accent-ink">Acompanhamento</p>
+        <h1 className="mt-1 font-title text-2xl font-semibold text-navy">{typeRules.label}</h1>
+        <p className="mt-1 break-words text-sm text-navy-2">{status.unit_name}</p>
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+          <Badge variant={statusTone}>{statusLabel}</Badge>
+          <span className="text-sm text-navy-2">
+            Protocolo{' '}
+            <strong className="font-semibold tracking-widest tabular-nums text-navy">
+              {formatProtocol(token || '')}
+            </strong>
+          </span>
         </div>
+      </div>
 
-        {/* Banners de estado especial */}
-        {isCancelled && (
-          <div className="mb-6 flex items-start gap-3 rounded-xl border border-danger-soft-border bg-danger-soft p-4">
-            <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-danger" />
-            <div>
-              <p className="text-sm font-semibold text-danger-soft-ink">Solicitação cancelada</p>
-              <p className="mt-0.5 text-xs text-danger">
-                Esta solicitação foi cancelada. Se precisar, faça um novo agendamento.
-              </p>
-            </div>
-          </div>
-        )}
-        {isRescheduled && (
-          <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-soft-border bg-amber-soft p-4">
-            <CalendarClock className="mt-0.5 h-5 w-5 shrink-0 text-amber-strong" />
-            <div>
-              <p className="text-sm font-semibold text-amber-soft-ink">Inspeção remarcada</p>
-              <p className="mt-0.5 text-xs text-amber-strong">
-                A data da sua inspeção está sendo reagendada. Nossa equipe entrará em contato para
-                confirmar a nova data.
-              </p>
-              {status.notes && (
-                <div className="mt-2 rounded-lg border border-amber-soft-border bg-amber-soft/60 p-2.5">
-                  <p className="text-xs font-semibold text-amber-soft-ink">Motivo informado pela equipe:</p>
-                  <p className="mt-0.5 text-xs text-amber-soft-ink">{status.notes}</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+      {upcomingBanner && (
+        <div className="mb-6 flex items-center gap-3 rounded-lg border border-primary-100 bg-primary-50 p-4">
+          <CalendarClock className="h-5 w-5 shrink-0 text-primary-700" aria-hidden="true" />
+          <p className="text-sm font-semibold text-navy">{upcomingBanner}</p>
+        </div>
+      )}
 
-        {suspended && (
-          <div className="mb-6 flex items-start gap-3 rounded-xl border border-danger-soft-border bg-danger-soft p-4">
-            <Lock className="mt-0.5 h-5 w-5 shrink-0 text-danger" />
-            <div className="min-w-0">
-              <p className="text-sm font-bold text-danger-soft-ink">Arquivos temporariamente indisponíveis</p>
-              <p className="mt-0.5 text-xs text-danger">
-                {reportsBlocked && photosBlocked
-                  ? 'O relatório, as fotos e os anexos desta inspeção'
-                  : reportsBlocked
-                    ? 'O relatório e os anexos desta inspeção'
-                    : 'As fotos desta inspeção'}{' '}
-                não estão disponíveis no momento. Fale com a equipe da consultoria para liberar.
-              </p>
-              {status.payment_due_date && (
-                <p className="mt-1 text-xs font-semibold text-danger-soft-ink">
-                  Vencimento: {formatDateBR(status.payment_due_date)}
-                </p>
-              )}
-              <div className="mt-2 flex flex-wrap gap-2">
-                <Link
-                  to="/cliente"
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-danger-soft-border bg-surface px-3 py-1.5 text-xs font-semibold text-danger-soft-ink hover:bg-danger-soft"
-                >
-                  <Home className="h-3.5 w-3.5" /> Ver pagamento no portal
-                </Link>
-                {status.payment_link && (
-                  <a
-                    href={status.payment_link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-danger px-3 py-1.5 text-xs font-bold text-white hover:bg-danger-hover"
-                  >
-                    Pagar agora
-                  </a>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {upcomingBanner && (
-          <div className="mb-6 flex items-center gap-3 rounded-xl border border-primary-100 bg-primary-50 p-4">
-            <CalendarClock className="h-5 w-5 shrink-0 text-primary-600" />
-            <p className="text-sm font-semibold text-primary-800">{upcomingBanner}</p>
-          </div>
-        )}
-
-        {/* Linha do tempo */}
-        <section className="mb-6 rounded-2xl border border-default bg-surface p-5 shadow-sm">
-          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-navy-2">
-            Andamento
-          </h3>
-          <ol className="space-y-0">
-            {timelineSteps.map((step, i) => {
-              const done = !isCancelled && i < stepIndex;
-              const current = !isCancelled && i === stepIndex;
-              const isLast = i === timelineSteps.length - 1;
-              return (
-                <li key={step.label} className="relative flex gap-3 pb-1">
-                  {/* Conector vertical */}
-                  {!isLast && (
-                    <span
-                      className={`absolute left-[13px] top-7 h-[calc(100%-20px)] w-0.5 ${
-                        done ? 'bg-primary-500' : 'bg-surface-sunken'
-                      }`}
-                    />
-                  )}
-                  <span
-                    className={`relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 ${
-                      done
-                        ? 'border-primary-500 bg-primary-500 text-white'
-                        : current
-                          ? 'border-primary-600 bg-primary-600 text-white shadow-md shadow-primary-200'
-                          : 'border-default bg-surface text-navy-3'
-                    }`}
-                  >
-                    {done ? (
-                      <Check className="h-4 w-4" />
-                    ) : (
-                      <span className="text-[11px] font-bold">{i + 1}</span>
-                    )}
-                  </span>
-                  <div className="pb-5 pt-1">
-                    <p
-                      className={`text-sm font-medium ${
-                        current
-                          ? 'font-bold text-primary-700'
-                          : done
-                            ? 'text-navy-2'
-                            : 'text-navy-3'
-                      }`}
-                    >
-                      {step.label}
-                      {current && (
-                        <span className="ml-2 rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-bold uppercase text-primary-700">
-                          Atual
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                </li>
-              );
-            })}
-          </ol>
-        </section>
-
-        {/* Informações da solicitação */}
-        <section className="mb-6 rounded-2xl border border-default bg-surface p-5 shadow-sm">
-          <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-navy-2">
-            Dados da solicitação
-          </h3>
-          <dl className="space-y-3 text-sm">
-            <div className="flex items-start gap-3">
-              <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-navy-3" />
-              <div>
-                <dt className="text-xs text-navy-3">Unidade</dt>
-                <dd className="break-words font-medium text-navy">{status.unit_name}</dd>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-navy-3" />
-              <div>
-                <dt className="text-xs text-navy-3">Atendimento</dt>
-                <dd className="font-medium text-navy">{status.district}</dd>
-                {status.attendance_mode === 'presencial' && status.municipality && (
-                  <dd className="text-xs text-navy-3">{status.municipality}</dd>
-                )}
-                {status.attendance_mode === 'online' && (
-                  <dd className="flex items-center gap-1 text-xs text-navy-3">
-                    <Monitor className="h-3 w-3" /> Online
-                  </dd>
-                )}
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-navy-3" />
-              <div>
-                <dt className="text-xs text-navy-3">Data solicitada</dt>
-                <dd className="font-medium text-navy">
-                  {formatDateBR(status.requested_date)}
-                  {status.requested_time ? ` às ${status.requested_time}` : ''}
-                  {status.requested_period && PERIOD_LABELS[status.requested_period]
-                    ? ` — ${PERIOD_LABELS[status.requested_period]}`
-                    : status.requested_period
-                      ? ` — ${status.requested_period}`
-                      : ''}
-                </dd>
-              </div>
-            </div>
-          </dl>
-        </section>
-
-        {/* Link online — só depois de confirmado (já filtrado pelo backend) */}
-        {status.meeting_url && (
-          <section className="mb-6 rounded-2xl border border-primary-100 bg-primary-50/50 p-5 shadow-sm">
-            <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-primary-700">
-              <Video className="h-4 w-4" /> Link da reunião
-            </h3>
-            <a
-              href={status.meeting_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary-600 px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700"
-            >
-              <Video className="h-4 w-4" />
-              Entrar na reunião
-            </a>
-          </section>
-        )}
-
-        {/* Adicionar ao calendário — só quando o compromisso está confirmado */}
-        {calendarInput && (
-          <section className="mb-6 rounded-2xl border border-default bg-surface p-5 shadow-sm">
-            <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-navy-2">
-              <CalendarPlus className="h-4 w-4" /> Adicionar ao calendário
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={handleDownloadIcs}
-                className="inline-flex items-center gap-2 rounded-lg border border-default bg-surface px-3.5 py-2 text-xs font-semibold text-navy-2 hover:bg-surface-hover"
-              >
-                <Download className="h-3.5 w-3.5" /> Baixar .ics
-              </button>
-              <a
-                href={buildGoogleCalendarLink(calendarInput)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-lg border border-default bg-surface px-3.5 py-2 text-xs font-semibold text-navy-2 hover:bg-surface-hover"
-              >
-                Google Calendar
-              </a>
-              <a
-                href={buildOutlookCalendarLink(calendarInput)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-lg border border-default bg-surface px-3.5 py-2 text-xs font-semibold text-navy-2 hover:bg-surface-hover"
-              >
-                Outlook
-              </a>
-            </div>
-          </section>
-        )}
-
-        {/* Prazo do relatório */}
-        {!isCancelled && typeRules.showsReportDueDate && (
-          <section className="mb-6 rounded-2xl border border-primary-100 bg-primary-50/50 p-5 shadow-sm">
-            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-primary-700">
-              Prazo do relatório
-            </h3>
-            <p className="text-sm font-medium text-navy">
-              {formatReportDueDate(status.report_due_at, status.report_due_source)}
+      {isCancelled && (
+        <div className="mb-6 flex items-start gap-3 rounded-lg border border-danger-soft-border bg-danger-soft p-4">
+          <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-danger-soft-ink" aria-hidden="true" />
+          <div>
+            <p className="text-sm font-semibold text-danger-soft-ink">Solicitação cancelada</p>
+            <p className="mt-0.5 text-sm text-danger-soft-ink">
+              Esta solicitação foi cancelada. Se ainda precisar do atendimento, faça um novo pedido
+              de horário.
             </p>
-          </section>
-        )}
+          </div>
+        </div>
+      )}
 
-        {unit && <ContractTimeline unit={unit} />}
+      {isRescheduled && (
+        <div className="mb-6 flex items-start gap-3 rounded-lg border border-amber-soft-border bg-amber-soft p-4">
+          <CalendarClock className="mt-0.5 h-5 w-5 shrink-0 text-amber-soft-ink" aria-hidden="true" />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-amber-soft-ink">Data sendo remarcada</p>
+            <p className="mt-0.5 text-sm text-amber-soft-ink">
+              A equipe entra em contato para combinar a nova data com você.
+            </p>
+            {status.notes && (
+              <div className="mt-2 rounded-md border border-amber-soft-border bg-surface p-2.5">
+                <p className="text-sm font-semibold text-amber-soft-ink">Motivo informado pela equipe</p>
+                <p className="mt-0.5 break-words text-sm text-navy-2">{status.notes}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
-        {status.has_personalized_sanitary_folder && status.personalized_sanitary_folder_url && (
-          <section className="mb-6 rounded-2xl border border-success-soft-border bg-success-soft/60 p-5 shadow-sm">
-            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-success-soft-ink">
-              Pasta sanitaria personalizada
-            </h3>
-            <a
-              href={status.personalized_sanitary_folder_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-success px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-success-soft-ink"
-            >
-              <FolderOpen className="h-4 w-4" />
-              Abrir pasta no Drive
-            </a>
-          </section>
-        )}
+      {suspended && (
+        <div className="mb-6 flex items-start gap-3 rounded-lg border border-danger-soft-border bg-danger-soft p-4">
+          <Lock className="mt-0.5 h-5 w-5 shrink-0 text-danger-soft-ink" aria-hidden="true" />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-danger-soft-ink">Arquivos indisponíveis no momento</p>
+            <p className="mt-0.5 text-sm text-danger-soft-ink">
+              {reportsBlocked && photosBlocked
+                ? 'O relatório, as fotos e os anexos desta visita'
+                : reportsBlocked
+                  ? 'O relatório e os anexos desta visita'
+                  : 'As fotos desta visita'}{' '}
+              não estão liberados agora. Fale com a equipe da consultoria para liberar.
+            </p>
+            {status.payment_due_date && (
+              <p className="mt-1 text-sm font-semibold text-danger-soft-ink">
+                Vencimento: {formatDateBR(status.payment_due_date)}
+              </p>
+            )}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Link to="/cliente" className={cn(buttonVariants({ variant: 'outline' }), 'gap-1.5 bg-surface')}>
+                <Home className="h-4 w-4" aria-hidden="true" /> Ver pagamento no portal
+              </Link>
+              {status.payment_link && (
+                <a
+                  href={status.payment_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(buttonVariants(), 'gap-1.5')}
+                >
+                  Pagar agora
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
-        {/* Relatório e anexos — só exibe quando há algo publicado ou quando o status indica disponibilidade */}
-        {(status.status === 'report_available' || hasDeliverables) ? (
-        <section className="mb-6 rounded-2xl border border-success-soft-border bg-surface p-5 shadow-sm">
-            <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-success-soft-ink">
-              Relatório, fotos e anexos
-            </h3>
-
-            {reportPdf ? (
+      {/* Encontro marcado: enquanto ele não acontece, entrar na sala e guardar a data são as
+          únicas coisas que a pessoa veio fazer aqui. */}
+      {(status.meeting_url || calendarInput) && (
+        <Card className="mb-6 p-4 sm:p-5">
+          {status.meeting_url && (
+            <>
+              <h2 className="flex items-center gap-2 font-title text-base font-semibold text-navy">
+                <Video className="h-4 w-4 text-primary-700" aria-hidden="true" /> Sala da reunião
+              </h2>
               <a
-                href={reportPdf.signed_url}
+                href={status.meeting_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={() => auditAsset('report_download_clicked', reportPdf)}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-success px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-success-soft-ink"
+                className={cn(buttonVariants({ fullWidth: true }), 'mt-3 gap-2 py-3')}
               >
-                <Download className="h-4 w-4" />
-                Baixar relatório (PDF)
+                <Video className="h-4 w-4" aria-hidden="true" />
+                Entrar na reunião
               </a>
-            ) : suspended && hasReport ? (
-              <div className="flex items-start gap-3 rounded-xl border border-danger-soft-border bg-danger-soft p-4">
-                <Lock className="mt-0.5 h-5 w-5 shrink-0 text-danger" />
-                <div>
-                  <p className="text-sm font-semibold text-danger-soft-ink">Relatório disponível — indisponível no momento</p>
-                  <p className="mt-0.5 text-xs text-danger">
-                    O relatório desta inspeção já está pronto, mas não está liberado no seu portal
-                    agora. Fale com a equipe da consultoria.
+            </>
+          )}
+          {calendarInput && (
+            <div className={status.meeting_url ? 'mt-5 border-t border-default pt-5' : undefined}>
+              <h2 className="flex items-center gap-2 font-title text-base font-semibold text-navy">
+                <CalendarPlus className="h-4 w-4 text-primary-700" aria-hidden="true" /> Guardar no seu calendário
+              </h2>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button type="button" variant="outline" onClick={handleDownloadIcs} className="gap-2 bg-surface">
+                  <Download className="h-4 w-4" aria-hidden="true" /> Baixar .ics
+                </Button>
+                <a
+                  href={buildGoogleCalendarLink(calendarInput)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(buttonVariants({ variant: 'outline' }), 'bg-surface')}
+                >
+                  Google Agenda
+                </a>
+                <a
+                  href={buildOutlookCalendarLink(calendarInput)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(buttonVariants({ variant: 'outline' }), 'bg-surface')}
+                >
+                  Outlook
+                </a>
+              </div>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* PORT-02/03: o plano de ação vem antes do andamento e dos dados. Quando o relatório é
+          aberto pelo link, é para isto que o gestor da casa entra — responder o que já corrigiu,
+          anexar a prova ou avisar o que ainda não deu para fazer. */}
+      <PortalActionPlan
+        items={actionItems}
+        error={actionItemsError}
+        onSubmitEvidence={handleSubmitEvidence}
+        onDeclareStatus={handleDeclareStatus}
+        alwaysShow
+        defaultAuthorName={status.unit_name}
+      />
+
+      {/* Relatório e anexos — só quando há algo publicado ou o status indica disponibilidade */}
+      {(status.status === 'report_available' || hasDeliverables) && (
+        <Card className="mb-6 p-4 sm:p-5">
+          <h2 className="font-title text-base font-semibold text-navy">Relatório, fotos e anexos</h2>
+
+          {reportPdf ? (
+            <a
+              href={reportPdf.signed_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => auditAsset('report_download_clicked', reportPdf)}
+              className={cn(buttonVariants({ fullWidth: true }), 'mt-4 gap-2 py-3')}
+            >
+              <Download className="h-4 w-4" aria-hidden="true" />
+              Baixar relatório (PDF)
+            </a>
+          ) : suspended && hasReport ? (
+            <div className="mt-4 flex items-start gap-3 rounded-md border border-danger-soft-border bg-danger-soft p-4">
+              <Lock className="mt-0.5 h-5 w-5 shrink-0 text-danger-soft-ink" aria-hidden="true" />
+              <div>
+                <p className="text-sm font-semibold text-danger-soft-ink">Relatório pronto, ainda não liberado</p>
+                <p className="mt-0.5 text-sm text-danger-soft-ink">
+                  O relatório desta visita já existe, mas não está liberado no seu portal agora.
+                  Fale com a equipe da consultoria.
+                </p>
+              </div>
+            </div>
+          ) : status.status === 'report_available' ? (
+            <p className="mt-4 rounded-md border border-dashed border-control bg-surface-sunken p-4 text-sm text-navy-2">
+              O relatório está sendo publicado. Atualize a página em alguns instantes.
+            </p>
+          ) : null}
+
+          {photos.length > 0 ? (
+            <div className="mt-6">
+              <h3 className="mb-3 flex items-center justify-between gap-2 text-sm font-semibold text-navy-2">
+                <span>Fotos da visita</span>
+                <span className="tabular-nums">{photos.length} foto{photos.length === 1 ? '' : 's'}</span>
+              </h3>
+              <Button
+                type="button"
+                variant="outline"
+                fullWidth
+                onClick={() => {
+                  if (accountToken && token) {
+                    void clientPortalService.audit(accountToken, 'photo_gallery_opened', {
+                      photo_count: photos.length,
+                    }, { appointmentToken: token });
+                  }
+                  setShowGallery(true);
+                  setLightboxIndex(0);
+                }}
+                className="gap-2 bg-surface py-3"
+              >
+                <ImageIcon className="h-4 w-4" aria-hidden="true" />
+                Ver as {photos.length} fotos
+              </Button>
+            </div>
+          ) : suspended && photoCount > 0 ? (
+            <div className="mt-6">
+              <h3 className="mb-3 flex items-center justify-between gap-2 text-sm font-semibold text-navy-2">
+                <span>Fotos da visita</span>
+                <span className="tabular-nums">{photoCount} foto{photoCount === 1 ? '' : 's'}</span>
+              </h3>
+              <p className="flex items-center justify-center gap-2 rounded-md border border-danger-soft-border bg-danger-soft px-5 py-3 text-sm font-semibold text-danger-soft-ink">
+                <Lock className="h-4 w-4" aria-hidden="true" />
+                Galeria não liberada no momento
+              </p>
+            </div>
+          ) : null}
+
+          {attachments.length > 0 && (
+            <div className="mt-6">
+              <h3 className="mb-3 text-sm font-semibold text-navy-2">Anexos</h3>
+              <ul className="space-y-2">
+                {attachments.map((asset) => (
+                  <li key={asset.id}>
+                    {asset.signed_url ? (
+                      <a
+                        href={asset.signed_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => auditAsset('attachment_download_clicked', asset)}
+                        className="flex items-center gap-3 rounded-md border border-default bg-surface-sunken p-3 transition-colors hover:bg-surface-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                      >
+                        {attachmentIcon(asset)}
+                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-navy">
+                          {asset.file_name || 'Anexo'}
+                        </span>
+                        <Download className="h-4 w-4 shrink-0 text-navy-2" aria-hidden="true" />
+                      </a>
+                    ) : (
+                      <div className="flex items-center gap-3 rounded-md border border-default bg-surface-sunken p-3">
+                        {suspended ? <Lock className="h-5 w-5 shrink-0 text-navy-2" aria-hidden="true" /> : attachmentIcon(asset)}
+                        <span className="min-w-0 flex-1 truncate text-sm text-navy-2">
+                          {asset.file_name || 'Anexo'} (indisponível)
+                        </span>
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {status.has_personalized_sanitary_folder && status.personalized_sanitary_folder_url && (
+        <Card className="mb-6 border-success-soft-border bg-success-soft/60 p-4 sm:p-5">
+          <h2 className="font-title text-base font-semibold text-navy">Pasta sanitária personalizada</h2>
+          <p className="mt-1 text-sm text-navy-2">
+            Seus documentos organizados, sempre atualizados, na nuvem.
+          </p>
+          <a
+            href={status.personalized_sanitary_folder_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(buttonVariants({ fullWidth: true }), 'mt-4 gap-2 py-3')}
+          >
+            <FolderOpen className="h-4 w-4" aria-hidden="true" />
+            Abrir a pasta no Drive
+          </a>
+        </Card>
+      )}
+
+      {/* Linha do tempo */}
+      <Card className="mb-6 p-4 sm:p-5">
+        <h2 className="mb-4 font-title text-base font-semibold text-navy">Em que pé está</h2>
+        <ol className="space-y-0">
+          {timelineSteps.map((step, i) => {
+            const done = !isCancelled && i < stepIndex;
+            const current = !isCancelled && i === stepIndex;
+            const isLast = i === timelineSteps.length - 1;
+            return (
+              <li key={step.label} className="relative flex gap-3 pb-1">
+                {!isLast && (
+                  <span
+                    aria-hidden="true"
+                    className={`absolute left-[13px] top-7 h-[calc(100%-20px)] w-0.5 ${done ? 'bg-primary-700' : 'bg-surface-sunken'}`}
+                  />
+                )}
+                <span
+                  aria-hidden="true"
+                  className={`relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 ${
+                    done
+                      ? 'border-primary-700 bg-primary-700 text-white'
+                      : current
+                        ? 'border-primary-700 bg-primary-50 text-primary-800'
+                        : 'border-control bg-surface text-navy-2'
+                  }`}
+                >
+                  {done ? <Check className="h-4 w-4" /> : <span className="text-[11px] font-bold tabular-nums">{i + 1}</span>}
+                </span>
+                <div className="pb-5 pt-1">
+                  <p className={`text-sm ${current ? 'font-bold text-navy' : done ? 'font-medium text-navy-2' : 'text-navy-2'}`}>
+                    {step.label}
+                    {current && (
+                      <span className="ml-2 rounded-full bg-primary-100 px-2 py-0.5 text-[11px] font-bold uppercase text-primary-800">
+                        Agora
+                      </span>
+                    )}
                   </p>
                 </div>
-              </div>
-            ) : status.status === 'report_available' ? (
-              <div className="rounded-xl border border-dashed border-default bg-surface-sunken p-4 text-sm text-navy-3">
-                O relatório está sendo disponibilizado. Atualize a página em alguns instantes.
-              </div>
-            ) : null}
+              </li>
+            );
+          })}
+        </ol>
+      </Card>
 
-            {photos.length > 0 ? (
-              <div className="mt-6">
-                <h4 className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-navy-3">
-                  <span>Fotos da inspeção</span>
-                  <span className="text-navy-3">{photos.length} foto{photos.length === 1 ? '' : 's'}</span>
-                </h4>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (accountToken && token) {
-                      void clientPortalService.audit(accountToken, 'photo_gallery_opened', {
-                        photo_count: photos.length,
-                      }, { appointmentToken: token });
-                    }
-                    setShowGallery(true);
-                    setLightboxIndex(0);
-                  }}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-primary-100 bg-primary-50 px-5 py-3 text-sm font-semibold text-primary-800 transition-colors hover:bg-primary-100"
-                >
-                  <ImageIcon className="h-4 w-4" />
-                  Ver galeria de fotos ({photos.length})
-                </button>
-              </div>
-            ) : suspended && photoCount > 0 ? (
-              <div className="mt-6">
-                <h4 className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-navy-3">
-                  <span>Fotos da inspeção</span>
-                  <span className="text-navy-3">{photoCount} foto{photoCount === 1 ? '' : 's'}</span>
-                </h4>
-                <div className="flex items-center justify-center gap-2 rounded-xl border border-danger-soft-border bg-danger-soft px-5 py-3 text-sm font-semibold text-danger">
-                  <Lock className="h-4 w-4" />
-                  Galeria não liberada no momento
-                </div>
-              </div>
-            ) : null}
+      {/* Informações da solicitação */}
+      <Card className="mb-6 p-4 sm:p-5">
+        <h2 className="mb-4 font-title text-base font-semibold text-navy">O que foi combinado</h2>
+        <dl className="space-y-3 text-sm">
+          <div className="flex items-start gap-3">
+            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-navy-2" aria-hidden="true" />
+            <div className="min-w-0">
+              <dt className="text-sm text-navy-2">Atendimento</dt>
+              <dd className="break-words font-medium text-navy">{status.district}</dd>
+              {status.attendance_mode === 'presencial' && status.municipality && (
+                <dd className="text-sm text-navy-2">{status.municipality}</dd>
+              )}
+              {status.attendance_mode === 'online' && (
+                <dd className="flex items-center gap-1 text-sm text-navy-2">
+                  <Monitor className="h-3.5 w-3.5" aria-hidden="true" /> Online
+                </dd>
+              )}
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-navy-2" aria-hidden="true" />
+            <div className="min-w-0">
+              <dt className="text-sm text-navy-2">Data solicitada</dt>
+              <dd className="font-medium tabular-nums text-navy">
+                {formatDateBR(status.requested_date)}
+                {status.requested_time ? ` às ${status.requested_time}` : ''}
+                {status.requested_period && PERIOD_LABELS[status.requested_period]
+                  ? ` — ${PERIOD_LABELS[status.requested_period]}`
+                  : status.requested_period
+                    ? ` — ${status.requested_period}`
+                    : ''}
+              </dd>
+            </div>
+          </div>
+        </dl>
+      </Card>
 
-            {attachments.length > 0 && (
-              <div className="mt-6">
-                <h4 className="mb-3 text-xs font-semibold uppercase tracking-wide text-navy-3">
-                  Anexos
-                </h4>
-                <ul className="space-y-2">
-                  {attachments.map((asset) => (
-                    <li key={asset.id}>
-                      {asset.signed_url ? (
-                        <a
-                          href={asset.signed_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={() => auditAsset('attachment_download_clicked', asset)}
-                          className="flex items-center gap-3 rounded-xl border border-default bg-surface-sunken p-3 transition-colors hover:bg-surface-active"
-                        >
-                          {attachmentIcon(asset)}
-                          <span className="min-w-0 flex-1 truncate text-sm font-medium text-navy">
-                            {asset.file_name || 'Anexo'}
-                          </span>
-                          <Download className="h-4 w-4 shrink-0 text-navy-3" />
-                        </a>
-                      ) : (
-                        <div className="flex items-center gap-3 rounded-xl border border-default bg-surface-sunken p-3 opacity-70">
-                          {suspended ? <Lock className="h-5 w-5 shrink-0 text-danger" /> : attachmentIcon(asset)}
-                          <span className="min-w-0 flex-1 truncate text-sm text-navy-3">
-                            {asset.file_name || 'Anexo'} (indisponível)
-                          </span>
-                        </div>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </section>
-        ) : null}
+      {!isCancelled && typeRules.showsReportDueDate && (
+        <Card className="mb-6 border-primary-100 bg-primary-50/60 p-4 sm:p-5">
+          <h2 className="font-title text-base font-semibold text-navy">Prazo do relatório</h2>
+          <p className="mt-1 text-sm font-medium text-navy">
+            {formatReportDueDate(status.report_due_at, status.report_due_source)}
+          </p>
+        </Card>
+      )}
 
-        {/* Ações */}
-        <div className="space-y-3">
-          <button
-            type="button"
-            onClick={() => void load(true)}
-            disabled={refreshing}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-default bg-surface px-5 py-3 text-sm font-medium text-navy-2 transition-colors hover:bg-surface-hover disabled:opacity-60"
-          >
-            {refreshing ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="h-4 w-4" />
-            )}
-            Atualizar status
-          </button>
+      {unit && <ContractTimeline unit={unit} />}
 
-          <Link
-            to="/agendar"
-            className="flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50"
-          >
-            <Plus className="h-4 w-4" />
-            Fazer nova solicitação
-          </Link>
-        </div>
-      </main>
+      <div className="space-y-3">
+        <Button
+          type="button"
+          variant="outline"
+          fullWidth
+          onClick={() => void load(true)}
+          disabled={refreshing}
+          className="gap-2 bg-surface py-3"
+        >
+          {refreshing ? (
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          ) : (
+            <RefreshCw className="h-4 w-4" aria-hidden="true" />
+          )}
+          Atualizar esta página
+        </Button>
+
+        <Link
+          to="/agendar"
+          className={cn(buttonVariants({ variant: 'ghost', fullWidth: true }), 'gap-2 py-3 text-accent-ink')}
+        >
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          Pedir um novo horário
+        </Link>
+      </div>
 
       {showGallery && lightboxIndex !== null && photos[lightboxIndex] && (
         <PhotoLightbox
@@ -781,7 +771,7 @@ export function PublicAppointmentStatus() {
           onNavigate={setLightboxIndex}
         />
       )}
-    </div>
+    </PublicShell>
   );
 }
 
@@ -795,7 +785,13 @@ interface PhotoLightboxProps {
   onNavigate: (index: number) => void;
 }
 
+/**
+ * `<dialog>` nativo: trap de foco, `Esc` e devolução do foco ao botão de origem
+ * vêm de graça — antes era um `<div>` fixo, e o foco continuava correndo a
+ * página atrás da galeria. Sobram as setas e a trava de rolagem, escritas aqui.
+ */
 function PhotoLightbox({ photos, index, onClose, onNavigate, onDownload }: PhotoLightboxProps) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
   const photo = photos[index];
   const go = useCallback(
     (delta: number) => {
@@ -806,108 +802,116 @@ function PhotoLightbox({ photos, index, onClose, onNavigate, onDownload }: Photo
   );
 
   useEffect(() => {
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) dialog.showModal();
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, []);
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-      else if (e.key === 'ArrowRight') go(1);
+      if (e.key === 'ArrowRight') go(1);
       else if (e.key === 'ArrowLeft') go(-1);
     };
     window.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
-    };
-  }, [go, onClose]);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [go]);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex flex-col bg-black/95"
-      onClick={onClose}
+    <dialog
+      ref={dialogRef}
+      aria-label={`Fotos da visita, ${index + 1} de ${photos.length}`}
+      onClose={onClose}
+      onClick={(event) => { if (event.target === dialogRef.current) onClose(); }}
+      className="m-0 h-full max-h-none w-full max-w-none bg-navy/95 p-0 text-white backdrop:bg-navy/80"
     >
-      <div className="flex items-center justify-between px-4 py-3 text-white/90">
-        <span className="text-sm font-medium">
-          {index + 1} / {photos.length}
-        </span>
-        <div className="flex items-center gap-2">
-          {photo.signed_url && (
-            <a
-              href={photo.signed_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDownload(photo);
-              }}
-              className="rounded-full bg-surface/10 p-2 hover:bg-surface/20"
-              title="Baixar foto"
-            >
-              <Download className="h-5 w-5" />
-            </a>
-          )}
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full bg-surface/10 p-2 hover:bg-surface/20"
-            title="Fechar"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-      </div>
-
-      <div className="relative flex flex-1 items-center justify-center overflow-hidden px-2 pb-4">
-        {photos.length > 1 && (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); go(-1); }}
-            className="absolute left-2 z-10 rounded-full bg-surface/10 p-2 text-white hover:bg-surface/20 sm:left-4 sm:p-3"
-            title="Anterior"
-          >
-            <ChevronLeft className="h-6 w-6" />
-          </button>
-        )}
-
-        <figure className="flex max-h-full max-w-full flex-col items-center" onClick={(e) => e.stopPropagation()}>
-          <img
-            src={photo.signed_url}
-            alt={photo.caption || 'Foto da inspeção'}
-            className="max-h-[80vh] max-w-full rounded-lg object-contain"
-          />
-          {photo.caption && (
-            <figcaption className="mt-3 max-w-2xl px-4 text-center text-sm text-white/80">
-              {photo.caption}
-            </figcaption>
-          )}
-        </figure>
-
-        {photos.length > 1 && (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); go(1); }}
-            className="absolute right-2 z-10 rounded-full bg-surface/10 p-2 text-white hover:bg-surface/20 sm:right-4 sm:p-3"
-            title="Próxima"
-          >
-            <ChevronRight className="h-6 w-6" />
-          </button>
-        )}
-      </div>
-
-      {photos.length > 1 && (
-        <div className="flex gap-2 overflow-x-auto px-4 py-3" onClick={(e) => e.stopPropagation()}>
-          {photos.map((p, i) => (
+      <div className="flex h-full flex-col">
+        <div className="flex items-center justify-between px-4 py-3">
+          <span className="text-sm font-medium tabular-nums">
+            {index + 1} / {photos.length}
+          </span>
+          <div className="flex items-center gap-2">
+            {photo.signed_url && (
+              <a
+                href={photo.signed_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => onDownload(photo)}
+                aria-label="Baixar esta foto"
+                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              >
+                <Download className="h-5 w-5" aria-hidden="true" />
+              </a>
+            )}
             <button
-              key={p.id}
               type="button"
-              onClick={() => onNavigate(i)}
-              className={`h-14 w-14 shrink-0 overflow-hidden rounded-md border-2 ${
-                i === index ? 'border-white' : 'border-transparent opacity-60 hover:opacity-100'
-              }`}
+              onClick={onClose}
+              aria-label="Fechar a galeria"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
             >
-              <img src={p.signed_url} alt="" className="h-full w-full object-cover" />
+              <X className="h-5 w-5" aria-hidden="true" />
             </button>
-          ))}
+          </div>
         </div>
-      )}
-    </div>
+
+        <div className="relative flex flex-1 items-center justify-center overflow-hidden px-2 pb-4">
+          {photos.length > 1 && (
+            <button
+              type="button"
+              onClick={() => go(-1)}
+              aria-label="Foto anterior"
+              className="absolute left-2 z-10 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:left-4"
+            >
+              <ChevronLeft className="h-6 w-6" aria-hidden="true" />
+            </button>
+          )}
+
+          <figure className="flex max-h-full max-w-full flex-col items-center">
+            <img
+              src={photo.signed_url}
+              alt={photo.caption || 'Foto da visita'}
+              className="max-h-[80vh] max-w-full rounded-md object-contain"
+            />
+            {photo.caption && (
+              <figcaption className="mt-3 max-w-[68ch] px-4 text-center text-sm text-white/90">
+                {photo.caption}
+              </figcaption>
+            )}
+          </figure>
+
+          {photos.length > 1 && (
+            <button
+              type="button"
+              onClick={() => go(1)}
+              aria-label="Próxima foto"
+              className="absolute right-2 z-10 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:right-4"
+            >
+              <ChevronRight className="h-6 w-6" aria-hidden="true" />
+            </button>
+          )}
+        </div>
+
+        {photos.length > 1 && (
+          <div className="flex gap-2 overflow-x-auto px-4 py-3">
+            {photos.map((p, i) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => onNavigate(i)}
+                aria-label={`Ver a foto ${i + 1}`}
+                aria-current={i === index ? 'true' : undefined}
+                className={`h-14 w-14 shrink-0 overflow-hidden rounded-md border-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
+                  i === index ? 'border-white' : 'border-transparent opacity-60 hover:opacity-100'
+                }`}
+              >
+                <img src={p.signed_url} alt="" className="h-full w-full object-cover" />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </dialog>
   );
 }

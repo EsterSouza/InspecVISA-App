@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  AlertTriangle,
   CalendarDays,
+  Check,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -21,7 +23,10 @@ import {
 import type { AppointmentType, AttendanceMode, PublicAvailableTime, PublicCalendarDay } from '../types';
 import { publicAppointmentService } from '../services/publicAppointmentService';
 import { clientPortalService, type ClientPortalUnit } from '../services/clientPortalService';
-import { PublicHeader } from '../components/public/PublicHeader';
+import { PublicShell } from '../components/public/PublicShell';
+import { Button } from '../components/ui/Button';
+import { buttonVariants } from '../components/ui/buttonVariants';
+import { Card } from '../components/ui/Card';
 import { Field } from '../components/ui/Field';
 import { Label } from '../components/ui/Label';
 import { Input } from '../components/ui/Input';
@@ -40,12 +45,14 @@ import {
   publicAppointmentDurations,
 } from '../utils/publicAppointmentForm';
 import { isRioState } from '../utils/state';
+import { cn } from '../lib/utils';
 import { SCHEDULE_CONSULTANTS } from '../components/schedules/appointmentRequestsShared';
 
 const RIO_MUNICIPALITIES = [
   'Rio de Janeiro', 'Niteroi', 'Sao Goncalo', 'Duque de Caxias', 'Nova Iguacu',
   'Belford Roxo', 'Sao Joao de Meriti', 'Nilopolis', 'Mesquita', 'Queimados', 'Itaborai', 'Marica',
 ];
+const STEP_LABELS = ['Finalidade', 'Agenda', 'Detalhes', 'Resumo'];
 const CALENDAR_WEEKDAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'];
 const ACTIVE_VISIT_STATUSES = new Set(['requested', 'confirmed', 'in_progress', 'rescheduled', 'completed']);
 
@@ -113,6 +120,11 @@ function formatMonthTitle(value: string): string {
 
 function formatFullDay(value: string): string {
   return parseLocalDate(value).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
+}
+
+/** Data sempre em dd/mm/aaaa; o dia da semana entra como complemento (Artefato A, microcopy). */
+function formatDayNumeric(value: string): string {
+  return parseLocalDate(value).toLocaleDateString('pt-BR');
 }
 
 function isActiveVisit(visit: { status: string; requested_date: string | null }): boolean {
@@ -464,209 +476,648 @@ export function PublicSchedule() {
   // Antes de saber se há sessão do portal, mostrar as finalidades erradas mudaria o rascunho.
   if (portalChecking) {
     return (
-      <div className="min-h-screen bg-surface">
-        <PublicHeader />
+      <PublicShell>
         <div role="status" className="flex flex-col items-center justify-center py-24">
-          <Loader2 className="mb-3 h-8 w-8 animate-spin text-primary-700" />
-          <p className="text-sm text-navy-3">Verificando seu acesso...</p>
+          <Loader2 className="mb-3 h-8 w-8 animate-spin text-primary-700" aria-hidden="true" />
+          <p className="text-sm text-navy-2">Verificando seu acesso...</p>
         </div>
-      </div>
+      </PublicShell>
     );
   }
 
   if (token) {
     return (
-      <div className="min-h-screen bg-surface">
-        <PublicHeader />
-        <main className="mx-auto max-w-[640px] px-4 py-10">
-          <div className="rounded-xl border border-success-soft-border bg-success-soft/70 p-6 text-center shadow-sm">
-            <CheckCircle2 className="mx-auto mb-4 h-12 w-12 text-success" aria-hidden="true" />
-            <h1 className="text-xl font-bold text-navy">Solicitação enviada</h1>
-            <p className="mt-2 text-sm text-navy-2">Nossa equipe analisará o pedido e retornará com a confirmação.</p>
-            <div className="mt-6 rounded-lg border border-default bg-surface p-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-navy-3">Protocolo</p>
-              <p className="mt-1 font-mono text-2xl font-bold tracking-widest text-navy">{formatProtocol(token)}</p>
-            </div>
-            <Link to="/cliente" className="mt-6 inline-flex w-full min-h-11 items-center justify-center gap-2 rounded-md bg-primary-700 px-5 py-3 text-sm font-semibold text-white hover:bg-primary-800">
-              <ClipboardCheck className="h-4 w-4" /> Abrir meu portal
-            </Link>
-            <button type="button" onClick={copyPortalLink} className="mt-3 inline-flex w-full min-h-11 items-center justify-center gap-2 rounded-md border border-default bg-surface px-5 py-3 text-sm font-medium text-navy-2 hover:bg-surface-hover">
-              <Copy className="h-4 w-4" /> {copied ? 'Link copiado' : 'Copiar link'}
-            </button>
+      <PublicShell>
+        <Card className="border-success-soft-border bg-success-soft/60 p-6 text-center">
+          <CheckCircle2 className="mx-auto mb-4 h-12 w-12 text-success" aria-hidden="true" />
+          <h1 className="font-title text-2xl font-semibold text-navy">Recebemos seu pedido</h1>
+          <p className="mx-auto mt-2 max-w-[52ch] text-sm text-navy-2">
+            Guardamos o horário que você escolheu. A consultoria confere a agenda e volta com a
+            confirmação pelo WhatsApp que você informou.
+          </p>
+          <div className="mt-6 rounded-md border border-default bg-surface p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-navy-2">Protocolo</p>
+            <p className="mt-1 font-title text-2xl font-semibold tracking-widest tabular-nums text-navy">
+              {formatProtocol(token)}
+            </p>
+            <p className="mt-2 text-sm text-navy-2">Guarde este número: é por ele que encontramos sua solicitação.</p>
           </div>
-        </main>
-      </div>
+          <Link to="/cliente" className={cn(buttonVariants({ fullWidth: true }), 'mt-6 gap-2 py-3')}>
+            <ClipboardCheck className="h-4 w-4" aria-hidden="true" /> Abrir meu portal
+          </Link>
+          <Button type="button" variant="outline" fullWidth onClick={copyPortalLink} className="mt-3 gap-2 bg-surface py-3">
+            <Copy className="h-4 w-4" aria-hidden="true" /> {copied ? 'Link copiado' : 'Copiar link do portal'}
+          </Button>
+        </Card>
+      </PublicShell>
     );
   }
 
   const typeOptions = appointmentTypeOptionsFor(portalMode);
   const errorBanner = submitError ? (
-    <div ref={errorRef} tabIndex={-1} role="alert" className="mb-4 rounded-md border border-danger-soft-border bg-danger-soft p-3 text-sm text-danger-soft-ink outline-none">{submitError}</div>
+    <div
+      ref={errorRef}
+      tabIndex={-1}
+      role="alert"
+      className="flex items-start gap-2 rounded-md border border-danger-soft-border bg-danger-soft p-3 text-sm text-danger-soft-ink outline-none"
+    >
+      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+      <span>{submitError}</span>
+    </div>
   ) : null;
   const stepLabel = step === 1
-    ? (portalMode ? 'O que você deseja agendar?' : 'Vamos começar por um briefing')
-    : step === 2 ? (portalMode ? 'Defina data, horário e modalidade' : 'Defina data e horário')
-    : step === 3 ? 'Conte-nos sobre a solicitação' : 'Revise antes de enviar';
+    ? (portalMode ? 'O que você quer agendar?' : 'Vamos começar por um briefing')
+    : step === 2 ? (portalMode ? 'Escolha data, horário e modalidade' : 'Escolha data e horário')
+    : step === 3 ? 'Conte para a gente o que você precisa' : 'Confira antes de enviar';
 
   return (
-    <div className="min-h-screen bg-surface">
-      <PublicHeader />
-      <main className="mx-auto max-w-6xl px-4 py-8 pb-16 sm:px-6">
-        <div className="mb-7 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold text-primary-700">Agendar horário com as consultoras</p>
-            <h1 ref={stepTitleRef} tabIndex={-1} className="mt-1 text-2xl font-bold text-navy outline-none">{stepLabel}</h1>
-          </div>
-          {portalMode && <Link to="/cliente" className="inline-flex min-h-11 items-center rounded-md border border-default bg-surface px-3 py-2 text-sm font-semibold text-navy-2 hover:bg-surface-hover">Voltar ao portal</Link>}
+    <PublicShell>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-accent-ink">Agendar com a consultoria</p>
+          <h1 ref={stepTitleRef} tabIndex={-1} className="mt-1 font-title text-2xl font-semibold text-navy outline-none">
+            {stepLabel}
+          </h1>
         </div>
-
-        <ol className="mb-8 grid grid-cols-4 gap-2" aria-label="Etapas da solicitação">
-          {['Finalidade', 'Agenda', 'Detalhes', 'Resumo'].map((label, index) => (
-            <li key={label} aria-current={step === index + 1 ? 'step' : undefined} className={'rounded-md px-2 py-2 text-center text-xs font-semibold ' + (step === index + 1 ? 'bg-primary-700 text-white' : step > index + 1 ? 'bg-primary-50 text-primary-800' : 'bg-surface-sunken text-navy-3')}>
-              <span className="hidden sm:inline">{index + 1}. </span>{label}
-            </li>
-          ))}
-        </ol>
-
-        {step === 1 && (
-          <section aria-describedby="purpose-help">
-            <p id="purpose-help" className="mb-4 max-w-2xl text-sm text-navy-2">{portalMode
-              ? 'Escolha a finalidade para ver somente horários, duração e campos compatíveis.'
-              : 'Uma conversa curta e online para entendermos sua necessidade e indicarmos o próximo passo.'}</p>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {typeOptions.map((option) => {
-                const selected = appointmentType === option.value;
-                return (
-                  <button key={option.value} type="button" onClick={() => chooseType(option.value)} className={'min-h-28 rounded-xl border p-4 text-left focus:outline-none focus:ring-2 focus:ring-primary-400 ' + (selected ? 'border-primary-700 bg-primary-50 ring-1 ring-primary-200' : 'border-default bg-surface hover:border-primary-300')}>
-                    <span className="block text-sm font-bold text-navy">{APPOINTMENT_TYPE_RULES[option.value].label}</span>
-                    <span className="mt-1 block text-sm text-navy-2">{option.description}</span>
-                    <span className="mt-3 block text-xs font-semibold text-primary-700">{publicAppointmentDurations(option.value).map(formatDuration).join(' · ')}</span>
-                  </button>
-                );
-              })}
-            </div>
-            {!portalMode && (
-              <div className="mt-4 flex max-w-2xl flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-primary-100 bg-primary-50 p-3 text-sm text-primary-900">
-                <ShieldCheck className="h-4 w-4 shrink-0 text-primary-700" aria-hidden="true" />
-                <span>Inspeções, reuniões, orientação documental e treinamentos são agendados dentro do portal.</span>
-                <Link to="/cliente" className="font-semibold underline underline-offset-2 hover:no-underline">Entrar no Portal do Cliente</Link>
-              </div>
-            )}
-            <button type="button" onClick={() => setStep(2)} className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-md bg-primary-700 px-5 py-3 text-sm font-semibold text-white hover:bg-primary-800">
-              Continuar <ChevronRight className="h-4 w-4" />
-            </button>
-          </section>
+        {portalMode && (
+          <Link to="/cliente" className={cn(buttonVariants({ variant: 'outline' }), 'shrink-0 bg-surface')}>
+            Voltar ao portal
+          </Link>
         )}
+      </div>
 
-        {step === 2 && (
-          <section className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.8fr)]">
-            <div className="space-y-4">
-              <div className="rounded-xl border border-default bg-surface p-4 shadow-sm">
-                <span className="block text-sm font-bold text-navy">Consultora <span className="text-danger">*</span></span>
-                <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="Consultora">
-                  {SCHEDULE_CONSULTANTS.map((name) => {
-                    const active = consultantNames.includes(name);
-                    return <button key={name} type="button" onClick={() => toggleConsultant(name)} aria-pressed={active} className={'min-h-11 rounded-md border px-3.5 text-sm font-semibold ' + (active ? 'border-primary-700 bg-primary-700 text-white' : 'border-default bg-surface text-navy-2 hover:bg-primary-50')}>{name.split(' ')[0]}</button>;
+      {/* A etapa também é número e palavra: a cor sozinha não diz em qual delas você está. */}
+      <ol className="mb-7 grid grid-cols-4 gap-1.5 sm:gap-2" aria-label={'Etapa ' + step + ' de 4'}>
+        {STEP_LABELS.map((label, index) => {
+          const position = index + 1;
+          const done = step > position;
+          const current = step === position;
+          return (
+            <li
+              key={label}
+              aria-current={current ? 'step' : undefined}
+              className={
+                'flex min-w-0 items-center gap-1.5 rounded-md border px-2 py-2 text-xs ' +
+                (current
+                  ? 'border-primary-700 bg-primary-50 font-bold text-primary-800'
+                  : done
+                    ? 'border-default bg-surface font-semibold text-navy-2'
+                    : 'border-default bg-canvas font-medium text-navy-2')
+              }
+            >
+              <span
+                aria-hidden="true"
+                className={
+                  'flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ' +
+                  (current
+                    ? 'bg-primary-700 text-white'
+                    : done
+                      ? 'bg-success text-white'
+                      : 'border border-control text-navy-2')
+                }
+              >
+                {done ? <Check className="h-3 w-3" /> : position}
+              </span>
+              <span className="truncate">{label}</span>
+              {done && <span className="sr-only">concluída</span>}
+            </li>
+          );
+        })}
+      </ol>
+
+      {step === 1 && (
+        <section aria-labelledby="purpose-title">
+          <h2 id="purpose-title" className="sr-only">Finalidade do agendamento</h2>
+          <p className="mb-4 max-w-[68ch] text-sm text-navy-2">
+            {portalMode
+              ? 'Escolha a finalidade: a agenda passa a mostrar só os horários, as durações e os campos que combinam com ela.'
+              : 'Uma conversa curta e online para entendermos sua necessidade e indicarmos o próximo passo.'}
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {typeOptions.map((option) => {
+              const selected = appointmentType === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => chooseType(option.value)}
+                  aria-pressed={selected}
+                  className={
+                    'min-h-28 rounded-lg border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ' +
+                    (selected
+                      ? 'border-primary-700 bg-primary-50 ring-1 ring-primary-700'
+                      : 'border-default bg-surface hover:border-control')
+                  }
+                >
+                  <span className="flex items-start justify-between gap-2">
+                    <span className="font-title text-sm font-semibold text-navy">
+                      {APPOINTMENT_TYPE_RULES[option.value].label}
+                    </span>
+                    {selected && <Check className="h-4 w-4 shrink-0 text-primary-700" aria-hidden="true" />}
+                  </span>
+                  <span className="mt-1 block text-sm text-navy-2">{option.description}</span>
+                  <span className="mt-3 block text-xs font-semibold text-accent-ink">
+                    {publicAppointmentDurations(option.value).map(formatDuration).join(' · ')}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {!portalMode && (
+            <div className="mt-4 rounded-md border border-primary-100 bg-primary-50 p-3 text-sm text-navy">
+              <p className="flex items-start gap-2">
+                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary-700" aria-hidden="true" />
+                <span>Inspeção, reunião, orientação documental e treinamento são agendados dentro do portal.</span>
+              </p>
+              <Link to="/cliente" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'mt-3 bg-surface')}>
+                Entrar no Portal do Cliente
+              </Link>
+            </div>
+          )}
+          <Button type="button" onClick={() => setStep(2)} className="mt-6 gap-2">
+            Escolher data <ChevronRight className="h-4 w-4" aria-hidden="true" />
+          </Button>
+        </section>
+      )}
+
+      {step === 2 && (
+        <section className="space-y-4">
+          {errorBanner}
+
+          <Card className="p-4 sm:p-5">
+            <fieldset>
+              <legend className="font-title text-base font-semibold text-navy">
+                Com quem <span className="text-danger-soft-ink" aria-hidden="true">*</span>
+              </legend>
+              <p className="mt-1 max-w-[68ch] text-sm text-navy-2">
+                Para ILPI costuma ser preciso marcar com as duas — a agenda mostra só os horários
+                livres para todas as escolhidas.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {SCHEDULE_CONSULTANTS.map((name) => {
+                  const active = consultantNames.includes(name);
+                  return (
+                    <button
+                      key={name}
+                      type="button"
+                      onClick={() => toggleConsultant(name)}
+                      aria-pressed={active}
+                      className={
+                        'inline-flex min-h-11 items-center gap-1.5 rounded-md border px-3.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ' +
+                        (active
+                          ? 'border-primary-700 bg-primary-700 text-white'
+                          : 'border-control bg-surface text-navy-2 hover:bg-surface-hover')
+                      }
+                    >
+                      {active && <Check className="h-4 w-4" aria-hidden="true" />}
+                      {name.split(' ')[0]}
+                    </button>
+                  );
+                })}
+              </div>
+            </fieldset>
+          </Card>
+
+          <Card className="p-4 sm:p-5">
+            <Label htmlFor="duration" className="mb-2 font-title text-base">Quanto tempo</Label>
+            <Select
+              id="duration"
+              value={durationMinutes}
+              onChange={(event) => { setDurationMinutes(Number(event.target.value)); setSelectedTime(null); }}
+              className="min-h-11"
+            >
+              {publicAppointmentDurations(appointmentType).map((duration) => (
+                <option key={duration} value={duration}>{formatDuration(duration)}</option>
+              ))}
+            </Select>
+          </Card>
+
+          <Card className="-mx-2 p-2 sm:mx-0 sm:p-5">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <h2 className="flex items-center gap-2 font-title text-base font-semibold text-navy">
+                <CalendarDays className="h-4 w-4 text-primary-700" aria-hidden="true" /> Datas com vaga
+              </h2>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  aria-label="Mês anterior"
+                  onClick={() => setCalendarMonth((month) => new Date(month.getFullYear(), month.getMonth() - 1, 1))}
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border border-control text-navy-2 transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                >
+                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                </button>
+                <span aria-live="polite" className="min-w-32 text-center text-sm font-semibold first-letter:uppercase text-navy">
+                  {formatMonthTitle(monthKey(monthStartKey(calendarMonth)))}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Próximo mês"
+                  onClick={() => setCalendarMonth((month) => new Date(month.getFullYear(), month.getMonth() + 1, 1))}
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border border-control text-navy-2 transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                >
+                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+            {calendarLoading ? (
+              <div role="status" className="flex h-52 items-center justify-center gap-2 text-sm text-navy-2">
+                <Loader2 className="h-5 w-5 animate-spin text-primary-700" aria-hidden="true" /> Carregando a agenda...
+              </div>
+            ) : calendarError ? (
+              <div role="alert" className="rounded-md border border-danger-soft-border bg-danger-soft p-4 text-sm text-danger-soft-ink">
+                {calendarError}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setCalendarReloadKey((value) => value + 1)}
+                  className="mt-3 gap-2 border-danger-soft-border bg-surface text-danger-soft-ink"
+                >
+                  <RefreshCw className="h-4 w-4" aria-hidden="true" /> Tentar de novo
+                </Button>
+              </div>
+            ) : days.length === 0 ? (
+              <p className="rounded-md border border-dashed border-control bg-surface-sunken p-4 text-sm text-navy-2">
+                Nenhuma vaga neste mês para esta finalidade e duração. Veja o mês seguinte ou escolha
+                uma duração menor.
+              </p>
+            ) : (
+              <>
+                <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold uppercase text-navy-2 sm:gap-2">
+                  {CALENDAR_WEEKDAYS.map((label) => <div key={label} className="py-1">{label}</div>)}
+                </div>
+                <div className="grid grid-cols-7 gap-1 sm:gap-2">
+                  {calendarCells.map((cell) => {
+                    const available = !!cell.available;
+                    const selected = selectedDay === cell.key;
+                    return (
+                      <button
+                        key={cell.key}
+                        type="button"
+                        disabled={!available}
+                        aria-pressed={available ? selected : undefined}
+                        onClick={() => available && selectDay(cell.key)}
+                        aria-label={
+                          available
+                            ? 'Escolher ' + formatFullDay(cell.key) + ', ' + cell.available!.available_count + ' horários livres'
+                            : formatFullDay(cell.key) + ', sem vaga'
+                        }
+                        className={
+                          'min-h-16 rounded-md border p-1 text-left sm:p-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 sm:min-h-20 ' +
+                          (selected
+                            ? 'border-primary-700 bg-primary-50 ring-1 ring-primary-700'
+                            : available
+                              ? 'border-default bg-surface hover:border-control'
+                              : cell.inRange
+                                ? 'border-default bg-surface-sunken text-navy-2'
+                                : 'border-transparent bg-transparent text-navy-2')
+                        }
+                      >
+                        <span className="flex items-center justify-between gap-1">
+                          <span className="font-title text-base font-semibold tabular-nums">{cell.date.getDate()}</span>
+                          {selected && <Check className="h-3.5 w-3.5 shrink-0 text-primary-700" aria-hidden="true" />}
+                        </span>
+                        {available && (
+                          <span className="mt-1 block text-[11px] font-semibold text-accent-ink">
+                            {cell.available!.available_count} vaga{cell.available!.available_count === 1 ? '' : 's'}
+                          </span>
+                        )}
+                      </button>
+                    );
                   })}
                 </div>
-                <p className="mt-2 text-xs text-navy-3">Para ILPI, geralmente é preciso marcar com as duas — a agenda mostra só os horários livres para todas as escolhidas.</p>
-              </div>
+              </>
+            )}
+          </Card>
 
-              <div className="rounded-xl border border-default bg-surface p-4 shadow-sm">
-                <Label htmlFor="duration" className="mb-2">Duração</Label>
-                <Select id="duration" value={durationMinutes} onChange={(event) => { setDurationMinutes(Number(event.target.value)); setSelectedTime(null); }} className="min-h-11">
-                  {publicAppointmentDurations(appointmentType).map((duration) => <option key={duration} value={duration}>{formatDuration(duration)}</option>)}
-                </Select>
-              </div>
-
-              <div className="rounded-xl border border-default bg-surface p-3 shadow-sm sm:p-4">
-                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                  <h2 className="flex items-center gap-2 text-sm font-bold text-navy"><CalendarDays className="h-4 w-4 text-primary-700" /> Datas disponíveis</h2>
-                  <div className="flex items-center gap-1">
-                    <button type="button" aria-label="Mês anterior" onClick={() => setCalendarMonth((month) => new Date(month.getFullYear(), month.getMonth() - 1, 1))} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border border-default text-navy-2 hover:bg-surface-hover"><ChevronLeft className="h-4 w-4" /></button>
-                    <span aria-live="polite" className="min-w-32 text-center text-xs font-bold capitalize text-navy-2">{formatMonthTitle(monthKey(monthStartKey(calendarMonth)))}</span>
-                    <button type="button" aria-label="Próximo mês" onClick={() => setCalendarMonth((month) => new Date(month.getFullYear(), month.getMonth() + 1, 1))} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md border border-default text-navy-2 hover:bg-surface-hover"><ChevronRight className="h-4 w-4" /></button>
-                  </div>
+          <Card className="p-4 sm:p-5">
+            <h2 className="flex items-center gap-2 font-title text-base font-semibold text-navy">
+              <Clock className="h-4 w-4 shrink-0 text-primary-700" aria-hidden="true" />
+              <span className="first-letter:uppercase">{selectedDay ? formatFullDay(selectedDay) : 'Horários'}</span>
+            </h2>
+            <div className="mt-4">
+              {timesLoading ? (
+                <div role="status" className="flex h-24 items-center justify-center gap-2 text-sm text-navy-2">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary-700" aria-hidden="true" /> Carregando os horários...
                 </div>
-                {calendarLoading ? <div role="status" className="flex h-52 items-center justify-center gap-2 text-sm text-navy-2"><Loader2 className="h-5 w-5 animate-spin text-primary-700" /> Carregando agenda...</div> : calendarError ? (
-                  <div role="alert" className="rounded-md border border-danger-soft-border bg-danger-soft p-4 text-sm text-danger-soft-ink">{
-                    calendarError
-                  }<button type="button" onClick={() => setCalendarReloadKey((value) => value + 1)} className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-md border border-danger-soft-border bg-surface px-3 text-sm font-semibold text-danger-soft-ink hover:bg-danger-soft"><RefreshCw className="h-4 w-4" /> Tentar novamente</button></div>
-                ) : days.length === 0 ? <p className="rounded-md border border-dashed border-default bg-surface-sunken p-4 text-sm text-navy-2">Não há disponibilidade para esta finalidade e duração neste mês.</p> : (
-                  <>
-                    <div className="grid grid-cols-7 gap-1.5 text-center text-[11px] font-bold uppercase text-navy-3 sm:gap-2">{CALENDAR_WEEKDAYS.map((label) => <div key={label} className="py-1">{label}</div>)}</div>
-                    <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
-                      {calendarCells.map((cell) => {
-                        const available = !!cell.available;
-                        return <button key={cell.key} type="button" disabled={!available} onClick={() => available && selectDay(cell.key)} aria-label={available ? 'Selecionar ' + formatFullDay(cell.key) + ', ' + cell.available!.available_count + ' horários disponíveis' : formatFullDay(cell.key) + ', indisponível'} className={'min-h-16 rounded-md border p-1.5 text-left sm:min-h-20 ' + (selectedDay === cell.key ? 'border-primary-700 bg-primary-50 ring-2 ring-primary-100' : available ? 'border-default bg-surface hover:border-primary-300' : cell.inRange ? 'border-default bg-surface-sunken text-navy-3' : 'border-transparent bg-transparent text-navy-3')}>
-                          <span className="text-base font-black">{cell.date.getDate()}</span>
-                          {available && <span className="mt-1 block text-[10px] font-semibold text-primary-700 sm:text-xs">{cell.available!.available_count} vaga{cell.available!.available_count === 1 ? '' : 's'}</span>}
-                        </button>;
-                      })}
-                    </div>
-                  </>
+              ) : timesError ? (
+                <div role="alert" className="rounded-md border border-danger-soft-border bg-danger-soft p-3 text-sm text-danger-soft-ink">
+                  {timesError}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setTimesReloadKey((value) => value + 1)}
+                    className="mt-3 gap-2 border-danger-soft-border bg-surface text-danger-soft-ink"
+                  >
+                    <RefreshCw className="h-4 w-4" aria-hidden="true" /> Tentar de novo
+                  </Button>
+                </div>
+              ) : !selectedDay ? (
+                <p className="text-sm text-navy-2">Escolha acima um dia com vaga para ver os horários livres.</p>
+              ) : visibleTimes.length === 0 ? (
+                <p className="rounded-md border border-dashed border-control bg-surface-sunken p-3 text-sm text-navy-2">
+                  Este dia não tem horário livre para essa duração. Escolha outro dia.
+                </p>
+              ) : (
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                  {visibleTimes.map((time) => {
+                    const selected = selectedTime?.starts_at === time.starts_at;
+                    return (
+                      <button
+                        key={time.starts_at}
+                        type="button"
+                        onClick={() => { setSelectedTime(time); setSubmitError(null); }}
+                        aria-pressed={selected}
+                        className={
+                          'inline-flex min-h-11 items-center justify-center gap-1 rounded-md border text-sm font-semibold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ' +
+                          (selected
+                            ? 'border-primary-700 bg-primary-700 text-white'
+                            : 'border-control bg-surface text-navy-2 hover:bg-surface-hover')
+                        }
+                      >
+                        {selected && <Check className="h-3.5 w-3.5" aria-hidden="true" />}
+                        {time.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </Card>
+
+          <Card className="p-4 sm:p-5">
+            <h2 className="font-title text-base font-semibold text-navy">
+              {portalMode ? 'Onde vai ser' : 'Sobre a sua unidade'}
+            </h2>
+            {portalMode && (
+              <p className="mt-2 flex items-start gap-2 rounded-md border border-primary-100 bg-primary-50 p-3 text-sm text-navy">
+                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary-700" aria-hidden="true" />
+                <span>Você está agendando como <strong>{portalAccount}</strong>.</span>
+              </p>
+            )}
+            <div className="mt-4 space-y-4">
+              {portalMode ? (
+                <Field
+                  label="Unidade"
+                  htmlFor="unit"
+                  required
+                  hint={inspection && selectedUnitBlockedInMonth ? 'A cota de uma por mês vale só para inspeção.' : undefined}
+                >
+                  <Select
+                    value={selectedClientId}
+                    onChange={(event) => {
+                      const id = event.target.value;
+                      setSelectedClientId(id);
+                      const unit = portalUnits.find((item) => item.client_id === id);
+                      if (unit?.city) setMunicipality(unit.city);
+                    }}
+                    className="min-h-11"
+                  >
+                    <option value="">Selecione uma unidade...</option>
+                    {portalUnits.map((unit) => (
+                      <option
+                        key={unit.client_id}
+                        value={unit.client_id}
+                        disabled={inspection && unitBlockedInSelectedMonth.has(unit.client_id)}
+                      >
+                        {unit.client_name}
+                        {inspection && unitBlockedInSelectedMonth.has(unit.client_id) ? ' — inspeção já solicitada neste mês' : ''}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              ) : (
+                <Field label="Nome da unidade ou empresa" htmlFor="unit-name" required>
+                  <Input value={unitName} onChange={(event) => setUnitName(event.target.value)} className="min-h-11" />
+                </Field>
+              )}
+
+              {!portalMode && (
+                <p className="flex items-center gap-2 rounded-md border border-default bg-surface-sunken p-3 text-sm text-navy-2">
+                  <Monitor className="h-4 w-4 shrink-0 text-navy-2" aria-hidden="true" />
+                  O briefing é online. O link da reunião vai junto com a confirmação.
+                </p>
+              )}
+
+              {portalMode && (
+                <fieldset>
+                  <legend className="text-sm font-semibold text-navy">Modalidade</legend>
+                  <div className="mt-1.5 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      disabled={!selectedUnitAllowsInPerson}
+                      onClick={() => setAttendanceMode('presencial')}
+                      aria-pressed={attendanceMode === 'presencial'}
+                      className={
+                        'inline-flex min-h-11 items-center justify-center gap-2 rounded-md border text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ' +
+                        (attendanceMode === 'presencial'
+                          ? 'border-primary-700 bg-primary-50 text-primary-800'
+                          : 'border-control text-navy-2') +
+                        (!selectedUnitAllowsInPerson ? ' cursor-not-allowed bg-surface-sunken' : '')
+                      }
+                    >
+                      <MapPin className="h-4 w-4" aria-hidden="true" />Presencial
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAttendanceMode('online')}
+                      aria-pressed={attendanceMode === 'online'}
+                      className={
+                        'inline-flex min-h-11 items-center justify-center gap-2 rounded-md border text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ' +
+                        (attendanceMode === 'online'
+                          ? 'border-primary-700 bg-primary-50 text-primary-800'
+                          : 'border-control text-navy-2')
+                      }
+                    >
+                      <Monitor className="h-4 w-4" aria-hidden="true" />Online
+                    </button>
+                  </div>
+                </fieldset>
+              )}
+
+              {portalMode && !selectedUnitAllowsInPerson && (
+                <p className="rounded-md border border-amber-soft-border bg-amber-soft p-3 text-sm text-amber-soft-ink">
+                  O atendimento presencial vale só para unidade cadastrada no RJ. Esta fica em outro
+                  estado, então o encontro é online.
+                </p>
+              )}
+
+              {attendanceMode === 'presencial' && (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="Município" htmlFor="municipality" required>
+                    <Input
+                      list="rio-municipios"
+                      value={municipality}
+                      onChange={(event) => setMunicipality(event.target.value)}
+                      className="min-h-11"
+                    />
+                    <datalist id="rio-municipios">
+                      {RIO_MUNICIPALITIES.map((city) => <option key={city} value={city} />)}
+                    </datalist>
+                  </Field>
+                  <Field label="Bairro" htmlFor="district" required>
+                    <Input value={district} onChange={(event) => setDistrict(event.target.value)} className="min-h-11" />
+                  </Field>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          <div className="flex flex-wrap gap-3">
+            <Button type="button" variant="outline" onClick={() => goToStep(1)} className="gap-2 bg-surface">
+              <ChevronLeft className="h-4 w-4" aria-hidden="true" />Trocar a finalidade
+            </Button>
+            <Button type="button" onClick={nextFromSchedule} className="flex-1 gap-2">
+              Continuar <ChevronRight className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          </div>
+        </section>
+      )}
+
+      {step === 3 && (
+        <section className="space-y-4">
+          {errorBanner}
+          <Card className="p-4 sm:p-5">
+            <p className="mb-4 max-w-[68ch] text-sm text-navy-2">
+              O que você contar aqui chega junto com o pedido e ajuda a consultoria a preparar o
+              encontro. Só o que está marcado com <span className="font-semibold">*</span> é obrigatório.
+            </p>
+            <div className="space-y-4">
+              <Field label="Assunto (opcional)" htmlFor="subject">
+                <Input
+                  value={subject}
+                  onChange={(event) => setSubject(event.target.value)}
+                  placeholder="Ex.: Revisão de pendências"
+                  className="min-h-11"
+                />
+              </Field>
+              <Field label="Objetivo (opcional)" htmlFor="objective">
+                <Textarea value={objective} onChange={(event) => setObjective(event.target.value)} rows={3} />
+              </Field>
+              <Field
+                label={
+                  <span className="inline-flex items-center gap-1.5">
+                    <Users className="h-4 w-4 text-navy-2" aria-hidden="true" />Quem participa (opcional)
+                  </span>
+                }
+                htmlFor="participants"
+              >
+                <Input
+                  value={participants}
+                  onChange={(event) => setParticipants(event.target.value)}
+                  placeholder="Separe os nomes por vírgula"
+                  className="min-h-11"
+                />
+              </Field>
+              <Field
+                label={portalMode ? 'Responsável (opcional)' : 'Responsável'}
+                htmlFor="responsible"
+                required={!portalMode}
+              >
+                <Input value={responsibleName} onChange={(event) => setResponsibleName(event.target.value)} className="min-h-11" />
+              </Field>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field
+                  label={
+                    <span className="inline-flex items-center gap-1.5">
+                      <Phone className="h-4 w-4 text-navy-2" aria-hidden="true" />WhatsApp
+                    </span>
+                  }
+                  htmlFor="phone"
+                  required={!portalMode}
+                  hint={portalMode ? undefined : 'É por aqui que a confirmação chega.'}
+                >
+                  <Input type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} className="min-h-11" />
+                </Field>
+                {portalMode ? (
+                  <p className="self-end rounded-md border border-primary-100 bg-primary-50 p-3 text-sm text-navy">
+                    <strong className="block">Confirmação por e-mail</strong>
+                    Vai para o e-mail cadastrado da unidade escolhida.
+                  </p>
+                ) : (
+                  <Field label="E-mail (opcional)" htmlFor="email">
+                    <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="min-h-11" />
+                  </Field>
                 )}
               </div>
-
-              <div className="rounded-xl border border-default bg-surface p-4 shadow-sm">
-                <h2 className="flex items-center gap-2 text-sm font-bold text-navy"><Clock className="h-4 w-4 text-primary-700" /> {selectedDay ? formatFullDay(selectedDay) : 'Escolha uma data'}</h2>
-                <div className="mt-4">
-                  {timesLoading ? <div role="status" className="flex h-24 items-center justify-center gap-2 text-sm text-navy-2"><Loader2 className="h-5 w-5 animate-spin text-primary-700" /> Carregando horários...</div> : timesError ? <div role="alert" className="rounded-md border border-danger-soft-border bg-danger-soft p-3 text-sm text-danger-soft-ink">{timesError}<button type="button" onClick={() => setTimesReloadKey((value) => value + 1)} className="mt-3 block min-h-11 rounded-md border border-danger-soft-border bg-surface px-3 text-sm font-semibold">Tentar novamente</button></div> : !selectedDay ? <p className="text-sm text-navy-3">Clique em um dia disponível para continuar.</p> : visibleTimes.length === 0 ? <p className="rounded-md border border-dashed border-default bg-surface-sunken p-3 text-sm text-navy-2">Este dia não tem horários livres para essa duração.</p> : <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">{visibleTimes.map((time) => <button key={time.starts_at} type="button" onClick={() => { setSelectedTime(time); setSubmitError(null); }} aria-pressed={selectedTime?.starts_at === time.starts_at} className={'min-h-11 rounded-md border text-sm font-bold ' + (selectedTime?.starts_at === time.starts_at ? 'border-primary-700 bg-primary-700 text-white' : 'border-default bg-surface text-navy-2 hover:bg-primary-50')}>{time.label}</button>)}</div>}
-                </div>
-              </div>
-            </div>
-
-            <aside className="rounded-xl border border-default bg-surface p-5 shadow-sm">
-              {portalMode && <div className="mb-4 flex gap-2 rounded-md border border-primary-100 bg-primary-50 p-3 text-xs text-primary-900"><ShieldCheck className="h-4 w-4 shrink-0 text-primary-700" />Agendando como <strong>{portalAccount}</strong>.</div>}
-              {errorBanner}
-              <h2 className="text-sm font-bold text-navy">{portalMode ? 'Local e modalidade' : 'Sobre a sua unidade'}</h2>
-              <div className="mt-4 space-y-4">
-                {portalMode ? <Field label="Unidade" htmlFor="unit" required hint={inspection && selectedUnitBlockedInMonth ? <span className="text-amber-soft-ink">A cota mensal se aplica somente a inspeções.</span> : undefined}><Select value={selectedClientId} onChange={(event) => { const id = event.target.value; setSelectedClientId(id); const unit = portalUnits.find((item) => item.client_id === id); if (unit?.city) setMunicipality(unit.city); }} className="min-h-11"><option value="">Selecione uma unidade...</option>{portalUnits.map((unit) => <option key={unit.client_id} value={unit.client_id} disabled={inspection && unitBlockedInSelectedMonth.has(unit.client_id)}>{unit.client_name}{inspection && unitBlockedInSelectedMonth.has(unit.client_id) ? ' — inspeção já solicitada neste mês' : ''}</option>)}</Select></Field> : <Field label="Nome da unidade ou empresa" htmlFor="unit-name" required><Input value={unitName} onChange={(event) => setUnitName(event.target.value)} className="min-h-11" /></Field>}
-                {!portalMode && <p className="flex items-center gap-2 rounded-md border border-default bg-surface-sunken p-3 text-xs text-navy-2"><Monitor className="h-4 w-4 shrink-0 text-navy-3" aria-hidden="true" />O briefing é online. Enviaremos o link da reunião junto com a confirmação.</p>}
-                {portalMode && <fieldset><legend className="text-sm font-medium text-navy-2">Modalidade</legend><div className="mt-1.5 grid grid-cols-2 gap-2"><button type="button" disabled={!selectedUnitAllowsInPerson} onClick={() => setAttendanceMode('presencial')} aria-pressed={attendanceMode === 'presencial'} className={'inline-flex min-h-11 items-center justify-center gap-2 rounded-md border text-sm font-semibold ' + (attendanceMode === 'presencial' ? 'border-primary-700 bg-primary-50 text-primary-800' : 'border-default text-navy-2') + (!selectedUnitAllowsInPerson ? ' cursor-not-allowed opacity-50' : '')}><MapPin className="h-4 w-4" />Presencial</button><button type="button" onClick={() => setAttendanceMode('online')} aria-pressed={attendanceMode === 'online'} className={'inline-flex min-h-11 items-center justify-center gap-2 rounded-md border text-sm font-semibold ' + (attendanceMode === 'online' ? 'border-primary-700 bg-primary-50 text-primary-800' : 'border-default text-navy-2')}><Monitor className="h-4 w-4" />Online</button></div></fieldset>}
-                {portalMode && !selectedUnitAllowsInPerson && <p className="rounded-md border border-amber-soft-border bg-amber-soft p-3 text-xs text-amber-soft-ink">Atendimentos presenciais são permitidos apenas para unidades cadastradas no RJ.</p>}
-                {attendanceMode === 'presencial' && <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1"><Field label="Município" htmlFor="municipality" required><Input list="rio-municipios" value={municipality} onChange={(event) => setMunicipality(event.target.value)} className="min-h-11" /><datalist id="rio-municipios">{RIO_MUNICIPALITIES.map((city) => <option key={city} value={city} />)}</datalist></Field><Field label="Bairro" htmlFor="district" required><Input value={district} onChange={(event) => setDistrict(event.target.value)} className="min-h-11" /></Field></div>}
-                <div className="flex flex-wrap gap-3">
-                  <button type="button" onClick={() => goToStep(1)} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-default px-4 text-sm font-semibold text-navy-2 hover:bg-surface-hover"><ChevronLeft className="h-4 w-4" />Alterar finalidade</button>
-                  <button type="button" onClick={nextFromSchedule} className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-md bg-primary-700 px-4 py-3 text-sm font-semibold text-white hover:bg-primary-800">Continuar <ChevronRight className="h-4 w-4" /></button>
-                </div>
-              </div>
-            </aside>
-          </section>
-        )}
-
-        {step === 3 && <section className="mx-auto max-w-2xl rounded-xl border border-default bg-surface p-5 shadow-sm">{errorBanner}<div className="space-y-4">
-          <Field label="Assunto" htmlFor="subject">
-            <Input value={subject} onChange={(event) => setSubject(event.target.value)} placeholder="Ex.: Revisão de pendências" className="min-h-11" />
-          </Field>
-          <Field label="Objetivo" htmlFor="objective">
-            <Textarea value={objective} onChange={(event) => setObjective(event.target.value)} rows={3} />
-          </Field>
-          <Field label={<span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4 text-navy-3" aria-hidden="true" />Participantes</span>} htmlFor="participants">
-            <Input value={participants} onChange={(event) => setParticipants(event.target.value)} placeholder="Separe os nomes por vírgula" className="min-h-11" />
-          </Field>
-          <Field label="Responsável" htmlFor="responsible" required={!portalMode}>
-            <Input value={responsibleName} onChange={(event) => setResponsibleName(event.target.value)} className="min-h-11" />
-          </Field>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label={<span className="inline-flex items-center gap-1.5"><Phone className="h-4 w-4 text-navy-3" aria-hidden="true" />WhatsApp</span>} htmlFor="phone" required={!portalMode}>
-              <Input type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} className="min-h-11" />
-            </Field>
-            {portalMode ? (
-              <div className="rounded-md border border-primary-100 bg-primary-50 p-3 text-xs text-primary-900"><strong>E-mail de confirmação</strong><p className="mt-1">Será usado exclusivamente o e-mail cadastrado da unidade selecionada.</p></div>
-            ) : (
-              <Field label="E-mail" htmlFor="email">
-                <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="min-h-11" />
+              <Field
+                label={
+                  <span className="inline-flex items-center gap-1.5">
+                    <FileText className="h-4 w-4 text-navy-2" aria-hidden="true" />Observações (opcional)
+                  </span>
+                }
+                htmlFor="notes"
+              >
+                <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} />
               </Field>
-            )}
+            </div>
+          </Card>
+          <div className="flex flex-wrap gap-3">
+            <Button type="button" variant="outline" onClick={() => setStep(2)} className="gap-2 bg-surface">
+              <ChevronLeft className="h-4 w-4" aria-hidden="true" />Voltar
+            </Button>
+            <Button type="button" onClick={nextFromDetails} className="flex-1 gap-2">
+              Conferir o pedido <ChevronRight className="h-4 w-4" aria-hidden="true" />
+            </Button>
           </div>
-          <Field label={<span className="inline-flex items-center gap-1.5"><FileText className="h-4 w-4 text-navy-3" aria-hidden="true" />Observações</span>} htmlFor="notes">
-            <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} />
-          </Field>
-        </div><div className="mt-6 flex flex-wrap gap-3"><button type="button" onClick={() => setStep(2)} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-default px-4 text-sm font-semibold text-navy-2 hover:bg-surface-hover"><ChevronLeft className="h-4 w-4" />Voltar</button><button type="button" onClick={nextFromDetails} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-primary-700 px-4 text-sm font-semibold text-white hover:bg-primary-800">Revisar solicitação <ChevronRight className="h-4 w-4" /></button></div></section>}
+        </section>
+      )}
 
-        {step === 4 && <section className="mx-auto max-w-2xl rounded-xl border border-default bg-surface p-5 shadow-sm"><h2 className="text-lg font-bold text-navy">Resumo da solicitação</h2>{errorBanner}<dl className="mt-5 divide-y divide-default"><div className="flex items-center justify-between gap-4 py-3"><dt className="text-sm text-navy-3">Tipo</dt><dd className="flex items-center gap-2 text-right text-sm font-semibold text-navy">{APPOINTMENT_TYPE_RULES[appointmentType].label}<button type="button" onClick={() => goToStep(1)} className="text-xs font-semibold text-primary-700 underline underline-offset-2 hover:no-underline">Alterar</button></dd></div><div className="flex items-center justify-between gap-4 py-3"><dt className="text-sm text-navy-3">Unidade</dt><dd className="flex items-center gap-2 text-right text-sm font-semibold text-navy">{portalMode ? selectedUnit?.client_name || '—' : unitName || '—'}<button type="button" onClick={() => goToStep(2)} className="text-xs font-semibold text-primary-700 underline underline-offset-2 hover:no-underline">Alterar</button></dd></div><div className="flex items-center justify-between gap-4 py-3"><dt className="text-sm text-navy-3">Consultora</dt><dd className="flex items-center gap-2 text-right text-sm font-semibold text-navy">{consultantNames.length ? consultantNames.map((n) => n.split(' ')[0]).join(' + ') : '—'}<button type="button" onClick={() => goToStep(2)} className="text-xs font-semibold text-primary-700 underline underline-offset-2 hover:no-underline">Alterar</button></dd></div><div className="flex items-center justify-between gap-4 py-3"><dt className="text-sm text-navy-3">Modalidade</dt><dd className="flex items-center gap-2 text-right text-sm font-semibold text-navy">{attendanceMode === 'online' ? 'Online' : 'Presencial'}<button type="button" onClick={() => goToStep(2)} className="text-xs font-semibold text-primary-700 underline underline-offset-2 hover:no-underline">Alterar</button></dd></div><div className="flex items-center justify-between gap-4 py-3"><dt className="text-sm text-navy-3">Duração</dt><dd className="flex items-center gap-2 text-right text-sm font-semibold text-navy">{formatDuration(durationMinutes)}<button type="button" onClick={() => goToStep(2)} className="text-xs font-semibold text-primary-700 underline underline-offset-2 hover:no-underline">Alterar</button></dd></div><div className="flex items-center justify-between gap-4 py-3"><dt className="text-sm text-navy-3">Data e horário</dt><dd className="flex items-center gap-2 text-right text-sm font-semibold text-navy">{selectedDay ? formatFullDay(selectedDay) : '—'}{selectedTime ? ' · ' + selectedTime.label : ''}<button type="button" onClick={() => goToStep(2)} className="text-xs font-semibold text-primary-700 underline underline-offset-2 hover:no-underline">Alterar</button></dd></div></dl><div className="mt-6 flex flex-wrap gap-3"><button type="button" onClick={() => setStep(3)} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-default px-4 text-sm font-semibold text-navy-2 hover:bg-surface-hover"><ChevronLeft className="h-4 w-4" />Voltar</button><button type="button" disabled={submitting} onClick={() => void handleSubmit()} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-primary-700 px-4 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60">{submitting ? <><Loader2 className="h-4 w-4 animate-spin" />Enviando...</> : <><Send className="h-4 w-4" />Enviar solicitação</>}</button></div></section>}
-      </main>
-    </div>
+      {step === 4 && (
+        <section className="space-y-4">
+          {errorBanner}
+          <Card className="p-4 sm:p-5">
+            <h2 className="font-title text-lg font-semibold text-navy">O que vamos enviar</h2>
+            <p className="mt-1 text-sm text-navy-2">Confira os dados — dá para alterar qualquer linha.</p>
+            <dl className="mt-4 divide-y divide-default">
+              {[
+                { label: 'Finalidade', value: APPOINTMENT_TYPE_RULES[appointmentType].label, target: 1 },
+                { label: 'Unidade', value: portalMode ? selectedUnit?.client_name || '—' : unitName || '—', target: 2 },
+                {
+                  label: 'Consultora',
+                  value: consultantNames.length ? consultantNames.map((name) => name.split(' ')[0]).join(' + ') : '—',
+                  target: 2,
+                },
+                { label: 'Modalidade', value: attendanceMode === 'online' ? 'Online' : 'Presencial', target: 2 },
+                { label: 'Duração', value: formatDuration(durationMinutes), target: 2 },
+                {
+                  label: 'Data e horário',
+                  value: selectedDay
+                    ? formatDayNumeric(selectedDay) + (selectedTime ? ' · ' + selectedTime.label : '')
+                    : '—',
+                  target: 2,
+                },
+              ].map((row) => (
+                <div key={row.label} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-3">
+                  <dt className="text-sm text-navy-2">{row.label}</dt>
+                  <dd className="flex min-w-0 items-baseline gap-2">
+                    <span className="min-w-0 break-words text-sm font-semibold text-navy">{row.value}</span>
+                    <button
+                      type="button"
+                      onClick={() => goToStep(row.target)}
+                      aria-label={'Alterar ' + row.label.toLowerCase()}
+                      className="shrink-0 rounded-sm text-xs font-semibold text-accent-ink underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                    >
+                      Alterar
+                    </button>
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </Card>
+          <div className="flex flex-wrap gap-3">
+            <Button type="button" variant="outline" onClick={() => setStep(3)} className="gap-2 bg-surface">
+              <ChevronLeft className="h-4 w-4" aria-hidden="true" />Voltar
+            </Button>
+            <Button type="button" disabled={submitting} onClick={() => void handleSubmit()} className="flex-1 gap-2">
+              {submitting ? (
+                <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />Enviando...</>
+              ) : (
+                <><Send className="h-4 w-4" aria-hidden="true" />Enviar pedido</>
+              )}
+            </Button>
+          </div>
+        </section>
+      )}
+    </PublicShell>
   );
 }

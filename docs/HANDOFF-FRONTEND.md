@@ -7,7 +7,7 @@
 
 ## Onde estamos — atualizado em 18/08/2026
 
-**25 cards entregues, 3 na fila.** Card entregue tem o título ~~riscado~~ mais abaixo, com a data
+**26 cards entregues, 2 na fila.** Card entregue tem o título ~~riscado~~ mais abaixo, com a data
 e o commit; card aberto tem ⬜. Esta é a única tabela de estado do documento — se divergir de
 qualquer outra coisa aqui, ela ganha.
 
@@ -15,14 +15,13 @@ qualquer outra coisa aqui, ela ganha.
 
 | Card | O que é | Só depois de |
 |---|---|---|
-| **FE-26** | `PublicSchedule` e `PublicAppointmentStatus` — o que o cliente vê sem login | — |
 | **FE-12** | Tema escuro no app inteiro | — (FE-21 ✅ destravou) |
 | **FE-27** | Gate de regressão visual e a11y — **é o card que fecha o frontend** | FE-12, só para o tema |
 
-O FE-24 tocou o formulário de telas que ainda vão ser redesenhadas (`PublicSchedule` no FE-26,
-`SmartImporter` e `Login` no FE-25): a estrutura do redesenho é desses cards, o controle já está
-no sistema e não precisa ser convertido de novo. Os filtros de `Clients`/`Inspections` eram desse
-grupo e já foram absorvidos pelo FE-22.
+O FE-24 tocou o formulário de telas que ainda seriam redesenhadas (`PublicSchedule` no FE-26,
+`SmartImporter` e `Login` no FE-25): a estrutura do redesenho era desses cards, o controle já
+estava no sistema e não precisou ser convertido de novo. Os filtros de `Clients`/`Inspections`
+eram desse grupo e foram absorvidos pelo FE-22.
 
 ### ✅ O que já está no ar
 
@@ -54,9 +53,10 @@ grupo e já foram absorvidos pelo FE-22.
 | FE-24 | `Field`/`Checkbox`/`Radio` novos e 204 controles crus migrados em 38 arquivos | 17/08 | `37adbe2` |
 | FE-22 | Alternador Cards / Tabela em `Clients` e `Inspections` — **cards seguem o padrão** (decisão 34) | 17/08 | `f0f007e`, (a seguir) |
 | FE-25 | `SmartImporter` e `TemplateDetail` em `PageShell`/`PageHeader`; erro do `Login` anunciado (`role="alert"`) | 18/08 | `3dee39d` |
+| FE-26 | `PublicShell` + as duas superfícies sem login em coluna única, com a voz do portal | 18/08 | (a seguir) |
 
 **Ondas:** 1 (portal) **fechada** · 2 (admin) **fechada** · 3 (fechamento) falta FE-12 e a revisão
-final de a11y · 4 (o admin que falta) em andamento, 11 de 14 entregues.
+final de a11y · 4 (o admin que falta) em andamento, 12 de 14 entregues.
 
 ---
 
@@ -808,20 +808,65 @@ O que sobra fora de qualquer protótipo depois que o FE-17b fechar:
 
 Prioridade abaixo de FE-23/FE-24. Existe para não sobrar ilha antiga quando o resto estiver pronto.
 
-### ⬜ FE-26 · Superfícies públicas do cliente
+### ~~FE-26 · Superfícies públicas do cliente~~ ✅ 18/08/2026
 
-`PublicSchedule.tsx` (642 linhas) e `PublicAppointmentStatus.tsx` (913) ficaram fora do FE-05 por
-decisão de escopo: `PageShell` é documentado como largura do **admin**, e herdar `max-w-[1600px]`
-estragaria a leitura em coluna única de quem só tem o link. **A justificativa técnica continua
-válida — o que não vale é ela virar "não recebe redesenho".**
+`PublicSchedule.tsx` e `PublicAppointmentStatus.tsx` ficaram fora do FE-05 por decisão de escopo:
+`PageShell` é documentado como largura do **admin**, e herdar `max-w-[1600px]` estragaria a leitura
+em coluna única de quem só tem o link. **A justificativa técnica continua válida — o que não valia
+era ela virar "não recebe redesenho".**
 
-- São as duas superfícies que o cliente vê **sem login**. O Manual 2.0 manda toda superfície
-  externa carregar o sistema visual e a voz da TreinaVISA, então o rigor de marca aqui é maior que
-  numa tela interna, não menor.
-- Linguagem do Portal (Artefato C), não a do admin: coluna única, foco em tarefa, voz acolhedora.
-- `PublicSchedule.tsx` concentra 12 dos controles crus do FE-24 — os dois cards se encontram aqui;
-  quem chegar primeiro resolve.
-- A grafia do `PublicHeader.tsx` já foi corrigida no FE-11; falta o layout.
+**Entregue.** A largura do externo virou primitivo em vez de decisão de página: `PublicShell`
+(`src/components/public/PublicShell.tsx`) — fundo `canvas`, marca, coluna de leitura de **760px** e
+rodapé de identidade. 760px é o menor valor em que o calendário de 7 colunas ainda mostra "N vagas"
+sem abreviar; texto corrido dentro dela continua limitado a 68ch (decisão 24). Ela substitui as
+**cinco** larguras que as duas páginas usavam à mão (`max-w-6xl`, `3xl`, `2xl`, `[640px]`, `[600px]`)
+e é irmã declarada do `PageShell`, não uma exceção dele.
+
+- **O `<h1>` deixou de ser a marca.** O `PublicHeader` trazia `<h1>InspecVISA</h1>` em toda página
+  que o usa — então `/agendar` tinha **dois** `<h1>` e a página do protocolo tinha um `<h1>` que não
+  falava dela. A marca virou texto e o `<h1>` passou a ser a tarefa ("Escolha data e horário", "Não
+  encontramos esta solicitação"). Como o cabeçalho também encabeça o portal logado, o nome da conta
+  no `ClientPortalShell` e o título do login viraram `<h1>` no mesmo commit — o portal fica com a
+  mesma estrutura de antes, sem herdar o buraco.
+- **A faixa da marca alinha com a coluna da página** (`widthClassName`): eram 1280px fixos, que não
+  batiam nem com os 1152px do portal nem com os 760px das públicas.
+- **Coluna única no agendamento.** O passo 2 era um grid de duas colunas (`xl:grid-cols-[1.45fr_0.8fr]`)
+  com o formulário de local numa barra lateral: virou uma pilha — com quem · quanto tempo · datas ·
+  horários · onde. É a linguagem do Artefato C, não a do admin.
+- **A etapa não depende mais da cor.** O indicador escondia o número no celular (`hidden sm:inline`),
+  e lá a etapa atual era **só** um fundo azul. Agora número, palavra e marca de concluída aparecem em
+  todas as larguras, com `aria-label="Etapa 2 de 4"` na lista.
+- **Dia do calendário fechou 44px no celular** (era 40px): o cartão sangra 8px de cada lado abaixo de
+  `sm` e o vão caiu para 4px. Medido a 375px: 45×64px.
+- **`capitalize` virou `first-letter:uppercase`** — a régua do mês mostrava "Agosto De 2026" e o
+  título do dia, "Sexta-Feira, 22 De Agosto".
+- **Botão cru virou `Button`** nas duas telas. Para o `<Link>` do react-router, que não pode ser
+  embrulhado no primitivo, a pele saiu do `Button.tsx` para `ui/buttonVariants.ts` (o lint de
+  fast-refresh não deixa o componente exportar constante) — assim o link de ação tem o mesmo raio,
+  o mesmo foco e os 44px da decisão 7.
+- **Raio único.** Os 38 `rounded-xl`/`rounded-2xl` das duas páginas viraram o `rounded-lg` do `Card`
+  e o `rounded-md` dos controles.
+- **Cor com significado fixo, respeitado.** "Pagar agora" era `bg-danger` (vermelho como ação
+  principal), "Baixar relatório" e "Abrir pasta" eram `bg-success`: viraram azuis. O ícone do anexo
+  não pinta mais o PDF de vermelho — o tipo é dito pela forma do ícone e pelo nome do arquivo.
+  Texto sobre fundo `soft` passou a usar a tinta `-soft-ink` em vez do tom cheio.
+- **A galeria de fotos virou `<dialog>`.** Era um `<div>` fixo: o foco continuava correndo a página
+  atrás dela e o `Esc` era escrito à mão. Trap de foco, `Esc` e devolução do foco ao botão de origem
+  vêm do elemento; sobraram as setas e a trava de rolagem. As miniaturas ganharam nome acessível
+  ("Ver a foto 3") — eram botões com `alt=""` dentro, sem nome nenhum.
+- **A entrega subiu na página do protocolo.** A ordem passou a ser identidade → avisos de estado →
+  sala da reunião e calendário → plano de ação → relatório/fotos/anexos → andamento → o que foi
+  combinado. O plano de ação continua antes do andamento e dos dados, como o PORT-02/03 decidiu; o
+  que mudou é que baixar o relatório deixou de ser a última coisa da página. O nome da unidade saiu
+  da lista "o que foi combinado" — ele já é a identidade, no topo.
+- **Voz do portal** (Artefato A, microcopy): "Recebemos seu pedido", "Em que pé está", "Nenhuma vaga
+  neste mês para esta finalidade e duração. Veja o mês seguinte ou escolha uma duração menor",
+  "Não encontramos esta solicitação. O link pode ter vindo incompleto ou já não valer mais". Data em
+  dd/mm/aaaa no resumo, opcional marcado como "(opcional)", e cada "Alterar" do resumo com o nome do
+  que altera.
+- **Rótulo de estado tem uma fonte só.** `APPOINTMENT_STATUS_LABELS` saiu de dentro do
+  `PortalAppointments.tsx` para `utils/appointmentType.ts`: a agenda do portal e a página do
+  protocolo diziam a mesma coisa em dois lugares.
 
 ### ⬜ FE-27 · Gate de regressão visual e acessibilidade
 
@@ -993,7 +1038,7 @@ entregou o editor de roteiro sem precisar de arrastar.
 | ~~FE-23~~ ✅ | Artefato E + fluxo `/new` → `/execute` → `/summary` | Opus 5 | **alto** | entregue 16/08 |
 | ~~FE-24~~ ✅ | ~225 controles crus → `Input`/`Select`/`Textarea`/`Label` | Opus 5 | alto | entregue 17/08 |
 | ~~FE-25~~ ✅ | `SmartImporter`, `TemplateDetail` e as telas de entrada | Sonnet 5 | baixo | entregue 18/08 |
-| FE-26 | `PublicSchedule` + `PublicAppointmentStatus` | Opus 5 | médio | Artefato C ✅ |
+| ~~FE-26~~ ✅ | `PublicSchedule` + `PublicAppointmentStatus` | Opus 5 | médio | entregue 18/08 |
 | FE-27 | Gate de regressão visual e a11y | Opus 5 (matriz) · Sonnet 5 (spec) | médio-alto | FE-12, só para a camada de tema |
 | FE-12 | Ligar o tema escuro no app inteiro | Sonnet 5 | médio | — (FE-21 ✅ destravou) |
 
@@ -1006,7 +1051,7 @@ em paralelo por serem as duas telas de uso diário. Daqui em diante:
 2. ~~**FE-23**~~ ✅ ~~**e FE-24**~~ ✅ — estrutura real de uso. Vieram antes da cor, de propósito.
 3. ~~**FE-21**~~ ✅ — convertido em 17/08, com o desenho das telas do FE-23 já congelado (a ordem
    que o handoff pedia, pra não converter cor duas vezes).
-4. ~~**FE-22**~~ ✅ ~~**e FE-25**~~ ✅ **, e FE-26** — as superfícies restantes.
+4. ~~**FE-22**~~ ✅ ~~**e FE-25**~~ ✅ ~~**, e FE-26**~~ ✅ — as superfícies restantes.
 5. **FE-12** — o tema escuro é o último de propósito: é o card mais vistoso e o menos estrutural.
 6. **FE-27** — fecha a onda e é o único que autoriza a frase "frontend visual fechado".
 
@@ -1192,6 +1237,7 @@ Tabela de acompanhamento rápido — quem fez o quê e quando. O detalhe de cada
 | 17/08/2026 | **FE-24** — sistema de formulários no app inteiro | Opus 5 | `37adbe2` | Recontado antes de começar: **216** controles crus (213 fora dos primitivos) em 39 arquivos — o FE-23 já tinha derrubado 12 desde os 228 de 16/08. Ao fim: **9**, todas `<input type="file">`, cada uma com um comentário `Exceção FE-24:` na linha de cima (a tabela de exceções está na seção do card). **Primitivos novos:** `Field` (rótulo + controle + ajuda + erro, com o erro carregando ícone **e** texto, nunca só a borda vermelha) e `Checkbox`/`Radio` — a caixa de seleção não tinha primitivo nenhum e era copiada à mão com 5 aparências diferentes. O `Field` fia `id`, `aria-describedby`, `aria-invalid` e `aria-required` **por contexto**, não por `cloneElement`: prop explícita sempre ganha, e o campo funciona igual embrulhado em `<div>`, em grid ou ao lado de um botão. Isso evita repetir a fiação de acessibilidade em ~200 lugares — que era exatamente o motivo de ela não existir na maioria deles. **Primitivos revisados:** a aparência dos três controles virou uma constante só (`controlClasses`), então altura, borda, foco, `disabled`, `readonly` e erro não podem mais divergir entre `Input`, `Select` e `Textarea`; ganharam `hover`, `transition-colors`, `aria-[invalid]`, `read-only:` e **`[@media(pointer:coarse)]:min-h-11`** (decisão 7 — até aqui só o `Button` tinha os 44px no toque). `disabled:opacity-50` saiu: opacidade sobre texto navy dava contraste imprevisível; agora é `surface-sunken` + `ink-3`, medido em 5,00:1. Duas densidades, `default` e `sm` (h-8), as mesmas do `Button` — sem a `sm` cada tela densa do FE-17 teria que reinventar altura e `padding` no `className`, que é o problema que este card fecha. `Input` ganhou `icon` (o par ícone+campo aparecia 6 vezes montado à mão) e `wrapperClassName`, porque com ícone quem carrega o layout é o invólucro. **`Label` alinhado ao Artefato D:** era `text-navy-2` medium, virou `--ink` semibold, e o asterisco de obrigatório virou `--danger-soft-ink` **`aria-hidden`** — o leitor de tela lia "Categoria asterisco"; agora lê "Categoria" e a obrigatoriedade chega por `aria-required`. Isso mudou o nome acessível de 4 campos e quebrou 3 testes do `PortalServiceRequests`, corrigidos para casar por prefixo. **Duplicatas apagadas:** as duas constantes `TEXT_INPUT` (`schedules/appointmentRequestsShared.ts` e `clients/portal/shared.ts`, mesma string em 8 arquivos) — eram o primitivo informal que existia no lugar do real; e os 9 checkboxes de tipo de alimento do `ClientDetails`, que viraram um `map` sobre `FOOD_SEGMENT_LABELS`, que já estava importado no arquivo. Grupos de caixa/opção passaram a `<fieldset>`/`<legend>` em 6 telas — eram `<label>` solto rotulando um grupo, que não rotula nada. **Pendência que o FE-21 deixou para este card, fechada:** o botão "Pagar agora" do `PortalBilling.tsx` era `bg-amber` com texto branco, 2,50:1 e âmbar como ação principal, os dois proibidos pelo Manual 2.0 — virou `primary-700`, 8,31:1. **Fora do primitivo por decisão, não por esquecimento:** os campos do `Login.tsx` (única superfície escura do app até o FE-12) e a edição dentro da célula em `SmartImporter`/`TemplateEditor` continuam passando pelo `Input`, só com a pele trocada por `className` — assim foco, alvo de toque e fiação vêm do sistema mesmo onde a aparência não pode ser a padrão. Contraste dos pares novos medido: rótulo 16,52 · ajuda 7,63 · erro 9,12 · `placeholder` 5,96 · borda de campo 3,61 (mínimo 3) · desabilitado 5,00. `tsc -b` e `npm run build` limpos, 550 testes passando. Verificado no navegador em 1280 e 375px nas duas telas alcançáveis sem credencial (`/cliente` e `/agendar`): rótulo associado ao campo, borda `#7688A2`, 44px de altura no celular, sem rolagem lateral. Depois, com a Ester logada, varridas as telas do admin em 1600, 1280 e 375px: Clientes (lista e modal), ficha do cliente (modal de edição, 17 campos), Configurações, Agendamentos, Solicitações, Legislação (gaveta de verbete, 10 campos), Plano de ação e Inspeções — **uma borda só** (`#7688A2`), **um raio só** (6px), **um corpo só** (14px, e 12px na densidade `sm` das Solicitações), nenhum controle sem nome acessível, e **44px em todos eles a 375px**, incluindo as opções de perfil das Configurações, onde o alvo é o rótulo inteiro. Zero rolagem lateral nas 8 rotas, nas três larguras. Estado de erro conferido submetendo o cadastro vazio: `aria-invalid`, `aria-describedby` apontando para a mensagem, texto com ícone em `#8C1D17` e borda `#B3261E`. **Armadilha de medição anotada:** com o painel do navegador fechado a página não compõe frames e a `transition` nunca avança — `getComputedStyle` devolve a cor do **início** da transição (a borda de erro parecia não estar aplicando). Matar a transição antes de ler resolve. **Continua sem verificação em navegador:** `/agendar` a partir do passo 2, porque o Supabase deste ambiente devolve 401 no calendário público. |
 | 17/08/2026 | **Nome da unidade sumia no celular, achado pela Ester usando** | Opus 5 | `2dc1b2b` | Ela abriu a execução no celular e relatou que não conseguia ler o nome da unidade. Medido em 375px: o `<h1>` tinha **11px de largura** para um texto de **182px** — sobrava a reticência. A causa não é o `truncate`: o bloco de identificação dividia a linha `flex-wrap` com o selo de estado (194px) e quatro botões, e como ele pode encolher até zero (`min-w-0`), o `flex-wrap` entendia que a linha **cabia** e nunca quebrava — quem pagava a conta era o único item elástico. Botão de voltar e identificação viraram um grupo só, com `basis-full` até `sm` (toma a linha inteira, empurra selo e ações para baixo) e `sm:basis-0 sm:flex-1` de volta ao comportamento de hoje no desktop. Conferido: 279px sem truncar a 375px, cabeçalho em uma linha só a 1280px, sem rolagem lateral nas duas. Defeito do FE-23, não do FE-24 — nada do card de formulários toca esse cabeçalho. |
 | 17/08/2026 | **FE-22** — tabela densa vira **opção**, card continua o padrão | Opus 5 | `f0f007e`, (a seguir) | Entregue primeiro como o card pedia (as duas listas viraram tabela densa, molde do FE-17). **A Ester reprovou vendo no navegador** — *"tabela horrorosa no desktop"*, *"não quero essa tabela"*, **"em nenhum local"** como principal — e pediu tabela como **visualização alternativa**. Virou a **decisão 34**: em lista de trabalho diária o card é o padrão e a tabela é opção, mesma lógica da decisão 13 (calendário não substituiu a lista da agenda). As três telas do FE-17 (Solicitações, Roteiros, Biblioteca) **continuam só tabela** — são consulta, não fila diária. Ficou: alternador `Cards`/`Tabela` nas duas telas (cards por padrão, sem persistir entre visitas); paginação de 10 com a faixa escrita nas duas visualizações; ordenação A→Z/Z→A na coluna Cliente da tabela de Clientes; data em cima e hora embaixo nas colunas de data. **Defeito real achado testando:** limpar o filtro estando na página 3 devolvia a lista inteira mas deixava a paginação na cauda — mexer em busca/categoria/ordem passa a voltar para a página 1. As tabelas do FE-17 têm a mesma falha (mesmo `usePagedList`, filtro em estado separado) e **não** foram corrigidas aqui; fica para o FE-27. **Acessibilidade, o que sobrou do card original nos cards:** os botões de editar/excluir do `Clients` eram `opacity-0 group-hover:opacity-100` — inalcançáveis no toque e sem nome acessível; viraram `Button ghost sm` (44px no toque) com `aria-label` nomeando o cliente da linha. `tsc -b`, `npm run build` e os 545 testes limpos; conferido logada em 1600, 1280 e 375px. **Lição:** o card dizia "seguindo o FE-17 como exemplo aprovado" — aprovado era o padrão de tabela, não a decisão de aplicá-lo a estas duas telas. Valia ter mostrado uma tela antes de converter as duas. |
+| 18/08/2026 | **FE-26** — as duas superfícies sem login | Opus 5 | (a seguir) | A largura do externo virou primitivo: **`PublicShell`** (fundo `canvas`, marca, coluna de leitura de 760px, rodapé de identidade), irmã declarada do `PageShell` — e não uma exceção dele. Ela substituiu as **cinco** larguras que as duas páginas escreviam à mão (`max-w-6xl`, `3xl`, `2xl`, `[640px]`, `[600px]`). **Defeito de estrutura que ninguém tinha visto:** o `PublicHeader` trazia `<h1>InspecVISA</h1>`, então `/agendar` tinha **dois** `<h1>` e a página do protocolo tinha um `<h1>` que não falava dela; a marca virou texto e o `<h1>` passou a ser a tarefa. Como o mesmo cabeçalho encabeça o portal logado, o nome da conta no `ClientPortalShell` e o título do login viraram `<h1>` no mesmo commit — o portal fica como estava, sem herdar o buraco. A faixa da marca passou a alinhar com a coluna da página (`widthClassName`): eram 1280px que não batiam nem com os 1152px do portal nem com os 760px das públicas. **Agendamento:** o passo 2 era um grid de duas colunas com o formulário de local numa barra lateral (linguagem de admin) e virou pilha — com quem · quanto tempo · datas · horários · onde. O indicador de etapa escondia o número no celular (`hidden sm:inline`), e lá a etapa atual era **só** um fundo azul: agora número, palavra e marca de concluída aparecem em todas as larguras, com `aria-label="Etapa 2 de 4"`. Dia do calendário fechou **44px** a 375px (era 40): o cartão sangra 8px de cada lado abaixo de `sm` e o vão caiu para 4px — medido 45×64. `capitalize` virou `first-letter:uppercase` (a régua dizia "Agosto **De** 2026"; o dia, "Sexta-**F**eira, 22 **De** Agosto"). No resumo, data em dd/mm/aaaa e cada "Alterar" com nome próprio (`aria-label="Alterar duração"`) — eram seis botões chamados "Alterar". **Protocolo:** ordem nova — identidade → avisos de estado → sala da reunião e calendário → plano de ação → relatório/fotos/anexos → andamento → o que foi combinado. O plano de ação continua antes do andamento e dos dados (PORT-02/03); o que mudou é que **baixar o relatório deixou de ser a última coisa da página**. Ganhou selo de estado com a palavra (`APPOINTMENT_STATUS_LABELS`, movido de dentro do `PortalAppointments.tsx` para `utils/appointmentType.ts` — a agenda do portal e esta página diziam a mesma coisa em dois lugares). A **galeria de fotos virou `<dialog>`**: era um `<div>` fixo, o foco corria a página atrás dela e o `Esc` era escrito à mão; as miniaturas eram botões com `alt=""` dentro, sem nome acessível nenhum. **Cor com significado fixo, respeitado:** "Pagar agora" era `bg-danger` (vermelho como ação principal) e "Baixar relatório"/"Abrir pasta" eram `bg-success` — todos viraram azuis; o ícone de anexo não pinta mais o PDF de vermelho; texto sobre fundo `soft` passou à tinta `-soft-ink`. Os 38 `rounded-xl`/`rounded-2xl` viraram o raio do sistema, e o botão cru virou `Button` — para o `<Link>`, que não entra no primitivo, a pele saiu para `ui/buttonVariants.ts` (o lint de fast-refresh não deixa o componente exportar constante). **Voz do portal** (Artefato A): "Recebemos seu pedido", "Em que pé está", "Nenhuma vaga neste mês para esta finalidade e duração. Veja o mês seguinte ou escolha uma duração menor", "Não encontramos esta solicitação — o link pode ter vindo incompleto ou já não valer mais". **Testes:** `PublicSurfaces.test.tsx`, o primeiro das duas páginas — `<h1>` único, estado por palavra, galeria abrindo e fechando em `<dialog>`, e `axe` limpo nas duas. Precisou de polyfill de `showModal`/`close` no `setup.ts`: jsdom ainda não implementa `<dialog>`, e sem isso qualquer teste que abra o `Modal` quebra. `tsc -b`, `npm run build` e `eslint src` limpos; **552 testes** passando. **Navegador:** `/agendar` percorrida até o resumo em 375, 1280 e 1600px — zero rolagem lateral nas três, marca/conteúdo/rodapé na mesma coluna (420px de recuo a 1600), horário e campos a 44px, foco indo para o `<h1>` a cada passo, e o menor contraste medido entre os pares novos foi **5,66:1**. O calendário respondeu com dado real desta vez (o 401 que travou o FE-24 não se repetiu). **Nada foi enviado**: a tela de sucesso e a página do protocolo com dado real não foram vistas no navegador — `/agendar` grava na agenda de produção e a página do protocolo exige um token de visita. O que dava para cobrir sem isso foi para o teste de componente. |
 
 ### FE-04a ✅ — detalhe da entrega, e o que ficou pra depois
 

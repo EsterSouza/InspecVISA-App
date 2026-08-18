@@ -121,3 +121,18 @@ export function assertAppointmentDuration(type: AppointmentType, minutes: number
     throw new Error('Duração inválida para o tipo de compromisso.');
   }
 }
+
+/**
+ * Como o cliente lê o estado de uma visita. Vive aqui porque o portal (agenda) e
+ * a página pública do protocolo precisam dizer a mesma coisa — antes o texto era
+ * copiado nos dois lugares.
+ */
+export const APPOINTMENT_STATUS_LABELS: Record<string, string> = {
+  requested: 'Solicitada',
+  confirmed: 'Confirmada',
+  in_progress: 'Em andamento',
+  rescheduled: 'Remarcada',
+  completed: 'Relatório em andamento',
+  report_available: 'Relatório disponível',
+  cancelled: 'Cancelada',
+};

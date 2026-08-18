@@ -371,7 +371,7 @@ export function ClientPortal() {
         <PublicHeader />
         <main className="mx-auto max-w-[440px] px-4 py-12">
           <div className="rounded-xl border border-default bg-surface p-6 shadow-sm">
-            <h2 className="text-xl font-bold text-navy">Portal do Cliente</h2>
+            <h1 className="font-title text-xl font-semibold text-navy">Portal do Cliente</h1>
             <p className="mt-1 text-sm text-navy-3">
               Acompanhe seus compromissos, relatórios, fotos e anexos de todas as suas unidades.
             </p>
