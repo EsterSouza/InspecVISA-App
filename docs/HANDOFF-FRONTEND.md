@@ -53,7 +53,7 @@ grupo e já foram absorvidos pelo FE-22.
 | FE-21 | 2.705 classes cruas + 20 hex cravados viram token, família por família, em 8 commits | 17/08 | `bd221e1` … `ca0a35d`, `f82e3a6` |
 | FE-24 | `Field`/`Checkbox`/`Radio` novos e 204 controles crus migrados em 38 arquivos | 17/08 | `37adbe2` |
 | FE-22 | Alternador Cards / Tabela em `Clients` e `Inspections` — **cards seguem o padrão** (decisão 34) | 17/08 | `f0f007e`, (a seguir) |
-| FE-25 | `SmartImporter` e `TemplateDetail` em `PageShell`/`PageHeader`; erro do `Login` anunciado (`role="alert"`) | 18/08 | (a seguir) |
+| FE-25 | `SmartImporter` e `TemplateDetail` em `PageShell`/`PageHeader`; erro do `Login` anunciado (`role="alert"`) | 18/08 | `3dee39d` |
 
 **Ondas:** 1 (portal) **fechada** · 2 (admin) **fechada** · 3 (fechamento) falta FE-12 e a revisão
 final de a11y · 4 (o admin que falta) em andamento, 11 de 14 entregues.
