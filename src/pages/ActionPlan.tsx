@@ -17,6 +17,7 @@ import { ClientService } from '../services/clientService';
 import { AppointmentAdminService } from '../services/appointmentAdminService';
 import { errorMessage, formatDateBR, usePagedList } from '../components/schedules/appointmentRequestsShared';
 import { EvidenceReview } from '../components/schedules/ActionPlanPanel';
+import { usePromptDialog } from '../components/ui/PromptDialog';
 import { PageShell } from '../components/ui/PageShell';
 import { toast } from '../store/useToastStore';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -113,6 +114,7 @@ export function ActionPlan() {
   const [evidence, setEvidence] = useState<ClientActionEvidence[]>([]);
   const [evidenceLoading, setEvidenceLoading] = useState(false);
   const [savingStatus, setSavingStatus] = useState(false);
+  const { prompt, promptDialog } = usePromptDialog();
 
   const loadItems = useCallback(() => {
     setLoading(true);
@@ -452,12 +454,13 @@ export function ActionPlan() {
               ) : evidence.length === 0 ? (
                 <p className="text-xs text-navy-3">Nenhuma evidência enviada.</p>
               ) : (
-                <EvidenceReview evidence={evidence} onReviewed={() => loadEvidence(selectedItem.id)} />
+                <EvidenceReview evidence={evidence} onReviewed={() => loadEvidence(selectedItem.id)} prompt={prompt} />
               )}
             </div>
           </div>
         )}
       </Modal>
+      {promptDialog}
     </PageShell>
   );
 }

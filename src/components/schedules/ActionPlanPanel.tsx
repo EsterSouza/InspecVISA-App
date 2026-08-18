@@ -3,6 +3,7 @@ import { CheckCircle, ClipboardList, Eye, EyeOff, Loader2, Paperclip, RotateCcw 
 import type { ClientActionEvidence, ClientActionItem } from '../../types';
 import { AppointmentAdminService } from '../../services/appointmentAdminService';
 import { Button } from '../ui/Button';
+import { usePromptDialog, type PromptOptions } from '../ui/PromptDialog';
 import { errorMessage, formatDateBR } from './appointmentRequestsShared';
 import { toast } from '../../store/useToastStore';
 
@@ -45,9 +46,11 @@ const EVIDENCE_STATUS_THEME: Record<ClientActionEvidence['status'], string> = {
 export function EvidenceReview({
   evidence,
   onReviewed,
+  prompt,
 }: {
   evidence: ClientActionEvidence[];
   onReviewed: () => void;
+  prompt: (options: PromptOptions) => Promise<string | null>;
 }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   // Miniatura da imagem: julgar a prova sem abrir aba nenhuma é o ponto da revisão. A URL é
@@ -81,17 +84,26 @@ export function EvidenceReview({
   ) => {
     let note = row.review_note || undefined;
     if (status === 'changes_requested') {
-      const typed = window.prompt('O que o cliente precisa ajustar? (o texto vai para ele)', note || '');
+      const typed = await prompt({
+        title: 'Devolver evidência para ajuste',
+        fieldLabel: 'O que o cliente precisa ajustar?',
+        hint: 'Obrigatório — este texto vai direto para o cliente providenciar o ajuste.',
+        defaultValue: note || '',
+        required: true,
+        confirmLabel: 'Devolver para ajuste',
+      });
       if (typed === null) return;
-      if (!typed.trim()) {
-        toast.error('Devolver exige uma orientação.');
-        return;
-      }
       note = typed;
     } else {
-      const typed = window.prompt('Comentário para o cliente (opcional):', '');
+      const typed = await prompt({
+        title: 'Aprovar evidência',
+        fieldLabel: 'Comentário para o cliente',
+        hint: 'Opcional — visível para o cliente junto da aprovação.',
+        required: false,
+        confirmLabel: resolveItem ? 'Aprovar e resolver' : 'Aprovar',
+      });
       if (typed === null) return;
-      note = typed.trim() || undefined;
+      note = typed || undefined;
     }
 
     setBusyId(row.id);
@@ -220,6 +232,7 @@ export function ActionPlanPanel({ requestId, busy }: { requestId: string; busy: 
   const [evidence, setEvidence] = useState<ClientActionEvidence[]>([]);
   const [loading, setLoading] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const { prompt, promptDialog } = usePromptDialog();
 
   const loadItems = useCallback(() => {
     setLoading(true);
@@ -269,6 +282,7 @@ export function ActionPlanPanel({ requestId, busy }: { requestId: string; busy: 
 
   return (
     <div className="rounded-xl border border-default bg-surface-sunken p-3">
+      {promptDialog}
       <div className="mb-2 flex items-center justify-between gap-2">
         <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-navy-3">
           <ClipboardList className="h-3.5 w-3.5" /> Plano de ação no portal · {visible} de {items.length} visível(is)
@@ -386,6 +400,7 @@ export function ActionPlanPanel({ requestId, busy }: { requestId: string; busy: 
             <EvidenceReview
               evidence={evidence.filter((row) => row.action_item_id === item.id)}
               onReviewed={loadItems}
+              prompt={prompt}
             />
           </div>
         ))}

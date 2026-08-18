@@ -7,7 +7,7 @@
 
 ## Onde estamos — atualizado em 18/08/2026
 
-**26 cards entregues, 3 na fila.** Card entregue tem o título ~~riscado~~ mais abaixo, com a data
+**27 cards entregues, 2 na fila.** Card entregue tem o título ~~riscado~~ mais abaixo, com a data
 e o commit; card aberto tem ⬜. Esta é a única tabela de estado do documento — se divergir de
 qualquer outra coisa aqui, ela ganha.
 
@@ -15,7 +15,6 @@ qualquer outra coisa aqui, ela ganha.
 
 | Card | O que é | Só depois de |
 |---|---|---|
-| **FE-28** | Os três `prompt()` nativos que sobraram do FE-15 — dois deles na revisão de evidência | — |
 | **FE-12** | Tema escuro no app inteiro | — (FE-21 ✅ destravou) |
 | **FE-27** | Gate de regressão visual e a11y — **é o card que fecha o frontend** | FE-12, só para o tema |
 
@@ -55,6 +54,7 @@ eram desse grupo e foram absorvidos pelo FE-22.
 | FE-22 | Alternador Cards / Tabela em `Clients` e `Inspections` — **cards seguem o padrão** (decisão 34) | 17/08 | `f0f007e`, (a seguir) |
 | FE-25 | `SmartImporter` e `TemplateDetail` em `PageShell`/`PageHeader`; erro do `Login` anunciado (`role="alert"`) | 18/08 | `3dee39d` |
 | FE-26 | `PublicShell` + as duas superfícies sem login em coluna única, com a voz do portal | 18/08 | `033bde9` |
+| FE-28 | `PromptDialog` (`usePromptDialog`) substitui os 2 `window.prompt()` da revisão de evidência; `CopyLinkButton` no lugar do 3º | 18/08 | (a seguir) |
 
 **Ondas:** 1 (portal) **fechada** · 2 (admin) **fechada** · 3 (fechamento) falta FE-12 e a revisão
 final de a11y · 4 (o admin que falta) em andamento, 12 de 14 entregues.
@@ -869,7 +869,29 @@ e é irmã declarada do `PageShell`, não uma exceção dele.
   `PortalAppointments.tsx` para `utils/appointmentType.ts`: a agenda do portal e a página do
   protocolo diziam a mesma coisa em dois lugares.
 
-### ⬜ FE-28 · Os três `prompt()` que sobraram do FE-15
+### ~~FE-28~~ ✅ · Os três `prompt()` que sobraram do FE-15 — 18/08/2026
+
+> **Execução:** novo primitivo `src/components/ui/PromptDialog.tsx` (`Modal` + `Field`/`Textarea`
+> do FE-24, mesmo padrão de hook do `ConfirmDialog`: `usePromptDialog()` devolve
+> `{ prompt, promptDialog }`, e `prompt()` resolve `string | null` — o mesmo contrato do
+> `window.prompt()` que substitui). Foco abre no campo (não no botão, ao contrário do
+> `ConfirmDialog`); o botão de confirmar fica desabilitado enquanto o campo obrigatório está
+> vazio, então o aviso de obrigatório aparece como `hint` **antes** do clique, e o
+> `toast.error('Devolver exige uma orientação.')` que reagia depois dele saiu.
+> `ActionPlanPanel.tsx` ganhou o hook uma vez (não em `EvidenceReview`, que roda por item) e
+> passa `prompt` como prop; `ActionPlan.tsx` também usa `EvidenceReview` (achado só ao rodar
+> `npm run build`, não estava mapeado neste card) e recebeu o mesmo tratamento. "Devolver" abre
+> `role="alertdialog"`, obrigatório, botão "Devolver para ajuste"; "Aprovar"/"Aprovar e resolver"
+> abre opcional, com o rótulo do botão acompanhando qual dos dois foi clicado. O terceiro caso
+> (link de agendamento, `Schedules.tsx`) trocou pelo `CopyLinkButton` já usado no portal — sem
+> diálogo novo. Verificado no navegador logada, com dado real de produção (`plano-de-acao`):
+> os dois diálogos abrindo com foco e rótulo certos, botão desabilitado até digitar no
+> obrigatório, `Cancelar` fechando sem gravar nem notificar o cliente (não submeti de verdade —
+> a RPC notifica na hora, e o item testado é de um cliente real), sem rolagem lateral a 375px.
+> `grep -rn "window.prompt\|[^.]prompt(" src` limpo, `tsc -b`/`npm run build` e 552 testes
+> passando.
+>
+> O texto abaixo é o card como foi escrito, mantido para leitura do histórico.
 
 O FE-15 matou 115 `alert()`/`confirm()` e entregou o `ConfirmDialog` (decisão 16). O `prompt()`
 não estava na varredura — e sobreviveu em três lugares, dois deles no meio da decisão mais
@@ -1068,7 +1090,7 @@ entregou o editor de roteiro sem precisar de arrastar.
 | ~~FE-24~~ ✅ | ~225 controles crus → `Input`/`Select`/`Textarea`/`Label` | Opus 5 | alto | entregue 17/08 |
 | ~~FE-25~~ ✅ | `SmartImporter`, `TemplateDetail` e as telas de entrada | Sonnet 5 | baixo | entregue 18/08 |
 | ~~FE-26~~ ✅ | `PublicSchedule` + `PublicAppointmentStatus` | Opus 5 | médio | entregue 18/08 |
-| FE-28 | Os três `prompt()` que sobraram do FE-15 | Sonnet 5 | baixo | `ConfirmDialog` ✅ · `Field` ✅ |
+| ~~FE-28~~ ✅ | Os três `prompt()` que sobraram do FE-15 | Sonnet 5 | baixo | entregue 18/08 |
 | FE-27 | Gate de regressão visual e a11y | Opus 5 (matriz) · Sonnet 5 (spec) | médio-alto | FE-12, só para a camada de tema |
 | FE-12 | Ligar o tema escuro no app inteiro | Sonnet 5 | médio | — (FE-21 ✅ destravou) |
 
@@ -1082,7 +1104,7 @@ em paralelo por serem as duas telas de uso diário. Daqui em diante:
 3. ~~**FE-21**~~ ✅ — convertido em 17/08, com o desenho das telas do FE-23 já congelado (a ordem
    que o handoff pedia, pra não converter cor duas vezes).
 4. ~~**FE-22**~~ ✅ ~~**e FE-25**~~ ✅ ~~**, e FE-26**~~ ✅ — as superfícies restantes.
-5. **FE-28** — os três `prompt()` que o FE-15 não varreu; card pequeno, entra antes do tema.
+5. ~~**FE-28**~~ ✅ — os três `prompt()` que o FE-15 não varreu.
 6. **FE-12** — o tema escuro é o último de propósito: é o card mais vistoso e o menos estrutural.
 7. **FE-27** — fecha a onda e é o único que autoriza a frase "frontend visual fechado".
 

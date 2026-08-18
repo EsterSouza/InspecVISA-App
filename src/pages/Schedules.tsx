@@ -13,7 +13,7 @@ import { Label } from '../components/ui/Label';
 import { Input } from '../components/ui/Input';
 import { Textarea } from '../components/ui/Textarea';
 import { Checkbox } from '../components/ui/Checkbox';
-import { Calendar, Clock, Plus, Trash2, CheckCircle, AlertCircle, User, Play, Edit2, Link2, Copy, ExternalLink, AlertTriangle } from 'lucide-react';
+import { Calendar, Clock, Plus, Trash2, CheckCircle, AlertCircle, User, Play, Edit2, Link2, ExternalLink, AlertTriangle } from 'lucide-react';
 import { ScheduleService } from '../services/scheduleService';
 import { ClientService } from '../services/clientService';
 import { getLocalActor } from '../utils/localActor';
@@ -24,6 +24,7 @@ import { WeekCalendar, type WeekCalendarEvent, type WeekCalendarEventState, type
 import { APPOINTMENT_TYPE_RULES } from '../utils/appointmentType';
 import { addDays, formatWeekPeriod, mondayOf } from '../utils/weekCalendarDates';
 import { useConfirmDialog } from '../components/ui/ConfirmDialog';
+import { CopyLinkButton } from '../components/client/CopyLinkButton';
 import { toast } from '../store/useToastStore';
 import { errorMessage, rawErrorMessage } from '../utils/errors';
 
@@ -91,7 +92,6 @@ export function Schedules() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [linkCopied, setLinkCopied] = useState(false);
   const [agendaView, setAgendaView] = useState<AgendaView>('semana');
   const [weekStart, setWeekStart] = useState(() => mondayOf(new Date()));
 
@@ -359,16 +359,6 @@ export function Schedules() {
 
   const publicScheduleUrl = `${window.location.origin}/agendar`;
 
-  const copyPublicScheduleLink = async () => {
-    try {
-      await navigator.clipboard.writeText(publicScheduleUrl);
-      setLinkCopied(true);
-      window.setTimeout(() => setLinkCopied(false), 2500);
-    } catch {
-      prompt('Copie o link de agendamento:', publicScheduleUrl);
-    }
-  };
-
   const upcomingSchedules = schedules.filter(s => s.status === 'pending');
   const pastSchedules = schedules.filter(s => s.status !== 'pending').slice(0, 10);
 
@@ -473,10 +463,7 @@ export function Schedules() {
             </div>
           </div>
           <div className="flex shrink-0 gap-2">
-            <Button variant="outline" size="sm" onClick={copyPublicScheduleLink} className="border-primary-200 bg-surface text-primary-700 hover:bg-primary-50">
-              <Copy className="mr-1.5 h-4 w-4" />
-              {linkCopied ? 'Copiado' : 'Copiar'}
-            </Button>
+            <CopyLinkButton url={publicScheduleUrl} label="agendamento público" />
             <Button variant="ghost" size="sm" onClick={() => window.open(publicScheduleUrl, '_blank', 'noopener,noreferrer')} className="text-primary-700 hover:bg-primary-100">
               <ExternalLink className="mr-1.5 h-4 w-4" />
               Abrir
