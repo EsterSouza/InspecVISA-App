@@ -54,7 +54,7 @@ eram desse grupo e foram absorvidos pelo FE-22.
 | FE-22 | Alternador Cards / Tabela em `Clients` e `Inspections` — **cards seguem o padrão** (decisão 34) | 17/08 | `f0f007e`, (a seguir) |
 | FE-25 | `SmartImporter` e `TemplateDetail` em `PageShell`/`PageHeader`; erro do `Login` anunciado (`role="alert"`) | 18/08 | `3dee39d` |
 | FE-26 | `PublicShell` + as duas superfícies sem login em coluna única, com a voz do portal | 18/08 | `033bde9` |
-| FE-28 | `PromptDialog` (`usePromptDialog`) substitui os 2 `window.prompt()` da revisão de evidência; `CopyLinkButton` no lugar do 3º | 18/08 | (a seguir) |
+| FE-28 | `PromptDialog` (`usePromptDialog`) substitui os 2 `window.prompt()` da revisão de evidência; `CopyLinkButton` no lugar do 3º | 18/08 | `ccc254e` |
 
 **Ondas:** 1 (portal) **fechada** · 2 (admin) **fechada** · 3 (fechamento) falta FE-12 e a revisão
 final de a11y · 4 (o admin que falta) em andamento, 12 de 14 entregues.
