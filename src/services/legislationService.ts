@@ -1,7 +1,11 @@
 import { supabase } from '../lib/supabase';
 import { withTimeout } from '../utils/network';
-import { toUF } from '../utils/state';
-import { LEGISLATION_LIBRARY, type LegislationSegment, type LegislationStatus } from '../data/legislationLibrary';
+import {
+  LEGISLATION_LIBRARY,
+  isApplicable,
+  type LegislationSegment,
+  type LegislationStatus,
+} from '@visa/legislacao';
 
 export type { LegislationSegment, LegislationStatus };
 
@@ -15,8 +19,12 @@ export interface Legislation {
   /** 'revogada' tira o ato das sugestões e faz o PDF apontar `replaced_by`. */
   status?: LegislationStatus | null;
   replaced_by?: string | null;
+  /** Referência ABNT NBR 6023 completa, quando o verbete tem uma escrita à mão. */
+  abnt?: string | null;
   /** UF de abrangência (ex.: 'RJ', 'MG', 'SP'). Vazio/null = federal/nacional. */
   uf?: string | null;
+  /** Município de abrangência; exige `uf`. Vazio = alcança a UF inteira. */
+  municipio?: string | null;
   /** Segmentos aplicáveis. Vazio/null = aplica a todos os segmentos. */
   segments?: LegislationSegment[] | null;
   /** Cache de pesquisa: artigos já lidos e o que dizem, para não repetir a leitura numa consulta futura. */
@@ -25,32 +33,30 @@ export interface Legislation {
 }
 
 /**
- * Decide se uma legislação da biblioteca deve ser sugerida automaticamente
- * para uma inspeção, com base na UF e na categoria do estabelecimento.
- * - Estaduais/municipais (uf preenchida) só entram quando a UF bate.
- * - Federais (uf vazia) só entram quando o segmento foi curado para a categoria.
+ * Decide se uma legislação deve ser sugerida automaticamente para uma inspeção.
+ * A regra mora em @visa/legislacao para que InspecVISA e PastaVISA não divirjam
+ * sobre o que se aplica a um estabelecimento. Este wrapper só mantém a
+ * assinatura que o app já usava.
  */
 export function isLegislationApplicable(
-  leg: Pick<Legislation, 'uf' | 'segments' | 'status'>,
+  leg: Pick<Legislation, 'uf' | 'municipio' | 'segments' | 'status'>,
   state?: string | null,
-  category?: string | null
+  category?: string | null,
+  municipio?: string | null
 ): boolean {
-  // Ato revogado nunca é sugerido; se ainda houver item citando, o PDF aponta a substituta.
-  if (leg.status === 'revogada') return false;
-  const ufNorm = toUF(leg.uf);
-  const stateUF = toUF(state);
-  const segments = leg.segments || [];
-  const segmentMatches = segments.length === 0
-    ? false // federais sem segmento curado não inflam a lista; entram via citação no item
-    : !!category && segments.includes(category as LegislationSegment);
-
-  if (ufNorm) {
-    // Estadual/municipal: precisa casar a UF; se tiver segmento curado, respeita-o.
-    if (ufNorm !== stateUF) return false;
-    return segments.length === 0 ? true : (!!category && segments.includes(category as LegislationSegment));
-  }
-  // Federal: sugere apenas as curadas para o segmento da inspeção.
-  return segmentMatches;
+  return isApplicable(
+    {
+      name: '',
+      summary: '',
+      url: '',
+      authority: '',
+      uf: leg.uf,
+      municipio: leg.municipio,
+      segments: leg.segments || undefined,
+      status: leg.status || 'nao_verificado',
+    },
+    { uf: state, municipio, segment: category }
+  );
 }
 
 const LEGISLATION_QUERY_TIMEOUT_MS = 2500;
@@ -58,12 +64,14 @@ const LEGISLATION_QUERY_TIMEOUT_MS = 2500;
 // A biblioteca curada vive em src/data/legislationLibrary.ts (REF-02). Aqui ela
 // vira apenas o fallback local usado quando o Supabase não responde.
 const DEFAULT_LEGISLATIONS: Omit<Legislation, 'id' | 'created_at'>[] = LEGISLATION_LIBRARY.map(
-  ({ name, summary, url, authority, uf, segments, status, replacedBy, researchNotes }) => ({
+  ({ name, summary, url, authority, abnt, uf, municipio, segments, status, replacedBy, researchNotes }) => ({
     name,
     summary,
     url,
     authority,
+    abnt: abnt ?? null,
     uf: uf ?? null,
+    municipio: municipio ?? null,
     segments: segments && segments.length ? segments : null,
     status,
     replaced_by: replacedBy ?? null,

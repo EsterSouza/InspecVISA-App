@@ -10,6 +10,7 @@ import { isRioState } from './state';
 // extractBaseLegislation — sem os qualificadores do REF-01 nem as correções de
 // número/ano do REF-02. Passa a usar a mesma implementação do resto do app.
 import { extractBaseLegislation, canonicalLegislationKey, citedLegislations } from './legislationRefs';
+import { formatAbnt as formatAbntCompartilhado, type LegislationStatus } from '@visa/legislacao';
 import type { ClientDeclarationForItem, ClientEvidenceForItem } from '../services/clientEvidenceService';
 import { registerPdfFonts, PDF_FONT_HEAD, PDF_FONT_BODY } from './pdfFonts';
 import { fimDaUltimaTabela } from './pdfAutoTable';
@@ -2076,25 +2077,23 @@ function drawConsultedSources(doc: jsPDF, sources?: ReferenceSource[]) {
  * ("BRASIL. Critério técnico de higiene das mãos.") e atribuía ao Ministério da
  * Saúde atos municipais como a Portaria IVISA-RIO 002/2020.
  *
+ * A montagem mora em @visa/legislacao para que o PDF do InspecVISA e os documentos
+ * do PastaVISA citem a mesma norma da mesma forma. Quando o verbete traz `abnt`
+ * (referência completa, com data do ato e "Disponível em"), ela é usada como está.
+ *
  * Sem verbete, a referência sai como o item a citou: sem autoria e sem ementa.
  * Some do relatório seria pior — o item cobra uma exigência e some a base dela.
  */
 function formatABNT(mention: string, libraryEntry?: VerbeteLegislacao): string {
-  const m = mention.trim();
-  if (!libraryEntry) return m;
+  if (!libraryEntry) return mention.trim();
 
-  const name = libraryEntry.name || m;
-  const authority = (libraryEntry.authority || '').trim().replace(/\.$/, '');
-  const summary = (libraryEntry.summary || '').trim().replace(/\.$/, '');
-  const revokedBy = libraryEntry.status === 'revogada'
-    ? (libraryEntry.replaced_by || libraryEntry.replacedBy)
-    : '';
-
-  return [
-    authority ? `${authority}. ${name}.` : `${name}.`,
-    summary ? `${summary}.` : '',
-    libraryEntry.status === 'revogada'
-      ? `[REVOGADA${revokedBy ? ` — substituída por ${revokedBy}` : ''}.]`
-      : '',
-  ].filter(Boolean).join(' ');
+  return formatAbntCompartilhado(mention, {
+    name: libraryEntry.name,
+    summary: libraryEntry.summary || '',
+    url: libraryEntry.url || '',
+    authority: libraryEntry.authority || '',
+    abnt: libraryEntry.abnt || undefined,
+    status: (libraryEntry.status as LegislationStatus) || 'nao_verificado',
+    replacedBy: libraryEntry.replaced_by || libraryEntry.replacedBy || undefined,
+  });
 }

@@ -50,6 +50,7 @@ const EMPTY_FORM: LegForm = {
 const STATUS_OPTIONS: { value: LegislationStatus; label: string }[] = [
   { value: 'vigente', label: 'Vigente' },
   { value: 'vigente_com_alteracoes', label: 'Vigente com alterações' },
+  { value: 'nao_verificado', label: 'Vigência não verificada' },
   { value: 'revogada', label: 'Revogada' },
 ];
 
@@ -108,11 +109,22 @@ function buildCitationMap(): Map<string, Citation> {
   return map;
 }
 
-type Segment = 'vigentes' | 'revogadas' | 'sem_verbete';
+/** Compara município ignorando acento e caixa: "Marabá" e "maraba" são a mesma cidade. */
+function normalizaMunicipio(value?: string | null): string {
+  return (value || '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toUpperCase();
+}
+
+type Segment = 'vigentes' | 'revogadas' | 'pendentes' | 'sem_verbete';
 
 const SEGMENT_LABELS: Record<Segment, string> = {
   vigentes: 'Vigentes',
   revogadas: 'Revogadas',
+  pendentes: 'A verificar',
   sem_verbete: 'Sem verbete',
 };
 
@@ -130,6 +142,8 @@ export function LegislationsManager() {
   const [search, setSearch] = useState('');
   const [esfera, setEsfera] = useState('');
   const [orgao, setOrgao] = useState('');
+  const [aplicaA, setAplicaA] = useState<LegislationSegment | ''>('');
+  const [municipio, setMunicipio] = useState('');
   const [segment, setSegment] = useState<Segment>('vigentes');
   const [isSeeding, setIsSeeding] = useState(false);
 
@@ -195,22 +209,34 @@ export function LegislationsManager() {
   const counts = useMemo(() => ({
     vigentes: validEntries.filter(l => l.status !== 'revogada').length,
     revogadas: validEntries.filter(l => l.status === 'revogada').length,
+    pendentes: validEntries.filter(l => !l.status || l.status === 'nao_verificado').length,
     sem_verbete: gaps.length,
   }), [validEntries, gaps]);
 
   const query = search.trim().toLowerCase();
+  const municipioQuery = normalizaMunicipio(municipio);
 
   const filteredEntries = useMemo(() => {
     return validEntries.filter(l => {
       if (segment === 'vigentes' && l.status === 'revogada') return false;
       if (segment === 'revogadas' && l.status !== 'revogada') return false;
+      if (segment === 'pendentes' && l.status && l.status !== 'nao_verificado') return false;
       if (esfera === 'federal' && l.uf) return false;
       if (esfera && esfera !== 'federal' && l.uf !== esfera) return false;
       if (orgao && l.authority !== orgao) return false;
+      if (aplicaA && !(l.segments || []).includes(aplicaA)) return false;
+      // Município filtra o alcance municipal: a norma sem município alcança a UF
+      // inteira e continua valendo; a de outra cidade sai.
+      if (municipioQuery && l.municipio && normalizaMunicipio(l.municipio) !== municipioQuery) return false;
       if (!query) return true;
-      return l.name.toLowerCase().includes(query) || (l.summary || '').toLowerCase().includes(query);
+      return (
+        l.name.toLowerCase().includes(query) ||
+        (l.summary || '').toLowerCase().includes(query) ||
+        (l.abnt || '').toLowerCase().includes(query) ||
+        (l.authority || '').toLowerCase().includes(query)
+      );
     });
-  }, [validEntries, segment, esfera, orgao, query]);
+  }, [validEntries, segment, esfera, orgao, aplicaA, municipioQuery, query]);
 
   const filteredGaps = useMemo(() => {
     if (segment !== 'sem_verbete') return [];
@@ -372,6 +398,27 @@ export function LegislationsManager() {
             <option key={a} value={a}>{a}</option>
           ))}
         </Select>
+        <Select
+          value={aplicaA}
+          onChange={(e) => setAplicaA(e.target.value as LegislationSegment | '')}
+          aria-label="Segmento do estabelecimento"
+          disabled={rowsAreGaps}
+          className="w-auto"
+        >
+          <option value="">Todos os segmentos</option>
+          {SEGMENT_OPTIONS.map((s) => (
+            <option key={s.value} value={s.value}>{s.label}</option>
+          ))}
+        </Select>
+        <Input
+          type="search"
+          value={municipio}
+          onChange={(e) => setMunicipio(e.target.value)}
+          placeholder="Município"
+          aria-label="Município"
+          disabled={rowsAreGaps}
+          wrapperClassName="sm:max-w-[10rem]"
+        />
         <div className="inline-flex gap-0.5 rounded-md border border-default bg-surface-sunken p-0.5">
           {(Object.keys(SEGMENT_LABELS) as Segment[]).map((key) => (
             <button
@@ -388,6 +435,12 @@ export function LegislationsManager() {
           ))}
         </div>
       </div>
+
+      {segment === 'pendentes' && (
+        <p className="mb-4 rounded-md border border-amber-soft-border bg-amber-soft p-3 text-sm text-amber-soft-ink">
+          São {counts.pendentes} normas que entraram na base sem checagem de vigência — a maioria veio do PastaVISA na unificação. Continuam sendo sugeridas, porque são normas reais, mas ninguém apurou se seguem valendo. Verificar e datar tira a norma desta fila.
+        </p>
+      )}
 
       {segment === 'sem_verbete' && (
         <p className="mb-4 rounded-md border border-amber-soft-border bg-amber-soft p-3 text-sm text-amber-soft-ink">
@@ -501,7 +554,7 @@ export function LegislationsManager() {
                         title="Nada com este filtro"
                         description="Nenhum resultado para os filtros atuais. A norma pode existir, só está escondida."
                         action={
-                          <Button size="sm" variant="outline" onClick={() => { setSearch(''); setEsfera(''); setOrgao(''); }}>
+                          <Button size="sm" variant="outline" onClick={() => { setSearch(''); setEsfera(''); setOrgao(''); setAplicaA(''); setMunicipio(''); }}>
                             Limpar filtros
                           </Button>
                         }
@@ -628,7 +681,7 @@ export function LegislationsManager() {
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-navy-3">Vigência</p>
                 <p className="mt-1 text-navy">
-                  {detailEntry.status === 'revogada' ? 'Revogada' : detailEntry.status === 'vigente_com_alteracoes' ? 'Vigente com alterações' : 'Vigente'}
+                  {detailEntry.status === 'revogada' ? 'Revogada' : detailEntry.status === 'vigente_com_alteracoes' ? 'Vigente com alterações' : !detailEntry.status || detailEntry.status === 'nao_verificado' ? 'Vigência não verificada' : 'Vigente'}
                 </p>
               </div>
             </div>

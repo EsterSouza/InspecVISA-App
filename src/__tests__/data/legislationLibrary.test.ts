@@ -42,10 +42,21 @@ describe('biblioteca de legislações (REF-02)', () => {
     expect(collisions, `chaves duplicadas: ${JSON.stringify(collisions)}`).toEqual([]);
   });
 
-  test('toda entrada tem ementa, URL http(s) e vigência verificada', () => {
+  test('toda entrada tem ementa e, quando preenchida, URL http(s)', () => {
     LEGISLATION_LIBRARY.forEach(entry => {
       expect(entry.summary.trim(), `${entry.name} sem ementa`).not.toBe('');
-      expect(entry.url, `${entry.name} com URL inválida`).toMatch(/^https?:\/\/\S+$/);
+      if (entry.url) {
+        expect(entry.url, `${entry.name} com URL inválida`).toMatch(/^https?:\/\/\S+$/);
+      }
+    });
+  });
+
+  test('só afirma vigência quando há data de verificação', () => {
+    // Os atos herdados do PastaVISA entraram como 'nao_verificado': são normas
+    // reais e continuam sendo sugeridas, mas ninguém apurou a vigência ainda.
+    // Carimbar 'vigente' sem data é o erro que este teste existe para impedir.
+    LEGISLATION_LIBRARY.forEach(entry => {
+      if (entry.status === 'nao_verificado') return;
       expect(entry.verifiedAt, `${entry.name} sem data de verificação`).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     });
   });
@@ -91,6 +102,19 @@ describe('ligação entre roteiros e biblioteca (REF-02)', () => {
     });
 
     expect([...faltando.entries()], 'atos citados fora da biblioteca').toEqual([]);
+  });
+
+  test('nenhum item de roteiro cobra exigência com base em norma revogada', () => {
+    // O relatório imprime a substituta quando o ato está revogado, mas o item
+    // continua cobrando o texto velho. Revogou, o item tem de ser reescrito.
+    const citandoRevogada = allTemplateItems
+      .flatMap(({ item, origem }) =>
+        resolveCitedLegislations(item.legislation)
+          .filter(cited => cited.entry?.status === 'revogada')
+          .map(cited => `${origem}/${item.id}: ${cited.label} → ${cited.entry!.replacedBy}`)
+      );
+
+    expect(citandoRevogada, `itens citando norma revogada:\n${citandoRevogada.join('\n')}`).toEqual([]);
   });
 
   test('o override do item, quando existe, aponta para a mesma norma da biblioteca', () => {

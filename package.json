@@ -18,6 +18,7 @@
     "seed:dev": "node --env-file=.env scripts/seed-dev.mjs"
   },
   "dependencies": {
+    "@visa/legislacao": "file:../visa-legislacao",
     "@supabase/supabase-js": "^2.111.0",
     "@tailwindcss/postcss": "^4.2.2",
     "class-variance-authority": "^0.7.1",
