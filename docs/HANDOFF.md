@@ -378,7 +378,7 @@ citavam a numeração do *roteiro anexo* ao 45.585 (5.5.9, 6.4.1, 7.1…), que �
 | **P360-014** | Acessibilidade e responsividade | Sonnet 5 | médio | superfícies estáveis | ✅ **concluído 08/08/2026** · sem migration, frontend puro |
 | **P360-015** | E2E, rollout e prova de produção | Opus 5 | alto | onda a publicar | ✅ **concluído 08/08/2026** · sem migration; CI, Playwright, smoke e tenant de homologação criados em produção |
 | **DEBT-01** | Margem pública de 4 h por tipo | Sonnet 5 | médio | — | ✅ **concluído 04/08** |
-| **DEBT-02** | Dívida de lint | Sonnet 5 | médio | — | 🟡 **em andamento 17/08/2026** · 531 → 139; só falta `scripts` (106) e 33 espalhados; teto por área cobrado no CI |
+| **DEBT-02** | Dívida de lint | Sonnet 5 | médio | — | 🟡 **em andamento 17/08/2026** · 531 → 33 espalhados (testes, componentes, store); teto por área cobrado no CI |
 | **PORT-04** | Tutorial do portal por conta do cliente | Opus 5 | baixo | — | ✅ **concluído 08/08/2026** · aplicado em produção (1 migration); o campo do tenant vira padrão |
 | **SEC-01** | Endurecer o que a revisão do P360-015 encontrou | Opus 5 | médio | P360-015 (concluído) | ✅ **concluído 08/08/2026** · aplicado em produção (2 migrations), autorizado pela Ester; 50 execuções E2E depois do revoke |
 | **DEBT-03** | Pontas soltas do repositório | Haiku 4.5 | baixo | — | ✅ **concluído 05/08** |
@@ -3449,7 +3449,7 @@ bloqueado —, e não por chamada; a assinatura atual só conhece a margem de qu
 
 ---
 
-## DEBT-02 — Dívida de lint 🟡 em andamento desde 17/08/2026 · 531 → 139
+## DEBT-02 — Dívida de lint 🟡 em andamento desde 17/08/2026 · 531 → 33
 
 **Modelo:** Sonnet 5 · **Esforço:** médio · **Prioridade:** baixa, mas bloqueia lint no CI
 
@@ -3467,7 +3467,7 @@ bloqueado —, e não por chamada; a assinatura atual só conhece a margem de qu
 ### Andamento — 17/08/2026
 
 Recontagem real no início: **531** problemas (521 erros, 10 avisos), não 425 — e **504** deles
-eram `no-explicit-any`. Sete fatias depois: **139**, e o que sobra é quase tudo `scripts/`.
+eram `no-explicit-any`. Oito fatias depois: **33**, espalhados por seis áreas — nenhuma fatia grande.
 
 **Fatia 0 — tudo que não é `no-explicit-any`, zerada** (`3a3440c`). Eram 27, e três eram defeito
 de verdade: `Checkbox`/`Radio` passavam a `ref` para uma função durante o render
@@ -3568,14 +3568,40 @@ direto para o `upsert`; agora falha com mensagem, que o `catch` grava no job. E 
 `new Error(msg) as any` com `.status` enxertado, lido lá embaixo como `err?.status`, virou a
 classe `ErroHttp`.
 
-**O que falta, por área** (o teto de hoje, 139): `scripts` 106 · `src/__tests__` 12 ·
-`src/components` 10 · `src/store` 7 · `supabase/functions` 2 · `src/lib` 1 · `vite.config.ts` 1.
+**Fatia 7 — `scripts`, zerada** (`1c602fb`): 106 → 0. Antes de tipar: **`scripts/` não estava em
+nenhum projeto do `tsc -b`** — a mesma lacuna que o `tsconfig.api.json` fechou para as funções
+serverless. São scripts que importam de `src/` e gravam em produção com a service role, ou seja,
+o pior lugar do repositório para passar sem conferência de tipo. Agora há `tsconfig.scripts.json`,
+referenciado no `tsconfig.json` raiz.
 
-**Nota sobre `scripts/` (106):** são scripts de manutenção de dado, rodados uma vez com `npx tsx`.
-Tipar linha de banco ali tem valor bem menor que em `src/` — é a última fatia, não a próxima.
-A ordem sugerida do que sobra: `src/components` e `src/store` (33 no total, com os testes e o
-resto), e `scripts` por último — é ele, sozinho, que ainda separa o projeto de rodar
-`npm run lint` no CI.
+**O defeito que isso achou, no `ref07-lacunas`:** a varredura dos suplementos lia
+`entry.supplement.sections`, campo que **não existe** em `ChecklistSupplement` — os itens de um
+suplemento moram em `sectionAdditions` e `newSections`. Todo suplemento entrava como lista vazia,
+exatamente o contrário do que o comentário logo acima da linha diz ("é neles que mora quase toda
+a citação estadual/municipal"). Com o campo certo, o relatório de lacunas vai de **25 citações /
+27 itens para 43 citações / 64 itens**: aparecem o suplemento de Goiás (Roteiro UTPSS/MPGO, 17
+itens), o de São Paulo Capital e o COREN/RJ. Vale uma passada de curadoria na biblioteca.
+
+Os 106 `any` eram **três cópias do mesmo `readAll`** mais as anotações em cascata que um
+`readAll<T = any>` obriga. Viraram `scripts/linhas.ts`: um `lerTudo` paginado e o formato das seis
+tabelas que estes scripts leem; quem chama declara o recorte que pediu no `select`
+(`Pick<LinhaItem, …>`). Os demais achados eram nulos escondidos: `inspections.template_id` é
+nullable e era usado direto como chave de mapa em dois scripts; o `ref06` gravava
+`tenant_id: insp.tenant_id` de um `.find()` que pode não achar; o `ref04` fatiava uma
+`description` nullable.
+
+Conferido **rodando de verdade** (leitura, sem `--apply`): `ref07`, `ref02` (939 itens), `ref05`
+(106/106, já no estado final) e `ref06-diagnostico` (censo completo, zero degradadas).
+
+⚠️ **`ref04` para hoje** com "Roteiros não encontrados no banco: Roteiro de Inspeção — ILPI |
+Goiás / Senador Canedo". É anterior a esta fatia (a lista de alvos não foi tocada): o roteiro
+avulso de Goiás foi arquivado depois que o script foi escrito, e a lista `ROTEIROS_ALVO` ficou
+apontando para um nome que não existe mais. Corrigir exige decidir qual roteiro passa a ser o
+alvo — é curadoria, não tipagem.
+
+**O que falta, por área** (o teto de hoje, 33): `src/__tests__` 12 · `src/components` 10 ·
+`src/store` 7 · `supabase/functions` 2 · `src/lib` 1 · `vite.config.ts` 1. Nada mais é fatia
+grande: dá para fechar tudo de uma vez e então trocar o `lint:teto` do CI por `npm run lint`.
 
 ---
 
