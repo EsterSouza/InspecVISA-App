@@ -243,7 +243,7 @@ describe('checklist integrity — todos os roteiros de src/data', () => {
       expect(capitalItems.find(item => item.id === 'sp-est-004')).toBeTruthy();
       expect(capitalItems.find(item => item.id === 'sp-est-005')).toBeTruthy();
       expect(effectiveCapital.sections.find(section => section.id === 'sec-int-13')?.items).toHaveLength(5);
-      expect(capitalItems).toHaveLength(122);
+      expect(capitalItems).toHaveLength(126);
       capitalItems.forEach(item => {
         expect(item.description.endsWith('?'), `item ${item.id} não está em forma de pergunta`).toBe(true);
       });
@@ -261,7 +261,7 @@ describe('checklist integrity — todos os roteiros de src/data', () => {
       // O item federal substituído não sobrevive só porque mudou de id: `replacesItemId`
       // aponta para 'est-001' e no banco o mesmo requisito é UUID. Enquanto isso casava
       // só por id, os dois ficavam lado a lado — 130 itens em vez de 122.
-      expect(items).toHaveLength(122);
+      expect(items).toHaveLength(126);
       assertNoNearDuplicates(effective);
     });
 

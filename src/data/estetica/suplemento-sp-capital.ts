@@ -64,6 +64,16 @@ export const suplementoEsteticaSpCapital: ChecklistSupplement = {
           replacesItemId: 'est-012',
         },
         {
+          id: 'sp-est-101',
+          sectionId: 'sec-est-01',
+          order: 3,
+          description: 'Possui responsável técnico e substituto formalmente indicados, legalmente habilitados e com vínculo comprovado, atuando dentro dos limites do respectivo Conselho de Classe, e comunica ao órgão sanitário toda alteração de responsabilidade técnica?',
+          legislation: 'RDC Anvisa nº 63/2011, art. 14; Portaria SMS nº 266/2025, arts. 32, 34 e 43',
+          weight: 10,
+          isCritical: true,
+          replacesItemId: 'est-003',
+        },
+        {
           id: 'sp-est-003',
           sectionId: 'sec-est-01',
           order: 2,
@@ -109,9 +119,63 @@ export const suplementoEsteticaSpCapital: ChecklistSupplement = {
       ],
     },
     {
+      targetSectionId: 'sec-est-07',
+      targetSectionTitle: 'Equipamentos e Produtos',
+      items: [
+        {
+          id: 'sp-est-104',
+          sectionId: 'sec-est-07',
+          order: 16,
+          description: 'Quando realiza micropigmentação, os pigmentos utilizados são regularizados na Anvisa, estão dentro da validade e são aplicados conforme o rótulo aprovado?',
+          legislation: 'RDC Anvisa nº 55/2008; Portaria SMS nº 266/2025, Anexo I',
+          weight: 10,
+          isCritical: true,
+        },
+      ],
+    },
+    {
+      targetSectionId: 'sec-est-08',
+      targetSectionTitle: 'Gestão de Resíduos',
+      items: [
+        {
+          id: 'sp-est-102',
+          sectionId: 'sec-est-08',
+          order: 8,
+          description: 'Está cadastrado como estabelecimento gerador de resíduos de serviços de saúde na SP Regula, com o cadastro atualizado e a TRSS regular?',
+          legislation: 'Lei Municipal nº 13.478/2002, arts. 98 e 100; RDC Anvisa nº 222/2018',
+          weight: 10,
+          isCritical: true,
+        },
+      ],
+    },
+    {
+      targetSectionId: 'sec-est-11',
+      targetSectionTitle: 'Requisitos Gerais',
+      items: [
+        {
+          id: 'sp-est-103',
+          sectionId: 'sec-est-11',
+          order: 4,
+          description: 'Possui Auto de Vistoria do Corpo de Bombeiros ou Certificado de Licenciamento do Corpo de Bombeiros vigente para a edificação?',
+          legislation: 'Decreto Estadual nº 69.118/2024',
+          weight: 5,
+          isCritical: false,
+        },
+      ],
+    },
+    {
       targetSectionId: 'sec-est-05',
       targetSectionTitle: 'Biossegurança',
       items: [
+        {
+          id: 'sp-est-105',
+          sectionId: 'sec-est-05',
+          order: 8,
+          description: 'Quando utiliza laser ou luz intensa pulsada, disponibiliza proteção ocular específica para o comprimento de onda ao profissional e ao paciente e restringe o acesso à sala durante o disparo?',
+          legislation: 'NR-6, Anexo I; RDC Anvisa nº 751/2022; instruções do fabricante',
+          weight: 10,
+          isCritical: true,
+        },
         {
           id: 'sp-est-051',
           sectionId: 'sec-est-05',
@@ -137,6 +201,16 @@ export const suplementoEsteticaSpCapital: ChecklistSupplement = {
           weight: 10,
           isCritical: true,
           replacesItemId: 'est-056',
+        },
+        {
+          id: 'sp-est-106',
+          sectionId: 'sec-est-06',
+          order: 3,
+          description: 'Dispõe de materiais, equipamentos e medicamentos para suporte imediato à vida compatíveis com os procedimentos realizados, com profissional treinado para usá-los e controle de validade?',
+          legislation: 'RDC Anvisa nº 63/2011, arts. 53 e 58',
+          weight: 10,
+          isCritical: true,
+          replacesItemId: 'est-057',
         },
       ],
     },

@@ -1,6 +1,6 @@
 # Estética e terapias integrativas — São Paulo capital
 
-**Verificação:** 15/08/2026
+**Verificação:** 15/08/2026, ampliada em 18/08/2026
 
 **Escopo territorial:** distrito de São Mateus, Município de São Paulo/SP
 
@@ -22,6 +22,8 @@ realmente executada:
 | Anexo municipal atual | Anexo I da Portaria SMS nº 266/2025, revisão 39 de 19/01/2026 | Classificação e documentos atuais por CNAE. |
 | Conformidade física | Portaria SMS/COVISA nº 404/2024 | DCFF apenas para atividades listadas no Anexo I próprio, inclusive Clínica de Estética tipos I, II e III no CNAE 8630-5/01. |
 | Referência conceitual PICS | Portaria de Consolidação GM/MS nº 2/2017, Anexo XXV | Nomenclatura e princípios da PNPIC no SUS; não é autorização profissional nem licença privada. |
+| Resíduos de serviços de saúde | Lei Municipal nº 13.478/2002, arts. 93 a 101 | Cadastro obrigatório do estabelecimento gerador (art. 98) e obrigações declaratórias (art. 100); institui a TRSS. O cadastro é feito na SP Regula, agência reguladora que sucedeu a AMLURB nessa função. Pequeno gerador é quem gera até 20 kg/dia. |
+| Segurança contra incêndio | Decreto Estadual nº 69.118/2024 | Regulamento de Segurança contra Incêndio do Estado; base do AVCB e do CLCB. O art. 64 **revogou o Decreto 63.911/2018** — citar o 63.911 como exigência é erro desde 09/12/2024. |
 
 ## Matriz operacional por atividade
 
@@ -48,6 +50,14 @@ realmente executada:
 - As três perguntas de CNAE (`sp-est-003/004/005`) ficam na ordem 2, coladas na de licenciamento:
   em SP o nível de risco decorre do CNAE, e responder as duas coisas em momentos separados da
   visita obrigava a voltar atrás.
+- Seis itens locais foram acrescentados em 18/08/2026, todos com verbete curado:
+  responsável técnico (`sp-est-101`, substitui o federal — RDC 63/2011 art. 14 e Portaria SMS
+  266/2025 arts. 32, 34 e 43), cadastro de gerador de RSS na SP Regula (`sp-est-102`),
+  AVCB/CLCB (`sp-est-103`), pigmentos de micropigmentação regularizados (`sp-est-104`,
+  RDC 55/2008), proteção ocular em laser e luz intensa pulsada (`sp-est-105`, NR-6 Anexo I e
+  RDC 751/2022) e suporte imediato à vida (`sp-est-106`, substitui o federal — RDC 63/2011
+  arts. 53 e 58, que eleva o item de peso 5 não crítico para crítico só em SP capital).
+  Roteiro efetivo: **126 itens**.
 - A seção nova fica somente com cinco lacunas sem equivalente federal: triagem individual,
   informação sobre a natureza complementar, plano individual, segurança com calor/fumaça/aromas e
   reavaliação de resultados.
@@ -76,3 +86,8 @@ conclusão antecipada sobre regularidade profissional.
 - [Anexo I municipal — revisão 39, de 19/01/2026](https://prefeitura.sp.gov.br/documents/d/saude/anexo_i___estabelecimentos_servicos_e_equipamentos_de_interesse_da_saude_rev-39_19012026-4-pdf)
 - [Portaria SMS/COVISA nº 404/2024](https://legislacao.prefeitura.sp.gov.br/portaria-secretaria-municipal-da-saude-sms-covisa-404-de-20-de-junho-de-2024)
 - [Legislação oficial da PNPIC](https://www.gov.br/saude/pt-br/acesso-a-informacao/acoes-e-programas/pnpics/legislacao-pnpic/)
+- [Lei Municipal nº 13.478/2002](https://legislacao.prefeitura.sp.gov.br/leis/lei-13478-de-30-de-dezembro-de-2002)
+- [Cadastro de gerador de RSS — SP Regula](https://prefeitura.sp.gov.br/web/spregula/w/residuos_solidos/residuos_solidos/rss_saude/229520)
+- [Decreto Estadual nº 69.118/2024](https://www.al.sp.gov.br/repositorio/legislacao/decreto/2024/decreto-69118-09.12.2024.html)
+- [RDC Anvisa nº 55/2008 — produtos de pigmentação artificial permanente](https://bvsms.saude.gov.br/bvs/saudelegis/anvisa/2008/rdc0055_06_08_2008.html)
+- [RDC Anvisa nº 63/2011 — arts. 14, 53 e 58](https://bvsms.saude.gov.br/bvs/saudelegis/anvisa/2011/rdc0063_25_11_2011.html)
