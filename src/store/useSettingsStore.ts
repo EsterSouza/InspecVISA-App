@@ -146,9 +146,9 @@ export const useSettingsStore = create<SettingsState>()(
       name: 'inspec-visa-settings',
       version: 3,
       // Auto-migrate legacy stored data: split "COREN/RJ 759.561" into label + number
-      migrate: (persistedState: any, version: number) => {
+      migrate: (persistedState: unknown, version: number) => {
         if (version < 2) {
-          const s = (persistedState as any)?.settings;
+          const s = (persistedState as Partial<SettingsState> | null)?.settings;
           if (s?.professionalId && !s.professionalIdLabel) {
             // Pattern: "LABEL NUMBER" e.g. "COREN/RJ 759.561" or "CRN/RJ 10324"
             const match = s.professionalId.match(/^([A-Z]+\/[A-Z]+)\s+(.+)$/);
@@ -167,7 +167,7 @@ export const useSettingsStore = create<SettingsState>()(
             profileSettings: profile ? { [profile]: normalizeSettings(state?.settings, profile) } : {},
           };
         }
-        return persistedState as any;
+        return persistedState;
       },
     }
   )

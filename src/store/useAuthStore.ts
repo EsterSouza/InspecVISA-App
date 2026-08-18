@@ -65,8 +65,8 @@ export const useAuthStore = create<AuthState>()(
           try {
             // Using a simple timeout wrapper for the critical path
             const sessionPromise = supabase.auth.getSession();
-            const timeoutPromise = new Promise<any>((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
-            const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]) as any;
+            const timeoutPromise = new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
+            const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]);
             
             const user = session?.user ?? null;
             let tenantInfo = null;
@@ -107,8 +107,8 @@ export const useAuthStore = create<AuthState>()(
           // Just verify user reference — don't trigger state cleanup here
           // Supabase handles refresh via getUser()
           const sessionPromise = supabase.auth.getUser();
-          const timeoutPromise = new Promise<any>((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
-          const { data: { user } } = await Promise.race([sessionPromise, timeoutPromise]) as any;
+          const timeoutPromise = new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
+          const { data: { user } } = await Promise.race([sessionPromise, timeoutPromise]);
           return !!user;
         } catch {
           return !!get().user;

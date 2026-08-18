@@ -14,7 +14,7 @@
 // registro. O caminho é determinístico a partir do id da solicitação, então o retry sobrescreve
 // o mesmo objeto.
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
 import { safeMailSubject } from '../_shared/mailSubject.ts';
 
@@ -97,8 +97,7 @@ async function sendMail(params: { to: string; subject: string; plain: string; ht
  * inserir manda o e-mail, o retry encontra conflito e não manda de novo. Chamar duas vezes
  * (com e sem anexo) não duplica o aviso.
  */
-// deno-lint-ignore no-explicit-any
-async function notifyTeam(admin: any, requestId: string): Promise<boolean> {
+async function notifyTeam(admin: SupabaseClient, requestId: string): Promise<boolean> {
   const { data: request, error } = await admin
     .from('client_service_requests')
     .select('id, request_number, category, subject, description, client_id, account_id, attachment_name, opened_by_name, opened_by_role')

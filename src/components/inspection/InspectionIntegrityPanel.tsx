@@ -330,7 +330,7 @@ function PhotoTile({ photo, retrying, onRetry }: { photo: PhotoIntegrity; retryi
   );
 }
 
-function ConflictSnapshot({ title, value, fallback }: { title: string; value: any; fallback: string }) {
+function ConflictSnapshot({ title, value, fallback }: { title: string; value: unknown; fallback: string }) {
   return (
     <div className="rounded-md border border-default bg-surface-sunken p-3">
       <p className="mb-2 text-xs font-bold uppercase text-navy-3">{title}</p>
@@ -341,9 +341,10 @@ function ConflictSnapshot({ title, value, fallback }: { title: string; value: an
   );
 }
 
-function formatConflictValue(value: any) {
-  const clone = { ...value };
-  if (clone.dataUrl) clone.dataUrl = `[imagem base64: ${String(value.dataUrl).length} chars]`;
+function formatConflictValue(value: unknown) {
+  // O snapshot e a linha crua do outro lado (JSON gravado), sem formato garantido.
+  const clone = { ...(value as Record<string, unknown>) };
+  if (clone.dataUrl) clone.dataUrl = `[imagem base64: ${String(clone.dataUrl).length} chars]`;
   if (clone.conflictRemote) clone.conflictRemote = '[snapshot remoto omitido]';
   if (clone.conflictLocal) clone.conflictLocal = '[snapshot local omitido]';
   return JSON.stringify(clone, null, 2);

@@ -18,7 +18,9 @@ export function CollaborativeProgress() {
   // Get full template (without role filtering)
   const fullTemplate = getEffectiveTemplate(
     baseTemplate,
-    currentInspection as any as Client,
+    // `getEffectiveTemplate` pede um cliente, mas so le `state`, `city` e `foodTypes` — que a
+    // inspecao carrega em cache. Passar a inspecao aqui e antigo e proposital; fica dito.
+    currentInspection as unknown as Client,
     'ambos',
     true // full=true
   );

@@ -1,5 +1,6 @@
 import { execSync } from 'node:child_process';
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
+import type { Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
@@ -22,7 +23,7 @@ function gitOutput(command: string): string {
  * que este navegador recebeu —, que é o que denuncia service worker preso em
  * versão antiga.
  */
-function buildInfoPlugin() {
+function buildInfoPlugin(): Plugin {
   const sha = process.env.VERCEL_GIT_COMMIT_SHA || gitOutput('git rev-parse HEAD') || 'desconhecido';
   const branch =
     process.env.VERCEL_GIT_COMMIT_REF || gitOutput('git rev-parse --abbrev-ref HEAD') || 'desconhecido';
@@ -43,7 +44,7 @@ function buildInfoPlugin() {
         { tag: 'meta', attrs: { name: 'build-at', content: info.geradoEm }, injectTo: 'head' as const },
       ];
     },
-    generateBundle(this: { emitFile: (file: Record<string, unknown>) => void }) {
+    generateBundle() {
       this.emitFile({
         type: 'asset',
         fileName: 'build-info.json',
@@ -140,5 +141,5 @@ export default defineConfig({
       thresholds: { lines: 80, functions: 80 },
     },
   },
-} as any);
+});
 

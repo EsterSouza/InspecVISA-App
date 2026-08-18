@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { supabase } from '../../lib/supabase';
 import { SettingsService } from '../../services/settingsService';
+import { duploDeConsulta, duploDeUsuario } from '../fixtures';
 
 const getUser = vi.mocked(supabase.auth.getUser);
 const from = vi.mocked(supabase.from);
@@ -14,13 +15,13 @@ function mockProfileSettings(consultantSettings: unknown) {
       error: null,
     }),
   };
-  from.mockReturnValue(query as any);
+  from.mockReturnValue(duploDeConsulta(query));
 }
 
 describe('SettingsService profile isolation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    getUser.mockResolvedValue({ data: { user: { id: 'user-1', email: 'shared@example.com' } }, error: null } as any);
+    getUser.mockResolvedValue(duploDeUsuario({ id: 'user-1', email: 'shared@example.com' }));
   });
 
   it('does not load legacy Ester settings for Ana', async () => {

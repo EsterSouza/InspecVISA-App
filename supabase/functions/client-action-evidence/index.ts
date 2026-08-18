@@ -11,7 +11,7 @@
 // O caminho é determinístico a partir da `uploadKey`, então o retry sobrescreve o mesmo objeto
 // e reencontra a mesma linha.
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
 import { safeMailSubject } from '../_shared/mailSubject.ts';
 
@@ -87,8 +87,7 @@ async function sendMail(params: { to: string; subject: string; plain: string; ht
   }
 }
 
-// deno-lint-ignore no-explicit-any
-async function notifyTeam(admin: any, evidenceId: string, info: {
+async function notifyTeam(admin: SupabaseClient, evidenceId: string, info: {
   accountName: string;
   unitName: string;
   itemTitle: string;

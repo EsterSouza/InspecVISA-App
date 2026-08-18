@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { rawErrorMessage } from '../utils/errors';
 
 // Essas chaves devem ser configuradas no Supabase Dashboard em Project Settings > API
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
@@ -16,13 +17,15 @@ const customFetch = async (input: RequestInfo | URL, init?: RequestInit): Promis
   while (attempts < maxAttempts) {
     try {
       return await fetch(input, init);
-    } catch (err: any) {
+    } catch (err) {
       attempts++;
-      const isTimeout = err?.name === 'AbortError' || err?.message?.includes('timeout') || err?.message?.includes('ETIMEDOUT');
-      const isNetworkError = err?.message?.includes('Failed to fetch') || err?.message?.includes('NetworkError');
+      const nome = err instanceof Error ? err.name : '';
+      const mensagem = rawErrorMessage(err) ?? '';
+      const isTimeout = nome === 'AbortError' || mensagem.includes('timeout') || mensagem.includes('ETIMEDOUT');
+      const isNetworkError = mensagem.includes('Failed to fetch') || mensagem.includes('NetworkError');
 
       if (attempts < maxAttempts && (isTimeout || isNetworkError)) {
-        console.warn(`[Supabase] Fetch failed (${err?.message}), retrying... (Attempt ${attempts + 1}/${maxAttempts})`);
+        console.warn(`[Supabase] Fetch failed (${mensagem}), retrying... (Attempt ${attempts + 1}/${maxAttempts})`);
         // Wait 1s before retry
         await new Promise(resolve => setTimeout(resolve, 1000));
         continue;

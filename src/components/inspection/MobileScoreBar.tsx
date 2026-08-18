@@ -2,9 +2,11 @@ import React from 'react';
 import { calculateScore, classificationColor } from '../../utils/scoring';
 import { useInspectionStore } from '../../store/useInspectionStore';
 import { getTemplateById } from '../../data/templates';
+import type { ChecklistTemplate } from '../../types';
 
 interface MobileScoreBarProps {
-  template?: any;
+  /** O roteiro efetivo da execucao. Sem ele, a barra cai no roteiro base da inspecao. */
+  template?: ChecklistTemplate | null;
 }
 
 export function MobileScoreBar({ template: propTemplate }: MobileScoreBarProps) {

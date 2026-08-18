@@ -7,9 +7,35 @@ interface VoiceDictationButtonProps {
   className?: string;
 }
 
-function getSpeechRecognitionCtor(): (new () => any) | null {
+/**
+ * A Web Speech API nao esta na lib de tipos do TypeScript: nao e padronizada e no Chrome
+ * ainda vem com prefixo (`webkitSpeechRecognition`). Este e o recorte que o botao usa.
+ */
+type ResultadoDeFala = { isFinal: boolean; 0: { transcript: string } };
+type EventoDeResultado = { results: ArrayLike<ResultadoDeFala> };
+type EventoDeErro = { error: string };
+
+interface ReconhecimentoDeFala {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onspeechstart: (() => void) | null;
+  onresult: ((event: EventoDeResultado) => void) | null;
+  onerror: ((event: EventoDeErro) => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+}
+
+type ConstrutorDeReconhecimento = new () => ReconhecimentoDeFala;
+
+function getSpeechRecognitionCtor(): ConstrutorDeReconhecimento | null {
   if (typeof window === 'undefined') return null;
-  return (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition || null;
+  const janela = window as typeof window & {
+    SpeechRecognition?: ConstrutorDeReconhecimento;
+    webkitSpeechRecognition?: ConstrutorDeReconhecimento;
+  };
+  return janela.SpeechRecognition || janela.webkitSpeechRecognition || null;
 }
 
 // Mensagens amigáveis para os códigos de erro da Web Speech API — sem isso o
@@ -47,7 +73,7 @@ export function VoiceDictationButton({ onTranscript, className }: VoiceDictation
   const [status, setStatus] = useState<Status>('idle');
   const [interimText, setInterimText] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<ReconhecimentoDeFala | null>(null);
   const shouldListenRef = useRef(false);
   const SpeechRecognitionCtor = getSpeechRecognitionCtor();
 
@@ -68,7 +94,7 @@ export function VoiceDictationButton({ onTranscript, className }: VoiceDictation
     recognition.interimResults = true;
 
     recognition.onspeechstart = () => setStatus('speech-detected');
-    recognition.onresult = (event: any) => {
+    recognition.onresult = (event: EventoDeResultado) => {
       let finalText = '';
       let interim = '';
       for (let i = 0; i < event.results.length; i++) {
@@ -78,7 +104,7 @@ export function VoiceDictationButton({ onTranscript, className }: VoiceDictation
       setInterimText(interim);
       if (finalText.trim()) onTranscript(finalText.trim());
     };
-    recognition.onerror = (event: any) => {
+    recognition.onerror = (event: EventoDeErro) => {
       // 'no-speech' é esperado ao reiniciar em silêncio — não interrompe o ciclo.
       if (event.error === 'no-speech' && shouldListenRef.current) return;
       console.error('[VoiceDictation] erro no reconhecimento de voz:', event.error);
