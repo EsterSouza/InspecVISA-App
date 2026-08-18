@@ -378,7 +378,7 @@ citavam a numeração do *roteiro anexo* ao 45.585 (5.5.9, 6.4.1, 7.1…), que �
 | **P360-014** | Acessibilidade e responsividade | Sonnet 5 | médio | superfícies estáveis | ✅ **concluído 08/08/2026** · sem migration, frontend puro |
 | **P360-015** | E2E, rollout e prova de produção | Opus 5 | alto | onda a publicar | ✅ **concluído 08/08/2026** · sem migration; CI, Playwright, smoke e tenant de homologação criados em produção |
 | **DEBT-01** | Margem pública de 4 h por tipo | Sonnet 5 | médio | — | ✅ **concluído 04/08** |
-| **DEBT-02** | Dívida de lint | Sonnet 5 | médio | — | 🟡 **em andamento 17/08/2026** · 531 → 33 espalhados (testes, componentes, store); teto por área cobrado no CI |
+| **DEBT-02** | Dívida de lint | Sonnet 5 | médio | — | ✅ **concluída 17/08/2026** · 531 → 0; `npm run lint` roda no CI e exige zero; `api/` e `scripts/` entraram no `tsc -b` |
 | **PORT-04** | Tutorial do portal por conta do cliente | Opus 5 | baixo | — | ✅ **concluído 08/08/2026** · aplicado em produção (1 migration); o campo do tenant vira padrão |
 | **SEC-01** | Endurecer o que a revisão do P360-015 encontrou | Opus 5 | médio | P360-015 (concluído) | ✅ **concluído 08/08/2026** · aplicado em produção (2 migrations), autorizado pela Ester; 50 execuções E2E depois do revoke |
 | **DEBT-03** | Pontas soltas do repositório | Haiku 4.5 | baixo | — | ✅ **concluído 05/08** |
@@ -3449,7 +3449,7 @@ bloqueado —, e não por chamada; a assinatura atual só conhece a margem de qu
 
 ---
 
-## DEBT-02 — Dívida de lint 🟡 em andamento desde 17/08/2026 · 531 → 33
+## DEBT-02 — Dívida de lint ✅ concluída em 17/08/2026 · 531 → 0
 
 **Modelo:** Sonnet 5 · **Esforço:** médio · **Prioridade:** baixa, mas bloqueia lint no CI
 
@@ -3467,7 +3467,7 @@ bloqueado —, e não por chamada; a assinatura atual só conhece a margem de qu
 ### Andamento — 17/08/2026
 
 Recontagem real no início: **531** problemas (521 erros, 10 avisos), não 425 — e **504** deles
-eram `no-explicit-any`. Oito fatias depois: **33**, espalhados por seis áreas — nenhuma fatia grande.
+eram `no-explicit-any`. Nove fatias depois: **zero**, e o CI cobra `npm run lint`.
 
 **Fatia 0 — tudo que não é `no-explicit-any`, zerada** (`3a3440c`). Eram 27, e três eram defeito
 de verdade: `Checkbox`/`Radio` passavam a `ref` para uma função durante o render
@@ -3510,11 +3510,11 @@ nulo quando a visita não tem inspeção; `situationDescription`/`correctiveActi
 quatro campos em snake_case que **nunca chegavam ali** — `getFullTemplate` sempre devolveu
 camelCase.
 
-**O CI já cobra o teto** (passo 3, feito antes do resto): `npm run lint:teto`
-(`scripts/lint-teto.mjs` + `scripts/lint-teto.json`) roda no job `js` e falha se **qualquer área
-piorar** — não exige zero, exige não regredir. `--max-warnings` não servia: estes são erros, não
-avisos. Ao fechar uma fatia, `node scripts/lint-teto.mjs --gravar` baixa o teto. Quando tudo
-chegar a zero, o script sai e o CI passa a rodar `npm run lint`.
+**O CI cobrou o teto enquanto durou** (passo 3, feito antes do resto): `npm run lint:teto`
+(`scripts/lint-teto.mjs` + `scripts/lint-teto.json`) rodava no job `js` e falhava se **qualquer
+área piorasse** — não exigia zero, exigia não regredir; `--max-warnings` não servia, porque estes
+são erros, não avisos. Cada fatia fechada baixava o teto. **Ao chegar a zero, o script saiu e o CI
+passou a rodar `npm run lint`** (ver "Estado final", no fim desta seção).
 
 **Fatia 3 — `src/utils`, zerada** (`ffc1505`): 24 → 0. Três padrões: `(doc as any).lastAutoTable
 .finalY` em **sete** lugares (o `jspdf-autotable` grava onde a tabela terminou no documento, mas
@@ -3599,9 +3599,32 @@ avulso de Goiás foi arquivado depois que o script foi escrito, e a lista `ROTEI
 apontando para um nome que não existe mais. Corrigir exige decidir qual roteiro passa a ser o
 alvo — é curadoria, não tipagem.
 
-**O que falta, por área** (o teto de hoje, 33): `src/__tests__` 12 · `src/components` 10 ·
-`src/store` 7 · `supabase/functions` 2 · `src/lib` 1 · `vite.config.ts` 1. Nada mais é fatia
-grande: dá para fechar tudo de uma vez e então trocar o `lint:teto` do CI por `npm run lint`.
+**Fatia 8 — os 33 espalhados, zerada** (`13846eb`): 33 → 0. Fim da dívida.
+
+O `vite.config.ts` terminava em `} as any` porque a chave `test` não é do Vite — é do Vitest,
+que exporta o próprio `defineConfig` justamente para isso. Tirando o cast, o `tsc` apontou o
+plugin de build-info: ele declarava um `this` à mão, incompatível com o `PluginContext` do
+Rollup. O `useAuthStore` corria `Promise.race([sessão, timeout])` com `new Promise<any>`; com
+`Promise<never>` no timeout a corrida herda o tipo da promessa real e a sessão passa a vir
+tipada. O `VoiceDictationButton` declara agora o recorte da Web Speech API que usa (a API não
+está na lib do TypeScript: não é padronizada e no Chrome vem com prefixo). Nos testes, os 12
+`as any` eram duplos parciais do cliente do Supabase e viraram
+`duploDeConsulta`/`duploDeSessao`/`duploDeUsuario`, em `src/__tests__/fixtures.ts`.
+
+**Efeito colateral conferido:** o precache do service worker foi de 90 para 89 entradas porque
+`src/utils/errors.ts` deixou de ser chunk próprio — o `lib/supabase` passou a importá-lo. Mesmo
+código, uma requisição a menos; comparado entrada a entrada entre os dois manifestos.
+
+### Estado final
+
+**O CI roda `npm run lint` e exige zero.** O teto por área (`scripts/lint-teto.mjs` +
+`lint-teto.json`) e o script `lint:teto` saíram junto com a última fatia — existiam só enquanto
+a dívida era zerada por partes. Se um `any` novo for mesmo necessário, o caminho é
+`eslint-disable-next-line` com o motivo escrito na linha, não um teto.
+
+Duas lacunas de conferência foram fechadas no caminho: `api/` e `scripts/` não estavam em
+projeto nenhum do `tsc -b` (hoje têm `tsconfig.api.json` e `tsconfig.scripts.json`, ambos
+referenciados na raiz).
 
 ---
 
