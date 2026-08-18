@@ -17,28 +17,20 @@
 import { createClient } from '@supabase/supabase-js';
 import { resolveLegislationUrl, resolveCitedLegislations } from '../src/utils/legislationRefs';
 import { requireSupabaseEnv } from './env';
+import { lerTudo, type LinhaItem } from './linhas';
 
 const APPLY = process.argv.includes('--apply');
 const { url, key } = requireSupabaseEnv();
 
 const sb = createClient(url, key, { auth: { persistSession: false } });
 
-async function readAll(table: string, select: string) {
-  const out: any[] = [];
-  for (let from = 0; ; from += 1000) {
-    const { data, error } = await sb.from(table).select(select).order('id').range(from, from + 999);
-    if (error) throw new Error(`${table}: ${error.message}`);
-    out.push(...data);
-    if (data.length < 1000) break;
-  }
-  return out;
-}
+type ItemLido = Pick<LinhaItem, 'id' | 'legislation_name' | 'legislation_url' | 'requirement_type'>;
 
-const items = await readAll('checklist_items', 'id,legislation_name,legislation_url,requirement_type');
+const items = await lerTudo<ItemLido>(sb, 'checklist_items', 'id,legislation_name,legislation_url,requirement_type');
 
-const paraAtualizar: any[] = [];
-const jaCorretos: any[] = [];
-const semResolucao: any[] = [];
+const paraAtualizar: (ItemLido & { alvo: string })[] = [];
+const jaCorretos: ItemLido[] = [];
+const semResolucao: ItemLido[] = [];
 
 for (const item of items) {
   const alvo = resolveLegislationUrl(item.legislation_name) || null;

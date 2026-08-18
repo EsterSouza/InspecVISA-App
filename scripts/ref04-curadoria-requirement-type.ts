@@ -24,6 +24,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { resolveLegislationUrl } from '../src/utils/legislationRefs';
 import { requireSupabaseEnv } from './env';
+import { lerTudo, type LinhaItem, type LinhaRoteiro, type LinhaSecao } from './linhas';
 
 const APPLY = process.argv.includes('--apply');
 const { url, key } = requireSupabaseEnv();
@@ -75,22 +76,13 @@ const REANCORA: Decisao[] = [
 
 const DECISOES = [...VIRA_BOA_PRATICA, ...REANCORA];
 
-async function readAll(table: string, select: string) {
-  const out: any[] = [];
-  for (let from = 0; ; from += 1000) {
-    const { data, error } = await sb.from(table).select(select).order('id').range(from, from + 999);
-    if (error) throw new Error(`${table}: ${error.message}`);
-    out.push(...(data as any[]));
-    if ((data as any[]).length < 1000) break;
-  }
-  return out;
-}
+type ItemLido = Pick<LinhaItem, 'id' | 'section_id' | 'description' | 'legislation_name' | 'legislation_url' | 'requirement_type'>;
 
-const items = await readAll('checklist_items', 'id,section_id,description,legislation_name,legislation_url,requirement_type');
-const secs = await readAll('checklist_sections', 'id,template_id');
-const tpls = await readAll('checklist_templates', 'id,name');
+const items = await lerTudo<ItemLido>(sb, 'checklist_items', 'id,section_id,description,legislation_name,legislation_url,requirement_type');
+const secs = await lerTudo<Pick<LinhaSecao, 'id' | 'template_id'>>(sb, 'checklist_sections', 'id,template_id');
+const tpls = await lerTudo<Pick<LinhaRoteiro, 'id' | 'name'>>(sb, 'checklist_templates', 'id,name');
 
-const tplBySection = new Map(secs.map((s: any) => [s.id, s.template_id]));
+const tplBySection = new Map(secs.map(s => [s.id, s.template_id]));
 
 // Os roteiros tocados por esta curadoria, nomeados explicitamente. Escopar por
 // roteiro — e não por "citação que não resolve" — mantém o script idempotente:
@@ -104,18 +96,21 @@ const ROTEIROS_ALVO = [
 ];
 
 const idsAlvo = new Set(
-  tpls.filter((t: any) => ROTEIROS_ALVO.includes(t.name)).map((t: any) => t.id)
+  tpls.filter(t => t.name !== null && ROTEIROS_ALVO.includes(t.name)).map(t => t.id)
 );
 
-const faltando = ROTEIROS_ALVO.filter(n => !tpls.some((t: any) => t.name === n));
+const faltando = ROTEIROS_ALVO.filter(n => !tpls.some(t => t.name === n));
 if (faltando.length) {
   throw new Error(`Roteiros não encontrados no banco: ${faltando.join(' | ')}`);
 }
 
-const alvo = items.filter((i: any) => idsAlvo.has(tplBySection.get(i.section_id)));
+const alvo = items.filter(i => {
+  const roteiro = tplBySection.get(i.section_id);
+  return roteiro !== undefined && idsAlvo.has(roteiro);
+});
 
-const paraGravar: any[] = [];
-const semDecisao: any[] = [];
+const paraGravar: { item: ItemLido; d: Decisao; patch: Record<string, string | null> }[] = [];
+const semDecisao: ItemLido[] = [];
 let comDecisao = 0;
 
 for (const item of alvo) {
@@ -132,7 +127,7 @@ for (const item of alvo) {
   }
 
   comDecisao++;
-  const patch: Record<string, any> = {};
+  const patch: Record<string, string | null> = {};
   if (d.para === 'good_practice') {
     if (item.requirement_type !== 'good_practice') patch.requirement_type = 'good_practice';
     // Boa prática não tem base legal: a URL, se houver, é ruído no relatório.
@@ -172,9 +167,9 @@ if (semDecisao.length) {
 
 console.log('\n--- alterações ---');
 for (const { item, d, patch } of paraGravar) {
-  console.log(` ${item.id}  [${d.precedente}]  ${item.description.slice(0, 70)}`);
+  console.log(` ${item.id}  [${d.precedente}]  ${(item.description ?? '').slice(0, 70)}`);
   for (const [k, v] of Object.entries(patch)) {
-    console.log(`     ${k}: ${JSON.stringify((item as any)[k])} → ${JSON.stringify(v)}`);
+    console.log(`     ${k}: ${JSON.stringify(item[k as keyof ItemLido])} → ${JSON.stringify(v)}`);
   }
 }
 

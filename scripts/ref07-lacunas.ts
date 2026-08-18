@@ -21,7 +21,15 @@ const sources = [
   ...templates.map(t => ({ name: t.name, sections: t.sections })),
   ...supplementRegistry.map(entry => ({
     name: `${entry.supplement.name ?? 'Suplemento'}${entry.nameSuffix}`,
-    sections: entry.supplement.sections ?? [],
+    // O suplemento não tem `sections`: os itens dele moram nas adições às seções federais
+    // (`sectionAdditions`) e nas seções novas. Ler `.sections`, que não existe, fazia esta
+    // varredura devolver ZERO para todo suplemento — justamente os atos estaduais e
+    // municipais que o comentário acima diz serem o motivo de incluí-los. Só apareceu
+    // quando `scripts/` entrou no `tsc -b` (DEBT-02).
+    sections: [
+      ...entry.supplement.sectionAdditions.map(adicao => ({ items: adicao.items })),
+      ...(entry.supplement.newSections ?? []),
+    ],
   })),
 ];
 

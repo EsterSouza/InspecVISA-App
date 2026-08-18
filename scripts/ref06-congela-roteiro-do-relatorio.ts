@@ -32,6 +32,15 @@ import { templates } from '../src/data/templates';
 import { roteiroIlpiV1, roteiroIlpiFederal97 } from './historico/roteiros-antigos';
 import type { ChecklistItem, ChecklistTemplate, Section } from '../src/types';
 import { requireSupabaseEnv } from './env';
+import {
+  lerTudo,
+  type LinhaCliente,
+  type LinhaInspecao,
+  type LinhaItem,
+  type LinhaResposta,
+  type LinhaRoteiro,
+  type LinhaSecao,
+} from './linhas';
 
 const APPLY = process.argv.includes('--apply');
 const { url, key } = requireSupabaseEnv();
@@ -57,7 +66,7 @@ const SEM_TEXTO_ACEITO: Record<string, RegExp> = {
  * hoje sai no relatório como "Item preservado do relatorio concluido (extra|…)". Sai do
  * ar por `deleted_at`, que é reversível.
  */
-function extraVazia(r: any): boolean {
+function extraVazia(r: Pick<LinhaResposta, 'item_id' | 'custom_description' | 'situation_description' | 'result'>): boolean {
   return String(r.item_id).startsWith('extra|')
     && !r.custom_description && !r.situation_description
     && (r.result === 'not_applicable' || r.result === 'not_evaluated' || !r.result);
@@ -79,30 +88,37 @@ const ROTEIRO_FORCADO: Record<string, ChecklistTemplate> = {
   '7051ac58-b43d-40e5-9b92-cde693cfa8b9': roteiroIlpiFederal97,
 };
 
-async function readAll<T = any>(table: string, select: string, order = 'id', pagina = 1000): Promise<T[]> {
-  const out: T[] = [];
-  for (let from = 0; ; from += pagina) {
-    const { data, error } = await sb.from(table).select(select).order(order).range(from, from + pagina - 1);
-    if (error) throw new Error(`${table}: ${error.message}`);
-    out.push(...(data as T[]));
-    if ((data as T[]).length < pagina) break;
-  }
-  return out;
-}
+/**
+ * Uma versao de relatorio, ja sem o `snapshot_json` inteiro (que carrega as fotos em base64).
+ * O `template` e JSON gravado, nao validado - dai as guardas de `typeof ... === 'object'` e as
+ * conferencias de `description` antes de usar.
+ */
+type LinhaVersao = {
+  id: string;
+  inspection_id: string;
+  version: number;
+  created_at: string;
+  template: ChecklistTemplate | null;
+};
+
+/** Versao cujo roteiro congelado existe de fato. */
+type VersaoComRoteiro = LinhaVersao & { template: ChecklistTemplate };
+
+const comRoteiro = (v: LinhaVersao): v is VersaoComRoteiro => !!v.template && typeof v.template === 'object';
 
 const [inspecoes, clientes, respostas, tpls, secs, itens] = await Promise.all([
-  readAll('inspections', 'id,client_id,template_id,status,inspection_date,created_at,deleted_at,tenant_id'),
-  readAll('clients', 'id,name,category,city,state'),
-  readAll('responses', 'id,inspection_id,item_id,result,custom_description,situation_description,created_at,deleted_at'),
-  readAll('checklist_templates', 'id,name,category,version'),
-  readAll('checklist_sections', 'id,template_id,title,"order"'),
-  readAll('checklist_items', 'id,section_id,description,legislation_name,legislation_url,weight,is_critical,requirement_type,"order",created_at'),
+  lerTudo<LinhaInspecao>(sb, 'inspections', 'id,client_id,template_id,status,inspection_date,created_at,deleted_at,tenant_id'),
+  lerTudo<Omit<LinhaCliente, 'food_types'>>(sb, 'clients', 'id,name,category,city,state'),
+  lerTudo<LinhaResposta>(sb, 'responses', 'id,inspection_id,item_id,result,custom_description,situation_description,created_at,deleted_at'),
+  lerTudo<LinhaRoteiro>(sb, 'checklist_templates', 'id,name,category,version'),
+  lerTudo<LinhaSecao>(sb, 'checklist_sections', 'id,template_id,title,"order"'),
+  lerTudo<LinhaItem>(sb, 'checklist_items', 'id,section_id,description,legislation_name,legislation_url,weight,is_critical,requirement_type,"order",created_at'),
 ]);
 // Extrair o roteiro de dentro do `snapshot_json` é caro (as versões carregam as fotos em
 // base64) e estoura o statement timeout com facilidade: vai em páginas de 3, com repetição,
 // e fica em cache no disco. `--recarregar` ignora o cache.
 const CACHE = path.join(os.tmpdir(), 'ref06-versoes.json');
-async function lerVersoes(): Promise<any[]> {
+async function lerVersoes(): Promise<LinhaVersao[]> {
   if (!process.argv.includes('--recarregar') && fs.existsSync(CACHE)) {
     return JSON.parse(fs.readFileSync(CACHE, 'utf-8'));
   }
@@ -112,8 +128,8 @@ async function lerVersoes(): Promise<any[]> {
     .order('created_at');
   if (erroLista) throw new Error(`inspection_report_versions: ${erroLista.message}`);
 
-  const out: any[] = [];
-  for (const linha of linhas as any[]) {
+  const out: LinhaVersao[] = [];
+  for (const linha of (linhas ?? []) as Omit<LinhaVersao, 'template'>[]) {
     let ok = false;
     for (let tentativa = 1; tentativa <= 3 && !ok; tentativa++) {
       const { data, error } = await sb
@@ -126,7 +142,7 @@ async function lerVersoes(): Promise<any[]> {
         await new Promise(r => setTimeout(r, 1500 * tentativa));
         continue;
       }
-      out.push({ ...linha, template: (data as any)?.template ?? null });
+      out.push({ ...linha, template: (data as { template?: ChecklistTemplate } | null)?.template ?? null });
       ok = true;
     }
   }
@@ -138,12 +154,12 @@ const versoes = await lerVersoes();
 // ── Roteiro vivo do banco, no formato do app ────────────────────────────────
 const roteiroDoBanco = new Map<string, ChecklistTemplate>();
 for (const t of tpls) {
-  const minhas = secs.filter((s: any) => s.template_id === t.id).sort((a: any, b: any) => a.order - b.order);
+  const minhas = secs.filter(s => s.template_id === t.id).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   roteiroDoBanco.set(t.id, {
     id: t.id, name: t.name, category: t.category, version: t.version,
-    sections: minhas.map((s: any) => ({
+    sections: minhas.map(s => ({
       id: s.id, title: s.title, order: s.order,
-      items: itens.filter((i: any) => i.section_id === s.id).sort((a: any, b: any) => a.order - b.order).map((i: any) => ({
+      items: itens.filter(i => i.section_id === s.id).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map(i => ({
         id: i.id, sectionId: s.id, order: i.order, description: i.description,
         legislation: i.legislation_name, legislationUrl: i.legislation_url,
         weight: i.weight, isCritical: i.is_critical, requirementType: i.requirement_type,
@@ -159,7 +175,7 @@ const catalogo = new Map<string, Candidato[]>();
 /** Seções conhecidas por id, para reancorar item avulso cuja seção não está no esqueleto. */
 const secoesConhecidas = new Map<string, Omit<Section, 'items'>>();
 
-function registrar(item: any, secao: any, quando: number, fonte: string) {
+function registrar(item: ChecklistItem, secao: Omit<Section, 'items'>, quando: number, fonte: string) {
   // A seção "Itens preservados do roteiro concluído" é a própria degradação: os itens dela
   // têm a descrição trocada pelo texto da resposta. Serve como fonte de nada.
   if (secao.id === SECAO_DEGRADADA) return;
@@ -170,8 +186,8 @@ function registrar(item: any, secao: any, quando: number, fonte: string) {
   catalogo.set(item.id, lista);
 }
 
-for (const v of versoes as any[]) {
-  if (!v.template || typeof v.template !== 'object') continue;
+for (const v of versoes) {
+  if (!comRoteiro(v)) continue;
   const quando = new Date(v.created_at).getTime();
   for (const s of v.template.sections || []) for (const i of s.items || []) registrar(i, s, quando, `snapshot v${v.version}`);
 }
@@ -198,8 +214,8 @@ type Plano = {
   faltavam: number; recuperados: number; semTexto: string[]; template?: ChecklistTemplate; proximaVersao: number;
 };
 
-const versoesPorInspecao = new Map<string, any[]>();
-for (const v of versoes as any[]) {
+const versoesPorInspecao = new Map<string, LinhaVersao[]>();
+for (const v of versoes) {
   const l = versoesPorInspecao.get(v.inspection_id) || [];
   l.push(v);
   versoesPorInspecao.set(v.inspection_id, l);
@@ -212,36 +228,39 @@ const planos: Plano[] = [];
 for (const insp of inspecoes) {
   if (insp.deleted_at || insp.status !== 'completed') continue;
 
-  const cliente = clientes.find((c: any) => c.id === insp.client_id);
-  const minhas = respostas.filter((r: any) => r.inspection_id === insp.id && !r.deleted_at && !extraVazia(r));
-  const avaliadas = minhas.filter((r: any) => r.result && r.result !== 'not_evaluated');
-  const quandoInspecao = Math.max(...minhas.map((r: any) => new Date(r.created_at).getTime()), new Date(insp.created_at).getTime());
+  const cliente = clientes.find(c => c.id === insp.client_id);
+  const minhas = respostas.filter(r => r.inspection_id === insp.id && !r.deleted_at && !extraVazia(r));
+  const avaliadas = minhas.filter(r => r.result && r.result !== 'not_evaluated');
+  const quandoInspecao = Math.max(...minhas.map(r => new Date(r.created_at).getTime()), new Date(insp.created_at).getTime());
   const aceitaSemTexto = SEM_TEXTO_ACEITO[insp.id];
 
   // Esqueleto: melhor snapshot já gravado (sem placeholder e com maior cobertura), senão o roteiro base.
-  const minhasVersoes = (versoesPorInspecao.get(insp.id) || []).filter((v: any) => v.template && typeof v.template === 'object');
+  const minhasVersoes = (versoesPorInspecao.get(insp.id) || []).filter(comRoteiro);
   const cobertura = (t: ChecklistTemplate) => {
     const ids = new Set(t.sections.flatMap(s => s.items.map(i => i.id)));
-    return avaliadas.filter((r: any) => ids.has(r.item_id)).length;
+    return avaliadas.filter(r => ids.has(r.item_id)).length;
   };
   // "Limpa" é a versão sem nenhum resíduo de degradação: nem placeholder, nem a seção
   // "Itens preservados do roteiro concluído" — que exibe item real sob o título errado e
   // com a descrição trocada pelo texto da resposta.
-  const limpas = minhasVersoes.filter((v: any) =>
-    !v.template.sections.some((s: any) =>
-      s.id === SECAO_DEGRADADA || s.items.some((i: any) => PLACEHOLDER.test(i.description || ''))));
-  const melhorVersao = [...limpas].sort((a: any, b: any) => cobertura(b.template) - cobertura(a.template) || b.version - a.version)[0];
+  const limpas = minhasVersoes.filter(v =>
+    !v.template.sections.some(s =>
+      s.id === SECAO_DEGRADADA || s.items.some(i => PLACEHOLDER.test(i.description || ''))));
+  const melhorVersao = [...limpas].sort((a, b) => cobertura(b.template) - cobertura(a.template) || b.version - a.version)[0];
 
-  const doBanco = !ROTEIRO_FORCADO[insp.id] && !melhorVersao && !ROTEIROS_HISTORICOS[insp.template_id];
+  // `template_id` e nullable no banco; sem ele nenhum dos mapas casa e a inspecao cai no ramo
+  // "sem fonte" logo abaixo - que e o que ja acontecia por baixo do `any`.
+  const templateId = insp.template_id ?? '';
+  const doBanco = !ROTEIRO_FORCADO[insp.id] && !melhorVersao && !ROTEIROS_HISTORICOS[templateId];
   const base = ROTEIRO_FORCADO[insp.id]
-    || (melhorVersao?.template as ChecklistTemplate | undefined)
-    || ROTEIROS_HISTORICOS[insp.template_id]
-    || roteiroDoBanco.get(insp.template_id);
+    || melhorVersao?.template
+    || ROTEIROS_HISTORICOS[templateId]
+    || roteiroDoBanco.get(templateId);
 
-  const proximaVersao = Math.max(0, ...(versoesPorInspecao.get(insp.id) || []).map((v: any) => v.version)) + 1;
+  const proximaVersao = Math.max(0, ...(versoesPorInspecao.get(insp.id) || []).map(v => v.version)) + 1;
 
   if (!base) {
-    planos.push({ id: insp.id, cliente: cliente?.name || insp.client_id, base: `(nenhuma: ${insp.template_id})`, acao: 'sem fonte', faltavam: avaliadas.length, recuperados: 0, semTexto: [], proximaVersao });
+    planos.push({ id: insp.id, cliente: cliente?.name || insp.client_id, base: `(nenhuma: ${templateId})`, acao: 'sem fonte', faltavam: avaliadas.length, recuperados: 0, semTexto: [], proximaVersao });
     continue;
   }
 
@@ -252,18 +271,18 @@ for (const insp of inspecoes) {
   // tem itens cuja pergunta mudou depois (o `30546905…` já foi "proporção Grau I" e hoje é
   // a escala de trabalho). Snapshot e roteiro histórico já são da época — não passam aqui.
   if (doBanco) {
-    const respondidos = new Set(minhas.map((r: any) => r.item_id));
-    const nascimento = new Map(itens.map((i: any) => [i.id, new Date(i.created_at).getTime()]));
+    const respondidos = new Set(minhas.map(r => r.item_id));
+    const nascimento = new Map(itens.map(i => [i.id, new Date(i.created_at).getTime()]));
     for (const s of template.sections) {
       s.items = s.items
-        .filter((i: any) => respondidos.has(i.id) || (nascimento.get(i.id) ?? 0) <= quandoInspecao)
-        .map((i: any) => melhorCandidato(i.id, quandoInspecao)?.item ?? i);
+        .filter(i => respondidos.has(i.id) || (nascimento.get(i.id) ?? 0) <= quandoInspecao)
+        .map(i => melhorCandidato(i.id, quandoInspecao)?.item ?? i);
     }
-    template.sections = template.sections.filter((s: any) => s.items.length > 0);
+    template.sections = template.sections.filter(s => s.items.length > 0);
   }
 
-  const presentes = new Set(template.sections.flatMap((s: any) => s.items.map((i: any) => i.id)));
-  const faltando = minhas.filter((r: any) => !presentes.has(r.item_id));
+  const presentes = new Set(template.sections.flatMap(s => s.items.map(i => i.id)));
+  const faltando = minhas.filter(r => !presentes.has(r.item_id));
   const semTexto: string[] = [];
   let recuperados = 0;
 
@@ -275,7 +294,7 @@ for (const insp of inspecoes) {
       // pelo título; e só então cria a seção. Jogar no fim virava "item solto no relatório".
       const secaoId = String(r.item_id).split('|')[1];
       const conhecida = secoesConhecidas.get(secaoId);
-      let secao = template.sections.find((s: any) => s.id === secaoId || (conhecida && s.title === conhecida.title));
+      let secao = template.sections.find(s => s.id === secaoId || (conhecida && s.title === conhecida.title));
       if (!secao) {
         secao = { ...(conhecida || { id: secaoId, title: 'Itens acrescentados na inspeção', order: 999 }), items: [] } as Section;
         template.sections.push(secao);
@@ -290,7 +309,7 @@ for (const insp of inspecoes) {
       if (!(aceitaSemTexto && aceitaSemTexto.test(r.item_id))) semTexto.push(r.item_id);
       continue;
     }
-    let secao = template.sections.find((s: any) => s.id === c.secao.id || s.title === c.secao.title);
+    let secao = template.sections.find(s => s.id === c.secao.id || s.title === c.secao.title);
     if (!secao) {
       secao = { ...c.secao, items: [] } as Section;
       template.sections.push(secao);
@@ -299,18 +318,18 @@ for (const insp of inspecoes) {
     recuperados += 1;
   }
 
-  template.sections.sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
-  for (const s of template.sections) s.items.sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
+  template.sections.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  for (const s of template.sections) s.items.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
-  const cobre = new Set(template.sections.flatMap((s: any) => s.items.map((i: any) => i.id)));
-  const descobertas = avaliadas.filter((r: any) => !cobre.has(r.item_id) && !(aceitaSemTexto && aceitaSemTexto.test(r.item_id)));
+  const cobre = new Set(template.sections.flatMap(s => s.items.map(i => i.id)));
+  const descobertas = avaliadas.filter(r => !cobre.has(r.item_id) && !(aceitaSemTexto && aceitaSemTexto.test(r.item_id)));
 
   // Idempotência por conteúdo: se a última versão já traz exatamente estas perguntas, não
   // grava de novo. Comparar por versão/contagem não bastava — com `ROTEIRO_FORCADO` o
   // script empilhava uma versão idêntica a cada execução.
   const ultima = (versoesPorInspecao.get(insp.id) || [])
-    .filter((v: any) => v.template && typeof v.template === 'object')
-    .sort((a: any, b: any) => b.version - a.version)[0];
+    .filter(comRoteiro)
+    .sort((a, b) => b.version - a.version)[0];
   const impressao = (t: ChecklistTemplate) => t.sections
     .flatMap(s => s.items.map(i => `${s.title}|${i.id}|${(i.description || '').trim()}`))
     .sort().join('\n');
@@ -344,15 +363,15 @@ const soltas = planos.filter(p => p.acao === 'sem fonte');
 console.log(`\n${paraGravar.length} relatórios a congelar · ${planos.filter(p => p.acao === 'ok').length} já corretos · ${soltas.length} sem fonte`);
 
 // Respostas que saem do ar (só o caso documentado em SEM_TEXTO_ACEITO).
-const concluidas = new Set(inspecoes.filter((i: any) => i.status === 'completed' && !i.deleted_at).map((i: any) => i.id));
-const aSoftDeletar = respostas.filter((r: any) => {
+const concluidas = new Set(inspecoes.filter(i => i.status === 'completed' && !i.deleted_at).map(i => i.id));
+const aSoftDeletar = respostas.filter(r => {
   if (r.deleted_at || !concluidas.has(r.inspection_id)) return false;
   const re = SEM_TEXTO_ACEITO[r.inspection_id];
   return (re && re.test(r.item_id)) || extraVazia(r);
 });
 if (aSoftDeletar.length) {
   console.log(`\n${aSoftDeletar.length} respostas a marcar com deleted_at (nunca apareceram no relatório entregue):`);
-  console.log('  ' + [...new Set(aSoftDeletar.map((r: any) => r.item_id))].sort().join(', '));
+  console.log('  ' + [...new Set(aSoftDeletar.map(r => r.item_id))].sort().join(', '));
 }
 
 // Conferência: `--secao "Recursos Humanos"` imprime a seção reconstruída de cada relatório,
@@ -381,7 +400,10 @@ if (!APPLY) {
 // (ver o reparo de fotos de jun/2026). Reescrevê-las para trocar um campo seria arriscado
 // e caro. Quem procura foto em snapshot precisa varrer todas as versões, não só a última.
 for (const p of paraGravar) {
-  const insp = inspecoes.find((i: any) => i.id === p.id);
+  const insp = inspecoes.find(i => i.id === p.id);
+  // O plano nasce da propria lista de inspecoes, entao isto nao deve acontecer - mas gravar
+  // uma versao sem tenant_id e pior do que parar.
+  if (!insp) throw new Error(`Inspecao ${p.id} sumiu entre o planejamento e a gravacao.`);
   const { error } = await sb.from('inspection_report_versions').insert({
     tenant_id: insp.tenant_id,
     inspection_id: p.id,
@@ -397,7 +419,7 @@ for (const p of paraGravar) {
 
 if (aSoftDeletar.length) {
   const agora = new Date().toISOString();
-  const { error } = await sb.from('responses').update({ deleted_at: agora }).in('id', aSoftDeletar.map((r: any) => r.id));
+  const { error } = await sb.from('responses').update({ deleted_at: agora }).in('id', aSoftDeletar.map(r => r.id));
   if (error) throw new Error(`soft-delete: ${error.message}`);
   console.log(`  ${aSoftDeletar.length} respostas marcadas com deleted_at`);
 }

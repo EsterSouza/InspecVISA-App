@@ -23,6 +23,15 @@ import { getTemplateById } from '../src/data/templates';
 import { resolveReportTemplate } from '../src/utils/reportTemplate';
 import type { ChecklistTemplate, Inspection, InspectionResponse } from '../src/types';
 import { requireSupabaseEnv } from './env';
+import {
+  lerTudo,
+  type LinhaCliente,
+  type LinhaInspecao,
+  type LinhaItem,
+  type LinhaResposta,
+  type LinhaRoteiro,
+  type LinhaSecao,
+} from './linhas';
 
 const DETALHE = process.argv.includes('--itens');
 const SECAO_DEGRADADA = 'sec-report-recovered';
@@ -30,45 +39,37 @@ const SECAO_DEGRADADA = 'sec-report-recovered';
 const { url, key } = requireSupabaseEnv();
 const sb = createClient(url, key, { auth: { persistSession: false } });
 
-async function readAll<T = any>(table: string, select: string, order = 'id'): Promise<T[]> {
-  const out: T[] = [];
-  for (let from = 0; ; from += 1000) {
-    const { data, error } = await sb.from(table).select(select).order(order).range(from, from + 999);
-    if (error) throw new Error(`${table}: ${error.message}`);
-    out.push(...(data as T[]));
-    if ((data as T[]).length < 1000) break;
-  }
-  return out;
-}
+/** O roteiro congelado dentro do snapshot, sem o resto (que traz as fotos em base64). */
+type LinhaVersao = { inspection_id: string; created_at: string; template: ChecklistTemplate | null };
 
 const [inspecoes, clientes, respostas, tpls, secs, itens, versoes] = await Promise.all([
-  readAll('inspections', 'id,client_id,template_id,status,consultant_name,inspection_date,created_at,deleted_at'),
-  readAll('clients', 'id,name,category,city,state,food_types'),
-  readAll('responses', 'id,inspection_id,item_id,result,situation_description,custom_description,deleted_at'),
-  readAll('checklist_templates', 'id,name,category,version'),
-  readAll('checklist_sections', 'id,template_id,title,"order"'),
-  readAll('checklist_items', 'id,section_id,description,legislation_name,legislation_url,weight,is_critical,requirement_type,"order"'),
+  lerTudo<LinhaInspecao>(sb, 'inspections', 'id,client_id,template_id,status,consultant_name,inspection_date,created_at,deleted_at'),
+  lerTudo<LinhaCliente>(sb, 'clients', 'id,name,category,city,state,food_types'),
+  lerTudo<Omit<LinhaResposta, 'created_at'>>(sb, 'responses', 'id,inspection_id,item_id,result,situation_description,custom_description,deleted_at'),
+  lerTudo<LinhaRoteiro>(sb, 'checklist_templates', 'id,name,category,version'),
+  lerTudo<LinhaSecao>(sb, 'checklist_sections', 'id,template_id,title,"order"'),
+  lerTudo<Omit<LinhaItem, 'created_at'>>(sb, 'checklist_items', 'id,section_id,description,legislation_name,legislation_url,weight,is_critical,requirement_type,"order"'),
   // Só o roteiro congelado: `snapshot_json` inteiro traz as fotos em base64 e estoura a resposta.
-  readAll('inspection_report_versions', 'inspection_id,created_at,template:snapshot_json->reportSnapshot->template', 'created_at'),
+  lerTudo<LinhaVersao>(sb, 'inspection_report_versions', 'inspection_id,created_at,template:snapshot_json->reportSnapshot->template', 'created_at'),
 ]);
 
 /** Roteiros do banco no formato do app (mesmo mapeamento do TemplateService). */
 const roteiroDoBanco = new Map<string, ChecklistTemplate>();
 for (const t of tpls) {
-  const minhasSecs = secs.filter((s: any) => s.template_id === t.id).sort((a: any, b: any) => a.order - b.order);
+  const minhasSecs = secs.filter(s => s.template_id === t.id).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   roteiroDoBanco.set(t.id, {
     id: t.id,
     name: t.name,
     category: t.category,
     version: t.version,
-    sections: minhasSecs.map((s: any) => ({
+    sections: minhasSecs.map(s => ({
       id: s.id,
       title: s.title,
       order: s.order,
       items: itens
-        .filter((i: any) => i.section_id === s.id)
-        .sort((a: any, b: any) => a.order - b.order)
-        .map((i: any) => ({
+        .filter(i => i.section_id === s.id)
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+        .map(i => ({
           id: i.id,
           sectionId: s.id,
           order: i.order,
@@ -85,12 +86,12 @@ for (const t of tpls) {
 
 /** Último snapshot com roteiro congelado, por inspeção. `versoes` já vem em ordem crescente. */
 const snapshotPorInspecao = new Map<string, ChecklistTemplate>();
-for (const v of versoes as any[]) {
+for (const v of versoes) {
   if (v.template && typeof v.template === 'object') snapshotPorInspecao.set(v.inspection_id, v.template);
 }
 
-const idsDeItens = new Set(itens.map((i: any) => i.id));
-const respostasPorInspecao = new Map<string, any[]>();
+const idsDeItens = new Set(itens.map(i => i.id));
+const respostasPorInspecao = new Map<string, Omit<LinhaResposta, 'created_at'>[]>();
 for (const r of respostas) {
   if (r.deleted_at) continue;
   const lista = respostasPorInspecao.get(r.inspection_id) || [];
@@ -137,7 +138,7 @@ type Linha = {
   itens: string[];
 };
 
-function comoResposta(r: any): InspectionResponse {
+function comoResposta(r: Omit<LinhaResposta, 'created_at'>): InspectionResponse {
   return {
     id: r.id,
     inspectionId: r.inspection_id,
@@ -160,9 +161,12 @@ const linhas: Linha[] = [];
 for (const insp of inspecoes) {
   if (insp.deleted_at || insp.status !== 'completed') continue;
 
-  const cliente = clientes.find((c: any) => c.id === insp.client_id);
+  const cliente = clientes.find(c => c.id === insp.client_id);
   const resps = (respostasPorInspecao.get(insp.id) || []).map(comoResposta);
-  const base = getTemplateById(insp.template_id) || roteiroDoBanco.get(insp.template_id);
+  // `template_id` é nullable no banco; sem roteiro a busca não acha nada e a inspeção cai
+  // no ramo "sem roteiro" logo abaixo — que é o que já acontecia com o `any`.
+  const templateId = insp.template_id ?? '';
+  const base = getTemplateById(templateId) || roteiroDoBanco.get(templateId);
   const snapshot = snapshotPorInspecao.get(insp.id);
 
   const avaliadas = resps.filter(r => r.result && r.result !== 'not_evaluated').length;
@@ -195,7 +199,7 @@ for (const insp of inspecoes) {
     reportTemplateSnapshot: snapshot,
   } as unknown as Inspection;
 
-  const remoto = resolveReportTemplate(base, { ...comum, city: cliente?.city, state: cliente?.state }, resps);
+  const remoto = resolveReportTemplate(base, { ...comum, city: cliente?.city ?? undefined, state: cliente?.state ?? undefined }, resps);
   const dexie = resolveReportTemplate(base, comum, resps);
   const itensRemoto = degradadas(remoto, resps);
 

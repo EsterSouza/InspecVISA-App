@@ -27,6 +27,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { templates } from '../src/data/templates';
 import { requireSupabaseEnv } from './env';
+import { lerTudo, type LinhaItem, type LinhaRoteiro, type LinhaSecao } from './linhas';
+import type { ChecklistItem } from '../src/types';
 
 const APPLY = process.argv.includes('--apply');
 const { url, key } = requireSupabaseEnv();
@@ -42,43 +44,32 @@ const VIRA = 'fed-076a';
 /** Itens do código a inserir ao lado dele. */
 const INSERIR = ['fed-068', 'fed-069', 'fed-070'];
 
-async function readAll(table: string, select: string) {
-  const out: any[] = [];
-  for (let from = 0; ; from += 1000) {
-    const { data, error } = await sb.from(table).select(select).order('id').range(from, from + 999);
-    if (error) throw new Error(`${table}: ${error.message}`);
-    out.push(...(data as any[]));
-    if ((data as any[]).length < 1000) break;
-  }
-  return out;
-}
-
 const [items, secs, tpls] = await Promise.all([
-  readAll('checklist_items', '*'),
-  readAll('checklist_sections', 'id,title,template_id'),
-  readAll('checklist_templates', 'id,name'),
+  lerTudo<LinhaItem>(sb, 'checklist_items', '*'),
+  lerTudo<Pick<LinhaSecao, 'id' | 'title' | 'template_id'>>(sb, 'checklist_sections', 'id,title,template_id'),
+  lerTudo<Pick<LinhaRoteiro, 'id' | 'name'>>(sb, 'checklist_templates', 'id,name'),
 ]);
 
-const tpl = tpls.find((t: any) => t.name === ROTEIRO);
+const tpl = tpls.find(t => t.name === ROTEIRO);
 if (!tpl) throw new Error(`Roteiro não encontrado no banco: ${ROTEIRO}`);
 
-const minhasSecoes = secs.filter((s: any) => s.template_id === tpl.id);
-const secaoRH = minhasSecoes.find((s: any) => s.title === SECAO_RH);
+const minhasSecoes = secs.filter(s => s.template_id === tpl.id);
+const secaoRH = minhasSecoes.find(s => s.title === SECAO_RH);
 if (!secaoRH) throw new Error(`Seção não encontrada: ${SECAO_RH}`);
 
-const idsSecao = new Set(minhasSecoes.map((s: any) => s.id));
-const itensDoRoteiro = items.filter((i: any) => idsSecao.has(i.section_id));
+const idsSecao = new Set(minhasSecoes.map(s => s.id));
+const itensDoRoteiro = items.filter(i => idsSecao.has(i.section_id));
 
-const codigo: any = templates.find((t: any) => t.name === ROTEIRO);
+const codigo = templates.find(t => t.name === ROTEIRO);
 if (!codigo) throw new Error(`Roteiro não encontrado no código: ${ROTEIRO}`);
-const itensCodigo: any[] = codigo.sections.flatMap((s: any) => s.items);
+const itensCodigo: ChecklistItem[] = codigo.sections.flatMap(s => s.items);
 const doCodigo = (id: string) => {
-  const i = itensCodigo.find((x: any) => x.id === id);
+  const i = itensCodigo.find(x => x.id === id);
   if (!i) throw new Error(`Item ${id} não existe mais em src/data/templates.ts`);
   return i;
 };
 
-const paraLinha = (c: any) => ({
+const paraLinha = (c: ChecklistItem) => ({
   section_id: secaoRH.id,
   description: c.description,
   legislation_name: c.legislation,
@@ -89,17 +80,21 @@ const paraLinha = (c: any) => ({
 });
 
 // ── 1. Reescrita do agregado ────────────────────────────────────────────────
-const agregado = itensDoRoteiro.find((i: any) => (i.description || '').startsWith(AGREGADO));
+const agregado = itensDoRoteiro.find(i => (i.description || '').startsWith(AGREGADO));
 const alvoVira = doCodigo(VIRA);
-const reescrita = agregado && agregado.description !== alvoVira.description ? { id: agregado.id, patch: paraLinha(alvoVira) } : null;
+// O que estava lá vai junto no objeto: o relatório abaixo imprime o "de" e o "para",
+// e assim não depende de o `agregado` ainda existir na hora de imprimir.
+const reescrita = agregado && agregado.description !== alvoVira.description
+  ? { id: agregado.id, de: agregado.description, deLegislacao: agregado.legislation_name, patch: paraLinha(alvoVira) }
+  : null;
 
 // ── 2. Inserções ────────────────────────────────────────────────────────────
-const jaExiste = new Set(itensDoRoteiro.map((i: any) => (i.description || '').trim()));
-const inserir = INSERIR.map(doCodigo).filter((c: any) => !jaExiste.has(c.description.trim()));
+const jaExiste = new Set(itensDoRoteiro.map(i => (i.description || '').trim()));
+const inserir = INSERIR.map(doCodigo).filter(c => !jaExiste.has(c.description.trim()));
 
 // ── 3. Citação do descanso da enfermagem (decisão da Ester: só a lei federal) ──
-const descanso = itensDoRoteiro.find((i: any) => (i.description || '').startsWith('Dispõe de local/sala de descanso'));
-const citacaoDescanso = descanso && itensCodigo.find((c: any) => c.description === descanso.description)?.legislation;
+const descanso = itensDoRoteiro.find(i => (i.description || '').startsWith('Dispõe de local/sala de descanso'));
+const citacaoDescanso = descanso && itensCodigo.find(c => c.description === descanso.description)?.legislation;
 const ajusteDescanso =
   descanso && citacaoDescanso && descanso.legislation_name !== citacaoDescanso
     ? { id: descanso.id, de: descanso.legislation_name, para: citacaoDescanso }
@@ -115,9 +110,9 @@ console.log('ajustar citação       :', ajusteDescanso ? 'sim' : 'não (já no 
 
 if (reescrita) {
   console.log(`\n--- reescrita no lugar (id ${reescrita.id}) ---`);
-  console.log(`  de   : ${agregado.description}`);
+  console.log(`  de   : ${reescrita.de}`);
   console.log(`  para : ${reescrita.patch.description}`);
-  console.log(`  leg  : ${JSON.stringify(agregado.legislation_name)} → ${JSON.stringify(reescrita.patch.legislation_name)}`);
+  console.log(`  leg  : ${JSON.stringify(reescrita.deLegislacao)} → ${JSON.stringify(reescrita.patch.legislation_name)}`);
 }
 if (inserir.length) {
   console.log('\n--- inserções ---');
