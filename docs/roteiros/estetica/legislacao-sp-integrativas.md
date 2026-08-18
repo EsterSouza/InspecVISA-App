@@ -41,7 +41,13 @@ realmente executada:
   não foi criado um roteiro-base concorrente.
 - O suplemento SP/SP substitui oito itens federais quando a regra local ou o escopo PICS é mais
   específico: licença, CNAE, prontuário, relação de profissionais, memorial descritivo, uso único,
-  desinfecção entre atendimentos e protocolo de intercorrências.
+  desinfecção entre atendimentos e protocolo de intercorrências. A substituição casa por id **e**
+  por descrição: `replacesItemId` nomeia o id do roteiro empacotado (`est-001`), mas a execução
+  carrega o roteiro do banco, onde o mesmo requisito é UUID. Só por id, o item federal sobrevivia
+  e o roteiro abria com 130 itens em vez de 122.
+- As três perguntas de CNAE (`sp-est-003/004/005`) ficam na ordem 2, coladas na de licenciamento:
+  em SP o nível de risco decorre do CNAE, e responder as duas coisas em momentos separados da
+  visita obrigava a voltar atrás.
 - A seção nova fica somente com cinco lacunas sem equivalente federal: triagem individual,
   informação sobre a natureza complementar, plano individual, segurança com calor/fumaça/aromas e
   reavaliação de resultados.

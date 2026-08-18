@@ -11,6 +11,7 @@ import { getExtraSections } from './templates_alimentos_segmentos';
 import { supplementRegistry } from './supplementRegistry';
 import { templateEsteticaClinica } from './estetica/roteiro-clinica';
 import { templateEsteticaEmbelezamento } from './estetica/roteiro-embelezamento';
+import { buildRequirementIndex, normalizeRequirementText } from '../utils/itemIdentity';
 
 
 // ── MAPEAMENTO DE PESOS ──────────────────────────────────────
@@ -334,7 +335,37 @@ function normalizeSectionTitle(title: string): string {
   return (title || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
 }
 
+/**
+ * Descrição normalizada de cada item dos roteiros empacotados, por id.
+ *
+ * `replacesItemId` aponta para o id do roteiro estático (`est-001`), mas a
+ * execução carrega o roteiro do **banco**, onde o mesmo requisito tem id UUID.
+ * Comparar só por id não removia nada e o item federal ficava lado a lado com o
+ * item local: o roteiro de SP abria com 130 itens em vez de 122, e a seção
+ * "Documentação e Regularização" com 24 em vez de 19.
+ */
+let textoDoItemEstatico: Map<string, string> | null = null;
+
+function descricaoDoItemEstatico(itemId: string): string | undefined {
+  if (!textoDoItemEstatico) {
+    textoDoItemEstatico = new Map();
+    for (const template of templates) {
+      for (const section of template.sections) {
+        for (const item of section.items) {
+          textoDoItemEstatico.set(item.id, normalizeRequirementText(item.description));
+        }
+      }
+    }
+  }
+  return textoDoItemEstatico.get(itemId);
+}
+
 function applySupplement(effective: ChecklistTemplate, supplement: ChecklistSupplement): void {
+  // Índice do roteiro efetivo ANTES de qualquer remoção — só é consultado para
+  // achar item federal, e `buildRequirementIndex` já descarta descrição repetida,
+  // então nunca se remove no escuro.
+  const idPorTexto = buildRequirementIndex(effective);
+
   supplement.sectionAdditions.forEach((addition) => {
     // Casa por id (roteiro estático) OU por título (roteiros do banco usam id UUID,
     // então 'sec-fed-12' nunca bate; o título "Recursos Humanos" sim).
@@ -348,8 +379,12 @@ function applySupplement(effective: ChecklistTemplate, supplement: ChecklistSupp
       // apontado (removido de onde estiver), em vez de somar os dois.
       addition.items.forEach((newItem) => {
         if (newItem.replacesItemId) {
+          const texto = descricaoDoItemEstatico(newItem.replacesItemId);
+          const equivalente = texto ? idPorTexto.get(texto) : undefined;
           effective.sections.forEach((section) => {
-            section.items = section.items.filter((i) => i.id !== newItem.replacesItemId);
+            section.items = section.items.filter(
+              (i) => i.id !== newItem.replacesItemId && i.id !== equivalente
+            );
           });
         }
       });

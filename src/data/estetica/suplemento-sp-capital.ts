@@ -16,7 +16,7 @@ export const suplementoEsteticaSpCapital: ChecklistSupplement = {
           id: 'sp-est-001',
           sectionId: 'sec-est-01',
           order: 1,
-          description: 'Possui Licença de Funcionamento Sanitária, CMVS ou CLI vigente, afixado em local visível e abrangendo cada atividade de interesse da saúde efetivamente exercida?',
+          description: 'Possui Licença de Funcionamento Sanitária, CMVS ou CLI vigente, afixada em local visível e abrangendo cada atividade de interesse da saúde efetivamente exercida?',
           legislation: 'Portaria SMS nº 266/2025, arts. 4º, 8º e 41; Portaria CVS nº 1/2024',
           weight: 10,
           isCritical: true,
@@ -66,7 +66,7 @@ export const suplementoEsteticaSpCapital: ChecklistSupplement = {
         {
           id: 'sp-est-003',
           sectionId: 'sec-est-01',
-          order: 17,
+          order: 2,
           description: 'Quando utiliza o CNAE 8690-9/01, ele corresponde somente às práticas integrativas sem enquadramento específico, sem substituir o licenciamento da estética, da acupuntura ou de outra atividade efetivamente exercida?',
           legislation: 'Portaria CVS nº 5/2025, arts. 2º e 3º e Anexo Único; Portaria SMS nº 266/2025, arts. 4º e 5º',
           weight: 10,
@@ -75,7 +75,7 @@ export const suplementoEsteticaSpCapital: ChecklistSupplement = {
         {
           id: 'sp-est-004',
           sectionId: 'sec-est-01',
-          order: 18,
+          order: 2,
           description: 'Quando realiza acupuntura, a atividade está declarada e licenciada no CNAE 8690-9/03?',
           legislation: 'Portaria SMS nº 266/2025, Anexo I; Portaria CVS nº 1/2024, Anexo I',
           weight: 10,
@@ -84,7 +84,7 @@ export const suplementoEsteticaSpCapital: ChecklistSupplement = {
         {
           id: 'sp-est-005',
           sectionId: 'sec-est-01',
-          order: 19,
+          order: 2,
           description: 'Quando realiza estética médica com procedimentos cirúrgicos sob o CNAE 8630-5/01, mantém o enquadramento da Clínica de Estética tipo I, II ou III e a DCFF exigida para a edificação?',
           legislation: 'Portaria CVS nº 15/1999; Portaria SMS/COVISA nº 404/2024, arts. 4º e 5º e Anexo I; Portaria SMS nº 266/2025, Anexo I',
           weight: 10,

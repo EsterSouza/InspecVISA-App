@@ -189,6 +189,26 @@ describe('checklist integrity — todos os roteiros de src/data', () => {
 
   describe('integração dos roteiros de estética', () => {
     const clinica = templates.find(t => t.id === 'tpl-estetica-clinica-v1') as ChecklistTemplate;
+
+    /**
+     * O roteiro como a execução o carrega: vindo do Supabase, **todo** id é UUID —
+     * template, seção e item. Trocar só o id do roteiro, como estes testes faziam
+     * antes, não reproduzia nada do que quebra na prática.
+     */
+    function comIdsDoBanco(template: ChecklistTemplate): ChecklistTemplate {
+      let n = 0;
+      const uuid = () => `00000000-0000-4000-8000-${String(++n).padStart(12, '0')}`;
+      return {
+        ...template,
+        id: uuid(),
+        sections: template.sections.map(section => ({
+          ...section,
+          id: uuid(),
+          items: section.items.map(item => ({ ...item, id: uuid() })),
+        })),
+      };
+    }
+
     const rjClient = { id: 'test-est-rj', name: 'Clínica RJ', category: 'estetica', state: 'Rio de Janeiro' } as Client;
     const otherStateClient = { id: 'test-est-sp', name: 'Clínica SP', category: 'estetica', state: 'SP' } as Client;
     const saoPauloCapitalClient = { id: 'test-est-sp-capital', name: 'Clínica SP Capital', category: 'estetica', state: 'São Paulo', city: 'São Paulo' } as Client;
@@ -234,11 +254,15 @@ describe('checklist integrity — todos os roteiros de src/data', () => {
     });
 
     test('aplica o suplemento paulista ao roteiro federal seedado com UUID do Supabase', () => {
-      const remoteClinica = { ...clinica, id: '00000000-0000-4000-8000-000000000002' };
-      const effective = getEffectiveTemplate(remoteClinica, saoPauloCapitalClient, undefined, true);
+      const effective = getEffectiveTemplate(comIdsDoBanco(clinica), saoPauloCapitalClient, undefined, true);
+      const items = allItems(effective);
 
-      expect(allItems(effective).find(item => item.id === 'sp-est-001')).toBeTruthy();
-      expect(allItems(effective).find(item => item.id === 'est-001')).toBeUndefined();
+      expect(items.find(item => item.id === 'sp-est-001')).toBeTruthy();
+      // O item federal substituído não sobrevive só porque mudou de id: `replacesItemId`
+      // aponta para 'est-001' e no banco o mesmo requisito é UUID. Enquanto isso casava
+      // só por id, os dois ficavam lado a lado — 130 itens em vez de 122.
+      expect(items).toHaveLength(122);
+      assertNoNearDuplicates(effective);
     });
 
     test('substitui a licença federal uma única vez para cliente do RJ', () => {
@@ -253,11 +277,10 @@ describe('checklist integrity — todos os roteiros de src/data', () => {
     });
 
     test('aplica o suplemento ao roteiro de clínica seedado com UUID do Supabase', () => {
-      const remoteClinica = { ...clinica, id: '00000000-0000-4000-8000-000000000001' };
-      const effective = getEffectiveTemplate(remoteClinica, rjClient, undefined, true);
+      const effective = getEffectiveTemplate(comIdsDoBanco(clinica), rjClient, undefined, true);
 
       expect(allItems(effective).find(item => item.id === 'rj-est-001')).toBeTruthy();
-      expect(allItems(effective).find(item => item.id === 'est-001')).toBeUndefined();
+      assertNoNearDuplicates(effective);
     });
   });
 });
