@@ -285,18 +285,21 @@ export function LegislationsManager() {
 
   async function handleSeed() {
     const ok = await confirm({
-      title: 'Importar legislações sugeridas?',
-      description: 'Importa automaticamente as principais legislações sanitárias brasileiras para sua biblioteca.',
-      confirmLabel: 'Importar legislações',
+      title: 'Sincronizar com a base unificada?',
+      description: 'Traz as normas que faltam e atualiza vigência, alcance e segmento das que já estão aqui, a partir da base compartilhada com o PastaVISA. Autoria, ementa e URL editadas nesta tela são preservadas.',
+      confirmLabel: 'Sincronizar',
       tone: 'default',
     });
     if (!ok) return;
     try {
       setIsSeeding(true);
-      await LegislationService.seedStandardLegislations();
+      const { inseridas, atualizadas } = await LegislationService.seedStandardLegislations();
       await loadLegislations();
+      toast.success(
+        `Base sincronizada: ${inseridas} norma(s) nova(s), ${atualizadas} atualizada(s).`
+      );
     } catch {
-      toast.error('Erro ao importar legislações sugeridas');
+      toast.error('Erro ao sincronizar com a base unificada');
     } finally {
       setIsSeeding(false);
     }

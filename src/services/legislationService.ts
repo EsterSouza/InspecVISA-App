@@ -120,29 +120,62 @@ export const LegislationService = {
     }
   },
 
-  async seedStandardLegislations(): Promise<number> {
+  /**
+   * Alinha a tabela com a biblioteca curada de @visa/legislacao.
+   *
+   * Antes só inseria o que faltava, então as linhas antigas nunca recebiam campo
+   * novo: quando a base unificada trouxe `abnt` e `municipio`, os 77 verbetes que
+   * já estavam na tabela ficariam sem os dois para sempre. Agora também atualiza
+   * o que existe.
+   *
+   * Autoria, ementa, URL e notas só são gravadas onde estão vazias — são
+   * editáveis no admin e uma correção feita lá não pode ser desfeita por uma
+   * ressemeadura. Vigência, alcance e segmento vêm sempre da biblioteca: são a
+   * curadoria que o pacote existe para centralizar.
+   */
+  async seedStandardLegislations(): Promise<{ inseridas: number; atualizadas: number }> {
     const { data: existing = [], error: listError } = await withTimeout(
       supabase
         .from('legislations')
-        .select('name'),
+        .select('id,name,authority,summary,url,abnt,research_notes'),
       LEGISLATION_QUERY_TIMEOUT_MS,
       'SeedLegislationsList'
     );
     if (listError) throw listError;
 
-    const existingRows = existing || [];
-    const existingNames = new Set(existingRows.map(l => l.name));
-    
-    const toAdd = DEFAULT_LEGISLATIONS.filter(l => !existingNames.has(l.name));
-    
-    if (toAdd.length === 0) return 0;
+    const porNome = new Map((existing || []).map(l => [l.name, l]));
 
-    const { error } = await supabase
-      .from('legislations')
-      .insert(toAdd);
-    
-    if (error) throw error;
-    return toAdd.length;
+    const inserir = DEFAULT_LEGISLATIONS.filter(l => !porNome.has(l.name));
+    if (inserir.length > 0) {
+      const { error } = await supabase.from('legislations').insert(inserir);
+      if (error) throw error;
+    }
+
+    let atualizadas = 0;
+    for (const curada of DEFAULT_LEGISLATIONS) {
+      const atual = porNome.get(curada.name);
+      if (!atual) continue;
+
+      const patch = {
+        authority: atual.authority || curada.authority,
+        summary: atual.summary || curada.summary,
+        url: atual.url || curada.url,
+        abnt: atual.abnt || curada.abnt,
+        research_notes: atual.research_notes || curada.research_notes,
+        uf: curada.uf,
+        municipio: curada.municipio,
+        segments: curada.segments,
+        status: curada.status,
+        replaced_by: curada.replaced_by,
+      };
+
+      const { error } = await supabase.from('legislations').update(patch).eq('id', atual.id);
+      if (error) throw error;
+      atualizadas++;
+    }
+
+    cachedLegislations = null;
+    return { inseridas: inserir.length, atualizadas };
   },
 
   async saveLegislation(leg: Omit<Legislation, 'id' | 'created_at'>): Promise<Legislation> {
