@@ -222,3 +222,18 @@ seção C.
 As duas migrations do SEC-01 (`20260808185142_sec01_close_photos_bucket` e
 `20260808185210_sec01_revoke_anon_table_grants`) foram aplicadas pelo MCP em 08/08/2026 e o arquivo
 local já nasceu com a versão que o ledger gravou — a regra da seção D valendo na prática.
+
+## `legislations_abnt_municipio` — aplicada por MCP em 18/08/2026
+
+Duas colunas aditivas em `public.legislations`, para a base unificada `@visa/legislacao`:
+`abnt` (referência NBR 6023 completa) e `municipio` (alcance municipal do ato). O comentário de
+`status` também foi atualizado, porque o domínio ganhou `nao_verificado`.
+
+Aplicada pelo MCP e registrada no ledger com o mesmo conteúdo do arquivo local
+`supabase/migrations/20260818090000_legislations_abnt_municipio.sql` — a regra da seção D valendo de
+novo. Confirmado por `information_schema.columns` depois de aplicar.
+
+**As linhas em si não vêm de migration.** A tabela tinha 77 verbetes e a biblioteca tem 119; a
+diferença entra por **Admin → Legislações → Sincronizar**, que agora insere o que falta *e* atualiza
+o que existe (antes só inseria, então coluna nova nunca chegava às linhas antigas). Uma migration com
+os 119 verbetes teria 60 KB de `VALUES` duplicando dado que já viaja no bundle do app.

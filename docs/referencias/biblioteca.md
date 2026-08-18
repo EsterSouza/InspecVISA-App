@@ -1,11 +1,63 @@
 # Biblioteca de legislações — REF-02
 
-**Última verificação de vigência:** 15/08/2026 · **Fonte de verdade:**
-[`src/data/legislationLibrary.ts`](../../src/data/legislationLibrary.ts)
+**Última verificação de vigência:** 15/08/2026 · **Fonte de verdade:** o pacote
+**[`@visa/legislacao`](https://github.com/EsterSouza/visa-legislacao)**, arquivo `src/library.ts`.
+
+> **A biblioteca mudou de casa em 18/08/2026.** `src/data/legislationLibrary.ts` continua existindo,
+> mas agora é só uma reexportação do pacote — editar lá não tem efeito. Ver "Unificação com o
+> PastaVISA", logo abaixo.
 
 Este documento é a evidência da checagem exigida pelo card REF-02 ("verificar vigência antes de
 cadastrar"). A tabela abaixo é gerada a partir da biblioteca em código; se a biblioteca mudar,
 este arquivo precisa ser regerado junto.
+
+## Unificação com o PastaVISA (18/08/2026)
+
+O PastaVISA mantinha a própria lista de legislações, escrita à mão, com 47 atos. As duas bases
+foram fundidas no pacote `@visa/legislacao`, que passa a ser a fonte única do InspecVISA, do
+PastaVISA e, adiante, do ERP da TreinaVISA. **119 atos**, de 87 que havia aqui.
+
+O que o InspecVISA ganhou:
+
+- **PR, SC, AM e PA**, que só existiam no PastaVISA, mais as resoluções COFEN de estética
+  (626/2020, 568/2018, 713/2022, 739/2024, 801/2026) e o Parecer Normativo COFEN 1/2020.
+- **`abnt`** — referência NBR 6023 completa, com data do ato, local de publicação e "Disponível em".
+  47 verbetes têm uma; o `formatABNT` do PDF usa essa quando existe e monta a forma curta quando não.
+- **`municipio`** — alcance municipal do ato. Antes só havia `uf`, então o Decreto Rio nº 23.915/2004,
+  que é da capital, era sugerido para cliente de Niterói ou Petrópolis.
+- **`status: 'nao_verificado'`** — os 31 atos herdados do PastaVISA entraram sem checagem de
+  vigência. São normas reais e continuam sendo sugeridas, mas ninguém apurou se seguem valendo.
+  Têm aba própria em Admin → Legislações ("A verificar") e `npm run consultar -- --pendentes` lista
+  a fila. O teste falha se alguém marcar `vigente` sem `verifiedAt`.
+- **A Constituição da República** estava só no banco de produção, fora da biblioteca — então a
+  citação saía sem autoria. Entrou como verbete.
+
+Dois defeitos da chave canônica foram corrigidos na mudança:
+
+1. Ato sem número nem ano (`Constituição da República…`, `Boas Práticas`) colapsava em `OUTRO||`
+   para **todos**, e qualquer menção sem número resolvia para o primeiro verbete desse feitio. A
+   chave agora carrega o texto.
+2. `§ 3º` escapava do filtro de sub-referência e virava nome de norma no relatório: o `` do regex
+   não casa depois de `§`, que não é caractere de palavra.
+
+Um teste novo trava a amarração com os roteiros: **nenhum item pode cobrar exigência com base em
+norma revogada**. Passou limpo — os roteiros não citam nenhuma.
+
+### Consultar a base
+
+```bash
+cd C:/Saas/visa-legislacao
+npm run consultar -- --help
+npm run consultar -- --uf PR --segmento estetica
+npm run consultar -- --abnt "RDC 222/2018"
+npm run consultar -- --pendentes
+```
+
+### Como alterar uma norma
+
+Edite `src/library.ts` **do pacote**, rode `npm test`, recompile (`npm run build` — o `dist/` é
+versionado, porque os apps instalam pelo tarball https da tag), publique tag nova e aponte os dois
+`package.json` para ela. Depois, em Admin → Legislações, use **Sincronizar** para levar a produção.
 
 ## Cache de pesquisa (15/08/2026)
 
