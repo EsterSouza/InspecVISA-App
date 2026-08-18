@@ -205,7 +205,7 @@ function EvidenceUpload({
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
-            className="inline-flex items-center gap-1.5 rounded-md border border-primary-200 bg-primary-50 px-2.5 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-100"
+            className="inline-flex items-center gap-1.5 rounded-md border border-primary-200 bg-primary-50 px-2.5 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-100 [@media(pointer:coarse)]:min-h-11"
           >
             {alreadySent ? <RefreshCw className="h-3.5 w-3.5" /> : <Paperclip className="h-3.5 w-3.5" />}
             {alreadySent ? 'Enviar outra evidência' : 'Enviar evidência'}
@@ -349,7 +349,7 @@ function DeclareStatus({
             key={option}
             type="button"
             onClick={() => { setChoice(option); setError(null); }}
-            className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors ${
+            className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors [@media(pointer:coarse)]:min-h-11 ${
               choice === option ? declaredTheme[option] : 'border-default bg-surface text-navy-2 hover:bg-surface-hover'
             }`}
           >
@@ -679,8 +679,8 @@ export function PortalActionPlan({
         </h3>
         <span className="text-xs font-medium text-navy-2">
           {open.length} pendente{open.length === 1 ? '' : 's'}
-          {overdue > 0 && <span className="ml-1 font-bold text-amber-strong">· {overdue} vencida(s)</span>}
-          {resolved.length > 0 && <span className="ml-1">· {resolved.length} concluída(s)</span>}
+          {overdue > 0 && <span className="ml-1 font-bold text-amber-strong">· {overdue} vencida{overdue === 1 ? '' : 's'}</span>}
+          {resolved.length > 0 && <span className="ml-1">· {resolved.length} concluída{resolved.length === 1 ? '' : 's'}</span>}
         </span>
       </div>
 
@@ -697,7 +697,7 @@ export function PortalActionPlan({
                 <span className="text-[11px] font-medium text-navy-2">
                   {group.items.length} pendente{group.items.length === 1 ? '' : 's'}
                   {group.overdueCount > 0 && (
-                    <span className="ml-1 font-bold text-amber-strong">· {group.overdueCount} vencida(s)</span>
+                    <span className="ml-1 font-bold text-amber-strong">· {group.overdueCount} vencida{group.overdueCount === 1 ? '' : 's'}</span>
                   )}
                 </span>
               </div>
@@ -717,7 +717,7 @@ export function PortalActionPlan({
                 <button
                   type="button"
                   onClick={() => onSelectUnit(group.clientId)}
-                  className="mt-2 text-xs font-semibold text-primary-700 hover:text-primary-900"
+                  className="mt-2 inline-flex items-center text-xs font-semibold text-primary-700 hover:text-primary-900 [@media(pointer:coarse)]:min-h-11"
                 >
                   Ver todas as {group.items.length} pendências de {group.unitName}
                 </button>
@@ -744,7 +744,7 @@ export function PortalActionPlan({
         <button
           type="button"
           onClick={() => setExpanded((value) => !value)}
-          className="mt-3 text-xs font-semibold text-primary-700 hover:text-primary-900"
+          className="mt-3 inline-flex items-center text-xs font-semibold text-primary-700 hover:text-primary-900 [@media(pointer:coarse)]:min-h-11"
         >
           {compact ? `Ver todas as ${open.length} pendências` : 'Mostrar menos'}
         </button>
@@ -753,7 +753,7 @@ export function PortalActionPlan({
       {resolved.length > 0 && (
         <details className="mt-3">
           <summary className="cursor-pointer text-xs font-semibold text-navy-3 hover:text-navy-2">
-            Histórico · {resolved.length} pendência(s) concluída(s)
+            Histórico · {resolved.length} pendência{resolved.length === 1 ? '' : 's'} concluída{resolved.length === 1 ? '' : 's'}
           </summary>
           <ul className="mt-2 space-y-2">
             {resolved.map((item) => (

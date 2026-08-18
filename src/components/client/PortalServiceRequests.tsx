@@ -531,7 +531,7 @@ export function PortalServiceRequests({
           {waitingClient > 0 && (
             <span className="ml-1 font-bold text-amber-soft-ink">· {waitingClient} aguardando você</span>
           )}
-          {closed.length > 0 && <span className="ml-1">· {closed.length} encerrada(s)</span>}
+          {closed.length > 0 && <span className="ml-1">· {closed.length} encerrada{closed.length === 1 ? '' : 's'}</span>}
         </span>
       </div>
 
