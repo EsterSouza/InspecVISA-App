@@ -51,5 +51,28 @@ Funcionalidade: Painel operacional das consultoras
     Quando clico num item
     Então vou direto ao registro correspondente, dentro do meu tenant
 
+  # Escrito em 18/08/2026, depois de a Ester relatar que clicar numa evidência abria a ficha do
+  # cliente. A regra acima existia, mas "registro correspondente" é vago demais para pegar isso:
+  # a ficha do cliente também é *um* registro. Destino nomeado, bloco a bloco.
+  Esquema do Cenário: O destino é o lugar onde a pendência se resolve
+    Quando clico num item do bloco "<bloco>"
+    Então abro <destino>
+
+    Exemplos:
+      | bloco                          | destino                                                  |
+      | Compromissos próximos          | o compromisso na agenda                                  |
+      | Pedidos de agendamento         | o pedido, na aba Solicitações de Agendamentos            |
+      | Solicitações novas             | a solicitação                                            |
+      | Clientes aguardando resposta   | a solicitação                                            |
+      | Evidências aguardando revisão  | o item do plano de ação, com a evidência para aprovar    |
+      | Planos de ação vencidos        | o item do plano de ação                                  |
+
+  Cenário: A lista atrás do detalhe acompanha o item aberto por link
+    Dado que o Plano de ação abre em "vencidas" por padrão
+    E uma evidência de um item ainda no prazo
+    Quando chego pelo link do Painel
+    Então o detalhe abre e a lista atrás dele muda para o segmento daquele item
+    E trocar de segmento depois disso continua sendo escolha minha
+
   # Garantido por: supabase/migrations/*_admin_operational_overview*.sql,
   # supabase/tests/admin_operational_overview.test.sql.

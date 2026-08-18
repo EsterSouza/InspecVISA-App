@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   AlertTriangle,
@@ -185,6 +185,18 @@ export function ActionPlan() {
   const { page, totalPages, items: pagedItems, setPage } = usePagedList(sorted);
 
   const selectedItem = selectedId ? items.find((item) => item.id === selectedId) || null : null;
+
+  // Chegando por deep link (`?item=`, vindo do Painel), a lista atrás da gaveta precisa estar no
+  // segmento do item — senão a pessoa fecha o detalhe e não acha a linha, porque o padrão da tela
+  // é "vencidas" e a evidência costuma vir de item ainda no prazo. Semeadura **uma vez**: trocar
+  // de aba depois disso é escolha dela.
+  const deepLinkSeeded = useRef(false);
+  useEffect(() => {
+    if (deepLinkSeeded.current || !selectedItem) return;
+    deepLinkSeeded.current = true;
+    const target = segmentOf(selectedItem);
+    if (target) setSegment(target);
+  }, [selectedItem]);
 
   const changeStatus = async (item: ClientActionItem, status: ClientActionItemStatus) => {
     setSavingStatus(true);

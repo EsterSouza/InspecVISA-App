@@ -80,7 +80,13 @@ const TECHNICAL_BLOCKS: BlockConfig[] = [
     description: 'Prova de correção enviada pelo cliente, ainda sem retorno técnico.',
     icon: FileWarning,
     accent: 'text-accent-ink bg-primary-50 border-primary-200',
-    link: (item) => `/clients/${item.client_id}`,
+    // A revisão da evidência mora na gaveta do item em `/plano-de-acao` (FE-08, `EvidenceReview`),
+    // não na ficha do cliente. A RPC já devolve `action_item_id` desde o P360-013; sem ele, cair
+    // no cliente é melhor que não ir a lugar nenhum.
+    link: (item) =>
+      typeof item.action_item_id === 'string' && item.action_item_id
+        ? `/plano-de-acao?item=${item.action_item_id}`
+        : `/clients/${item.client_id}`,
   },
   {
     key: 'action_items_overdue',
