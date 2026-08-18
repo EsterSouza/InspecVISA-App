@@ -25,7 +25,7 @@ import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
-import { Drawer } from '../components/ui/Drawer';
+import { Modal } from '../components/ui/Modal';
 import { Pagination } from '../components/ui/Pagination';
 import { TableContainer, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
 
@@ -356,8 +356,9 @@ export function ActionPlan() {
         </TableContainer>
       )}
 
-      <Drawer
+      <Modal
         isOpen={!!selectedItem}
+        className="max-w-3xl"
         onClose={() => setSelectedId(null)}
         title={selectedItem?.title}
         footer={
@@ -456,7 +457,7 @@ export function ActionPlan() {
             </div>
           </div>
         )}
-      </Drawer>
+      </Modal>
     </PageShell>
   );
 }

@@ -83,9 +83,10 @@ const TECHNICAL_BLOCKS: BlockConfig[] = [
     // A revisão da evidência mora na gaveta do item em `/plano-de-acao` (FE-08, `EvidenceReview`),
     // não na ficha do cliente. A RPC já devolve `action_item_id` desde o P360-013; sem ele, cair
     // no cliente é melhor que não ir a lugar nenhum.
+    // `client` junto do `item`: sem ele a tela abre com todas as unidades atrás do detalhe.
     link: (item) =>
       typeof item.action_item_id === 'string' && item.action_item_id
-        ? `/plano-de-acao?item=${item.action_item_id}`
+        ? `/plano-de-acao?item=${item.action_item_id}&client=${item.client_id}`
         : `/clients/${item.client_id}`,
   },
   {
@@ -94,7 +95,7 @@ const TECHNICAL_BLOCKS: BlockConfig[] = [
     description: 'Prazo publicado no portal já passou.',
     icon: AlertTriangle,
     accent: 'text-danger-soft-ink bg-danger-soft border-danger-soft-border',
-    link: (item) => `/plano-de-acao?item=${item.id}`,
+    link: (item) => `/plano-de-acao?item=${item.id}&client=${item.client_id}`,
   },
 ];
 

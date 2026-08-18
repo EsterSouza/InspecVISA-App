@@ -139,6 +139,14 @@ Do FE-26, em 18/08/2026:
     como já valia para o `Modal`. Nos testes, o polyfill de `showModal`/`close` mora no
     `src/__tests__/setup.ts`: jsdom ainda não implementa `<dialog>`.
 
+38. **Julgar prova pede modal, não gaveta** (18/08, pedido da Ester usando). O detalhe do item em
+    `/plano-de-acao` era `Drawer` (decisão do FE-08); virou `Modal` `max-w-3xl`, porque a coluna
+    estreita não deixava ver a foto que o cliente mandou. A miniatura da evidência é carregada na
+    própria revisão (URL assinada, 1h) — abrir aba nova para decidir era o atrito real.
+    Lista + detalhe (decisão 10) continua valendo; o que mudou é a forma do detalhe **nesta** tela.
+39. **Deep link de fila carrega o filtro junto.** Vindo do Painel, o link leva `item` **e**
+    `client`: chegar num detalhe com "todos os clientes" atrás dele é desorientador.
+
 ## Duas coisas que a verificação por DOM não pega
 
 Aprendido em 17/08, com quatro defeitos que só apareceram usando o fluxo:

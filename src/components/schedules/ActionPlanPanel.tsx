@@ -50,6 +50,29 @@ export function EvidenceReview({
   onReviewed: () => void;
 }) {
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Miniatura da imagem: julgar a prova sem abrir aba nenhuma é o ponto da revisão. A URL é
+  // assinada por 1h; se a gaveta ficar aberta além disso, a imagem quebra e o "Abrir arquivo"
+  // assina de novo. Só imagem — PDF e documento continuam só no botão.
+  const [previews, setPreviews] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    const images = evidence.filter((row) => (row.mime_type || '').startsWith('image/'));
+    if (images.length === 0) return;
+    void Promise.all(
+      images.map(async (row) => {
+        try {
+          return [row.id, await AppointmentAdminService.evidenceSignedUrl(row)] as const;
+        } catch {
+          return null;
+        }
+      })
+    ).then((pairs) => {
+      if (cancelled) return;
+      setPreviews(Object.fromEntries(pairs.filter((pair): pair is readonly [string, string] => !!pair)));
+    });
+    return () => { cancelled = true; };
+  }, [evidence]);
 
   const review = async (
     row: ClientActionEvidence,
@@ -100,31 +123,46 @@ export function EvidenceReview({
 
   return (
     <div className="mt-2 space-y-1.5 border-t border-dashed border-default pt-2">
-      <p className="text-[10px] font-bold uppercase tracking-wide text-navy-3">
+      <p className="text-xs font-bold uppercase tracking-wide text-navy-2">
         Evidências do cliente · {evidence.length}
       </p>
       {evidence.map((row) => (
         <div key={row.id} className="rounded-md bg-surface-sunken px-2.5 py-2">
           <div className="flex flex-wrap items-center gap-2">
-            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${EVIDENCE_STATUS_THEME[row.status]}`}>
+            <span className={`rounded-full px-2 py-0.5 text-xs font-bold uppercase ${EVIDENCE_STATUS_THEME[row.status]}`}>
               {EVIDENCE_STATUS_LABELS[row.status]}
             </span>
-            <span className="break-all text-[11px] font-medium text-navy-2">{row.file_name}</span>
-            <span className="text-[11px] text-navy-3">{formatDateBR(row.submitted_at)}</span>
+            <span className="break-all text-xs font-medium text-navy-2">{row.file_name}</span>
+            <span className="text-xs text-navy-2">{formatDateBR(row.submitted_at)}</span>
           </div>
           {row.client_note && (
-            <p className="mt-1 break-words text-[11px] text-navy-2">
+            <p className="mt-1 break-words text-xs text-navy-2">
               <span className="font-semibold">Cliente: </span>
               {row.client_note}
             </p>
           )}
           {row.review_note && (
-            <p className="mt-1 break-words text-[11px] text-navy-2">
+            <p className="mt-1 break-words text-xs text-navy-2">
               <span className="font-semibold">Sua orientação: </span>
               {row.review_note}
             </p>
           )}
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {previews[row.id] && (
+            <a
+              href={previews[row.id]}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 block w-fit rounded-md border border-default bg-surface p-1 hover:border-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+            >
+              <img
+                src={previews[row.id]}
+                alt={`Evidência enviada pelo cliente: ${row.file_name}`}
+                className="max-h-40 max-w-full rounded object-contain"
+              />
+              <span className="sr-only">Abrir em tamanho real</span>
+            </a>
+          )}
+          <div className="mt-2 flex flex-wrap gap-1.5">
             <Button
               type="button"
               variant="ghost"
