@@ -5,9 +5,9 @@
 
 ---
 
-## Onde estamos — atualizado em 17/08/2026
+## Onde estamos — atualizado em 18/08/2026
 
-**24 cards entregues, 4 na fila.** Card entregue tem o título ~~riscado~~ mais abaixo, com a data
+**25 cards entregues, 3 na fila.** Card entregue tem o título ~~riscado~~ mais abaixo, com a data
 e o commit; card aberto tem ⬜. Esta é a única tabela de estado do documento — se divergir de
 qualquer outra coisa aqui, ela ganha.
 
@@ -15,7 +15,6 @@ qualquer outra coisa aqui, ela ganha.
 
 | Card | O que é | Só depois de |
 |---|---|---|
-| **FE-25** | `SmartImporter`, o que sobrou de `TemplateDetail`, e as 3 telas de entrada | — |
 | **FE-26** | `PublicSchedule` e `PublicAppointmentStatus` — o que o cliente vê sem login | — |
 | **FE-12** | Tema escuro no app inteiro | — (FE-21 ✅ destravou) |
 | **FE-27** | Gate de regressão visual e a11y — **é o card que fecha o frontend** | FE-12, só para o tema |
@@ -54,6 +53,7 @@ grupo e já foram absorvidos pelo FE-22.
 | FE-21 | 2.705 classes cruas + 20 hex cravados viram token, família por família, em 8 commits | 17/08 | `bd221e1` … `ca0a35d`, `f82e3a6` |
 | FE-24 | `Field`/`Checkbox`/`Radio` novos e 204 controles crus migrados em 38 arquivos | 17/08 | `37adbe2` |
 | FE-22 | Alternador Cards / Tabela em `Clients` e `Inspections` — **cards seguem o padrão** (decisão 34) | 17/08 | `f0f007e`, (a seguir) |
+| FE-25 | `SmartImporter` e `TemplateDetail` em `PageShell`/`PageHeader`; erro do `Login` anunciado (`role="alert"`) | 18/08 | (a seguir) |
 
 **Ondas:** 1 (portal) **fechada** · 2 (admin) **fechada** · 3 (fechamento) falta FE-12 e a revisão
 final de a11y · 4 (o admin que falta) em andamento, 11 de 14 entregues.
@@ -772,7 +772,31 @@ Concentração: `ClientDetails.tsx` 29 · `PublicSchedule.tsx` 12 · `Legislatio
   conformidade. Migrar formulário de tela que ainda vai ser redesenhada é o mesmo erro de converter
   cor antes de o desenho parar.
 
-### ⬜ FE-25 · Importador e páginas auxiliares
+### ~~FE-25~~ ✅ · Importador e páginas auxiliares — 18/08/2026
+
+> Medidos os cinco arquivos antes de escrever o escopo (o próprio card pedia isso para o
+> `TemplateDetail`, tocado antes pelo FE-17b). Achado: só dois tinham gap real e mensurável —
+> os outros três já tinham sido tocados pelo FE-21 (tokens) e pelo FE-24 (primitivos de
+> formulário) e já estavam consistentes com o resto do app. Escopo final, menor que o card
+> original previa:
+>
+> - `src/pages/admin/SmartImporter.tsx` — não tinha `PageShell` nem `PageHeader` (usava
+>   `max-w-6xl mx-auto` com título solto). Corrigido para o mesmo padrão do `ActionPlan.tsx`. O
+>   `Badge` local que duplicava o primitivo `components/ui/Badge` saiu.
+> - `src/pages/TemplateDetail.tsx` — o corpo já usava `PageShell` e já estava tokenizado; o que
+>   destoava era um cabeçalho `sticky` com `max-w-[1600px]` próprio, por fora do `PageShell` —
+>   nenhuma outra página de detalhe faz isso. Alinhado ao padrão do `ClientDetails.tsx` (FE-16):
+>   botão "Voltar" + `PageHeader` dentro de um único `PageShell`. De quebra, os botões do
+>   acordeão de seções ganharam `aria-expanded`/`aria-controls`, que já é o padrão em
+>   `ActiveRequestsSection.tsx`/`ClosedRequestsSection.tsx` e faltava aqui.
+> - `Login.tsx`, `ProfileSelection.tsx`, `AccessDenied.tsx` — medidos e **sem gap real**: já
+>   token-based, já usam os primitivos, `ProfileSelection` segue o mesmo padrão de cartão
+>   clicável do `Clients.tsx`. Único ajuste: a faixa de erro do `Login` ganhou `role="alert"`
+>   (decisão 6, "erro não some sozinho" pressupõe que o erro seja anunciado, não só visível).
+>   Redesenho completo dessas três teria sido trabalho inventado — a medição não achou o
+>   problema que o card presumia.
+
+O texto abaixo é o card como foi escrito, mantido para leitura do histórico.
 
 O que sobra fora de qualquer protótipo depois que o FE-17b fechar:
 
@@ -968,7 +992,7 @@ entregou o editor de roteiro sem precisar de arrastar.
 | ~~FE-22~~ ✅ | Tabela densa como **opção** em `Clients` e `Inspections` (decisão 34) | Opus 5 | baixo | entregue 17/08 |
 | ~~FE-23~~ ✅ | Artefato E + fluxo `/new` → `/execute` → `/summary` | Opus 5 | **alto** | entregue 16/08 |
 | ~~FE-24~~ ✅ | ~225 controles crus → `Input`/`Select`/`Textarea`/`Label` | Opus 5 | alto | entregue 17/08 |
-| FE-25 | `SmartImporter`, `TemplateDetail` e as telas de entrada | Sonnet 5 | baixo | FE-17b ✅ |
+| ~~FE-25~~ ✅ | `SmartImporter`, `TemplateDetail` e as telas de entrada | Sonnet 5 | baixo | entregue 18/08 |
 | FE-26 | `PublicSchedule` + `PublicAppointmentStatus` | Opus 5 | médio | Artefato C ✅ |
 | FE-27 | Gate de regressão visual e a11y | Opus 5 (matriz) · Sonnet 5 (spec) | médio-alto | FE-12, só para a camada de tema |
 | FE-12 | Ligar o tema escuro no app inteiro | Sonnet 5 | médio | — (FE-21 ✅ destravou) |
@@ -982,7 +1006,7 @@ em paralelo por serem as duas telas de uso diário. Daqui em diante:
 2. ~~**FE-23**~~ ✅ ~~**e FE-24**~~ ✅ — estrutura real de uso. Vieram antes da cor, de propósito.
 3. ~~**FE-21**~~ ✅ — convertido em 17/08, com o desenho das telas do FE-23 já congelado (a ordem
    que o handoff pedia, pra não converter cor duas vezes).
-4. ~~**FE-22**~~ ✅ **, FE-25 e FE-26** — as superfícies restantes.
+4. ~~**FE-22**~~ ✅ ~~**e FE-25**~~ ✅ **, e FE-26** — as superfícies restantes.
 5. **FE-12** — o tema escuro é o último de propósito: é o card mais vistoso e o menos estrutural.
 6. **FE-27** — fecha a onda e é o único que autoriza a frase "frontend visual fechado".
 

@@ -10,6 +10,7 @@ import { TemplateService } from '../services/templateService';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { PageShell } from '../components/ui/PageShell';
+import { PageHeader } from '../components/ui/PageHeader';
 import { rawErrorMessage } from '../utils/errors';
 
 interface TemplateItem {
@@ -154,52 +155,50 @@ export function TemplateDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-canvas">
-      {/* ── HEADER ─────────────────────────────────────────── */}
-      <div className="sticky top-0 z-20 bg-surface border-b border-default shadow-sm">
-        <div className="max-w-[1600px] mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/templates')} className="rounded-xl shrink-0">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-lg font-bold text-navy truncate">{template.name}</h1>
-                {template.isStatic && (
-                  <span className="flex items-center gap-1 text-[10px] text-navy-3 bg-surface-sunken px-2 py-0.5 rounded-full font-semibold shrink-0">
-                    <Lock className="h-3 w-3" /> Padrão — somente leitura
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2 mt-0.5">
-                <Badge variant="neutral" className="uppercase text-[10px]">
-                  {CATEGORY_LABELS[template.category] || template.category}
-                </Badge>
-                {template.version && (
-                  <span className="text-[10px] text-navy-3 font-semibold">v{template.version}</span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={expandAll}
-              className="text-xs text-primary-600 hover:text-primary-800 font-semibold px-3 py-1.5 rounded-lg hover:bg-primary-50 transition-colors"
-            >
-              Expandir tudo
-            </button>
-            <button
-              onClick={collapseAll}
-              className="text-xs text-navy-3 hover:text-navy-2 font-semibold px-3 py-1.5 rounded-lg hover:bg-surface-active transition-colors"
-            >
-              Recolher tudo
-            </button>
-          </div>
-        </div>
+    <PageShell className="space-y-6">
+      <div>
+        <Button variant="ghost" size="sm" onClick={() => navigate('/templates')} className="-ml-3 mb-2">
+          <ArrowLeft className="mr-2 h-4 w-4" /> Voltar aos Roteiros
+        </Button>
+        <PageHeader
+          title={
+            <span className="inline-flex items-center gap-2 flex-wrap">
+              {template.name}
+              {template.isStatic && (
+                <span className="flex items-center gap-1 text-[10px] text-navy-3 bg-surface-sunken px-2 py-0.5 rounded-full font-semibold shrink-0">
+                  <Lock className="h-3 w-3" /> Padrão — somente leitura
+                </span>
+              )}
+            </span>
+          }
+          description={
+            <span className="inline-flex items-center gap-2">
+              <Badge variant="neutral" className="uppercase text-[10px]">
+                {CATEGORY_LABELS[template.category] || template.category}
+              </Badge>
+              {template.version && (
+                <span className="text-[10px] text-navy-3 font-semibold">v{template.version}</span>
+              )}
+            </span>
+          }
+          actions={
+            <>
+              <button
+                onClick={expandAll}
+                className="text-xs text-primary-600 hover:text-primary-800 font-semibold px-3 py-1.5 rounded-lg hover:bg-primary-50 transition-colors"
+              >
+                Expandir tudo
+              </button>
+              <button
+                onClick={collapseAll}
+                className="text-xs text-navy-3 hover:text-navy-2 font-semibold px-3 py-1.5 rounded-lg hover:bg-surface-active transition-colors"
+              >
+                Recolher tudo
+              </button>
+            </>
+          }
+        />
       </div>
-
-      <PageShell className="space-y-6">
 
         {/* ── STATS CARDS ───────────────────────────────────── */}
         {stats && (
@@ -251,8 +250,11 @@ export function TemplateDetail() {
               >
                 {/* Section header */}
                 <button
+                  type="button"
                   className="w-full flex items-center justify-between p-5 hover:bg-surface-hover transition-colors text-left"
                   onClick={() => toggleSection(section.id)}
+                  aria-expanded={isExpanded}
+                  aria-controls={`template-section-${section.id}`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="h-8 w-8 rounded-lg bg-primary-50 flex items-center justify-center shrink-0">
@@ -280,7 +282,7 @@ export function TemplateDetail() {
 
                 {/* Items list */}
                 {isExpanded && (
-                  <div className="border-t border-default divide-y divide-surface-sunken">
+                  <div id={`template-section-${section.id}`} className="border-t border-default divide-y divide-surface-sunken">
                     {items.length === 0 ? (
                       <div className="px-6 py-6 text-center text-sm text-navy-3 italic">
                         Nenhum item nesta seção.
@@ -352,7 +354,6 @@ export function TemplateDetail() {
             </p>
           </div>
         )}
-      </PageShell>
-    </div>
+    </PageShell>
   );
 }

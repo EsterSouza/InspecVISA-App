@@ -7,6 +7,9 @@ import { Field } from '../../components/ui/Field';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { Textarea } from '../../components/ui/Textarea';
+import { PageShell } from '../../components/ui/PageShell';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { Badge } from '../../components/ui/Badge';
 import { TemplateService } from '../../services/templateService';
 import { toast } from '../../store/useToastStore';
 
@@ -122,14 +125,12 @@ export function SmartImporter() {
   };
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-navy">Importador Inteligente</h2>
-          <p className="text-navy-3">Transforme documentos PDF, Word ou Excel em roteiros digitais.</p>
-        </div>
-        <Button variant="outline" onClick={() => navigate('/templates')}>Cancelar</Button>
-      </div>
+    <PageShell className="space-y-6">
+      <PageHeader
+        title="Importador Inteligente"
+        description="Transforme documentos PDF, Word ou Excel em roteiros digitais."
+        actions={<Button variant="outline" onClick={() => navigate('/templates')}>Cancelar</Button>}
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="h-full">
@@ -186,7 +187,7 @@ export function SmartImporter() {
             label={
               <span className="inline-flex items-center gap-2">
                 Ou cole conteúdo estruturado (Excel)
-                <Badge>Control+V da Planilha</Badge>
+                <Badge variant="neutral">Control+V da Planilha</Badge>
               </span>
             }
           >
@@ -278,10 +279,6 @@ export function SmartImporter() {
           </div>
         </Card>
       )}
-    </div>
+    </PageShell>
   );
-}
-
-function Badge({ children }: { children: React.ReactNode }) {
-  return <span className="px-2 py-0.5 bg-surface-sunken rounded-full text-[10px] text-navy-3 font-bold ml-2">{children}</span>;
 }

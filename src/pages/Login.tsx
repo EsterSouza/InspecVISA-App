@@ -91,7 +91,7 @@ export function Login() {
               </div>
 
               {error && (
-                <div className="p-3 rounded-lg bg-danger/20 border border-danger/30 text-danger-soft text-sm animate-shake">
+                <div role="alert" className="p-3 rounded-lg bg-danger/20 border border-danger/30 text-danger-soft text-sm animate-shake">
                   {error}
                 </div>
               )}
