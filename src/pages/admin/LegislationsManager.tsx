@@ -244,8 +244,9 @@ export function LegislationsManager() {
     return gaps.filter(g => g.name.toLowerCase().includes(query));
   }, [gaps, segment, query]);
 
-  const { page, totalPages, items: pagedEntries, setPage } = usePagedList(filteredEntries);
-  const { page: gapPage, totalPages: gapTotalPages, items: pagedGaps, setPage: setGapPage } = usePagedList(filteredGaps);
+  const filtroAtual = `${segment}|${esfera}|${orgao}|${aplicaA}|${municipioQuery}|${query}`;
+  const { page, totalPages, items: pagedEntries, setPage } = usePagedList(filteredEntries, filtroAtual);
+  const { page: gapPage, totalPages: gapTotalPages, items: pagedGaps, setPage: setGapPage } = usePagedList(filteredGaps, filtroAtual);
 
   const detailEntry = detailId ? legislations.find(l => l.id === detailId) || null : null;
 

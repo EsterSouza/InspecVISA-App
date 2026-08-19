@@ -629,9 +629,9 @@ export function ClientDetails() {
                     <div className="p-4 flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <div className={`h-12 w-12 rounded-full flex items-center justify-center text-on-accent font-bold ${
-                          insp.status === 'in_progress' ? 'bg-amber' :
+                          insp.status === 'in_progress' ? 'bg-amber-strong' :
                           insp.score.scorePercentage >= 90 ? 'bg-success' :
-                          insp.score.scorePercentage >= 70 ? 'bg-primary-500' :
+                          insp.score.scorePercentage >= 70 ? 'bg-primary-700' :
                           'bg-danger'
                         }`}>
                           {insp.status === 'completed' ? `${Math.round(insp.score.scorePercentage)}%` : '?'}

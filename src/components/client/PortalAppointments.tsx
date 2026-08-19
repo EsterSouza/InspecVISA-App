@@ -206,7 +206,7 @@ export function PortalAppointments({
               type="button"
               onClick={() => setAgendaView('semana')}
               aria-pressed={agendaView === 'semana'}
-              className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
+              className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors [@media(pointer:coarse)]:min-h-11 ${
                 agendaView === 'semana' ? 'bg-surface text-primary-700 shadow-sm' : 'text-navy-3 hover:text-navy-2'
               }`}
             >
@@ -216,7 +216,7 @@ export function PortalAppointments({
               type="button"
               onClick={() => setAgendaView('lista')}
               aria-pressed={agendaView === 'lista'}
-              className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
+              className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors [@media(pointer:coarse)]:min-h-11 ${
                 agendaView === 'lista' ? 'bg-surface text-primary-700 shadow-sm' : 'text-navy-3 hover:text-navy-2'
               }`}
             >

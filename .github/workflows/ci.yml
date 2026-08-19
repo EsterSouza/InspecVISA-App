@@ -39,6 +39,14 @@ jobs:
       # `eslint-disable-next-line` com o motivo escrito na linha.
       - name: Lint
         run: npm run lint
+      # FE-27, camada estática do gate visual. Roda em segundos e sem navegador,
+      # então entra no job de sempre — o `e2e`, que precisa de ambiente publicado,
+      # continua sob demanda. Reprova em P0/P1; P2 sai listado sem derrubar.
+      - name: Gate de UI (a11y e marca)
+        run: npm run check:ui
+      # A cor dos dois temas, lida do proprio src/index.css: 47 pares por tema.
+      - name: Contraste dos temas
+        run: npm run check:contraste
       - name: Guardar o build
         uses: actions/upload-artifact@v4
         with:

@@ -14,7 +14,7 @@ export function ProgressBar({ value, colorClass = 'bg-primary-500', className, h
   return (
     <div className={cn("w-full overflow-hidden rounded-full bg-surface-sunken", heightClass, className)}>
       <div
-        className={cn("h-full transition-all duration-500 ease-out", colorClass)}
+        className={cn("h-full transition-[width] duration-500 ease-out", colorClass)}
         style={{ width: `${safeValue}%` }}
       />
     </div>

@@ -34,7 +34,7 @@ export function ProfileSelection() {
         <div className="space-y-4">
           <button
             onClick={() => handleSelect('ester')}
-            className="w-full relative overflow-hidden group p-6 bg-surface border-2 border-primary-100 hover:border-primary-500 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md text-left flex items-center justify-between"
+            className="w-full relative overflow-hidden group p-6 bg-surface border-2 border-primary-100 hover:border-primary-500 rounded-xl transition-[border-color,box-shadow] duration-200 shadow-sm hover:shadow-md text-left flex items-center justify-between"
           >
             <div className="relative z-10">
               <h3 className="text-xl font-bold text-navy group-hover:text-primary-700 transition-colors">Ester</h3>
@@ -47,7 +47,7 @@ export function ProfileSelection() {
 
           <button
             onClick={() => handleSelect('ana')}
-             className="w-full relative overflow-hidden group p-6 bg-surface border-2 border-secondary-100 hover:border-secondary-500 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md text-left flex items-center justify-between"
+             className="w-full relative overflow-hidden group p-6 bg-surface border-2 border-secondary-100 hover:border-secondary-500 rounded-xl transition-[border-color,box-shadow] duration-200 shadow-sm hover:shadow-md text-left flex items-center justify-between"
           >
              <div className="relative z-10">
               <h3 className="text-xl font-bold text-navy group-hover:text-secondary-700 transition-colors">Ana</h3>

@@ -184,7 +184,7 @@ export function ActionPlan() {
     });
   }, [segmentFiltered, sortDir]);
 
-  const { page, totalPages, items: pagedItems, setPage } = usePagedList(sorted);
+  const { page, totalPages, items: pagedItems, setPage } = usePagedList(sorted, `${clientId}|${search}|${segment}|${sortDir}`);
 
   const selectedItem = selectedId ? items.find((item) => item.id === selectedId) || null : null;
 

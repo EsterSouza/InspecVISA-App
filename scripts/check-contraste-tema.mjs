@@ -72,8 +72,8 @@ const GRAFICO = [
   ['amber-strong', 'surface'], ['border-control', 'surface'], ['border-control', 'canvas'],
   ['primary-500', 'surface'],
   // `primary-500` é anel de foco e indicador: o que fica em cima dele é ícone, não
-  // texto corrido. O avatar de `ClientDetails` usa esse fundo com iniciais e fica em
-  // 3,94:1 no claro — está registrado como achado do FE-27, não é regressão do tema.
+  // texto corrido — por isso 3:1 e não 4,5:1. O avatar de `ClientDetails` usava esse
+  // fundo com iniciais (3,94:1) e passou para `primary-700` no FE-27.
   ['on-accent', 'primary-500'],
 ];
 

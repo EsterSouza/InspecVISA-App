@@ -196,7 +196,7 @@ export function AddPhotosModal({ request, onClose, onAdded }: AddPhotosModalProp
                           onClick={() => togglePhoto(photo.photoId)}
                           aria-pressed={selected}
                           aria-label={photo.caption || 'Foto da inspeção'}
-                          className={`relative aspect-square overflow-hidden rounded-xl border-2 transition-all ${
+                          className={`relative aspect-square overflow-hidden rounded-xl border-2 transition-colors ${
                             selected ? 'border-primary-600 ring-2 ring-primary-200' : 'border-default'
                           }`}
                         >

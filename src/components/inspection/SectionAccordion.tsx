@@ -37,7 +37,7 @@ export function SectionAccordion({
   const isCritical = notCompliesCount > 0;
 
   return (
-    <div className="mb-4 overflow-hidden rounded-xl border border-default bg-surface shadow-sm transition-all">
+    <div className="mb-4 overflow-hidden rounded-xl border border-default bg-surface shadow-sm transition-colors">
       {/* Header */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
@@ -83,7 +83,7 @@ export function SectionAccordion({
       {/* Content */}
       <div 
         className={cn(
-          "grid transition-all duration-300 ease-in-out",
+          "grid transition-[grid-template-rows] duration-300 ease-in-out",
           isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
         )}
       >

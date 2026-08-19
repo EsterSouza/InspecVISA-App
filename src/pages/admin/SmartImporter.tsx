@@ -161,7 +161,7 @@ export function SmartImporter() {
             <CardTitle className="text-xs font-bold uppercase text-primary-700">Upload de Documento</CardTitle>
           </CardHeader>
           <CardContent>
-            <label className="flex flex-col items-center justify-center border-2 border-dashed border-default rounded-2xl p-8 cursor-pointer hover:border-primary-400 hover:bg-primary-50 transition-all group">
+            <label className="flex flex-col items-center justify-center border-2 border-dashed border-default rounded-2xl p-8 cursor-pointer hover:border-primary-400 hover:bg-primary-50 transition-colors group">
               {isParsingFile ? (
                 <div className="flex flex-col items-center">
                   <Loader2 className="h-10 w-10 text-primary-600 animate-spin mb-2" />

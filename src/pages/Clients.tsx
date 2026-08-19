@@ -195,11 +195,10 @@ export function Clients() {
     const factor = sortDir === 'ascending' ? 1 : -1;
     return [...clients].sort((a, b) => factor * a.name.localeCompare(b.name, 'pt-BR'));
   }, [clients, sortDir]);
-  const { page, totalPages, items: pagedClients, setPage } = usePagedList(sortedClients);
+  const { page, totalPages, items: pagedClients, setPage } = usePagedList(sortedClients, `${search}|${filterCat}|${sortDir}`);
 
   // Mexer no filtro ou na ordem volta para a primeira página: senão quem estava na página 3 e
   // limpa a busca cai na cauda da lista, sem nada na tela explicando por quê.
-  useEffect(() => { setPage(1); }, [search, filterCat, sortDir, setPage]);
 
   // O que cada linha mostra, calculado uma vez: a tabela (desktop) e os cards (celular) leem daqui.
   const pagedRows = pagedClients.map((client) => ({
@@ -363,7 +362,7 @@ export function Clients() {
           {pagedRows.map(({ client, portalAccesses, phone, place }) => (
             <Card
               key={client.id}
-              className="p-5 hover:border-primary-200 hover:shadow-md transition-all cursor-pointer group"
+              className="p-5 hover:border-primary-200 hover:shadow-md transition-[border-color,box-shadow] cursor-pointer group"
               onClick={() => navigate(`/clients/${client.id}`)}
             >
               <div className="flex items-start justify-between">

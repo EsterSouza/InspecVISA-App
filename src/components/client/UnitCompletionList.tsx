@@ -44,7 +44,7 @@ export function UnitCompletionList({ stats, onSelect, shareUrlByUnit }: UnitComp
                   <button
                     type="button"
                     onClick={() => onSelect(u.clientId)}
-                    className="truncate text-left text-sm font-semibold text-navy hover:text-primary-700 hover:underline"
+                    className="truncate text-left text-sm font-semibold text-navy hover:text-primary-700 hover:underline [@media(pointer:coarse)]:min-h-11"
                   >
                     {u.unitName}
                   </button>

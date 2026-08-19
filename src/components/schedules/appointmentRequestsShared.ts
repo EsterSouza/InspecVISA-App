@@ -50,10 +50,27 @@ export { errorMessage } from '../../utils/errors';
 // Quantos cartões cada seção mostra por vez (evita a rolagem sem fim).
 export const PAGE_SIZE = 10;
 
-// Fatia a lista em páginas. Se a lista encolher (ex.: após excluir), volta para
-// a última página válida em vez de mostrar vazio.
-export function usePagedList<T>(items: T[]) {
+/**
+ * Fatia a lista em páginas. Se a lista encolher (ex.: após excluir), volta para a
+ * última página válida em vez de mostrar vazio.
+ *
+ * `chaveDoFiltro` é a assinatura dos filtros da tela (`` `${busca}|${situacao}` ``).
+ * Quando ela muda, a paginação volta para a página 1 — senão limpar o filtro
+ * estando na página 3 devolve a lista inteira com a paginação parada na cauda.
+ * FE-22 corrigiu isso à mão em `Clients`/`Inspections` e o defeito continuou vivo
+ * nas outras quatro telas; FE-27 trouxe o conserto para dentro do hook, que é o
+ * único lugar onde ninguém esquece.
+ *
+ * O ajuste acontece **durante o render**, e não num `useEffect`: no efeito o
+ * usuário chega a ver um quadro com a página errada antes da correção.
+ */
+export function usePagedList<T>(items: T[], chaveDoFiltro?: string) {
   const [page, setPage] = useState(1);
+  const [chaveAnterior, setChaveAnterior] = useState(chaveDoFiltro);
+  if (chaveDoFiltro !== chaveAnterior) {
+    setChaveAnterior(chaveDoFiltro);
+    setPage(1);
+  }
   const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
   const current = Math.min(page, totalPages);
   return {

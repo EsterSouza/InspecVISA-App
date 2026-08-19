@@ -26,7 +26,7 @@ export function ThemeToggle({ className = '' }: { className?: string }) {
       onClick={() => updateSettings({ theme: isDark ? 'light' : 'dark' })}
       aria-pressed={isDark}
       title={isDark ? 'Mudar para o tema claro' : 'Mudar para o tema escuro'}
-      className={`inline-flex items-center gap-1.5 rounded-md border border-default bg-surface px-3 py-2 text-xs font-medium text-navy-2 hover:bg-surface-hover ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded-md border border-default bg-surface px-3 py-2 text-xs font-medium text-navy-2 hover:bg-surface-hover [@media(pointer:coarse)]:min-h-11 ${className}`}
     >
       {isDark ? <Sun className="h-3.5 w-3.5" aria-hidden="true" /> : <Moon className="h-3.5 w-3.5" aria-hidden="true" />}
       {isDark ? 'Tema claro' : 'Tema escuro'}

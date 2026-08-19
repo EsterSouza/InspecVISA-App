@@ -114,7 +114,7 @@ export function WeekCalendar({
               onClick={onPrevWeek}
               disabled={!onPrevWeek || !hasPrevWeek}
               aria-label="Semana anterior"
-              className="flex h-9 w-9 items-center justify-center rounded-md border border-default text-navy-2 hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-9 w-9 items-center justify-center rounded-md border border-default text-navy-2 hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
             >
               ‹
             </button>
@@ -123,7 +123,7 @@ export function WeekCalendar({
               onClick={onNextWeek}
               disabled={!onNextWeek || !hasNextWeek}
               aria-label="Próxima semana"
-              className="flex h-9 w-9 items-center justify-center rounded-md border border-default text-navy-2 hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-9 w-9 items-center justify-center rounded-md border border-default text-navy-2 hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
             >
               ›
             </button>

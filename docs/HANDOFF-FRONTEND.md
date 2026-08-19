@@ -7,15 +7,16 @@
 
 ## Onde estamos — atualizado em 19/08/2026
 
-**28 cards entregues, 1 na fila.** Card entregue tem o título ~~riscado~~ mais abaixo, com a data
+**29 cards entregues, nenhum na fila. O frontend visual está fechado** — e a frase tem dono: quem
+autoriza é o FE-27, cuja régua está em [`gate-visual.md`](gate-visual.md). Ela cobre o piso
+automático; o teto continua sendo olhar. Card entregue tem o título ~~riscado~~ mais abaixo, com a data
 e o commit; card aberto tem ⬜. Esta é a única tabela de estado do documento — se divergir de
 qualquer outra coisa aqui, ela ganha.
 
-### ⬜ O que falta, na ordem de fazer
+### ✅ Nada na fila
 
-| Card | O que é | Só depois de |
-|---|---|---|
-| **FE-27** | Gate de regressão visual e a11y — **é o card que fecha o frontend** | nada mais: o FE-12 ✅ destravou a camada de tema |
+O último era o FE-27, entregue em 19/08. O que sobrou está registrado como P2 aceito na seção de
+achados do [`gate-visual.md`](gate-visual.md) — nenhum P0 ou P1 em aberto.
 
 O FE-24 tocou o formulário de telas que ainda seriam redesenhadas (`PublicSchedule` no FE-26,
 `SmartImporter` e `Login` no FE-25): a estrutura do redesenho era desses cards, o controle já
@@ -54,10 +55,10 @@ eram desse grupo e foram absorvidos pelo FE-22.
 | FE-25 | `SmartImporter` e `TemplateDetail` em `PageShell`/`PageHeader`; erro do `Login` anunciado (`role="alert"`) | 18/08 | `3dee39d` |
 | FE-26 | `PublicShell` + as duas superfícies sem login em coluna única, com a voz do portal | 18/08 | `033bde9` |
 | FE-28 | `PromptDialog` (`usePromptDialog`) substitui os 2 `window.prompt()` da revisão de evidência; `CopyLinkButton` no lugar do 3º | 18/08 | `ccc254e` |
-| FE-12 | Tema escuro no app inteiro, por variável CSS — **nenhuma classe `dark:`** | 19/08 | (a seguir) |
+| FE-12 | Tema escuro no app inteiro, por variável CSS — **nenhuma classe `dark:`** | 19/08 | `58e8bea`, `8ab654d` |
+| FE-27 | Gate visual e de a11y em três camadas — **fecha o frontend** | 19/08 | (a seguir) |
 
-**Ondas:** 1 (portal) **fechada** · 2 (admin) **fechada** · 3 (fechamento) falta só a revisão
-final de a11y · 4 (o admin que falta) em andamento, 12 de 14 entregues.
+**Ondas:** 1 (portal) **fechada** · 2 (admin) **fechada** · 3 (fechamento) **fechada** · 4 (o admin que falta) em andamento, 12 de 14 entregues.
 
 ---
 
@@ -247,7 +248,7 @@ Pedidos da Ester em 16/08/2026, já no Artefato E:
 |---|---|---|
 | ~~**1 — Portal no ar**~~ ✅ | FE-04a, FE-13, FE-09, FE-10 | O cliente entra no portal novo, navega por seção, vê o plano de ação por unidade e a agenda em calendário |
 | ~~**2 — Admin**~~ ✅ | FE-04b, FE-05, FE-06, FE-07, FE-08 | A consultoria usa o shell novo, a tela de Plano de Ação e a aba de Arquivos |
-| **3 — Fechamento** ⬜ | ~~FE-11~~, ~~FE-12~~, revisão de a11y | Dark mode ligado de verdade e nenhum resto do CSS antigo |
+| ~~**3 — Fechamento**~~ ✅ | ~~FE-11~~, ~~FE-12~~, ~~revisão de a11y (FE-27)~~ | Dark mode ligado de verdade e nenhum resto do CSS antigo |
 | **4 — O admin que falta** ⬜ | ~~FE-14 a FE-19~~ · FE-20 a FE-27 | ~~As telas do Artefato D no ar~~ ✅ · ~~os `alert()`/`confirm()` mortos~~ ✅ · a cor virada token, o fluxo de inspeção redesenhado, nenhum controle de formulário cru e o gate visual passando |
 
 **FE-04 foi partido em dois** para não segurar a onda 1: `FE-04a` é só o que o portal usa; `FE-04b` é o resto (tabela densa, rail, tooltip, paginação), que só o admin precisa.
@@ -1033,7 +1034,70 @@ delicada do app.
   impossível; e o fluxo inteiro (aprovar · aprovar e resolver · devolver) conferido no navegador a
   375 e 1280px, com teclado.
 
-### ⬜ FE-27 · Gate de regressão visual e acessibilidade
+### ~~FE-27 · Gate de regressão visual e acessibilidade~~ · ✅ 19/08/2026
+
+> A régua completa — como rodar, severidade, matriz, o que continua humano e os achados da
+> primeira passada — mora em [`docs/gate-visual.md`](gate-visual.md). O que segue é o registro do
+> que foi feito e por quê. O texto original do card fica abaixo, para conferência.
+
+**Três camadas, e a do meio foi recusada de propósito.** `npm run check:ui` (estático, segundos,
+sem navegador) e `npm run check:contraste` (a cor dos dois temas, lida do próprio `src/index.css`)
+entraram no job de sempre do CI; `e2e/gate-visual.spec.ts` (a matriz no navegador) ficou no job
+`e2e`, sob demanda, porque precisa de ambiente publicado. `toHaveScreenshot()` **não** entrou: o
+`baseURL` aponta para banco compartilhado, e snapshot de pixel contra dado real quebra a cada
+visita nova — em duas semanas alguém desliga o gate inteiro.
+
+**Duas decisões de medição que mudaram o resultado:**
+
+- **O dedo é emulado (`hasTouch`), não presumido pela largura.** A decisão 7 cumpre os 44px com
+  `[@media(pointer:coarse)]`, e janela estreita com mouse não aciona essa regra. Na primeira
+  rodada o gate mediu sem toque e aprovou telas que no celular têm alvo de 34px.
+- **O contraste é medido duas vezes e só acusa o que sobrevive às duas.** Contraste ruim é
+  estável; o que some na segunda medição era quadro de transição. Um gate que acusa fantasma é o
+  primeiro a ser desligado — e isso aconteceu de verdade aqui, num falso positivo que não
+  reproduzia sozinho.
+
+**A matriz:** 19 rotas (10 do admin, 6 do portal, 3 sem login) × 375/768/1280/1600 × claro/escuro.
+Fora dela, por decisão: `/execute`, `/summary`, `/new` e o editor de roteiro dependem de estado ou
+de dado selecionado, não de rota — continuam na revisão humana.
+
+**Oito achados, todos do gate, todos corrigidos no mesmo card.** Os que mais importam:
+
+1. **O "+" da barra inferior não tinha nome acessível.** O leitor de tela anunciava "link" e mais
+   nada — e é o botão que abre uma inspeção nova. O mesmo botão no `Sidebar` já vinha nomeado.
+2. **Treze controles abaixo de 44px no dedo**: os itens da própria barra inferior (36–39px de
+   largura) e onze no portal, incluindo os três botões do cabeçalho e as setas de semana (36×36).
+3. **A paginação não voltava para a página 1 ao mudar o filtro** em `ServiceRequests`,
+   `LegislationsManager` e `ActionPlan`. O FE-22 tinha corrigido isso à mão em `Clients` e
+   `Inspections` e o handoff já registrava que as outras continuavam quebradas; o conserto foi
+   para dentro do `usePagedList` — com chave de filtro e ajuste **durante o render**, porque num
+   `useEffect` o usuário chega a ver um quadro com a página errada.
+4. **Âmbar cheio com tinta clara**: o selo "Conflito" do `PhotoCapture` dava 2,5:1. `--amber` é
+   preenchimento **grande** (barra, faixa); para preenchimento pequeno com texto existe
+   `--amber-strong`. O avatar do `ClientDetails` tinha o mesmo problema, mais iniciais sobre
+   `primary-500` (3,94:1) — que é anel de foco, não fundo de texto.
+5. **Oito specs de e2e estavam vermelhos desde 09/08 sem ninguém ver.** Foram escritos em 08/08
+   contra o portal de página única; o FE-09 quebrou o portal em seções com rota própria e eles
+   passaram a procurar bloco que não existe mais. Ninguém percebeu porque o job `e2e` só roda por
+   `workflow_dispatch`. Continuam provando a mesma coisa — mudou onde olhar.
+6. **Um teste que nunca testou o que dizia**: `agenda.spec.ts` mandava `duration_minutes: 45` num
+   intervalo de 30 minutos, então quem recusava o pedido era a checagem de coerência da duração. A
+   regra de 24 horas de antecedência, assunto do teste, jamais chegou a ser exercida.
+
+**O linter estático é nosso.** A skill `auditar-ui` do Design Arsenal seria a origem natural do
+`scripts/audit-ui.mjs`, mas o `design-library` **não estava acessível** nesta máquina em 19/08 —
+o diretório não existe mais no OneDrive. A lista de verificações e a régua P0–P3 vieram do próprio
+card. Detalhe que quase custou caro: a primeira versão achava o fim da tag JSX no primeiro `>`, e
+`>` aparece dentro de `onClick={() => ...}` — a tag saía cortada e o `rel="noreferrer"` que vinha
+depois virava acusação falsa. A varredura passou a contar chaves e respeitar aspas.
+
+**Verificação.** `check:ui` 0 P0/P1/P2/P3 · `check:contraste` 47 pares × 2 temas sem reprovado ·
+**70 testes de e2e verdes** (35 no `desktop` e 35 no `mobile`, contra o tenant de homologação) ·
+`npm run lint`, `npm test` (568) e `npm run build` limpos.
+
+<details>
+<summary>Texto original do card</summary>
+
 
 Hoje a conferência é boa e é **manual**: depende de quem executa o card lembrar de abrir 375, 1280
 e 1600px. `npm run build` não detecta coluna espremida, botão quebrando em duas linhas nem tabela
@@ -1066,6 +1130,8 @@ Já existe base — `playwright.config.ts` com os projetos `desktop` e `mobile` 
 - A comparação contra os protótipos aprovados fica como revisão humana com a matriz na mão, não
   como assert automático — protótipo e app divergem de propósito em dado e conteúdo.
 - **É este card que autoriza escrever "frontend visual fechado".**
+
+</details>
 
 ### Arsenal de design — de onde sai o desenho destes cinco cards
 
@@ -1206,7 +1272,7 @@ entregou o editor de roteiro sem precisar de arrastar.
 | ~~FE-25~~ ✅ | `SmartImporter`, `TemplateDetail` e as telas de entrada | Sonnet 5 | baixo | entregue 18/08 |
 | ~~FE-26~~ ✅ | `PublicSchedule` + `PublicAppointmentStatus` | Opus 5 | médio | entregue 18/08 |
 | ~~FE-28~~ ✅ | Os três `prompt()` que sobraram do FE-15 | Sonnet 5 | baixo | entregue 18/08 |
-| FE-27 | Gate de regressão visual e a11y | Opus 5 (matriz) · Sonnet 5 (spec) | médio-alto | nada mais (FE-12 ✅) |
+| ~~FE-27~~ ✅ | Gate de regressão visual e a11y | Opus 5 | médio-alto | entregue 19/08 |
 | ~~FE-12~~ ✅ | Ligar o tema escuro no app inteiro | Opus 5 | médio | entregue 19/08 |
 
 **A ordem, revisada em 16/08/2026.** `FE-15`, `FE-14`, `FE-16`, `FE-17`, `FE-18`, `FE-17b`, `FE-19`
@@ -1222,7 +1288,8 @@ em paralelo por serem as duas telas de uso diário. Daqui em diante:
 5. ~~**FE-28**~~ ✅ — os três `prompt()` que o FE-15 não varreu.
 6. ~~**FE-12**~~ ✅ — o tema escuro era o último de propósito: o mais vistoso e o menos
    estrutural. A aposta se pagou — com a cor já em token pelo FE-21, ele saiu em dois arquivos.
-7. **FE-27** — fecha a onda e é o único que autoriza a frase "frontend visual fechado".
+7. ~~**FE-27**~~ ✅ — fechou a onda em 19/08, e com ele a frase "frontend visual fechado" passou
+   a ter régua escrita: [`gate-visual.md`](gate-visual.md).
 
 **Ressalva sobre o FE-21 (registrada antes de executar, ainda vale).** Ele era necessário: eram
 **2.705** classes de cor cruas contadas no `src/` (a auditoria dizia 2.858 contando também os
@@ -1318,13 +1385,13 @@ Regra que decide a coluna **Esforço**: o que o protótipo já resolveu não é 
 | FE-05 · Ponto 1 | Larguras: `max-w-*` → `PageShell` em ~15 páginas ✅ | Sonnet 5 | baixo | `PageShell` |
 | — | Converter listas de cards em tabelas nas telas restantes | Codex (medium) | médio | exemplo aprovado |
 
-### ONDA 3 — Fechamento ⬜ falta só a revisão final de a11y
+### ONDA 3 — Fechamento ✅ 19/08/2026
 
 | # | Tarefa | Modelo | Esforço | Depende de |
 |---|---|---|---|---|
 | FE-12 | Ligar o dark mode no app inteiro ✅ | Opus 5 | médio | ondas 1 e 2 |
 | FE-11 | Higiene: `AdminLayout.tsx`, `App.css`, "C&C Consultoria", "HUB TREINAVISA SERVICOS" ✅ | Haiku 4.5 | baixo | — |
-| — | Revisão final de acessibilidade em teclado e leitor de tela | Sonnet 5 | médio | tudo |
+| FE-27 | Revisão final de acessibilidade — virou gate automático ✅ | Opus 5 | médio-alto | tudo |
 
 FE-11 não depende de nada e pode ser puxado a qualquer momento — é o card para quando sobrarem dez minutos.
 

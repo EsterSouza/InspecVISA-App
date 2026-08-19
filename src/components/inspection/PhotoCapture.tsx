@@ -237,7 +237,7 @@ function PhotoSyncBadge({ photo }: { photo: InspectionPhoto }) {
     const failed = Boolean(photo.syncError?.includes('ainda nao baixou'));
     const Icon = failed ? AlertTriangle : Clock;
     return (
-      <div className={`absolute left-1 top-1 flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase shadow ${failed ? 'bg-amber text-on-accent' : 'bg-primary-600 text-on-accent'}`}>
+      <div className={`absolute left-1 top-1 flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase shadow ${failed ? 'bg-amber-strong text-on-accent' : 'bg-primary-600 text-on-accent'}`}>
         <Icon className="h-3 w-3" />
         {failed ? 'Remota' : 'Baixando'}
       </div>
@@ -250,7 +250,7 @@ function PhotoSyncBadge({ photo }: { photo: InspectionPhoto }) {
     pending: { label: 'Pendente', className: 'bg-primary-600 text-on-accent', icon: Clock },
     syncing: { label: 'Enviando', className: 'bg-primary-600 text-on-accent', icon: Clock },
     failed: { label: 'Falha', className: 'bg-danger text-on-accent', icon: XCircle },
-    conflict: { label: 'Conflito', className: 'bg-amber text-on-accent', icon: AlertTriangle }
+    conflict: { label: 'Conflito', className: 'bg-amber-strong text-on-accent', icon: AlertTriangle }
   }[status];
   const Icon = config.icon;
 

@@ -6,34 +6,8 @@
  * caminho — sessão de `authenticated` em vez de token de portal.
  */
 import { expect, test, type Page } from '@playwright/test';
-import { contas, exige, PREFIXO_HOMOLOG } from './apoio/ambiente';
-
-async function entraComoStaff(page: Page): Promise<void> {
-  const { email, senha } = contas.staff();
-  await page.goto('/login');
-  await page.getByLabel(/E-mail corporativo/i).fill(email);
-  await page.getByLabel(/Senha/i).fill(senha);
-  await page.getByRole('button', { name: /Entrar Agora/i }).click();
-  await expect(page.getByRole('button', { name: /Entrar Agora/i })).toHaveCount(0, {
-    timeout: 20_000,
-  });
-
-  // Depois do login vem "Quem está usando?". A lista de perfis é fixa no código
-  // (Ester e Ana), não vem do tenant — então aparece igual em homologação.
-  // Precisa de `waitFor`: o botão de entrar some antes de a tela de perfil
-  // montar, então perguntar `isVisible()` na hora responde `false` e o teste
-  // segue sem escolher perfil — e aí a próxima navegação volta para o login.
-  const selecaoDePerfil = page.getByRole('heading', { name: /Quem está usando\?/i });
-  const apareceu = await selecaoDePerfil
-    .waitFor({ state: 'visible', timeout: 15_000 })
-    .then(() => true)
-    .catch(() => false);
-
-  if (apareceu) {
-    await page.getByRole('button').filter({ hasText: 'Ester' }).first().click();
-    await expect(selecaoDePerfil).toHaveCount(0, { timeout: 15_000 });
-  }
-}
+import { exige, PREFIXO_HOMOLOG } from './apoio/ambiente';
+import { entraComoStaff } from './apoio/sessao';
 
 /** Access token da sessão logada, como o supabase-js o guarda no localStorage. */
 async function tokenDaSessao(page: Page): Promise<string> {

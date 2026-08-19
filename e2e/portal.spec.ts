@@ -4,6 +4,12 @@
  * Rodam contra o tenant de homologação, dentro do banco de produção. Tudo que
  * eles leem tem o prefixo `[HOMOLOG]`; se algum nome de cliente real aparecer,
  * é vazamento entre tenants e o teste falha.
+ *
+ * **Atualizados no FE-27 (19/08/2026).** Foram escritos em 08/08 contra o portal
+ * de página única; o FE-09 quebrou o portal em seções com rota própria e oito
+ * destes testes passaram a procurar bloco que não existe mais na visão geral.
+ * Estavam vermelhos desde então sem ninguém ver: o job `e2e` do CI só roda por
+ * `workflow_dispatch`. O que cada um prova continua o mesmo — mudou onde olhar.
  */
 import { expect, test } from '@playwright/test';
 import { contas, PREFIXO_HOMOLOG } from './apoio/ambiente';
@@ -31,8 +37,12 @@ test.describe('acesso à conta', () => {
     await entraNoPortal(page, email, codigo);
 
     await expect(page.getByRole('heading', { name: /\[HOMOLOG\] Conta Em Atraso/ })).toBeVisible();
-    // `exact` porque "Item vencido no plano de ação" também é um heading.
-    await expect(page.getByRole('heading', { name: 'Plano de ação', exact: true })).toBeVisible();
+
+    // Desde o FE-09 o plano de ação é uma seção com rota própria. A prova de que
+    // o atraso não esconde a entrega é a seção abrir e trazer a pendência.
+    await page.getByRole('link', { name: /^Plano de ação/ }).click();
+    await expect(page).toHaveURL(/\/cliente\/plano-de-acao/);
+    await expect(page.getByText('[HOMOLOG] Pendencia vencida para teste de prazo')).toBeVisible();
   });
 
   test('conta de outro tenant não enxerga as unidades do primeiro', async ({ page }) => {
@@ -54,15 +64,20 @@ test.describe('acesso à conta', () => {
 
     // Toda unidade citada na tela tem de ser de homologação. Um nome de cliente
     // real aqui seria vazamento entre tenants.
-    const unidades = await page.locator('option[value^="aaaa0015"]').allTextContents();
-    expect(unidades.length).toBeGreaterThan(0);
-    for (const nome of unidades) expect(nome).toContain(PREFIXO_HOMOLOG);
-
-    const seletor = page.getByLabel('Unidade');
-    const todas = await seletor.locator('option').allTextContents();
-    for (const nome of todas) {
-      if (nome.trim() === 'Todas') continue;
-      expect(nome).toContain(PREFIXO_HOMOLOG);
+    //
+    // A lista de visitas é o melhor lugar para perguntar isso: cada compromisso
+    // nomeia a unidade dele. O seletor `<option>` que este teste usava só existe
+    // acima de 6 unidades (`PortalUnitFilter`) — abaixo disso a filtragem é por
+    // chip, e o teste media o vazio.
+    await page.goto('/cliente/agenda');
+    // Esperar a lista montar: contar link antes disso conta zero e o teste passa
+    // por engano — o que ele tem que provar é o conteúdo, não a ausência.
+    await expect(page.getByRole('heading', { name: /Agendamentos e arquivos/i })).toBeVisible();
+    const visitas = page.locator('a[href^="/cliente/visita/"]');
+    const total = await visitas.count();
+    expect(total).toBeGreaterThan(0);
+    for (let i = 0; i < total; i += 1) {
+      expect(await visitas.nth(i).innerText()).toContain(PREFIXO_HOMOLOG);
     }
   });
 });
@@ -111,6 +126,9 @@ test.describe('plano de ação', () => {
   test.beforeEach(async ({ page }) => {
     const { email, codigo } = contas.portal();
     await entraNoPortal(page, email, codigo);
+    // FE-09: o plano deixou de ser um bloco da visão geral e virou seção.
+    await page.goto('/cliente/plano-de-acao');
+    await expect(page.getByRole('heading', { name: 'Plano de ação', level: 1 })).toBeVisible();
   });
 
   test('pendência vencida vem marcada e as três respostas estão disponíveis', async ({ page }) => {
@@ -151,17 +169,29 @@ test.describe('regressão do que já estava no ar', () => {
   });
 
   test('pagamento, conformidade, agenda e solicitações continuam na página', async ({ page }) => {
-    await expect(page.getByText(/Pagamento confirmado|Pagamento em aberto/i)).toBeVisible();
+    // Os quatro assuntos continuam no ar — cada um na seção que o FE-09 criou.
+    // O teste anterior os procurava todos na visão geral, onde só dois ficaram.
     await expect(page.getByRole('heading', { name: /Conformidade da rede/i })).toBeVisible();
+
+    await page.goto('/cliente/agenda');
     await expect(page.getByRole('heading', { name: /Calendário de compromissos/i })).toBeVisible();
     await expect(page.getByRole('heading', { name: /Agendamentos e arquivos/i })).toBeVisible();
+
+    await page.goto('/cliente/solicitacoes');
     await expect(page.getByRole('heading', { name: /^Solicitações$/i })).toBeVisible();
+
+    await page.goto('/cliente/financeiro');
+    await expect(page.getByText(/Pagamento confirmado|Pagamento em aberto|Sem cobrança/i).first()).toBeVisible();
   });
 
   test('a visita concluída abre o detalhe', async ({ page }) => {
-    // Filtrar pelo href: o nome da unidade também aparece no botão da pasta
-    // personalizada, que é link externo para o Drive.
-    await page.locator('a[href^="/cliente/visita/"]').first().click();
+    // A lista de visitas mora na Agenda desde o FE-09. Filtrar pelo href: o nome
+    // da unidade também aparece no botão da pasta personalizada, que é link
+    // externo para o Drive.
+    await page.goto('/cliente/agenda');
+    const visita = page.locator('a[href^="/cliente/visita/"]').first();
+    await expect(visita).toBeVisible();
+    await visita.click();
     await expect(page).toHaveURL(/\/cliente\/visita\//);
     await expect(page.getByText(/\[HOMOLOG\] Unidade/).first()).toBeVisible();
   });

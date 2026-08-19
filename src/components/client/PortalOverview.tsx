@@ -114,13 +114,13 @@ export function PortalOverview({
           <div className="mt-4 flex flex-wrap gap-2">
             <Link
               to="/cliente/plano-de-acao"
-              className="inline-flex items-center justify-center gap-1.5 rounded-md bg-primary-700 px-4 py-2.5 text-sm font-semibold text-on-accent shadow-sm hover:bg-primary-800"
+              className="inline-flex items-center justify-center gap-1.5 rounded-md bg-primary-700 px-4 py-2.5 text-sm font-semibold text-on-accent shadow-sm hover:bg-primary-800 [@media(pointer:coarse)]:min-h-11"
             >
               Abrir o plano de ação
             </Link>
             <Link
               to="/cliente/agenda"
-              className="inline-flex items-center justify-center gap-1.5 rounded-md border border-primary-200 bg-surface px-4 py-2.5 text-sm font-semibold text-primary-800 hover:bg-primary-100"
+              className="inline-flex items-center justify-center gap-1.5 rounded-md border border-primary-200 bg-surface px-4 py-2.5 text-sm font-semibold text-primary-800 hover:bg-primary-100 [@media(pointer:coarse)]:min-h-11"
             >
               Ver a próxima visita
             </Link>
@@ -156,7 +156,7 @@ export function PortalOverview({
         <div className="mb-6 rounded-lg border border-default bg-surface shadow-sm">
           <div className="flex items-center justify-between border-b border-default px-4 py-3">
             <h2 className="font-title text-base font-semibold text-navy">Cumprimento por unidade</h2>
-            <Link to="/cliente/plano-de-acao" className="text-xs font-semibold text-primary-700 hover:text-primary-900">
+            <Link to="/cliente/plano-de-acao" className="inline-flex items-center text-xs font-semibold text-primary-700 hover:text-primary-900 [@media(pointer:coarse)]:min-h-11">
               Ver pendências
             </Link>
           </div>
@@ -182,7 +182,7 @@ export function PortalOverview({
                 <p className="mt-1 text-xs text-navy-2">{formatDateBR(lastReport.requested_date)}</p>
                 <Link
                   to={`/cliente/visita/${lastReport.public_token}`}
-                  className="mt-4 inline-flex items-center gap-1.5 rounded-md border border-control px-3 py-2 text-xs font-semibold text-navy hover:bg-surface-hover"
+                  className="mt-4 inline-flex items-center gap-1.5 rounded-md border border-control px-3 py-2 text-xs font-semibold text-navy hover:bg-surface-hover [@media(pointer:coarse)]:min-h-11"
                 >
                   <Download className="h-3.5 w-3.5" /> Ver relatório
                 </Link>
@@ -206,7 +206,7 @@ export function PortalOverview({
                 </p>
                 <Link
                   to="/cliente/agenda"
-                  className="mt-4 inline-flex items-center gap-1.5 rounded-md border border-control px-3 py-2 text-xs font-semibold text-navy hover:bg-surface-hover"
+                  className="mt-4 inline-flex items-center gap-1.5 rounded-md border border-control px-3 py-2 text-xs font-semibold text-navy hover:bg-surface-hover [@media(pointer:coarse)]:min-h-11"
                 >
                   <FileText className="h-3.5 w-3.5" /> Ver agenda
                 </Link>

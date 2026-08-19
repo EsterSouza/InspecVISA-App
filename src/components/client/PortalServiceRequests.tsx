@@ -552,7 +552,7 @@ export function PortalServiceRequests({
               setFormOpen((value) => !value);
               setFlash(null);
             }}
-            className="inline-flex items-center gap-1.5 rounded-md border border-primary-200 bg-primary-50 px-3 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-100"
+            className="inline-flex items-center gap-1.5 rounded-md border border-primary-200 bg-primary-50 px-3 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-100 [@media(pointer:coarse)]:min-h-11"
           >
             {formOpen ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
             {formOpen ? 'Cancelar' : 'Nova solicitação'}

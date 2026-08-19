@@ -29,7 +29,7 @@ export function ProfileModal({ onClose }: ProfileModalProps) {
           {/* Option: Ana */}
           <button
             onClick={() => handleSelect('ana')}
-            className={`w-full group relative flex items-center p-4 rounded-xl border-2 transition-all ${
+            className={`w-full group relative flex items-center p-4 rounded-xl border-2 transition-colors ${
               settings.name === 'Ana Roberta Ribeiro'
                 ? 'border-primary-500 bg-primary-50'
                 : 'border-default bg-surface-sunken hover:border-primary-200 hover:bg-surface'
@@ -52,7 +52,7 @@ export function ProfileModal({ onClose }: ProfileModalProps) {
           {/* Option: Ester */}
           <button
             onClick={() => handleSelect('ester')}
-            className={`w-full group relative flex items-center p-4 rounded-xl border-2 transition-all ${
+            className={`w-full group relative flex items-center p-4 rounded-xl border-2 transition-colors ${
               settings.name === 'Ester Caiafa'
                 ? 'border-primary-500 bg-primary-50'
                 : 'border-default bg-surface-sunken hover:border-primary-200 hover:bg-surface'

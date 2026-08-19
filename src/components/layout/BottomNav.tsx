@@ -85,7 +85,9 @@ export function BottomNav() {
                 key={item.to}
                 to={item.to}
                 className={({ isActive }) =>
-                  `flex flex-col items-center justify-center space-y-1 p-2 ${
+                  // FE-27: `p-2` dava 36-39px de largura — o alvo de toque da
+                  // decisão 7 é 44px, e aqui é justamente onde só existe dedo.
+                  `flex min-h-11 min-w-11 flex-col items-center justify-center space-y-1 p-2 ${
                     isActive ? 'text-primary-600' : 'text-navy-3 hover:text-navy'
                   }`
                 }
@@ -104,6 +106,9 @@ export function BottomNav() {
 
           <NavLink
             to="/new"
+            // FE-27: só o ícone, sem texto — o leitor de tela anunciava "link",
+            // e mais nada. O mesmo botão no `Sidebar` já vinha nomeado.
+            aria-label="Nova inspeção"
             className={({ isActive }) =>
               `flex h-12 w-12 items-center justify-center rounded-full text-on-accent shadow-md transition-transform active:scale-95 ${
                 isActive ? 'bg-primary-700' : 'bg-primary-600 hover:bg-primary-700'
@@ -117,7 +122,7 @@ export function BottomNav() {
             <button
               type="button"
               onClick={() => setMoreOpen(true)}
-              className="flex flex-col items-center justify-center space-y-1 p-2 text-navy-3 hover:text-navy"
+              className="flex min-h-11 min-w-11 flex-col items-center justify-center space-y-1 p-2 text-navy-3 hover:text-navy"
               aria-haspopup="dialog"
               aria-expanded={moreOpen}
             >

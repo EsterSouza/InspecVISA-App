@@ -44,7 +44,7 @@ export function MobileScoreBar({ template: propTemplate }: MobileScoreBarProps) 
         {/* Progress bar */}
         <div className="flex-1 h-2 bg-surface/70 rounded-full overflow-hidden">
           <div
-            className="h-full rounded-full transition-all duration-700"
+            className="h-full rounded-full transition-[width] duration-700"
             style={{ width: `${score.scorePercentage}%`, backgroundColor: colors.bar }}
           />
         </div>

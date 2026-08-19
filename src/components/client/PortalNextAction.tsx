@@ -149,7 +149,7 @@ export function PortalNextAction(props: PortalNextActionProps) {
             target="_blank"
             rel="noopener noreferrer"
             onClick={audit}
-            className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md bg-primary-700 px-4 py-2.5 text-sm font-semibold text-on-accent shadow-sm transition-colors hover:bg-primary-800"
+            className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md bg-primary-700 px-4 py-2.5 text-sm font-semibold text-on-accent shadow-sm transition-colors hover:bg-primary-800 [@media(pointer:coarse)]:min-h-11"
           >
             {cta.label} <ChevronRight className="h-4 w-4" />
           </a>
@@ -157,7 +157,7 @@ export function PortalNextAction(props: PortalNextActionProps) {
           <Link
             to={cta.href}
             onClick={audit}
-            className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md bg-primary-700 px-4 py-2.5 text-sm font-semibold text-on-accent shadow-sm transition-colors hover:bg-primary-800"
+            className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md bg-primary-700 px-4 py-2.5 text-sm font-semibold text-on-accent shadow-sm transition-colors hover:bg-primary-800 [@media(pointer:coarse)]:min-h-11"
           >
             {cta.label} <ChevronRight className="h-4 w-4" />
           </Link>

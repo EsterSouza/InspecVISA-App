@@ -557,7 +557,7 @@ export function ServiceRequests() {
     return { waitingTeam, waitingClient, unassigned };
   }, [requests]);
 
-  const { page, totalPages, items: pagedRequests, setPage } = usePagedList(requests);
+  const { page, totalPages, items: pagedRequests, setPage } = usePagedList(requests, `${queue}|${search}`);
 
   const selectedRequest = selectedId ? requests.find((r) => r.id === selectedId) || null : null;
 

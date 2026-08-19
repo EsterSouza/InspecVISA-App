@@ -246,7 +246,7 @@ export function TemplateDetail() {
             return (
               <div
                 key={section.id}
-                className="bg-surface rounded-2xl border border-default shadow-sm overflow-hidden transition-all"
+                className="bg-surface rounded-2xl border border-default shadow-sm overflow-hidden transition-colors"
               >
                 {/* Section header */}
                 <button

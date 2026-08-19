@@ -189,10 +189,9 @@ export function Inspections() {
   };
 
   // A ordem é a do `loadInspections` (em andamento primeiro, depois data decrescente).
-  const { page, totalPages, items: pagedInspections, setPage } = usePagedList(inspections);
+  const { page, totalPages, items: pagedInspections, setPage } = usePagedList(inspections, `${search}|${filterStatus}`);
 
   // Mexer no filtro volta para a primeira página.
-  useEffect(() => { setPage(1); }, [search, filterStatus, setPage]);
 
   return (
     <PageShell>
@@ -448,7 +447,7 @@ export function Inspections() {
           pagedInspections.map(insp => (
             <Card
               key={insp.id} 
-              className={`cursor-pointer transition-all hover:shadow-md ${insp.status === 'in_progress' ? 'border-primary-200 bg-primary-50/10' : ''}`}
+              className={`cursor-pointer transition-shadow hover:shadow-md ${insp.status === 'in_progress' ? 'border-primary-200 bg-primary-50/10' : ''}`}
               onClick={() => navigate(insp.status === 'in_progress' ? '/execute' : '/summary', { state: { inspectionId: insp.id }})}
             >
               <div className="p-4 sm:p-5">
