@@ -90,7 +90,7 @@ export const publicAppointmentService = {
       throw new Error('Entre no Portal do Cliente para agendar inspeções, reuniões e treinamentos.');
     }
     if (!isAllowedAppointmentDuration('briefing', payload.duration_minutes ?? 0)) {
-      throw new Error('O briefing aceita 15, 30 ou 45 minutos.');
+      throw new Error('O briefing aceita 45 ou 60 minutos.');
     }
     const { data, error } = await withTimeout(
       supabase.rpc('public_create_calendar_appointment_request', {

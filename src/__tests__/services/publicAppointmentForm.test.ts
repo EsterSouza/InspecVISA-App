@@ -7,9 +7,9 @@ import {
 } from '../../utils/publicAppointmentForm';
 
 describe('public appointment form rules', () => {
-  test('visitante anonimo so agenda briefing, de ate 45 minutos', () => {
+  test('visitante anonimo so agenda briefing, de 45 a 60 minutos', () => {
     expect(appointmentTypeOptionsFor(false).map((option) => option.value)).toEqual(['briefing']);
-    expect(publicAppointmentDurations('briefing')).toEqual([15, 30, 45]);
+    expect(publicAppointmentDurations('briefing')).toEqual([45, 60]);
   });
 
   test('portal autenticado mantem inspecao e as demais finalidades', () => {

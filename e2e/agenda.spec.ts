@@ -45,7 +45,7 @@ async function horarioLivre(
     p_start_date: hoje,
     p_days: 45,
     p_appointment_type: 'briefing',
-    p_duration_minutes: 30,
+    p_duration_minutes: 45,
   });
   const listaDias = (dias.corpo as Array<{ day: string }>) ?? [];
   expect(listaDias.length, 'a agenda de homologação não ofereceu nenhum dia').toBeGreaterThan(0);
@@ -57,7 +57,7 @@ async function horarioLivre(
       p_tenant_id: tenant,
       p_day: dia.day,
       p_appointment_type: 'briefing',
-      p_duration_minutes: 30,
+      p_duration_minutes: 45,
     });
     const lista = (horarios.corpo as Array<{ starts_at: string; ends_at: string }>) ?? [];
     if (lista.length > pularPrimeiros) {
@@ -95,7 +95,11 @@ test.describe('canal público de agendamento', () => {
   test('exige antecedência mínima de 24 horas', async ({ request }) => {
     const agora = new Date();
     const inicio = new Date(agora.getTime() + 2 * 60 * 60 * 1000);
-    const fim = new Date(inicio.getTime() + 30 * 60 * 1000);
+    // A duração TEM que bater com o intervalo. Enquanto foram 30 minutos contra
+    // `duration_minutes: 45`, quem recusava o pedido era a checagem de coerência
+    // (`duracao nao corresponde ao intervalo informado`) — a regra de 24 horas,
+    // que é o assunto do teste, nunca chegava a ser exercida. Achado no FE-27.
+    const fim = new Date(inicio.getTime() + 45 * 60 * 1000);
 
     const r = await chamaRpc(request, 'public_create_calendar_appointment_request', {
       p_payload: {
@@ -104,7 +108,7 @@ test.describe('canal público de agendamento', () => {
         responsible_name: '[HOMOLOG] Teste',
         phone: '21999999999',
         appointment_type: 'briefing',
-        duration_minutes: 30,
+        duration_minutes: 45,
         requested_starts_at: inicio.toISOString(),
         requested_ends_at: fim.toISOString(),
       },
@@ -123,7 +127,7 @@ test.describe('canal público de agendamento', () => {
         responsible_name: '[HOMOLOG] Teste',
         phone: '21999999999',
         appointment_type: 'briefing',
-        duration_minutes: 30,
+        duration_minutes: 45,
         requested_starts_at: inicio,
         requested_ends_at: fim,
       },

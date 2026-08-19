@@ -111,7 +111,7 @@ export function isAllowedAppointmentDuration(type: AppointmentType, minutes: num
   if (type === 'inspection') return minutes >= 15 && minutes <= 720;
   if (type === 'training') return minutes >= 30 && minutes <= 480 && minutes % 30 === 0;
   if (type === 'other') return minutes >= 15 && minutes <= 480 && minutes % 15 === 0;
-  if (type === 'briefing') return minutes === 15 || minutes === 30 || minutes === 45;
+  if (type === 'briefing') return minutes === 45 || minutes === 60;
   // follow_up_meeting, results_meeting, document_guidance, audit, online_followup
   return minutes === 30 || minutes === 60 || minutes === 90;
 }

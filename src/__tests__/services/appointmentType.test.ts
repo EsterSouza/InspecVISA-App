@@ -115,12 +115,12 @@ describe('P360-004 - dominio de compromissos', () => {
       .toThrow('Duração inválida');
   });
 
-  test('briefing e um compromisso nao sanitario limitado a 45 minutos', () => {
+  test('briefing e um compromisso nao sanitario, de 45 a 60 minutos', () => {
     expect(APPOINTMENT_TYPE_RULES.briefing.isInspection).toBe(false);
     expect(APPOINTMENT_TYPE_RULES.briefing.usesSanitaryTimeline).toBe(false);
-    expect([15, 30, 45].every((minutes) =>
+    expect([45, 60].every((minutes) =>
       isAllowedAppointmentDuration('briefing', minutes))).toBe(true);
-    expect(isAllowedAppointmentDuration('briefing', 60)).toBe(false);
+    expect(isAllowedAppointmentDuration('briefing', 30)).toBe(false);
     expect(isAllowedAppointmentDuration('briefing', 20)).toBe(false);
     expect(() => assertInspectionAppointment('briefing', 'iniciar uma inspeção'))
       .toThrow('Somente compromissos de inspeção');

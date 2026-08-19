@@ -184,4 +184,76 @@ begin
 end;
 $$;
 
+\ir ../migrations/20260819114225_briefing_duration_and_buffer.sql
+
+-- Duracao: 60 minutos passa a ser aceito (aditivo); 15/30 continuam validos para nao quebrar
+-- edicao das solicitacoes ja confirmadas antes deste card. Default sobe de 30 para 45.
+do $$
+begin
+  if private.resolve_appointment_duration_minutes('briefing', 15) <> 15
+     or private.resolve_appointment_duration_minutes('briefing', 30) <> 30
+     or private.resolve_appointment_duration_minutes('briefing', 45) <> 45
+     or private.resolve_appointment_duration_minutes('briefing', 60) <> 60
+     or private.resolve_appointment_duration_minutes('briefing', null) <> 45 then
+    raise exception 'briefing rejeitou duracao valida ou perdeu o novo default de 45 minutos';
+  end if;
+
+  begin
+    perform private.resolve_appointment_duration_minutes('briefing', 20);
+    raise exception 'briefing aceitou duracao fora de 15/30/45/60';
+  exception when check_violation then
+    null;
+  end;
+end;
+$$;
+
+-- Intervalo entre briefings: 30min antes/depois, nao mais a margem online generica de 2h depois.
+-- E o caso real de producao de 18/08/2026 -- um briefing de 15min as 9h30 varria a manha inteira.
+do $$
+declare
+  v_starts timestamptz := '2027-06-01T09:30:00-03:00';
+begin
+  insert into public.schedules (
+    tenant_id, client_id, scheduled_at, status, appointment_type, attendance_mode,
+    duration_minutes, consultant_names
+  ) values (
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    '20000000-0000-4000-8000-000000000001',
+    v_starts,
+    'pending',
+    'briefing',
+    'online',
+    15,
+    array['Consultora A']
+  );
+
+  -- Fim do briefing: 09:45. Blocked window esperado: [09:00, 10:15).
+  if private.appointment_has_conflict(
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    v_starts + interval '45 minutes', v_starts + interval '1 hour',
+    array['Consultora A'], null, null, null, interval '4 hours'
+  ) then
+    raise exception 'briefing bloqueou candidato que comeca as 10:15, exatamente 30min apos o fim';
+  end if;
+  if not private.appointment_has_conflict(
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    v_starts + interval '30 minutes', v_starts + interval '45 minutes',
+    array['Consultora A'], null, null, null, interval '4 hours'
+  ) then
+    raise exception 'briefing nao bloqueou candidato dentro dos 30min depois do fim';
+  end if;
+  if not exists (
+    select 1 from public.public_list_available_times(
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', (v_starts at time zone 'America/Sao_Paulo')::date,
+      'briefing', 45, null
+    ) where label = '11:00'
+  ) then
+    raise exception 'briefing de 15min continuou bloqueando a manha inteira (11:00 deveria estar livre)';
+  end if;
+
+  delete from public.schedules where tenant_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    and scheduled_at = v_starts;
+end;
+$$;
+
 select 'P360-007 public briefing-only tests passed' as result;
