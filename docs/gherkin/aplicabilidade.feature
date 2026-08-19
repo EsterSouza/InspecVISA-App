@@ -204,9 +204,40 @@ Funcionalidade: Aplicabilidade condicional do roteiro
     E nenhuma delas entra na nota
     E nenhuma delas gera item no plano de ação
 
+  # ── Rascunho e revisão publicada (COND-04) ─────────────────────────────────
+  Cenário: Regra pela metade pode ser salva
+    Dado que comecei a montar uma condição e ainda não escolhi o operador
+    Quando salvo o trabalho
+    Então a regra fica guardada como rascunho
+    E nenhuma inspeção nova enxerga essa regra
+
+  Cenário: Só revisão publicada entra em inspeção
+    Dado um roteiro com rascunho de condições e uma revisão publicada anterior
+    Quando crio uma inspeção com esse roteiro
+    Então a inspeção congela a revisão publicada
+    E o rascunho não participa de nada
+
+  Cenário: Publicar uma revisão nova não altera inspeção já criada
+    Dado uma inspeção criada com a revisão publicada 1
+    Quando publico a revisão 2 do mesmo roteiro
+    Então a inspeção continua avaliando pela revisão 1
+    E a revisão 1 continua existindo, sem ter sido alterada
+
+  Cenário: Salvar o roteiro no editor não apaga as regras
+    Dado um roteiro com regras publicadas
+    Quando edito o roteiro e salvo (o editor reinsere seções e itens com os mesmos ids)
+    Então as regras continuam de pé, apontando para os mesmos itens
+
+  Cenário: Consultoria não enxerga revisão de outra consultoria
+    Dado duas consultorias com revisões do mesmo roteiro
+    Quando uma delas lista as revisões
+    Então só aparecem as do próprio tenant
+    E gravar no tenant da outra é recusado
+
   # ── Onde o comportamento é garantido hoje ──────────────────────────────────
-  # COND-02 (16/08/2026) entregou o motor puro. Ele decide aplicabilidade e explica a decisão, mas
-  # NENHUMA tela o chama ainda — o comportamento visível no app é o de antes até o COND-03.
+  # COND-02 (16/08/2026) entregou o motor puro; COND-03 (18/08) a árvore única congelada na criação
+  # da inspeção; COND-04 (19/08) a persistência das regras. NENHUMA tela cria regra ainda e a tabela
+  # de revisões está vazia em produção — o comportamento visível no app é o de antes.
   #
   # Garantido por teste, no motor (src/domain/applicability/):
   #   os três estados · null/indeterminado · TODAS/QUALQUER · else · herança seção→item ·
@@ -217,9 +248,16 @@ Funcionalidade: Aplicabilidade condicional do roteiro
   #   as regras hardcoded de hoje reproduzidas pelo motor
   #     → src/__tests__/domain/applicabilityEquivalence.test.ts
   #
-  # Ainda sem implementação (cards COND-03 a COND-10): congelamento na criação, preservação de
-  # resposta de ramo desativado, confirmação antes de retirar item respondido, score/progresso/PDF,
-  # plano de ação, offline, duas consultoras, editor e duplicação de roteiro.
+  # Garantido por teste, no banco (supabase/tests/cond04_applicability_revisions.test.sql):
+  #   rascunho aceita regra incompleta · publicar exige forma válida · publicada é imutável ·
+  #   um rascunho por roteiro · inspeção só congela revisão publicada · isolamento por tenant ·
+  #   grants sem anon · regras sobrevivem ao salvamento do editor
+  # E na leitura/escrita (src/__tests__/services/applicabilityRevision.test.ts):
+  #   roteiro sem revisão = sem regra · rascunho não é validado · publicação recusa referência quebrada
+  #
+  # Ainda sem implementação (cards COND-05 a COND-10): perguntas de roteamento e contexto congelado,
+  # preservação de resposta de ramo desativado, confirmação antes de retirar item respondido,
+  # score/progresso/PDF, plano de ação, offline, duas consultoras, editor e duplicação de roteiro.
   #
   # O que já existia e virou a suíte de equivalência (docs/mapa-roteiro-inspecao.md):
   #   src/data/templates.ts:383  getEffectiveTemplate — as 6 regras hardcoded

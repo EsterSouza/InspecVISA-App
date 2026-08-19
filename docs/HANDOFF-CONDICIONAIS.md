@@ -10,22 +10,24 @@
 
 ## Onde estamos
 
-**COND-01, COND-02 e COND-03 entregues** (COND-01/02 em 16/08/2026; COND-03 em 18/08/2026), com as
-**4 decisões de produto tomadas** pela Ester ([contrato § 10](contrato-aplicabilidade.md)) — inclusive
-a de que existe **uma árvore só**, com o papel virando filtro de exibição. O motor declarativo existe
-e é testado isoladamente em `src/domain/applicability/`. O COND-03 fez a execução parar de manter
-duas árvores, congelou a revisão do roteiro na criação da inspeção (com lazy-freeze para o legado em
-andamento) e reescreveu `resolveReportTemplate` para nunca reconstruir do roteiro vivo. **O motor de
-aplicabilidade ainda não é consultado** (nenhuma regra é persistida): a árvore congelada tem
-`rules`/`routingQuestions` vazios até o COND-04/05. Próximo é o `COND-04`, que decide o formato
-físico da persistência das regras.
+**COND-01 a COND-04 entregues** (COND-01/02 em 16/08/2026; COND-03 em 18/08/2026; COND-04 em
+19/08/2026), com as **4 decisões de produto tomadas** pela Ester
+([contrato § 10](contrato-aplicabilidade.md)) — inclusive a de que existe **uma árvore só**, com o
+papel virando filtro de exibição. O motor declarativo existe e é testado isoladamente em
+`src/domain/applicability/`. O COND-03 fez a execução parar de manter duas árvores, congelou a
+revisão do roteiro na criação da inspeção (com lazy-freeze para o legado em andamento) e reescreveu
+`resolveReportTemplate` para nunca reconstruir do roteiro vivo. O COND-04 decidiu o formato físico
+— `public.checklist_template_revisions`, rascunho × publicada — e o aplicou em produção, com a
+tabela vazia: **nenhum roteiro tem revisão ainda**, então nada mudou de comportamento. **O motor de
+aplicabilidade ainda não é consultado**: a árvore congelada tem `rules`/`routingQuestions` vazios
+até o COND-05/06 criarem e ligarem a primeira revisão. Próximo é o `COND-05`.
 
 | Card | O que é | Modelo | Esforço | Depois de |
 |---|---|---|---|---|
 | ~~**COND-01**~~ ✅ | Auditoria + contrato de domínio e invariantes · `docs/mapa-roteiro-inspecao.md`, `docs/contrato-aplicabilidade.md`, `docs/gherkin/aplicabilidade.feature` | Opus 5 | alto | — |
 | ~~**COND-02**~~ ✅ | Schema declarativo + motor puro + validador · `src/domain/applicability/` | Opus 5 | alto | COND-01 |
 | ~~**COND-03**~~ ✅ | `EffectiveTemplate` canônico + **congelamento na criação da inspeção** · uma árvore só | Opus 5 | alto | COND-02 |
-| **COND-04** | Persistência, revisão, RLS e compatibilidade | Opus 5 | alto | COND-03 |
+| ~~**COND-04**~~ ✅ | Persistência, revisão, RLS e compatibilidade · `checklist_template_revisions` (rascunho × publicada) | Opus 5 | alto | COND-03 |
 | **COND-05** | Perguntas de roteamento e contexto congelado | Opus 5 | médio-alto | COND-04 |
 | **COND-06** | Editor visual **com o ciclo de vida junto** | Opus 5 | alto | COND-05 |
 | **COND-07** | Simulador e gate de publicação | Sonnet 5 | médio-alto | COND-06 |
@@ -663,6 +665,94 @@ roteamento e contexto congelado além do que a inspeção já guarda (`COND-05`)
 aplicabilidade de fato — a árvore congelada carrega regras vazias por enquanto.
 
 **Desbloqueia:** `COND-04`.
+
+### COND-04 · 19/08/2026 · Opus 5
+
+**Entregue.** Migration criada, testada e **aplicada em produção com autorização explícita da
+Ester** ("aplique tudo que tiver pendente em produção", 19/08). A tabela nasceu **vazia**: nenhum
+roteiro tem revisão, nenhuma linha existente foi lida, alterada ou apagada — zero backfill, zero
+mudança de comportamento.
+
+**O formato físico decidido:** uma **tabela nova**, `public.checklist_template_revisions`, com o
+conteúdo condicional em dois JSONB de forma validada (`rules`, `routing_questions`) no schema do
+COND-02. Uma linha por revisão, `status` `draft` | `published`.
+
+**Por que não foi coluna em `checklist_items` nem tabela relacional de condição:**
+`TemplateService.updateFullTemplate` salva o roteiro **apagando todas as seções e itens e
+reinserindo com os mesmos ids** (`src/services/templateService.ts:492`). Regra dentro do item — ou
+em tabela filha com FK — seria apagada em CASCADE a cada salvamento do editor, em silêncio. Por
+isso a regra referencia item e seção **por id, sem FK**, como `responses.item_id` já faz. Há teste
+SQL que reproduz o salvamento do editor e prova que as regras sobrevivem.
+
+**Arquivos criados:**
+
+| Arquivo | O que é |
+|---|---|
+| `supabase/migrations/20260819090603_cond04_applicability_revisions.sql` | a tabela, o gatilho de ciclo de vida, RLS, grants, `inspections.applicability_revision_id` e o gatilho que só aceita revisão publicada |
+| `supabase/tests/cond04_applicability_revisions.test.sql` | 11 blocos de caso, fixture próprio |
+| `src/services/applicabilityRevisionService.ts` | ler a publicada, salvar/descartar rascunho, publicar (com o validador do COND-02 antes do banco) |
+| `src/__tests__/services/applicabilityRevision.test.ts` | 11 casos |
+
+**Arquivos alterados:** este handoff · `docs/gherkin/aplicabilidade.feature` (persistência e o
+rodapé, que ainda dizia "até o COND-03") · `docs/migrations-status.md` (a migration nova e a
+correção de nome da de 18/08).
+
+**O que o banco garante, e não depende de o app se comportar:**
+
+1. **Isolamento por tenant** — `tenant_id` obrigatório e RLS por `private.my_tenant_ids()` +
+   `private.is_tenant_staff()`. As três tabelas do roteiro são globais e liberadas para qualquer
+   `authenticated` (dívida antiga); a tabela nova **não** repete isso.
+2. **Grants mínimos** — `anon` sem nada (conferido em produção com `has_table_privilege`);
+   `authenticated` com select/insert/update/delete e **sem** truncate.
+3. **Insert nasce rascunho** — a policy de insert exige `status = 'draft'`: publicar é transição,
+   nunca estado inicial.
+4. **Publicada é imutável** — gatilho recusa update e delete de linha publicada, inclusive fora do
+   RLS. É o que faz "editar condicional amanhã não altera inspeção de ontem" ser garantia de banco,
+   não disciplina de código.
+5. **Um rascunho por roteiro e tenant** — índice único parcial.
+6. **Rascunho aceita regra pela metade; publicar não** — a validação estrutural
+   (`private.applicability_payload_is_structural`) roda só na publicação.
+7. **Só revisão publicada entra em inspeção** — `inspections.applicability_revision_id` (nullable)
+   com gatilho que recusa rascunho e recusa revisão de outro tenant.
+
+**Testes executados:** suíte SQL nova + as 19 existentes em Postgres 16 limpo (container recriado,
+`/work` apagado antes do `docker cp`) → **20/20 OK** · `npx vitest run` (suíte JS completa) ·
+`npm run build` (tsc -b + vite) · `eslint` dos arquivos novos. Efeito real conferido **em
+produção** depois de aplicar: RLS ligada, 4 policies, 2 gatilhos, coluna criada, `anon` sem
+privilégio, 0 linhas na tabela. `get_advisors(security)` não acusa nada nos objetos novos.
+
+**Achado que mudou a migration antes de aplicar:** `checklist_templates.id` é **`text`** em
+produção, não `uuid` (`20260426140859_convert_template_ids_to_text` — roteiro estático tem id
+legível, `tpl-ilpi-v1`). A primeira versão da FK era `uuid` e teria falhado na aplicação; o fixture
+do teste também usava `uuid` e passava mesmo assim. Corrigidos os dois — o fixture agora copia os
+tipos reais.
+
+**Achado de ledger, corrigido junto:** `20260818090000_legislations_abnt_municipio.sql` estava
+aplicada em produção sob a versão `20260818141657` (aplicada pelo MCP, arquivo local nunca
+renomeado). Conteúdo conferido no schema real (`legislations.abnt`, `.municipio` existem); o
+arquivo local foi renomeado para bater com o ledger. **Nada foi reaplicado.**
+
+**Ficou deliberadamente de fora:** gravar `applicability_revision_id` na criação da inspeção
+(`COND-05`) · levar a revisão congelada ao Dexie e ao sync entre dispositivos (`COND-08`) · o editor
+que cria regra (`COND-06`) · o gate de publicação com explicação em tela (`COND-07` — aqui só existe
+a recusa, com a lista de problemas do validador). Também ficou de fora persistir o
+`reportTemplateSnapshot` no Supabase: o vínculo por revisão publicada e imutável dá convergência sem
+duplicar o roteiro inteiro em cada inspeção, e o payload do sync já teve problema de tamanho
+(`008_trim_sync_batch_payload`).
+
+**Achados fora do escopo, registrados e não corrigidos:** (1) `npm run lint` já falhava no `main`
+antes deste card — `src/components/ui/PromptDialog.tsx:110` exporta componente e hook no mesmo
+arquivo (`react-refresh/only-export-components`), o que deixa o job `js` do CI vermelho; é trabalho
+do FE-28, não deste card. (2) as "6 falhas pré-existentes" registradas no COND-03 **não são falhas
+do código**: `npx vitest run` direto quebra no `storage.setItem` do persist do zustand, e `npm test`
+passa porque o script traz `NODE_OPTIONS=--no-experimental-webstorage`. Rodando `npm test`, são
+**568 testes passando, 0 falhando**.
+
+**Risco conhecido:** a validação estrutural em SQL repete a lista de operadores do
+`src/domain/applicability/schema.ts`. Operador novo precisa entrar nos dois lugares — o SQL recusa a
+publicação se ficar para trás, então a falha é visível, não silenciosa.
+
+**Desbloqueia:** `COND-05`.
 
 ## Relacionados
 

@@ -230,10 +230,35 @@ Duas colunas aditivas em `public.legislations`, para a base unificada `@visa/leg
 `status` também foi atualizado, porque o domínio ganhou `nao_verificado`.
 
 Aplicada pelo MCP e registrada no ledger com o mesmo conteúdo do arquivo local
-`supabase/migrations/20260818090000_legislations_abnt_municipio.sql` — a regra da seção D valendo de
-novo. Confirmado por `information_schema.columns` depois de aplicar.
+`supabase/migrations/20260818141657_legislations_abnt_municipio.sql`. Confirmado por
+`information_schema.columns` depois de aplicar.
+
+> **Corrigido em 19/08/2026 (COND-04):** o arquivo local tinha sido escrito como `20260818090000`, e
+> o ledger gravou `20260818141657` — o horário da aplicação, como sempre. A diferença ficou
+> invisível por um dia e faria a próxima conferência acusar migration "pendente" que na verdade já
+> está no banco. Arquivo renomeado; nada reaplicado.
 
 **As linhas em si não vêm de migration.** A tabela tinha 77 verbetes e a biblioteca tem 119; a
 diferença entra por **Admin → Legislações → Sincronizar**, que agora insere o que falta *e* atualiza
 o que existe (antes só inseria, então coluna nova nunca chegava às linhas antigas). Uma migration com
 os 119 verbetes teria 60 KB de `VALUES` duplicando dado que já viaja no bundle do app.
+
+## `cond04_applicability_revisions` — aplicada por MCP em 19/08/2026
+
+Persistência do motor de condicionais (`COND-04`, ver
+[HANDOFF-CONDICIONAIS.md](HANDOFF-CONDICIONAIS.md)). Cria `public.checklist_template_revisions`
+(regras e perguntas de roteamento, versionadas em rascunho × publicada), o gatilho de ciclo de vida,
+RLS por tenant, grants sem `anon`, e a coluna `inspections.applicability_revision_id` com o gatilho
+que só aceita revisão publicada.
+
+**Autorizada pela Ester em 19/08/2026** ("aplique tudo que tiver pendente em produção"). Arquivo
+local `supabase/migrations/20260819090603_cond04_applicability_revisions.sql`, já nomeado com a
+versão que o ledger gravou.
+
+**Aditiva e vazia.** Nenhuma linha existente foi lida, alterada ou apagada; a tabela nova nasceu com
+zero linhas, então nenhum roteiro tem regra e nada mudou de comportamento. Conferido depois de
+aplicar: RLS ligada, 4 policies, 2 gatilhos, coluna criada, `has_table_privilege('anon', …)` falso
+para select/insert/update/delete, `get_advisors(security)` sem apontar os objetos novos.
+
+**Reversão** (no cabeçalho do arquivo): derrubar os dois gatilhos, a coluna, a tabela e as três
+funções. Segura enquanto nada do app escrever na coluna — a fiação é do `COND-05`/`COND-08`.
