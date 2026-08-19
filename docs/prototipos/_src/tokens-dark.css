@@ -1,5 +1,12 @@
   /* Escuro não é um tema alternativo: é o mesmo sistema com outra iluminação.
-     Mesmos nomes de token, mesma hierarquia, mesmos papéis semânticos. */
+     Mesmos nomes de token, mesma hierarquia, mesmos papéis semânticos.
+
+     Revisado em 19/08/2026, no FE-12, com o tema já rodando no app e medido no
+     navegador: os "soft" desta tabela descolavam do cartão só 1,03–1,13:1 (o
+     claro trabalha em 1,35–1,89), então o selo perdia a forma; e os tons cheios
+     tinham ~30 pontos de croma a menos que os do claro, o que dava um ar
+     apagado. Foram clareados e saturados sem que nenhum par de contraste
+     piorasse. Esta tabela e a do `src/index.css` têm que continuar iguais. */
   --bg:            #07182E;  /* navy profundo */
   --surface:       #0E2440;
   --surface-sunken:#050F1F;
@@ -15,38 +22,38 @@
   --ink-3: #92AAC8;
   --ink-on-accent: #07182E;
 
-  --accent:       #6F95F6;  /* azul claro — ação e foco em fundo escuro */
+  --accent:       #6A9BFF;  /* azul claro — ação e foco em fundo escuro */
   --accent-hover: #8CABF9;
   --accent-active:#A5BEFB;
-  --accent-ink:   #9DBAFB;
-  --accent-soft:  #152F52;
+  --accent-ink:   #9CBCFF;
+  --accent-soft:  #193A75;
   --accent-soft-ink: #B7CDFC;
-  --accent-soft-border: #2B4D7E;
+  --accent-soft-border: #2C5FB5;
 
-  --teal:      #3FA6B4;
-  --teal-soft: #0D2E36;
-  --teal-soft-ink: #7FCBD6;
-  --teal-soft-border: #1C4A54;
+  --teal:      #3FC3D6;
+  --teal-soft: #0B404A;
+  --teal-soft-ink: #8ADFEA;
+  --teal-soft-border: #146575;
 
-  --amber:        #E8AC46;
-  --amber-strong: #E8AC46;
-  --amber-soft:   #3A2A0E;
-  --amber-soft-ink: #F0C173;
-  --amber-soft-border: #5C441A;
+  --amber:        #FFB84D;
+  --amber-strong: #FFB84D;
+  --amber-soft:   #523710;
+  --amber-soft-ink: #FFD08A;
+  --amber-soft-border: #7A5A1E;
 
-  --success:      #3FBF83;
-  --success-soft: #0C2D1E;
-  --success-soft-ink: #79D9AC;
-  --success-soft-border: #17472F;
+  --success:      #38D68F;
+  --success-soft: #0E4429;
+  --success-soft-ink: #85E3B5;
+  --success-soft-border: #1E6440;
 
-  --danger:       #F0837A;
-  --danger-hover: #F5A49D;
-  --danger-soft:  #3A1614;
-  --danger-soft-ink: #F5A49D;
-  --danger-soft-border: #5E2723;
+  --danger:       #FF7A6E;
+  --danger-hover: #FF9A90;
+  --danger-soft:  #6E251F;
+  --danger-soft-ink: #FF9A90;
+  --danger-soft-border: #8C3830;
 
   --focus-ring: var(--accent);
-  --focus-halo: rgba(111, 149, 246, 0.28);
+  --focus-halo: rgba(106, 155, 255, 0.28);
 
   /* No escuro a sombra some. A elevação passa a ser a borda mais clara. */
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);

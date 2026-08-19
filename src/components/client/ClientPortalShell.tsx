@@ -10,6 +10,7 @@ import type {
 import { generateFranchisePdf } from '../../utils/franchiseReport';
 import { computeUnitActionStats } from '../../utils/clientPortalFormat';
 import { Badge } from '../ui/Badge';
+import { ThemeToggle } from '../ui/ThemeToggle';
 import {
   type NextActionOverdueItem,
   type NextActionPaymentOverdue,
@@ -156,6 +157,7 @@ export function ClientPortalShell({
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="success">Contrato ativo</Badge>
+              <ThemeToggle />
               <button
                 type="button"
                 onClick={() => generateFranchisePdf(overview)}

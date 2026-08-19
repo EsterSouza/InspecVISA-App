@@ -367,10 +367,43 @@ corrompido, cai no claro e o efeito do `App.tsx` corrige logo em seguida.
 **O seletor foi ligado** (`Settings.tsx`, aba Aparência): vale por dispositivo e por perfil de
 consultora, troca na hora, sem recarregar, e continua valendo offline.
 
-**Verificação.** 31 pares de cor medidos em WCAG **nos dois temas, com o valor real lido do
-navegador** (não do arquivo): nenhum reprovado — o pior no escuro é `border-control/surface` em
-3,36:1, contra o mínimo de 3:1 de controle. `npm run lint`, `npm test` (568) e `npm run build`
-limpos.
+**E o cliente ganhou o dele.** A consultora tem a tela de Configurações; o cliente não tem — se o
+portal abrisse escuro e ele quisesse claro, não havia por onde. `ThemeToggle`
+(`src/components/ui/ThemeToggle.tsx`) fica no cabeçalho do portal, ao lado de "Sair". O rótulo é a
+**ação**, não o estado ("Tema claro" quando está escuro), escrito ao lado do ícone — nenhuma
+informação depende só da forma do desenho — e o botão leva `aria-pressed`. Escreve no mesmo
+`settings.theme`, de propósito: é um só `localStorage` por dispositivo, então trocar no portal
+também troca no admin.
+
+### Segunda rodada da cor — o escuro estava apagado
+
+Com o tema rodando de verdade, medido no navegador nas seis seções do portal, dois problemas que
+a paleta no papel não mostrava:
+
+1. **Os "soft" não descolavam do cartão.** `danger-soft` contra `surface` dava **1,03:1**;
+   `success-soft`, 1,05; `secondary-100`, 1,09; `amber-soft`, 1,13. O selo virava uma mancha sem
+   forma e só a tinta se lia. No tema claro os mesmos pares trabalham em 1,35–1,89.
+2. **O croma caía ~30 pontos.** Azul 77%→44%, vermelho 83%→49%, verde 89%→67%, teal 88%→65%. Era
+   o que dava o ar apagado.
+
+Os "soft" subiram para **1,37–1,45:1** e os tons cheios ganharam saturação — azul 44→58%,
+vermelho 49→57%, verde 67→74%, teal 65→71%, âmbar 70%. A escala numérica foi reespaçada junto,
+para continuar monotônica. `docs/prototipos/_src/tokens-dark.css` foi atualizado com os mesmos
+valores: as duas tabelas têm que continuar iguais.
+
+**A régua virou script.** `scripts/check-contraste-tema.mjs` (`npm run check:contraste`) lê os
+tokens direto do `src/index.css` — não uma cópia — e confere **47 pares nos dois temas** em três
+níveis: texto 4,5:1, gráfico 3:1 e **superfície 1,12:1**, esta última fora da WCAG, para pegar
+exatamente o defeito acima. Também confere se a escala numérica continua monotônica. Roda em
+segundos, sem navegador, e é o começo da camada automática do FE-27.
+
+**Verificação.** `npm run check:contraste` verde nos dois temas (47 pares cada). E, no navegador,
+com o cliente fictício CLANDESTINO BEAUTY logado no portal: as **seis seções** (visão geral, plano
+de ação, solicitações, documentos, agenda, financeiro) varridas elemento a elemento, comparando a
+cor de cada texto com o fundo em que ele **de fato** cai — **zero reprovados no escuro e zero no
+claro**. Nenhuma superfície "invisível" (cartão com o mesmo fundo da página). O botão de tema
+testado nos dois sentidos: troca na hora, persiste e o `color-scheme` acompanha.
+`npm run lint`, `npm test` (568) e `npm run build` limpos.
 
 **Achados que o card não consertou — são do FE-27, e valem nos DOIS temas:**
 
@@ -382,6 +415,9 @@ limpos.
    `amber-soft`/`amber-soft-ink`, como os outros selos.
 3. Véu de modal dividido: 17 lugares usam `bg-black/60` e 2 usam `bg-deep/60`. Funciona nos dois
    temas, mas são dois pretos diferentes para a mesma função.
+4. `ClientDetails.tsx:631` — o avatar da inspeção usa iniciais sobre `bg-primary-500`, que no tema
+   claro dá 3,94:1. `primary-500` é anel de foco e indicador (mínimo 3:1, e passa); como fundo de
+   texto o mínimo é 4,5:1. A régua registra a exceção em vez de escondê-la.
 
 ---
 
