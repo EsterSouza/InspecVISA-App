@@ -1,0 +1,25 @@
+# O build roda `npm ci` dentro da imagem: copiar node_modules do host traz
+# binários compilados para a plataforma errada e infla o contexto do build.
+node_modules
+dist
+.git
+.github
+
+# Artefatos de teste e desenvolvimento
+e2e
+playwright-report
+test-results
+coverage
+_local-nao-versionado
+
+# Material de referência que não entra na imagem
+*.pdf
+*.xlsx
+*.md
+!README.md
+
+# Backups e ambiente
+*-backup-*.json
+.env
+.env.*
+!.env.example
