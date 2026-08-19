@@ -212,7 +212,7 @@ function PhotoTile({ photo, onPreview, onRemove }: { photo: InspectionPhoto; onP
           <button
             type="button"
             onClick={() => onPreview(photo.dataUrl)}
-            className="rounded-full bg-surface/20 p-2 text-white hover:bg-surface/40"
+            className="rounded-full bg-white/20 p-2 text-white hover:bg-white/30"
           >
             <Maximize className="h-4 w-4" />
           </button>
@@ -223,7 +223,7 @@ function PhotoTile({ photo, onPreview, onRemove }: { photo: InspectionPhoto; onP
             e.stopPropagation();
             onRemove();
           }}
-          className="rounded-full bg-danger/80 p-2 text-white hover:bg-danger-hover"
+          className="rounded-full bg-danger/80 p-2 text-on-accent hover:bg-danger-hover"
         >
           <Trash2 className="h-4 w-4" />
         </button>
@@ -237,7 +237,7 @@ function PhotoSyncBadge({ photo }: { photo: InspectionPhoto }) {
     const failed = Boolean(photo.syncError?.includes('ainda nao baixou'));
     const Icon = failed ? AlertTriangle : Clock;
     return (
-      <div className={`absolute left-1 top-1 flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase shadow ${failed ? 'bg-amber text-white' : 'bg-primary-600 text-white'}`}>
+      <div className={`absolute left-1 top-1 flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase shadow ${failed ? 'bg-amber text-on-accent' : 'bg-primary-600 text-on-accent'}`}>
         <Icon className="h-3 w-3" />
         {failed ? 'Remota' : 'Baixando'}
       </div>
@@ -246,11 +246,11 @@ function PhotoSyncBadge({ photo }: { photo: InspectionPhoto }) {
 
   const status = photo.syncStatus;
   const config = {
-    synced: { label: 'OK', className: 'bg-success text-white', icon: CheckCircle },
-    pending: { label: 'Pendente', className: 'bg-primary-600 text-white', icon: Clock },
-    syncing: { label: 'Enviando', className: 'bg-primary-600 text-white', icon: Clock },
-    failed: { label: 'Falha', className: 'bg-danger text-white', icon: XCircle },
-    conflict: { label: 'Conflito', className: 'bg-amber text-white', icon: AlertTriangle }
+    synced: { label: 'OK', className: 'bg-success text-on-accent', icon: CheckCircle },
+    pending: { label: 'Pendente', className: 'bg-primary-600 text-on-accent', icon: Clock },
+    syncing: { label: 'Enviando', className: 'bg-primary-600 text-on-accent', icon: Clock },
+    failed: { label: 'Falha', className: 'bg-danger text-on-accent', icon: XCircle },
+    conflict: { label: 'Conflito', className: 'bg-amber text-on-accent', icon: AlertTriangle }
   }[status];
   const Icon = config.icon;
 

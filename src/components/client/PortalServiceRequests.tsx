@@ -266,7 +266,7 @@ function NewRequestForm({
       <button
         type="submit"
         disabled={busy}
-        className="inline-flex items-center gap-1.5 rounded-md bg-primary-700 px-3 py-2 text-xs font-bold text-white hover:bg-primary-800 disabled:opacity-60"
+        className="inline-flex items-center gap-1.5 rounded-md bg-primary-700 px-3 py-2 text-xs font-bold text-on-accent hover:bg-primary-800 disabled:opacity-60"
       >
         {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
         Registrar solicitação
@@ -355,7 +355,7 @@ function ReplyForm({
         type="button"
         onClick={() => void handleSend()}
         disabled={busy}
-        className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-primary-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-primary-800 disabled:opacity-60"
+        className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-primary-700 px-3 py-1.5 text-xs font-bold text-on-accent hover:bg-primary-800 disabled:opacity-60"
       >
         {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MessageSquare className="h-3.5 w-3.5" />}
         Enviar resposta

@@ -53,7 +53,7 @@ export function Drawer({ isOpen, onClose, title, children, footer, side = 'right
       onClick={handleBackdropClick}
       className={cn(
         'h-dvh max-h-dvh w-full max-w-[420px] overflow-hidden bg-surface p-0 text-navy shadow-2xl',
-        'backdrop:bg-navy/50',
+        'backdrop:bg-deep/50',
         'my-0',
         side === 'right'
           ? 'ml-auto mr-0 border-l border-default animate-in slide-in-from-right duration-200'

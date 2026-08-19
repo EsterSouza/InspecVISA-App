@@ -5,9 +5,9 @@
 
 ---
 
-## Onde estamos — atualizado em 18/08/2026
+## Onde estamos — atualizado em 19/08/2026
 
-**27 cards entregues, 2 na fila.** Card entregue tem o título ~~riscado~~ mais abaixo, com a data
+**28 cards entregues, 1 na fila.** Card entregue tem o título ~~riscado~~ mais abaixo, com a data
 e o commit; card aberto tem ⬜. Esta é a única tabela de estado do documento — se divergir de
 qualquer outra coisa aqui, ela ganha.
 
@@ -15,8 +15,7 @@ qualquer outra coisa aqui, ela ganha.
 
 | Card | O que é | Só depois de |
 |---|---|---|
-| **FE-12** | Tema escuro no app inteiro | — (FE-21 ✅ destravou) |
-| **FE-27** | Gate de regressão visual e a11y — **é o card que fecha o frontend** | FE-12, só para o tema |
+| **FE-27** | Gate de regressão visual e a11y — **é o card que fecha o frontend** | nada mais: o FE-12 ✅ destravou a camada de tema |
 
 O FE-24 tocou o formulário de telas que ainda seriam redesenhadas (`PublicSchedule` no FE-26,
 `SmartImporter` e `Login` no FE-25): a estrutura do redesenho era desses cards, o controle já
@@ -55,8 +54,9 @@ eram desse grupo e foram absorvidos pelo FE-22.
 | FE-25 | `SmartImporter` e `TemplateDetail` em `PageShell`/`PageHeader`; erro do `Login` anunciado (`role="alert"`) | 18/08 | `3dee39d` |
 | FE-26 | `PublicShell` + as duas superfícies sem login em coluna única, com a voz do portal | 18/08 | `033bde9` |
 | FE-28 | `PromptDialog` (`usePromptDialog`) substitui os 2 `window.prompt()` da revisão de evidência; `CopyLinkButton` no lugar do 3º | 18/08 | `ccc254e` |
+| FE-12 | Tema escuro no app inteiro, por variável CSS — **nenhuma classe `dark:`** | 19/08 | (a seguir) |
 
-**Ondas:** 1 (portal) **fechada** · 2 (admin) **fechada** · 3 (fechamento) falta FE-12 e a revisão
+**Ondas:** 1 (portal) **fechada** · 2 (admin) **fechada** · 3 (fechamento) falta só a revisão
 final de a11y · 4 (o admin que falta) em andamento, 12 de 14 entregues.
 
 ---
@@ -116,7 +116,9 @@ O app usa **Inter** em tudo hoje. O manual **proíbe monoespaçada usada só par
 - **Verde = sucesso, vermelho = erro.**
 - Evitar arredondamento excessivo, ícones decorativos repetidos, glassmorphism e aparência genérica de IA.
 - Contraste WCAG AA: 4,5:1 texto comum, 3:1 texto grande.
-- **Claro e escuro são um só sistema**, compartilhando tipografia, componentes, espaçamento e voz. Hoje há `darkMode: 'class'`, toggle no store e **zero** classes `dark:`.
+- **Claro e escuro são um só sistema**, compartilhando tipografia, componentes, espaçamento e voz. Desde o FE-12 (19/08) isso é literal: os dois temas são o mesmo CSS com outra tabela de
+  variáveis, e continua havendo **zero** classes `dark:` — o que troca é o valor do token, não a
+  classe do componente.
 - **Tema do InspecVISA interno:** *"azul institucional com teal operacional"* — o `secondary #0F6B78` é intencional, deve ser completado e não descartado.
 - **Portal do Cliente:** base TreinaVISA, linguagem acolhedora, foco em tarefas.
 - **Grafias:** TreinaVISA (nunca "Treina Visa"/"Treinavisa"), HUB TreinaVISA, InspecVISA.
@@ -245,7 +247,7 @@ Pedidos da Ester em 16/08/2026, já no Artefato E:
 |---|---|---|
 | ~~**1 — Portal no ar**~~ ✅ | FE-04a, FE-13, FE-09, FE-10 | O cliente entra no portal novo, navega por seção, vê o plano de ação por unidade e a agenda em calendário |
 | ~~**2 — Admin**~~ ✅ | FE-04b, FE-05, FE-06, FE-07, FE-08 | A consultoria usa o shell novo, a tela de Plano de Ação e a aba de Arquivos |
-| **3 — Fechamento** ⬜ | ~~FE-11~~, FE-12, revisão de a11y | Dark mode ligado de verdade e nenhum resto do CSS antigo |
+| **3 — Fechamento** ⬜ | ~~FE-11~~, ~~FE-12~~, revisão de a11y | Dark mode ligado de verdade e nenhum resto do CSS antigo |
 | **4 — O admin que falta** ⬜ | ~~FE-14 a FE-19~~ · FE-20 a FE-27 | ~~As telas do Artefato D no ar~~ ✅ · ~~os `alert()`/`confirm()` mortos~~ ✅ · a cor virada token, o fluxo de inspeção redesenhado, nenhum controle de formulário cru e o gate visual passando |
 
 **FE-04 foi partido em dois** para não segurar a onda 1: `FE-04a` é só o que o portal usa; `FE-04b` é o resto (tabela densa, rail, tooltip, paginação), que só o admin precisa.
@@ -310,8 +312,65 @@ Trocar `mx-auto max-w-3xl|4xl|5xl|6xl` pelo `PageShell`. Representativos: `src/p
 - Corrigir `index.html:13`, que descreve o app como **"C&C Consultoria"** (terceira marca, inconsistente).
 - Corrigir "HUB TREINAVISA SERVICOS" no `PublicHeader.tsx:16-19` (sem acento/cedilha).
 
-### ⬜ FE-12 · Dark mode — **FE-21 ✅ entregue em 17/08, destravado**
-Os tokens de FE-04 já nascem nos dois modos. Ligar o dark no app inteiro é trabalho separado. Enquanto não for feito, decidir: implementar ou esconder o toggle que hoje não faz nada.
+### ~~FE-12 · Dark mode~~ · ✅ 19/08/2026
+
+**A decisão que o card pedia (implementar ou esconder o toggle) já estava meio resolvida:** o
+seletor de tema em `Settings.tsx` estava `disabled`, com a frase "o tema escuro ainda não está
+implementado" embaixo — ou seja, ninguém via um controle mentindo. O que sobrava do card era a
+outra metade, implementar; e o FE-21 tinha deixado isso barato. Foi implementado.
+
+**Nenhuma classe `dark:` foi escrita. Zero, no app inteiro.** O que mudou de lugar foi a cor:
+
+- `src/index.css` ganhou a camada de tokens — `:root` (claro) e `.dark` (escuro), 36 variáveis
+  cada, guardadas em **canais** (`--navy: 11 31 58`) e não em hexadecimal.
+- `tailwind.config.js` deixou de guardar cor. Cada token virou
+  `rgb(var(--token) / <alpha-value>)` — o `<alpha-value>` é o que mantém funcionando os ~60
+  modificadores de opacidade que o app já usava (`bg-surface/60`, `bg-navy/50`, `text-white/90`).
+  Por isso os canais: `rgb(var(--x) / 0.6)` só existe se a variável não trouxer o `rgb(` junto.
+- Resultado: `text-navy`, `bg-surface` e `border-default` continuam significando "o texto", "o
+  cartão" e "a divisória" — e passam a valer nos dois temas sem que nenhum componente saiba que
+  existe tema. Componente novo que use token já nasce nos dois.
+
+Isso só coube porque o **FE-21** já tinha varrido as 2.705 classes cruas: o app tem **zero**
+`gray-*` e só 8 `bg-white`. Se a cor ainda estivesse espalhada, este card seria a conversão de
+137 arquivos, não a de dois.
+
+**A escala numérica inverte no escuro.** `primary-50` é o tom mais escuro e `primary-900` o mais
+claro, para que o papel de cada degrau se mantenha: 50/100 continua sendo "fundo suave", 700/800
+continua sendo "preenchimento e texto forte". Sem isso, `bg-primary-50` viraria um bloco claro
+dentro da página escura.
+
+**Três tokens novos, cada um por um problema real:**
+
+| Token | Por quê |
+|---|---|
+| `on-accent` | No escuro o preenchimento **clareia** (o azul de ação vai de `#244A9B` para `#6F95F6`). `text-white` em cima disso dá 2,6:1. As 68 ocorrências de `text-white` sobre cor viraram `text-on-accent` — branco no claro, navy no escuro. |
+| `inverse` / `inverse-ink` | Dica de ferramenta e contador cheio eram `bg-navy text-white`, isto é, "o inverso da página". Como `navy` vira tinta clara no escuro, viravam um retângulo branco. |
+| `deep` (**fixo, não acompanha o tema**) | Superfície que é escura nos dois modos: véu de modal, herói do `Login`, visor de foto em tela cheia. Sobre `deep`, branco literal continua sendo a tinta certa. |
+
+**O `Login` não vira.** Ele é herói de marca, não superfície de trabalho: o gradiente saiu de
+`from-primary-900 via-primary-800 to-navy` para `from-deep via-deep-blue to-deep`, e o vidro
+voltou a ser `bg-white/10` (o FE-21 tinha convertido para `bg-surface/10`, o que no tema escuro
+apagaria o campo). Medido no navegador: a tela dá **o mesmo valor computado** nos dois temas.
+
+**Cor que entra por `style`, não por classe.** `SCORE_COLORS`/`SCORE_INK` (`utils/scoring.ts`) e
+o gráfico de tendência do portal (`ComplianceTrendChart`, Recharts) cravavam hexadecimal —
+classe do Tailwind não chega lá. Viraram `rgb(var(--token))`, que o SVG e o `style` entendem
+igual. O preto do `SignaturePad` e do `PdfPreviewModal` **continua preto**: é tinta de assinatura
+e papel de PDF, não interface.
+
+**Lampejo branco na abertura.** O React só monta depois da primeira pintura, então quem usasse o
+escuro veria um flash claro a cada abertura. `index.html` ganhou um script de 8 linhas que lê o
+mesmo `localStorage` do zustand antes de qualquer pintura. Se o storage estiver bloqueado ou
+corrompido, cai no claro e o efeito do `App.tsx` corrige logo em seguida.
+
+**O seletor foi ligado** (`Settings.tsx`, aba Aparência): vale por dispositivo e por perfil de
+consultora, troca na hora, sem recarregar, e continua valendo offline.
+
+**Verificação.** 31 pares de cor medidos em WCAG **nos dois temas, com o valor real lido do
+navegador** (não do arquivo): nenhum reprovado — o pior no escuro é `border-control/surface` em
+3,36:1, contra o mínimo de 3:1 de controle. `npm run lint`, `npm test` (568) e `npm run build`
+limpos.
 
 ---
 
@@ -952,8 +1011,9 @@ Já existe base — `playwright.config.ts` com os projetos `desktop` e `mobile` 
   P1 falha em fluxo principal ou acessibilidade, P2 degrada, P3 é refinamento; pronto = nenhum
   P0/P1 aberto e P2 restante registrado e aceito. E a frase que fecha o gate: *build ou lint não
   substitui inspeção visual e funcional.*
-- Matriz: rotas principais do admin e do portal × 375 / 768 / 1280 / 1600px. Claro e escuro entram
-  **depois** do FE-12.
+- Matriz: rotas principais do admin e do portal × 375 / 768 / 1280 / 1600px × claro e escuro —
+  o FE-12 (19/08) destravou a coluna do tema, e a régua de contraste dele (31 pares medidos no
+  navegador nos dois temas) é o ponto de partida da camada automática.
 - Estados obrigatórios por rota de lista: normal, carregando, vazio de primeira vez, vazio de
   filtro, erro e `disabled` (decisão 18).
 - A comparação contra os protótipos aprovados fica como revisão humana com a matriz na mão, não
@@ -1099,8 +1159,8 @@ entregou o editor de roteiro sem precisar de arrastar.
 | ~~FE-25~~ ✅ | `SmartImporter`, `TemplateDetail` e as telas de entrada | Sonnet 5 | baixo | entregue 18/08 |
 | ~~FE-26~~ ✅ | `PublicSchedule` + `PublicAppointmentStatus` | Opus 5 | médio | entregue 18/08 |
 | ~~FE-28~~ ✅ | Os três `prompt()` que sobraram do FE-15 | Sonnet 5 | baixo | entregue 18/08 |
-| FE-27 | Gate de regressão visual e a11y | Opus 5 (matriz) · Sonnet 5 (spec) | médio-alto | FE-12, só para a camada de tema |
-| FE-12 | Ligar o tema escuro no app inteiro | Sonnet 5 | médio | — (FE-21 ✅ destravou) |
+| FE-27 | Gate de regressão visual e a11y | Opus 5 (matriz) · Sonnet 5 (spec) | médio-alto | nada mais (FE-12 ✅) |
+| ~~FE-12~~ ✅ | Ligar o tema escuro no app inteiro | Opus 5 | médio | entregue 19/08 |
 
 **A ordem, revisada em 16/08/2026.** `FE-15`, `FE-14`, `FE-16`, `FE-17`, `FE-18`, `FE-17b`, `FE-19`
 e `FE-20` já saíram — o `FE-15` foi primeiro porque outros três esperavam por ele, e `FE-14`/`FE-16`
@@ -1113,7 +1173,8 @@ em paralelo por serem as duas telas de uso diário. Daqui em diante:
    que o handoff pedia, pra não converter cor duas vezes).
 4. ~~**FE-22**~~ ✅ ~~**e FE-25**~~ ✅ ~~**, e FE-26**~~ ✅ — as superfícies restantes.
 5. ~~**FE-28**~~ ✅ — os três `prompt()` que o FE-15 não varreu.
-6. **FE-12** — o tema escuro é o último de propósito: é o card mais vistoso e o menos estrutural.
+6. ~~**FE-12**~~ ✅ — o tema escuro era o último de propósito: o mais vistoso e o menos
+   estrutural. A aposta se pagou — com a cor já em token pelo FE-21, ele saiu em dois arquivos.
 7. **FE-27** — fecha a onda e é o único que autoriza a frase "frontend visual fechado".
 
 **Ressalva sobre o FE-21 (registrada antes de executar, ainda vale).** Ele era necessário: eram
@@ -1210,11 +1271,11 @@ Regra que decide a coluna **Esforço**: o que o protótipo já resolveu não é 
 | FE-05 · Ponto 1 | Larguras: `max-w-*` → `PageShell` em ~15 páginas ✅ | Sonnet 5 | baixo | `PageShell` |
 | — | Converter listas de cards em tabelas nas telas restantes | Codex (medium) | médio | exemplo aprovado |
 
-### ONDA 3 — Fechamento ⬜ falta FE-12 e a revisão final de a11y
+### ONDA 3 — Fechamento ⬜ falta só a revisão final de a11y
 
 | # | Tarefa | Modelo | Esforço | Depende de |
 |---|---|---|---|---|
-| FE-12 | Ligar o dark mode no app inteiro | Sonnet 5 | médio | ondas 1 e 2 |
+| FE-12 | Ligar o dark mode no app inteiro ✅ | Opus 5 | médio | ondas 1 e 2 |
 | FE-11 | Higiene: `AdminLayout.tsx`, `App.css`, "C&C Consultoria", "HUB TREINAVISA SERVICOS" ✅ | Haiku 4.5 | baixo | — |
 | — | Revisão final de acessibilidade em teclado e leitor de tela | Sonnet 5 | médio | tudo |
 

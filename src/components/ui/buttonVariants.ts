@@ -12,12 +12,12 @@ export const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-primary-700 text-white hover:bg-primary-800 shadow-sm',
+        default: 'bg-primary-700 text-on-accent hover:bg-primary-800 shadow-sm',
         secondary: 'bg-secondary-100 text-secondary-700 hover:bg-secondary-200',
         outline: 'border border-control bg-transparent hover:bg-surface-hover text-navy-2',
         ghost: 'hover:bg-surface-active hover:text-navy',
-        danger: 'bg-danger text-white hover:bg-danger-hover shadow-sm',
-        success: 'bg-success text-white hover:bg-success-soft-ink shadow-sm',
+        danger: 'bg-danger text-on-accent hover:bg-danger-hover shadow-sm',
+        success: 'bg-success text-on-accent hover:bg-success-soft-ink shadow-sm',
       },
       size: {
         default: 'h-10 px-4 py-2',

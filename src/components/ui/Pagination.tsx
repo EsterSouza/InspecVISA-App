@@ -77,7 +77,7 @@ export function Pagination({ page, pageCount, onPageChange, totalItems, pageSize
               onClick={() => onPageChange(p)}
               className={cn(
                 'h-[30px] min-w-[30px] rounded px-2 text-sm font-semibold tabular-nums transition-colors',
-                p === page ? 'bg-primary-700 text-white' : 'text-navy-3 hover:bg-surface-active hover:text-navy'
+                p === page ? 'bg-primary-700 text-on-accent' : 'text-navy-3 hover:bg-surface-active hover:text-navy'
               )}
             >
               {p}

@@ -111,7 +111,7 @@ export function ConsultantAvailabilitySection() {
                                   aria-label={`${consultant} — ${day.label} ${period.label}${active ? ', disponível' : ', indisponível'}`}
                                   className={`min-h-11 w-full rounded-md border text-xs font-semibold transition-colors ${
                                     active
-                                      ? 'border-primary-600 bg-primary-600 text-white'
+                                      ? 'border-primary-600 bg-primary-600 text-on-accent'
                                       : 'border-default bg-surface-sunken text-navy-3 hover:bg-surface-active'
                                   } disabled:opacity-50`}
                                 >

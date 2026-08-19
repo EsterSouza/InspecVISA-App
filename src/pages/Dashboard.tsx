@@ -364,7 +364,7 @@ export function Dashboard() {
                 onClick={() => setConsultantFilter(TEAM_FILTER)}
                 className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
                   consultantFilter === TEAM_FILTER
-                    ? 'bg-primary-600 text-white shadow-sm'
+                    ? 'bg-primary-600 text-on-accent shadow-sm'
                     : 'border border-default bg-surface text-navy-2 hover:bg-surface-hover'
                 }`}
               >
@@ -377,7 +377,7 @@ export function Dashboard() {
                   onClick={() => setConsultantFilter(name)}
                   className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
                     consultantFilter === name
-                      ? 'bg-primary-600 text-white shadow-sm'
+                      ? 'bg-primary-600 text-on-accent shadow-sm'
                       : 'border border-default bg-surface text-navy-2 hover:bg-surface-hover'
                   }`}
                 >

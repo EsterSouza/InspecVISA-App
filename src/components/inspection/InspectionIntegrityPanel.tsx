@@ -244,7 +244,7 @@ export function InspectionIntegrityPanel({ inspectionId }: InspectionIntegrityPa
 
 function IssueRow({ issue, onInspect }: { issue: IntegrityIssue; onInspect: (issue: IntegrityIssue) => void }) {
   return (
-    <div className="rounded-md border border-white/70 bg-surface p-3 text-xs shadow-sm">
+    <div className="rounded-md border border-surface/70 bg-surface p-3 text-xs shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate font-semibold text-navy">{issue.label}</p>
@@ -308,7 +308,7 @@ function StatusBadge({ status, hasRemoteConflict }: { status: SyncStatus; hasRem
 
 function PhotoTile({ photo, retrying, onRetry }: { photo: PhotoIntegrity; retrying: boolean; onRetry: (photo: PhotoIntegrity) => void }) {
   return (
-    <div className="overflow-hidden rounded-md border border-white/70 bg-surface shadow-sm">
+    <div className="overflow-hidden rounded-md border border-surface/70 bg-surface shadow-sm">
       <div className="relative aspect-square bg-surface-sunken">
         <img src={photo.dataUrl} alt="Evidencia" className="h-full w-full object-cover" />
         <div className="absolute left-1 top-1">

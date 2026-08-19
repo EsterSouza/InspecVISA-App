@@ -207,7 +207,7 @@ export function ILPIStaffCalculator({
         <button
           type="button"
           onClick={() => onRegisterFinding(buildFinding())}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-danger px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-danger-hover"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-danger px-4 py-2.5 text-sm font-bold text-on-accent shadow-sm transition-colors hover:bg-danger-hover"
         >
           <AlertTriangle className="h-4 w-4" />
           Registrar não-conformidade do dimensionamento

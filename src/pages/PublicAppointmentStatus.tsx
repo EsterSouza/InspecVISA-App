@@ -661,7 +661,7 @@ export function PublicAppointmentStatus() {
                   aria-hidden="true"
                   className={`relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 ${
                     done
-                      ? 'border-primary-700 bg-primary-700 text-white'
+                      ? 'border-primary-700 bg-primary-700 text-on-accent'
                       : current
                         ? 'border-primary-700 bg-primary-50 text-primary-800'
                         : 'border-control bg-surface text-navy-2'
@@ -825,7 +825,7 @@ function PhotoLightbox({ photos, index, onClose, onNavigate, onDownload }: Photo
       aria-label={`Fotos da visita, ${index + 1} de ${photos.length}`}
       onClose={onClose}
       onClick={(event) => { if (event.target === dialogRef.current) onClose(); }}
-      className="m-0 h-full max-h-none w-full max-w-none bg-navy/95 p-0 text-white backdrop:bg-navy/80"
+      className="m-0 h-full max-h-none w-full max-w-none bg-deep/95 p-0 text-white backdrop:bg-deep/80"
     >
       <div className="flex h-full flex-col">
         <div className="flex items-center justify-between px-4 py-3">

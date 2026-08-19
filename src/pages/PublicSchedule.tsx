@@ -570,9 +570,9 @@ export function PublicSchedule() {
                 className={
                   'flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ' +
                   (current
-                    ? 'bg-primary-700 text-white'
+                    ? 'bg-primary-700 text-on-accent'
                     : done
-                      ? 'bg-success text-white'
+                      ? 'bg-success text-on-accent'
                       : 'border border-control text-navy-2')
                 }
               >
@@ -665,7 +665,7 @@ export function PublicSchedule() {
                       className={
                         'inline-flex min-h-11 items-center gap-1.5 rounded-md border px-3.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ' +
                         (active
-                          ? 'border-primary-700 bg-primary-700 text-white'
+                          ? 'border-primary-700 bg-primary-700 text-on-accent'
                           : 'border-control bg-surface text-navy-2 hover:bg-surface-hover')
                       }
                     >
@@ -830,7 +830,7 @@ export function PublicSchedule() {
                         className={
                           'inline-flex min-h-11 items-center justify-center gap-1 rounded-md border text-sm font-semibold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ' +
                           (selected
-                            ? 'border-primary-700 bg-primary-700 text-white'
+                            ? 'border-primary-700 bg-primary-700 text-on-accent'
                             : 'border-control bg-surface text-navy-2 hover:bg-surface-hover')
                         }
                       >

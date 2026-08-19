@@ -255,7 +255,7 @@ function EvidenceUpload({
               type="button"
               onClick={() => void handleSend()}
               disabled={busy}
-              className="inline-flex items-center gap-1.5 rounded-md bg-primary-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-800 disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary-700 px-3 py-1.5 text-xs font-semibold text-on-accent hover:bg-primary-800 disabled:opacity-60"
             >
               {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Paperclip className="h-3.5 w-3.5" />}
               {busy ? 'Enviando...' : 'Enviar para a consultoria'}
@@ -394,7 +394,7 @@ function DeclareStatus({
               type="button"
               onClick={() => void send()}
               disabled={busy}
-              className="inline-flex items-center gap-1.5 rounded-md bg-primary-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-800 disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary-700 px-3 py-1.5 text-xs font-semibold text-on-accent hover:bg-primary-800 disabled:opacity-60"
             >
               {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MessageSquare className="h-3.5 w-3.5" />}
               {busy ? 'Registrando...' : 'Registrar resposta'}

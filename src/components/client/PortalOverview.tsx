@@ -114,7 +114,7 @@ export function PortalOverview({
           <div className="mt-4 flex flex-wrap gap-2">
             <Link
               to="/cliente/plano-de-acao"
-              className="inline-flex items-center justify-center gap-1.5 rounded-md bg-primary-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-800"
+              className="inline-flex items-center justify-center gap-1.5 rounded-md bg-primary-700 px-4 py-2.5 text-sm font-semibold text-on-accent shadow-sm hover:bg-primary-800"
             >
               Abrir o plano de ação
             </Link>

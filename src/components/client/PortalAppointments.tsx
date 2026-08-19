@@ -335,7 +335,7 @@ export function PortalAppointments({
                       href={visit.meeting_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="m-2 inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary-700 px-3 text-sm font-semibold text-white hover:bg-primary-800"
+                      className="m-2 inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-primary-700 px-3 text-sm font-semibold text-on-accent hover:bg-primary-800"
                     >
                       <Video className="h-4 w-4" aria-hidden="true" />
                       <span className="hidden sm:inline">Entrar na reunião</span>

@@ -24,7 +24,7 @@ export function ProfileSelection() {
     <div className="min-h-screen bg-canvas flex items-center justify-center p-6">
       <div className="bg-surface rounded-2xl shadow-xl border border-default p-8 max-w-sm w-full mx-auto">
         <div className="text-center mb-8">
-          <div className="bg-primary-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-white shadow-sm">
+          <div className="bg-primary-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-surface shadow-sm">
              <User className="w-10 h-10 text-primary-600" />
           </div>
           <h1 className="text-2xl font-bold text-navy tracking-tight">Quem está usando?</h1>

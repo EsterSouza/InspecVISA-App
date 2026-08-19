@@ -93,7 +93,7 @@ export function PortalQuickActions({
           <Link
             to="/agendar"
             onClick={() => onAudit('schedule_cta_clicked', { source: 'quick_actions' })}
-            className={`${actionClassName} border-primary-700 bg-primary-700 text-white hover:bg-primary-800`}
+            className={`${actionClassName} border-primary-700 bg-primary-700 text-on-accent hover:bg-primary-800`}
           >
             <CalendarPlus className="h-4 w-4" /> Agendar horário com as consultoras
           </Link>
@@ -104,7 +104,7 @@ export function PortalQuickActions({
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => onAudit('support_whatsapp_clicked')}
-            className={`${actionClassName} border-success-soft-ink bg-success-soft-ink text-white hover:bg-success-soft-ink`}
+            className={`${actionClassName} border-success-soft-ink bg-success-soft-ink text-on-accent hover:bg-success-soft-ink`}
           >
             <MessageCircle className="h-4 w-4" /> Falar com a consultoria <ExternalLink className="h-3.5 w-3.5" />
           </a>

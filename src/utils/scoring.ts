@@ -379,11 +379,15 @@ export function classificationLabel(c: ScoreClassification): string {
  * três cores**. Os valores são os tokens da marca (`--danger` / `--amber` /
  * `--success` em docs/prototipos/_src/tokens.css), não a paleta padrão do
  * Tailwind que estava escrita aqui em hexadecimal.
+ *
+ * FE-12: viraram `rgb(var(--token))` porque estas cores entram por `style`
+ * embutido, onde a classe do Tailwind não chega — e cor fixa aqui deixaria a
+ * nota com contraste de tema claro dentro do tema escuro.
  */
 export const SCORE_COLORS = {
-  danger: '#B3261E',
-  attention: '#D99721',
-  success: '#0E7A4A',
+  danger: 'rgb(var(--danger))',
+  attention: 'rgb(var(--amber))',
+  success: 'rgb(var(--success))',
 } as const;
 
 /**
@@ -408,9 +412,9 @@ export function classificationColor(c: ScoreClassification): string {
  * `classificationColor`.
  */
 export const SCORE_INK = {
-  danger: '#8C1D17',
-  attention: '#7A5210',
-  success: '#0A5734',
+  danger: 'rgb(var(--danger-soft-ink))',
+  attention: 'rgb(var(--amber-soft-ink))',
+  success: 'rgb(var(--success-soft-ink))',
 } as const;
 
 export function classificationInk(c: ScoreClassification): string {

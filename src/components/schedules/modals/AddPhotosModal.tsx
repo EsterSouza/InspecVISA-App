@@ -212,7 +212,7 @@ export function AddPhotosModal({ request, onClose, onAdded }: AddPhotosModalProp
                             </div>
                           )}
                           {selected && (
-                            <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary-600 text-white">
+                            <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary-600 text-on-accent">
                               <CheckCircle className="h-3.5 w-3.5" />
                             </span>
                           )}
@@ -242,7 +242,7 @@ export function AddPhotosModal({ request, onClose, onAdded }: AddPhotosModalProp
                           disabled={removingId === p.id}
                           onClick={() => void handleRemovePublished(p.id)}
                           aria-label="Remover foto do portal"
-                          className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-danger/90 text-white opacity-0 transition-opacity hover:bg-danger-hover group-hover:opacity-100 focus-visible:opacity-100"
+                          className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-danger/90 text-on-accent opacity-0 transition-opacity hover:bg-danger-hover group-hover:opacity-100 focus-visible:opacity-100"
                         >
                           {removingId === p.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-4 w-4" />}
                         </button>

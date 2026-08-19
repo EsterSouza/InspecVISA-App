@@ -30,7 +30,7 @@ export function Tooltip({ content, children, side = 'top', className }: TooltipP
         role="tooltip"
         id={id}
         className={cn(
-          'pointer-events-none absolute z-50 whitespace-nowrap rounded-md bg-navy px-2 py-1 text-xs font-medium text-white opacity-0 shadow-md transition-opacity duration-150',
+          'pointer-events-none absolute z-50 whitespace-nowrap rounded-md bg-inverse px-2 py-1 text-xs font-medium text-inverse-ink opacity-0 shadow-md transition-opacity duration-150',
           'group-hover/tip:opacity-100 group-focus-within/tip:opacity-100',
           SIDE_CLASSES[side]
         )}

@@ -366,12 +366,12 @@ export function Settings() {
                 <CardTitle>Tema</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <fieldset disabled className="flex flex-wrap gap-4 opacity-60">
+                <fieldset className="flex flex-wrap gap-4">
                   <legend className="sr-only">Tema</legend>
                   <Radio
                     name="theme"
                     checked={settings.theme !== 'dark'}
-                    readOnly
+                    onChange={() => updateSettings({ theme: 'light' })}
                     className="items-center text-navy-2"
                     boxClassName="mt-0"
                     label="Claro"
@@ -379,14 +379,15 @@ export function Settings() {
                   <Radio
                     name="theme"
                     checked={settings.theme === 'dark'}
-                    readOnly
+                    onChange={() => updateSettings({ theme: 'dark' })}
                     className="items-center text-navy-2"
                     boxClassName="mt-0"
                     label="Escuro"
                   />
                 </fieldset>
                 <p className="text-xs text-navy-3">
-                  Desabilitado por enquanto: o tema escuro ainda não está implementado.
+                  Vale para este dispositivo e para o seu perfil. A escolha aparece na hora, sem
+                  recarregar, e continua valendo offline.
                 </p>
               </CardContent>
             </Card>

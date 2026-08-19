@@ -50,7 +50,7 @@ export function Sidebar() {
               to="/new"
               aria-label="Nova inspeção"
               className={({ isActive }) =>
-                `flex h-11 w-full items-center justify-center gap-2 rounded-md text-sm font-bold text-white shadow-sm transition-colors ${
+                `flex h-11 w-full items-center justify-center gap-2 rounded-md text-sm font-bold text-on-accent shadow-sm transition-colors ${
                   isActive ? 'bg-primary-800' : 'bg-primary-700 hover:bg-primary-800'
                 }`
               }

@@ -183,6 +183,8 @@ function App() {
   const [isInitializing, setIsInitializing] = useState(true);
   const theme = useSettingsStore((s) => s.settings.theme);
 
+  // FE-12: a troca em tempo real. A primeira pintura já vem decidida pelo script
+  // do `index.html` — aqui só se mantém em dia quando a Configuração muda.
   useEffect(() => {
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');

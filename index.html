@@ -18,6 +18,19 @@
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <title>InspecVISA</title>
+
+    <!-- FE-12: o tema tem que estar decidido ANTES da primeira pintura. O React só
+         monta depois, e sem isto quem usa o escuro vê um lampejo branco a cada
+         abertura. Lê o mesmo localStorage do zustand (`inspec-visa-settings`);
+         se falhar, o app fica no claro e o efeito do App.tsx corrige em seguida. -->
+    <script>
+      try {
+        var s = JSON.parse(localStorage.getItem('inspec-visa-settings') || '{}');
+        if (s && s.state && s.state.settings && s.state.settings.theme === 'dark') {
+          document.documentElement.classList.add('dark');
+        }
+      } catch (e) { /* storage bloqueado ou corrompido: segue no claro */ }
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -27,7 +27,7 @@ export function PortalUnitFilter({ entries, totalCount, selectedId, onChange }: 
   const chipClass = (active: boolean) =>
     `inline-flex h-[34px] items-center gap-2 rounded-md border px-3 text-sm font-semibold transition-colors ${
       active
-        ? 'border-primary-700 bg-primary-700 text-white'
+        ? 'border-primary-700 bg-primary-700 text-on-accent'
         : 'border-control bg-surface text-navy-2 hover:border-navy-3'
     }`;
 
@@ -58,7 +58,7 @@ export function PortalUnitFilter({ entries, totalCount, selectedId, onChange }: 
           Todas as unidades
           <span
             className={`rounded-sm px-1.5 py-0.5 text-[11px] font-bold tabular-nums ${
-              selectedId === null ? 'bg-surface/20 text-white' : 'bg-surface-sunken text-navy-2'
+              selectedId === null ? 'bg-surface/20 text-on-accent' : 'bg-surface-sunken text-navy-2'
             }`}
           >
             {totalCount}
@@ -74,7 +74,7 @@ export function PortalUnitFilter({ entries, totalCount, selectedId, onChange }: 
             {entry.name}
             <span
               className={`rounded-sm px-1.5 py-0.5 text-[11px] font-bold tabular-nums ${
-                selectedId === entry.id ? 'bg-surface/20 text-white' : 'bg-surface-sunken text-navy-2'
+                selectedId === entry.id ? 'bg-surface/20 text-on-accent' : 'bg-surface-sunken text-navy-2'
               }`}
             >
               {entry.count}

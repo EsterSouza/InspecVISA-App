@@ -628,7 +628,7 @@ export function ClientDetails() {
                   <Card key={insp.id} className="hover:bg-surface-hover transition-colors cursor-pointer" onClick={() => navigate(insp.status === 'in_progress' ? '/execute' : '/summary', { state: { inspectionId: insp.id }})}>
                     <div className="p-4 flex items-center justify-between">
                       <div className="flex items-center gap-4">
-                        <div className={`h-12 w-12 rounded-full flex items-center justify-center text-white font-bold ${
+                        <div className={`h-12 w-12 rounded-full flex items-center justify-center text-on-accent font-bold ${
                           insp.status === 'in_progress' ? 'bg-amber' :
                           insp.score.scorePercentage >= 90 ? 'bg-success' :
                           insp.score.scorePercentage >= 70 ? 'bg-primary-500' :
@@ -920,7 +920,7 @@ export function ClientDetails() {
                     href={client.personalizedSanitaryFolderUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-success px-3 py-2 text-sm font-bold text-white hover:bg-success-soft-ink"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-success px-3 py-2 text-sm font-bold text-on-accent hover:bg-success-soft-ink"
                   >
                     Abrir Drive <ExternalLink className="h-3.5 w-3.5" />
                   </a>
@@ -1219,7 +1219,7 @@ function RecurringNCItem({ nc }: { nc: PreviousNCContext }) {
   return (
     <details className="group rounded-lg border border-danger-soft-border bg-danger-soft p-3">
       <summary className="flex cursor-pointer list-none items-start gap-3">
-        <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-danger text-[10px] font-bold text-white">
+        <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-danger text-[10px] font-bold text-on-accent">
           {nc.count}
         </span>
         <div className="min-w-0 flex-1">

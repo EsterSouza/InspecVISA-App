@@ -19,7 +19,7 @@
 > | Sincronização sem desenho | FE-18 | ✅ linha do tempo, fila que falhou tratada |
 > | Configurações sem desenho | FE-19 | ✅ nav de seção lateral, salva por seção, seção na URL |
 > | Estados vazio/carregando/erro e `PageHeader` | FE-20 | ✅ padronizados em 7 listas do admin |
-> | 2.856 classes de cor cruas · 0 `dark:` | FE-21 · FE-12 | ✅ **FE-21**: 2.705 classes + 20 hex viraram token (recontado; a auditoria contava também os protótipos HTML) · ⬜ **FE-12** (dark mode) segue aberto |
+> | 2.856 classes de cor cruas · 0 `dark:` | FE-21 · FE-12 | ✅ **FE-21**: 2.705 classes + 20 hex viraram token (recontado; a auditoria contava também os protótipos HTML) · ✅ **FE-12** (dark mode) entregue em 19/08, por variável CSS |
 > | `Clients` e `Inspections` ainda em cards | FE-22 | ✅ resolvido de outro jeito: **cards continuam o padrão** e a tabela densa virou alternador (decisão 34, Ester em 17/08); paginação nas duas visualizações |
 >
 > **O que este diagnóstico não viu, e foi acrescentado em 16/08 (FE-23 a FE-27):** o fluxo
@@ -50,7 +50,7 @@ O caso mais visível é o detalhe do cliente: o protótipo desenhou **abas**
 | Arquivos usando o primitivo `Input` | **1** (`InspectionExecution.tsx`) | `grep -rln "ui/Input"` |
 | Campos crus `<input>/<select>/<textarea>` | ~200, sendo **29 só no `ClientDetails.tsx`** | `grep -rc "<input\|<select\|<textarea"` |
 | Arquivos usando `Table` | **3** (`ActionPlan`, `ClientDetails`, `PortalDocuments`) | `grep -rln "<TableContainer\|<Table>"` |
-| Classes `dark:` | **0** — o botão de tema não faz nada | `grep -rc "dark:" src` |
+| Classes `dark:` | **0** — e continua 0 depois do FE-12 (19/08): o tema troca o valor da variável, não a classe. O botão de tema funciona. | `grep -rc "dark:" src` |
 
 **Leitura:** a paleta oficial do Manual de Marca 2.0 é **minoria dentro do próprio app** — perde de
 quase 5 para 1 para o cinza/azul genérico do Tailwind. Enquanto isso não virar token, `FE-12`

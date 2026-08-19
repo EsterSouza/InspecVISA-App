@@ -784,7 +784,7 @@ export function Schedules() {
                           aria-pressed={active}
                           className={`min-h-11 rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
                             active
-                              ? 'bg-primary-600 text-white shadow-sm'
+                              ? 'bg-primary-600 text-on-accent shadow-sm'
                               : 'border border-default bg-surface text-navy-2 hover:bg-surface-hover'
                           }`}
                         >

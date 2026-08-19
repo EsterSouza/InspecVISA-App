@@ -62,7 +62,7 @@ Confirmado por leitura direta do código em 15/08, não pelo handoff:
 |---|---|---|
 | **1 — Portal** | FE-04a, FE-09, FE-13, FE-10 | ✅ **entregue.** Portal em rotas de seção, plano de ação por unidade, `WeekCalendar`, atrito removido. |
 | **2 — Admin** | FE-04b, FE-05, FE-06, FE-07, FE-08 | ✅ **fechada em 16/08/2026** (FE-05, FE-06 e FE-07 saíram depois desta auditoria). Texto original de 15/08: 🟡 **em andamento.** FE-04b e FE-08 entregues em 15/08 (mesmo dia desta auditoria, depois dela) — ver `docs/HANDOFF-FRONTEND.md` § "FE-04b" e § "FE-08". `Table`/`Tabs`/`Pagination`/`Tooltip`/`Drawer`/`PageShell`/`PageHeader` existem em `src/components/ui/`; rota `/plano-de-acao` (`src/pages/ActionPlan.tsx`) lê `client_action_items` direto, lista+detalhe. Ainda faltam: `Sidebar.tsx:50` continua `w-72` fixa sem rail/drawer (FE-06), aba de Arquivos (FE-07), as ~15 páginas ainda em `max-w-*` cru (FE-05). |
-| **3 — Fechamento** | FE-11, FE-12 | 🟡 **FE-11 entregue em 16/08** (`791f4ca`); falta o FE-12, que agora depende do FE-21. Texto original de 15/08: ❌ **não começou.** `dark:` aparece **0 vez** em todo `src/**/*.tsx` (dark mode morto). `src/App.css` e `src/components/layout/AdminLayout.tsx` (que o FE-11 manda apagar) ainda no repo. `index.html` ainda descreve o app com marca de terceiro. |
+| **3 — Fechamento** | FE-11, FE-12 | ✅ **os dois entregues** — FE-11 em 16/08 (`791f4ca`), FE-12 em 19/08. Falta só a revisão final de a11y (FE-27). Texto original de 15/08: ❌ **não começou.** `dark:` aparece **0 vez** em todo `src/**/*.tsx` (dark mode morto). `src/App.css` e `src/components/layout/AdminLayout.tsx` (que o FE-11 manda apagar) ainda no repo. `index.html` ainda descreve o app com marca de terceiro. |
 
 **Consequência prática do meio-caminho:** a fundação nova (tokens, Sora/Source Sans 3, primitivos)
 convive com o CSS antigo. Onde o admin ainda roda, coexistem cinco larguras de container, inputs
@@ -94,8 +94,11 @@ consultoria paga isso em atrito diário.
    mais caro o merge (o handoff já registra: "duas implementações parecidas divergem em três meses").
 2. **Quatro bugs de dados silenciosos** (seção 4). O pior traço deles é que **não gritam** — o Painel
    mostra número errado com cara de número certo, e o relatório deixa de publicar sem ninguém ver.
-3. **Dark mode é uma promessa não cumprida.** Há toggle no store, `darkMode:'class'` no Tailwind e
-   zero classe `dark:`. O botão existe e não faz nada — pior que não ter.
+3. ~~**Dark mode é uma promessa não cumprida.**~~ ✅ **Fechado em 19/08/2026 (FE-12).** O
+   diagnóstico valia: havia toggle no store, `darkMode:'class'` no Tailwind e zero classe
+   `dark:`. Continua havendo zero classe `dark:` — de propósito: a cor virou variável CSS e o
+   que troca é o valor do token, não a classe. O seletor tinha sido desabilitado no meio do
+   caminho (deixou de mentir) e agora está ligado de verdade.
 4. **Dívida de lint (~500 `any`).** Não bloqueia, mas apaga sinal: um `any` novo e perigoso se
    esconde no meio de 500 inofensivos. E `tsc --noEmit` limpo já deixou o build do Vercel quebrar.
 5. **Zero cobertura de comportamento legível.** Há 358 testes unitários e suítes SQL, mas nenhuma
@@ -253,7 +256,7 @@ depois higiene. Nada aqui é funcionalidade nova além do command-palette (opcio
 8. ~~**FE-05** — larguras `max-w-*` → `PageShell`.~~ ✅ Entregue em 16/08 (11 páginas; as 2 públicas ficaram de fora e viraram o FE-26).
 
 ### Fase C — Fechamento
-9. **FE-12** — ligar dark mode no app inteiro (tokens já prontos). **Reordenado em 16/08:** passou a depender do FE-21 e virou o penúltimo da fila.
+9. ~~**FE-12**~~ ✅ **19/08** — dark mode no app inteiro. **Reordenado em 16/08:** passou a depender do FE-21 e virou o penúltimo da fila — e foi essa ordem que o deixou barato.
 10. ~~**FE-11** — higiene: apagar `AdminLayout.tsx`, `App.css`, corrigir marca no `index.html`.~~ ✅ Entregue em 16/08.
 11. **DEBT-02** — dívida de lint, por diretório, um PR por fatia.
 

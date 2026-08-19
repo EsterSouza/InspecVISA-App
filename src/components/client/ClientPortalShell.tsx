@@ -142,7 +142,7 @@ export function ClientPortalShell({
             <div className="flex items-center gap-3">
               <span
                 aria-hidden="true"
-                className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-md bg-primary-700 font-title text-sm font-semibold text-white"
+                className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-md bg-primary-700 font-title text-sm font-semibold text-on-accent"
               >
                 {initials(overview.account_name)}
               </span>

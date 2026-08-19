@@ -266,7 +266,7 @@ function BlockCard({
           ) : (
             <span
               className={`rounded-full px-2.5 py-1 text-sm font-black ${
-                count.count > 0 ? 'bg-navy text-white' : 'bg-surface-sunken text-navy-3'
+                count.count > 0 ? 'bg-inverse text-inverse-ink' : 'bg-surface-sunken text-navy-3'
               }`}
             >
               {count.count}

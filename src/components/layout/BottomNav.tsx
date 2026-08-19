@@ -105,7 +105,7 @@ export function BottomNav() {
           <NavLink
             to="/new"
             className={({ isActive }) =>
-              `flex h-12 w-12 items-center justify-center rounded-full text-white shadow-md transition-transform active:scale-95 ${
+              `flex h-12 w-12 items-center justify-center rounded-full text-on-accent shadow-md transition-transform active:scale-95 ${
                 isActive ? 'bg-primary-700' : 'bg-primary-600 hover:bg-primary-700'
               }`
             }

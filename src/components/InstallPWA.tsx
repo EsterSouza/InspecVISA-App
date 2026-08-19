@@ -109,7 +109,7 @@ export function InstallPWA() {
               <button
                 type="button"
                 onClick={() => void handleInstall()}
-                className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-primary-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-800"
+                className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-primary-700 px-3 py-1.5 text-xs font-semibold text-on-accent hover:bg-primary-800"
               >
                 <Download className="h-3.5 w-3.5" /> Instalar app
               </button>

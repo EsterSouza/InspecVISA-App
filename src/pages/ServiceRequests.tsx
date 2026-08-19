@@ -271,7 +271,7 @@ function RequestDetail({
             type="button"
             onClick={() => void apply({ status: 'in_progress', assignedTo: request.assigned_to || getLocalActor().name })}
             disabled={busy}
-            className="rounded-md bg-primary-700 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-primary-800 disabled:opacity-60"
+            className="rounded-md bg-primary-700 px-2.5 py-1 text-[11px] font-bold text-on-accent hover:bg-primary-800 disabled:opacity-60"
           >
             Assumir
           </button>
@@ -473,7 +473,7 @@ function SlaPanel({
             type="button"
             onClick={() => void save()}
             disabled={busy}
-            className="rounded-md bg-primary-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-primary-800 disabled:opacity-60"
+            className="rounded-md bg-primary-700 px-3 py-1.5 text-xs font-bold text-on-accent hover:bg-primary-800 disabled:opacity-60"
           >
             Salvar prazos
           </button>
@@ -600,7 +600,7 @@ export function ServiceRequests() {
             type="button"
             onClick={() => setQueue(value)}
             className={`rounded-md px-3 py-1.5 text-xs font-bold ${
-              queue === value ? 'bg-primary-700 text-white' : 'border border-default bg-surface text-navy-2 hover:bg-surface-hover'
+              queue === value ? 'bg-primary-700 text-on-accent' : 'border border-default bg-surface text-navy-2 hover:bg-surface-hover'
             }`}
           >
             {QUEUE_LABELS[value]}
