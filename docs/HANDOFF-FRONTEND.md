@@ -891,6 +891,14 @@ e é irmã declarada do `PageShell`, não uma exceção dele.
 > `grep -rn "window.prompt\|[^.]prompt(" src` limpo, `tsc -b`/`npm run build` e 552 testes
 > passando.
 >
+> **Correção em 19/08/2026 (achado do COND-04):** `npm run lint` ficou vermelho desde este card —
+> `PromptDialog.tsx` exportava componente e hook juntos, e o `react-refresh/only-export-components`
+> reprova isso. Os três casos anteriores (`Field`, `ConfirmDialog`, `PortalActionPlan`) tinham a
+> regra desligada por arquivo no `eslint.config.js`, porque separar mexeria em 41 importadores;
+> aqui os importadores eram **dois**, então o hook foi para `src/components/ui/usePromptDialog.tsx`
+> em vez de virar a quarta exceção. `PromptDialog.tsx` voltou a exportar só o componente (e o
+> `PromptOptions`), e recuperou o fast refresh.
+>
 > O texto abaixo é o card como foi escrito, mantido para leitura do histórico.
 
 O FE-15 matou 115 `alert()`/`confirm()` e entregou o `ConfirmDialog` (decisão 16). O `prompt()`

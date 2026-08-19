@@ -17,7 +17,7 @@ import { ClientService } from '../services/clientService';
 import { AppointmentAdminService } from '../services/appointmentAdminService';
 import { errorMessage, formatDateBR, usePagedList } from '../components/schedules/appointmentRequestsShared';
 import { EvidenceReview } from '../components/schedules/ActionPlanPanel';
-import { usePromptDialog } from '../components/ui/PromptDialog';
+import { usePromptDialog } from '../components/ui/usePromptDialog';
 import { PageShell } from '../components/ui/PageShell';
 import { toast } from '../store/useToastStore';
 import { PageHeader } from '../components/ui/PageHeader';

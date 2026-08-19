@@ -740,10 +740,11 @@ a recusa, com a lista de problemas do validador). Também ficou de fora persisti
 duplicar o roteiro inteiro em cada inspeção, e o payload do sync já teve problema de tamanho
 (`008_trim_sync_batch_payload`).
 
-**Achados fora do escopo, registrados e não corrigidos:** (1) `npm run lint` já falhava no `main`
-antes deste card — `src/components/ui/PromptDialog.tsx:110` exporta componente e hook no mesmo
-arquivo (`react-refresh/only-export-components`), o que deixa o job `js` do CI vermelho; é trabalho
-do FE-28, não deste card. (2) as "6 falhas pré-existentes" registradas no COND-03 **não são falhas
+**Achados fora do escopo:** (1) `npm run lint` já falhava no `main` antes deste card —
+`src/components/ui/PromptDialog.tsx:110` exportava componente e hook no mesmo arquivo
+(`react-refresh/only-export-components`), o que deixava o job `js` do CI vermelho desde o FE-28.
+Registrado aqui e **corrigido em commit separado** logo depois, a pedido da Ester (hook movido para
+`usePromptDialog.tsx`; registro em [HANDOFF-FRONTEND.md](HANDOFF-FRONTEND.md), FE-28). (2) as "6 falhas pré-existentes" registradas no COND-03 **não são falhas
 do código**: `npx vitest run` direto quebra no `storage.setItem` do persist do zustand, e `npm test`
 passa porque o script traz `NODE_OPTIONS=--no-experimental-webstorage`. Rodando `npm test`, são
 **568 testes passando, 0 falhando**.

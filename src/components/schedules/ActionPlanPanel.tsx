@@ -3,7 +3,8 @@ import { CheckCircle, ClipboardList, Eye, EyeOff, Loader2, Paperclip, RotateCcw 
 import type { ClientActionEvidence, ClientActionItem } from '../../types';
 import { AppointmentAdminService } from '../../services/appointmentAdminService';
 import { Button } from '../ui/Button';
-import { usePromptDialog, type PromptOptions } from '../ui/PromptDialog';
+import { usePromptDialog } from '../ui/usePromptDialog';
+import { type PromptOptions } from '../ui/PromptDialog';
 import { errorMessage, formatDateBR } from './appointmentRequestsShared';
 import { toast } from '../../store/useToastStore';
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Modal } from './Modal';
 import { Button } from './Button';
 import { Field } from './Field';
@@ -9,15 +9,9 @@ import { Textarea } from './Textarea';
  * este resolve "digitar um texto para uma ação" — o texto costuma ir para o cliente, então tem
  * as mesmas exigências de marca e acessibilidade que a caixa nativa não dá.
  *
- * Uso via `usePromptDialog()`, que devolve um `prompt()` com o mesmo contrato do
- * `window.prompt()` que substitui — `null` resolvido = cancelou:
- *
- *   const { prompt, promptDialog } = usePromptDialog();
- *   ...
- *   const typed = await prompt({ title: '...', fieldLabel: '...', confirmLabel: '...' });
- *   if (typed === null) return;
- *   ...
- *   return <>{...}{promptDialog}</>;
+ * Não se usa este componente direto: quem chama usa `usePromptDialog()`, em
+ * `./usePromptDialog`, que devolve um `prompt()` com o mesmo contrato do `window.prompt()`
+ * que substitui.
  */
 
 export interface PromptOptions {
@@ -100,46 +94,4 @@ export function PromptDialog({
       </div>
     </Modal>
   );
-}
-
-interface PendingPrompt extends PromptOptions {
-  resolve: (value: string | null) => void;
-}
-
-/** Gerencia o estado de um `PromptDialog` compartilhado por todos os pontos de um componente. */
-export function usePromptDialog() {
-  const [pending, setPending] = useState<PendingPrompt | null>(null);
-
-  // Estável, mesmo motivo do `useConfirmDialog`: quem chama pode guardar `prompt` em
-  // dependência de `useCallback` sem recriar a cada render.
-  const prompt = useCallback(
-    (options: PromptOptions): Promise<string | null> =>
-      new Promise((resolve) => setPending({ ...options, resolve })),
-    []
-  );
-
-  const settle = (value: string | null) => {
-    pending?.resolve(value);
-    setPending(null);
-  };
-
-  const promptDialog = (
-    <PromptDialog
-      isOpen={pending !== null}
-      title={pending?.title ?? ''}
-      description={pending?.description}
-      fieldLabel={pending?.fieldLabel ?? ''}
-      hint={pending?.hint}
-      placeholder={pending?.placeholder}
-      defaultValue={pending?.defaultValue}
-      required={pending?.required}
-      confirmLabel={pending?.confirmLabel ?? 'Confirmar'}
-      cancelLabel={pending?.cancelLabel}
-      role={pending?.role}
-      onCancel={() => settle(null)}
-      onConfirm={(value) => settle(value)}
-    />
-  );
-
-  return { prompt, promptDialog };
 }
