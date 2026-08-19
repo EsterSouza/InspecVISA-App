@@ -372,6 +372,17 @@ navegador** (não do arquivo): nenhum reprovado — o pior no escuro é `border-
 3,36:1, contra o mínimo de 3:1 de controle. `npm run lint`, `npm test` (568) e `npm run build`
 limpos.
 
+**Achados que o card não consertou — são do FE-27, e valem nos DOIS temas:**
+
+1. `Login.tsx` — `placeholder:text-white/20` sobre o navy dá ~1,5:1. É anterior ao FE-12 e o
+   card não mexeu no valor para não misturar correção de contraste com troca de tema.
+2. `PhotoCapture.tsx` — o selo "Conflito" é `bg-amber` com tinta clara: 2,3:1 no tema claro
+   (`--amber #D99721` é cor de **preenchimento grande**, não de fundo de texto pequeno). No
+   escuro o token novo já resolve; no claro continua como estava. O conserto é usar o par
+   `amber-soft`/`amber-soft-ink`, como os outros selos.
+3. Véu de modal dividido: 17 lugares usam `bg-black/60` e 2 usam `bg-deep/60`. Funciona nos dois
+   temas, mas são dois pretos diferentes para a mesma função.
+
 ---
 
 ---
