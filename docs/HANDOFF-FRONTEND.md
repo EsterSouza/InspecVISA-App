@@ -810,6 +810,9 @@ cobre. Medido no código em 16/08/2026:
   ✅ **Decidido (decisão 24): a largura entra na regra única.** A página passa a usar
   `--shell-max`; quem controla a linha de leitura é a coluna do meio (`68ch` na pergunta), não a
   página. A exceção deixa de existir em vez de virar nota de rodapé.
+  ⚠️ **Revertido em 19/08/2026:** o `max-w-[68ch]` do `<p>` da pergunta em `ChecklistItem.tsx`
+  quebrava item comum (~200 caracteres) em 3 linhas mesmo com o cartão bem mais largo que isso.
+  Removido; a pergunta agora ocupa a largura real da coluna. Não reaplicar esse limite específico.
 - Cobrir, em desktop, tablet e celular: progresso do checklist, foto, colaboração, calculadora de
   dimensionamento da ILPI, **operação offline com estado de sincronização em três canais** (cor,
   forma e palavra, como o FE-18 fez no `SyncCenter`), controles fixos que não tapam conteúdo em

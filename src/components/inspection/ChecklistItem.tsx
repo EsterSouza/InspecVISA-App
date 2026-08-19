@@ -368,8 +368,7 @@ export const ChecklistItem = memo(function ChecklistItem({
             )}
           </div>
 
-          {/* A linha de leitura mora aqui, na pergunta — não na largura da página. */}
-          <p className="mt-2 max-w-[68ch] text-[15px] font-medium leading-relaxed text-navy">
+          <p className="mt-2 text-[15px] font-medium leading-relaxed text-navy">
             {item.id.startsWith('extra|') ? (response?.customDescription || item.description) : item.description}
           </p>
         </div>
