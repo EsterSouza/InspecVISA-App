@@ -118,6 +118,11 @@ respostas que o roteiro tem itens — 80, 24 e 5 itens sem resposta. Nenhuma res
 
 ### A2 · O congelamento tem um fallback que o desliga
 
+> **✅ Resolvido pelo COND-03 (18/08/2026).** A revisão é congelada na criação (lazy-freeze para o
+> legado em andamento), a árvore congelada é sempre a completa, e `resolveReportTemplate` de inspeção
+> em andamento lê o snapshot em vez de recompor do vivo. O caminho legado só sobrevive para relatório
+> concluído pré-COND-03 e passou a registrar aviso visível quando o snapshot não cobre.
+
 - O snapshot é gravado **ao concluir** (`InspectionExecution.tsx:816`), com
   `collaborationTemplate || effectiveTemplate`. Se a composição de colaboração falhar, o `catch`
   (`:388`) devolve o template cru e o `||` pode congelar a árvore **filtrada por papel**.
@@ -141,6 +146,9 @@ O que **não** está congelado: o roteiro (lido vivo do Dexie/Supabase por `temp
 suplementos (código, avaliados a cada render) e o `retiredAt` (lido do item atual).
 
 ### A4 · A execução mantém duas árvores ao mesmo tempo
+
+> **✅ Resolvido pelo COND-03 (18/08/2026).** Existe uma árvore só, a completa (`composeCanonicalTemplate`).
+> O papel virou `filterSectionsByRoleForDisplay`, aplicado só em `visibleSections`.
 
 `effectiveTemplate` (papel da consultora, `full=false`) é o que ela **vê**; `collaborationTemplate`
 (`'ambos'`, `full=true`) é o que vira **snapshot** e o que o painel de colaboração usa. São duas
@@ -182,6 +190,10 @@ existem no roteiro-mestre** — logo nunca podem ser alvo nem fonte de condiçã
 snapshot ao exibir. Não vêm do roteiro e ficam fora do motor.
 
 ### A9 · Aposentado: execução e relatório divergem numa inspeção em andamento
+
+> **✅ Resolvido pelo COND-03 (18/08/2026).** `resolveReportTemplate` de inspeção em andamento passou a
+> aplicar o mesmo corte (`createdAt`) que a execução, via `composeCanonicalTemplate`. Coberto por
+> `src/__tests__/services/cond03CanonicalFreeze.test.ts`.
 
 A execução passa `filterRetiredAsOf = inspection.createdAt` (`:375`, `:387`); o
 `resolveReportTemplate` de inspeção **em andamento** (`reportTemplate.ts:86-91`) chama

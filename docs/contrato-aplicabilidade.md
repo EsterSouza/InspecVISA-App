@@ -270,10 +270,11 @@ itens da execução = itens do score = itens do summary = itens do PDF = itens e
 2. **Casamento por texto (achado A5):** título de seção decidindo suplemento e recorte por papel
    vira regra por id no `COND-03`. Enquanto não migrar, renomear seção continua alterando roteiro
    em silêncio — **fica registrado como risco conhecido**.
-3. **Divergência aposentado execução × resumo (achado A9):** o `COND-03` unifica o corte.
-4. **Duas árvores na execução (achado A4):** o `COND-03` define a canônica. Proposta a validar no
-   card: a canônica é a completa (`'ambos'`, `full=true`); o recorte por papel vira **filtro de
-   exibição**, nunca outra árvore.
+3. **Divergência aposentado execução × resumo (achado A9):** ✅ **fechado no COND-03** — `resolveReportTemplate`
+   e a execução aplicam o mesmo corte por `createdAt` (`composeCanonicalTemplate`).
+4. **Duas árvores na execução (achado A4):** ✅ **fechado no COND-03** — a canônica é a completa
+   (`composeCanonicalTemplate`), e o recorte por papel virou **filtro de exibição**
+   (`filterSectionsByRoleForDisplay`), nunca outra árvore.
 
 ## 10. Decisões da Ester
 

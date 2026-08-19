@@ -4,7 +4,7 @@ import { ArrowLeft, WifiOff, Loader2, AlertTriangle, FileText, Search, CalendarD
 import { db, initializeDatabase } from '../db/database';
 import { ClientService } from '../services/clientService';
 import { InspectionService } from '../services/inspectionService';
-import { getTemplates, getEffectiveTemplate } from '../data/templates';
+import { getTemplates, getEffectiveTemplate, composeCanonicalTemplate } from '../data/templates';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { getLocalActor } from '../utils/localActor';
@@ -309,6 +309,20 @@ export function NewInspection() {
 
       const newInspectionId = generateId();
       const actor = getLocalActor();
+      const createdAt = new Date();
+
+      // COND-03 · Congela a revisão do roteiro na CRIAÇÃO da inspeção: a árvore
+      // canônica completa, com o corte de aposentados fixado em `createdAt`.
+      // A partir daqui a inspeção não segue mais o roteiro vivo — editar o
+      // roteiro-mestre amanhã não altera esta inspeção (contrato § 6.2). Nunca
+      // trava a criação: se a composição falhar, a execução congela na primeira
+      // abertura (lazy freeze).
+      let frozenTemplate: ChecklistTemplate | undefined;
+      try {
+        frozenTemplate = composeCanonicalTemplate(selectedTemplate, selectedClient, createdAt);
+      } catch (err) {
+        console.error('[NewInspection] Falha ao congelar a revisão do roteiro; execução congela na abertura:', err);
+      }
 
       const inspectionData: Inspection = {
         id: newInspectionId,
@@ -321,7 +335,8 @@ export function NewInspection() {
           : [actor.name],
         inspectionDate: new Date(inspectionDate + 'T12:00:00'),
         status: 'in_progress',
-        createdAt: new Date(),
+        createdAt,
+        reportTemplateSnapshot: frozenTemplate,
         city: selectedClient.city,
         state: selectedClient.state,
         accompanistName,

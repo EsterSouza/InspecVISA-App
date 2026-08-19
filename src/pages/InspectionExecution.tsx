@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ChevronRight, CloudOff, CheckCircle2, Eye, EyeOff, Loader2, PlusCircle, RefreshCw } from 'lucide-react';
 import { db } from '../db/database';
-import { getTemplateById, getEffectiveTemplate } from '../data/templates';
+import { getTemplateById, composeCanonicalTemplate, filterSectionsByRoleForDisplay } from '../data/templates';
 import { type ChecklistTemplate, type Client, type ClientCategory, type Inspection, type InspectionResponse, type InspectionPhoto } from '../types';
 
 /** Inspecao antiga guardava a categoria do cliente em `category`; a de hoje, em `clientCategory`. */
@@ -324,16 +324,21 @@ export function InspectionExecution() {
             workingResponses = normalizedResponses.filter(response => !response.deletedAt);
 
             const history = await getOpenPendingHistory(enrichedInsp.clientId, enrichedInsp.id);
-            const role = useSettingsStore.getState().settings.consultantRole || 'saude';
-            const roleContext = enrichedInsp as unknown as Parameters<typeof getEffectiveTemplate>[1];
-            const roleTemplate = tpl
-              ? getEffectiveTemplate(tpl, roleContext, role, false, enrichedInsp.createdAt)
-              : null;
+            // COND-03: reincidência remapeia contra a MESMA árvore congelada da
+            // inspeção (completa), não recompõe do roteiro vivo filtrado por papel.
+            const pendingBase = enrichedInsp.reportTemplateSnapshot
+              ?? (tpl
+                ? composeCanonicalTemplate(
+                    tpl,
+                    { ...enrichedInsp, category: enrichedInsp.clientCategory || legacyCategory(enrichedInsp) } as unknown as Client,
+                    enrichedInsp.createdAt,
+                  )
+                : null);
             // A pendência de uma visita antiga carrega o id do roteiro daquela
             // visita. Remapeia para o id equivalente no roteiro de agora, senão o
             // filtro abaixo descarta tudo e a reincidência não aparece.
-            const visiblePendingItems = roleTemplate
-              ? filterPendingItemsForTemplate(remapItemsToTemplate(history.items.values(), roleTemplate), roleTemplate)
+            const visiblePendingItems = pendingBase
+              ? filterPendingItemsForTemplate(remapItemsToTemplate(history.items.values(), pendingBase), pendingBase)
               : [];
             const visibleHistory = new Map(visiblePendingItems.map(item => [item.itemId, item]));
             setPreviousNCs(visibleHistory);
@@ -410,34 +415,57 @@ export function InspectionExecution() {
   }, [historyComplete, isOnline, loadData]);
 
   // ─── TEMPLATE RESOLUTION ──────────────────────────────────────────────────
+  // COND-03 · UMA árvore só (contrato § 6.6). A inspeção não recompõe do roteiro
+  // vivo: lê a REVISÃO CONGELADA (`reportTemplateSnapshot`), fixada na criação ou
+  // na primeira abertura (lazy freeze, efeito abaixo). O papel deixou de compor
+  // roteiro — virou filtro de exibição em `visibleSections`.
+  const role = useSettingsStore(state => state.settings.consultantRole) || 'saude';
+
+  // Revisão congelada = árvore canônica completa, SEM itens ad-hoc. Inspeção
+  // legada em andamento sem snapshot compõe do vivo uma vez; o lazy-freeze abaixo
+  // persiste esse resultado, e daí em diante ela para de seguir o roteiro vivo.
+  const frozenBase = useMemo(() => {
+    if (!currentInspection) return null;
+    if (currentInspection.reportTemplateSnapshot) return currentInspection.reportTemplateSnapshot;
+    if (!template) return null;
+    // A inspeção carrega a categoria do cliente (`clientCategory`, e `category`
+    // em registro antigo). O `as unknown as Client` deixa a ponte visível.
+    const ctx = { ...currentInspection, category: currentInspection.clientCategory || legacyCategory(currentInspection) } as unknown as Client;
+    try { return composeCanonicalTemplate(template, ctx, currentInspection.createdAt); }
+    catch (err) { console.error('composeCanonicalTemplate error:', err); return template; }
+  }, [currentInspection, template]);
+
+  // A árvore completa da inspeção = revisão congelada + itens ad-hoc das respostas.
   const effectiveTemplate = useMemo(() => {
     if (!currentInspection) return null;
-    if (!template) return buildRecoveryTemplate(currentInspection, responses);
-    const role = useSettingsStore.getState().settings.consultantRole || 'saude';
-    // `getEffectiveTemplate` pede um `Client`, mas o que existe aqui e a inspecao — ela
-    // carrega a categoria do cliente (`clientCategory`, e `category` em registro antigo).
-    // O `as unknown as Client` deixa a gambiarra visivel; o `any` a escondia.
-    const ctx = { ...currentInspection, category: currentInspection.clientCategory || legacyCategory(currentInspection) } as unknown as Client;
-    try { return composeChecklistTemplate(getEffectiveTemplate(template, ctx, role, false, currentInspection.createdAt), responses); }
-    catch (err) { console.error('getEffectiveTemplate error:', err); return composeChecklistTemplate(template, responses); }
-  }, [currentInspection, responses, template]);
+    if (!frozenBase) return buildRecoveryTemplate(currentInspection, responses);
+    return composeChecklistTemplate(frozenBase, responses);
+  }, [currentInspection, frozenBase, responses]);
 
-  // `|| []` cria um array novo a cada render e desestabilizava as dependencias de sete
-  // hooks abaixo (useMemo/useCallback/useEffect) — todos recalculavam sempre.
-  const visibleSections = useMemo(() => effectiveTemplate?.sections || [], [effectiveTemplate]);
+  // "Uma árvore só": colaboração e nota usam a MESMA árvore completa — não há mais
+  // uma segunda composição por papel. Mantido como nome para os consumidores.
+  const collaborationTemplate = effectiveTemplate;
+
+  // O papel recorta apenas a EXIBIÇÃO; nota, snapshot e resumo seguem na completa.
+  const visibleSections = useMemo(
+    () => (effectiveTemplate ? filterSectionsByRoleForDisplay(effectiveTemplate.sections, role) : []),
+    [effectiveTemplate, role],
+  );
   // ILPI: a calculadora de dimensionamento mora na seção "Recursos Humanos".
   const isIlpiInspection = (currentInspection?.clientCategory === 'ilpi')
     || (effectiveTemplate?.category === 'ilpi');
-  const collaborationTemplate = useMemo(() => {
-    if (!currentInspection) return null;
-    if (!template) return buildRecoveryTemplate(currentInspection, responses);
-    // `getEffectiveTemplate` pede um `Client`, mas o que existe aqui e a inspecao — ela
-    // carrega a categoria do cliente (`clientCategory`, e `category` em registro antigo).
-    // O `as unknown as Client` deixa a gambiarra visivel; o `any` a escondia.
-    const ctx = { ...currentInspection, category: currentInspection.clientCategory || legacyCategory(currentInspection) } as unknown as Client;
-    try { return composeChecklistTemplate(getEffectiveTemplate(template, ctx, 'ambos', true, currentInspection.createdAt), responses); }
-    catch (err) { console.error('getEffectiveTemplate collaboration error:', err); return composeChecklistTemplate(template, responses); }
-  }, [currentInspection, responses, template]);
+
+  // COND-03 · Lazy freeze. Inspeção EM ANDAMENTO criada antes deste recurso não
+  // tem revisão congelada — na primeira abertura, persiste a árvore canônica como
+  // a revisão desta inspeção. setCurrentInspection dispara o auto-save; o snapshot
+  // fica no Dexie local (mapToPostgres não tem a coluna — formato físico é COND-04)
+  // e sobrevive a merges remotos porque mapFromPostgres não emite a chave.
+  useEffect(() => {
+    if (loading || !currentInspection || !frozenBase) return;
+    if (currentInspection.reportTemplateSnapshot) return;
+    if (currentInspection.status !== 'in_progress') return;
+    setCurrentInspection({ ...currentInspection, reportTemplateSnapshot: frozenBase });
+  }, [currentInspection, frozenBase, loading, setCurrentInspection]);
 
   const openActionItemIndex = useMemo(() => indexOpenActionItems(openActionItems), [openActionItems]);
 

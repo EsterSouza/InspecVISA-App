@@ -10,18 +10,21 @@
 
 ## Onde estamos
 
-**COND-01 e COND-02 entregues em 16/08/2026**, com as **4 decisões de produto tomadas** pela Ester
-([contrato § 10](contrato-aplicabilidade.md)) — inclusive a de que existe **uma árvore só**, com o
-papel virando filtro de exibição. O motor declarativo existe e é testado isoladamente em
-`src/domain/applicability/`, mas **nenhuma tela o chama ainda**: nada mudou de comportamento no app.
-Próximo é o `COND-03`, que troca as regras hardcoded pelas declarativas e congela a revisão na
-criação da inspeção.
+**COND-01, COND-02 e COND-03 entregues** (COND-01/02 em 16/08/2026; COND-03 em 18/08/2026), com as
+**4 decisões de produto tomadas** pela Ester ([contrato § 10](contrato-aplicabilidade.md)) — inclusive
+a de que existe **uma árvore só**, com o papel virando filtro de exibição. O motor declarativo existe
+e é testado isoladamente em `src/domain/applicability/`. O COND-03 fez a execução parar de manter
+duas árvores, congelou a revisão do roteiro na criação da inspeção (com lazy-freeze para o legado em
+andamento) e reescreveu `resolveReportTemplate` para nunca reconstruir do roteiro vivo. **O motor de
+aplicabilidade ainda não é consultado** (nenhuma regra é persistida): a árvore congelada tem
+`rules`/`routingQuestions` vazios até o COND-04/05. Próximo é o `COND-04`, que decide o formato
+físico da persistência das regras.
 
 | Card | O que é | Modelo | Esforço | Depois de |
 |---|---|---|---|---|
 | ~~**COND-01**~~ ✅ | Auditoria + contrato de domínio e invariantes · `docs/mapa-roteiro-inspecao.md`, `docs/contrato-aplicabilidade.md`, `docs/gherkin/aplicabilidade.feature` | Opus 5 | alto | — |
 | ~~**COND-02**~~ ✅ | Schema declarativo + motor puro + validador · `src/domain/applicability/` | Opus 5 | alto | COND-01 |
-| **COND-03** | `EffectiveTemplate` canônico + **congelamento na criação da inspeção** | Opus 5 | alto | COND-02 |
+| ~~**COND-03**~~ ✅ | `EffectiveTemplate` canônico + **congelamento na criação da inspeção** · uma árvore só | Opus 5 | alto | COND-02 |
 | **COND-04** | Persistência, revisão, RLS e compatibilidade | Opus 5 | alto | COND-03 |
 | **COND-05** | Perguntas de roteamento e contexto congelado | Opus 5 | médio-alto | COND-04 |
 | **COND-06** | Editor visual **com o ciclo de vida junto** | Opus 5 | alto | COND-05 |
@@ -619,6 +622,47 @@ segmentos de alimentos nunca carregam seção extra · **A12** — nenhuma seç�
 `applicableFoodTypes`, então a regra 3 é um `no-op` hoje.
 
 **Desbloqueia:** `COND-03`.
+
+### COND-03 · 18/08/2026 · Opus 4.8
+
+**Entregue.** Nenhuma migration, nenhum backfill, **nenhuma escrita em produção** (o formato físico
+da persistência é do `COND-04`). Verificado com seed/testes locais, sem tocar dado real.
+
+**As quatro decisões da Ester deste card:** (1) inspeção legada em andamento sem revisão congelada
+**congela na primeira abertura** (lazy freeze); (2) verificação por **seed local**, não amostra de
+produção.
+
+**Arquivos alterados:**
+
+| Arquivo | O que mudou |
+|---|---|
+| `src/data/templates.ts` | `composeCanonicalTemplate()` — a composição canônica única (árvore completa, corte de aposentados por `retiredAsOf`). `filterSectionsByRoleForDisplay()` extraído como **filtro de exibição puro** (o interno `filterSectionsByRole` delega a ele). |
+| `src/pages/NewInspection.tsx` | Congela a revisão (`reportTemplateSnapshot = composeCanonicalTemplate(...)`) na **criação** da inspeção, com `createdAt` fixando o corte. Nunca trava a criação: falha na composição cai no lazy-freeze. |
+| `src/pages/InspectionExecution.tsx` | **Uma árvore só**: removidas as duas composições paralelas (`effectiveTemplate` por papel + `collaborationTemplate` completa). Agora `frozenBase` (revisão congelada) → `effectiveTemplate` (completa + ad-hoc); `collaborationTemplate` é alias; `visibleSections` aplica o papel só na exibição. Efeito de **lazy-freeze** para inspeção legada. Reincidência remapeia contra a árvore congelada, não o vivo. |
+| `src/utils/reportTemplate.ts` | Inspeção **em andamento** lê a revisão congelada; sem snapshot, compõe a canônica **com o corte de aposentados de `createdAt`** (unifica execução e resumo — achado A9). Concluído: snapshot que não cobre agora **registra aviso visível** antes do caminho legado (que segue idêntico, para relatório antigo não mudar). |
+
+**Testes:** `src/__tests__/services/cond03CanonicalFreeze.test.ts` (5 casos: equivalência canônico ==
+completo, papel é filtro puro, em andamento lê o congelado e não o vivo, corte de aposentados
+unificado A9). `npx vitest run` → **as 6 falhas restantes são pré-existentes no HEAD** (erro de
+ambiente `storage.setItem` no persist do zustand em `sync`, `settingsStore`, `ClientPortalAccessibility`;
+registradas como tarefa fora de escopo), **0 regressão nova**. `npx tsc -b` limpo · `npm run build`
+limpo · `eslint` dos arquivos alterados limpo.
+
+**Achados endereçados:** **A2** (fallback que reconstrói do vivo) e **A4** (duas árvores) resolvidos
+pela raiz — uma árvore completa congelada; **A9** (execução × resumo divergem no aposentado)
+unificado pelo corte por `createdAt` em ambos os caminhos.
+
+**Persistência — decisão de fronteira:** a revisão congelada vive no **Dexie local**. `mapToPostgres`
+tem whitelist de colunas e **não** envia `reportTemplateSnapshot` ao Supabase (nem dá erro); o merge
+remoto preserva o snapshot porque `mapFromPostgres` não emite a chave (`{...local, ...remote}`). É o
+mesmo mecanismo que mantém o snapshot dos relatórios concluídos. **Coluna/formato físico no Supabase
+e convergência entre dispositivos são do COND-04/COND-08.**
+
+**Ficou deliberadamente de fora:** persistir a revisão no Supabase (`COND-04`); perguntas de
+roteamento e contexto congelado além do que a inspeção já guarda (`COND-05`); consultar o motor de
+aplicabilidade de fato — a árvore congelada carrega regras vazias por enquanto.
+
+**Desbloqueia:** `COND-04`.
 
 ## Relacionados
 

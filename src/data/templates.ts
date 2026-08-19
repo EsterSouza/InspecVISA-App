@@ -305,6 +305,22 @@ export function getTemplateById(id: string): ChecklistTemplate | undefined {
  */
 function filterSectionsByRole(sections: Section[], role: string, full: boolean): Section[] {
   if (full || !role || role === 'ambos') return sections;
+  return filterSectionsByRoleForDisplay(sections, role);
+}
+
+/**
+ * COND-03 · Filtro de exibição por papel — **puro, sem compor roteiro**.
+ *
+ * Decisão da Ester (contrato § 6.6): existe UMA árvore por inspeção, a completa.
+ * O papel não monta uma segunda árvore — ele apenas esconde seções na exibição,
+ * e a consultora sempre pode pedir "ver tudo". Nota, snapshot, resumo e PDF usam
+ * SEMPRE a árvore completa; só a lista que a consultora percorre é recortada.
+ *
+ * Recebe as seções já compostas (canônicas) e devolve o subconjunto do papel.
+ * `ambos`/vazio devolve tudo. Roteiro sem seção de nutrição devolve tudo.
+ */
+export function filterSectionsByRoleForDisplay(sections: Section[], role: string): Section[] {
+  if (!role || role === 'ambos') return sections;
 
   // Identify sections that belong to Nutrition - by ID (static templates) OR by title keywords (remote templates)
   const nutritionSectionIds = ['sec-fed-05', 'sec-fed-06'];
@@ -475,11 +491,34 @@ export function getEffectiveTemplate(
 }
 
 /**
- * Keeps the old enrichTemplate for backward compatibility if needed, 
+ * Keeps the old enrichTemplate for backward compatibility if needed,
  * but routes to the new getEffectiveTemplate.
  */
 export function enrichTemplate(template: ChecklistTemplate, client: Client): ChecklistTemplate {
   return getEffectiveTemplate(template, client, undefined, true);
+}
+
+/**
+ * COND-03 · A composição canônica única.
+ *
+ * Uma inspeção tem UMA árvore: a completa (todas as áreas, sem filtro de papel),
+ * na ordem testada `base → seções extras → suplemento regional → filtro de
+ * alimento → corte de aposentados → ordenação`. É esta a representação que se
+ * congela na criação da inspeção e que nota, snapshot, resumo e PDF consomem —
+ * o motor de aplicabilidade (COND-02+) tem, assim, uma superfície só para ler.
+ *
+ * O papel deixa de compor: vira filtro de exibição (`filterSectionsByRoleForDisplay`).
+ *
+ * `retiredAsOf` fixa o corte de itens aposentados no momento passado (início da
+ * inspeção). Congelado, o corte nunca mais muda — é o que unifica execução e
+ * relatório, que hoje divergem (mapa, achado A9).
+ */
+export function composeCanonicalTemplate(
+  baseTemplate: ChecklistTemplate,
+  client: Client,
+  retiredAsOf?: Date,
+): ChecklistTemplate {
+  return getEffectiveTemplate(baseTemplate, client, undefined, true, retiredAsOf);
 }
 
 export function getTotalItems(template: ChecklistTemplate): number {

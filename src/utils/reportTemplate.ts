@@ -1,5 +1,5 @@
-import { getEffectiveTemplate } from '../data/templates';
-import type { ChecklistTemplate, Inspection, InspectionResponse, Section } from '../types';
+import { composeCanonicalTemplate, getEffectiveTemplate } from '../data/templates';
+import type { ChecklistTemplate, Client, Inspection, InspectionResponse, Section } from '../types';
 
 function cloneTemplate(template: ChecklistTemplate): ChecklistTemplate {
   return JSON.parse(JSON.stringify(template));
@@ -76,17 +76,31 @@ export function resolveReportTemplate(
 ): ChecklistTemplate {
   if (inspection.status === 'completed') {
     const snapshot = inspection.reportTemplateSnapshot;
-    // Usa o snapshot apenas quando ele cobre todas as respostas avaliadas. Se
-    // estiver incompleto (ex.: congelado sem a nutrição), reconstrói a partir do
-    // roteiro completo — assim relatórios já afetados se auto-corrigem ao abrir.
     if (snapshot && snapshotCoversResponses(snapshot, responses)) return withoutSyntheticSections(snapshot);
+    // COND-03: com "uma árvore só" (contrato § 6.6), o snapshot é sempre a árvore
+    // completa e cobre as respostas por construção. Chegar aqui com snapshot
+    // presente é dado anterior à unificação (congelado filtrado por papel):
+    // reconstrói de forma conservadora, mas registra VISIVELMENTE em vez de
+    // falhar calado. Relatório concluído sem snapshot (pré-snapshot) segue o
+    // mesmo caminho legado, idêntico ao de antes.
+    if (snapshot) {
+      console.warn(
+        '[reportTemplate] Snapshot congelado não cobre todas as respostas avaliadas; roteiro do relatório reconstruído de forma conservadora.',
+        { inspectionId: inspection.id },
+      );
+    }
     return buildLegacyCompletedReportTemplate(baseTemplate, inspection, responses);
   }
 
-  return getEffectiveTemplate(
+  // COND-03: inspeção EM ANDAMENTO lê a REVISÃO CONGELADA e não segue o roteiro
+  // vivo (contrato § 6.2). Sem snapshot (legada ainda não aberta na execução, que
+  // é onde o lazy-freeze acontece), compõe a canônica uma vez — agora com o MESMO
+  // corte de aposentados da execução (`createdAt`), unificando execução e resumo
+  // (mapa, achado A9), que hoje divergem porque este caminho não aplicava o corte.
+  if (inspection.reportTemplateSnapshot) return withoutSyntheticSections(inspection.reportTemplateSnapshot);
+  return composeCanonicalTemplate(
     baseTemplate,
-    inspection as unknown as Parameters<typeof getEffectiveTemplate>[1],
-    undefined,
-    true,
+    inspection as unknown as Client,
+    inspection.createdAt,
   );
 }
