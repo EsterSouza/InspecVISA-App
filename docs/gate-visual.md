@@ -111,12 +111,19 @@ Rotas cobertas pela camada (a):
 | Admin | Início · Clientes · Inspeções · Agendamentos · Plano de ação · Solicitações · Roteiros · Biblioteca · Sincronização · Configurações |
 | Portal | Visão geral · Plano de ação · Solicitações · Documentos · Agenda · Financeiro |
 | Sem login | Entrada da equipe · Entrada do cliente · Agendamento público |
+| Estado, não rota | Execução do roteiro (`/execute`), **só no dedo** — 375 e 768 |
 
 Larguras: **375 · 768 · 1280 · 1600**. Temas: **claro · escuro**.
 
-**Fora da matriz automática, e é decisão:** `/execute` (a execução da inspeção) e `/summary`
-dependem de uma inspeção aberta no dispositivo — são estado, não rota. `/new`, `/templates/:id` e
-o editor de roteiro dependem de dado selecionado. Continuam na revisão humana.
+**A execução entrou na matriz em 20/08/2026**, junto com a repaginação dela no celular. Ela não
+tem URL própria (é `navigate(state)`), então entra por `e2e/apoio/execucao.ts`, que reaproveita a
+inspeção em andamento de homologação e só cria uma quando não há nenhuma. Além da varredura de
+geometria, o bloco afirma uma coisa que varredura nenhuma pega: **o salto de seção tem de parar
+abaixo do cabeçalho fixo de 97px** — sem `scroll-margin-top` o cabeçalho come o título da seção
+que a consultora acabou de pedir.
+
+**Continuam fora, e é decisão:** `/summary` depende de inspeção concluída; `/new`,
+`/templates/:id` e o editor de roteiro dependem de dado selecionado. Seguem na revisão humana.
 
 ---
 

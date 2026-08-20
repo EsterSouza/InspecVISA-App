@@ -32,6 +32,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { contas } from './apoio/ambiente';
 import { entraComoStaff } from './apoio/sessao';
+import { abreExecucao } from './apoio/execucao';
 import { entraNoPortal } from './apoio/portal';
 import {
   abre,
@@ -227,6 +228,74 @@ test.describe('Gate visual — portal do cliente', () => {
       .toBe(!comecouEscuro);
 
     await page.getByRole('button', { name: /Tema (claro|escuro)/i }).click();
+  });
+});
+
+test.describe('Gate visual — execução do roteiro no dedo', () => {
+  test.use({ hasTouch: true });
+
+  /**
+   * A execução ficava de fora da matriz por não ter URL própria — e era
+   * justamente a tela em que o celular doía: cabeçalho de ~600px antes do
+   * primeiro item. Ela entra por `abreExecucao`, que reaproveita a inspeção em
+   * andamento de homologação.
+   */
+  test('geometria e alvo de toque (375 e 768)', async ({ page }) => {
+    await entraComoStaff(page);
+    await page.setViewportSize({ width: 375, height: 812 });
+    await abreExecucao(page);
+    await congelaAnimacao(page);
+
+    const falhas: string[] = [];
+    for (const t of DEDO) {
+      await page.setViewportSize({ width: t.largura, height: t.altura });
+      await page.waitForTimeout(400);
+      const onde = `Execução @${t.nome}px`;
+
+      const excesso = await rolagemLateral(page);
+      if (excesso > 1) falhas.push(`${onde} · rolagem lateral de ${excesso}px`);
+
+      for (const html of await semNomeAcessivel(page)) {
+        falhas.push(`${onde} · controle sem nome acessível: ${html}`);
+      }
+
+      const vistos = new Set<string>();
+      for (const alvo of await alvosPequenos(page)) {
+        const chave = `${alvo.nome}|${alvo.largura}x${alvo.altura}`;
+        if (vistos.has(chave)) continue;
+        vistos.add(chave);
+        falhas.push(`${onde} · alvo de ${alvo.largura}×${alvo.altura}px: "${alvo.nome}"`);
+      }
+    }
+
+    expect(falhas, `\n${falhas.join('\n')}\n`).toEqual([]);
+  });
+
+  /**
+   * O salto de seção tem de parar ABAIXO do cabeçalho fixo de 97px. Sem
+   * `scroll-margin-top` o cabeçalho come o título da seção que ela pediu — e
+   * isso nenhuma varredura de geometria pega.
+   */
+  test('o salto de seção não para debaixo do cabeçalho', async ({ page }) => {
+    await entraComoStaff(page);
+    await page.setViewportSize({ width: 375, height: 812 });
+    await abreExecucao(page);
+    await congelaAnimacao(page);
+
+    await page.getByRole('button', { name: 'Ações da inspeção' }).click();
+    const secoes = page.getByRole('navigation', { name: /Seções do roteiro/i }).getByRole('button');
+    const ultima = secoes.last();
+    const rotulo = ((await ultima.textContent()) || '').replace(/\d+\/\d+$/, '').trim();
+    await ultima.click();
+    await page.waitForTimeout(1200);
+
+    const topo = await page.evaluate((texto: string) => {
+      const alvo = [...document.querySelectorAll('h3')]
+        .find((h) => (h.textContent || '').includes(texto.replace(/^\d+ · /, '')));
+      return alvo ? Math.round(alvo.getBoundingClientRect().top) : -1;
+    }, rotulo);
+
+    expect(topo, `"${rotulo}" parou a ${topo}px do topo`).toBeGreaterThanOrEqual(97);
   });
 });
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, memo } from 'react';
+import React, { useState, useEffect, useRef, memo } from 'react';
 import { AlertTriangle, Check, ChevronDown, ExternalLink, FileCheck2, MessageSquare, Pencil, Trash2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Badge } from '../ui/Badge';
@@ -214,6 +214,15 @@ export const ChecklistItem = memo(function ChecklistItem({
     onDetailsToggle?.(item.id, showObs);
   }, [showObs, item.id, onDetailsToggle]);
 
+  // Marcar NÃO CUMPRE abre o painel sozinho: situação e ação são obrigatórias, e
+  // no celular um toque a mais para descobrir isso é um toque que ela não dá.
+  // Só na transição — recolher o painel depois continua valendo.
+  const previousResult = useRef(response?.result);
+  useEffect(() => {
+    if (response?.result === 'not_complies' && previousResult.current !== 'not_complies') setShowObs(true);
+    previousResult.current = response?.result;
+  }, [response?.result]);
+
   // Sugestões do próprio histórico deste item: busca preguiçosa, só quando a
   // consultora abre a seção de observações — evita consultar o Dexie pra cada
   // um dos 100+ itens da tela toda de uma vez.
@@ -304,19 +313,33 @@ export const ChecklistItem = memo(function ChecklistItem({
 
   // Estado em três canais: a cor, a FORMA do traço da esquerda (contínuo para
   // resolvido, tracejado para pendente) e a palavra escrita nos selos.
+  // `border-default` pinta os QUATRO lados e, no CSS gerado, vence o
+  // `border-l-*` que vem depois na string de classes — a borda de estado saía
+  // cinza desde o FE-23. As outras três bordas passam a ser nomeadas por lado.
+  const OUTRAS_BORDAS = 'border-y-default border-r-default';
   const getBorderColor = () => {
-    if (!isSelected) return 'border-l-4 border-dashed border-l-amber border-default';
-    if (response.result === 'complies') return 'border-l-4 border-l-success border-default';
-    if (isNotCompliant) return 'border-l-4 border-l-danger border-default';
-    return 'border-l-4 border-l-navy-3 border-default';
+    if (!isSelected) return `border-l-4 [border-left-style:dashed] border-l-amber ${OUTRAS_BORDAS}`;
+    if (response.result === 'complies') return `border-l-4 border-l-success ${OUTRAS_BORDAS}`;
+    if (isNotCompliant) return `border-l-4 border-l-danger ${OUTRAS_BORDAS}`;
+    return `border-l-4 border-l-navy-3 ${OUTRAS_BORDAS}`;
   };
 
   return (
-    <div id={`item-${item.id}`} className={cn('scroll-mt-44 rounded-lg border bg-surface p-5 shadow-sm', getBorderColor())}>
+    <div
+      id={`item-${item.id}`}
+      className={cn(
+        // No celular o item não é cartão: é uma faixa da lista, encostada nas
+        // bordas. A borda esquerda de estado continua sendo a mesma nos dois.
+        'scroll-mt-[97px] border-x-0 border-b border-t-0 bg-surface px-3 pb-[13px] pt-[11px]',
+        'lg:scroll-mt-44 lg:rounded-lg lg:border lg:p-5 lg:shadow-sm',
+        getBorderColor(),
+      )}
+    >
       <div className="flex items-start justify-between">
-        <div className="min-w-0 flex-1 space-y-2 pr-4">
-          {/* Header row with badges */}
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="min-w-0 flex-1 space-y-1.5 lg:space-y-2 lg:pr-4">
+          {/* Header row with badges — no celular esta linha desce para baixo do
+              texto do requisito, que é o que ela precisa ler primeiro. */}
+          <div className="hidden flex-wrap items-center gap-2 lg:flex">
             <Badge variant="neutral" className="tabular-nums">{`Item ${item.order}`}</Badge>
             {item.isCritical && (
               <Badge variant="danger">
@@ -346,31 +369,78 @@ export const ChecklistItem = memo(function ChecklistItem({
                 )}
               </span>
             )}
-            {onEdit && (
-              <button
-                type="button"
-                onClick={() => onEdit(item.id)}
-                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-primary-600 hover:bg-primary-50"
-                aria-label={'Editar item extra ' + item.description}
-              >
-                <Pencil className="h-4 w-4" />
-              </button>
+          </div>
+
+          {/* Celular: número e requisito na mesma linha — o texto inteiro, sem
+              clamp: é a pergunta que ela está respondendo. */}
+          <div className="flex items-baseline gap-1.5 lg:block">
+            <span
+              className="shrink-0 text-[11px] font-bold leading-[1.4] tabular-nums text-navy-3 lg:hidden"
+              aria-hidden="true"
+            >
+              {item.order}
+            </span>
+            <p className="text-[14.5px] font-medium leading-[1.45] text-navy [text-wrap:pretty] lg:mt-2 lg:text-[15px] lg:leading-relaxed">
+              {item.id.startsWith('extra|') ? (response?.customDescription || item.description) : item.description}
+            </p>
+          </div>
+
+          {/* Celular: selos e base legal descem para a linha de baixo, recuados
+              para alinhar sob o texto (a largura do número + o gap). */}
+          <div className="flex flex-wrap items-center gap-1.5 pl-[17px] lg:hidden">
+            {item.isCritical && (
+              <span className="rounded bg-danger-soft px-1.5 py-px text-[10px] font-bold leading-[1.5] text-danger-soft-ink">
+                crítico
+              </span>
             )}
-            {onDelete && (
-              <button
-                type="button"
-                onClick={() => onDelete(item.id)}
-                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-danger hover:bg-danger-soft"
-                aria-label={'Excluir item extra ' + item.description}
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
+            {previousNC && (
+              <span className="rounded bg-amber-soft px-1.5 py-px text-[10px] font-bold leading-[1.5] text-amber-soft-ink">
+                reincidência
+              </span>
+            )}
+            {item.legislation && (
+              legislationUrlForItem(item) ? (
+                <a
+                  href={legislationUrlForItem(item)}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={`Abrir a norma ${item.legislation} na biblioteca`}
+                  // O alvo de 44px sai para fora com margem negativa, sem esticar a linha.
+                  className="-my-3.5 inline-flex min-h-11 min-w-11 items-center gap-1 text-[10.5px] font-semibold text-primary-700"
+                >
+                  {item.legislation}
+                  <ExternalLink className="h-2.5 w-2.5" aria-hidden="true" />
+                </a>
+              ) : (
+                <span className="text-[10.5px] font-semibold text-navy-2">{item.legislation}</span>
+              )
             )}
           </div>
 
-          <p className="mt-2 text-[15px] font-medium leading-relaxed text-navy">
-            {item.id.startsWith('extra|') ? (response?.customDescription || item.description) : item.description}
-          </p>
+          {(onEdit || onDelete) && (
+            <div className="flex items-center gap-1 pl-[17px] lg:pl-0">
+              {onEdit && (
+                <button
+                  type="button"
+                  onClick={() => onEdit(item.id)}
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-primary-600 hover:bg-primary-50"
+                  aria-label={'Editar item extra ' + item.description}
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  type="button"
+                  onClick={() => onDelete(item.id)}
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-danger hover:bg-danger-soft"
+                  aria-label={'Excluir item extra ' + item.description}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -432,30 +502,43 @@ export const ChecklistItem = memo(function ChecklistItem({
 
       {/* Os quatro resultados do domínio. "Parcial" não existe (decisão 23).
           `aria-pressed` é o estado; a cor é consequência, não a informação. */}
-      <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4" role="group" aria-label={`Resultado do item ${item.order}`}>
+      {/* No celular os quatro cabem numa faixa só de 46px, agrupados por uma
+          borda comum. O rótulo NÃO encolhe para sigla: "Cumpre" e "Não" lado a
+          lado leem como um par sim/não, e é justamente esse par que decide a
+          nota. Quebra em duas linhas dentro do próprio botão. */}
+      <div
+        className="mt-2.5 flex overflow-hidden rounded-[9px] border border-control lg:mt-5 lg:grid lg:grid-cols-4 lg:gap-3 lg:overflow-visible lg:rounded-none lg:border-0"
+        role="group"
+        aria-label={`Resultado do item ${item.order}`}
+      >
         {([
-          ['complies', 'Cumpre', 'border-success bg-success-soft text-success-soft-ink'],
-          ['not_complies', 'Não cumpre', 'border-danger bg-danger-soft text-danger-soft-ink'],
-          ['not_applicable', 'Não se aplica', 'border-navy-3 bg-surface-sunken text-navy'],
-          ['not_observed', 'Não observado', 'border-navy-3 bg-surface-sunken text-navy'],
-        ] as const).map(([value, label, selectedClasses]) => {
+          ['complies', 'Cumpre', ['Cumpre'], 'bg-success-soft text-success-soft-ink', 'lg:border-success'],
+          ['not_complies', 'Não cumpre', ['Não', 'cumpre'], 'bg-danger-soft text-danger-soft-ink', 'lg:border-danger'],
+          ['not_applicable', 'Não se aplica', ['Não se', 'aplica'], 'bg-surface-sunken text-navy', 'lg:border-navy-3'],
+          ['not_observed', 'Não observado', ['Não', 'observado'], 'bg-surface-sunken text-navy', 'lg:border-navy-3'],
+        ] as const).map(([value, label, lines, selectedFill, selectedBorder]) => {
           const selected = response?.result === value;
           return (
             <button
               key={value}
               type="button"
               aria-pressed={selected}
+              aria-label={label}
               onClick={() => onChange(item.id, value)}
               className={cn(
-                'flex h-[52px] items-center justify-center gap-1.5 rounded-md border px-2 text-[13px] font-semibold',
+                'flex h-[46px] flex-1 flex-col items-center justify-center rounded-none border-r border-default px-1 text-center text-xs font-bold leading-[1.15] last:border-r-0',
+                'lg:h-[52px] lg:flex-row lg:gap-1.5 lg:rounded-md lg:border lg:px-2 lg:text-[13px] lg:font-semibold',
                 selected
-                  ? `${selectedClasses} ring-1`
-                  : 'border-control bg-surface text-navy-2 hover:bg-surface-hover'
+                  ? `${selectedFill} ${selectedBorder} lg:ring-1`
+                  : 'bg-surface text-navy-2 lg:border-control lg:hover:bg-surface-hover'
               )}
             >
-              {value === 'complies' && <Check className="h-4 w-4 shrink-0" aria-hidden="true" />}
-              {value === 'not_complies' && <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />}
-              {label}
+              {value === 'complies' && <Check className="hidden h-4 w-4 shrink-0 lg:block" aria-hidden="true" />}
+              {value === 'not_complies' && <AlertTriangle className="hidden h-4 w-4 shrink-0 lg:block" aria-hidden="true" />}
+              <span className="lg:hidden" aria-hidden="true">
+                {lines.map((line) => <span key={line} className="block">{line}</span>)}
+              </span>
+              <span className="hidden lg:inline" aria-hidden="true">{label}</span>
             </button>
           );
         })}
@@ -492,7 +575,7 @@ export const ChecklistItem = memo(function ChecklistItem({
       {showObs && isSelected && (
         // O painel deixa de mudar de cor entre índigo e vermelho conforme o
         // resultado — a informação já está na borda esquerda do cartão.
-        <div className="mt-6 space-y-5 rounded-md border border-default bg-surface-sunken p-5">
+        <div className="mt-2.5 space-y-3 rounded-[9px] border border-default bg-surface-hover p-2.5 lg:mt-6 lg:space-y-5 lg:rounded-md lg:bg-surface-sunken lg:p-5">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-navy">
               {isNotCompliant ? <AlertTriangle className="h-4 w-4" aria-hidden="true" /> : <FileCheck2 className="h-4 w-4" aria-hidden="true" />}
@@ -520,7 +603,7 @@ export const ChecklistItem = memo(function ChecklistItem({
             <Textarea
               id={`situacao-${item.id}`}
               className={cn(
-                'min-h-[100px] resize-y',
+                'min-h-16 resize-y lg:min-h-[100px]',
                 !response?.situationDescription && hasError && 'border-danger focus-visible:border-danger focus-visible:ring-danger'
               )}
               placeholder={isNotCompliant ? 'Descreva a falha observada…' : 'Descreva pontos positivos ou o que pode ser elevado para alto padrão…'}
@@ -533,8 +616,8 @@ export const ChecklistItem = memo(function ChecklistItem({
               onBlur={(e) => handleBlur('situationDescription', e.target.value)}
             />
             {!!suggestions?.situationDescription.length && (
-              <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                <span className="text-xs font-medium text-navy-3">Já usado antes:</span>
+              <div className="flex items-center gap-1.5 overflow-x-auto pt-1 [-ms-overflow-style:none] [scrollbar-width:none] lg:flex-wrap lg:overflow-visible [&::-webkit-scrollbar]:hidden">
+                <span className="shrink-0 text-xs font-medium text-navy-3">Já usado antes:</span>
                 {(showAllSituationSuggestions ? suggestions.situationDescription : suggestions.situationDescription.slice(0, 4)).map((text) => (
                   <button
                     key={text}
@@ -544,7 +627,7 @@ export const ChecklistItem = memo(function ChecklistItem({
                       onUpdateDetails(item.id, { situationDescription: text });
                     }}
                     title={text}
-                    className="max-w-[220px] truncate rounded-md border border-control bg-surface px-2.5 py-1.5 text-xs font-medium text-navy-2 hover:bg-surface-hover [@media(pointer:coarse)]:min-h-11"
+                    className="max-w-[220px] shrink-0 truncate rounded-md border border-control bg-surface px-2.5 py-1.5 text-xs font-medium text-navy-2 hover:bg-surface-hover [@media(pointer:coarse)]:min-h-11"
                   >
                     {text}
                   </button>
@@ -553,7 +636,7 @@ export const ChecklistItem = memo(function ChecklistItem({
                   <button
                     type="button"
                     onClick={() => setShowAllSituationSuggestions(true)}
-                    className="rounded-md px-2 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-50 [@media(pointer:coarse)]:min-h-11"
+                    className="shrink-0 rounded-md px-2 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-50 [@media(pointer:coarse)]:min-h-11"
                   >
                     +{suggestions.situationDescription.length - 4} mais
                   </button>
@@ -570,7 +653,7 @@ export const ChecklistItem = memo(function ChecklistItem({
               <VoiceDictationButton onTranscript={(text) => setLocalAction((prev) => (prev ? `${prev} ${text}` : text))} />
             </div>
             {isNotCompliant && (
-              <div className="flex flex-wrap gap-1.5 pb-1">
+              <div className="flex gap-1.5 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] lg:flex-wrap lg:overflow-visible [&::-webkit-scrollbar]:hidden">
                 {['Providenciar', 'Substituir', 'Implementar', 'Abolir', 'Adequar'].map((verb) => (
                   <button
                     key={verb}
@@ -581,7 +664,7 @@ export const ChecklistItem = memo(function ChecklistItem({
                       setLocalAction(newVal);
                       onUpdateDetails(item.id, { correctiveAction: newVal });
                     }}
-                    className="rounded-md border border-control bg-surface px-2.5 py-1.5 text-xs font-medium text-navy-2 hover:bg-surface-hover [@media(pointer:coarse)]:min-h-11"
+                    className="shrink-0 rounded-md border border-control bg-surface px-2.5 py-1.5 text-xs font-medium text-navy-2 hover:bg-surface-hover [@media(pointer:coarse)]:min-h-11"
                   >
                     {verb}
                   </button>
@@ -591,7 +674,7 @@ export const ChecklistItem = memo(function ChecklistItem({
             <Textarea
               id={`acao-${item.id}`}
               className={cn(
-                'min-h-[100px] resize-y',
+                'min-h-16 resize-y lg:min-h-[100px]',
                 !response?.correctiveAction && hasError && 'border-danger focus-visible:border-danger focus-visible:ring-danger'
               )}
               placeholder={isNotCompliant ? 'O que precisa ser feito para adequação…' : 'Dê sugestões para que o local atinja a nota máxima ou mantenha o brilho…'}
@@ -604,8 +687,8 @@ export const ChecklistItem = memo(function ChecklistItem({
               onBlur={(e) => handleBlur('correctiveAction', e.target.value)}
             />
             {!!suggestions?.correctiveAction.length && (
-              <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                <span className="text-xs font-medium text-navy-3">Já usado antes:</span>
+              <div className="flex items-center gap-1.5 overflow-x-auto pt-1 [-ms-overflow-style:none] [scrollbar-width:none] lg:flex-wrap lg:overflow-visible [&::-webkit-scrollbar]:hidden">
+                <span className="shrink-0 text-xs font-medium text-navy-3">Já usado antes:</span>
                 {(showAllActionSuggestions ? suggestions.correctiveAction : suggestions.correctiveAction.slice(0, 4)).map((text) => (
                   <button
                     key={text}
@@ -615,7 +698,7 @@ export const ChecklistItem = memo(function ChecklistItem({
                       onUpdateDetails(item.id, { correctiveAction: text });
                     }}
                     title={text}
-                    className="max-w-[220px] truncate rounded-md border border-control bg-surface px-2.5 py-1.5 text-xs font-medium text-navy-2 hover:bg-surface-hover [@media(pointer:coarse)]:min-h-11"
+                    className="max-w-[220px] shrink-0 truncate rounded-md border border-control bg-surface px-2.5 py-1.5 text-xs font-medium text-navy-2 hover:bg-surface-hover [@media(pointer:coarse)]:min-h-11"
                   >
                     {text}
                   </button>
@@ -624,7 +707,7 @@ export const ChecklistItem = memo(function ChecklistItem({
                   <button
                     type="button"
                     onClick={() => setShowAllActionSuggestions(true)}
-                    className="rounded-md px-2 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-50 [@media(pointer:coarse)]:min-h-11"
+                    className="shrink-0 rounded-md px-2 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-50 [@media(pointer:coarse)]:min-h-11"
                   >
                     +{suggestions.correctiveAction.length - 4} mais
                   </button>

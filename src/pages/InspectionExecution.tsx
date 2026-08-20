@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ChevronRight, CloudOff, CheckCircle2, Eye, EyeOff, Loader2, PlusCircle, RefreshCw } from 'lucide-react';
+import { ArrowLeft, ChevronRight, CloudOff, CheckCircle2, Eye, EyeOff, Loader2, MoreVertical, PlusCircle, RefreshCw } from 'lucide-react';
 import { db } from '../db/database';
 import { getTemplateById, composeCanonicalTemplate, filterSectionsByRoleForDisplay } from '../data/templates';
 import { type ChecklistTemplate, type Client, type ClientCategory, type Inspection, type InspectionResponse, type InspectionPhoto } from '../types';
@@ -11,11 +11,12 @@ function legacyCategory(inspection: Inspection): ClientCategory | undefined {
 }
 import { ILPIStaffCalculator } from '../components/inspection/ILPIStaffCalculator';
 import { isRioState } from '../utils/state';
+import { calculateScore, classificationInk } from '../utils/scoring';
 import { useInspectionStore } from '../store/useInspectionStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { generateId } from '../utils/imageUtils';
 import { CollaborativeProgress } from '../components/inspection/CollaborativeProgress';
-import { MobileScoreBar } from '../components/inspection/MobileScoreBar';
+import { MobileExecutionSheet } from '../components/inspection/MobileExecutionSheet';
 import { ClientService } from '../services/clientService';
 import { InspectionService } from '../services/inspectionService';
 import { InspectionBundleSyncService } from '../services/inspectionBundleSyncService';
@@ -63,6 +64,7 @@ import { Checkbox } from '../components/ui/Checkbox';
 import { Select } from '../components/ui/Select';
 import { useConfirmDialog } from '../components/ui/ConfirmDialog';
 import { toast } from '../store/useToastStore';
+import { cn } from '../lib/utils';
 
 // Pré-preenche uma nova inspeção (modo plano de ação) com as NCs da visita
 // anterior já marcadas como não conforme, copiando situação/ação/prazo/responsável.
@@ -113,6 +115,15 @@ async function seedPendingResponses(
 
 type ItemFilter = 'todos' | 'sem-resposta' | 'nao-cumpre' | 'reincidentes' | 'falta-escrever';
 
+/** Os cinco filtros do roteiro. Mesma ordem no chip do celular e no botão do desktop. */
+const FILTER_TABS = [
+  ['todos', 'Todos'],
+  ['sem-resposta', 'Sem resposta'],
+  ['nao-cumpre', 'Não cumpre'],
+  ['reincidentes', 'Reincidentes'],
+  ['falta-escrever', 'Falta escrever'],
+] as const satisfies ReadonlyArray<readonly [ItemFilter, string]>;
+
 export function InspectionExecution() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -151,6 +162,8 @@ export function InspectionExecution() {
   const [hideClientInfo, setHideClientInfo] = useState(false);
   const [photoHydration, setPhotoHydration] = useState<{ total: number; completed: number; failed: number } | null>(null);
   const [showTeamResponses, setShowTeamResponses] = useState(false);
+  /** Folha do ⋮ — no celular ela é o lugar de todas as ações (opção 3a). */
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [historyComplete, setHistoryComplete] = useState(navigator.onLine);
   const [extraItemSectionId, setExtraItemSectionId] = useState<string | null>(null);
   const [editingExtraItemId, setEditingExtraItemId] = useState<string | null>(null);
@@ -540,13 +553,23 @@ export function InspectionExecution() {
   const applyFilter = useCallback((next: ItemFilter) => {
     setItemFilter(next);
     setStickyItemIds(new Set());
-    if (next === 'todos') return;
+    if (next === 'todos') {
+      // Um filtro sem resultado fecha todas as seções. Voltar para "todos"
+      // devolvia a lista inteira recolhida — parece roteiro vazio, não roteiro
+      // sem filtro. Reabre pelo menos a seção em que ela estava.
+      setOpenSectionIds(prev => {
+        if (prev.size > 0) return prev;
+        const alvo = activeSectionId || visibleSections[0]?.id;
+        return alvo ? new Set([alvo]) : prev;
+      });
+      return;
+    }
     setOpenSectionIds(new Set(
       visibleSections
         .filter(section => section.items.some((item) => matchesFilter(next, item.id)))
         .map(section => section.id),
     ));
-  }, [visibleSections, matchesFilter]);
+  }, [visibleSections, matchesFilter, activeSectionId]);
 
   const handleDetailsToggle = useCallback((itemId: string, open: boolean) => {
     setStickyItemIds(prev => {
@@ -575,6 +598,13 @@ export function InspectionExecution() {
       document.getElementById(`secao-${sectionId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   }, []);
+
+  // Recolher tudo de uma vez é o que torna 92 itens em 5 seções navegáveis no
+  // celular: recolhido, o roteiro inteiro cabe numa tela.
+  const allSectionsCollapsed = openSectionIds.size === 0;
+  const toggleCollapseAll = useCallback(() => {
+    setOpenSectionIds(prev => (prev.size === 0 ? new Set(visibleSections.map(s => s.id)) : new Set()));
+  }, [visibleSections]);
 
   const goToItem = useCallback((itemId: string) => {
     const section = visibleSections.find(s => s.items.some((i) => i.id === itemId));
@@ -1195,6 +1225,23 @@ export function InspectionExecution() {
     );
   }
 
+  // Reabrir a inspeção: o mesmo caminho no botão do desktop e na folha do celular.
+  const handleReopenInspection = async () => {
+    const ok = await confirm({
+      title: 'Reabrir esta inspeção para edição?',
+      confirmLabel: 'Reabrir inspeção',
+      tone: 'default',
+    });
+    if (!ok) return;
+    const updates: Partial<Inspection> = { status: 'in_progress' as const, completedAt: undefined };
+    try {
+      await InspectionService.updateInspection(currentInspection.id, updates);
+      setCurrentInspection({ ...currentInspection, ...updates });
+    } catch (err) {
+      toast.error('Erro ao reabrir inspeção', String(err));
+    }
+  };
+
   const totalItems = filterCounts.todos;
   const answeredItems = totalItems - filterCounts['sem-resposta'];
   const progressPct = totalItems > 0 ? Math.round((answeredItems / totalItems) * 100) : 0;
@@ -1202,10 +1249,94 @@ export function InspectionExecution() {
     .flatMap(section => section.items)
     .filter((item) => item.isCritical && responseByItemId.get(item.id)?.result === 'not_complies')
     .length;
+  // A nota que o cabeçalho compacto do celular mostra é a mesma do painel do
+  // desktop — a `MobileScoreBar` foi absorvida por ele, não duplicada.
+  const score = effectiveTemplate ? calculateScore(responses, effectiveTemplate.sections) : null;
 
   return (
-    <div className="flex min-h-screen flex-col bg-canvas pb-safe pb-16 lg:pb-0">
-      <header className="sticky top-0 z-30 border-b border-default bg-surface px-4 py-3 sm:px-6">
+    <div className="flex min-h-screen flex-col bg-canvas pb-safe lg:pb-0">
+      {/* ── celular: 46px de cabeçalho + 39px de chips ─────────────────────
+          Substitui o cabeçalho de desktop e a MobileScoreBar, que juntos comiam
+          quase meia tela antes do primeiro item. Sem barra inferior e sem FAB:
+          todas as ações moram na folha do ⋮. */}
+      <header className="sticky top-0 z-30 border-b border-default bg-surface lg:hidden">
+        <div className="flex h-[46px] items-center gap-1.5 px-1.5">
+          <button
+            type="button"
+            onClick={() => navigate('/inspections')}
+            aria-label="Voltar para inspeções"
+            // Caixa de 44px pela régua de toque (decisão 7); a margem negativa
+            // devolve ao layout os 8px que o desenho de 36px não usa.
+            className="-mx-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] text-navy hover:bg-surface-hover"
+          >
+            <ArrowLeft className="h-[18px] w-[18px]" aria-hidden="true" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-title text-[13px] font-bold leading-tight text-navy">{displayClientName}</p>
+            <span className="flex items-center gap-1.5 text-[10.5px] font-semibold text-navy-3">
+              <span
+                className={cn('h-1.5 w-1.5 shrink-0 rounded-full', isOnline ? 'bg-success' : 'bg-amber')}
+                aria-hidden="true"
+              />
+              {/* A frase inteira num `<span>` só: texto solto ao lado de um valor
+                  dentro de um flex com `gap` abre buraco no meio da frase. */}
+              <span className="truncate">
+                {isOnline
+                  ? `Salvo · ${answeredItems}/${totalItems}`
+                  : 'Sem conexão · salvo no aparelho'}
+              </span>
+            </span>
+          </div>
+          {score && (
+            <>
+              <span
+                className="shrink-0 text-[14px] font-black tabular-nums"
+                style={{ color: classificationInk(score.classification) }}
+              >
+                {Math.round(score.scorePercentage)}%
+                <span className="sr-only"> de adequação</span>
+              </span>
+              <span className="shrink-0 text-[11px] font-bold tabular-nums text-danger">
+                {score.urgentActionsCount} <span className="sr-only">não conformidades</span>
+                <span aria-hidden="true">NC</span>
+              </span>
+            </>
+          )}
+          <button
+            type="button"
+            onClick={() => setSheetOpen(true)}
+            aria-label="Ações da inspeção"
+            aria-haspopup="dialog"
+            className="-mx-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] border border-default text-navy-2"
+          >
+            <MoreVertical className="h-[18px] w-[18px]" aria-hidden="true" />
+          </button>
+        </div>
+        <div
+          className="flex items-center gap-1.5 overflow-x-auto px-3 pb-1.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          role="group"
+          aria-label="Filtrar itens do roteiro"
+        >
+          {/* O botão é a área de toque de 44px; o chip pintado é o `span` de 32px
+              dentro dele. Faixa de rolagem não conta como alvo (decisão 7). */}
+          {FILTER_TABS.map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={itemFilter === value}
+              onClick={() => applyFilter(value)}
+              className="group flex h-11 shrink-0 items-center bg-transparent"
+            >
+              <span className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-default bg-surface px-[11px] text-xs font-semibold text-navy-2 group-aria-pressed:border-primary-700 group-aria-pressed:bg-primary-700 group-aria-pressed:text-on-accent">
+                {label}
+                <span className="font-bold tabular-nums opacity-65">{filterCounts[value]}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </header>
+
+      <header className="sticky top-0 z-30 hidden border-b border-default bg-surface px-4 py-3 sm:px-6 lg:block">
         <div className="mx-auto w-full max-w-[1600px] space-y-3">
           {/* Trilha: a execução não é uma ilha sem volta. */}
           <nav aria-label="Trilha" className="flex items-center gap-1.5 text-xs text-navy-3">
@@ -1298,21 +1429,7 @@ export function InspectionExecution() {
             {isCompleted && (
               <Button
                 variant="outline"
-                onClick={async () => {
-                  const ok = await confirm({
-                    title: 'Reabrir esta inspeção para edição?',
-                    confirmLabel: 'Reabrir inspeção',
-                    tone: 'default',
-                  });
-                  if (!ok) return;
-                  const updates: Partial<Inspection> = { status: 'in_progress' as const, completedAt: undefined };
-                  try {
-                    await InspectionService.updateInspection(currentInspection.id, updates);
-                    setCurrentInspection({ ...currentInspection, ...updates });
-                  } catch (err) {
-                    toast.error('Erro ao reabrir inspeção', String(err));
-                  }
-                }}
+                onClick={handleReopenInspection}
                 className="border-amber-soft-border text-amber-soft-ink hover:bg-amber-soft"
               >
                 Reabrir inspeção
@@ -1340,12 +1457,9 @@ export function InspectionExecution() {
 
       {currentInspection.templateId === 'tpl-ilpi-federal-v1' && <CollaborativeProgress />}
 
-      {/* Mobile Score Bar - shown only on small screens */}
-      <MobileScoreBar template={effectiveTemplate} />
-
       {/* Decisão 24: a largura entra na regra única. `max-w-7xl` sai; quem
           controla a linha de leitura é a coluna do meio, não a página. */}
-      <div className="mx-auto grid w-full max-w-[1600px] flex-1 grid-cols-1 gap-6 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_340px] 3col:grid-cols-[248px_minmax(0,1fr)_340px]">
+      <div className="mx-auto grid w-full max-w-[1600px] flex-1 grid-cols-1 gap-0 px-0 py-0 lg:gap-6 lg:px-4 lg:py-6 lg:grid-cols-[minmax(0,1fr)_340px] 3col:grid-cols-[248px_minmax(0,1fr)_340px]">
         {/* ── índice de seções ──────────────────────────────────────────── */}
         <div className="hidden 3col:block 3col:sticky 3col:top-40 3col:self-start">
           <ExecutionSectionIndex
@@ -1356,9 +1470,9 @@ export function InspectionExecution() {
         </div>
 
         {/* ── roteiro ───────────────────────────────────────────────────── */}
-        <div className="min-w-0 space-y-6">
+        <div className="min-w-0 space-y-0 lg:space-y-6">
           {usingRecoveryTemplate && (
-            <div className="rounded-md border border-amber-soft-border bg-amber-soft p-4 text-sm text-amber-soft-ink">
+            <div className="mx-3 mt-3 rounded-md border border-amber-soft-border bg-amber-soft p-4 text-sm text-amber-soft-ink lg:mx-0 lg:mt-0">
               <strong>Roteiro original indisponível.</strong>
               <p className="mt-1">
                 O app carregou {responses.length} respostas/fotos salvas localmente para recuperação. Não limpe o cache.
@@ -1367,7 +1481,7 @@ export function InspectionExecution() {
           )}
 
           {!historyComplete && (
-            <div className="rounded-md border border-secondary-200 bg-secondary-100 p-4 text-sm text-secondary-700">
+            <div className="mx-3 mt-3 rounded-md border border-secondary-200 bg-secondary-100 p-4 text-sm text-secondary-700 lg:mx-0 lg:mt-0">
               <strong>Histórico offline possivelmente incompleto.</strong>
               <p className="mt-1">As pendências em cache foram preservadas e serão reconciliadas automaticamente quando a conexão voltar.</p>
             </div>
@@ -1376,7 +1490,7 @@ export function InspectionExecution() {
           {/* Co-finalização: quem já fechou a sua parte e quem falta. Quem abriu e
               quem editou por último já está escrito no cabeçalho. */}
           {currentInspection.finalizedBy && currentInspection.finalizedBy.length > 0 && (
-            <div className="rounded-md border border-secondary-200 bg-secondary-100 p-3 text-sm text-secondary-700">
+            <div className="mx-3 mt-3 rounded-md border border-secondary-200 bg-secondary-100 p-3 text-sm text-secondary-700 lg:mx-0 lg:mt-0">
               {currentInspection.finalizedBy.map((f) => (
                 <div key={f.name}>✓ <strong>{f.name}</strong> finalizou sua parte em {new Date(f.at).toLocaleString('pt-BR')}.</div>
               ))}
@@ -1393,14 +1507,8 @@ export function InspectionExecution() {
           )}
 
           {/* Filtro do roteiro. "Falta escrever" também é filtro, não só painel. */}
-          <div className="flex flex-wrap gap-2" role="group" aria-label="Filtrar itens do roteiro">
-            {([
-              ['todos', 'Todos'],
-              ['sem-resposta', 'Sem resposta'],
-              ['nao-cumpre', 'Não cumpre'],
-              ['reincidentes', 'Reincidentes'],
-              ['falta-escrever', 'Falta escrever'],
-            ] as const).map(([value, label]) => (
+          <div className="hidden flex-wrap gap-2 lg:flex" role="group" aria-label="Filtrar itens do roteiro">
+            {FILTER_TABS.map(([value, label]) => (
               <button
                 key={value}
                 type="button"
@@ -1420,12 +1528,19 @@ export function InspectionExecution() {
               .map((i) => responses.find(r => r.itemId === i.id))
               .filter(Boolean) as InspectionResponse[];
             const visibleItems = section.items.filter((item) => itemMatchesFilter(item.id));
-            // Com filtro ligado, seção sem item correspondente sai da tela.
-            if (itemFilter !== 'todos' && visibleItems.length === 0) return null;
+            // Com filtro ligado e nenhum item correspondente: no desktop a seção
+            // sai da tela (são 11 cartões grandes); no celular ela fica, com uma
+            // linha dizendo por quê — a lista é contínua e uma seção que some
+            // sem aviso parece seção que deixou de existir.
+            const emptyUnderFilter = itemFilter !== 'todos' && visibleItems.length === 0;
             const isOpen = openSectionIds.has(section.id);
 
             return (
-              <div key={section.id} id={`secao-${section.id}`} className="scroll-mt-44">
+              <div
+                key={section.id}
+                id={`secao-${section.id}`}
+                className={cn('scroll-mt-[97px] lg:scroll-mt-44', emptyUnderFilter && 'lg:hidden')}
+              >
               <SectionAccordion
                 title={`${idx + 1}. ${section.title}`}
                 totalItems={section.items.length}
@@ -1439,12 +1554,17 @@ export function InspectionExecution() {
                   return copy;
                 })}
               >
-                <div className="space-y-4">
+                {emptyUnderFilter ? (
+                  <p className="bg-surface px-3 py-3 text-[12.5px] text-navy-3">
+                    Nenhum item nesta seção com o filtro atual.
+                  </p>
+                ) : (
+                <div className="space-y-0 lg:space-y-4">
                   {/* ILPI Dimensioning Block — casa por id (roteiro estático) ou por
                       título "Recursos Humanos" (roteiros salvos no banco usam id UUID). */}
                   {(section.id === 'sec-fed-12'
                     || (isIlpiInspection && /recursos\s+humanos/i.test(section.title || ''))) && (
-                    <div className="mb-6 space-y-4 rounded-md border border-default bg-surface p-4">
+                    <div className="m-3 space-y-4 rounded-md border border-default bg-surface p-4 lg:mx-0 lg:mb-6 lg:mt-0">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <h3 className="text-sm font-semibold text-navy">Dimensionamento ILPI</h3>
                         {isRioState(currentInspection.state) && (
@@ -1562,21 +1682,43 @@ export function InspectionExecution() {
                   <Button
                     variant="outline"
                     fullWidth
+                    className="mb-3 mt-3 w-[calc(100%-1.5rem)] self-center lg:m-0 lg:w-full"
                     onClick={() => handleAddExtraItem(section.id)}
                   >
                     <PlusCircle className="mr-2 h-4 w-4" /> Acrescentar um item que o roteiro não prevê
                   </Button>
                 </div>
+                )}
               </SectionAccordion>
               </div>
             );
           })}
 
           {itemFilter !== 'todos' && filterCounts[itemFilter] === 0 && (
-            <div className="rounded-md border border-default bg-surface p-6 text-center">
+            <div className="m-3 rounded-md border border-default bg-surface p-6 text-center lg:m-0">
               <p className="text-sm text-navy-2">Nenhum item neste filtro.</p>
               <Button variant="outline" size="sm" className="mt-3" onClick={() => applyFilter('todos')}>
                 Ver todos os itens
+              </Button>
+            </div>
+          )}
+
+          {/* Fim do roteiro: no celular o "Encerrar e entregar" não fica no
+              cabeçalho nem num rodapé fixo — ele espera no fim da rolagem, que é
+              onde a visita de fato termina. */}
+          {!isCompleted && (
+            <div className="m-3 rounded-xl border border-default bg-surface p-3.5 lg:hidden">
+              <h2 className="font-title text-[13px] font-bold leading-tight text-navy">Fim do roteiro</h2>
+              <p className="mb-[11px] mt-1 text-[12.5px] leading-[1.45] text-navy-2">
+                {answeredItems} de {totalItems} respondidos · {filterCounts['nao-cumpre']} não conformidades
+                {missingText.length > 0 && ` · ${missingText.length} sem texto`}
+              </p>
+              <Button
+                fullWidth
+                className="h-12"
+                onClick={() => setSearchParams({ etapa: 'encerrar' }, { state: location.state })}
+              >
+                Encerrar e entregar
               </Button>
             </div>
           )}
@@ -1599,6 +1741,29 @@ export function InspectionExecution() {
           )}
         </div>
       </div>
+
+      <MobileExecutionSheet
+        isOpen={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        isOnline={isOnline}
+        isSaving={saveStatus === 'saving'}
+        answered={answeredItems}
+        total={totalItems}
+        sections={sectionIndex}
+        activeSectionId={activeSectionId}
+        onSelectSection={goToSection}
+        allCollapsed={allSectionsCollapsed}
+        onToggleCollapseAll={toggleCollapseAll}
+        onPreviewReport={() => navigate('/summary', { state: { inspectionId: currentInspection.id } })}
+        onTeamResponses={() => setShowTeamResponses(true)}
+        onAddExtraItem={() => handleAddExtraItem(activeSectionId || visibleSections[0]?.id || '')}
+        onSaveAndExit={() => navigate('/inspections')}
+        hideClientInfo={hideClientInfo}
+        onToggleHideClient={() => setHideClientInfo((value) => !value)}
+        isCompleted={isCompleted}
+        onFinish={() => setSearchParams({ etapa: 'encerrar' }, { state: location.state })}
+        onReopen={handleReopenInspection}
+      />
 
       <TeamResponsesViewer
         inspectionId={currentInspection.id}
