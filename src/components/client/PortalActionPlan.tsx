@@ -3,15 +3,22 @@ import {
   AlertTriangle,
   CalendarClock,
   CheckCircle2,
+  CheckSquare,
   ClipboardList,
   Clock3,
+  ListChecks,
   Loader2,
   MessageSquare,
   Paperclip,
   RefreshCw,
+  Square,
   UserRound,
 } from 'lucide-react';
-import type { ClientDeclaredStatus, ClientPortalActionItem } from '../../services/clientPortalService';
+import type {
+  ClientDeclaredStatus,
+  ClientPortalActionCheckpoint,
+  ClientPortalActionItem,
+} from '../../services/clientPortalService';
 import type { ClientActionEvidenceStatus, ClientActionItemPriority } from '../../types';
 import { formatDateBR } from '../../utils/clientPortalFormat';
 import {
@@ -56,6 +63,14 @@ export type DeclareStatusHandler = (params: {
   item: ClientPortalActionItem;
   status: ClientDeclaredStatus;
   note: string;
+  byName: string;
+  byRole: string;
+}) => Promise<void>;
+
+export type ToggleCheckpointHandler = (params: {
+  item: ClientPortalActionItem;
+  checkpoint: ClientPortalActionCheckpoint;
+  done: boolean;
   byName: string;
   byRole: string;
 }) => Promise<void>;
@@ -108,6 +123,8 @@ interface PortalActionPlanProps {
   onSelectUnit?: (clientId: string) => void;
   onSubmitEvidence?: SubmitEvidenceHandler;
   onDeclareStatus?: DeclareStatusHandler;
+  /** PORT-05 — o cliente marca um tópico da ação corretiva como feito, com um clique. */
+  onToggleCheckpoint?: ToggleCheckpointHandler;
   /**
    * Quando o plano de ação É a página (o link do relatório), a seção precisa aparecer mesmo
    * vazia e dizer por quê. Sumir faz o cliente concluir que a função não existe — foi
@@ -416,6 +433,131 @@ function DeclareStatus({
   );
 }
 
+/**
+ * PORT-05 — os tópicos da ação corretiva, marcáveis um a um.
+ *
+ * O caso que motivou: a consultora aponta três coisas na mesma pendência e o cliente faz
+ * duas. Até aqui ele só podia responder pelo conjunto, então "fiz" era mentira e "não fiz"
+ * também. Agora cada linha é um clique.
+ *
+ * Um clique, não um formulário: quem responde já se identificou uma vez no topo da página.
+ * Repetir nome e função a cada tópico faria ele parar no segundo — e parar de responder é
+ * exatamente o problema que o plano de ação existe para resolver.
+ */
+function CheckpointList({
+  item,
+  author,
+  onToggleCheckpoint,
+}: {
+  item: ClientPortalActionItem;
+  author: { byName: string; byRole: string };
+  onToggleCheckpoint: ToggleCheckpointHandler;
+}) {
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const checkpoints = item.checkpoints ?? [];
+  const total = checkpoints.length;
+  const done = checkpoints.filter((checkpoint) => checkpoint.done).length;
+  const signed = !!author.byName.trim() && !!author.byRole.trim();
+
+  const toggle = async (checkpoint: ClientPortalActionCheckpoint) => {
+    if (busyId) return;
+    if (!signed) {
+      setError('Preencha seu nome e sua função no começo da página para marcar o que já foi feito.');
+      return;
+    }
+    setBusyId(checkpoint.id);
+    setError(null);
+    try {
+      await onToggleCheckpoint({
+        item,
+        checkpoint,
+        done: !checkpoint.done,
+        byName: author.byName.trim(),
+        byRole: author.byRole.trim(),
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível registrar agora. Tente de novo.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <div className="mt-2">
+      <p className="mb-1.5 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold text-navy-2">
+        <ListChecks className="h-3.5 w-3.5" aria-hidden="true" />
+        {done} de {total} {total === 1 ? 'tarefa concluída' : 'tarefas concluídas'}
+      </p>
+      <ul className="space-y-1.5">
+        {checkpoints.map((checkpoint) => (
+          <li key={checkpoint.id}>
+            <button
+              type="button"
+              role="checkbox"
+              aria-checked={checkpoint.done}
+              disabled={busyId === checkpoint.id}
+              onClick={() => void toggle(checkpoint)}
+              className={`flex w-full items-start gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors [@media(pointer:coarse)]:min-h-11 ${
+                checkpoint.done
+                  ? 'border-success-soft-border bg-success-soft'
+                  : 'border-default bg-surface hover:bg-surface-hover'
+              } disabled:opacity-60`}
+            >
+              <span className="mt-px shrink-0" aria-hidden="true">
+                {busyId === checkpoint.id ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-navy-3" />
+                ) : checkpoint.done ? (
+                  <CheckSquare className="h-4 w-4 text-success-soft-ink" />
+                ) : (
+                  <Square className="h-4 w-4 text-navy-3" />
+                )}
+              </span>
+              <span className="min-w-0">
+                <span className={`block break-words text-xs ${checkpoint.done ? 'text-success-soft-ink' : 'text-navy'}`}>
+                  {checkpoint.text}
+                </span>
+                {checkpoint.done && checkpoint.done_at && (
+                  <span className="mt-0.5 block text-[10.5px] text-success-soft-ink opacity-80">
+                    Marcado em {formatDateBR(checkpoint.done_at)}
+                    {checkpoint.done_by_name ? ` por ${checkpoint.done_by_name}` : ''}
+                  </span>
+                )}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      {error && <p className="mt-1.5 text-[11px] font-medium text-danger-soft-ink" role="alert">{error}</p>}
+    </div>
+  );
+}
+
+/** Os mesmos tópicos, sem clique: item já concluído, ou leitura de quem não pode responder. */
+function CheckpointSummary({ item }: { item: ClientPortalActionItem }) {
+  const checkpoints = item.checkpoints ?? [];
+  const done = checkpoints.filter((checkpoint) => checkpoint.done).length;
+  return (
+    <div className="mt-2">
+      <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-navy-2">
+        <ListChecks className="h-3.5 w-3.5" aria-hidden="true" />
+        {done} de {checkpoints.length} {checkpoints.length === 1 ? 'tarefa concluída' : 'tarefas concluídas'}
+      </p>
+      <ul className="space-y-1">
+        {checkpoints.map((checkpoint) => (
+          <li key={checkpoint.id} className="flex items-start gap-2 text-xs text-navy-2">
+            {checkpoint.done
+              ? <CheckSquare className="mt-px h-3.5 w-3.5 shrink-0 text-success-soft-ink" aria-hidden="true" />
+              : <Square className="mt-px h-3.5 w-3.5 shrink-0 text-navy-3" aria-hidden="true" />}
+            <span className="min-w-0 break-words">{checkpoint.text}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function DeclaredState({ item }: { item: ClientPortalActionItem }) {
   if (!item.client_status) return null;
   return (
@@ -480,6 +622,7 @@ function ActionItemCard({
   onAuthorChange,
   onSubmitEvidence,
   onDeclareStatus,
+  onToggleCheckpoint,
 }: {
   item: ClientPortalActionItem;
   showUnitName?: boolean;
@@ -487,6 +630,7 @@ function ActionItemCard({
   onAuthorChange: (author: { byName: string; byRole: string }) => void;
   onSubmitEvidence?: SubmitEvidenceHandler;
   onDeclareStatus?: DeclareStatusHandler;
+  onToggleCheckpoint?: ToggleCheckpointHandler;
 }) {
   const resolved = item.status === 'resolved';
   return (
@@ -521,10 +665,20 @@ function ActionItemCard({
 
       <p className="text-sm font-semibold text-navy">{item.title}</p>
       <p className="mt-1 text-xs text-navy-2">{item.situation}</p>
-      <p className="mt-1.5 rounded-md border border-primary-100 bg-primary-50 p-2 text-xs text-navy">
-        <span className="font-semibold">O que fazer: </span>
-        {item.recommended_action}
-      </p>
+      {/* Ação em tópicos: a lista clicável substitui o parágrafo — repetir o mesmo texto
+          duas vezes só faria o cliente ler duas vezes a mesma coisa. */}
+      {(item.checkpoints?.length ?? 0) > 0 ? (
+        onToggleCheckpoint && item.accepts_evidence ? (
+          <CheckpointList item={item} author={author} onToggleCheckpoint={onToggleCheckpoint} />
+        ) : (
+          <CheckpointSummary item={item} />
+        )
+      ) : (
+        <p className="mt-1.5 rounded-md border border-primary-100 bg-primary-50 p-2 text-xs text-navy">
+          <span className="font-semibold">O que fazer: </span>
+          {item.recommended_action}
+        </p>
+      )}
 
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-navy-3">
         <span className="inline-flex items-center gap-1">
@@ -603,6 +757,7 @@ export function PortalActionPlan({
   onSelectUnit,
   onSubmitEvidence,
   onDeclareStatus,
+  onToggleCheckpoint,
   alwaysShow,
   onRetry,
   defaultAuthorName,
@@ -611,6 +766,18 @@ export function PortalActionPlan({
   const [author, setAuthor] = useState(() => {
     const stored = readStoredAuthor();
     return stored.byName ? stored : { ...stored, byName: defaultAuthorName || '' };
+  });
+
+  /**
+   * Faltava assinatura **quando a página abriu**, e essa resposta não muda no meio da digitação.
+   *
+   * Recalculando a cada tecla, o bloco sumia na primeira letra da função — `byRole` deixava de
+   * estar vazio, a condição virava falsa, o campo desmontava e o resto da digitação caía no
+   * vazio. Chegava "G" no lugar de "Gestora da unidade".
+   */
+  const [signatureMissing] = useState(() => {
+    const stored = readStoredAuthor();
+    return !stored.byName.trim() || !stored.byRole.trim();
   });
 
   const handleAuthorChange = (next: { byName: string; byRole: string }) => {
@@ -668,6 +835,12 @@ export function PortalActionPlan({
   const isGrouped = !!groupByUnit && new Set(open.map((item) => item.client_id)).size > 1;
   const groups = isGrouped ? groupOpenItemsByUnit(open) : [];
 
+  // PORT-05 — marcar tarefa é um clique, e a assinatura continua obrigatória. A saída é pedir
+  // uma vez, aqui em cima, em vez de a cada tópico: quem responde é a mesma pessoa a sessão
+  // inteira, e um formulário por linha faria ela parar na segunda.
+  const hasCheckpoints = open.some((item) => (item.checkpoints?.length ?? 0) > 0 && item.accepts_evidence);
+  const needsSignature = !!onToggleCheckpoint && hasCheckpoints && signatureMissing;
+
   return (
     <section aria-labelledby="portal-action-plan" className="mb-6 rounded-xl border border-default bg-surface p-4 shadow-sm">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -683,6 +856,38 @@ export function PortalActionPlan({
           {resolved.length > 0 && <span className="ml-1">· {resolved.length} concluída{resolved.length === 1 ? '' : 's'}</span>}
         </span>
       </div>
+
+      {needsSignature && (
+        <div className="mb-3 rounded-lg border border-secondary-200 bg-secondary-50 p-3">
+          <p className="mb-2 text-xs font-semibold text-secondary-900">
+            Quem está respondendo?
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Input
+              size="sm"
+              type="text"
+              value={author.byName}
+              onChange={(e) => handleAuthorChange({ ...author, byName: e.target.value })}
+              maxLength={120}
+              placeholder="Seu nome"
+              aria-label="Seu nome"
+            />
+            <Input
+              size="sm"
+              type="text"
+              value={author.byRole}
+              onChange={(e) => handleAuthorChange({ ...author, byRole: e.target.value })}
+              maxLength={120}
+              placeholder="Sua função"
+              aria-label="Sua função"
+            />
+          </div>
+          <p className="mt-1.5 text-[11px] text-secondary-800">
+            Pedimos uma vez só. Depois disso, marcar o que já foi feito é um clique — e fica
+            registrado no relatório quem respondeu.
+          </p>
+        </div>
+      )}
 
       {open.length === 0 ? (
         <p className="rounded-lg border border-dashed border-success-soft-border bg-success-soft p-3 text-xs text-success-soft-ink">
@@ -710,6 +915,7 @@ export function PortalActionPlan({
                     onAuthorChange={handleAuthorChange}
                     onSubmitEvidence={onSubmitEvidence}
                     onDeclareStatus={onDeclareStatus}
+                    onToggleCheckpoint={onToggleCheckpoint}
                   />
                 ))}
               </ul>
@@ -735,6 +941,7 @@ export function PortalActionPlan({
               onAuthorChange={handleAuthorChange}
               onSubmitEvidence={onSubmitEvidence}
               onDeclareStatus={onDeclareStatus}
+              onToggleCheckpoint={onToggleCheckpoint}
             />
           ))}
         </ul>

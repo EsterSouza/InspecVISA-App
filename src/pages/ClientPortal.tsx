@@ -11,6 +11,7 @@ import {
 } from '../components/client/PortalNextAction';
 import {
   type DeclareStatusHandler,
+  type ToggleCheckpointHandler,
   type SubmitEvidenceHandler,
 } from '../components/client/PortalActionPlan';
 import {
@@ -230,6 +231,19 @@ export function ClientPortal() {
       await clientPortalService.setItemStatus(
         { accountToken: token },
         { actionItemId: item.id, status, note, byName, byRole }
+      );
+      await refreshActionItems();
+    },
+    [token, refreshActionItems]
+  );
+
+  // PORT-05 — um tópico da ação corretiva, marcado ou desmarcado com um clique.
+  const handleToggleCheckpoint: ToggleCheckpointHandler = useCallback(
+    async ({ checkpoint, done, byName, byRole }) => {
+      if (!token) throw new Error('Sessão expirada. Entre de novo para responder.');
+      await clientPortalService.setCheckpointDone(
+        { accountToken: token },
+        { checkpointId: checkpoint.id, done, byName, byRole }
       );
       await refreshActionItems();
     },
@@ -480,6 +494,7 @@ export function ClientPortal() {
         audit={audit}
         onSubmitEvidence={handleSubmitEvidence}
         onDeclareStatus={handleDeclareStatus}
+        onToggleCheckpoint={handleToggleCheckpoint}
         onCreateServiceRequest={handleCreateServiceRequest}
         onReplyServiceRequest={handleReplyServiceRequest}
         paymentAckBusy={paymentAckBusy}

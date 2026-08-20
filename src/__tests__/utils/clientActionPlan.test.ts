@@ -214,4 +214,41 @@ describe('P360-010 - projeção do plano de ação', () => {
     expect(projected.recommended_action).toBe('Protocolar renovação.');
     expect(projected.responsible).toBe('Direção técnica');
   });
+
+  // ─── PORT-05: os tópicos que o cliente vai marcar um a um ───────────────────
+
+  test('a ação em tópicos vira uma tarefa por tópico, com chave estável', () => {
+    const [projected] = buildClientActionItems(
+      [response({ correctiveAction: '- Protocolar a renovação\n- Afixar o alvará na recepção' })],
+      [item()],
+      inspectionDate
+    );
+
+    expect(projected.checkpoints).toEqual([
+      { key: 'protocolar a renovacao', text: 'Protocolar a renovação' },
+      { key: 'afixar o alvara na recepcao', text: 'Afixar o alvará na recepção' },
+    ]);
+  });
+
+  test('ação em parágrafo corrido não gera tarefa nenhuma', () => {
+    const [projected] = buildClientActionItems(
+      [response({ correctiveAction: 'Protocolar a renovação na vigilância municipal e afixar o alvará.' })],
+      [item()],
+      inspectionDate
+    );
+    expect(projected.checkpoints).toEqual([]);
+  });
+
+  test('tópico repetido não vai duas vezes — o upsert do banco morreria na segunda', () => {
+    const [projected] = buildClientActionItems(
+      [response({ correctiveAction: '- Trocar a lixeira\n- Pintar a parede\n- TROCAR A LIXEIRA.' })],
+      [item()],
+      inspectionDate
+    );
+
+    expect(projected.checkpoints?.map((checkpoint) => checkpoint.text)).toEqual([
+      'Trocar a lixeira',
+      'Pintar a parede',
+    ]);
+  });
 });

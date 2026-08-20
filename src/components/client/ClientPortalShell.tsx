@@ -19,7 +19,11 @@ import {
 } from './PortalNextAction';
 import { PortalOverview } from './PortalOverview';
 import { PortalActionPlanPage } from './PortalActionPlanPage';
-import { type DeclareStatusHandler, type SubmitEvidenceHandler } from './PortalActionPlan';
+import {
+  type DeclareStatusHandler,
+  type SubmitEvidenceHandler,
+  type ToggleCheckpointHandler,
+} from './PortalActionPlan';
 import {
   PortalServiceRequests,
   type CreateServiceRequestHandler,
@@ -53,6 +57,7 @@ interface ClientPortalShellProps {
   audit: (eventType: ClientPortalAuditEventType, payload?: Record<string, unknown>) => void;
   onSubmitEvidence: SubmitEvidenceHandler;
   onDeclareStatus: DeclareStatusHandler;
+  onToggleCheckpoint: ToggleCheckpointHandler;
   onCreateServiceRequest: CreateServiceRequestHandler;
   onReplyServiceRequest: ReplyServiceRequestHandler;
   paymentAckBusy: boolean;
@@ -104,6 +109,7 @@ export function ClientPortalShell({
   audit,
   onSubmitEvidence,
   onDeclareStatus,
+  onToggleCheckpoint,
   onCreateServiceRequest,
   onReplyServiceRequest,
   paymentAckBusy,
@@ -247,6 +253,7 @@ export function ClientPortalShell({
                   onUnitFilterChange={onUnitFilterChange}
                   onSubmitEvidence={onSubmitEvidence}
                   onDeclareStatus={onDeclareStatus}
+                  onToggleCheckpoint={onToggleCheckpoint}
                   onRetry={onRetryActionItems}
                 />
               ) : (

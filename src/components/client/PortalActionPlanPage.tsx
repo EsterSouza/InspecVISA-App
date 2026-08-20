@@ -8,7 +8,12 @@ import {
 } from '../../utils/clientPortalFormat';
 import { PortalUnitFilter, type PortalUnitFilterEntry } from './PortalUnitFilter';
 import { UnitCompletionList } from './UnitCompletionList';
-import { PortalActionPlan, type DeclareStatusHandler, type SubmitEvidenceHandler } from './PortalActionPlan';
+import {
+  PortalActionPlan,
+  type DeclareStatusHandler,
+  type SubmitEvidenceHandler,
+  type ToggleCheckpointHandler,
+} from './PortalActionPlan';
 
 interface PortalActionPlanPageProps {
   overview: ClientPortalOverview;
@@ -22,6 +27,7 @@ interface PortalActionPlanPageProps {
   onUnitFilterChange: (unitId: string | null) => void;
   onSubmitEvidence: SubmitEvidenceHandler;
   onDeclareStatus: DeclareStatusHandler;
+  onToggleCheckpoint: ToggleCheckpointHandler;
   onRetry: () => void;
 }
 
@@ -40,6 +46,7 @@ export function PortalActionPlanPage({
   onUnitFilterChange,
   onSubmitEvidence,
   onDeclareStatus,
+  onToggleCheckpoint,
   onRetry,
 }: PortalActionPlanPageProps) {
   useEffect(() => {
@@ -116,6 +123,7 @@ export function PortalActionPlanPage({
         onSelectUnit={onUnitFilterChange}
         onSubmitEvidence={onSubmitEvidence}
         onDeclareStatus={onDeclareStatus}
+        onToggleCheckpoint={onToggleCheckpoint}
         onRetry={onRetry}
         alwaysShow
         defaultAuthorName={overview.account_name}

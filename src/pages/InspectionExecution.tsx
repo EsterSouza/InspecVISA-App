@@ -45,6 +45,7 @@ import {
 } from '../utils/customItems';
 import {
   ClientEvidenceService,
+  type ClientCheckpointByItem,
   type ClientDeclarationByItem,
   type ClientEvidenceByItem,
 } from '../services/clientEvidenceService';
@@ -150,6 +151,8 @@ export function InspectionExecution() {
   // best-effort: sem sinal, a vistoria segue igual, só sem a alegação na tela.
   const [clientEvidence, setClientEvidence] = useState<ClientEvidenceByItem>(new Map());
   const [clientDeclarations, setClientDeclarations] = useState<ClientDeclarationByItem>(new Map());
+  // PORT-05 — os tópicos da ação anterior e o que o cliente marcou em cada um.
+  const [clientCheckpoints, setClientCheckpoints] = useState<ClientCheckpointByItem>(new Map());
   const [previousVisit, setPreviousVisit] = useState<PreviousVisitScore | null>(null);
   /** Pendências já abertas no portal desta unidade — prazo pactuado e título. */
   const [openActionItems, setOpenActionItems] = useState<OpenActionItemRef[]>([]);
@@ -395,6 +398,7 @@ export function InspectionExecution() {
             .then((result) => {
               setClientEvidence(result.evidence);
               setClientDeclarations(result.declarations);
+              setClientCheckpoints(result.checkpoints);
             })
             .catch((err) => console.warn('[Inspection] Evidencia do cliente indisponivel:', err));
 
@@ -1681,6 +1685,7 @@ export function InspectionExecution() {
                           previousNC={previousNCs.get(item.id)}
                           clientEvidence={clientEvidence.get(item.id)}
                           clientDeclaration={clientDeclarations.get(item.id)}
+                          clientCheckpoints={clientCheckpoints.get(item.id)}
                           visitDate={currentInspection.inspectionDate}
                           pactuatedDueDate={findOpenActionItem(openActionItemIndex, { itemId: item.id, description: item.description })?.due_date}
                           onChange={handleResponseChange}

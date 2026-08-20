@@ -34,6 +34,7 @@ import {
 import {
   PortalActionPlan,
   type DeclareStatusHandler,
+  type ToggleCheckpointHandler,
   type SubmitEvidenceHandler,
 } from '../components/client/PortalActionPlan';
 import { formatReportDueDate } from '../utils/businessDays';
@@ -248,6 +249,20 @@ export function PublicAppointmentStatus() {
       await clientPortalService.setItemStatus(
         { visitToken: token },
         { actionItemId: item.id, status, note, byName, byRole }
+      );
+      const plan = await clientPortalService.reportActionItems(token);
+      setActionItems(plan.items);
+    },
+    [token]
+  );
+
+  // PORT-05 — um tópico da ação corretiva, marcado pelo link aberto do relatório.
+  const handleToggleCheckpoint: ToggleCheckpointHandler = useCallback(
+    async ({ checkpoint, done, byName, byRole }) => {
+      if (!token) throw new Error('Link inválido.');
+      await clientPortalService.setCheckpointDone(
+        { visitToken: token },
+        { checkpointId: checkpoint.id, done, byName, byRole }
       );
       const plan = await clientPortalService.reportActionItems(token);
       setActionItems(plan.items);
@@ -512,6 +527,7 @@ export function PublicAppointmentStatus() {
         error={actionItemsError}
         onSubmitEvidence={handleSubmitEvidence}
         onDeclareStatus={handleDeclareStatus}
+        onToggleCheckpoint={handleToggleCheckpoint}
         alwaysShow
         defaultAuthorName={status.unit_name}
       />

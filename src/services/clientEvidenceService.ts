@@ -48,6 +48,24 @@ export interface ClientDeclarationForItem {
 
 export type ClientDeclarationByItem = Map<string, ClientDeclarationForItem>;
 
+/**
+ * PORT-05 — cada tópico da ação corretiva e o que o cliente marcou nele.
+ *
+ * É o que muda a conversa na porta da casa: em vez de "o cliente disse que está
+ * providenciando", ela chega sabendo que dois dos três pontos foram feitos e qual é o que
+ * ficou. O casamento continua sendo pelo `source_item_id`, igual ao resto deste serviço.
+ */
+export interface ClientCheckpointForItem {
+  itemId: string;
+  checkpointId: string;
+  text: string;
+  done: boolean;
+  doneAt: string | null;
+  doneByName: string | null;
+}
+
+export type ClientCheckpointByItem = Map<string, ClientCheckpointForItem[]>;
+
 function isImage(mimeType: string): boolean {
   return mimeType.startsWith('image/');
 }
@@ -55,23 +73,26 @@ function isImage(mimeType: string): boolean {
 export const ClientEvidenceService = {
   /**
    * O que este cliente respondeu sobre o plano de ação, pelo item do roteiro: as evidências que
-   * anexou (mais recente primeiro) e a situação que declarou. As duas coisas vêm juntas porque
-   * saem da mesma consulta e são lidas juntas — na vistoria e no relatório.
+   * anexou (mais recente primeiro), a situação que declarou e os tópicos que marcou um a um.
+   * As três coisas vêm juntas porque saem da mesma consulta e são lidas juntas — na vistoria
+   * e no relatório.
    */
   async byItemForClient(clientId: string): Promise<{
     evidence: ClientEvidenceByItem;
     declarations: ClientDeclarationByItem;
+    checkpoints: ClientCheckpointByItem;
   }> {
     const byItem: ClientEvidenceByItem = new Map();
     const lastDeclarations: ClientDeclarationByItem = new Map();
-    if (!clientId) return { evidence: byItem, declarations: lastDeclarations };
+    const byCheckpoint: ClientCheckpointByItem = new Map();
+    if (!clientId) return { evidence: byItem, declarations: lastDeclarations, checkpoints: byCheckpoint };
 
     const { data: items, error: itemsError } = await supabase
       .from('client_action_items')
       .select('id, source_item_id, status, client_status, client_status_note, client_status_at, client_status_by_name, client_status_by_role')
       .eq('client_id', clientId);
     if (itemsError) throw itemsError;
-    if (!items || items.length === 0) return { evidence: byItem, declarations: lastDeclarations };
+    if (!items || items.length === 0) return { evidence: byItem, declarations: lastDeclarations, checkpoints: byCheckpoint };
 
     const bySourceItem = new Map<string, { sourceItemId: string; status: ClientEvidenceForItem['itemStatus'] }>();
     for (const item of items) {
@@ -121,7 +142,32 @@ export const ClientEvidenceService = {
       byItem.set(parent.sourceItemId, current);
     }
 
-    return { evidence: byItem, declarations: lastDeclarations };
+    // PORT-05 — os tópicos de cada pendência, com o que o cliente marcou. Os retirados
+    // (`dropped_at`) ficam de fora: não são mais o que ela apontou.
+    const { data: checkpointRows, error: checkpointError } = await supabase
+      .from('client_action_checkpoints')
+      .select('id, action_item_id, text, ordinal, done_at, done_by_name')
+      .in('action_item_id', [...bySourceItem.keys()])
+      .is('dropped_at', null)
+      .order('ordinal', { ascending: true });
+    if (checkpointError) throw checkpointError;
+
+    for (const row of checkpointRows || []) {
+      const parent = bySourceItem.get(row.action_item_id as string);
+      if (!parent) continue;
+      const current = byCheckpoint.get(parent.sourceItemId) || [];
+      current.push({
+        itemId: parent.sourceItemId,
+        checkpointId: row.id as string,
+        text: row.text as string,
+        done: !!row.done_at,
+        doneAt: (row.done_at as string) || null,
+        doneByName: (row.done_by_name as string) || null,
+      });
+      byCheckpoint.set(parent.sourceItemId, current);
+    }
+
+    return { evidence: byItem, declarations: lastDeclarations, checkpoints: byCheckpoint };
   },
 
   async reconcileInspection(inspectionId: string, confirmedEvidenceIds: string[]) {

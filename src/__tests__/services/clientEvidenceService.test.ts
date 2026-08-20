@@ -19,10 +19,17 @@ const CLIENT = 'client-1';
  * O service faz duas consultas em sequência: os itens do plano (para descobrir qual item do
  * roteiro cada um representa) e as evidências daqueles itens. O mock devolve uma por chamada.
  */
-function mockQueries(items: unknown[], evidence: unknown[]) {
+function mockQueries(items: unknown[], evidence: unknown[], checkpoints: unknown[] = []) {
   from.mockImplementation((table: string) => {
     if (table === 'client_action_items') {
       return { select: () => ({ eq: () => Promise.resolve({ data: items, error: null }) }) };
+    }
+    if (table === 'client_action_checkpoints') {
+      return {
+        select: () => ({
+          in: () => ({ is: () => ({ order: () => Promise.resolve({ data: checkpoints, error: null }) }) }),
+        }),
+      };
     }
     return {
       select: () => ({ in: () => ({ order: () => Promise.resolve({ data: evidence, error: null }) }) }),
@@ -188,5 +195,61 @@ describe('PORT-03 - o cliente declara a situacao', () => {
 
     expect(declarations.get('item-alvara')?.status).toBe('done');
     expect(evidence.get('item-alvara')).toHaveLength(1);
+  });
+});
+
+describe('PORT-05 - os topicos que o cliente marcou chegam na vistoria seguinte', () => {
+  beforeEach(() => {
+    from.mockReset();
+    storageFrom.mockReset();
+  });
+
+  test('agrupa os topicos pelo item do ROTEIRO, com o que foi marcado', async () => {
+    mockQueries([itemRow], [], [
+      {
+        id: 'cp-1',
+        action_item_id: 'plan-1',
+        text: 'Protocolar a renovacao',
+        ordinal: 1,
+        done_at: '2026-07-20T12:00:00.000Z',
+        done_by_name: 'Carlos',
+      },
+      {
+        id: 'cp-2',
+        action_item_id: 'plan-1',
+        text: 'Afixar o alvara na recepcao',
+        ordinal: 2,
+        done_at: null,
+        done_by_name: null,
+      },
+    ]);
+
+    const { checkpoints } = await ClientEvidenceService.byItemForClient(CLIENT);
+    const doItem = checkpoints.get('item-alvara');
+
+    expect(doItem).toHaveLength(2);
+    // É esta a leitura que muda a conversa na porta da casa: um feito, um não.
+    expect(doItem?.[0]).toMatchObject({ text: 'Protocolar a renovacao', done: true, doneByName: 'Carlos' });
+    expect(doItem?.[1]).toMatchObject({ text: 'Afixar o alvara na recepcao', done: false });
+  });
+
+  test('topico de um item que nao veio na consulta e ignorado', async () => {
+    mockQueries([itemRow], [], [
+      { id: 'cp-9', action_item_id: 'plan-de-outro-cliente', text: 'Nao e daqui', ordinal: 1, done_at: null, done_by_name: null },
+    ]);
+
+    const { checkpoints } = await ClientEvidenceService.byItemForClient(CLIENT);
+
+    expect(checkpoints.size).toBe(0);
+  });
+
+  test('cliente sem plano de acao devolve os tres mapas vazios', async () => {
+    mockQueries([], [], []);
+
+    const result = await ClientEvidenceService.byItemForClient(CLIENT);
+
+    expect(result.evidence.size).toBe(0);
+    expect(result.declarations.size).toBe(0);
+    expect(result.checkpoints.size).toBe(0);
   });
 });

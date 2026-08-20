@@ -1,4 +1,5 @@
 import type { ChecklistItem, InspectionResponse } from '../types';
+import { buildCheckpoints, type CheckpointPayload } from './actionCheckpoints';
 import { normalizeRequirementText } from './itemIdentity';
 import { toDateKey } from './date';
 
@@ -17,6 +18,11 @@ export interface ClientActionItemPayload {
   priority: 'urgent' | 'important' | 'recommended';
   responsible?: string;
   due_date?: string;
+  /**
+   * PORT-05 — os tópicos da ação corretiva, que o cliente marca um a um. Vazio quando ela
+   * escreveu um parágrafo corrido: aí a pendência é uma coisa só, como sempre foi.
+   */
+  checkpoints?: CheckpointPayload[];
 }
 
 /**
@@ -211,6 +217,7 @@ export function buildClientActionItems(
         priority: priorityFor(item),
         responsible: response.responsible?.trim() || undefined,
         due_date: resolveRecurringDueDate(pactuated, proposed, baseDate).effective,
+        checkpoints: buildCheckpoints(response.correctiveAction),
       };
     });
 }

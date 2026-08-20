@@ -189,7 +189,22 @@ export interface ClientPortalActionItem {
   client_status_at: string | null;
   client_status_by_name: string | null;
   client_status_by_role: string | null;
+  /**
+   * PORT-05 — os tópicos da ação corretiva, marcáveis um a um. Vazio quando a consultora
+   * escreveu um parágrafo corrido: aí a pendência é uma coisa só.
+   */
+  checkpoints: ClientPortalActionCheckpoint[];
   accepts_evidence: boolean;
+}
+
+/** Um tópico da ação corretiva, do jeito que o cliente o vê. A chave interna não vem. */
+export interface ClientPortalActionCheckpoint {
+  id: string;
+  text: string;
+  ordinal: number;
+  done: boolean;
+  done_at: string | null;
+  done_by_name: string | null;
 }
 
 /** Assinatura obrigatória de quem insere a evidência ou declara a situação (PORT-02/03). */
@@ -383,7 +398,12 @@ export const clientPortalService = {
     );
     if (error) throw error;
     if (data?.error) throw new Error(data.error);
-    return (data?.items ?? []) as ClientPortalActionItem[];
+    // `checkpoints` é do PORT-05: a RPC publicada pode ser mais antiga que este código, e a
+    // lista precisa existir de qualquer jeito para a tela não quebrar durante a virada.
+    return ((data?.items ?? []) as ClientPortalActionItem[]).map((item) => ({
+      ...item,
+      checkpoints: item.checkpoints ?? [],
+    }));
   },
 
   /**
@@ -453,6 +473,45 @@ export const clientPortalService = {
     if (data?.error) throw new Error(data.error);
   },
 
+  /**
+   * PORT-05 — o cliente marca (ou desmarca) um tópico da ação corretiva.
+   *
+   * É um clique só, de propósito: nome e função são pedidos uma vez por página, não a cada
+   * tarefa. Repetir a digitação a cada ponto faria ele desistir no segundo — e o silêncio é
+   * exatamente o que o plano de ação existe para quebrar.
+   */
+  async setCheckpointDone(
+    auth: { accountToken?: string; visitToken?: string },
+    params: { checkpointId: string; done: boolean } & EvidenceAuthor
+  ): Promise<void> {
+    if (!params.byName.trim() || !params.byRole.trim()) {
+      throw new Error('Informe seu nome e sua função para registrar quem respondeu.');
+    }
+
+    const { data, error } = await withTimeout(
+      auth.accountToken
+        ? supabase.rpc('client_portal_set_checkpoint_done', {
+          p_token: auth.accountToken,
+          p_checkpoint_id: params.checkpointId,
+          p_done: params.done,
+          p_by_name: params.byName.trim(),
+          p_by_role: params.byRole.trim(),
+          p_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+        })
+        : supabase.rpc('public_report_set_checkpoint_done', {
+          p_visit_token: auth.visitToken,
+          p_checkpoint_id: params.checkpointId,
+          p_done: params.done,
+          p_by_name: params.byName.trim(),
+          p_by_role: params.byRole.trim(),
+          p_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+        }),
+      'TarefaDoPlanoDeAcao'
+    );
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+  },
+
   /** Plano de ação de uma unidade, aberto pelo link do relatório — sem login. */
   async reportActionItems(visitToken: string): Promise<{ unitName: string; items: ClientPortalActionItem[] }> {
     const { data, error } = await withTimeout(
@@ -469,6 +528,7 @@ export const clientPortalService = {
       unit_name: unitName,
       visit_token: null,
       last_detected_on: null,
+      checkpoints: [],
       ...item,
     })) as ClientPortalActionItem[];
     return { unitName, items };

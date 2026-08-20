@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, memo } from 'react';
-import { AlertTriangle, Check, ChevronDown, ExternalLink, FileCheck2, MessageSquare, Pencil, Trash2 } from 'lucide-react';
+import { AlertTriangle, Check, CheckSquare, ChevronDown, ExternalLink, FileCheck2, ListChecks, MessageSquare, Pencil, Square, Trash2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Badge } from '../ui/Badge';
 import { Label } from '../ui/Label';
@@ -17,6 +17,7 @@ import type { ChecklistItem as ItemType, InspectionResponse, InspectionPhoto } f
 import type { PreviousNCContext } from '../../utils/actionPlanContext';
 import {
   ClientEvidenceService,
+  type ClientCheckpointForItem,
   type ClientDeclarationForItem,
   type ClientEvidenceForItem,
 } from '../../services/clientEvidenceService';
@@ -45,6 +46,8 @@ interface ChecklistItemProps {
   clientEvidence?: ClientEvidenceForItem[];
   /** PORT-03 — a situação que o cliente declarou, inclusive "ainda não fiz" com o motivo. */
   clientDeclaration?: ClientDeclarationForItem;
+  /** PORT-05 — cada tópico da ação anterior e se o cliente marcou como feito. */
+  clientCheckpoints?: ClientCheckpointForItem[];
   /** Data desta visita: é dela que um prazo novo é contado. */
   visitDate?: Date;
   /** Prazo já pactuado e aberto no portal para este requisito (YYYY-MM-DD). */
@@ -146,6 +149,48 @@ function ClientEvidencePanel({ evidence }: { evidence: ClientEvidenceForItem[] }
   );
 }
 
+/**
+ * PORT-05 — ponto a ponto do que ela mandou fazer da última vez, com o que o cliente marcou.
+ *
+ * É o que muda a conversa na porta da casa. "O cliente disse que está providenciando" não diz
+ * o que falta; isto diz: dois dos três feitos, e o que ficou é o POP. Ela chega sabendo por
+ * onde começar a olhar.
+ */
+function PreviousCheckpoints({ checkpoints }: { checkpoints: ClientCheckpointForItem[] }) {
+  const done = checkpoints.filter((checkpoint) => checkpoint.done).length;
+
+  return (
+    <div className="mt-3 rounded-lg border border-amber-soft-border bg-surface/70 p-3">
+      <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-amber-soft-ink">
+        <ListChecks className="h-3.5 w-3.5" aria-hidden="true" />
+        O que o cliente marcou: {done} de {checkpoints.length}
+      </p>
+      <ul className="space-y-1">
+        {checkpoints.map((checkpoint) => (
+          <li key={checkpoint.checkpointId} className="flex items-start gap-1.5 text-xs leading-relaxed">
+            {checkpoint.done
+              ? <CheckSquare className="mt-px h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" />
+              : <Square className="mt-px h-3.5 w-3.5 shrink-0 text-navy-3" aria-hidden="true" />}
+            <span className="min-w-0 break-words text-navy">
+              {checkpoint.text}
+              {checkpoint.done && (
+                <span className="text-navy-3">
+                  {' — diz que fez'}
+                  {checkpoint.doneAt ? ` em ${new Date(checkpoint.doneAt).toLocaleDateString('pt-BR')}` : ''}
+                  {checkpoint.doneByName ? `, por ${checkpoint.doneByName}` : ''}
+                </span>
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-1.5 text-[10.5px] text-navy-2">
+        É a versão do cliente. Quem confirma é a sua vistoria.
+      </p>
+    </div>
+  );
+}
+
 const DECLARED_LABELS: Record<ClientDeclarationForItem['status'], string> = {
   done: 'Cliente diz que JÁ CORRIGIU',
   in_progress: 'Cliente diz que ESTÁ PROVIDENCIANDO',
@@ -221,6 +266,7 @@ export const ChecklistItem = memo(function ChecklistItem({
   previousNC,
   clientEvidence,
   clientDeclaration,
+  clientCheckpoints,
   visitDate,
   pactuatedDueDate,
   onChange,
@@ -542,6 +588,7 @@ export const ChecklistItem = memo(function ChecklistItem({
             </div>
           )}
 
+          {!!clientCheckpoints?.length && <PreviousCheckpoints checkpoints={clientCheckpoints} />}
           {clientDeclaration && <ClientDeclarationPanel declaration={clientDeclaration} />}
           {!!clientEvidence?.length && <ClientEvidencePanel evidence={clientEvidence} />}
         </div>

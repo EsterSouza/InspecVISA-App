@@ -71,3 +71,31 @@ export function parseCheckpoints(text: string | null | undefined): ParsedCheckpo
 export function checkpointKey(text: string): string {
   return normalizeRequirementText(text);
 }
+
+/** Um tópico do jeito que o banco o guarda: a chave estável e o texto que o cliente lê. */
+export interface CheckpointPayload {
+  key: string;
+  text: string;
+}
+
+/**
+ * Os tópicos de um texto, prontos para publicar.
+ *
+ * Deduplica por chave: a identidade do tópico no banco é `(item, chave)`, e mandar a mesma
+ * chave duas vezes faz o `on conflict` do upsert falhar com *"cannot affect row a second
+ * time"* — a publicação inteira do relatório iria junto. Repetir um tópico é erro de digitação,
+ * não duas tarefas; fica a primeira ocorrência, que é a que ela escreveu primeiro.
+ */
+export function buildCheckpoints(text: string | null | undefined): CheckpointPayload[] {
+  const seen = new Set<string>();
+  const checkpoints: CheckpointPayload[] = [];
+
+  for (const point of parseCheckpoints(text).points) {
+    const key = checkpointKey(point);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    checkpoints.push({ key, text: point });
+  }
+
+  return checkpoints;
+}
