@@ -357,7 +357,7 @@ describe('determinismo', () => {
 });
 
 describe('pureza do pacote de domínio', () => {
-  const arquivos = ['schema.ts', 'values.ts', 'validate.ts', 'evaluate.ts', 'index.ts'];
+  const arquivos = ['schema.ts', 'values.ts', 'validate.ts', 'evaluate.ts', 'index.ts', 'routing.ts', 'context.ts'];
   // O card exige: sem React, sem Supabase, sem rede, sem banco, sem Date.now().
   const proibidos = [/Date\.now\(/, /new Date\(/, /Math\.random\(/, /\bfetch\(/, /localStorage/, /from '.*react/, /supabase/i, /dexie/i];
 

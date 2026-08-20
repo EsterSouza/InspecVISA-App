@@ -10,8 +10,8 @@
 
 ## Onde estamos
 
-**COND-01 a COND-04 entregues** (COND-01/02 em 16/08/2026; COND-03 em 18/08/2026; COND-04 em
-19/08/2026), com as **4 decisões de produto tomadas** pela Ester
+**COND-01 a COND-05 entregues** (COND-01/02 em 16/08/2026; COND-03 em 18/08/2026; COND-04 em
+19/08/2026; COND-05 em 20/08/2026), com as **4 decisões de produto tomadas** pela Ester
 ([contrato § 10](contrato-aplicabilidade.md)) — inclusive a de que existe **uma árvore só**, com o
 papel virando filtro de exibição. O motor declarativo existe e é testado isoladamente em
 `src/domain/applicability/`. O COND-03 fez a execução parar de manter duas árvores, congelou a
@@ -20,7 +20,10 @@ revisão do roteiro na criação da inspeção (com lazy-freeze para o legado em
 — `public.checklist_template_revisions`, rascunho × publicada — e o aplicou em produção, com a
 tabela vazia: **nenhum roteiro tem revisão ainda**, então nada mudou de comportamento. **O motor de
 aplicabilidade ainda não é consultado**: a árvore congelada tem `rules`/`routingQuestions` vazios
-até o COND-05/06 criarem e ligarem a primeira revisão. Próximo é o `COND-05`.
+até o COND-06 criar a primeira revisão. O COND-05 fechou o outro lado da ponte: a pergunta de
+roteamento tem tipo, momento (wizard × campo), opção estável e obrigatoriedade; a inspeção nasce com
+o **contexto congelado** e com o vínculo da revisão publicada; e o wizard já pergunta o que dá para
+saber antes da visita. Próximo é o `COND-06`.
 
 | Card | O que é | Modelo | Esforço | Depois de |
 |---|---|---|---|---|
@@ -28,7 +31,7 @@ até o COND-05/06 criarem e ligarem a primeira revisão. Próximo é o `COND-05`
 | ~~**COND-02**~~ ✅ | Schema declarativo + motor puro + validador · `src/domain/applicability/` | Opus 5 | alto | COND-01 |
 | ~~**COND-03**~~ ✅ | `EffectiveTemplate` canônico + **congelamento na criação da inspeção** · uma árvore só | Opus 5 | alto | COND-02 |
 | ~~**COND-04**~~ ✅ | Persistência, revisão, RLS e compatibilidade · `checklist_template_revisions` (rascunho × publicada) | Opus 5 | alto | COND-03 |
-| **COND-05** | Perguntas de roteamento e contexto congelado | Opus 5 | médio-alto | COND-04 |
+| ~~**COND-05**~~ ✅ | Perguntas de roteamento e contexto congelado · `domain/applicability/routing.ts`, `context.ts`, wizard | Opus 5 | médio-alto | COND-04 |
 | **COND-06** | Editor visual **com o ciclo de vida junto** | Opus 5 | alto | COND-05 |
 | **COND-07** | Simulador e gate de publicação | Sonnet 5 | médio-alto | COND-06 |
 | **COND-08** | Execução adaptativa offline e colaborativa | Opus 5 | **muito alto** | COND-03 · COND-05 · COND-07 |
@@ -754,6 +757,104 @@ passa porque o script traz `NODE_OPTIONS=--no-experimental-webstorage`. Rodando 
 publicação se ficar para trás, então a falha é visível, não silenciosa.
 
 **Desbloqueia:** `COND-05`.
+
+### COND-05 · 20/08/2026 · Opus 5
+
+**Entregue.** **Nenhuma migration e nenhuma escrita em produção.** O formato físico já existia
+(COND-04); este card só ligou o app nele. Nenhum roteiro tem revisão publicada, então **nada mudou
+de comportamento**: o wizard é o mesmo de ontem enquanto não existir pergunta configurada.
+
+**As decisões deste card:**
+
+1. **`askAt` decide onde a pergunta é feita** — `wizard` (o dado é conhecido antes) ou `execution`
+   (só em campo se sabe). Ausente ou ilegível vale `execution`: o lado conservador é **perguntar em
+   campo**, nunca deixar de perguntar. Pergunta de wizard não participa de detecção de ciclo — ela
+   é respondida antes de a inspeção existir.
+2. **A resposta guarda o `value` da opção, nunca o rótulo.** Renomear "Terceirizado" para
+   "Terceirizado (contrato)" não muda resposta nem quebra regra. Valor fora do catálogo de opções é
+   **recusado na entrada**, não gravado torto para o motor descobrir depois.
+3. **Obrigatória segura o botão, não esconde nada.** Pergunta obrigatória em aberto impede começar
+   a inspeção (e, no COND-08, liberar o bloco); a opcional sem resposta deixa o alvo
+   `pendente_de_condicao` — visível, como manda a regra inegociável 10.
+4. **"Não foi possível determinar" conta como respondida** para liberar (contrato § 6.4), e é
+   distinguível de valor conhecido (`isAnswered` × `isDetermined`).
+5. **O contexto congelado é objeto próprio da inspeção** (`applicabilityContext`), montado na
+   criação e nunca recalculado. Campo em branco **não entra** no objeto: ausente é indeterminado,
+   nunca "assume não" (contrato § 4.1).
+6. **§ 4.1 virou checagem de máquina, em nível de aviso.** Perguntar "Qual o estado?" quando `uf`
+   já está no contexto é `question_duplicates_context` (warning) — informa no editor, não reprova
+   publicação. A lista de sinônimos é curada de propósito: casar por semelhança de texto acusaria
+   pergunta legítima.
+
+**Arquivos criados:**
+
+| Arquivo | O que é |
+|---|---|
+| `src/domain/applicability/routing.ts` | momento da pergunta, normalização da resposta, gate de obrigatória, o que cada pergunta libera e o **contexto declarado** do relatório |
+| `src/domain/applicability/context.ts` | o contexto congelado: UF por `toUF()`, número, data — puro e sem relógio |
+| `src/utils/inspectionContext.ts` | a ponte com `Client`/`Inspection`: congelar na criação, reconstruir para inspeção legada, `resolveInspectionContext` |
+| `src/components/inspection/RoutingQuestionField.tsx` | como a pergunta aparece — um componente só para o wizard e para a execução (COND-08) |
+| `src/__tests__/domain/routingQuestions.test.ts` | 24 casos |
+| `src/__tests__/services/cond05FrozenContext.test.ts` | 11 casos |
+| `src/__tests__/components/RoutingQuestionField.test.tsx` | 5 casos (o que sai do controle é o valor da opção, não o rótulo) |
+
+**Arquivos alterados:**
+
+| Arquivo | O que mudou |
+|---|---|
+| `src/domain/applicability/schema.ts` | `RoutingQuestion` ganhou `askAt`, `required`, `helpText`; `RoutingScope`; comentário do `value` como id estável da opção |
+| `src/domain/applicability/validate.ts` | 6 códigos novos (`question_without_options`, `invalid_option`, `duplicate_option`, `unused_question`, `question_duplicates_context`, `question_id_collides`) e o ciclo passando ao largo da pergunta de wizard |
+| `src/domain/applicability/index.ts` | exporta a API do COND-05 |
+| `src/types/index.ts` | `Inspection` ganhou `applicabilityRevisionId`, `applicabilityContext`, `routingAnswers` |
+| `src/pages/NewInspection.tsx` | busca a revisão publicada, mostra as perguntas de wizard, segura o botão enquanto faltar obrigatória, e **congela o contexto** na criação |
+| `src/pages/InspectionExecution.tsx` | lazy freeze do contexto para inspeção em andamento criada antes deste card |
+| `src/services/inspectionService.ts` | `applicability_revision_id` no mapeamento (com a ressalva do merge, abaixo) |
+| `src/__tests__/domain/applicability.test.ts` | o teste de pureza do pacote passou a cobrir `routing.ts` e `context.ts` |
+| `src/__tests__/domain/applicabilityValidation.test.ts` | o helper `codigos()` passou a filtrar **erros** — "não é acusada" sempre quis dizer "não vira erro", e agora existem avisos |
+
+**Aceite do card, item a item:**
+
+1. *Nenhuma pergunta de roteamento como infração, no score, no plano de ação ou na lista de
+   exigências do PDF.* Garantido por construção — a resposta de roteamento mora em
+   `inspections.routingAnswers`, nunca em `responses` — e testado no pior caso: mesmo que alguém
+   grave uma resposta com o id da pergunta, `calculateScore`, `resolveReportTemplate` e o plano de
+   ação a descartam, porque o recorte é sempre pelos itens do roteiro
+   (`getLatestResponsesByItem`). O id de pergunta que colide com id de item virou **erro** de
+   validação.
+2. *Contexto congelado de fato.* `applicabilityContext` é gravado na criação e lido por
+   `resolveInspectionContext`; o teste muda o cadastro do cliente depois e a árvore não se mexe.
+3. *Não perguntar o que já está no cadastro.* Checagem de máquina (aviso) + o wizard só mostra o
+   que a revisão declarou como pergunta de wizard.
+
+**Testes:** `npm test` → **610 passando, 0 falhando** (60 arquivos) · `npx tsc -b` limpo ·
+`npm run build` limpo · `eslint` dos arquivos novos e alterados limpo · `npm run check:ui` P0/P1 = 0
+· `npm run check:contraste` 47 pares nos dois temas. Conferido na sessão logada em `/new`: a
+consulta a `checklist_template_revisions` sai com o `template_id` certo, volta vazia, e a tela
+segue com os três blocos de sempre.
+
+**Ficou deliberadamente de fora:**
+
+- **Perguntar em campo** (`askAt: 'execution'`) e o "não foi possível determinar" na tela: o
+  componente e o modelo estão prontos, mas quem renderiza a execução adaptativa é o `COND-08`.
+- **Sync do contexto e das respostas de roteamento entre dispositivos** (`COND-08`): eles ficam no
+  Dexie, como o `reportTemplateSnapshot`. Só o `applicability_revision_id` vai ao Supabase.
+- **O editor que cria pergunta e opção** (`COND-06`) e o gate visual de publicação (`COND-07`).
+- **Contexto declarado no PDF** (`declaredRoutingContext` já existe e está testado; imprimir é
+  `COND-09`).
+
+**Riscos conhecidos, registrados:**
+
+1. **O caminho do bundle não leva o vínculo.** `public.sync_inspection_bundle` tem lista fixa de
+   colunas (`20260812112448_automatic_action_plan_custom_items.sql:214`) e ignora
+   `applicability_revision_id`. O upsert direto (`repositoryService`) leva. Por isso
+   `mapFromPostgres` **só emite a chave quando o servidor tem valor**: emitir sempre faria o merge
+   `{...local, ...remote}` apagar o vínculo local. Enquanto nenhuma revisão existir, o campo é
+   nulo dos dois lados. Resolver de verdade é do `COND-08`.
+2. **A validação estrutural em SQL não conhece `askAt`.** Ela tolera chaves novas, então revisão
+   com `askAt` inválido publica — e o app trata como `execution`, que é o lado seguro (pergunta
+   aparece em campo). Sem migration, de propósito.
+
+**Desbloqueia:** `COND-06`.
 
 ## Relacionados
 

@@ -5,6 +5,7 @@
 
 import type { AppointmentType } from '../utils/appointmentType';
 export type { AppointmentType } from '../utils/appointmentType';
+import type { InspectionContext, RoutingAnswers } from '../domain/applicability/schema';
 
 export type ClientCategory = 'estetica' | 'ilpi' | 'alimentos';
 
@@ -197,6 +198,17 @@ export interface Inspection extends SyncBase {
   finalizedBy?: { name: string; at: string }[];
   // Immutable template used when the inspection was completed.
   reportTemplateSnapshot?: ChecklistTemplate;
+  // ── COND-05 · aplicabilidade ──────────────────────────────────────────────
+  // A revisão publicada de condições congelada na criação (COND-04). Nula = roteiro
+  // sem regra, que é o estado de todos os roteiros hoje.
+  applicabilityRevisionId?: string | null;
+  // O contexto congelado: UF, município, categoria e os números do wizard como
+  // estavam quando a inspeção nasceu. O motor lê daqui, nunca do cadastro vivo
+  // (contrato § 4 e § 6.2).
+  applicabilityContext?: InspectionContext;
+  // Respostas das perguntas de roteamento. Ficam FORA de `responses` de propósito:
+  // pergunta de roteamento não é requisito sanitário (contrato § 3).
+  routingAnswers?: RoutingAnswers;
   updatedAt: Date;
   deletedAt?: Date | null;
   tenantId?: string;

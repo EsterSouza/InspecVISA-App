@@ -81,9 +81,18 @@ export interface ApplicabilityRule {
 }
 
 export interface RoutingQuestionOption {
+  /** Id estável da opção. É o que a regra e a resposta guardam — nunca o rótulo. */
   value: string;
   label: string;
 }
+
+/**
+ * Onde a pergunta de roteamento é respondida (COND-05).
+ *
+ * `wizard` — na criação da inspeção, quando o dado é conhecido antes de ir a
+ * campo. `execution` — em campo, quando só lá se sabe.
+ */
+export type RoutingScope = 'wizard' | 'execution';
 
 /**
  * Pergunta de roteamento (contrato § 3): existe só para decidir aplicabilidade.
@@ -95,6 +104,20 @@ export interface RoutingQuestion {
   text: string;
   type: 'boolean' | 'single_choice' | 'multi_choice' | 'number';
   options?: RoutingQuestionOption[];
+  /**
+   * Onde a pergunta é respondida (COND-05). Ausente ou ilegível vale
+   * `execution`: o lado conservador é perguntar em campo, nunca deixar de
+   * perguntar. Use `askAtOf()` — nada lê este campo cru.
+   */
+  askAt?: RoutingScope;
+  /**
+   * Obrigatória: enquanto não for respondida, o que depende dela fica pendente
+   * e o bloco não libera (o "liberar bloco" do COND-05). Não apaga nem esconde
+   * nada — só impede seguir como se a árvore estivesse resolvida.
+   */
+  required?: boolean;
+  /** Ajuda curta ao lado da pergunta na tela. Nunca entra em condição. */
+  helpText?: string;
   /** Seção onde a pergunta é respondida. É o que permite detectar ciclo. */
   sectionId?: string;
   retiredAt?: string | null;

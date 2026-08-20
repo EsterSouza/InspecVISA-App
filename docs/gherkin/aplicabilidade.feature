@@ -204,6 +204,43 @@ Funcionalidade: Aplicabilidade condicional do roteiro
     E nenhuma delas entra na nota
     E nenhuma delas gera item no plano de ação
 
+  # ── Onde a pergunta é feita e o que ela guarda (COND-05) ───────────────────
+  Cenário: Pergunta conhecida antes da visita é feita na criação da inspeção
+    Dado uma pergunta de roteamento marcada para o wizard
+    Quando crio uma inspeção com esse roteiro
+    Então ela aparece num bloco próprio, antes de começar
+    E o bloco diz que aquilo não é exigência sanitária
+
+  Cenário: Pergunta que só se sabe em campo não aparece no wizard
+    Dado uma pergunta de roteamento marcada para a execução
+    Quando crio uma inspeção com esse roteiro
+    Então ela não é perguntada na criação
+    E ela continua pendente até ser respondida em campo
+
+  Cenário: Pergunta obrigatória segura o início, sem esconder nada
+    Dado uma pergunta de roteamento obrigatória sem resposta
+    Quando tento iniciar a inspeção
+    Então o botão de iniciar fica indisponível, com o motivo em texto
+    E nenhum requisito é escondido por causa disso
+
+  Cenário: Renomear o rótulo de uma opção não muda resposta nem regra
+    Dado uma resposta guardada na opção "terceirizado"
+    Quando mudo o rótulo dessa opção para "Terceirizado (contrato)"
+    Então a resposta continua a mesma
+    E a condição que depende dela continua valendo
+
+  Cenário: Não perguntar o que já está no cadastro
+    Dado uma pergunta de roteamento que repete um dado do contexto congelado
+    Quando o roteiro é validado
+    Então aparece um aviso indicando o dado de contexto equivalente
+    E o aviso não reprova a publicação
+
+  Cenário: O contexto da inspeção é congelado na criação
+    Dado uma inspeção criada para um cliente do Rio de Janeiro
+    Quando o cadastro do cliente passa a dizer São Paulo
+    Então a inspeção continua avaliando pelo Rio de Janeiro
+    E o relatório dela não muda
+
   # ── Rascunho e revisão publicada (COND-04) ─────────────────────────────────
   Cenário: Regra pela metade pode ser salva
     Dado que comecei a montar uma condição e ainda não escolhi o operador
@@ -236,8 +273,9 @@ Funcionalidade: Aplicabilidade condicional do roteiro
 
   # ── Onde o comportamento é garantido hoje ──────────────────────────────────
   # COND-02 (16/08/2026) entregou o motor puro; COND-03 (18/08) a árvore única congelada na criação
-  # da inspeção; COND-04 (19/08) a persistência das regras. NENHUMA tela cria regra ainda e a tabela
-  # de revisões está vazia em produção — o comportamento visível no app é o de antes.
+  # da inspeção; COND-04 (19/08) a persistência das regras; COND-05 (20/08) as perguntas de
+  # roteamento e o contexto congelado. NENHUMA tela cria regra ainda e a tabela de revisões está
+  # vazia em produção — o comportamento visível no app é o de antes.
   #
   # Garantido por teste, no motor (src/domain/applicability/):
   #   os três estados · null/indeterminado · TODAS/QUALQUER · else · herança seção→item ·
@@ -255,7 +293,16 @@ Funcionalidade: Aplicabilidade condicional do roteiro
   # E na leitura/escrita (src/__tests__/services/applicabilityRevision.test.ts):
   #   roteiro sem revisão = sem regra · rascunho não é validado · publicação recusa referência quebrada
   #
-  # Ainda sem implementação (cards COND-05 a COND-10): perguntas de roteamento e contexto congelado,
+  # Garantido por teste, nas perguntas de roteamento e no contexto (COND-05):
+  #   momento da pergunta (wizard × campo) · resposta guarda o valor da opção, nunca o rótulo ·
+  #   obrigatória segura o início e "não foi possível determinar" libera · contexto congelado
+  #   normalizado, e cadastro que muda depois não mexe na inspeção · pergunta de roteamento fora da
+  #   nota, do relatório e do plano de ação, mesmo com resposta forjada com o id dela
+  #     → src/__tests__/domain/routingQuestions.test.ts
+  #     → src/__tests__/services/cond05FrozenContext.test.ts
+  #     → src/__tests__/components/RoutingQuestionField.test.tsx
+  #
+  # Ainda sem implementação (cards COND-06 a COND-10): responder pergunta de roteamento em campo,
   # preservação de resposta de ramo desativado, confirmação antes de retirar item respondido,
   # score/progresso/PDF, plano de ação, offline, duas consultoras, editor e duplicação de roteiro.
   #

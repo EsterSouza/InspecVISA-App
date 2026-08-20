@@ -15,6 +15,7 @@ import {
   QUESTION_VALUE_TYPE,
   VALUELESS_OPERATORS,
 } from './schema';
+import { askAtOf } from './routing';
 import type {
   ApplicabilityRule,
   Condition,
@@ -38,7 +39,14 @@ export type ValidationCode =
   | 'unknown_option'
   | 'retired_question'
   | 'impossible_condition'
-  | 'cycle';
+  | 'cycle'
+  // ── COND-05 · perguntas de roteamento ──────────────────────
+  | 'question_without_options'
+  | 'invalid_option'
+  | 'duplicate_option'
+  | 'unused_question'
+  | 'question_duplicates_context'
+  | 'question_id_collides';
 
 export interface ValidationIssue {
   code: ValidationCode;
@@ -134,11 +142,118 @@ export function validateTemplateRules(
     );
   }
 
+  // ── as perguntas de roteamento em si (COND-05) ────────────
+  const usedQuestionIds = new Set(
+    rules.flatMap((rule) =>
+      (rule.expression?.conditions || [])
+        .filter((condition) => condition.source === 'question')
+        .map((condition) => condition.field)
+    )
+  );
+  issues.push(
+    ...validateQuestions(questions, { contextFields, sectionIds, itemIds, usedQuestionIds, temRegras: rules.length > 0 })
+  );
+
   for (const rule of rules) {
     issues.push(...validateRule(rule, { sectionIds, itemIds, questionById, fieldByKey, ambiguousTargets }));
   }
 
   issues.push(...detectCycles(rules, questionById));
+
+  return issues;
+}
+
+/**
+ * Perguntas cujo enunciado repete um dado que o cadastro já tem. Contrato § 4.1:
+ * "pergunta de roteamento só existe para o que não dá para derivar do contexto
+ * congelado" — se a consultora tiver que redigitar meia dúzia de coisas
+ * conhecidas a cada inspeção, a feature morre por atrito.
+ *
+ * A lista é curada de propósito: casar por semelhança de texto acusaria pergunta
+ * legítima. Só entra o que é, de fato, o mesmo dado do contexto.
+ */
+const CONTEXT_QUESTION_ALIASES: Record<string, string[]> = {
+  uf: ['uf', 'estado', 'qual o estado', 'qual a uf', 'em que estado', 'estado do estabelecimento'],
+  municipio: ['municipio', 'cidade', 'qual a cidade', 'qual o municipio', 'cidade do estabelecimento'],
+  categoria: ['categoria', 'categoria do estabelecimento', 'tipo de estabelecimento', 'qual o tipo de estabelecimento'],
+  tiposDeAlimento: ['tipo de alimento', 'tipos de alimento', 'que tipo de alimento', 'segmento de alimentos'],
+  capacidadeIlpi: ['capacidade', 'capacidade da ilpi', 'qual a capacidade'],
+  residentesTotal: ['total de residentes', 'quantos residentes', 'numero de residentes'],
+  areaUtilM2: ['area util', 'qual a area util', 'metragem'],
+};
+
+interface QuestionScope {
+  contextFields: ContextField[];
+  sectionIds: string[];
+  itemIds: string[];
+  usedQuestionIds: Set<string>;
+  temRegras: boolean;
+}
+
+function validateQuestions(questions: RoutingQuestion[], scope: QuestionScope): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  const usaOpcoes = (question: RoutingQuestion) =>
+    question.type === 'single_choice' || question.type === 'multi_choice';
+
+  for (const question of questions) {
+    const base = { questionId: question.id };
+    const options = question.options || [];
+
+    // ── opções estáveis ────────────────────────────────────
+    if (usaOpcoes(question) && options.length === 0) {
+      issues.push(
+        issue('question_without_options', 'error', false, `A pergunta "${question.text}" é de escolha e não tem nenhuma opção configurada.`, base)
+      );
+    }
+    if (!usaOpcoes(question) && options.length > 0) {
+      issues.push(
+        issue('invalid_option', 'error', false, `A pergunta "${question.text}" é do tipo ${question.type} e não deveria ter opções — opção só existe em escolha única ou múltipla.`, base)
+      );
+    }
+    for (const option of options) {
+      if (!option || normalizeText(option.value) === '') {
+        issues.push(issue('invalid_option', 'error', false, `A pergunta "${question.text}" tem opção sem valor. O valor é o id estável da opção: a regra e a resposta guardam ele, nunca o rótulo.`, base));
+      }
+    }
+    for (const repetida of duplicates(options.map((option) => normalizeText(option?.value)))) {
+      if (repetida === '') continue;
+      issues.push(issue('duplicate_option', 'error', false, `A pergunta "${question.text}" tem a opção "${repetida}" mais de uma vez. Valor de opção é id: repetido, a resposta fica ambígua.`, base));
+    }
+
+    // ── id de pergunta não colide com id de item/seção ─────
+    // Resposta de roteamento e resposta sanitária vivem em lugares diferentes de
+    // propósito (contrato § 3). Id igual ao de um item faria as duas se
+    // confundirem justamente onde o contrato exige que nunca se misturem.
+    if (scope.itemIds.includes(question.id) || scope.sectionIds.includes(question.id)) {
+      issues.push(
+        issue('question_id_collides', 'error', false, `A pergunta "${question.text}" usa o id "${question.id}", que já é de um item ou seção do roteiro. Pergunta de roteamento nunca compartilha id com requisito sanitário.`, base)
+      );
+    }
+
+    // ── contrato § 4.1: não perguntar o que o sistema já sabe ─
+    const enunciado = normalizeText((question.text || '').replace(/\?+\s*$/, ''));
+    for (const field of scope.contextFields) {
+      const aliases = [field.key, field.label, ...(CONTEXT_QUESTION_ALIASES[field.key] || [])];
+      const repete =
+        normalizeText(question.id) === normalizeText(field.key) ||
+        aliases.some((alias) => normalizeText(alias) === enunciado);
+      if (!repete) continue;
+      issues.push(
+        issue('question_duplicates_context', 'warning', false, `A pergunta "${question.text}" repete o dado "${field.label}", que já vem do cadastro no contexto congelado. Use uma condição de contexto sobre "${field.key}" em vez de perguntar de novo (contrato § 4.1).`, { ...base, field: field.key })
+      );
+      break;
+    }
+
+    // ── pergunta que ninguém usa ───────────────────────────
+    // Só vale a pena avisar em roteiro que JÁ tem condição: roteiro sem regra
+    // nenhuma não é pergunta órfã, é roteiro sem condicional — e rascunho com
+    // pergunta criada antes da regra é trabalho em andamento, não erro.
+    if (scope.temRegras && !question.retiredAt && !scope.usedQuestionIds.has(question.id)) {
+      issues.push(
+        issue('unused_question', 'warning', false, `Nenhuma condição usa a pergunta "${question.text}". Ela seria feita à consultora sem mudar nada no roteiro.`, base)
+      );
+    }
+  }
 
   return issues;
 }
@@ -371,7 +486,12 @@ function detectCycles(rules: ApplicabilityRule[], questionById: Map<string, Rout
     const from = rule.target.id;
     for (const condition of rule.expression?.conditions || []) {
       if (condition.source !== 'question') continue;
-      const owner = questionById.get(condition.field)?.sectionId;
+      const question = questionById.get(condition.field);
+      // Pergunta do wizard é respondida antes de a inspeção existir: ela não
+      // pode participar de ciclo, mesmo que alguém tenha deixado um `sectionId`
+      // sobrando nela (COND-05).
+      if (!question || askAtOf(question) === 'wizard') continue;
+      const owner = question.sectionId;
       if (!owner) continue;
       const list = edges.get(from) || [];
       list.push({ to: owner, ruleId: rule.id });

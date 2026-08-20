@@ -11,6 +11,7 @@ function legacyCategory(inspection: Inspection): ClientCategory | undefined {
 }
 import { ILPIStaffCalculator } from '../components/inspection/ILPIStaffCalculator';
 import { isRioState } from '../utils/state';
+import { contextFromInspection } from '../utils/inspectionContext';
 import { calculateScore, classificationInk } from '../utils/scoring';
 import { useInspectionStore } from '../store/useInspectionStore';
 import { useSettingsStore } from '../store/useSettingsStore';
@@ -479,6 +480,21 @@ export function InspectionExecution() {
     if (currentInspection.status !== 'in_progress') return;
     setCurrentInspection({ ...currentInspection, reportTemplateSnapshot: frozenBase });
   }, [currentInspection, frozenBase, loading, setCurrentInspection]);
+
+  // COND-05 · Lazy freeze do CONTEXTO, pelo mesmo motivo e no mesmo momento.
+  // Inspeção em andamento criada antes deste card não tem `applicabilityContext`:
+  // congela agora a partir do que ela própria guardou (cidade, UF, categoria,
+  // capacidade, residentes) — nunca do cadastro vivo. Uma vez só; da segunda
+  // abertura em diante o campo já existe e ninguém recalcula.
+  useEffect(() => {
+    if (loading || !currentInspection) return;
+    if (currentInspection.applicabilityContext) return;
+    if (currentInspection.status !== 'in_progress') return;
+    setCurrentInspection({
+      ...currentInspection,
+      applicabilityContext: contextFromInspection(currentInspection),
+    });
+  }, [currentInspection, loading, setCurrentInspection]);
 
   const openActionItemIndex = useMemo(() => indexOpenActionItems(openActionItems), [openActionItems]);
 

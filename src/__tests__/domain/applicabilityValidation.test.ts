@@ -33,8 +33,16 @@ function roteiro(rules: ApplicabilityRule[], overrides: Partial<ConditionalTempl
   };
 }
 
+/**
+ * Os códigos de ERRO do roteiro. Aviso (`warning`) fica de fora de propósito:
+ * ele não reprova publicação, e "não é acusada" nestes testes sempre quis dizer
+ * "não vira erro". Os avisos do COND-05 têm suíte própria
+ * (src/__tests__/domain/routingQuestions.test.ts).
+ */
 function codigos(template: ConditionalTemplate, contextFields?: ContextField[]): ValidationCode[] {
-  return validateTemplateRules(template, contextFields).map((issue) => issue.code);
+  return validateTemplateRules(template, contextFields)
+    .filter((issue) => issue.severity === 'error')
+    .map((issue) => issue.code);
 }
 
 describe('referências', () => {

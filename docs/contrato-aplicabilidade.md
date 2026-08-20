@@ -74,6 +74,14 @@ Texto livre **não** é fonte de condição nesta versão.
 Uma pergunta de roteamento aparece no relatório **apenas** como contexto declarado
 ("Processamento de artigos: terceirizado"), nunca na contagem de conformidade.
 
+**Detalhado no COND-05 (20/08/2026):** cada pergunta declara **onde é respondida** — no wizard de
+criação, quando o dado é conhecido antes, ou na execução, quando só em campo se sabe (ausente vale
+execução, que é o lado conservador) — e pode ser **obrigatória**, caso em que segura o começo da
+inspeção e a liberação do bloco, sem nunca esconder requisito. A opção tem `value` (id estável, que
+é o que resposta e regra guardam) e `label` (o que aparece na tela): renomear o rótulo não muda
+resposta nem quebra condição. Id de pergunta **não pode** ser id de item ou seção — é o que impede
+resposta de roteamento e resposta sanitária de se confundirem.
+
 ## 4. Fontes de condição
 
 1. **Contexto congelado** — UF, município, categoria, tipos de alimento, capacidade da ILPI,
@@ -92,7 +100,10 @@ cadastro e no contexto. Se a consultora tiver que redigitar meia dúzia de coisa
 inspeção, a feature morre por atrito.
 
 Quando o dado existe no cadastro mas está vazio, o comportamento é o do item 5.2 (indeterminado),
-nunca "assume não".
+nunca "assume não". **Desde o COND-05 isto é checado por máquina**: pergunta cujo enunciado repete
+um dado do contexto vira aviso (`question_duplicates_context`) apontando o campo equivalente. É
+aviso, não erro — informa no editor e não reprova publicação, porque a lista de equivalências é
+curada e pode não cobrir um caso legítimo.
 
 ## 5. Semântica
 

@@ -38,9 +38,28 @@ export type {
   RoutingAnswers,
   RoutingQuestion,
   RoutingQuestionOption,
+  RoutingScope,
   Truth,
   ValueType,
 } from './schema';
+
+// ── COND-05 · perguntas de roteamento e contexto congelado ──
+export {
+  askAtOf,
+  declaredRoutingContext,
+  describeRoutingAnswer,
+  isAnswered,
+  isDetermined,
+  missingRequiredQuestions,
+  parseRoutingAnswer,
+  routingGate,
+  routingQuestionsFor,
+  targetsControlledBy,
+} from './routing';
+export type { DeclaredRoutingAnswer, ParsedRoutingAnswer, RoutingGate } from './routing';
+
+export { buildInspectionContext } from './context';
+export type { FrozenContextSource } from './context';
 
 export { evaluateApplicability } from './evaluate';
 export type {

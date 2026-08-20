@@ -108,6 +108,8 @@ export interface InspectionRow {
   signature_data_url: string | null;
   last_edited_by: string | null;
   finalized_by: Inspection['finalizedBy'] | null;
+  /** COND-04/05 — revisão publicada de condições congelada na criação. */
+  applicability_revision_id?: string | null;
   tenant_id: string;
   deleted_at: string | null;
 }
@@ -179,6 +181,11 @@ export function mapFromPostgres(row: InspectionRow): Inspection {
     signatureDataUrl: row.signature_data_url || undefined,
     lastEditedBy: row.last_edited_by || undefined,
     finalizedBy: Array.isArray(row.finalized_by) ? row.finalized_by : undefined,
+    // COND-05: só emite a chave quando o servidor TEM valor. Emitir sempre faria
+    // o merge `{...local, ...remote}` apagar o vínculo local toda vez que a linha
+    // voltasse sem ele — e ela volta assim pelo caminho do bundle, que tem lista
+    // fixa de colunas e ignora esta (a convergência de verdade é do COND-08).
+    ...(row.applicability_revision_id ? { applicabilityRevisionId: row.applicability_revision_id } : {}),
     tenantId: row.tenant_id,
     deletedAt: row.deleted_at ? new Date(row.deleted_at) : null,
     syncStatus: 'synced',
@@ -221,6 +228,12 @@ export function mapToPostgres(inspection: Inspection) {
     completed_at: inspection.completedAt ? inspection.completedAt.toISOString() : null,
     last_edited_by: inspection.lastEditedBy || null,
     finalized_by: inspection.finalizedBy && inspection.finalizedBy.length > 0 ? inspection.finalizedBy : [],
+    // COND-05 — o vínculo com a revisão publicada. O gatilho do banco recusa
+    // rascunho e revisão de outro tenant; nulo é o estado normal hoje (nenhum
+    // roteiro tem revisão). O contexto congelado e as respostas de roteamento
+    // NÃO vão junto: ficam no Dexie, como o reportTemplateSnapshot, até o COND-08
+    // decidir o formato do sync.
+    applicability_revision_id: inspection.applicabilityRevisionId || null,
     deleted_at: inspection.deletedAt ? inspection.deletedAt.toISOString() : null,
     updated_at: inspection.updatedAt.toISOString(),
     created_at: inspection.createdAt.toISOString(),
