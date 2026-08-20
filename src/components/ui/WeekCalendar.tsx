@@ -1,6 +1,13 @@
 import React from 'react';
 import { cn } from '../../lib/utils';
 import { Badge } from './Badge';
+import { CalendarLegend } from './CalendarLegend';
+import {
+  STATE_BADGE_VARIANT,
+  STATE_EVENT_CLASSES,
+  STATE_LABELS,
+  type CalendarEventState,
+} from './calendarEventState';
 
 /**
  * Grade de semana (segunda a sexta), 09h-17h, um componente só para qualquer
@@ -9,7 +16,7 @@ import { Badge } from './Badge';
  * (renderCalendario).
  */
 
-export type WeekCalendarEventState = 'confirmado' | 'a-confirmar' | 'atencao' | 'padrao';
+export type WeekCalendarEventState = CalendarEventState;
 
 export interface WeekCalendarEvent {
   id: string;
@@ -40,40 +47,17 @@ export interface WeekCalendarProps {
   onNextWeek?: () => void;
   hasPrevWeek?: boolean;
   hasNextWeek?: boolean;
+  /**
+   * Clicar num horário vago abre o agendamento já com aquele dia e hora.
+   * Sem a prop, a grade continua só de leitura (é o caso do portal).
+   */
+  onSelectSlot?: (dayIndex: number, hour: number) => void;
   emptyMessage?: string;
   className?: string;
 }
 
 const DEFAULT_FIRST_HOUR = 9;
 const DEFAULT_LAST_HOUR = 17;
-
-const STATE_LABELS: Record<WeekCalendarEventState, string> = {
-  confirmado: 'Confirmado',
-  'a-confirmar': 'A confirmar',
-  atencao: 'Precisa de atenção',
-  padrao: 'Agendado',
-};
-
-const STATE_EVENT_CLASSES: Record<WeekCalendarEventState, string> = {
-  confirmado: 'border-success-soft-border border-l-success bg-success-soft text-success-soft-ink',
-  'a-confirmar': 'border-default border-l-control border-l-dashed bg-surface-sunken text-navy-2',
-  atencao: 'border-amber-soft-border border-l-amber bg-amber-soft text-amber-soft-ink',
-  padrao: 'border-primary-200 border-l-primary-700 bg-primary-50 text-primary-900',
-};
-
-const STATE_BADGE_VARIANT: Record<WeekCalendarEventState, 'success' | 'neutral' | 'warning' | 'default'> = {
-  confirmado: 'success',
-  'a-confirmar': 'neutral',
-  atencao: 'warning',
-  padrao: 'default',
-};
-
-const STATE_DOT_CLASSES: Record<WeekCalendarEventState, string> = {
-  confirmado: 'border-success bg-success-soft',
-  'a-confirmar': 'border-control bg-surface-sunken',
-  atencao: 'border-amber bg-amber-soft',
-  padrao: 'border-primary-700 bg-primary-50',
-};
 
 function formatHour(hour: number): string {
   return `${hour < 10 ? '0' : ''}${hour}h`;
@@ -89,6 +73,7 @@ export function WeekCalendar({
   onNextWeek,
   hasPrevWeek = true,
   hasNextWeek = true,
+  onSelectSlot,
   emptyMessage = 'Sem compromisso.',
   className,
 }: WeekCalendarProps) {
@@ -141,14 +126,14 @@ export function WeekCalendar({
           {week.days.map((day) => (
             <div
               key={`${day.label}-${day.dayNumber}`}
-              className={cn('border-l border-default px-2 py-2 text-center', day.isToday && 'bg-primary-50')}
+              className={cn('border-l border-default px-2 py-2 text-center', day.isToday && 'bg-canvas ring-2 ring-inset ring-control')}
             >
               <p className="text-[11px] font-semibold text-navy-3">{day.label}</p>
-              <p className={cn('mt-0.5 font-title text-lg font-bold tabular-nums', day.isToday ? 'text-primary-800' : 'text-navy')}>
+              <p className="mt-0.5 font-title text-lg font-bold tabular-nums text-navy">
                 {day.dayNumber}
               </p>
               {day.isToday && (
-                <span className="mt-0.5 inline-block text-[9px] font-bold uppercase tracking-wide text-primary-700">
+                <span className="mt-0.5 inline-block rounded bg-surface px-1 text-[9px] font-bold uppercase tracking-wide text-navy-2">
                   Hoje
                 </span>
               )}
@@ -173,16 +158,31 @@ export function WeekCalendar({
               key={`${day.label}-${day.dayNumber}`}
               role="group"
               aria-label={`${day.label}, dia ${day.dayNumber}`}
-              className={cn('relative grid auto-rows-[64px] border-l border-default', day.isToday && 'bg-primary-50/40')}
+              className={cn('relative grid auto-rows-[64px] border-l border-default', day.isToday && 'bg-canvas/70')}
             >
               {/* `gridRow` explícito aqui é essencial: sem ele, a auto-colocação
                   do CSS Grid empurra estas 9 linhas de fundo pra baixo dos
                   compromissos com posição explícita (ela pula linha ocupada
                   em vez de sobrepor), sobrando espaço fantasma depois do
                   último horário — achado da Ester em 16/08/2026, com print. */}
-              {HOURS.map((hour, idx) => (
-                <div key={hour} aria-hidden="true" style={{ gridRow: idx + 1 }} className="border-b border-default" />
-              ))}
+              {HOURS.map((hour, idx) =>
+                onSelectSlot ? (
+                  <button
+                    key={hour}
+                    type="button"
+                    onClick={() => onSelectSlot(dayIndex, hour)}
+                    aria-label={`Agendar ${day.label} dia ${day.dayNumber} às ${formatHour(hour)}`}
+                    style={{ gridRow: idx + 1 }}
+                    className="group border-b border-default text-left hover:bg-surface-hover"
+                  >
+                    <span className="pointer-events-none block px-1.5 pt-1 text-[11px] font-semibold text-navy-3 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                      + Agendar
+                    </span>
+                  </button>
+                ) : (
+                  <div key={hour} aria-hidden="true" style={{ gridRow: idx + 1 }} className="border-b border-default" />
+                )
+              )}
               {eventsByDay(dayIndex).map((event) => {
                 const state = event.state || 'padrao';
                 const startRow = event.startHour - firstHour + 1;
@@ -242,19 +242,21 @@ export function WeekCalendar({
                   );
                 })
               )}
+              {onSelectSlot && (
+                <button
+                  type="button"
+                  onClick={() => onSelectSlot(dayIndex, DEFAULT_FIRST_HOUR)}
+                  className="min-h-11 w-full border-t border-default px-4 py-2 text-left text-sm font-semibold text-navy-2 hover:bg-surface-hover"
+                >
+                  + Agendar em {day.label} {day.dayNumber}
+                </button>
+              )}
             </div>
           );
         })}
       </div>
 
-      <div className="flex flex-wrap gap-4 border-t border-default px-4 py-3 text-xs text-navy-2">
-        {(['confirmado', 'a-confirmar', 'atencao'] as WeekCalendarEventState[]).map((state) => (
-          <span key={state} className="inline-flex items-center gap-2">
-            <span className={cn('h-3 w-3 rounded-sm border', STATE_DOT_CLASSES[state])} />
-            {STATE_LABELS[state]}
-          </span>
-        ))}
-      </div>
+      <CalendarLegend />
     </div>
   );
 }

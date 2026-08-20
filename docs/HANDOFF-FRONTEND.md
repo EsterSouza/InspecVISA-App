@@ -198,7 +198,7 @@ Ficam registradas aqui, não no servidor do DesignMD (regra 2 da seção do MCP)
 10. **Plano de ação: lista + detalhe.** A tabela é o índice; `situation` e `recommended_action` aparecem inteiros no painel ao lado, sem abrir relatório e sem abrir inspeção.
 11. **Toda rota tem identidade própria**, inclusive as que não foram desenhadas nesta fase. Sem isso o item ativo do menu mente.
 12. **Um calendário só para todas as agendas.** Portal e admin usam o mesmo renderizador; muda o conteúdo do evento, nunca a grade. Duas implementações parecidas divergem em três meses, e aí o cliente e a consultoria passam a ver a mesma semana de jeitos diferentes.
-13. **Calendário é opção, não substituição.** Toda agenda mantém o alternador Semana / Lista. Lista ganha para conferir data e situação em massa; calendário ganha para enxergar buraco na semana. Cada uma serve a uma pergunta.
+13. **Calendário é opção, não substituição.** Toda agenda mantém o alternador de visões. Lista ganha para conferir data e situação em massa; calendário ganha para enxergar buraco na agenda. Cada uma serve a uma pergunta. **Revisto em 20/08/2026:** na agenda do admin as visões são **Mês / Semana / Lista**, e o **mês é a padrão** — a Ester planeja a rota do mês antes de olhar a semana, e a semana sozinha escondia essa leitura desde o FE-13. O portal do cliente continua em Semana / Lista: quem tem uma unidade não precisa da visão de longe.
 14. **"Hoje" do protótipo é quarta, 12/08/2026** — uma quarta de verdade no calendário de 2026. A data anterior (08/08) era um sábado rotulado como quarta; num protótipo de agenda, data que se contradiz destrói a confiança na tela inteira.
 
 Acrescentadas no Artefato D, aprovadas em 16/08/2026:
@@ -1586,3 +1586,55 @@ Cada wrapper virou `<PageShell>` (import de `../components/ui/PageShell`), prese
 **Ficaram de fora, por decisão de escopo:** `PublicSchedule.tsx` e `PublicAppointmentStatus.tsx` — são as duas telas que o cliente abre **sem login** (agendamento por link público e status de visita por link público). `PageShell.tsx:5` documenta explicitamente "Largura única do **admin**"; herdar `max-w-[1600px]` mudaria a experiência de quem só tem o link, pensada para leitura em coluna única, sem estar no escopo pedido (FE-04b também separa o que é "só admin" do que é "o que o portal usa"). Também ficaram de fora os `max-w-7xl` de `InspectionExecution.tsx` e dos cabeçalhos `sticky` de `InspectionSummary.tsx` — não é o mesmo padrão (`3xl|4xl|5xl|6xl` citado no card), e sim uma barra de cabeçalho de largura própria, não o container de conteúdo.
 
 Conferido: `tsc -b` limpo (não só `tsc --noEmit`), `npm run build` completo limpo, 382 testes passando sem alteração. Testado ao vivo no navegador, logada como Ester (`esterposte@hotmail.com`) — a sessão anterior não tinha credencial, ela logou nesta durante a verificação: as 11 rotas afetadas renderizam sem regressão visual — Início (`/`), Clientes (`/clients`), Agendamentos (`/schedules`), Inspeções (`/inspections`), Painel (`/painel`), Solicitações (`/requests`), Configurações (`/settings`), Sincronização (`/sync`), detalhe de um cliente real (`REDE SÊNIOR BARRA`), Nova Inspeção (`/new`) e um relatório concluído (`CLANDESTINO BEAUTY`, `InspectionSummary` no modo relatório completo). Sem erros de console novos (os 4 erros 401 vistos são de outra rotina, não relacionados a esta troca).
+
+
+### 20/08/2026 — o mês volta à agenda do admin, e clicar no dia agenda
+
+Pedido da Ester usando a tela: a visão de mês, que o FE-13 tinha substituído pela semana em
+09/08, faz falta para planejar o mês inteiro — e ela quer **agendar clicando no dia**, sem
+passar pelo botão "Agendar Visita" e digitar a data.
+
+- **`MonthCalendar`** (`src/components/ui/MonthCalendar.tsx`), irmão do `WeekCalendar`: grade
+  **segunda a sexta** (a agenda não tem fim de semana — mesma régua do `WeekCalendar`; semana
+  cujos cinco dias caem fora do mês nem entra), até 3 compromissos por dia com "+N" que expande
+  a célula. Abaixo de 721px a grade fica compacta (número + marcadores de estado) e o dia tocado
+  abre a lista embaixo — célula com texto vira ilegível bem antes de caber em 375px.
+- **Compromisso em sábado/domingo não some.** Sem coluna para ele, sairia em silêncio: vai numa
+  linha "No fim de semana:" abaixo da grade, clicável como qualquer outro. Sem nenhum, a linha
+  não existe.
+- **Um vocabulário de estado só** para as duas grades: `calendarEventState.ts` (cores, palavras)
+  e `CalendarLegend.tsx` saíram de dentro do `WeekCalendar` e agora servem aos dois. Decisão 12
+  ("um calendário só") continua valendo no que importa — o que muda é a distância, não a
+  linguagem. Os arquivos vieram separados porque `react-refresh/only-export-components` proíbe
+  constante e componente no mesmo módulo.
+- **Clicar no dia agenda.** No mês, a área livre da célula é um botão ("+ Agendar" no hover/foco)
+  que abre o formulário com a data preenchida; no celular, "+ Agendar neste dia" no painel do dia.
+  Na semana, a prop nova `onSelectSlot` faz o mesmo por **dia e hora** — o slot de 09h vira
+  `09:00` no formulário. A prop é opcional: sem ela a grade segue só de leitura, que é o caso do
+  **portal do cliente** (lá o cliente pede visita pelo fluxo próprio, não cria compromisso).
+- **Mês é a visão padrão** do admin (`agendaView`), com Semana e Lista ao lado. Ver decisão 13,
+  revista.
+- **Link da videoconferência no formulário da agenda.** O campo só existia no card de Pedidos de
+  Visita (`ActiveRequestCard`); quem agendava online pela Agenda não tinha onde colar o Meet.
+  Agora aparece quando a modalidade é **Online**, valida HTTPS com o mesmo
+  `normalizeOptionalHttpsUrl` do serviço, e grava nos dois lados (`schedules.meeting_url` e
+  `appointment_requests.meeting_url`, que é o que o portal do cliente lê). Trocar para presencial
+  descarta o link em vez de guardar reunião que não existe.
+
+**Segunda passada, no mesmo dia, com a Ester olhando a tela** — azul demais:
+
+- **O destaque volta a ser cinza.** "Hoje" era bloco `primary-50` com número `primary-800`; virou
+  fundo branco com **anel `--border-control`** e selo cinza. Dia fora do mês usa **`canvas`**
+  (gray-50 neutro, o cinza que ela pediu de volta em 17/08) — não `surface-sunken`, que é azulado.
+  "+ Agendar", "+N compromissos" e o botão do celular saíram de `primary-700` para `navy-3`/`navy-2`,
+  e o hover dos vãos virou `surface-hover`. **Vale também para o `WeekCalendar`**: manter dois
+  tratamentos de "hoje" na mesma tela, alternando Mês/Semana, seria pior que a mudança no portal.
+  No celular o dia escolhido usa `inverse`/`inverse-ink` (superfície invertida), não azul cheio.
+- **`capitalize` estava escrevendo "Agosto De 2026".** Trocado por `first-letter:uppercase` no
+  rótulo do mês e no cabeçalho do dia.
+
+Conferido: `tsc -b`, `npm run build`, `npm test` 568/568, `check:contraste` (47 pares, claro e
+escuro) e `check:ui` sem P0/P1. Ao vivo, logada, em 1082px, 375px e no escuro: clique no dia 5
+abre o formulário com `2026-08-05`; clique no vão de quarta 10h abre com `2026-08-19` + `10:00`;
+"Online" revela o campo do Meet; hoje computa `ring rgb(118,136,162)` sobre branco e o dia de
+setembro `rgb(249,250,251)`; sem rolagem lateral em 375px e menor alvo de toque 44px.

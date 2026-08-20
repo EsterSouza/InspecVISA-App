@@ -18,18 +18,20 @@ import { ScheduleService } from '../services/scheduleService';
 import { ClientService } from '../services/clientService';
 import { getLocalActor } from '../utils/localActor';
 import { AppointmentRequestsPanel } from '../components/schedules/AppointmentRequestsPanel';
-import { AppointmentAdminService } from '../services/appointmentAdminService';
+import { AppointmentAdminService, normalizeOptionalHttpsUrl } from '../services/appointmentAdminService';
 import { toDateKey } from '../utils/date';
 import { WeekCalendar, type WeekCalendarEvent, type WeekCalendarEventState, type WeekCalendarWeek } from '../components/ui/WeekCalendar';
+import { MonthCalendar, type MonthCalendarEvent } from '../components/ui/MonthCalendar';
 import { APPOINTMENT_TYPE_RULES } from '../utils/appointmentType';
 import { addDays, formatWeekPeriod, mondayOf } from '../utils/weekCalendarDates';
+import { addMonths, firstOfMonth } from '../utils/monthCalendarDates';
 import { useConfirmDialog } from '../components/ui/ConfirmDialog';
 import { CopyLinkButton } from '../components/client/CopyLinkButton';
 import { toast } from '../store/useToastStore';
 import { errorMessage, rawErrorMessage } from '../utils/errors';
 
 type SchedulesTab = 'agenda' | 'solicitacoes';
-type AgendaView = 'semana' | 'lista';
+type AgendaView = 'mes' | 'semana' | 'lista';
 
 const WEEKDAY_LABELS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'];
 
@@ -92,8 +94,11 @@ export function Schedules() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [agendaView, setAgendaView] = useState<AgendaView>('semana');
+  // O mês é a visão padrão (pedido da Ester em 20/08/2026): ela planeja a
+  // rota do mês inteiro antes de olhar a semana.
+  const [agendaView, setAgendaView] = useState<AgendaView>('mes');
   const [weekStart, setWeekStart] = useState(() => mondayOf(new Date()));
+  const [calendarMonth, setCalendarMonth] = useState(() => firstOfMonth(new Date()));
 
   // Form State
   const [selectedClientId, setSelectedClientId] = useState('');
@@ -102,6 +107,7 @@ export function Schedules() {
   const [scheduledTime, setScheduledTime] = useState('');
   const [notes, setNotes] = useState('');
   const [attendanceMode, setAttendanceMode] = useState<'presencial' | 'online'>('presencial');
+  const [meetingUrl, setMeetingUrl] = useState('');
   const [selectedConsultants, setSelectedConsultants] = useState<string[]>(defaultConsultants);
   const [repeatMonthly, setRepeatMonthly] = useState(false);
   const [repeatCount, setRepeatCount] = useState(2);
@@ -184,6 +190,17 @@ export function Schedules() {
         return;
       }
       const actor = getLocalActor();
+      // Só vale link em visita online; trocar para presencial descarta o que
+      // estava escrito, em vez de guardar link de uma reunião que não existe.
+      let normalizedMeetingUrl: string | null = null;
+      try {
+        normalizedMeetingUrl = attendanceMode === 'online'
+          ? normalizeOptionalHttpsUrl(meetingUrl, 'O link da videoconferência')
+          : null;
+      } catch (urlErr) {
+        toast.error('Link da videoconferência inválido', errorMessage(urlErr));
+        return;
+      }
 
       if (isEditing && editingId) {
         const existing = schedules.find(s => s.id === editingId);
@@ -194,6 +211,7 @@ export function Schedules() {
           scheduledAt,
           notes: notes,
           attendanceMode,
+          meetingUrl: normalizedMeetingUrl || undefined,
           consultantNames: selectedConsultants,
           localActorId: actor.id,
         };
@@ -222,6 +240,7 @@ export function Schedules() {
             requested_starts_at: startsAt.toISOString(),
             requested_ends_at: endsAt.toISOString(),
             duration_minutes: 60,
+            meeting_url: normalizedMeetingUrl,
             consultant_names: selectedConsultants.length ? selectedConsultants : null,
           });
         } else if (selectedClient) {
@@ -238,6 +257,7 @@ export function Schedules() {
             attendanceMode,
             municipality: place.municipality,
             district: place.district,
+            meetingUrl: normalizedMeetingUrl || undefined,
             consultantNames: selectedConsultants,
           });
         }
@@ -261,6 +281,7 @@ export function Schedules() {
             durationMinutes: 60,
             notes: notes,
             attendanceMode,
+            meetingUrl: normalizedMeetingUrl || undefined,
             consultantNames: selectedConsultants,
             updatedAt: new Date(),
             localActorId: actor.id,
@@ -280,6 +301,8 @@ export function Schedules() {
             attendanceMode,
             municipality: place.municipality,
             district: place.district,
+            meetingUrl: normalizedMeetingUrl || undefined,
+            consultantNames: selectedConsultants,
           });
         };
 
@@ -318,6 +341,7 @@ export function Schedules() {
     setScheduledTime(time);
     setNotes(schedule.notes || '');
     setAttendanceMode(schedule.attendanceMode || 'presencial');
+    setMeetingUrl(schedule.meetingUrl || '');
     setSelectedConsultants(
       schedule.consultantNames && schedule.consultantNames.length > 0
         ? schedule.consultantNames
@@ -328,6 +352,18 @@ export function Schedules() {
     setIsModalOpen(true);
   };
 
+  /**
+   * Abre o formulário de nova visita. Vindo de um clique no calendário, já
+   * chega com o dia (e, na grade da semana, a hora) preenchidos — continua
+   * editável no formulário.
+   */
+  const openNewSchedule = (day?: Date, hour?: number) => {
+    resetForm();
+    if (day) setScheduledDate(toDateKey(day));
+    if (hour !== undefined) setScheduledTime(`${String(hour).padStart(2, '0')}:00`);
+    setIsModalOpen(true);
+  };
+
   const resetForm = () => {
     setSelectedClientId('');
     setClientSearch('');
@@ -335,6 +371,7 @@ export function Schedules() {
     setScheduledTime('');
     setNotes('');
     setAttendanceMode('presencial');
+    setMeetingUrl('');
     setSelectedConsultants(defaultConsultants());
     setRepeatMonthly(false);
     setRepeatCount(2);
@@ -388,6 +425,15 @@ export function Schedules() {
       return event;
     })
     .filter((e): e is WeekCalendarEvent => e !== null);
+  const monthEvents: MonthCalendarEvent[] = schedules.map((schedule) => ({
+    id: schedule.id,
+    date: schedule.scheduledAt,
+    time: schedule.scheduledAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+    title: schedule.clientName || 'Cliente',
+    subtitle: schedule.appointmentType ? APPOINTMENT_TYPE_RULES[schedule.appointmentType].label : undefined,
+    state: scheduleCalendarState(schedule.status),
+    onClick: () => handleEdit(schedule),
+  }));
   const currentWeek: WeekCalendarWeek = {
     periodLabel: formatWeekPeriod(weekStart),
     days: weekDays.map((d, i) => ({
@@ -407,7 +453,7 @@ export function Schedules() {
         description="Organize suas próximas inspeções e auditorias."
         actions={
           activeTab === 'agenda' && (
-            <Button onClick={() => { resetForm(); setIsModalOpen(true); }}>
+            <Button onClick={() => openNewSchedule()}>
               <Plus className="mr-2 h-4 w-4" />
               Agendar Visita
             </Button>
@@ -511,6 +557,16 @@ export function Schedules() {
             <div className="flex gap-1 rounded-lg bg-surface-sunken p-1">
               <button
                 type="button"
+                onClick={() => setAgendaView('mes')}
+                aria-pressed={agendaView === 'mes'}
+                className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
+                  agendaView === 'mes' ? 'bg-surface text-primary-700 shadow-sm' : 'text-navy-3 hover:text-navy-2'
+                }`}
+              >
+                Mês
+              </button>
+              <button
+                type="button"
                 onClick={() => setAgendaView('semana')}
                 aria-pressed={agendaView === 'semana'}
                 className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
@@ -532,11 +588,24 @@ export function Schedules() {
             </div>
           </div>
 
+          {agendaView === 'mes' && (
+            <MonthCalendar
+              month={calendarMonth}
+              events={monthEvents}
+              onPrevMonth={() => setCalendarMonth((m) => addMonths(m, -1))}
+              onNextMonth={() => setCalendarMonth((m) => addMonths(m, 1))}
+              onToday={() => setCalendarMonth(firstOfMonth(new Date()))}
+              onSelectDay={(day) => openNewSchedule(day)}
+              emptyMessage="Sem visita agendada."
+            />
+          )}
+
           {agendaView === 'semana' && (
             <WeekCalendar
               week={currentWeek}
               onPrevWeek={() => setWeekStart((d) => addDays(d, -7))}
               onNextWeek={() => setWeekStart((d) => addDays(d, 7))}
+              onSelectSlot={(dayIndex, hour) => openNewSchedule(weekDays[dayIndex], hour)}
               emptyMessage="Sem visita agendada."
             />
           )}
@@ -742,6 +811,24 @@ export function Schedules() {
                   </div>
                   <p className="text-xs text-navy-3">Define a margem de conflito reservada na agenda: presencial reserva deslocamento, online só a troca entre chamadas.</p>
                 </div>
+
+                {attendanceMode === 'online' && (
+                  <Field
+                    label="Link da videoconferência"
+                    htmlFor="schedule-meeting-url"
+                    optional
+                    hint="O cliente vê este link no portal e no e-mail de confirmação. Precisa começar com https://."
+                  >
+                    <Input
+                      id="schedule-meeting-url"
+                      type="url"
+                      inputMode="url"
+                      placeholder="https://meet.google.com/..."
+                      value={meetingUrl}
+                      onChange={(e) => setMeetingUrl(e.target.value)}
+                    />
+                  </Field>
+                )}
 
                 {!isEditing && (
                   <div className="space-y-2 rounded-xl border border-default bg-surface-sunken p-3">

@@ -36,7 +36,8 @@ Já geraram dúvida real (15/08/2026): **Agendamentos** e **Solicitações** par
 nome, mas são domínios diferentes. (Até 16/08/2026 havia uma terceira, **Painel** — absorvida pelo
 Início no FE-14, ver seção abaixo.)
 
-- **Agendamentos** (`Schedules.tsx`) tem duas sub-abas internas: **Agenda** (calendário da semana,
+- **Agendamentos** (`Schedules.tsx`) tem duas sub-abas internas: **Agenda** (calendário em Mês /
+  Semana / Lista — o mês é a visão padrão, e clicar num dia vago abre o agendamento já naquele dia;
   compromissos confirmados) e **Pedidos de Visita** (`AppointmentRequestsPanel` — pedidos de
   agendamento do portal público, pendente/ativa/encerrada, com os botões de confirmar, remarcar,
   reenviar e-mail, publicar relatório). Essa sub-aba se chamava "Solicitações" até hoje — foi

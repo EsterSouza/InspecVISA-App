@@ -81,9 +81,19 @@ O manual "experimental v1.0" está **abolido**. Não citar.
 9. "Todas as unidades" mostra amostra de 3 por grupo, não tudo.
 10. Plano de ação: lista + detalhe, com `situation` e `recommended_action` inteiros.
 11. **Toda rota tem identidade própria**, inclusive as não desenhadas.
-12. **Um calendário só** (`WeekCalendar`) para portal e admin.
-13. Calendário é opção, não substituição: toda agenda mantém Semana / Lista.
-14. Régua do calendário 09h–17h, seg a sex; a régua **cresce**, nunca corta.
+12. **Um vocabulário de calendário só** para portal e admin: `WeekCalendar` (semana) e
+    `MonthCalendar` (mês) dividem cores, palavras de estado e legenda (`calendarEventState.ts`,
+    `CalendarLegend.tsx`). Muda a distância, nunca a linguagem.
+13. Calendário é opção, não substituição. **Admin: Mês / Semana / Lista, mês por padrão**
+    (20/08/2026, pedido da Ester). **Portal: Semana / Lista.**
+14. Régua do calendário 09h–17h, **seg a sex nas duas visões** — nem a semana nem o mês mostram
+    sábado e domingo (pedido repetido da Ester). A régua **cresce**, nunca corta; e compromisso
+    que caia no fim de semana aparece numa linha abaixo da grade do mês, nunca some.
+14c. **O destaque da agenda é cinza, não azul.** "Hoje" é anel `--border-control` sobre branco;
+    dia fora do mês é **`canvas`** (gray-50 neutro), nunca `surface-sunken` (que é azulado);
+    ação secundária ("+ Agendar", "+N") é `navy-3`/`navy-2`. Azul cheio só em CTA de verdade.
+14b. **Clicar no dia vago agenda** (admin): `onSelectDay` no mês e `onSelectSlot` (dia + hora) na
+    semana abrem o formulário já preenchido. Sem a prop, a grade é só de leitura — é o portal.
 15. **Início absorve o Painel** (16/08/2026). `/painel` redireciona para `/`. A análise
     desce para a faixa "Desempenho", recolhida.
 16. **Diálogo de confirmação:** `role="alertdialog"`, foco abre no **Cancelar**,
