@@ -4,7 +4,7 @@
 -- plano de ação já publicados, travas por conta, auditoria e os helpers `private`).
 \ir client_declares_item_status.test.sql
 
-\ir ../migrations/20260820203000_client_action_checkpoints.sql
+\ir ../migrations/20260820234651_client_action_checkpoints.sql
 
 -- Atalho: o tópico é procurado pelo texto, dentro do item de origem.
 create or replace function public.test_checkpoint_id(p_source text, p_text text)
