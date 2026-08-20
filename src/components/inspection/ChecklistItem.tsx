@@ -21,6 +21,7 @@ import {
   type ClientEvidenceForItem,
 } from '../../services/clientEvidenceService';
 import { getFieldSuggestions, type FieldSuggestions } from '../../utils/textSuggestions';
+import { parseCheckpoints } from '../../utils/actionCheckpoints';
 import { legislationUrlForItem } from '../../utils/legislationRefs';
 import { VoiceDictationButton } from './VoiceDictationButton';
 import { toast } from '../../store/useToastStore';
@@ -182,6 +183,34 @@ function ClientDeclarationPanel({ declaration }: { declaration: ClientDeclaratio
           {declaration.byRole ? ` — ${declaration.byRole}` : ''}
         </p>
       )}
+    </div>
+  );
+}
+
+/**
+ * O que os traços que ela acabou de escrever vão virar.
+ *
+ * O parser é conservador, mas conservador não basta: se ele decide calado, ela só
+ * descobre o que saiu quando o relatório já foi. Aqui ela vê a divisão enquanto
+ * digita — e, se não era isso que queria, tira o traço.
+ */
+function CheckpointPreview({ points, kind }: { points: string[]; kind: 'acao' | 'situacao' }) {
+  if (points.length === 0) return null;
+  const label = kind === 'acao'
+    ? `${points.length} tarefa${points.length === 1 ? '' : 's'} — o cliente responde uma por uma`
+    : `${points.length} ponto${points.length === 1 ? '' : 's'} em destaque no relatório`;
+
+  return (
+    <div className="rounded-md border border-dashed border-default bg-surface-sunken p-2">
+      <p className="text-[11px] font-semibold text-navy-2">{label}</p>
+      <ol className="mt-1 space-y-0.5">
+        {points.map((point, index) => (
+          <li key={index} className="flex gap-1.5 text-[11px] leading-[1.45] text-navy-2">
+            <span className="shrink-0 tabular-nums text-navy-3">{index + 1}.</span>
+            <span className="min-w-0 break-words">{point}</span>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }
@@ -637,6 +666,7 @@ export const ChecklistItem = memo(function ChecklistItem({
               }}
               onBlur={(e) => handleBlur('situationDescription', e.target.value)}
             />
+            <CheckpointPreview points={parseCheckpoints(situationValue).points} kind="situacao" />
             {!!suggestions?.situationDescription.length && (
               <div className="flex items-center gap-1.5 overflow-x-auto pt-1 [-ms-overflow-style:none] [scrollbar-width:none] lg:flex-wrap lg:overflow-visible [&::-webkit-scrollbar]:hidden">
                 <span className="shrink-0 text-xs font-medium text-navy-3">Já usado antes:</span>
@@ -708,6 +738,7 @@ export const ChecklistItem = memo(function ChecklistItem({
               }}
               onBlur={(e) => handleBlur('correctiveAction', e.target.value)}
             />
+            <CheckpointPreview points={parseCheckpoints(actionValue).points} kind="acao" />
             {!!suggestions?.correctiveAction.length && (
               <div className="flex items-center gap-1.5 overflow-x-auto pt-1 [-ms-overflow-style:none] [scrollbar-width:none] lg:flex-wrap lg:overflow-visible [&::-webkit-scrollbar]:hidden">
                 <span className="shrink-0 text-xs font-medium text-navy-3">Já usado antes:</span>

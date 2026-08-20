@@ -12,6 +12,7 @@ import { isRioState } from './state';
 import { extractBaseLegislation, canonicalLegislationKey, citedLegislations } from './legislationRefs';
 import { formatAbnt as formatAbntCompartilhado, type LegislationStatus } from '@visa/legislacao';
 import type { ClientDeclarationForItem, ClientEvidenceForItem } from '../services/clientEvidenceService';
+import { parseCheckpoints } from './actionCheckpoints';
 import { registerPdfFonts, PDF_FONT_HEAD, PDF_FONT_BODY } from './pdfFonts';
 import { fimDaUltimaTabela } from './pdfAutoTable';
 import type { Legislation } from '../services/legislationService';
@@ -323,13 +324,84 @@ export async function generatePDF(
     return cursor;
   }
 
-  /** Rótulo + corpo, com o rótulo sempre na mesma página da primeira linha. */
+  /**
+   * Os tópicos que a consultora marcou, cada um no seu retângulo fechado.
+   *
+   * A caixa é atômica: se não couber no que resta da página, ela inteira desce
+   * para a seguinte. Partir um retângulo ao meio é pior que deixar um vão — e é
+   * a caixa que diz ao cliente onde uma tarefa termina e a outra começa.
+   */
+  function drawCheckpointBoxes(
+    points: string[],
+    startY: number,
+    onContinue: ContinueFlow,
+    opts: { task?: boolean } = {}
+  ) {
+    const padX = 2.8;
+    const padY = 2.2;
+    const gap = 2;
+    const indent = opts.task ? 5.6 : 0;
+    const lineH = 5;
+    const ascent = lineH * 0.72;
+    const maxBoxH = flowBottom - margin;
+    let cursor = startY;
+
+    for (const point of points) {
+      doc.setFont(FB,'normal');
+      doc.setFontSize(9.8);
+      const lines: string[] = doc.splitTextToSize(point, bodyW - padX * 2 - indent);
+      const boxH = padY * 2 + lines.length * lineH;
+
+      // Tópico que não cabe nem numa página inteira sai como texto corrido: o
+      // texto tem de aparecer inteiro, a caixa é que é dispensável.
+      if (boxH > maxBoxH) {
+        cursor = drawFlowText(point, cursor, { size: 9.8, lineH }, onContinue) + gap;
+        continue;
+      }
+      if (cursor + boxH > flowBottom) {
+        cursor = onContinue();
+        doc.setFont(FB,'normal');
+        doc.setFontSize(9.8);
+      }
+
+      doc.setFillColor(...surfaceColor);
+      doc.setDrawColor(...borderColor);
+      doc.setLineWidth(0.25);
+      doc.roundedRect(bodyX, cursor, bodyW, boxH, 1.6, 1.6, 'FD');
+      if (opts.task) {
+        // Quadradinho vazio: no papel a lista tem de se ler como tarefa a fazer.
+        doc.setDrawColor(...mutedColor);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(bodyX + padX, cursor + padY + 0.6, 3, 3, 0.5, 0.5, 'D');
+      }
+      doc.setTextColor(...textColor);
+      lines.forEach((line, index) => {
+        doc.text(line, bodyX + padX + indent, cursor + padY + ascent + index * lineH);
+      });
+      cursor += boxH + gap;
+    }
+
+    // Respiro depois do último retângulo: o `+3.5` que fecha o bloco parte da
+    // BORDA da caixa, e não de uma linha de base — sem isto o rótulo seguinte
+    // encosta na caixa de cima.
+    return points.length > 0 ? cursor - gap + 2.5 : cursor;
+  }
+
+  /**
+   * Rótulo + corpo, com o rótulo sempre na mesma página da primeira linha.
+   *
+   * Texto em tópicos vira retângulos; texto corrido segue corrido. `task` marca
+   * os tópicos que são obrigação do cliente (a ação corretiva) — só eles ganham
+   * quadradinho. Observação e sugestão entram na caixa sem quadradinho: não são
+   * coisas a cumprir.
+   */
   function drawLabeledBlock(
     label: string,
     text: string,
     startY: number,
     labelColor: [number, number, number],
-    onContinue: ContinueFlow = continueOnBlankPage
+    onContinue: ContinueFlow = continueOnBlankPage,
+    opts: { task?: boolean } = {}
   ) {
     let cursor = startY;
     if (cursor + 10.5 > flowBottom) cursor = onContinue();
@@ -338,8 +410,13 @@ export async function generatePDF(
     doc.setTextColor(...labelColor);
     doc.text(label, bodyX, cursor);
     cursor += 5.2;
-    cursor = drawFlowText(text, cursor, { size: 9.8, lineH: 5 }, onContinue);
-    return cursor + 3.5;
+
+    const { context, points } = parseCheckpoints(text);
+    if (points.length === 0) {
+      return drawFlowText(text, cursor, { size: 9.8, lineH: 5 }, onContinue) + 3.5;
+    }
+    if (context) cursor = drawFlowText(context, cursor, { size: 9.8, lineH: 5 }, onContinue) + 1.5;
+    return drawCheckpointBoxes(points, cursor, onContinue, opts) + 3.5;
   }
 
   /**
@@ -1148,14 +1225,139 @@ export async function generatePDF(
     y += 8;
     drawGroupHeading();
 
+    // Layout do card — igual entre os itens, então mora fora do laço.
+    const cardInnerX = margin + 8;
+    const cardInnerW = contentW - 20;
+    const pageBottom = pageH - 24;
+    const bodyFontSize = 10;
+    const bodyLineHeight = 5.1;
+    const requirementFontSize = 9;
+    const requirementLineHeight = 4.7;
+    // Retângulo de um tópico: recuo interno, respiro entre eles e a sangria que o
+    // quadradinho de tarefa abre à esquerda.
+    const boxPadX = 3.2;
+    const boxPadY = 2.4;
+    const boxGap = 2.2;
+    const boxAfter = 2.5;
+    const taskIndent = 6.4;
+
+    /**
+     * Um bloco do card já medido: quanto ocupa e como se divide.
+     *
+     * Medir e desenhar leem a MESMA estrutura de propósito. Quando as duas contas
+     * moram em lugares diferentes elas divergem, e divergir aqui é texto vazando
+     * da caixa depois de uma quebra de página.
+     */
+    interface MeasuredBlock {
+      label: string;
+      text: string;
+      color: [number, number, number];
+      isRequirement: boolean;
+      /** Tarefa: cada tópico ganha quadradinho, porque é o que o cliente cumpre. */
+      task: boolean;
+      /** Texto corrido — é o bloco inteiro quando não há tópico marcado. */
+      contextLines: string[];
+      /** Um retângulo por tópico, já quebrado nas linhas que cabem dentro dele. */
+      boxes: string[][];
+      lineHeight: number;
+      /** Só o conteúdo: rótulo e respiros já estão na constante de 58 do card. */
+      contentHeight: number;
+    }
+
+    const measureBlock = (
+      label: string,
+      text: string,
+      color: [number, number, number],
+      opts: { isRequirement?: boolean; task?: boolean; plain?: boolean } = {},
+    ): MeasuredBlock => {
+      const isRequirement = !!opts.isRequirement;
+      const lineHeight = isRequirement ? requirementLineHeight : bodyLineHeight;
+      // O requisito é citação do roteiro, não lista de tarefas: nunca vira caixa.
+      const parsed = isRequirement || opts.plain
+        ? { context: text, points: [] as string[] }
+        : parseCheckpoints(text);
+
+      doc.setFont(FB, isRequirement ? 'italic' : 'normal');
+      doc.setFontSize(isRequirement ? requirementFontSize : bodyFontSize);
+      const contextLines: string[] = parsed.context ? doc.splitTextToSize(parsed.context, cardInnerW) : [];
+      const boxTextW = cardInnerW - boxPadX * 2 - (opts.task ? taskIndent : 0);
+      const boxes: string[][] = parsed.points.map(point => doc.splitTextToSize(point, boxTextW));
+
+      let contentHeight = contextLines.length * lineHeight;
+      if (contextLines.length > 0 && boxes.length > 0) contentHeight += 2;
+      boxes.forEach((lines, index) => {
+        contentHeight += boxPadY * 2 + lines.length * lineHeight;
+        if (index < boxes.length - 1) contentHeight += boxGap;
+      });
+      // Respiro depois do último retângulo. O `+5` que fecha o bloco parte da
+      // BORDA da caixa, e não de uma linha de base — sem isto o rótulo do bloco
+      // seguinte encosta na caixa de cima.
+      if (boxes.length > 0) contentHeight += boxAfter;
+
+      return {
+        label, text, color, isRequirement, task: !!opts.task,
+        contextLines, boxes, lineHeight, contentHeight,
+      };
+    };
+
+    const drawBlock = (block: MeasuredBlock, startY: number) => {
+      let blockY = startY;
+      if (block.isRequirement) {
+        doc.setDrawColor(...borderColor);
+        doc.setLineWidth(0.2);
+        doc.line(cardInnerX, blockY, margin + contentW - 8, blockY);
+        blockY += 5;
+      }
+      doc.setFont(FH, 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(...block.color);
+      doc.text(block.label, cardInnerX, blockY, { charSpace: 0.2 });
+      blockY += 5;
+
+      doc.setFont(FB, block.isRequirement ? 'italic' : 'normal');
+      doc.setFontSize(block.isRequirement ? requirementFontSize : bodyFontSize);
+      doc.setTextColor(...textColor);
+      // Uma linha por vez, com a mesma entrelinha usada para medir o card:
+      // passar o bloco inteiro com maxWidth deixava o jsPDF usar a entrelinha
+      // dele (menor), então o texto ficava comprimido e sobrava vão no fim.
+      block.contextLines.forEach((line, index) => {
+        doc.text(line, cardInnerX, blockY + index * block.lineHeight);
+      });
+      blockY += block.contextLines.length * block.lineHeight;
+      if (block.contextLines.length > 0 && block.boxes.length > 0) blockY += 2;
+
+      // Daqui para baixo a conta é por caixa, e `blockY` passa a ser o TOPO dela
+      // em vez da linha de base do texto.
+      const ascent = block.lineHeight * 0.72;
+      block.boxes.forEach((lines) => {
+        const boxHeight = boxPadY * 2 + lines.length * block.lineHeight;
+        doc.setFillColor(...surfaceColor);
+        doc.setDrawColor(...borderColor);
+        doc.setLineWidth(0.25);
+        doc.roundedRect(cardInnerX, blockY, cardInnerW, boxHeight, 1.6, 1.6, 'FD');
+
+        if (block.task) {
+          // Quadradinho vazio: no papel a lista tem de se ler como tarefa a fazer.
+          doc.setDrawColor(...mutedColor);
+          doc.setLineWidth(0.3);
+          doc.roundedRect(cardInnerX + boxPadX, blockY + boxPadY + 0.7, 3.2, 3.2, 0.5, 0.5, 'D');
+        }
+
+        doc.setFont(FB, 'normal');
+        doc.setFontSize(bodyFontSize);
+        doc.setTextColor(...textColor);
+        const textX = cardInnerX + boxPadX + (block.task ? taskIndent : 0);
+        lines.forEach((line, index) => {
+          doc.text(line, textX, blockY + boxPadY + ascent + index * block.lineHeight);
+        });
+        blockY += boxHeight + boxGap;
+      });
+      if (block.boxes.length > 0) blockY += boxAfter - boxGap;
+
+      return blockY + 5;
+    };
+
     items.forEach((response) => {
-      const cardInnerX = margin + 8;
-      const cardInnerW = contentW - 20;
-      const pageBottom = pageH - 24;
-      const bodyFontSize = 10;
-      const bodyLineHeight = 5.1;
-      const requirementFontSize = 9;
-      const requirementLineHeight = 4.7;
       const item = allItemsList.find(candidate => candidate.id === response.itemId);
       const isRecurring = recurringItemIds.has(response.itemId);
       const cardNumber = sortedNonCompliant.indexOf(response) + 1;
@@ -1163,18 +1365,16 @@ export async function generatePDF(
       const correction = response.correctiveAction || 'Definir medida corretiva e registrar evidência de conclusão.';
       const requirement = item?.description || response.customDescription || 'Requisito avaliado.';
 
-      doc.setFont(FB,'normal');
-      doc.setFontSize(bodyFontSize);
-      const situationLines: string[] = doc.splitTextToSize(situation, cardInnerW);
-      const correctionLines: string[] = doc.splitTextToSize(correction, cardInnerW);
-      doc.setFont(FB,'italic');
-      doc.setFontSize(requirementFontSize);
-      const requirementLines: string[] = doc.splitTextToSize(requirement, cardInnerW);
+      // Os tópicos que ela marcou com traço ou numeração viram retângulos
+      // fechados, um por tarefa — é ponto a ponto que o cliente responde. Texto
+      // corrido segue bloco corrido: sem marcador, sem caixa.
+      const blocks = [
+        measureBlock('Situação encontrada', situation, accent),
+        measureBlock('Ação recomendada', correction, teal, { task: true }),
+        measureBlock('Requisito avaliado', requirement, mutedColor, { isRequirement: true }),
+      ];
 
-      const cardHeight = 58
-        + situationLines.length * bodyLineHeight
-        + correctionLines.length * bodyLineHeight
-        + requirementLines.length * requirementLineHeight;
+      const cardHeight = 58 + blocks.reduce((total, block) => total + block.contentHeight, 0);
       const fullPageCardHeight = pageBottom - margin - 8;
 
       if (y + cardHeight > pageBottom && cardHeight <= fullPageCardHeight) {
@@ -1230,64 +1430,34 @@ export async function generatePDF(
         }
       };
 
-      const drawTextBlock = (
-        label: string,
-        lines: string[],
-        startY: number,
-        labelColor: [number, number, number],
-        isRequirement = false
-      ) => {
-        let blockY = startY;
-        if (isRequirement) {
-          doc.setDrawColor(...borderColor);
-          doc.setLineWidth(0.2);
-          doc.line(cardInnerX, blockY, margin + contentW - 8, blockY);
-          blockY += 5;
-        }
-        doc.setFont(FH, 'normal');
-        doc.setFontSize(8);
-        doc.setTextColor(...labelColor);
-        doc.text(label, cardInnerX, blockY, { charSpace: 0.2 });
-        blockY += 5;
-        doc.setFont(FB, isRequirement ? 'italic' : 'normal');
-        doc.setFontSize(isRequirement ? requirementFontSize : bodyFontSize);
-        doc.setTextColor(...textColor);
-        // Uma linha por vez, com a mesma entrelinha usada para medir o card:
-        // passar o bloco inteiro com maxWidth deixava o jsPDF usar a entrelinha
-        // dele (menor), então o texto ficava comprimido e sobrava vão no fim.
-        const lineHeight = isRequirement ? requirementLineHeight : bodyLineHeight;
-        lines.forEach((line, lineIdx) => {
-          doc.text(line, cardInnerX, blockY + lineIdx * lineHeight);
-        });
-        return blockY + lines.length * lineHeight + 5;
-      };
-
       if (cardHeight <= fullPageCardHeight) {
         drawCardFrame(cardHeight);
         let cardY = y + 19;
-        cardY = drawTextBlock('Situação encontrada', situationLines, cardY, accent);
-        cardY = drawTextBlock('Ação recomendada', correctionLines, cardY, teal);
-        drawTextBlock('Requisito avaliado', requirementLines, cardY, mutedColor, true);
+        for (const block of blocks) cardY = drawBlock(block, cardY);
         y += cardHeight + 6;
         return;
       }
 
-      const blocks = [
-        { label: 'Situação encontrada', lines: situationLines, color: accent, isRequirement: false },
-        { label: 'Ação recomendada', lines: correctionLines, color: teal, isRequirement: false },
-        { label: 'Requisito avaliado', lines: requirementLines, color: mutedColor, isRequirement: true },
-      ];
-
       blocks.forEach((block, blockIndex) => {
         const continuation = blockIndex > 0;
-        const lineHeight = block.isRequirement ? requirementLineHeight : bodyLineHeight;
-        const blockHeight = 34 + block.lines.length * lineHeight + (block.isRequirement ? 5 : 0);
+        let drawn = block;
+        let blockHeight = 34 + drawn.contentHeight + (drawn.isRequirement ? 5 : 0);
+        // Bloco que não cabe nem sozinho numa página: os retângulos são o que
+        // sobra para cortar — o texto tem de sair inteiro de qualquer jeito.
+        if (blockHeight > fullPageCardHeight && drawn.boxes.length > 0) {
+          drawn = measureBlock(block.label, block.text, block.color, {
+            isRequirement: block.isRequirement,
+            task: block.task,
+            plain: true,
+          });
+          blockHeight = 34 + drawn.contentHeight + (drawn.isRequirement ? 5 : 0);
+        }
         if (continuation || y + blockHeight > pageBottom) {
           drawPlanContinuation();
           drawGroupHeading(true);
         }
         drawCardFrame(blockHeight, continuation);
-        drawTextBlock(block.label, block.lines, y + 19, block.color, block.isRequirement);
+        drawBlock(drawn, y + 19);
         y += blockHeight + 6;
       });
     });
@@ -1517,7 +1687,7 @@ export async function generatePDF(
       }
 
       if (response.correctiveAction) {
-        y = drawLabeledBlock('Ação corretiva', response.correctiveAction, y, [21, 101, 52], continueItem);
+        y = drawLabeledBlock('Ação corretiva', response.correctiveAction, y, [21, 101, 52], continueItem, { task: true });
       }
 
       y = await drawPhotoGrid(response.photos, y, continueItem);
