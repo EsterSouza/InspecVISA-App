@@ -218,10 +218,32 @@ export const ChecklistItem = memo(function ChecklistItem({
   // no celular um toque a mais para descobrir isso é um toque que ela não dá.
   // Só na transição — recolher o painel depois continua valendo.
   const previousResult = useRef(response?.result);
+  // Texto de uma NC que virou CUMPRE (ou outro resultado) na mesma visita: some
+  // da tela e do relatório (senão o PDF lista a antiga "situação encontrada"
+  // como se fosse sugestão de melhoria) e volta se ela apertar NÃO CUMPRE de
+  // novo por engano. Só dura enquanto o item segue montado na tela.
+  const stashedNCTextRef = useRef<{ situationDescription: string; correctiveAction: string } | null>(null);
   useEffect(() => {
-    if (response?.result === 'not_complies' && previousResult.current !== 'not_complies') setShowObs(true);
-    previousResult.current = response?.result;
-  }, [response?.result]);
+    const prev = previousResult.current;
+    const curr = response?.result;
+    if (curr === 'not_complies' && prev !== 'not_complies') {
+      setShowObs(true);
+      if (stashedNCTextRef.current && !response?.situationDescription && !response?.correctiveAction) {
+        onUpdateDetails(item.id, { ...stashedNCTextRef.current });
+      }
+      stashedNCTextRef.current = null;
+    } else if (prev === 'not_complies' && curr && curr !== 'not_complies') {
+      const situationDescription = response?.situationDescription || '';
+      const correctiveAction = response?.correctiveAction || '';
+      if (situationDescription || correctiveAction) {
+        stashedNCTextRef.current = { situationDescription, correctiveAction };
+        setLocalSituation('');
+        setLocalAction('');
+        onUpdateDetails(item.id, { situationDescription: '', correctiveAction: '' });
+      }
+    }
+    previousResult.current = curr;
+  }, [response?.result, item.id, onUpdateDetails]);
 
   // Sugestões do próprio histórico deste item: busca preguiçosa, só quando a
   // consultora abre a seção de observações — evita consultar o Dexie pra cada
