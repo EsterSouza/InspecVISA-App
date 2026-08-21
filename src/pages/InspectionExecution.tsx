@@ -12,7 +12,7 @@ function legacyCategory(inspection: Inspection): ClientCategory | undefined {
 import { ILPIStaffCalculator } from '../components/inspection/ILPIStaffCalculator';
 import { isRioState } from '../utils/state';
 import { contextFromInspection } from '../utils/inspectionContext';
-import { calculateScore, classificationInk } from '../utils/scoring';
+import { calculateScore, classificationInk, getLatestResponsesByItem } from '../utils/scoring';
 import { useInspectionStore } from '../store/useInspectionStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { generateId } from '../utils/imageUtils';
@@ -503,8 +503,11 @@ export function InspectionExecution() {
   const openActionItemIndex = useMemo(() => indexOpenActionItems(openActionItems), [openActionItems]);
 
   // ─── ÍNDICE, FILTRO E "FALTA ESCREVER" ────────────────────────────────────
+  // Precisa desempatar por "mais recente" (não pelo último do array): uma
+  // resposta duplicada e vazia para o mesmo item pode aparecer depois da
+  // resposta real no array e apagar o texto/prazo já preenchidos na tela.
   const responseByItemId = useMemo(
-    () => new Map(responses.map(response => [response.itemId, response])),
+    () => new Map(getLatestResponsesByItem(responses).map(response => [response.itemId, response])),
     [responses],
   );
 

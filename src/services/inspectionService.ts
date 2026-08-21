@@ -855,7 +855,18 @@ export const InspectionService = {
       .toArray());
   },
 
-  async getRemoteInspectionSnapshot(inspectionId: string): Promise<RemoteInspectionSnapshot> {
+  /**
+   * `onResponses` chega assim que o texto (situação/ação/prazo) está pronto — antes de
+   * qualquer foto ser baixada do Storage. Uma inspeção com uma centena de fotos levava
+   * dezenas de segundos de tela em branco antes de mostrar uma linha sequer de texto.
+   */
+  async getRemoteInspectionSnapshot(
+    inspectionId: string,
+    options: {
+      onResponses?: (snapshot: RemoteInspectionSnapshot) => void;
+      onPhoto?: (photo: InspectionPhoto) => void;
+    } = {}
+  ): Promise<RemoteInspectionSnapshot> {
     if (!navigator.onLine) {
       throw new Error('Conecte-se à internet para consultar o preenchimento sincronizado.');
     }
@@ -872,7 +883,9 @@ export const InspectionService = {
 
     const responses: InspectionResponse[] = (responseRows || []).map(mapResponseFromPostgres);
     if (responses.length === 0) {
-      return { responses: [], photos: [], fetchedAt: new Date() };
+      const empty = { responses: [], photos: [], fetchedAt: new Date() };
+      options.onResponses?.(empty);
+      return empty;
     }
 
     const { data: photoRows, error: photoError } = await RepositoryService.withTimeout(
@@ -885,10 +898,30 @@ export const InspectionService = {
       throw new Error(photoError.message || 'Falha ao consultar fotos sincronizadas.');
     }
 
+    const photoStubs = (photoRows || []).map(mapPhotoFromPostgres) as InspectionPhoto[];
+    const photosByResponseStub = new Map<string, InspectionPhoto[]>();
+    for (const photo of photoStubs) {
+      const current = photosByResponseStub.get(photo.responseId) || [];
+      current.push(photo);
+      photosByResponseStub.set(photo.responseId, current);
+    }
+    options.onResponses?.({
+      responses: responses.map(response => ({
+        ...response,
+        photos: photosByResponseStub.get(response.id) || [],
+      })),
+      photos: photoStubs,
+      fetchedAt: new Date(),
+    });
+
     const photos = await runLimited<InspectionPhoto, InspectionPhoto>(
-      (photoRows || []).map(mapPhotoFromPostgres) as InspectionPhoto[],
+      photoStubs,
       PHOTO_DOWNLOAD_CONCURRENCY,
-      photo => downloadStoragePhotoForView(photo)
+      async (photo) => {
+        const hydrated = await downloadStoragePhotoForView(photo);
+        options.onPhoto?.(hydrated);
+        return hydrated;
+      }
     );
     const photosByResponse = new Map<string, InspectionPhoto[]>();
     for (const photo of photos) {

@@ -13,7 +13,7 @@ import { PageHeader } from '../ui/PageHeader';
 import { AppointmentAdminService } from '../../services/appointmentAdminService';
 import { ScheduleService } from '../../services/scheduleService';
 import { isInspectionAppointment } from '../../utils/appointmentType';
-import { calculateAreaScores } from '../../utils/scoring';
+import { calculateAreaScores, getLatestResponsesByItem } from '../../utils/scoring';
 import { NO_DEADLINE } from '../../utils/clientActionPlan';
 import { generateId } from '../../utils/imageUtils';
 import { toast } from '../../store/useToastStore';
@@ -92,9 +92,13 @@ export function InspectionFinishScreen({
   const score = areas.global;
   const split = isIlpi && areas.isSplit;
 
-  const notComplies = responses.filter(r => r.result === 'not_complies');
+  // Uma resposta duplicada (mesmo item, id diferente) não pode virar uma
+  // segunda pendência fantasma aqui — desempata pela mais recente, como o
+  // roteiro já faz.
+  const latestResponses = getLatestResponsesByItem(responses);
+  const notComplies = latestResponses.filter(r => r.result === 'not_complies');
   const semPrazo = notComplies.filter(r => !r.deadline?.trim() || r.deadline.trim() === NO_DEADLINE);
-  const evidenciasAprovadas = new Set(responses.flatMap(r => r.confirmedClientEvidenceIds || [])).size;
+  const evidenciasAprovadas = new Set(latestResponses.flatMap(r => r.confirmedClientEvidenceIds || [])).size;
 
   const esperadas = (inspection.consultantNames && inspection.consultantNames.length > 0)
     ? inspection.consultantNames

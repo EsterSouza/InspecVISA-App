@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Camera, Eye, Loader2, RefreshCw, WifiOff } from 'lucide-react';
 import type { ChecklistItem, ChecklistTemplate, InspectionResponse, ResponseResult } from '../../types';
 import { InspectionService, type RemoteInspectionSnapshot } from '../../services/inspectionService';
+import { getLatestResponsesByItem } from '../../utils/scoring';
 import { cn } from '../../lib/utils';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
@@ -105,7 +106,24 @@ export function TeamResponsesViewer({ inspectionId, isOpen, onClose, template }:
     setLoading(true);
     setError(null);
     try {
-      setSnapshot(await InspectionService.getRemoteInspectionSnapshot(inspectionId));
+      const result = await InspectionService.getRemoteInspectionSnapshot(inspectionId, {
+        // Texto (situação/ação/prazo) chega e já renderiza — não espera as fotos.
+        onResponses: (partial) => setSnapshot(partial),
+        // Cada foto baixada substitui o "stub" (ainda não baixado) na tela, uma a uma.
+        onPhoto: (photo) => setSnapshot(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            photos: prev.photos.map(p => (p.id === photo.id ? photo : p)),
+            responses: prev.responses.map(response => (
+              response.id === photo.responseId
+                ? { ...response, photos: (response.photos || []).map(p => (p.id === photo.id ? photo : p)) }
+                : response
+            )),
+          };
+        }),
+      });
+      setSnapshot(result);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Não foi possível consultar o preenchimento sincronizado.');
     } finally {
@@ -120,16 +138,17 @@ export function TeamResponsesViewer({ inspectionId, isOpen, onClose, template }:
   }, [isOpen, loadSnapshot]);
 
   const responsesByItem = useMemo(
-    () => new Map((snapshot?.responses || []).map(response => [response.itemId, response])),
+    () => new Map(getLatestResponsesByItem(snapshot?.responses || []).map(response => [response.itemId, response])),
     [snapshot]
   );
   const representedItemIds = useMemo(
     () => new Set((template?.sections || []).flatMap(section => section.items.map(item => item.id))),
     [template]
   );
-  const extraResponses = (snapshot?.responses || []).filter(response => !representedItemIds.has(response.itemId));
-  const answeredCount = snapshot?.responses.length || 0;
-  const notCompliantCount = (snapshot?.responses || []).filter(response => response.result === 'not_complies').length;
+  const latestResponses = useMemo(() => getLatestResponsesByItem(snapshot?.responses || []), [snapshot]);
+  const extraResponses = latestResponses.filter(response => !representedItemIds.has(response.itemId));
+  const answeredCount = latestResponses.length;
+  const notCompliantCount = latestResponses.filter(response => response.result === 'not_complies').length;
   const totalTemplateItems = (template?.sections || []).reduce((total, section) => total + section.items.length, 0);
   const answeredTemplateItems = Array.from(representedItemIds).filter(itemId => responsesByItem.has(itemId)).length;
   const pendingCount = Math.max(totalTemplateItems - answeredTemplateItems, 0);
