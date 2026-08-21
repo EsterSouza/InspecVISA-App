@@ -1256,10 +1256,9 @@ export function InspectionExecution() {
       tone: 'default',
     });
     if (!ok) return;
-    const updates: Partial<Inspection> = { status: 'in_progress' as const, completedAt: undefined };
     try {
-      await InspectionService.updateInspection(currentInspection.id, updates);
-      setCurrentInspection({ ...currentInspection, ...updates });
+      await InspectionService.reopenInspection(currentInspection.id);
+      setCurrentInspection({ ...currentInspection, status: 'in_progress', completedAt: undefined });
     } catch (err) {
       toast.error('Erro ao reabrir inspeção', String(err));
     }

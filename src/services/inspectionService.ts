@@ -540,6 +540,28 @@ export const InspectionService = {
     await RepositoryService.upsert('inspections', updated, db.inspections, mapToPostgres);
   },
 
+  /**
+   * Único caminho que pode tirar uma inspeção de `completed`. Um autosave desatualizado
+   * (outro dispositivo/aba com a inspeção aberta de antes do encerramento) não pode mais
+   * fazer isso sozinho — o gatilho `guard_completed_inspection_status` bloqueia a escrita
+   * direta. Ver migration 20260821222348.
+   */
+  async reopenInspection(id: string): Promise<void> {
+    const { error } = await supabase.rpc('reopen_inspection', { p_inspection_id: id });
+    if (error) throw new Error(error.message || 'Falha ao reabrir a inspecao no servidor.');
+
+    const local = await db.inspections.get(id);
+    if (local) {
+      await db.inspections.put({
+        ...local,
+        status: 'in_progress',
+        completedAt: undefined,
+        updatedAt: new Date(),
+        syncStatus: 'synced',
+      });
+    }
+  },
+
   async deleteInspection(id: string): Promise<void> {
     const local = await db.inspections.get(id);
     if (!belongsToActiveTenant(local)) return;
