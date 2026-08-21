@@ -35,14 +35,22 @@ export interface ParsedCheckpoints {
 const MARKER = /^[ \t]*(?:[-–—•*]|\(?\d{1,2}[).])(?:[ \t]+|[ \t]*$)/;
 
 /**
- * Os verbos dos botões de atalho da tela de inspeção (`Providenciar`, `Substituir`…).
+ * Os verbos dos botões de atalho da ação corretiva, na ordem em que aparecem na tela.
  *
- * Cada clique escreve `- Verbo ` e espera o complemento. Clicando em dois seguidos, o
- * primeiro fica pendurado sozinho na linha — e viraria uma tarefa chamada só "Abolir",
- * que não diz ao cliente o que fazer. É clique abandonado, não coisa que ela escreveu.
+ * Cada clique escreve `- Verbo ` e espera o complemento. A tela lê a lista daqui para que
+ * o que ela oferece e o que este arquivo reconhece não possam divergir.
  */
-const ATALHOS = new Set(['providenciar', 'substituir', 'implementar', 'abolir', 'adequar']);
+export const VERBOS_DE_ATALHO = ['Providenciar', 'Substituir', 'Implementar', 'Abolir', 'Adequar'] as const;
 
+const ATALHOS = new Set<string>(VERBOS_DE_ATALHO.map((verbo) => verbo.toLowerCase()));
+
+/**
+ * Verbo de atalho que ficou sozinho na linha, sem o complemento que ele espera.
+ *
+ * Acontece ao clicar em dois botões seguidos: o primeiro fica pendurado e viraria uma
+ * tarefa chamada só "Abolir", que não diz ao cliente o que fazer. É clique abandonado,
+ * não coisa que ela escreveu.
+ */
 function ehAtalhoAbandonado(point: string): boolean {
   return ATALHOS.has(point.trim().toLowerCase().replace(/[.:;,]+$/, ''));
 }

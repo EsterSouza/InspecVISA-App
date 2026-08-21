@@ -22,10 +22,22 @@ import {
   type ClientEvidenceForItem,
 } from '../../services/clientEvidenceService';
 import { getFieldSuggestions, type FieldSuggestions } from '../../utils/textSuggestions';
-import { parseCheckpoints } from '../../utils/actionCheckpoints';
+import { parseCheckpoints, VERBOS_DE_ATALHO } from '../../utils/actionCheckpoints';
 import { legislationUrlForItem } from '../../utils/legislationRefs';
 import { VoiceDictationButton } from './VoiceDictationButton';
 import { toast } from '../../store/useToastStore';
+
+/**
+ * O verbo de atalho que ela abriu por último e ainda não completou, no fim do texto.
+ *
+ * Só o último: um tópico já escrito acima nunca pode ser reescrito por um clique de
+ * botão — o texto é a identidade do tópico no portal, e mudá-lo faria o cliente perder
+ * o que já tivesse marcado ali.
+ */
+const ATALHO_PENDURADO = new RegExp(
+  `(^|\\n)[ \\t]*-[ \\t]*(?:${VERBOS_DE_ATALHO.join('|')})[ \\t]*$`,
+  'i'
+);
 
 function isInlineImage(value?: string | null) {
   return /^data:image\/(jpeg|jpg|png|webp);base64,/i.test(value || '');
@@ -753,11 +765,14 @@ export const ChecklistItem = memo(function ChecklistItem({
             </div>
             {isNotCompliant && (
               <div className="flex gap-1.5 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] lg:flex-wrap lg:overflow-visible [&::-webkit-scrollbar]:hidden">
-                {['Providenciar', 'Substituir', 'Implementar', 'Abolir', 'Adequar'].map((verb) => (
+                {VERBOS_DE_ATALHO.map((verb) => (
                   <button
                     key={verb}
                     onClick={() => {
-                      const current = actionValue.trim();
+                      // Clicar num segundo verbo troca o primeiro, que ficou pendurado
+                      // esperando o complemento — antes ele sobrava sozinho na linha e
+                      // virava uma tarefa chamada só "Abolir" no portal do cliente.
+                      const current = actionValue.trim().replace(ATALHO_PENDURADO, '').trim();
                       const prefix = current ? `${current} \n- ` : '- ';
                       const newVal = `${prefix}${verb} `;
                       setLocalAction(newVal);
