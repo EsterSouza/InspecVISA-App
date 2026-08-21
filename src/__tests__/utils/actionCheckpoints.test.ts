@@ -78,6 +78,28 @@ describe('parseCheckpoints', () => {
     expect(parseCheckpoints(texto).points).toEqual([]);
   });
 
+  test('verbo de atalho pendurado não vira tarefa', () => {
+    // O caso real: ela clicou em "Abolir", depois em "Adequar", e escreveu o texto na
+    // linha seguinte. O botão só escreve `- Verbo ` e espera o complemento; o primeiro
+    // clique ficou pendurado e viraria uma tarefa chamada "Abolir", que não diz nada.
+    const texto = '- Abolir \n- Adequar \nRetirar o pano de pia da área de manipulação.';
+    expect(parseCheckpoints(texto).points).toEqual([
+      'Adequar Retirar o pano de pia da área de manipulação.',
+    ]);
+  });
+
+  test('verbo pendurado sozinho continua aparecendo, para não sumir com o texto dela', () => {
+    // Aqui não há o que preservar além dele: apagar deixaria a ação corretiva vazia no
+    // relatório, que é pior do que um tópico econômico.
+    expect(parseCheckpoints('- Providenciar').points).toEqual(['Providenciar']);
+  });
+
+  test('o verbo com complemento é tarefa como qualquer outra', () => {
+    expect(parseCheckpoints('- Providenciar dispenser de papel toalha').points).toEqual([
+      'Providenciar dispenser de papel toalha',
+    ]);
+  });
+
   test('vazio não quebra', () => {
     expect(parseCheckpoints('')).toEqual({ context: '', points: [] });
     expect(parseCheckpoints(null)).toEqual({ context: '', points: [] });

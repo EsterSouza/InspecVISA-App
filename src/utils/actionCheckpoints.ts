@@ -34,6 +34,19 @@ export interface ParsedCheckpoints {
  */
 const MARKER = /^[ \t]*(?:[-–—•*]|\(?\d{1,2}[).])(?:[ \t]+|[ \t]*$)/;
 
+/**
+ * Os verbos dos botões de atalho da tela de inspeção (`Providenciar`, `Substituir`…).
+ *
+ * Cada clique escreve `- Verbo ` e espera o complemento. Clicando em dois seguidos, o
+ * primeiro fica pendurado sozinho na linha — e viraria uma tarefa chamada só "Abolir",
+ * que não diz ao cliente o que fazer. É clique abandonado, não coisa que ela escreveu.
+ */
+const ATALHOS = new Set(['providenciar', 'substituir', 'implementar', 'abolir', 'adequar']);
+
+function ehAtalhoAbandonado(point: string): boolean {
+  return ATALHOS.has(point.trim().toLowerCase().replace(/[.:;,]+$/, ''));
+}
+
 export function parseCheckpoints(text: string | null | undefined): ParsedCheckpoints {
   const raw = (text || '').trim();
   if (!raw) return { context: '', points: [] };
@@ -54,9 +67,12 @@ export function parseCheckpoints(text: string | null | undefined): ParsedCheckpo
   }
 
   const clean = points.filter(Boolean);
-  if (clean.length === 0) return { context: raw, points: [] };
+  // Verbo de atalho pendurado sai da lista — mas nunca ao ponto de esvaziar o texto dela.
+  const uteis = clean.filter((point) => !ehAtalhoAbandonado(point));
+  const finais = uteis.length > 0 ? uteis : clean;
+  if (finais.length === 0) return { context: raw, points: [] };
 
-  return { context: contextLines.join('\n').trim(), points: clean };
+  return { context: contextLines.join('\n').trim(), points: finais };
 }
 
 /**
