@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Square,
   UserRound,
+  X,
 } from 'lucide-react';
 import type {
   ClientDeclaredStatus,
@@ -136,12 +137,25 @@ interface PortalActionPlanProps {
   defaultAuthorName?: string;
 }
 
+/** O mesmo teto por pendência que a RPC aplica (`private.register_action_evidence`). */
+const MAX_EVIDENCE_PER_ITEM = 10;
+
+interface QueuedEvidence {
+  file: File;
+  uploadKey: string;
+}
+
 /**
  * P360-011 — envio da prova de correção.
  *
  * A `uploadKey` nasce junto com a escolha do arquivo e sobrevive a quantas tentativas forem
  * precisas: é ela que faz o servidor reconhecer o reenvio como o MESMO envio, em vez de
  * empilhar cópias quando a rede cai no meio.
+ *
+ * A escolha é de VÁRIOS arquivos de uma vez: o gestor da casa fotografa o alvará, a parede
+ * refeita e a nota do serviço no mesmo minuto, e antes só a primeira foto entrava — as outras
+ * eram descartadas em silêncio pelo seletor. Cada arquivo vira um envio próprio, em fila, com
+ * a sua chave; o servidor continua recebendo um por vez, do jeito que sempre recebeu.
  */
 function EvidenceUpload({
   item,
@@ -155,51 +169,87 @@ function EvidenceUpload({
   onSubmitEvidence: SubmitEvidenceHandler;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [file, setFile] = useState<File | null>(null);
-  const [uploadKey, setUploadKey] = useState<string>('');
+  const [queue, setQueue] = useState<QueuedEvidence[]>([]);
   const [note, setNote] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const busy = progress !== null;
 
-  const reset = () => {
-    setFile(null);
-    setUploadKey('');
-    setNote('');
-    setError(null);
+  const clearInput = () => {
+    // Sem isto, escolher de novo a MESMA foto não dispara o `change`.
     if (inputRef.current) inputRef.current.value = '';
   };
 
-  const handleChoose = (chosen: File | undefined) => {
-    if (!chosen) return;
-    const check = checkEvidenceFile(chosen);
-    if (!check.ok) {
-      setFile(null);
-      setError(check.message ?? 'Arquivo não aceito.');
+  const reset = () => {
+    setQueue([]);
+    setNote('');
+    setError(null);
+    clearInput();
+  };
+
+  const handleChoose = (chosen: FileList | null) => {
+    const picked = Array.from(chosen ?? []);
+    clearInput();
+    if (!picked.length) return;
+
+    const room = MAX_EVIDENCE_PER_ITEM - item.evidence_count - queue.length;
+    if (room <= 0) {
+      setError(`Esta pendência já chegou ao limite de ${MAX_EVIDENCE_PER_ITEM} arquivos.`);
       return;
     }
+
+    const accepted: QueuedEvidence[] = [];
+    const problems: string[] = [];
+    for (const file of picked) {
+      if (accepted.length >= room) {
+        problems.push(`Só cabem mais ${room} arquivo(s) nesta pendência (limite de ${MAX_EVIDENCE_PER_ITEM}).`);
+        break;
+      }
+      const check = checkEvidenceFile(file);
+      if (check.ok) {
+        accepted.push({ file, uploadKey: crypto.randomUUID() });
+      } else {
+        // Com um arquivo só, a mensagem é a da checagem, sem prefixo — é o caso comum.
+        problems.push(picked.length > 1 ? `${file.name}: ${check.message}` : (check.message ?? 'Arquivo não aceito.'));
+      }
+    }
+
+    if (accepted.length) setQueue((prev) => [...prev, ...accepted]);
+    setError(problems.length ? problems.join(' ') : null);
+  };
+
+  const handleRemove = (uploadKey: string) => {
+    setQueue((prev) => prev.filter((entry) => entry.uploadKey !== uploadKey));
     setError(null);
-    setFile(chosen);
-    setUploadKey(crypto.randomUUID());
   };
 
   const handleSend = async () => {
-    if (!file || busy) return;
-    setBusy(true);
+    if (!queue.length || busy) return;
+    const batch = queue;
+    let done = 0;
     setError(null);
+    setProgress({ done, total: batch.length });
     try {
-      await onSubmitEvidence({
-        item,
-        file,
-        uploadKey,
-        note: note.trim(),
-        byName: author.byName.trim(),
-        byRole: author.byRole.trim(),
-      });
+      for (const entry of batch) {
+        await onSubmitEvidence({
+          item,
+          file: entry.file,
+          uploadKey: entry.uploadKey,
+          note: note.trim(),
+          byName: author.byName.trim(),
+          byRole: author.byRole.trim(),
+        });
+        done += 1;
+        // O que já subiu sai da fila: se o próximo falhar, o cliente reenvia só o que faltou.
+        setQueue((prev) => prev.filter((queued) => queued.uploadKey !== entry.uploadKey));
+        setProgress({ done, total: batch.length });
+      }
       reset();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível enviar agora. Tente de novo.');
+      const message = err instanceof Error ? err.message : 'Não foi possível enviar agora. Tente de novo.';
+      setError(done > 0 ? `${done} de ${batch.length} arquivos foram enviados. ${message}` : message);
     } finally {
-      setBusy(false);
+      setProgress(null);
     }
   };
 
@@ -211,13 +261,14 @@ function EvidenceUpload({
       <input
         ref={inputRef}
         type="file"
+        multiple
         accept={EVIDENCE_ACCEPT_ATTRIBUTE}
         className="hidden"
-        onChange={(e) => handleChoose(e.target.files?.[0])}
+        onChange={(e) => handleChoose(e.target.files)}
         data-testid={`evidence-input-${item.id}`}
       />
 
-      {!file ? (
+      {!queue.length ? (
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -227,14 +278,35 @@ function EvidenceUpload({
             {alreadySent ? <RefreshCw className="h-3.5 w-3.5" /> : <Paperclip className="h-3.5 w-3.5" />}
             {alreadySent ? 'Enviar outra evidência' : 'Enviar evidência'}
           </button>
-          <span className="text-[11px] text-navy-3">{EVIDENCE_LIMITS_LABEL}</span>
+          <span className="text-[11px] text-navy-3">{EVIDENCE_LIMITS_LABEL} — pode escolher várias</span>
         </div>
       ) : (
         <div className="space-y-2">
-          <p className="flex items-center gap-1.5 text-xs text-navy-2">
-            <Paperclip className="h-3.5 w-3.5 text-navy-3" />
-            <span className="font-medium">{file.name}</span>
-          </p>
+          <ul className="space-y-1">
+            {queue.map((entry) => (
+              <li key={entry.uploadKey} className="flex items-center gap-1.5 text-xs text-navy-2">
+                <Paperclip className="h-3.5 w-3.5 shrink-0 text-navy-3" />
+                <span className="min-w-0 flex-1 truncate font-medium">{entry.file.name}</span>
+                <button
+                  type="button"
+                  onClick={() => handleRemove(entry.uploadKey)}
+                  disabled={busy}
+                  aria-label={`Tirar ${entry.file.name} da lista`}
+                  className="shrink-0 rounded p-1 text-navy-3 hover:bg-surface-hover hover:text-navy disabled:opacity-60"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            disabled={busy}
+            className="inline-flex items-center gap-1.5 rounded-md border border-primary-200 bg-primary-50 px-2.5 py-1.5 text-[11px] font-semibold text-primary-700 hover:bg-primary-100 disabled:opacity-60 [@media(pointer:coarse)]:min-h-11"
+          >
+            <Paperclip className="h-3.5 w-3.5" /> Adicionar mais arquivos
+          </button>
           <Textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
@@ -275,7 +347,11 @@ function EvidenceUpload({
               className="inline-flex items-center gap-1.5 rounded-md bg-primary-700 px-3 py-1.5 text-xs font-semibold text-on-accent hover:bg-primary-800 disabled:opacity-60"
             >
               {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Paperclip className="h-3.5 w-3.5" />}
-              {busy ? 'Enviando...' : 'Enviar para a consultoria'}
+              {progress
+                ? progress.total > 1
+                  ? `Enviando ${Math.min(progress.done + 1, progress.total)} de ${progress.total}...`
+                  : 'Enviando...'
+                : `Enviar para a consultoria${queue.length > 1 ? ` (${queue.length} arquivos)` : ''}`}
             </button>
             <button
               type="button"

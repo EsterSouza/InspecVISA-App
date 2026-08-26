@@ -277,6 +277,84 @@ describe('P360-011 - evidência no plano de ação do cliente', () => {
     expect(call.byRole).toBe('');
   });
 
+  // O cliente fotografa o alvará, a parede refeita e a nota do serviço no mesmo minuto. Antes,
+  // o seletor aceitava só a primeira e descartava as outras em silêncio — daí o "não consigo
+  // enviar mais de uma foto".
+  test('escolher várias fotos de uma vez envia todas, cada uma com a sua chave', async () => {
+    const onSubmitEvidence = vi.fn().mockResolvedValue(undefined);
+    const item = actionItem();
+    render(<PortalActionPlan items={[item]} onSubmitEvidence={onSubmitEvidence} />);
+
+    const input = screen.getByTestId(`evidence-input-${item.id}`) as HTMLInputElement;
+    await userEvent.setup({ applyAccept: false }).upload(input, [
+      new File(['\xff\xd8\xff'], 'alvara.jpg', { type: 'image/jpeg' }),
+      new File(['\xff\xd8\xff'], 'parede.jpg', { type: 'image/jpeg' }),
+      new File(['%PDF-1.4'], 'nota.pdf', { type: 'application/pdf' }),
+    ]);
+
+    await userEvent.click(screen.getByRole('button', { name: /Enviar para a consultoria/ }));
+
+    expect(onSubmitEvidence).toHaveBeenCalledTimes(3);
+    const names = onSubmitEvidence.mock.calls.map((call) => call[0].file.name);
+    expect(names).toEqual(['alvara.jpg', 'parede.jpg', 'nota.pdf']);
+    const keys = new Set(onSubmitEvidence.mock.calls.map((call) => call[0].uploadKey));
+    expect(keys.size).toBe(3);
+  });
+
+  test('numa leva com arquivo inválido, os válidos entram e o recusado é nomeado', async () => {
+    const onSubmitEvidence = vi.fn().mockResolvedValue(undefined);
+    const item = actionItem();
+    render(<PortalActionPlan items={[item]} onSubmitEvidence={onSubmitEvidence} />);
+
+    const input = screen.getByTestId(`evidence-input-${item.id}`) as HTMLInputElement;
+    await userEvent.setup({ applyAccept: false }).upload(input, [
+      new File(['\xff\xd8\xff'], 'alvara.jpg', { type: 'image/jpeg' }),
+      new File(['MZ'], 'planilha.xlsx', { type: 'application/vnd.ms-excel' }),
+    ]);
+
+    expect(screen.getByText(/planilha\.xlsx: Formato não aceito/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /Enviar para a consultoria/ }));
+    expect(onSubmitEvidence).toHaveBeenCalledTimes(1);
+    expect(onSubmitEvidence.mock.calls[0][0].file.name).toBe('alvara.jpg');
+  });
+
+  test('falha no meio da leva preserva o que ainda não subiu', async () => {
+    const onSubmitEvidence = vi
+      .fn()
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValue(new Error('nao foi possivel guardar o arquivo agora'));
+    const item = actionItem();
+    render(<PortalActionPlan items={[item]} onSubmitEvidence={onSubmitEvidence} />);
+
+    const input = screen.getByTestId(`evidence-input-${item.id}`) as HTMLInputElement;
+    await userEvent.setup({ applyAccept: false }).upload(input, [
+      new File(['\xff\xd8\xff'], 'alvara.jpg', { type: 'image/jpeg' }),
+      new File(['\xff\xd8\xff'], 'parede.jpg', { type: 'image/jpeg' }),
+    ]);
+    await userEvent.click(screen.getByRole('button', { name: /Enviar para a consultoria/ }));
+
+    expect(screen.getByText(/1 de 2 arquivos foram enviados/)).toBeInTheDocument();
+    // O que subiu sai da lista; o que faltou continua lá para o cliente tentar de novo.
+    expect(screen.queryByText('alvara.jpg')).not.toBeInTheDocument();
+    expect(screen.getByText('parede.jpg')).toBeInTheDocument();
+  });
+
+  test('não deixa passar do teto de 10 arquivos por pendência', async () => {
+    const onSubmitEvidence = vi.fn().mockResolvedValue(undefined);
+    const item = actionItem({ evidence_count: 9 });
+    render(<PortalActionPlan items={[item]} onSubmitEvidence={onSubmitEvidence} />);
+
+    const input = screen.getByTestId(`evidence-input-${item.id}`) as HTMLInputElement;
+    await userEvent.setup({ applyAccept: false }).upload(input, [
+      new File(['\xff\xd8\xff'], 'foto-1.jpg', { type: 'image/jpeg' }),
+      new File(['\xff\xd8\xff'], 'foto-2.jpg', { type: 'image/jpeg' }),
+    ]);
+
+    expect(screen.getByText(/Só cabem mais 1 arquivo/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /Enviar para a consultoria/ }));
+    expect(onSubmitEvidence).toHaveBeenCalledTimes(1);
+  });
+
   test('pré-preenche "Seu nome" com o nome padrão quando não há assinatura salva', async () => {
     const item = actionItem();
     render(
