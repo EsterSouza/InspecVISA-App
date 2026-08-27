@@ -10,8 +10,8 @@
 
 ## Onde estamos
 
-**COND-01 a COND-05 entregues** (COND-01/02 em 16/08/2026; COND-03 em 18/08/2026; COND-04 em
-19/08/2026; COND-05 em 20/08/2026), com as **4 decisões de produto tomadas** pela Ester
+**COND-01 a COND-06 entregues** (COND-01/02 em 16/08/2026; COND-03 em 18/08/2026; COND-04 em
+19/08/2026; COND-05 em 20/08/2026; COND-06 em 27/08/2026), com as **4 decisões de produto tomadas** pela Ester
 ([contrato § 10](contrato-aplicabilidade.md)) — inclusive a de que existe **uma árvore só**, com o
 papel virando filtro de exibição. O motor declarativo existe e é testado isoladamente em
 `src/domain/applicability/`. O COND-03 fez a execução parar de manter duas árvores, congelou a
@@ -23,7 +23,11 @@ aplicabilidade ainda não é consultado**: a árvore congelada tem `rules`/`rout
 até o COND-06 criar a primeira revisão. O COND-05 fechou o outro lado da ponte: a pergunta de
 roteamento tem tipo, momento (wizard × campo), opção estável e obrigatoriedade; a inspeção nasce com
 o **contexto congelado** e com o vínculo da revisão publicada; e o wizard já pergunta o que dá para
-saber antes da visita. Próximo é o `COND-06`.
+saber antes da visita. O COND-06 abriu a porta: o editor de roteiro ganhou o construtor de
+condições, o painel de perguntas de roteamento e as travas do ciclo de vida — **a primeira revisão
+já pode ser criada e publicada pela tela**. O que continua faltando é o outro lado: a execução
+ainda não consulta o motor (`COND-08`), então publicar condição hoje muda o que a revisão
+**guarda**, não ainda o que a inspeção **mostra**. Próximo é o `COND-07`.
 
 | Card | O que é | Modelo | Esforço | Depois de |
 |---|---|---|---|---|
@@ -32,7 +36,7 @@ saber antes da visita. Próximo é o `COND-06`.
 | ~~**COND-03**~~ ✅ | `EffectiveTemplate` canônico + **congelamento na criação da inspeção** · uma árvore só | Opus 5 | alto | COND-02 |
 | ~~**COND-04**~~ ✅ | Persistência, revisão, RLS e compatibilidade · `checklist_template_revisions` (rascunho × publicada) | Opus 5 | alto | COND-03 |
 | ~~**COND-05**~~ ✅ | Perguntas de roteamento e contexto congelado · `domain/applicability/routing.ts`, `context.ts`, wizard | Opus 5 | médio-alto | COND-04 |
-| **COND-06** | Editor visual **com o ciclo de vida junto** | Opus 5 | alto | COND-05 |
+| ~~**COND-06**~~ ✅ | Editor visual **com o ciclo de vida junto** · `domain/applicability/authoring.ts`, `components/templates/` | Opus 5 | alto | COND-05 |
 | **COND-07** | Simulador e gate de publicação | Sonnet 5 | médio-alto | COND-06 |
 | **COND-08** | Execução adaptativa offline e colaborativa | Opus 5 | **muito alto** | COND-03 · COND-05 · COND-07 |
 | **COND-09** | Score, progresso, summary, PDF, referências e plano de ação | Opus 5 | **muito alto** | COND-08 |
@@ -855,6 +859,66 @@ segue com os três blocos de sempre.
    aparece em campo). Sem migration, de propósito.
 
 **Desbloqueia:** `COND-06`.
+
+### COND-06 · 27/08/2026 · Opus 5
+
+**Entregue.** O editor de roteiro passou a criar e publicar revisão de aplicabilidade. Até aqui
+`checklist_template_revisions` estava vazia e o motor não era consultado por ninguém; agora existe
+o caminho pela tela — **nada muda para inspeção que já roda**, porque quem lê a revisão na execução
+ainda é o `COND-08`.
+
+**O ciclo de vida nasceu junto, como o card exigia.** Não é card no fim: duplicar, aposentar e
+excluir opção foram escritos com o editor, não depois dele.
+
+| Operação | O que acontece | Por quê |
+|---|---|---|
+| Aposentar pergunta controladora | **Bloqueada** enquanto houver regra dependente | a regra ficaria apontando para pergunta que ninguém responde: o alvo cairia em `pendente_de_condicao` para sempre |
+| Excluir opção citada por regra | **Bloqueada** | vira `unknown_option`, e a consultora só descobriria na hora de publicar |
+| Excluir pergunta | **Bloqueada** com dependente (mesma trava) | idem |
+| Remover seção ou item com condição | **Permitida, nunca calada**: a confirmação lista as condições que saem junto | remover item é operação legítima; o que não pode é a regra virar órfã em silêncio |
+| Duplicar seção / item | A cópia recebe **id novo** em seção, item e regra, e a regra copiada é reescrita para o alvo da cópia | cópia que herda id edita o que já está em inspeção |
+| Reordenar | Não toca em regra nenhuma | a regra guarda id, não posição |
+| Reescrever pergunta ou rótulo de opção | Não toca em regra nenhuma | a regra guarda id, não texto (regra 4 do handoff) |
+
+**Arquivos criados:**
+
+| Arquivo | O que é |
+|---|---|
+| `src/domain/applicability/authoring.ts` | puro: resumo em linguagem humana (`describeRule`), quem depende de quem, as duas travas, e a duplicação que remapeia id |
+| `src/components/templates/useApplicabilityDraft.ts` | estado da tela: carrega rascunho (ou parte da publicada), salva sem validar, publica com validação |
+| `src/components/templates/ApplicabilityFieldset.tsx` | o construtor: `( ) Sempre aplicável` · `( ) Aplicável sob condição`, operador compatível com o tipo, `TODAS`/`QUALQUER`, `else`, resumo |
+| `src/components/templates/RoutingQuestionsPanel.tsx` | as perguntas de roteamento, as opções e a lista de quem depende de cada uma |
+| `src/__tests__/domain/applicabilityAuthoring.test.ts` | 28 casos |
+| `src/__tests__/components/ApplicabilityEditor.test.tsx` | 15 casos |
+
+**Arquivos alterados:** `src/domain/applicability/index.ts` (superfície pública do COND-06) ·
+`src/pages/admin/TemplateEditor.tsx` (seção passa a ser selecionável, índice anuncia
+`N itens · Condicional`, duplicar seção, travas na remoção, painel e barra de publicação) ·
+este handoff · `docs/mapa-paginas-admin.md`.
+
+**Decisões de projeto tomadas dentro do card:**
+
+1. **"Sempre aplicável" é a ausência de regra**, não uma regra que diz sim. O validador acusa
+   `duplicate_rule_target`, então o modelo da tela é alvo → regra ou nada.
+2. **O `else` se anuncia como caminho complementar**, nunca como "o resto": a frase é *"Exibida
+   quando não for o caso: …"*. Indeterminado continua indeterminado nos dois lados (contrato § 5.3).
+3. **Trocar a fonte troca o operador** quando ele deixa de caber (texto não tem "maior que"), em
+   vez de deixar regra impossível na tela esperando o gate recusar.
+4. **Publicar salva a árvore antes.** A validação roda contra o que está **no banco**: regra que
+   mira item ainda não salvo seria referência órfã. Por isso `handlePublish` persiste o roteiro e o
+   rascunho antes de chamar `publishDraft`.
+5. **Pergunta com opção nunca vira campo livre.** O valor guardado é o id da opção — digitar à mão
+   é exatamente como nasce `unknown_option`.
+
+**Testes:** 43 casos novos (28 de domínio, 15 de componente). Suíte inteira **687 → 702, todos
+verdes**, 0 regressão. `npx tsc -b` limpo · `npm run build` limpo · `npm run lint` limpo.
+
+**Ficou deliberadamente de fora:** o simulador e o gate visual com explicação de cada erro
+(`COND-07` — aqui a recusa da publicação lista os problemas, mas não deixa testar o roteiro sem
+criar inspeção); a execução consultar o motor (`COND-08`); e o **importador continua não criando
+condicional**, como o card determina — importa item, a regra é configurada depois.
+
+**Desbloqueia:** `COND-07`.
 
 ## Relacionados
 
