@@ -314,7 +314,6 @@ export const ChecklistItem = memo(function ChecklistItem({
     const prev = previousResult.current;
     const curr = response?.result;
     if (curr === 'not_complies' && prev !== 'not_complies') {
-      setShowObs(true);
       if (stashedNCTextRef.current && !response?.situationDescription && !response?.correctiveAction) {
         onUpdateDetails(item.id, { ...stashedNCTextRef.current });
       }
@@ -324,13 +323,11 @@ export const ChecklistItem = memo(function ChecklistItem({
       const correctiveAction = response?.correctiveAction || '';
       if (situationDescription || correctiveAction) {
         stashedNCTextRef.current = { situationDescription, correctiveAction };
-        setLocalSituation('');
-        setLocalAction('');
         onUpdateDetails(item.id, { situationDescription: '', correctiveAction: '' });
       }
     }
     previousResult.current = curr;
-  }, [response?.result, item.id, onUpdateDetails]);
+  }, [response?.result, response?.situationDescription, response?.correctiveAction, item.id, onUpdateDetails]);
 
   // Sugestões do próprio histórico deste item: busca preguiçosa, só quando a
   // consultora abre a seção de observações — evita consultar o Dexie pra cada
@@ -634,7 +631,14 @@ export const ChecklistItem = memo(function ChecklistItem({
               type="button"
               aria-pressed={selected}
               aria-label={label}
-              onClick={() => onChange(item.id, value)}
+              onClick={() => {
+                if (value === 'not_complies') setShowObs(true);
+                if (response?.result === 'not_complies' && value !== 'not_complies') {
+                  setLocalSituation('');
+                  setLocalAction('');
+                }
+                onChange(item.id, value);
+              }}
               className={cn(
                 'flex h-[46px] flex-1 flex-col items-center justify-center rounded-none border-r border-default px-1 text-center text-xs font-bold leading-[1.15] last:border-r-0',
                 'lg:h-[52px] lg:flex-row lg:gap-1.5 lg:rounded-md lg:border lg:px-2 lg:text-[13px] lg:font-semibold',

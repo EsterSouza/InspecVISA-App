@@ -27,6 +27,26 @@ function baseResponse(overrides: Partial<InspectionResponse>): InspectionRespons
 }
 
 describe('texto de não conformidade some ao marcar CUMPRE e volta ao desmarcar', () => {
+  test('abre os detalhes ao clicar em NÃO CUMPRE', () => {
+    const onChange = vi.fn();
+
+    render(
+      <ChecklistItem
+        item={item}
+        response={baseResponse({ result: 'complies' })}
+        onChange={onChange}
+        onUpdateDetails={vi.fn()}
+        onAddPhoto={vi.fn()}
+        onRemovePhoto={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Não cumpre' }));
+
+    expect(onChange).toHaveBeenCalledWith(item.id, 'not_complies');
+    expect(screen.getByRole('button', { name: 'Recolher' })).toBeInTheDocument();
+  });
+
   test('sai da tela e do relatório ao virar CUMPRE, e volta se apertar NÃO CUMPRE de novo', () => {
     const onUpdateDetails = vi.fn();
 
