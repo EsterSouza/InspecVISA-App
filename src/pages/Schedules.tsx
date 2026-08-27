@@ -450,7 +450,6 @@ export function Schedules() {
     <PageShell>
       <PageHeader
         title="Agendamentos"
-        description="Organize suas próximas inspeções e auditorias."
         actions={
           activeTab === 'agenda' && (
             <Button onClick={() => openNewSchedule()}>

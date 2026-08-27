@@ -128,7 +128,6 @@ export function SmartImporter() {
     <PageShell className="space-y-6">
       <PageHeader
         title="Importador Inteligente"
-        description="Transforme documentos PDF, Word ou Excel em roteiros digitais."
         actions={<Button variant="outline" onClick={() => navigate('/templates')}>Cancelar</Button>}
       />
 

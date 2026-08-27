@@ -63,7 +63,7 @@ function buildServiceDateItems(visits: PortalAppointmentVisit[], units: ClientPo
       items.push({
         key: `${unit.client_id}-sanitary-folder`,
         date: unit.personalized_sanitary_folder_expected_delivery_date.split('T')[0],
-        label: 'Pasta sanitária personalizada — previsão de entrega',
+        label: 'Pasta sanitária personalizada: previsão de entrega',
         unitName: unit.client_name,
         city: unit.city,
         icon: 'folder',

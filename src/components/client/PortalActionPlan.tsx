@@ -278,7 +278,7 @@ function EvidenceUpload({
             {alreadySent ? <RefreshCw className="h-3.5 w-3.5" /> : <Paperclip className="h-3.5 w-3.5" />}
             {alreadySent ? 'Enviar outra evidência' : 'Enviar evidência'}
           </button>
-          <span className="text-[11px] text-navy-3">{EVIDENCE_LIMITS_LABEL} — pode escolher várias</span>
+          <span className="text-[11px] text-navy-3">{EVIDENCE_LIMITS_LABEL}. Pode escolher várias.</span>
         </div>
       ) : (
         <div className="space-y-2">
@@ -895,9 +895,8 @@ export function PortalActionPlan({
           <ClipboardList className="h-4 w-4 text-primary-700" /> Plano de ação
         </h3>
         <p className="rounded-lg border border-dashed border-default bg-surface-sunken p-3 text-xs text-navy-2">
-          Nenhuma pendência publicada para esta unidade ainda. Assim que a consultoria publicar o
-          plano de ação desta inspeção, ele aparece aqui — e é por aqui que você responde o que já
-          foi corrigido, anexa a evidência ou avisa o que ainda não deu para fazer.
+          Nenhuma pendência publicada para esta unidade ainda. Quando a consultoria publicar o
+          plano de ação, você responde por aqui.
         </p>
       </section>
     );

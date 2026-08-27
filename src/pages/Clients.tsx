@@ -213,7 +213,6 @@ export function Clients() {
     <PageShell>
       <PageHeader
         title="Clientes"
-        description="Gerencie seus estabelecimentos."
         actions={
           <>
             {!isOnline && (
@@ -337,7 +336,7 @@ export function Clients() {
             <EmptyState
               icon={<FilterX className="h-8 w-8" />}
               title="Nada com este filtro"
-              description="Nenhum cliente encontrado para a busca ou categoria atual. O cadastro pode existir, só está escondido."
+              description="Nenhum cliente para a busca ou categoria atual."
               action={
                 <Button size="sm" variant="outline" onClick={() => { setSearch(''); setFilterCat('all'); }}>
                   Limpar filtros

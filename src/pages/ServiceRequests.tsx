@@ -569,7 +569,7 @@ export function ServiceRequests() {
             <Headset className="h-6 w-6 text-primary-700" /> Solicitações
           </span>
         }
-        description="Demandas abertas pelos clientes no portal. Não são agendamentos: aqui não há data nem duração, só o que alguém pediu e em que pé está."
+        description="Pedidos do portal que não são agendamento."
         actions={
           <button
             type="button"
@@ -723,7 +723,7 @@ export function ServiceRequests() {
                       <EmptyState
                         icon={<FilterX className="h-8 w-8" />}
                         title="Nada com este filtro"
-                        description="Nenhum resultado para os filtros atuais. O dado pode existir, só está escondido."
+                        description="Nenhum resultado para os filtros atuais."
                         action={
                           <Button
                             size="sm"

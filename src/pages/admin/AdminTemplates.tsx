@@ -127,7 +127,6 @@ export function AdminTemplates() {
       <div className="space-y-6">
       <PageHeader
         title="Roteiros de Inspeção"
-        description="Gerencie e importe novos modelos (ROIs) para as consultoras."
         actions={
           <div className="flex space-x-3 w-full sm:w-auto">
             <Button onClick={() => navigate('/templates/import')} variant="outline">

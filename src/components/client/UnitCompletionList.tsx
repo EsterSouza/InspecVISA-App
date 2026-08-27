@@ -27,10 +27,10 @@ export function UnitCompletionList({ stats, onSelect, shareUrlByUnit }: UnitComp
           <Link2 className="mt-0.5 h-3 w-3 shrink-0" />
           <span>
             {onSelect && shareUrlByUnit
-              ? <>Clique no nome pra ver as pendências dessa unidade aqui embaixo. <strong className="font-semibold text-navy">Link</strong> copia um endereço público e sem senha do plano de ação dela — pode mandar pro gestor da unidade, sem dar acesso à conta inteira.</>
+              ? <>Clique no nome pra ver as pendências dessa unidade aqui embaixo. <strong className="font-semibold text-navy">Link</strong> copia um endereço do plano de ação dela, público e sem senha: dá pra mandar pro gestor da unidade sem abrir a conta inteira.</>
               : onSelect
                 ? 'Clique no nome pra ver as pendências dessa unidade aqui embaixo.'
-                : <><strong className="font-semibold text-navy">Link</strong> copia um endereço público e sem senha do plano de ação da unidade — pode mandar pro gestor dela, sem dar acesso à conta inteira.</>}
+                : <><strong className="font-semibold text-navy">Link</strong> copia um endereço do plano de ação da unidade, público e sem senha: dá pra mandar pro gestor dela sem abrir a conta inteira.</>}
           </span>
         </p>
       )}

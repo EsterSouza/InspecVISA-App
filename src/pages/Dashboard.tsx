@@ -335,7 +335,6 @@ export function Dashboard() {
     <PageShell>
       <PageHeader
         title={`Olá, ${firstName}`}
-        description="Seu painel de trabalho para priorizar visitas, continuar inspeções e revisar pontos críticos."
         actions={
           <>
             <Button variant="outline" onClick={() => navigate('/schedules')} className="h-11">

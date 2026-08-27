@@ -155,7 +155,7 @@ export function Settings() {
   return (
     <PageShell className="space-y-6">
       <div>
-        <PageHeader title="Configurações" description="Cada seção salva sozinha — não existe um botão único no fim da página." />
+        <PageHeader title="Configurações" description="Cada seção salva sozinha." />
         {loadStatus === 'loading' && (
           <p className="-mt-4 mb-2 text-xs text-primary-600">Carregando perfil salvo na nuvem...</p>
         )}

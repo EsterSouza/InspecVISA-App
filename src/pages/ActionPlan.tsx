@@ -337,7 +337,6 @@ export function ActionPlan() {
     <PageShell>
       <PageHeader
         title="Plano de ação"
-        description="Uma linha por pendência, com o texto inteiro — sem abrir relatório e sem abrir inspeção."
         actions={
           <Button variant="outline" size="sm" onClick={loadItems} disabled={loading}>
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Atualizar
@@ -395,9 +394,8 @@ export function ActionPlan() {
 
       {segment === 'analise' && (
         <p className="mb-3 text-sm text-navy-3">
-          O que o cliente devolveu e está esperando você: arquivo aguardando revisão, “já corrigiu”
-          declarado ou todos os tópicos marcados. Sai daqui quando você aprova, devolve, resolve ou
-          oculta — e o modal já abre a próxima.
+          O que o cliente devolveu: arquivo para revisar, “já corrigiu” ou todos os tópicos
+          marcados. Sai daqui quando você aprova, devolve, resolve ou oculta.
         </p>
       )}
 

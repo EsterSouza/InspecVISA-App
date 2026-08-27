@@ -125,7 +125,7 @@ export function PortalDocuments({ visits, loading }: PortalDocumentsProps) {
           <EmptyState
             icon={<FileText className="h-8 w-8" />}
             title="Nenhum documento publicado ainda"
-            description="Relatórios, fotos e anexos publicados por visita aparecem aqui, por unidade e data."
+            description="Relatórios, fotos e anexos aparecem aqui depois de publicados."
           />
         ) : (
           <TableContainer className="rounded-xl">

@@ -485,7 +485,6 @@ export function NewInspection() {
 
       <PageHeader
         title="Nova inspeção"
-        description="Escolha o local, o roteiro e confirme os dados da visita."
         actions={!isOnline && (
           <span className="inline-flex items-center gap-2 rounded-md border border-amber-soft-border bg-amber-soft px-3 py-2 text-sm font-medium text-amber-soft-ink">
             <WifiOff className="h-4 w-4" /> Sem conexão — o rascunho fica no aparelho

@@ -197,7 +197,6 @@ export function Inspections() {
     <PageShell>
       <PageHeader
         title="Inspeções"
-        description="Histórico e andamento de avaliações."
         actions={
           <Button onClick={() => navigate('/new')} className="w-full sm:w-auto shadow-md">
             <Plus className="mr-2 h-5 w-5" />

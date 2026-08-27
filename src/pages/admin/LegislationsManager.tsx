@@ -349,7 +349,7 @@ export function LegislationsManager() {
     <PageShell>
       <PageHeader
         title="Biblioteca de Legislação"
-        description="A curadoria daqui é o que o relatório consegue citar. Sem verbete, a norma não é citada em lugar nenhum."
+        description="Sem verbete aqui, a norma não é citada no relatório."
         actions={
           <>
             <Button
@@ -556,7 +556,7 @@ export function LegislationsManager() {
                       <EmptyState
                         icon={<FilterX className="h-8 w-8" />}
                         title="Nada com este filtro"
-                        description="Nenhum resultado para os filtros atuais. A norma pode existir, só está escondida."
+                        description="Nenhum resultado para os filtros atuais."
                         action={
                           <Button size="sm" variant="outline" onClick={() => { setSearch(''); setEsfera(''); setOrgao(''); setAplicaA(''); setMunicipio(''); }}>
                             Limpar filtros

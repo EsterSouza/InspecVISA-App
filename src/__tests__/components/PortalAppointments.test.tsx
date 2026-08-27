@@ -114,7 +114,7 @@ describe('Datas de serviço na agenda do portal', () => {
       visits: [],
       units: [unit({ personalized_sanitary_folder_expected_delivery_date: '2026-08-25' })],
     });
-    expect(screen.getByText('Pasta sanitária personalizada — previsão de entrega')).toBeInTheDocument();
+    expect(screen.getByText('Pasta sanitária personalizada: previsão de entrega')).toBeInTheDocument();
   });
 
   test('não mostra a previsão da pasta quando o link já foi preenchido (pasta entregue)', () => {
@@ -127,7 +127,7 @@ describe('Datas de serviço na agenda do portal', () => {
         }),
       ],
     });
-    expect(screen.queryByText('Pasta sanitária personalizada — previsão de entrega')).not.toBeInTheDocument();
+    expect(screen.queryByText('Pasta sanitária personalizada: previsão de entrega')).not.toBeInTheDocument();
   });
 
   test('marcos de prazo/entrega não entram na contagem de "N visita(s)"', () => {
