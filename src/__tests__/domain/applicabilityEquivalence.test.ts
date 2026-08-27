@@ -50,7 +50,7 @@ test('um ChecklistTemplate real entra direto no motor e, sem regra, sai todo apl
 });
 
 // ════════════════════════════════════════════════════════════
-// Regras 1 e 6 — seções extras de alimentos (+ itens isRJOnly)
+// Regra 1 — seções extras de alimentos por tipo de estabelecimento
 // templates.ts:398 · templates_alimentos_segmentos.ts:865
 // ════════════════════════════════════════════════════════════
 describe('regra 1 e 6 — seções extras por tipo de estabelecimento e itens só do RJ', () => {
@@ -107,7 +107,7 @@ describe('regra 1 e 6 — seções extras por tipo de estabelecimento e itens s�
   );
 
   test('dois tipos ao mesmo tempo trazem as seções dos dois', () => {
-    const escolhidos = ['acougue_peixaria', 'sorveteria'];
+    const escolhidos = ['manipulacao_carnes', 'bebidas_sorvetes'];
     const hardcoded = getExtraSections(escolhidos, 'RJ').map((s) => s.id).sort();
     const motor = aplicavel(template, { tiposDeAlimento: escolhidos, uf: 'RJ' });
     expect(extraSections.filter((s) => motor.secao(s.id)).map((s) => s.id).sort()).toEqual(hardcoded);
@@ -121,6 +121,16 @@ describe('regra 1 e 6 — seções extras por tipo de estabelecimento e itens s�
 // ════════════════════════════════════════════════════════════
 describe('regra 2 — predicado de UF/município dos suplementos regionais', () => {
   const PREDICADOS: Record<string, { expressao: ConditionGroup; clienteQueCasa: Client }> = {
+    ' (+ Suplemento Alimentos — Rio de Janeiro)': {
+      expressao: {
+        combinator: 'all',
+        conditions: [
+          { source: 'context', field: 'uf', operator: 'equals', value: 'RJ' },
+          { source: 'context', field: 'municipio', operator: 'equals', value: 'rio de janeiro' },
+        ],
+      },
+      clienteQueCasa: cliente('RJ', 'Rio de Janeiro'),
+    },
     ' (+ Suplemento São Paulo Capital)': {
       expressao: {
         combinator: 'all',
@@ -151,7 +161,8 @@ describe('regra 2 — predicado de UF/município dos suplementos regionais', () 
     },
   };
 
-  const BASES = ['tpl-estetica-clinica-v1', 'tpl-ilpi-federal-v1'].map((id) => getTemplateById(id) as ChecklistTemplate);
+  const BASES = ['tpl-estetica-clinica-v1', 'tpl-ilpi-federal-v1', 'tpl-alimentos-federal-v1']
+    .map((id) => getTemplateById(id) as ChecklistTemplate);
 
   const CLIENTES: Client[] = [
     cliente('SP', 'São Paulo'),
@@ -355,7 +366,7 @@ describe('divergências deliberadas do código hardcoded', () => {
     expect(semUf.estadoDoItem('i-rj')).toBe('pendente_de_condicao');
 
     // getExtraSections com UF desconhecida simplesmente some com o item:
-    const itens = getExtraSections(['sorveteria'], undefined).flatMap((s) => s.items.map((i) => i.id));
+    const itens = getExtraSections(['bebidas_sorvetes'], undefined).flatMap((s) => s.items.map((i) => i.id));
     expect(itens).not.toContain('sor-003');
     expect(itens).toContain('sor-002');
   });

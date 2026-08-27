@@ -13,6 +13,7 @@ import { templateIlpiBeloHorizonteSupplement } from './Roteiro_ILPI_BH';
 import { templateIlpiRioDeJaneiroSupplement } from './Roteiro_ILPI_RJ';
 import { suplementoEsteticaRj } from './estetica/suplemento-rj';
 import { suplementoEsteticaSpCapital } from './estetica/suplemento-sp-capital';
+import { suplementoAlimentosRioDeJaneiro } from './alimentos/suplemento-rio-de-janeiro';
 import { isRioState, toUF } from '../utils/state';
 
 function normalizeLocation(value?: string | null): string {
@@ -29,6 +30,10 @@ function isBeloHorizonteClient(client: Client): boolean {
 
 function isSaoPauloCapitalClient(client: Client): boolean {
   return toUF(client.state) === 'SP' && normalizeLocation(client.city) === 'sao paulo';
+}
+
+function isRioDeJaneiroCapitalClient(client: Client): boolean {
+  return toUF(client.state) === 'RJ' && normalizeLocation(client.city) === 'rio de janeiro';
 }
 
 export function isIlpiFederalTemplate(template: ChecklistTemplate): boolean {
@@ -49,6 +54,16 @@ function isEsteticaClinicaTemplate(template: ChecklistTemplate): boolean {
     || template.name === 'Roteiro de Inspeção — Clínica de Estética e Saúde';
 }
 
+export function isAlimentosFederalTemplate(template: ChecklistTemplate): boolean {
+  if (template.id === 'tpl-alimentos-federal-v1') return true;
+  if (template.name === 'Roteiro de Inspeção — Serviços de Alimentação (Nacional)') return true;
+  return (
+    template.category === 'alimentos' &&
+    template.sections.some(section => section.id === 'sec-ali-fed-01') &&
+    template.sections.some(section => section.id === 'sec-ali-fed-11')
+  );
+}
+
 export interface SupplementRegistryEntry {
   supplement: ChecklistSupplement;
   appliesTo: (baseTemplate: ChecklistTemplate, client: Client) => boolean;
@@ -56,6 +71,11 @@ export interface SupplementRegistryEntry {
 }
 
 export const supplementRegistry: SupplementRegistryEntry[] = [
+  {
+    supplement: suplementoAlimentosRioDeJaneiro,
+    appliesTo: (template, client) => isAlimentosFederalTemplate(template) && isRioDeJaneiroCapitalClient(client),
+    nameSuffix: ' (+ Suplemento Alimentos — Rio de Janeiro)',
+  },
   {
     supplement: suplementoEsteticaSpCapital,
     appliesTo: (template, client) => isEsteticaClinicaTemplate(template) && isSaoPauloCapitalClient(client),

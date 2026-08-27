@@ -8,7 +8,7 @@
 import type { ChecklistSupplement, ChecklistTemplate, Client, Section } from '../types';
 import { alimentosTemplates } from './templates_alimentos';
 import { getExtraSections } from './templates_alimentos_segmentos';
-import { supplementRegistry } from './supplementRegistry';
+import { isAlimentosFederalTemplate, supplementRegistry } from './supplementRegistry';
 import { templateEsteticaClinica } from './estetica/roteiro-clinica';
 import { templateEsteticaEmbelezamento } from './estetica/roteiro-embelezamento';
 import { buildRequirementIndex, normalizeRequirementText } from '../utils/itemIdentity';
@@ -425,6 +425,34 @@ function applySupplement(effective: ChecklistTemplate, supplement: ChecklistSupp
   }
 }
 
+/**
+ * Ordem operacional para percorrer um serviço de alimentação sem voltar de setor.
+ * Usa títulos porque os roteiros carregados do Supabase têm UUIDs diferentes dos
+ * arquivos empacotados, mas preservam os nomes das seções.
+ */
+function foodInspectionFlowRank(section: Section): number {
+  const title = normalizeSectionTitle(section.title);
+  const rankByMatch: Array<[RegExp, number]> = [
+    [/regularizacao|licenciamento/, 0],
+    [/edificacao|instalacoes/, 10],
+    [/recepcao|materias-primas/, 20],
+    [/rotulagem.*pos-preparo/, 60],
+    [/armazenamento/, 30],
+    [/mercado|hortifruti/, 35],
+    [/equipamentos|moveis|utensilios/, 40],
+    [/producao|preparo/, 50],
+    [/acougue|peixaria|pescado|japones|culinaria oriental|padaria|confeitaria|industria artesanal/, 55],
+    [/exposicao|sorveteria|lanchonete|cafe|buffet|catering/, 70],
+    [/transporte|delivery|dark kitchen/, 80],
+    [/higienizacao/, 90],
+    [/manipuladores/, 100],
+    [/documentacao|registros|responsabilidade tecnica/, 110],
+  ];
+
+  const match = rankByMatch.find(([pattern]) => pattern.test(title));
+  return match ? match[1] : 500 + section.order;
+}
+
 
 /**
  * Main function to get the final template for a specific context.
@@ -443,9 +471,18 @@ export function getEffectiveTemplate(
   // desliga o filtro (usado por relatório concluído, que nunca deve perder item aposentado).
   filterRetiredAsOf?: Date
 ): ChecklistTemplate {
+  // A base de alimentos é curada e versionada no código. O Supabase fornece a
+  // identidade selecionável (UUID), mas não pode reintroduzir o conteúdo legado
+  // quando ainda estiver com a carga anterior no cache ou no banco.
+  const compositionBase = baseTemplate.category === 'alimentos' && isAlimentosFederalTemplate(baseTemplate)
+    ? (alimentosTemplates.find(template => template.id === 'tpl-alimentos-federal-v1') || baseTemplate)
+    : baseTemplate;
+
   // 1. Initial Deep Copy — o roteiro efetivo é montado destrutivamente daqui para baixo
   // (suplemento, filtro de papel, itens aposentados), então nunca pode ser o base.
-  const effective: ChecklistTemplate = JSON.parse(JSON.stringify(baseTemplate));
+  const effective: ChecklistTemplate = JSON.parse(JSON.stringify(compositionBase));
+  effective.id = baseTemplate.id;
+  effective.name = baseTemplate.name;
 
   // 1.5. Apply Alimentos Segments
   if (baseTemplate.category === 'alimentos') {
@@ -484,8 +521,14 @@ export function getEffectiveTemplate(
     }));
   }
 
-  // 5. Final Sorting
-  effective.sections.sort((a, b) => a.order - b.order);
+  // 5. Final Sorting — alimentos seguem o percurso físico da fiscalização.
+  effective.sections.sort((a, b) => {
+    if (baseTemplate.category === 'alimentos') {
+      const flow = foodInspectionFlowRank(a) - foodInspectionFlowRank(b);
+      if (flow !== 0) return flow;
+    }
+    return a.order - b.order;
+  });
 
   return effective;
 }

@@ -58,14 +58,14 @@ import { isRioState } from '../utils/state';
 // ── HELPER ──────────────────────────────────────────────────
 // Mapeia serviceType → IDs das seções extras a carregar
 export const segmentSectionMap: Record<string, string[]> = {
-  'restaurante_lanchonete': [],            // apenas roteiro base
-  'sorveteria':             ['sec-extra-sorveteria'],
-  'padaria_confeitaria':    ['sec-extra-padaria'],
-  'mercado_hortifruti':     ['sec-extra-mercado'],
-  'acougue_peixaria':       ['sec-extra-acougue', 'sec-extra-peixaria'],
-  'japones_pescado_cru':    ['sec-extra-japones'],
-  'dark_kitchen_delivery':  ['sec-extra-delivery'],
-  'buffet_catering':        ['sec-extra-buffet'],
+  'servico_alimentacao':     [],            // apenas roteiro base
+  'bebidas_sorvetes':        ['sec-extra-sorveteria'],
+  'panificacao_confeitaria': ['sec-extra-padaria'],
+  'mercado_varejo':          ['sec-extra-mercado'],
+  'manipulacao_carnes':      ['sec-extra-acougue', 'sec-extra-peixaria'],
+  'pescados_crus':           ['sec-extra-japones'],
+  'dark_kitchen':            ['sec-extra-delivery'],
+  'catering_eventos':        ['sec-extra-buffet'],
   'industria_artesanal':    ['sec-extra-artesanal'],
 };
 
@@ -483,120 +483,24 @@ export const extraSections: Section[] = [
 
   // ══════════════════════════════════════════════════════════
   // 5. JAPONÊS / PESCADOS CRUS (SUSHI, SASHIMI, TEMAKI, ETC.)
-  // Base adicional OBRIGATÓRIA:
-  //   - RDC 216/2004 (aplicada com rigor máximo)
-  //   - RDC 724/2022 + IN 161/2022 (padrões microbiológicos
-  //     para pescado cru — substituem RDC 12/2001)
-  //   - Decreto 9.013/2017 — RIISPOA (origem do pescado)
-  //   - Portaria IVISA-RIO 002/2020, Art. 87 §único +
-  //     Subseção III (RJ — exigências específicas orientais)
+  // Este módulo é nacional. Parâmetros próprios de um município não podem
+  // vazar para outros territórios: no Rio, eles entram por suplemento regional.
   // ══════════════════════════════════════════════════════════
   {
     id: 'sec-extra-japones',
     title: 'Japonês / Pescados Crus — Itens Específicos',
     order: 55,
     isExtraSection: true,
-    segmentKey: 'japones_pescado_cru',
+    segmentKey: 'pescados_crus',
     items: [
       {
         id: 'jap-001',
         sectionId: 'sec-extra-japones',
         order: 1,
-        description: 'ORIGEM E INSPEÇÃO DO PESCADO — Todo pescado utilizado cru ou parcialmente cozido é proveniente de estabelecimento com Selo de Inspeção SIF/SIE/SIM. Nota fiscal/laudo do fornecedor disponível para consulta.',
-        legislation: 'Decreto 9.013/2017 (RIISPOA), Art. 5º; RDC 216/2004, item 5.1.4',
+        description: 'O pescado destinado ao consumo cru ou parcialmente cozido possui procedência conhecida e identificação do serviço oficial de inspeção competente?',
+        legislation: 'Decreto Federal nº 9.013/2017, arts. 5º e 10',
         weight: 10,
         isCritical: true,
-      },
-      {
-        id: 'jap-002',
-        sectionId: 'sec-extra-japones',
-        order: 2,
-        description: 'CONGELAMENTO ANTI-PARASITÁRIO — Pescado oriundo de captura em alto mar e destinado ao consumo cru foi submetido a congelamento de -20°C por no mínimo 7 dias, ou -35°C por no mínimo 15 horas, para eliminação de parasitas (Anisakis e similares). Comprovante documental do fornecedor (certificado ou laudo) disponível e arquivado.',
-        legislation: 'Decreto 9.013/2017 (RIISPOA); Portaria SMS Porto Alegre 17754-792/2022, Art. 2º; Portaria SMS Fortaleza sushi/sashimi',
-        weight: 10,
-        isCritical: true,
-      },
-      {
-        id: 'jap-003',
-        sectionId: 'sec-extra-japones',
-        order: 3,
-        description: 'PESCADO DE CATIVEIRO — Quando o pescado é oriundo de aquicultura/cativeiro (ex.: salmão de cativeiro), pode ser recebido resfriado entre -0,5°C e 4°C, pois o risco de contaminação por parasitas é desprezível. Deve ser comprovada a origem de cativeiro na documentação do fornecedor.',
-        legislation: 'Decreto 9.013/2017 (RIISPOA); Portaria SMS Porto Alegre 17754-792/2022',
-        weight: 10,
-        isCritical: true,
-      },
-      {
-        id: 'jap-004',
-        sectionId: 'sec-extra-japones',
-        order: 4,
-        description: 'CLIMATIZAÇÃO OBRIGATÓRIA — Área de manipulação de pescado cru (sushiman, corte de peixes) obrigatoriamente climatizada, com temperatura entre 12°C e 18°C. Ambiente climatizado reduz a multiplicação microbiana durante a manipulação.',
-        legislation: 'RDC 216/2004, item 4.5.3; Portaria IVISA-RIO 002/2020, Art. 70',
-        weight: 10,
-        isCritical: true,
-      },
-      {
-        id: 'jap-005',
-        sectionId: 'sec-extra-japones',
-        order: 5,
-        description: 'TEMPERATURA DE EXPOSIÇÃO — Pescados crus, peixes e demais ingredientes perecíveis (ovas, maionese, cream cheese) expostos no balcão refrigerado (Netabako) a temperatura ≤5°C. Prazo máximo de exposição: 24 horas. Produtos não consumidos após 24h descartados.',
-        legislation: 'RDC 216/2004, item 4.5.5; Portaria IVISA-RIO 002/2020, Art. 87; Portaria SMS Porto Alegre',
-        weight: 10,
-        isCritical: true,
-      },
-      {
-        id: 'jap-006',
-        sectionId: 'sec-extra-japones',
-        order: 6,
-        description: 'ARROZ TEMPERADO — Receita do arroz temperado padronizada e documentada. Todos os lotes submetidos a amostragem laboratorial de pH ≤4,5, com laudo arquivado. Arroz preparado com vinagre, açúcar e sal até pH ≤4,5 pode ser mantido em temperatura ambiente por até 24 horas. Data e hora de produção e validade identificadas no recipiente. Excedente manipulado/utilizado descartado.',
-        legislation: 'Portaria SMS Porto Alegre 17754-792/2022, Arts. 4º e 5º; Portaria SMS Fortaleza sushi/sashimi',
-        weight: 10,
-        isCritical: true,
-      },
-      {
-        id: 'jap-007',
-        sectionId: 'sec-extra-japones',
-        order: 7,
-        description: 'PADRÕES MICROBIOLÓGICOS — As preparações à base de pescado cru (sushi, sashimi, temaki) atendem à RDC 724/2022 e IN 161/2022 (padrões microbiológicos para pescado cru e alimentos prontos para consumo). Controle de temperatura e higiene rigorosos para Vibrio parahaemolyticus, Listeria monocytogenes e Salmonella sp. (ausência em 25g).',
-        legislation: 'RDC 724/2022 + IN 161/2022 ANVISA (substituem RDC 12/2001)',
-        weight: 10,
-        isCritical: true,
-      },
-      {
-        id: 'jap-008',
-        sectionId: 'sec-extra-japones',
-        order: 8,
-        description: 'UTENSÍLIOS EXCLUSIVOS — Facas, tábuas e utensílios utilizados no corte do pescado cru são exclusivos para essa finalidade, higienizados e sanitizados entre preparações. Tábuas de material atóxico e sem fissuras. Proibido o uso de madeira.',
-        legislation: 'RDC 216/2004, item 4.2.3',
-        weight: 10,
-        isCritical: true,
-      },
-      {
-        id: 'jap-009',
-        sectionId: 'sec-extra-japones',
-        order: 9,
-        description: 'EPI SUSHIMAN — Sushiman com touca/bandana cobrindo todo o cabelo e barba raspada ou protegida. Luvas descartáveis ou antissepsia rigorosa das mãos entre preparações. Avental de cor clara e limpo.',
-        legislation: 'RDC 216/2004, item 4.4.1; Portaria IVISA-RIO 002/2020, Arts. 4 e 5',
-        weight: 10,
-        isCritical: true,
-      },
-      {
-        id: 'jap-010',
-        sectionId: 'sec-extra-japones',
-        order: 10,
-        description: 'CÂMARA/BALCÃO EXCLUSIVO PESCADO — Equipamento frigorífico exclusivo para armazenamento e guarda do pescado, separado de outros alimentos.',
-        legislation: 'Portaria IVISA-RIO 002/2020, Art. 87 §único; RDC 216/2004',
-        weight: 10,
-        isCritical: true,
-      },
-      {
-        id: 'jap-011',
-        sectionId: 'sec-extra-japones',
-        order: 11,
-        description: 'OVO CRU / MAIONESE CASEIRA [RJ] — É vedada a entrega ao consumo de preparações à base de ovo cru (incluindo maionese caseira). Utilizar ovo líquido pasteurizado ou industrializado similar.',
-        legislation: 'Portaria IVISA-RIO 002/2020, Art. 74',
-        weight: 10,
-        isCritical: true,
-        isRJOnly: true,
       },
     ],
   },
@@ -604,72 +508,25 @@ export const extraSections: Section[] = [
 
   // ══════════════════════════════════════════════════════════
   // 6. DARK KITCHEN / DELIVERY
-  // Base adicional:
-  //   - RDC 216/2004 (base integral, sem norma federal
-  //     específica para dark kitchen confirmada até mar/2026)
-  //   - RDC 216/2004 itens 4.5.6 (transporte)
-  //   - Portaria IVISA-RIO 002/2020, Arts. 75 a 77 (RJ)
+  // A RDC 216/2004 já cobre o transporte na base. O item abaixo é recomendação
+  // operacional, não uma obrigação federal nem uma regra importada de outro município.
   // ══════════════════════════════════════════════════════════
   {
     id: 'sec-extra-delivery',
     title: 'Dark Kitchen / Delivery — Itens Específicos',
     order: 56,
     isExtraSection: true,
-    segmentKey: 'dark_kitchen_delivery',
+    segmentKey: 'dark_kitchen',
     items: [
       {
         id: 'del-001',
         sectionId: 'sec-extra-delivery',
         order: 1,
-        description: 'VEÍCULO LICENCIADO — Veículos utilizados para entrega de alimentos preparados devidamente licenciados pelo órgão de Vigilância Sanitária competente. Licença disponível para consulta.',
-        legislation: 'RDC 216/2004, item 4.5.6; Portaria IVISA-RIO 002/2020, Art. 77',
-        weight: 10,
-        isCritical: true,
-      },
-      {
-        id: 'del-002',
-        sectionId: 'sec-extra-delivery',
-        order: 2,
-        description: 'EMBALAGEM DE ENTREGA — Alimentos acondicionados em recipiente hermeticamente vedado, de material atóxico, em perfeito estado de higiene e conservação. Embalagem com identificação mínima: nome do estabelecimento, CNPJ, tipo de alimento, data, hora de produção, temperatura de manutenção e prazo de validade.',
-        legislation: 'RDC 216/2004, item 4.5.6; Portaria IVISA-RIO 002/2020, Art. 76 §1º',
-        weight: 10,
-        isCritical: true,
-      },
-      {
-        id: 'del-003',
-        sectionId: 'sec-extra-delivery',
-        order: 3,
-        description: 'CONTROLE DE TEMPERATURA NA ENTREGA — Temperatura dos alimentos preparados monitorada e registrada em planilha no momento da expedição (saída da cozinha). Alimentos quentes mantidos >60°C; alimentos resfriados mantidos <5°C durante todo o transporte. Bag isotérmico, caixa frigorificada ou veículo refrigerado conforme a categoria do alimento.',
-        legislation: 'RDC 216/2004, itens 4.5.5 e 4.5.6; Portaria IVISA-RIO 002/2020, Art. 76 §2º',
-        weight: 10,
-        isCritical: true,
-      },
-      {
-        id: 'del-004',
-        sectionId: 'sec-extra-delivery',
-        order: 4,
-        description: 'TEMPO DE ENTREGA — Controle do binômio tempo × temperatura. Alimentos quentes mantidos abaixo de 60°C por no máximo 1 hora total desde a saída da cozinha até o consumo. Registros de hora de despacho disponíveis.',
-        legislation: 'RDC 216/2004, item 4.5.5; Portaria IVISA-RIO 002/2020, Art. 66 §único',
-        weight: 10,
-        isCritical: true,
-      },
-      {
-        id: 'del-005',
-        sectionId: 'sec-extra-delivery',
-        order: 5,
-        description: 'INTEGRIDADE DA EMBALAGEM — Embalagens de entrega lacradas (lacre inviolável ou embalagem selada) para garantir integridade do alimento ao consumidor. Veículo de entrega exclusivo para alimentos, sem produtos químicos, de limpeza ou outras cargas.',
-        legislation: 'RDC 216/2004, item 4.5.6; Portaria IVISA-RIO 002/2020, Art. 77',
-        weight: 5,
+        description: 'As embalagens de entrega utilizam lacre inviolável ou solução equivalente que evidencie abertura antes do recebimento pelo consumidor?',
+        legislation: 'Boa prática operacional de integridade da entrega; sem exigência específica na legislação federal aplicável ao serviço de alimentação',
+        weight: 2,
         isCritical: false,
-      },
-      {
-        id: 'del-006',
-        sectionId: 'sec-extra-delivery',
-        order: 6,
-        description: 'LICENÇA SANITÁRIA — Estabelecimento com Licença/Alvará Sanitário vigente, mesmo sem atendimento presencial ao público. O modelo dark kitchen (sem salão) não isenta do licenciamento sanitário.',
-        legislation: 'RDC 216/2004; Lei nº 6.437/1977; legislação municipal vigente',
-        weight: 10,
-        isCritical: true,
+        requirementType: 'good_practice',
       },
     ],
   },
