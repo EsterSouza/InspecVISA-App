@@ -89,6 +89,30 @@ export function toConditionalTemplate(
   };
 }
 
+/**
+ * COND-08 — a revisão viaja **dentro** da árvore congelada da inspeção.
+ *
+ * É o que faz a execução decidir aplicabilidade sem tocar na rede: o motor lê
+ * `rules` e `routingQuestions` do próprio `reportTemplateSnapshot`, que mora no
+ * Dexie. Sem revisão, os dois ficam vazios — o roteiro de hoje, sempre aplicável.
+ */
+export function freezeRevisionIntoTemplate(
+  template: ChecklistTemplate,
+  revision?: ApplicabilityRevision | null
+): ChecklistTemplate {
+  return {
+    ...template,
+    applicabilityRevisionId: revision?.id ?? null,
+    rules: revision?.rules ?? [],
+    routingQuestions: revision?.routingQuestions ?? [],
+  };
+}
+
+/** `true` quando a árvore congelada ainda não sabe qual é a revisão dela. */
+export function needsRevisionFreeze(template: ChecklistTemplate | undefined | null): boolean {
+  return Boolean(template) && template!.applicabilityRevisionId === undefined;
+}
+
 export class ApplicabilityValidationError extends Error {
   readonly issues: ValidationIssue[];
 
@@ -117,6 +141,24 @@ export const ApplicabilityRevisionService = {
   /** A revisão que uma inspeção nova congela. `null` = roteiro sem regra. */
   getPublishedRevision(templateId: string) {
     return fetchRevision(templateId, 'published');
+  },
+
+  /**
+   * A revisão exata que uma inspeção congelou (COND-08). Buscada por id porque a
+   * publicada de hoje pode não ser a que aquela inspeção usou — e revisão
+   * publicada é imutável, então as duas consultoras que a lerem por id leem
+   * exatamente a mesma coisa.
+   */
+  async getRevisionById(id: string): Promise<ApplicabilityRevision | null> {
+    const { data, error } = await supabase
+      .from('checklist_template_revisions')
+      .select(COLUNAS)
+      .eq('id', id)
+      .limit(1);
+
+    if (error) throw error;
+    const rows = (data || []) as RevisionRow[];
+    return rows.length > 0 ? mapRevisionRow(rows[0]) : null;
   },
 
   /** O rascunho em edição, se existir. Há no máximo um por roteiro (índice único). */

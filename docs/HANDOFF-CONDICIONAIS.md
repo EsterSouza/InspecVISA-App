@@ -10,8 +10,8 @@
 
 ## Onde estamos
 
-**COND-01 a COND-07 entregues** (COND-01/02 em 16/08/2026; COND-03 em 18/08/2026; COND-04 em
-19/08/2026; COND-05 em 20/08/2026; COND-06 e COND-07 em 27/08/2026), com as **4 decisões de produto tomadas** pela Ester
+**COND-01 a COND-08 entregues** (COND-01/02 em 16/08/2026; COND-03 em 18/08/2026; COND-04 em
+19/08/2026; COND-05 em 20/08/2026; COND-06, COND-07 e COND-08 em 27/08/2026), com as **4 decisões de produto tomadas** pela Ester
 ([contrato § 10](contrato-aplicabilidade.md)) — inclusive a de que existe **uma árvore só**, com o
 papel virando filtro de exibição. O motor declarativo existe e é testado isoladamente em
 `src/domain/applicability/`. O COND-03 fez a execução parar de manter duas árvores, congelou a
@@ -28,10 +28,14 @@ condições, o painel de perguntas de roteamento e as travas do ciclo de vida �
 já pode ser criada e publicada pela tela**. O COND-07 fechou o lado da autoria: dá para **testar o
 roteiro inteiro sem criar cliente nem inspeção**, com o cenário editável e a justificativa de cada
 decisão em tela, e a publicação passou a ser **bloqueada de verdade** — o botão só habilita com o
-gate limpo, e a lista de bloqueios diz a causa e a seção onde ela mora. O que continua faltando é o
-outro lado: a execução ainda não consulta o motor (`COND-08`), então publicar condição hoje muda o
-que a revisão **guarda**, não ainda o que a inspeção **mostra**. Próximo é o `COND-08` — o card mais
-arriscado da série.
+gate limpo, e a lista de bloqueios diz a causa e a seção onde ela mora. **O COND-08 fechou o
+circuito**: a execução consulta o motor, local e sem rede; a pergunta de campo tem lugar próprio; o
+que sai do roteiro vai para uma lista com o motivo, sem apagar resposta; retirar item já respondido
+pede confirmação com número; pendência de condição segura o encerramento e "não foi possível
+determinar" o libera; e as respostas de roteamento convergem **por pergunta** entre dois aparelhos.
+Como nenhum roteiro tem revisão publicada em produção, **nada mudou de comportamento ainda** — sem
+regra = sempre aplicável. Próximo é o `COND-09` — score, progresso, resumo, PDF, referências e plano
+de ação sobre o conjunto de aplicáveis, que é o que fecha a invariante das cinco superfícies.
 
 | Card | O que é | Modelo | Esforço | Depois de |
 |---|---|---|---|---|
@@ -42,7 +46,7 @@ arriscado da série.
 | ~~**COND-05**~~ ✅ | Perguntas de roteamento e contexto congelado · `domain/applicability/routing.ts`, `context.ts`, wizard | Opus 5 | médio-alto | COND-04 |
 | ~~**COND-06**~~ ✅ | Editor visual **com o ciclo de vida junto** · `domain/applicability/authoring.ts`, `components/templates/` | Opus 5 | alto | COND-05 |
 | ~~**COND-07**~~ ✅ | Simulador e gate de publicação · `domain/applicability/simulate.ts`, `components/templates/ApplicabilitySimulator.tsx` | Opus 5 | médio-alto | COND-06 |
-| **COND-08** | Execução adaptativa offline e colaborativa | Opus 5 | **muito alto** | COND-03 · COND-05 · COND-07 |
+| ~~**COND-08**~~ ✅ | Execução adaptativa offline e colaborativa · `domain/applicability/execution.ts`, `RoutingQuestionsBlock`, `ExcludedByRulePanel` | Opus 5 | **muito alto** | COND-03 · COND-05 · COND-07 |
 | **COND-09** | Score, progresso, summary, PDF, referências e plano de ação | Opus 5 | **muito alto** | COND-08 |
 | **COND-10** | Piloto em Estética + flag por roteiro e rollback | Opus 5 | alto | COND-09 |
 
@@ -996,6 +1000,116 @@ como caso de teste do roteiro (não pedido, e exigiria tabela nova); e o `imposs
 grupo QUALQUER (contradição ali não impede nada — o outro ramo resolve).
 
 **Desbloqueia:** `COND-08`.
+
+### COND-08 · 27/08/2026 · Opus 5
+
+**Execução adaptativa.** O card mais arriscado da série, e o que faz a condição publicada finalmente
+mudar o que a inspeção **mostra**. Até aqui publicar regra mudava o que a revisão guardava; agora a
+`InspectionExecution` chama o motor.
+
+**A regra que organizou o card:** o motor roda **local e puro**, na tela. Nenhuma consulta ao
+Supabase decide mostrar ou esconder item — nem a primeira. É por isso que a revisão passou a viajar
+**dentro da árvore congelada** (`reportTemplateSnapshot.rules` / `.routingQuestions`), que já mora no
+Dexie: com ela lá, mudar resposta de roteamento no meio do mato recalcula a árvore na hora.
+
+**Arquivos criados:**
+
+| Arquivo | O que é |
+|---|---|
+| `src/domain/applicability/execution.ts` | puro: `resolveExecutionTree` (o que a tela mostra × o que saiu, com motivo e resposta preservada), `pendingBlockers` (o que impede fechar), `answerChangeImpact` (o que sai e o que volta), `mergeRoutingAnswers`/`stampRoutingAnswer` (convergência por pergunta), `executionQuestions` |
+| `src/components/inspection/RoutingQuestionsBlock.tsx` | a pergunta de campo, com "não foi possível determinar" e a autoria da última resposta |
+| `src/components/inspection/ExcludedByRulePanel.tsx` | "Fora do roteiro por condição (N)" — nasce fechado, lista o motivo e marca o que tem resposta preservada |
+| `src/utils/routingAnswersSync.ts` | a ponte entre o merge por pergunta e o merge de registro do `RepositoryService` |
+| `supabase/migrations/20260827100000_cond08_routing_answers_sync.sql` | três colunas JSONB em `inspections` + `sync_inspection_bundle` levando as quatro chaves |
+| `supabase/tests/cond08_routing_answers_sync.test.sql` | 5 blocos de caso, fixture próprio |
+| `src/__tests__/domain/applicabilityExecution.test.ts` | 27 casos |
+| `src/__tests__/components/AdaptiveExecution.test.tsx` | 9 casos |
+| `src/__tests__/services/cond08RoutingSync.test.ts` | 11 casos |
+
+**Arquivos alterados:** `src/pages/InspectionExecution.tsx` (a árvore adaptativa, o lazy freeze da
+revisão, o gravador de resposta com confirmação, os dois blocos novos e os dois avisos) ·
+`src/pages/NewInspection.tsx` (a revisão publicada entra na árvore congelada na criação) ·
+`src/types/index.ts` (`ChecklistTemplate.rules`/`.routingQuestions`/`.applicabilityRevisionId`;
+`Inspection.routingAnswersMeta`) · `src/services/applicabilityRevisionService.ts`
+(`getRevisionById`, `freezeRevisionIntoTemplate`, `needsRevisionFreeze`) ·
+`src/services/inspectionService.ts` (as três colunas no mapeamento — enviadas só quando há valor, e nunca apagando o que é local) ·
+`src/services/repositoryService.ts` (a reconciliação antes do merge de registro) ·
+`src/components/inspection/InspectionFinishScreen.tsx` (pendência de condição bloqueia entregar) ·
+`src/components/inspection/ExecutionSectionIndex.tsx` (a seção pendente se anuncia no índice) ·
+este handoff · `docs/gherkin/aplicabilidade.feature` · `docs/migrations-status.md`.
+
+**Decisões deste card:**
+
+1. **A revisão viaja dentro da árvore congelada; o snapshot continua fora do servidor.** O
+   `reportTemplateSnapshot` não é persistido no Supabase desde o COND-04 (payload do sync). O que
+   sincroniza é o **vínculo** (`applicability_revision_id`) — e revisão publicada é imutável no
+   banco, então dois aparelhos que a buscam **por id** leem exatamente a mesma coisa. Convergência
+   sem duplicar o roteiro inteiro em cada inspeção.
+2. **Item não aplicável sai da lista; seção não aplicável sai inteira.** Os itens da seção que saiu
+   **não** são repetidos um a um na lista do que saiu — eles herdaram o estado dela, e 12 linhas
+   dizendo a mesma coisa escondem a informação em vez de mostrá-la. Os que **têm resposta** entram,
+   porque aí a consultora precisa saber que aquilo saiu do resultado.
+3. **Pendente continua na tela, e continua respondível.** A pendência é do *roteiro*, não do
+   requisito: travar o campo faria a consultora perder a visita esperando resposta que talvez só o
+   dono do estabelecimento tenha. O que a pendência trava é o **encerramento**.
+4. **Só item já respondido gera confirmação.** Tirar da tela um item em branco não perde nada e não
+   merece diálogo — é a leitura literal do § 6.1 ("uma mudança que retira item já respondido").
+   Seção que sai aparece na lista de consequências junto com os itens.
+5. **Convergência é por pergunta, nunca pelo objeto.** O merge de registro é `{...local, ...remote}`:
+   o lado que vence leva tudo. Para resposta de roteamento isso apagaria, em silêncio, a resposta que
+   a colega deu offline a **outra** pergunta. Daí o carimbo (`routingAnswersMeta`: hora + autoria) e
+   o merge por chave. Empate de relógio desempata pelo valor serializado — arbitrário, mas **igual
+   nos dois aparelhos**, que é o que impede divergência permanente.
+6. **Apagar resposta é uma escrita, não a ausência dela.** Limpar guarda `null` explícito com carimbo
+   novo; apagar a chave faria o merge ressuscitar a resposta antiga do outro aparelho.
+7. **Inspeção que nasceu sem regra não passa a ter regra.** O lazy freeze só busca revisão quando a
+   inspeção declara `applicabilityRevisionId`. Sem vínculo, congela vazio — o roteiro-mestre ganhar
+   condição amanhã não pode mudar inspeção que já está em campo (contrato § 6.2).
+8. **Revisão que não chegou é aviso, não filtro.** Sem rede e sem revisão congelada, a tela mostra o
+   roteiro **inteiro** e diz que as condições ainda não foram carregadas. Erro do motor nunca esconde
+   requisito (regra inegociável 10) — o lado seguro do erro é sempre "aparece a mais".
+
+**Testes:** 47 casos novos em JS (27 de domínio, 9 de componente, 11 de sync) e 5 blocos em SQL.
+Suíte inteira **758 → 810, todos verdes**, 0 regressão (duas execuções seguidas limpas; uma execução
+anterior teve 2 falhas por *timeout* de worker do vitest, não reproduzidas). Suítes SQL em Postgres
+16 limpo, container recriado e `/work` apagado antes do `docker cp` → **22/22 OK**. `npx tsc -b`
+limpo · `npm run build` limpo · `npm run lint` limpo · `npm run check:ui` P0/P1 = 0 ·
+`npm run check:contraste` 47 pares nos dois temas.
+
+**A migration ainda NÃO foi aplicada.** A Ester autorizou em 27/08, mas esta sessão **não tem o MCP
+do Supabase** (só o `designmd` está no `.mcp.json`), e aplicar por fora do MCP sujaria o ledger —
+exatamente o que o INFRA-02 reconciliou em 04/08. Fica para uma sessão com o MCP: `apply_migration`,
+e depois **renomear o arquivo local para a versão que o ledger gravar**.
+
+Nada trava por causa disso: o `mapToPostgres` só envia as três chaves **quando há valor**
+(`applicabilityColumns`), e inspeção sem regra não tem nenhuma — então o app novo sincroniza contra
+o banco de hoje sem erro. O que a migration habilita é a convergência entre aparelhos, necessária
+**antes de publicar a primeira revisão** (COND-10).
+
+**Ficou deliberadamente de fora:**
+
+- **Score, progresso, resumo, PDF e plano de ação sobre o conjunto de aplicáveis** — é o `COND-09`, e
+  o card manda não misturar. Hoje `calculateScore` ainda roda sobre a árvore completa: item fora por
+  regra **com resposta** entraria na nota. Sem revisão publicada em produção isso é inerte, mas é a
+  primeira coisa que o COND-09 tem de fechar, e está na lista de modos de falha da seção 9.
+- **O `reportTemplateSnapshot` no Supabase.** Continua fora (decisão do COND-04).
+- **A árvore de seções e itens entre aparelhos.** Quem abre a inspeção num aparelho que nunca a teve
+  compõe do roteiro-mestre (comportamento do COND-03). Este card garantiu a convergência das
+  **regras** (por revisão imutável) e das **respostas de roteamento**.
+- **Publicar revisão de teste em produção para ver o efeito de ponta a ponta** — é o `COND-10`
+  (piloto em Estética), e é escrita em produção.
+
+**Riscos conhecidos, registrados:**
+
+1. **A migration pendente.** Descrita acima; está no cabeçalho do arquivo e em
+   `docs/migrations-status.md`. Publicar revisão de condições antes de aplicá-la faria a resposta de
+   roteamento não sair do aparelho.
+2. **A validação estrutural em SQL não conhece `routing_answers`.** As colunas são JSONB livre. Quem
+   valida forma de resposta é o app (`parseRoutingAnswer`); o bundle só recusa o que não é objeto.
+3. **Empate de relógio entre aparelhos dessincronizados.** O desempate é determinístico, mas é pelo
+   valor, não por quem tem razão. Na prática o carimbo tem precisão de milissegundo.
+
+**Desbloqueia:** `COND-09`.
 
 ## Relacionados
 

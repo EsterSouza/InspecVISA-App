@@ -6,6 +6,8 @@ export interface SectionIndexEntry {
   label: string;
   total: number;
   answered: number;
+  /** COND-08 · a seção depende de pergunta de roteamento ainda em aberto. */
+  pending?: boolean;
 }
 
 /**
@@ -37,6 +39,11 @@ export function ExecutionSectionIndex({ sections, activeId, onSelect }: {
             >
               <span className="min-w-0 flex-1">
                 <span className="block text-sm text-navy">{section.label}</span>
+                {section.pending && (
+                  <span className="mt-0.5 block text-[11px] font-semibold text-amber-soft-ink">
+                    Pendente de condição
+                  </span>
+                )}
                 <span className="mt-1.5 block h-1.5 w-full overflow-hidden rounded-full bg-surface-sunken">
                   <span
                     className={`block h-full rounded-full ${done ? 'bg-success' : 'bg-primary-700'}`}

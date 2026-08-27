@@ -25,7 +25,7 @@ import { isInspectionAppointment } from '../utils/appointmentType';
 import { toDateKey } from '../utils/date';
 import { useConfirmDialog } from '../components/ui/ConfirmDialog';
 import { toast } from '../store/useToastStore';
-import { ApplicabilityRevisionService } from '../services/applicabilityRevisionService';
+import { ApplicabilityRevisionService, freezeRevisionIntoTemplate } from '../services/applicabilityRevisionService';
 import type { ApplicabilityRevision } from '../services/applicabilityRevisionService';
 import { missingRequiredQuestions, routingQuestionsFor } from '../domain/applicability';
 import type { RoutingAnswer, RoutingAnswers } from '../domain/applicability';
@@ -382,9 +382,14 @@ export function NewInspection() {
       // roteiro-mestre amanhã não altera esta inspeção (contrato § 6.2). Nunca
       // trava a criação: se a composição falhar, a execução congela na primeira
       // abertura (lazy freeze).
+      // COND-08 · a revisão publicada viaja DENTRO da árvore congelada: é assim
+      // que a execução decide aplicabilidade offline, sem consultar o banco.
       let frozenTemplate: ChecklistTemplate | undefined;
       try {
-        frozenTemplate = composeCanonicalTemplate(selectedTemplate, selectedClient, createdAt);
+        frozenTemplate = freezeRevisionIntoTemplate(
+          composeCanonicalTemplate(selectedTemplate, selectedClient, createdAt),
+          revision,
+        );
       } catch (err) {
         console.error('[NewInspection] Falha ao congelar a revisão do roteiro; execução congela na abertura:', err);
       }

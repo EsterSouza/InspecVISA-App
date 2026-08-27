@@ -57,6 +57,13 @@ interface InspectionFinishScreenProps {
   template: ChecklistTemplate;
   responses: InspectionResponse[];
   missingText: MissingText[];
+  /**
+   * COND-08 · exigências que ficaram `pendente_de_condicao` esperando resposta.
+   * Enquanto houver, a inspeção NÃO fecha (contrato § 6.4): a árvore real não é
+   * conhecida. A saída é responder a pergunta — ou marcá-la como "não foi
+   * possível determinar", que é resposta legítima e libera o encerramento.
+   */
+  pendingByCondition?: { id: string; label: string; sectionTitle?: string }[];
   isIlpi: boolean;
   isFinishing: boolean;
   accompanistName: string;
@@ -73,6 +80,7 @@ export function InspectionFinishScreen({
   template,
   responses,
   missingText,
+  pendingByCondition = [],
   isIlpi,
   isFinishing,
   accompanistName,
@@ -175,9 +183,10 @@ export function InspectionFinishScreen({
     }
   };
 
-  const podeEntregar = delivery.kind === 'pronta' && !isFinishing;
+  const podeEntregar = delivery.kind === 'pronta' && !isFinishing && pendingByCondition.length === 0;
   const pontosDeAtencao = (missingText.length > 0 ? 1 : 0)
     + (semPrazo.length > 0 ? 1 : 0)
+    + (pendingByCondition.length > 0 ? 1 : 0)
     + (score.totalItems > score.evaluatedItems ? 1 : 0);
 
   return (
@@ -220,6 +229,47 @@ export function InspectionFinishScreen({
                   )}
                 </span>
               </li>
+
+              {/* COND-08 · pendência de condição é a única desta lista que
+                  BLOQUEIA. Entregar relatório sem saber se a exigência se aplica
+                  é afirmar o que ninguém apurou (contrato § 6.4). */}
+              {pendingByCondition.length > 0 && (
+                <li className="flex gap-3">
+                  <Marca tone="no" />
+                  <span className="min-w-0 flex-1">
+                    <strong className="text-navy">
+                      {pendingByCondition.length} {pendingByCondition.length === 1
+                        ? 'exigência está pendente de condição.'
+                        : 'exigências estão pendentes de condição.'}
+                    </strong>{' '}
+                    Responda a pergunta que define o roteiro — ou marque-a como
+                    «Não foi possível determinar», com justificativa, para encerrar assim mesmo.
+                    <span className="mt-2 block overflow-hidden rounded-md border border-danger-soft-border">
+                      {pendingByCondition.slice(0, 8).map((pend) => (
+                        <button
+                          key={pend.id}
+                          type="button"
+                          onClick={() => onGoToItem(pend.id)}
+                          className="flex w-full items-start gap-3 border-b border-default bg-surface px-3 py-2.5 text-left last:border-b-0 hover:bg-surface-hover"
+                          style={{ minHeight: 44 }}
+                        >
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-navy">{pend.label}</span>
+                            {pend.sectionTitle && (
+                              <span className="block truncate text-xs text-navy-3">{pend.sectionTitle}</span>
+                            )}
+                          </span>
+                        </button>
+                      ))}
+                    </span>
+                    {pendingByCondition.length > 8 && (
+                      <span className="mt-1 block text-xs text-navy-3">
+                        … e mais {pendingByCondition.length - 8}.
+                      </span>
+                    )}
+                  </span>
+                </li>
+              )}
 
               <li className="flex gap-3">
                 <Marca tone={missingText.length > 0 ? 'no' : 'ok'} />
@@ -501,7 +551,21 @@ export function InspectionFinishScreen({
             </div>
 
             <div className="flex flex-col gap-2 border-t border-default p-5">
-              <Button size="lg" fullWidth disabled={!podeEntregar} onClick={onFinish}>
+              {/* Botão desabilitado sem dizer por quê é botão quebrado. */}
+              {pendingByCondition.length > 0 && (
+                <p className="rounded-md bg-amber-soft px-3 py-2 text-xs font-semibold text-amber-soft-ink">
+                  Encerramento bloqueado: {pendingByCondition.length} exigência(s) pendente(s) de condição.
+                </p>
+              )}
+              <Button
+                size="lg"
+                fullWidth
+                disabled={!podeEntregar}
+                onClick={onFinish}
+                title={pendingByCondition.length > 0
+                  ? `Encerramento bloqueado: ${pendingByCondition.length} exigência(s) pendente(s) de condição`
+                  : undefined}
+              >
                 {isFinishing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Encerrar e entregar
               </Button>

@@ -12,11 +12,26 @@ function legacyCategory(inspection: Inspection): ClientCategory | undefined {
 import { ILPIStaffCalculator } from '../components/inspection/ILPIStaffCalculator';
 import { isRioState } from '../utils/state';
 import { contextFromInspection } from '../utils/inspectionContext';
+import {
+  answerChangeImpact,
+  executionQuestions,
+  pendingBlockers,
+  resolveExecutionTree,
+  stampRoutingAnswer,
+} from '../domain/applicability';
+import type { RoutingAnswer } from '../domain/applicability';
+import {
+  ApplicabilityRevisionService,
+  freezeRevisionIntoTemplate,
+  needsRevisionFreeze,
+} from '../services/applicabilityRevisionService';
 import { calculateScore, classificationInk, getLatestResponsesByItem } from '../utils/scoring';
 import { useInspectionStore } from '../store/useInspectionStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { generateId } from '../utils/imageUtils';
 import { CollaborativeProgress } from '../components/inspection/CollaborativeProgress';
+import { RoutingQuestionsBlock } from '../components/inspection/RoutingQuestionsBlock';
+import { ExcludedByRulePanel } from '../components/inspection/ExcludedByRulePanel';
 import { MobileExecutionSheet } from '../components/inspection/MobileExecutionSheet';
 import { ClientService } from '../services/clientService';
 import { InspectionService } from '../services/inspectionService';
@@ -464,11 +479,62 @@ export function InspectionExecution() {
   // uma segunda composição por papel. Mantido como nome para os consumidores.
   const collaborationTemplate = effectiveTemplate;
 
-  // O papel recorta apenas a EXIBIÇÃO; nota, snapshot e resumo seguem na completa.
-  const visibleSections = useMemo(
-    () => (effectiveTemplate ? filterSectionsByRoleForDisplay(effectiveTemplate.sections, role) : []),
-    [effectiveTemplate, role],
+  // ─── COND-08 · A ÁRVORE ADAPTATIVA ────────────────────────────────────────
+  // O motor roda AQUI, local e puro: mostrar ou esconder item nunca depende de
+  // rede (contrato § 6.5, caso obrigatório 10). Ele lê a revisão que viaja dentro
+  // da árvore congelada, o contexto congelado e as respostas de roteamento — três
+  // coisas que moram na própria inspeção, no Dexie.
+  const answeredItemIds = useMemo(
+    () => new Set(responses.filter((response) => !response.deletedAt).map((response) => response.itemId)),
+    [responses],
   );
+
+  const applicability = useMemo(
+    () => resolveExecutionTree({
+      sections: effectiveTemplate?.sections || [],
+      rules: effectiveTemplate?.rules,
+      routingQuestions: effectiveTemplate?.routingQuestions,
+      context: currentInspection?.applicabilityContext,
+      answers: currentInspection?.routingAnswers,
+      answeredItemIds,
+    }),
+    [effectiveTemplate, currentInspection?.applicabilityContext, currentInspection?.routingAnswers, answeredItemIds],
+  );
+
+  // A ordem importa: aplicabilidade decide o ROTEIRO, papel recorta a EXIBIÇÃO
+  // (contrato § 6.6). Nota, snapshot e resumo seguem na árvore completa.
+  const visibleSections = useMemo(
+    () => filterSectionsByRoleForDisplay(applicability.sections, role),
+    [applicability, role],
+  );
+
+  // As perguntas respondidas em campo, e onde cada uma aparece: dentro da seção
+  // que ela declarou (`sectionId`), ou no bloco do topo quando não declarou
+  // nenhuma. Pergunta que decide seção não pode morar dentro da seção que ela
+  // esconde — por isso o alvo tem de estar visível para ela ficar lá.
+  const fieldQuestions = useMemo(
+    () => executionQuestions(
+      { rules: effectiveTemplate?.rules, routingQuestions: effectiveTemplate?.routingQuestions },
+      currentInspection?.routingAnswers,
+      currentInspection?.routingAnswersMeta,
+    ),
+    [effectiveTemplate, currentInspection?.routingAnswers, currentInspection?.routingAnswersMeta],
+  );
+
+  const questionsBySection = useMemo(() => {
+    const visiveis = new Set(visibleSections.map((section) => section.id));
+    const porSecao = new Map<string, typeof fieldQuestions>();
+    const soltas: typeof fieldQuestions = [];
+    for (const entry of fieldQuestions) {
+      const alvo = entry.question.sectionId;
+      if (alvo && visiveis.has(alvo)) {
+        porSecao.set(alvo, [...(porSecao.get(alvo) || []), entry]);
+      } else {
+        soltas.push(entry);
+      }
+    }
+    return { porSecao, soltas };
+  }, [fieldQuestions, visibleSections]);
   // ILPI: a calculadora de dimensionamento mora na seção "Recursos Humanos".
   const isIlpiInspection = (currentInspection?.clientCategory === 'ilpi')
     || (effectiveTemplate?.category === 'ilpi');
@@ -500,6 +566,119 @@ export function InspectionExecution() {
     });
   }, [currentInspection, loading, setCurrentInspection]);
 
+  // COND-08 · Lazy freeze da REVISÃO. Inspeção criada antes deste card tem árvore
+  // congelada sem `rules`/`routingQuestions` — e é por elas que o motor decide.
+  // Quando a inspeção declara a revisão que usou (`applicabilityRevisionId`), a
+  // primeira abertura ONLINE busca essa revisão **por id** (revisão publicada é
+  // imutável: as duas consultoras leem exatamente a mesma) e grava dentro do
+  // snapshot. A partir daí, offline.
+  //
+  // Sem vínculo, congela vazio: inspeção que nasceu sem regra não passa a ter
+  // regra hoje só porque o roteiro-mestre ganhou uma (contrato § 6.2).
+  const [revisionUnavailable, setRevisionUnavailable] = useState(false);
+  useEffect(() => {
+    if (loading || !currentInspection || currentInspection.status !== 'in_progress') return;
+    const snapshot = currentInspection.reportTemplateSnapshot;
+    if (!snapshot || !needsRevisionFreeze(snapshot)) return;
+
+    const revisionId = currentInspection.applicabilityRevisionId;
+    if (!revisionId) {
+      setCurrentInspection({
+        ...currentInspection,
+        reportTemplateSnapshot: freezeRevisionIntoTemplate(snapshot, null),
+      });
+      return;
+    }
+
+    let active = true;
+    void ApplicabilityRevisionService.getRevisionById(revisionId)
+      .then((revisao) => {
+        if (!active) return;
+        if (!revisao) {
+          // Vínculo sem revisão do outro lado é erro de dado, não licença para
+          // esconder requisito: a tela avisa e o roteiro segue inteiro.
+          setRevisionUnavailable(true);
+          return;
+        }
+        setRevisionUnavailable(false);
+        const atual = useInspectionStore.getState().currentInspection;
+        if (!atual || !atual.reportTemplateSnapshot) return;
+        setCurrentInspection({
+          ...atual,
+          reportTemplateSnapshot: freezeRevisionIntoTemplate(atual.reportTemplateSnapshot, revisao),
+        });
+      })
+      .catch((err) => {
+        // Offline é o caso normal aqui. Nada é gravado torto: a próxima abertura
+        // com rede congela. Enquanto isso o roteiro aparece inteiro — nunca a menos.
+        console.warn('[COND-08] Revisão de condições indisponível agora:', err);
+        if (active) setRevisionUnavailable(true);
+      });
+    return () => { active = false; };
+  }, [currentInspection, loading, setCurrentInspection]);
+
+  // COND-08 · Gravar resposta de roteamento.
+  //
+  // Antes de aplicar, mede o que a mudança RETIRA de itens já respondidos e pede
+  // confirmação com número (contrato § 6.1). A resposta sai carimbada com hora e
+  // autoria: é o carimbo que faz o merge entre dois dispositivos convergir por
+  // pergunta, em vez de o registro inteiro de uma apagar o da outra.
+  const answerRoutingQuestion = useCallback(async (questionId: string, answer: RoutingAnswer | null) => {
+    const state = useInspectionStore.getState();
+    const inspection = state.currentInspection;
+    if (!inspection) return;
+
+    const impacto = answerChangeImpact({
+      sections: effectiveTemplate?.sections || [],
+      rules: effectiveTemplate?.rules,
+      routingQuestions: effectiveTemplate?.routingQuestions,
+      context: inspection.applicabilityContext,
+      answers: inspection.routingAnswers,
+      answeredItemIds,
+      questionId,
+      nextAnswer: answer,
+    });
+
+    if (impacto.needsConfirmation) {
+      const ok = await confirm({
+        title: `${impacto.leaving.length} requisito(s) já respondido(s) deixam de ser aplicáveis`,
+        description:
+          'As respostas existentes são preservadas no histórico, mas não participam do resultado enquanto esta condição permanecer. Se a condição voltar, elas voltam com ela.',
+        consequences: [
+          ...impacto.leavingSections.map((alvo) => `Sai a seção «${alvo.label}»`),
+          ...impacto.leaving.slice(0, 6).map((alvo) => `Sai «${alvo.label}»`),
+          ...(impacto.leaving.length > 6 ? [`… e mais ${impacto.leaving.length - 6} exigência(s)`] : []),
+        ],
+        confirmLabel: 'Aplicar mesmo assim',
+        tone: 'default',
+      });
+      if (!ok) return;
+    }
+
+    const actor = getLocalActor();
+    const merged = stampRoutingAnswer(
+      { answers: inspection.routingAnswers || {}, meta: inspection.routingAnswersMeta || {} },
+      questionId,
+      answer,
+      { at: new Date().toISOString(), by: actor.name },
+    );
+
+    state.setCurrentInspection({
+      ...inspection,
+      routingAnswers: merged.answers,
+      routingAnswersMeta: merged.meta,
+      lastEditedBy: actor.name,
+      updatedAt: new Date(),
+    });
+
+    if (impacto.returning.length > 0) {
+      toast.success(
+        `${impacto.returning.length} requisito(s) voltaram ao roteiro`,
+        'As respostas que já existiam voltaram a valer.',
+      );
+    }
+  }, [answeredItemIds, confirm, effectiveTemplate]);
+
   const openActionItemIndex = useMemo(() => indexOpenActionItems(openActionItems), [openActionItems]);
 
   // ─── ÍNDICE, FILTRO E "FALTA ESCREVER" ────────────────────────────────────
@@ -516,7 +695,20 @@ export function InspectionExecution() {
     label: `${idx + 1} · ${section.title}`,
     total: section.items.length,
     answered: section.items.filter((item) => responseByItemId.has(item.id)).length,
-  })), [visibleSections, responseByItemId]);
+    // COND-08 · seção que depende de pergunta ainda sem resposta se anuncia no
+    // índice: quem está em campo precisa achar o que falta resolver sem rolar.
+    pending: applicability.sectionState[section.id]?.state === 'pendente_de_condicao',
+  })), [visibleSections, responseByItemId, applicability]);
+
+  // O que impede fechar: exigência pendente de condição esperando resposta.
+  const pendingByCondition = useMemo(() => pendingBlockers(applicability), [applicability]);
+
+  // Quantas condições estão quebradas na revisão congelada. Erro do motor vira
+  // aviso na tela, nunca requisito escondido (regra inegociável 10).
+  const applicabilityErrors = useMemo(
+    () => applicability.validation.filter((issue) => issue.severity === 'error').length,
+    [applicability],
+  );
 
   // O `hasError` que o ChecklistItem calcula por dentro deixa de morar só lá:
   // NC sem situação e/ou ação vira uma linha clicável, não uma contagem (decisão 30).
@@ -1227,6 +1419,10 @@ export function InspectionExecution() {
           template={(collaborationTemplate || effectiveTemplate) as ChecklistTemplate}
           responses={responses}
           missingText={missingText}
+          // COND-08 · o que ficou pendente de condição bloqueia o encerramento
+          // (contrato § 6.4). "Não foi possível determinar" não entra aqui: é
+          // resposta legítima de campo e libera a entrega.
+          pendingByCondition={pendingByCondition}
           isIlpi={isIlpiInspection}
           isFinishing={isFinishing}
           accompanistName={currentInspection.accompanistName || ''}
@@ -1545,6 +1741,31 @@ export function InspectionExecution() {
             ))}
           </div>
 
+          {/* COND-08 · erro de condição NUNCA esconde requisito (regra inegociável
+              10): quando a revisão não pôde ser lida ou tem regra quebrada, a
+              tela avisa e o roteiro continua inteiro. */}
+          {revisionUnavailable && (
+            <div className="mx-3 mt-3 rounded-md border border-amber-soft-border bg-amber-soft p-3 text-sm text-amber-soft-ink lg:mx-0">
+              <strong>Condições do roteiro ainda não carregadas.</strong>
+              <p className="mt-1">
+                O roteiro está sendo mostrado por inteiro, sem esconder nada. Abra a inspeção com conexão
+                uma vez para as condições valerem também neste aparelho.
+              </p>
+            </div>
+          )}
+
+          {applicabilityErrors > 0 && (
+            <div className="mx-3 mt-3 rounded-md border border-amber-soft-border bg-amber-soft p-3 text-sm text-amber-soft-ink lg:mx-0">
+              <strong>{applicabilityErrors} condição(ões) do roteiro com erro de configuração.</strong>
+              <p className="mt-1">
+                O que dependia delas ficou <strong>pendente e visível</strong> — nada foi escondido. Avise a
+                consultora responsável pelo roteiro.
+              </p>
+            </div>
+          )}
+
+          <RoutingQuestionsBlock questions={questionsBySection.soltas} onAnswer={answerRoutingQuestion} />
+
           {visibleSections.map((section, idx: number) => {
             const sectionResponses = section.items
               .map((i) => responses.find(r => r.itemId === i.id))
@@ -1557,6 +1778,9 @@ export function InspectionExecution() {
             const emptyUnderFilter = itemFilter !== 'todos' && visibleItems.length === 0;
             const isOpen = openSectionIds.has(section.id);
 
+            const sectionDecision = applicability.sectionState[section.id];
+            const sectionPending = sectionDecision?.state === 'pendente_de_condicao';
+
             return (
               <div
                 key={section.id}
@@ -1564,7 +1788,12 @@ export function InspectionExecution() {
                 className={cn('scroll-mt-[97px] lg:scroll-mt-44', emptyUnderFilter && 'lg:hidden')}
               >
               <SectionAccordion
-                title={`${idx + 1}. ${section.title}`}
+                title={sectionPending ? (
+                  <span className="flex flex-wrap items-center gap-2">
+                    {`${idx + 1}. ${section.title}`}
+                    <Badge variant="warning">Pendente de condição</Badge>
+                  </span>
+                ) : `${idx + 1}. ${section.title}`}
                 totalItems={section.items.length}
                 evaluatedItems={sectionResponses.length}
                 compliesCount={sectionResponses.filter(r => r.result === 'complies').length}
@@ -1582,6 +1811,19 @@ export function InspectionExecution() {
                   </p>
                 ) : (
                 <div className="space-y-0 lg:space-y-4">
+                  {/* COND-08 · a seção pendente diz por quê, com a frase do motor. */}
+                  {sectionPending && sectionDecision && (
+                    <p className="mx-3 mt-3 rounded-md bg-amber-soft px-3 py-2 text-[12.5px] text-amber-soft-ink lg:mx-0 lg:mt-0">
+                      {sectionDecision.explanation}
+                    </p>
+                  )}
+
+                  <RoutingQuestionsBlock
+                    questions={questionsBySection.porSecao.get(section.id) || []}
+                    onAnswer={answerRoutingQuestion}
+                    title="Perguntas que definem esta seção"
+                  />
+
                   {/* ILPI Dimensioning Block — casa por id (roteiro estático) ou por
                       título "Recursos Humanos" (roteiros salvos no banco usam id UUID). */}
                   {(section.id === 'sec-fed-12'
@@ -1679,8 +1921,18 @@ export function InspectionExecution() {
                   {/* Template Items */}
                   {visibleItems.map((item) => {
                     const resp = responses.find(r => r.itemId === item.id);
+                    const itemDecision = applicability.itemState[item.id];
+                    const itemPending = !sectionPending && itemDecision?.state === 'pendente_de_condicao';
                     return (
                       <div key={item.id}>
+                        {/* Pendente continua respondível: pendência é do ROTEIRO,
+                            não do requisito — e some em silêncio é o que o
+                            contrato § 6.4 proíbe. */}
+                        {itemPending && itemDecision && (
+                          <p className="mx-3 mt-3 rounded-md bg-amber-soft px-3 py-2 text-[12.5px] text-amber-soft-ink lg:mx-0">
+                            {itemDecision.explanation}
+                          </p>
+                        )}
                         <ChecklistItem
                           item={item}
                           response={resp}
@@ -1716,6 +1968,11 @@ export function InspectionExecution() {
               </div>
             );
           })}
+
+          <ExcludedByRulePanel
+            excluded={applicability.excluded}
+            answeredCount={applicability.counts.foraComResposta}
+          />
 
           {itemFilter !== 'todos' && filterCounts[itemFilter] === 0 && (
             <div className="m-3 rounded-md border border-default bg-surface p-6 text-center lg:m-0">

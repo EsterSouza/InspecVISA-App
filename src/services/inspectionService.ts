@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase';
 import type { PostgrestError } from '@supabase/supabase-js';
 import { errorMessage } from '../utils/errors';
 import type { Inspection, InspectionResponse, InspectionPhoto } from '../types';
+import type { RoutingAnswers, RoutingAnswersMeta } from '../domain/applicability';
 import { db } from '../db/database';
 import { RepositoryService } from './repositoryService';
 import { withLocalActor } from '../utils/localActor';
@@ -110,6 +111,9 @@ export interface InspectionRow {
   finalized_by: Inspection['finalizedBy'] | null;
   /** COND-04/05 — revisão publicada de condições congelada na criação. */
   applicability_revision_id?: string | null;
+  applicability_context?: unknown;
+  routing_answers?: unknown;
+  routing_answers_meta?: unknown;
   tenant_id: string;
   deleted_at: string | null;
 }
@@ -145,6 +149,11 @@ export interface PhotoRow {
   updated_at: string | null;
   tenant_id: string;
   deleted_at: string | null;
+}
+
+/** Jsonb que não é objeto é ilegível — e ilegível nunca sobrescreve o que é local. */
+function isPlainObject(value: unknown): boolean {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 export function mapFromPostgres(row: InspectionRow): Inspection {
@@ -186,11 +195,39 @@ export function mapFromPostgres(row: InspectionRow): Inspection {
     // voltasse sem ele — e ela volta assim pelo caminho do bundle, que tem lista
     // fixa de colunas e ignora esta (a convergência de verdade é do COND-08).
     ...(row.applicability_revision_id ? { applicabilityRevisionId: row.applicability_revision_id } : {}),
+    // COND-08: contexto congelado e respostas de roteamento passaram a viajar.
+    // A chave só é emitida quando o servidor TEM valor — coluna ausente (deploy
+    // anterior à migration) ou linha antiga não podem apagar o que está no Dexie.
+    // Quem converge resposta a resposta é `reconcileRoutingAnswers`, no merge.
+    ...(isPlainObject(row.applicability_context) ? { applicabilityContext: row.applicability_context as Inspection['applicabilityContext'] } : {}),
+    ...(isPlainObject(row.routing_answers) ? { routingAnswers: row.routing_answers as RoutingAnswers } : {}),
+    ...(isPlainObject(row.routing_answers_meta) ? { routingAnswersMeta: row.routing_answers_meta as RoutingAnswersMeta } : {}),
     tenantId: row.tenant_id,
     deletedAt: row.deleted_at ? new Date(row.deleted_at) : null,
     syncStatus: 'synced',
     dataVerifiedAt: new Date()
   };
+}
+
+/**
+ * COND-08 — as colunas de aplicabilidade, só quando há valor.
+ *
+ * Omitir é o que torna o app novo compatível com um banco que ainda não recebeu
+ * `20260827100000_cond08_routing_answers_sync.sql`: enviar coluna inexistente
+ * derruba o upsert inteiro da inspeção, e nenhuma inspeção de hoje tem contexto
+ * congelado ou resposta de roteamento para enviar.
+ *
+ * Limpar uma resposta continua viajando: `stampRoutingAnswer` guarda a chave com
+ * `null` explícito, então o objeto nunca volta a ficar vazio depois da primeira
+ * resposta.
+ */
+function applicabilityColumns(inspection: Inspection): Record<string, unknown> {
+  const colunas: Record<string, unknown> = {};
+  const temChave = (valor: unknown) => Boolean(valor) && Object.keys(valor as object).length > 0;
+  if (temChave(inspection.applicabilityContext)) colunas.applicability_context = inspection.applicabilityContext;
+  if (temChave(inspection.routingAnswers)) colunas.routing_answers = inspection.routingAnswers;
+  if (temChave(inspection.routingAnswersMeta)) colunas.routing_answers_meta = inspection.routingAnswersMeta;
+  return colunas;
 }
 
 export function mapToPostgres(inspection: Inspection) {
@@ -234,6 +271,17 @@ export function mapToPostgres(inspection: Inspection) {
     // NÃO vão junto: ficam no Dexie, como o reportTemplateSnapshot, até o COND-08
     // decidir o formato do sync.
     applicability_revision_id: inspection.applicabilityRevisionId || null,
+    // COND-08 — o contexto congelado e as respostas de roteamento vão ao servidor
+    // para as duas consultoras convergirem para a MESMA árvore (contrato § 6.5).
+    // O `reportTemplateSnapshot` continua fora, de propósito: o vínculo por
+    // revisão publicada e imutável dá convergência sem duplicar o roteiro inteiro
+    // em cada inspeção (decisão do COND-04, payload do sync).
+    //
+    // As três chaves só entram quando há o que enviar. Coluna que não existe faz
+    // o upsert INTEIRO falhar, e inspeção de hoje não tem nenhuma das três — então
+    // o app novo continua sincronizando contra um banco sem a migration. Só quem
+    // já tem regra publicada (que exige a migration) manda as colunas novas.
+    ...applicabilityColumns(inspection),
     deleted_at: inspection.deletedAt ? inspection.deletedAt.toISOString() : null,
     updated_at: inspection.updatedAt.toISOString(),
     created_at: inspection.createdAt.toISOString(),

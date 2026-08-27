@@ -271,11 +271,90 @@ Funcionalidade: Aplicabilidade condicional do roteiro
     Então só aparecem as do próprio tenant
     E gravar no tenant da outra é recusado
 
+  # ── A execução adaptativa (COND-08) ────────────────────────────────────────
+  Cenário: A pergunta de campo aparece na execução, com vocabulário próprio
+    Dado uma pergunta de roteamento marcada para a execução
+    Quando abro a inspeção no roteiro
+    Então ela aparece num bloco que diz "Perguntas que definem o roteiro"
+    E o bloco diz que aquilo não entra na nota nem no plano de ação
+    E ela não tem conforme, não conforme, peso, foto nem prazo
+
+  Cenário: Responder a pergunta esconde a seção que deixou de se aplicar
+    Dado uma seção condicionada a "Realiza processamento de artigos?"
+    Quando respondo "Não"
+    Então a seção sai do roteiro na tela
+    E ela aparece em "Fora do roteiro por condição", com o motivo escrito
+    E nenhuma resposta é apagada
+
+  Cenário: Retirar item já respondido pede confirmação com número
+    Dado 6 exigências respondidas numa seção condicional
+    Quando mudo a resposta controladora para o valor que retira a seção
+    Então a tela avisa que 6 requisitos deixam de ser aplicáveis
+    E diz que as respostas são preservadas no histórico
+    E nada muda enquanto eu não confirmar
+
+  Cenário: O caminho de volta devolve o item e a resposta
+    Dado uma seção retirada por condição, com respostas preservadas
+    Quando respondo a pergunta controladora do outro jeito
+    Então a seção volta ao roteiro
+    E as respostas que já existiam voltam a valer
+
+  Cenário: Pergunta sem resposta deixa pendente e visível, nunca oculto
+    Dado uma seção condicionada a uma pergunta ainda sem resposta
+    Quando abro o roteiro
+    Então a seção aparece marcada como "Pendente de condição"
+    E o índice de seções também a marca
+    E a explicação diz qual pergunta falta resolver
+
+  Cenário: Pendência de condição impede encerrar a inspeção
+    Dado uma exigência pendente de condição esperando resposta
+    Quando abro a etapa de encerramento
+    Então o botão de encerrar fica indisponível, com o motivo em texto
+    E a lista mostra o que precisa ser resolvido
+
+  Cenário: "Não foi possível determinar" libera o encerramento
+    Dado uma pergunta de campo que não pôde ser apurada
+    Quando a marco como "não foi possível determinar", com justificativa
+    Então o que dependia dela continua pendente e visível
+    E o encerramento deixa de estar bloqueado
+
+  Cenário: Mostrar e esconder item nunca depende de rede
+    Dado uma inspeção aberta sem conexão
+    Quando respondo uma pergunta de roteamento
+    Então a árvore é recalculada na hora, sem nenhuma chamada ao servidor
+    E o resultado é idêntico ao que apareceria com conexão
+
+  Cenário: Duas consultoras convergem para a mesma árvore
+    Dado que eu respondo a pergunta 1 e a minha colega responde a pergunta 2, as duas offline
+    Quando os dois aparelhos sincronizam
+    Então as duas respostas existem nos dois aparelhos
+    E as duas telas mostram exatamente as mesmas seções e exigências
+
+  Cenário: Mesma pergunta respondida nos dois aparelhos
+    Dado que as duas responderam a MESMA pergunta, com valores diferentes
+    Quando os dois aparelhos sincronizam
+    Então vence a resposta mais recente, com a autoria registrada
+    E as duas árvores ficam iguais
+
+  Cenário: Condição que não pôde ser lida não esconde requisito
+    Dado uma inspeção cuja revisão de condições ainda não chegou a este aparelho
+    Quando abro o roteiro
+    Então ele aparece por inteiro, sem esconder nada
+    E a tela avisa que as condições ainda não foram carregadas
+
+  Cenário: Inspeção que nasceu sem regra não passa a ter regra depois
+    Dado uma inspeção em andamento criada antes de o roteiro ter condições
+    Quando publico uma revisão de condições nesse roteiro
+    E abro a inspeção de novo
+    Então ela continua com todas as exigências aplicáveis
+
   # ── Onde o comportamento é garantido hoje ──────────────────────────────────
   # COND-02 (16/08/2026) entregou o motor puro; COND-03 (18/08) a árvore única congelada na criação
   # da inspeção; COND-04 (19/08) a persistência das regras; COND-05 (20/08) as perguntas de
-  # roteamento e o contexto congelado. NENHUMA tela cria regra ainda e a tabela de revisões está
-  # vazia em produção — o comportamento visível no app é o de antes.
+  # roteamento e o contexto congelado; COND-06 e COND-07 (27/08) o editor, o simulador e o gate;
+  # COND-08 (27/08) a execução consultando o motor. A tabela de revisões continua **vazia em
+  # produção** — enquanto nenhum roteiro tiver revisão publicada, o app se comporta como antes:
+  # sem regra = sempre aplicável.
   #
   # Garantido por teste, no motor (src/domain/applicability/):
   #   os três estados · null/indeterminado · TODAS/QUALQUER · else · herança seção→item ·
@@ -302,9 +381,25 @@ Funcionalidade: Aplicabilidade condicional do roteiro
   #     → src/__tests__/services/cond05FrozenContext.test.ts
   #     → src/__tests__/components/RoutingQuestionField.test.tsx
   #
-  # Ainda sem implementação (cards COND-06 a COND-10): responder pergunta de roteamento em campo,
-  # preservação de resposta de ramo desativado, confirmação antes de retirar item respondido,
-  # score/progresso/PDF, plano de ação, offline, duas consultoras, editor e duplicação de roteiro.
+  # Garantido por teste, no editor e no simulador (COND-06 e COND-07):
+  #   travas do ciclo de vida · duplicação que não herda id · resumo em linguagem humana ·
+  #   simulação de cenário · gate de publicação, inclusive ramo inalcançável
+  #     → src/__tests__/domain/applicabilityAuthoring.test.ts
+  #     → src/__tests__/domain/applicabilitySimulate.test.ts
+  #     → src/__tests__/components/ApplicabilityEditor.test.tsx
+  #
+  # Garantido por teste, na execução adaptativa (COND-08):
+  #   árvore da tela (aplicável + pendente; o que saiu vai para a lista, com resposta preservada) ·
+  #   impacto da mudança de resposta, com o caminho de volta · bloqueio do encerramento por
+  #   pendência de condição, e "não foi possível determinar" liberando · merge por pergunta entre
+  #   dois aparelhos, idempotente e convergente · o mapeamento que não apaga o que é local
+  #     → src/__tests__/domain/applicabilityExecution.test.ts
+  #     → src/__tests__/components/AdaptiveExecution.test.tsx
+  #     → src/__tests__/services/cond08RoutingSync.test.ts
+  #     → supabase/tests/cond08_routing_answers_sync.test.sql (o bundle levando as quatro colunas)
+  #
+  # Ainda sem implementação (cards COND-09 e COND-10): score, progresso, resumo, PDF, referências
+  # de legislação e plano de ação sobre o conjunto de aplicáveis; e o piloto em Estética.
   #
   # O que já existia e virou a suíte de equivalência (docs/mapa-roteiro-inspecao.md):
   #   src/data/templates.ts:383  getEffectiveTemplate — as 6 regras hardcoded

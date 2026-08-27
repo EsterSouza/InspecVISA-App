@@ -6,6 +6,8 @@ import { getLocalActor } from '../utils/localActor';
 import { dataUrlToBlob } from '../utils/imageUtils';
 import { errorMessage } from '../utils/errors';
 import type { Table } from 'dexie';
+import { reconcileRoutingAnswers } from '../utils/routingAnswersSync';
+import type { RoutingAnswerCarrier } from '../utils/routingAnswersSync';
 
 /**
  * RepositoryService
@@ -238,6 +240,22 @@ export const RepositoryService = {
 
     const remoteUpdatedAt = timestampOf(remote.updatedAt || remote.createdAt);
     const localUpdatedAt = timestampOf(local.updatedAt || local.createdAt);
+
+    // COND-08 · resposta de roteamento converge POR PERGUNTA, antes de qualquer
+    // decisão de quem vence o registro. Sem isto, a inspeção que a colega editou
+    // offline levaria o objeto inteiro e apagaria a resposta dada aqui — perda
+    // silenciosa, que é o que a regra inegociável 1 proíbe. Só toca inspeção:
+    // nas outras tabelas o recorte não existe e a função devolve `null`.
+    const rota = reconcileRoutingAnswers(local as RoutingAnswerCarrier, remote as RoutingAnswerCarrier);
+    if (rota) {
+      await dexieTable.update(local.id, {
+        ...rota.patch,
+        // O local tem resposta que o servidor ainda não conhece: entra na fila.
+        ...(rota.localAhead && local.syncStatus === 'synced' ? { syncStatus: 'pending' as SyncStatus } : {}),
+      } as Partial<SyncableRecord>);
+      Object.assign(local, rota.patch);
+      remote = { ...remote, ...rota.patch };
+    }
 
     if (local.syncStatus && UNSAFE_LOCAL_STATUSES.includes(local.syncStatus)) {
       const diverged = remoteUpdatedAt > 0 && !sameTimestamp(remote.updatedAt || remote.createdAt, local.updatedAt || local.createdAt);

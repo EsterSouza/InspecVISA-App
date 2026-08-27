@@ -5,7 +5,8 @@
 
 import type { AppointmentType } from '../utils/appointmentType';
 export type { AppointmentType } from '../utils/appointmentType';
-import type { InspectionContext, RoutingAnswers } from '../domain/applicability/schema';
+import type { ApplicabilityRule, InspectionContext, RoutingAnswers, RoutingQuestion } from '../domain/applicability/schema';
+import type { RoutingAnswersMeta } from '../domain/applicability/execution';
 
 export type ClientCategory = 'estetica' | 'ilpi' | 'alimentos';
 
@@ -91,6 +92,15 @@ export interface ChecklistTemplate {
   version: string;
   sections: Section[];
   dataVerifiedAt?: Date;
+  // ── COND-08 · a revisão de aplicabilidade viaja com a árvore congelada ─────
+  // Quando o roteiro é o `reportTemplateSnapshot` de uma inspeção, estes três
+  // campos são a revisão publicada que ela congelou. É o que faz o motor rodar
+  // **offline, sem nenhuma chamada ao Supabase** para mostrar ou esconder item.
+  // No roteiro-mestre vivo eles não existem — a revisão de lá mora em
+  // `checklist_template_revisions`, e é o COND-06 quem a edita.
+  applicabilityRevisionId?: string | null;
+  rules?: ApplicabilityRule[];
+  routingQuestions?: RoutingQuestion[];
 }
 
 export interface Section {
@@ -209,6 +219,11 @@ export interface Inspection extends SyncBase {
   // Respostas das perguntas de roteamento. Ficam FORA de `responses` de propósito:
   // pergunta de roteamento não é requisito sanitário (contrato § 3).
   routingAnswers?: RoutingAnswers;
+  // COND-08 · quando cada resposta de roteamento foi dada e por quem. É o que
+  // permite o merge **por pergunta** entre dois dispositivos: sem o carimbo, o
+  // merge do registro inteiro apagaria a resposta que a colega deu offline a
+  // outra pergunta (contrato § 6.5).
+  routingAnswersMeta?: RoutingAnswersMeta;
   updatedAt: Date;
   deletedAt?: Date | null;
   tenantId?: string;

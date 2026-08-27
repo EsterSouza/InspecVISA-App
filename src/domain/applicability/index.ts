@@ -117,3 +117,29 @@ export type {
   SimulationResult,
   SimulationScenario,
 } from './simulate';
+
+// ── COND-08 · a execução adaptativa: árvore da tela, impacto e convergência ──
+export {
+  answerChangeImpact,
+  executionQuestions,
+  mergeRoutingAnswers,
+  pendingBlockers,
+  resolveExecutionTree,
+  stampRoutingAnswer,
+  undeterminedQuestions,
+} from './execution';
+export type {
+  AnswerChangeImpact,
+  AnswerChangeInput,
+  ExcludedTarget,
+  ExecutionCounts,
+  ExecutionItem,
+  ExecutionQuestion,
+  ExecutionSection,
+  ExecutionTemplate,
+  ExecutionTree,
+  ExecutionTreeInput,
+  RoutingAnswerStamp,
+  RoutingAnswersMeta,
+  RoutingAnswersState,
+} from './execution';
