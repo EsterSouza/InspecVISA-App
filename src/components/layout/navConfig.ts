@@ -3,6 +3,7 @@ import {
   BookOpen,
   Calendar,
   ClipboardCheck,
+  ClipboardList,
   FileText,
   Headset,
   Home,
@@ -38,6 +39,7 @@ export const STAFF_NAV_GROUPS: NavGroup[] = [
       { to: '/schedules', icon: Calendar, label: 'Agendamentos' },
       { to: '/inspections', icon: ClipboardCheck, label: 'Inspeções' },
       { to: '/requests', icon: Headset, label: 'Solicitações' },
+      { to: '/plano-de-acao', icon: ClipboardList, label: 'Plano de ação' },
     ],
   },
   {

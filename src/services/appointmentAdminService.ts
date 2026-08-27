@@ -25,6 +25,30 @@ import { getLocalActor } from '../utils/localActor';
 import { assertInspectionAppointment, normalizeAppointmentType, type AppointmentType } from '../utils/appointmentType';
 import { toDateKey } from '../utils/date';
 
+/**
+ * ACT-01 — resumo do que o cliente devolveu numa pendência do plano de ação. É o que decide se
+ * ela entra na fila "Para analisar" e o que a linha da tabela mostra sem abrir o detalhe.
+ */
+export interface ActionItemResponseSummary {
+  /** Arquivos ainda com `status = 'pending'`: é a evidência esperando decisão da consultora. */
+  pendingEvidence: number;
+  totalEvidence: number;
+  lastEvidenceAt: string | null;
+  checkpointsDone: number;
+  /** Só os tópicos vivos — `dropped_at` fica de fora do progresso. */
+  checkpointsTotal: number;
+}
+
+/** Um tópico da ação corretiva do lado do staff (PORT-05). */
+export interface AdminActionCheckpoint {
+  id: string;
+  text: string;
+  ordinal: number;
+  done: boolean;
+  doneAt: string | null;
+  doneByName: string | null;
+}
+
 const PORTAL_BUCKET = 'client-portal-files';
 const INSPECTION_PHOTO_BUCKET = 'inspection-photos';
 const ADMIN_TIMEOUT_MS = 45000;
@@ -1132,6 +1156,74 @@ export const AppointmentAdminService = {
       .order('submitted_at', { ascending: false });
     if (error) throw error;
     return (data || []) as ClientActionEvidence[];
+  },
+
+  /**
+   * ACT-01 — o que o cliente devolveu, por pendência, numa leitura só.
+   *
+   * A fila "Para analisar" da tela `/plano-de-acao` precisa saber, para **todas** as linhas de
+   * uma vez, se há arquivo aguardando revisão e quantos tópicos o cliente já marcou. Uma
+   * consulta por linha faria N chamadas só para desenhar a tabela; estas duas varrem o tenant
+   * inteiro (a RLS de staff já limita o escopo) e devolvem o resumo indexado pelo id do item.
+   *
+   * Falhar aqui **não** pode derrubar a tela: quem chama trata como "sem resumo" e a lista
+   * continua mostrando prazo, prioridade e declaração — que vêm de `client_action_items`.
+   */
+  async listActionResponseSummary(): Promise<Map<string, ActionItemResponseSummary>> {
+    const summary = new Map<string, ActionItemResponseSummary>();
+    const ensure = (itemId: string): ActionItemResponseSummary => {
+      let row = summary.get(itemId);
+      if (!row) {
+        row = { pendingEvidence: 0, totalEvidence: 0, lastEvidenceAt: null, checkpointsDone: 0, checkpointsTotal: 0 };
+        summary.set(itemId, row);
+      }
+      return row;
+    };
+
+    const [evidence, checkpoints] = await Promise.all([
+      supabase
+        .from('client_action_evidence')
+        .select('action_item_id, status, submitted_at'),
+      supabase
+        .from('client_action_checkpoints')
+        .select('action_item_id, done_at, dropped_at'),
+    ]);
+    if (evidence.error) throw evidence.error;
+    if (checkpoints.error) throw checkpoints.error;
+
+    for (const row of evidence.data || []) {
+      const item = ensure(row.action_item_id as string);
+      item.totalEvidence += 1;
+      if (row.status === 'pending') item.pendingEvidence += 1;
+      const at = row.submitted_at as string | null;
+      if (at && (!item.lastEvidenceAt || at > item.lastEvidenceAt)) item.lastEvidenceAt = at;
+    }
+    for (const row of checkpoints.data || []) {
+      if (row.dropped_at) continue; // tópico que saiu da republicação não conta para o progresso
+      const item = ensure(row.action_item_id as string);
+      item.checkpointsTotal += 1;
+      if (row.done_at) item.checkpointsDone += 1;
+    }
+    return summary;
+  },
+
+  /** Os tópicos de uma pendência como a consultora os lê: texto, ordem e quem marcou (PORT-05). */
+  async listActionItemCheckpoints(itemId: string): Promise<AdminActionCheckpoint[]> {
+    const { data, error } = await supabase
+      .from('client_action_checkpoints')
+      .select('id, text, ordinal, done_at, done_by_name, dropped_at')
+      .eq('action_item_id', itemId)
+      .is('dropped_at', null)
+      .order('ordinal', { ascending: true });
+    if (error) throw error;
+    return (data || []).map((row) => ({
+      id: row.id as string,
+      text: row.text as string,
+      ordinal: row.ordinal as number,
+      done: !!row.done_at,
+      doneAt: (row.done_at as string) || null,
+      doneByName: (row.done_by_name as string) || null,
+    }));
   },
 
   /**

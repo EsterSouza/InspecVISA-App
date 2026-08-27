@@ -3,19 +3,28 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   AlertTriangle,
   CheckCircle,
+  CheckSquare,
+  ChevronLeft,
+  ChevronRight,
   ClipboardList,
   Eye,
   EyeOff,
   ExternalLink,
   Loader2,
+  Paperclip,
   RefreshCw,
   RotateCcw,
   Search,
+  Square,
 } from 'lucide-react';
 import type { Client, ClientActionEvidence, ClientActionItem, ClientActionItemStatus } from '../types';
 import { ClientService } from '../services/clientService';
-import { AppointmentAdminService } from '../services/appointmentAdminService';
-import { errorMessage, formatDateBR, usePagedList } from '../components/schedules/appointmentRequestsShared';
+import {
+  AppointmentAdminService,
+  type ActionItemResponseSummary,
+  type AdminActionCheckpoint,
+} from '../services/appointmentAdminService';
+import { errorMessage, formatDateBR, PAGE_SIZE, usePagedList } from '../components/schedules/appointmentRequestsShared';
 import { EvidenceReview } from '../components/schedules/ActionPlanPanel';
 import { usePromptDialog } from '../components/ui/usePromptDialog';
 import { PageShell } from '../components/ui/PageShell';
@@ -30,13 +39,16 @@ import { Modal } from '../components/ui/Modal';
 import { Pagination } from '../components/ui/Pagination';
 import { TableContainer, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table';
 
-type Segment = 'vencidas' | 'abertas' | 'concluidas';
+type Segment = 'analise' | 'vencidas' | 'abertas' | 'concluidas';
 
 const SEGMENT_LABELS: Record<Segment, string> = {
+  analise: 'Para analisar',
   vencidas: 'Vencidas',
   abertas: 'Abertas',
   concluidas: 'Concluídas',
 };
+
+const SEGMENTS = Object.keys(SEGMENT_LABELS) as Segment[];
 
 const PRIORITY_LABELS: Record<ClientActionItem['priority'], string> = {
   urgent: 'Urgente',
@@ -62,6 +74,26 @@ const CLIENT_STATUS_BADGE: Record<NonNullable<ClientActionItem['client_status']>
   not_done: 'danger',
 };
 
+/** Filtro pela resposta do cliente — a pergunta "o que ele me devolveu?", que a aba de prazo não responde. */
+type ResponseFilter = '' | 'aguardando' | 'done' | 'in_progress' | 'not_done' | 'sem';
+
+const RESPONSE_FILTER_LABELS: Record<ResponseFilter, string> = {
+  '': 'Toda resposta do cliente',
+  aguardando: 'Arquivo aguardando revisão',
+  done: 'Declarou: já corrigiu',
+  in_progress: 'Declarou: providenciando',
+  not_done: 'Declarou: ainda não fez',
+  sem: 'Sem resposta nenhuma',
+};
+
+const EMPTY_SUMMARY: ActionItemResponseSummary = {
+  pendingEvidence: 0,
+  totalEvidence: 0,
+  lastEvidenceAt: null,
+  checkpointsDone: 0,
+  checkpointsTotal: 0,
+};
+
 function todayLocal(): Date {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -83,10 +115,44 @@ function daysOverdue(dueDate: string): number {
   return Math.round(diff / 86_400_000);
 }
 
-function segmentOf(item: ClientActionItem): Segment | null {
-  if (item.status === 'resolved') return 'concluidas';
-  if (item.status === 'published') return isOverdue(item) ? 'vencidas' : 'abertas';
-  return null; // oculto — não aparece em nenhum segmento desta tela
+/**
+ * A pendência está esperando **decisão da consultora**, não cobrança do cliente.
+ *
+ * Três coisas fazem o cliente "entregar": anexar arquivo (que nasce `pending`), declarar que já
+ * corrigiu, ou marcar todos os tópicos da ação. "Providenciando" e "ainda não fez" ficam de fora
+ * de propósito — são cobrança, e vivem nas abas de prazo. Assim a fila esvazia sozinha: aprovar,
+ * devolver, resolver ou ocultar tira o item daqui.
+ */
+function awaitsReview(item: ClientActionItem, summary: ActionItemResponseSummary): boolean {
+  if (item.status !== 'published') return false;
+  if (summary.pendingEvidence > 0) return true;
+  if (item.client_status === 'done') return true;
+  return summary.checkpointsTotal > 0 && summary.checkpointsDone === summary.checkpointsTotal;
+}
+
+/**
+ * As abas não são uma partição: "Para analisar" é outra lente sobre as mesmas linhas, e uma
+ * pendência vencida com arquivo novo aparece nas duas. Era isso que faltava — a fila de análise
+ * não cabia dentro de "vencidas / abertas / concluídas".
+ */
+function inSegment(item: ClientActionItem, segment: Segment, summary: ActionItemResponseSummary): boolean {
+  if (segment === 'analise') return awaitsReview(item, summary);
+  if (item.status === 'resolved') return segment === 'concluidas';
+  if (item.status !== 'published') return false; // oculto — não aparece em nenhuma aba de prazo
+  return segment === (isOverdue(item) ? 'vencidas' : 'abertas');
+}
+
+function matchesResponse(item: ClientActionItem, filter: ResponseFilter, summary: ActionItemResponseSummary): boolean {
+  switch (filter) {
+    case '':
+      return true;
+    case 'aguardando':
+      return summary.pendingEvidence > 0;
+    case 'sem':
+      return !item.client_status && summary.totalEvidence === 0 && summary.checkpointsDone === 0;
+    default:
+      return item.client_status === filter;
+  }
 }
 
 /**
@@ -94,27 +160,41 @@ function segmentOf(item: ClientActionItem): Segment | null {
  * `admin_operational_overview`, que tem bugs conhecidos e fora de escopo aqui — ver
  * docs/HANDOFF-FRONTEND.md § "Fora de escopo"). Lista + detalhe: a tabela é o índice, o
  * `situation`/`recommended_action` inteiros aparecem no painel lateral, sem abrir relatório
- * e sem abrir inspeção — mesmo texto do card.
+ * e sem abrir inspeção.
+ *
+ * ACT-01 (27/08/2026) — a tela virou também a **fila de análise**: aba "Para analisar", filtro
+ * por resposta do cliente, os tópicos que ele marcou no detalhe, e navegação Anterior/Próxima
+ * dentro do modal, que avança sozinha depois de resolver. Antes, o único caminho até a resposta
+ * do cliente era clicar num bloco do Início, um item por vez, sem saber quantos faltavam.
  */
 export function ActionPlan() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   const [items, setItems] = useState<ClientActionItem[]>([]);
+  const [summaries, setSummaries] = useState<Map<string, ActionItemResponseSummary>>(new Map());
+  const [summaryReady, setSummaryReady] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [search, setSearch] = useState('');
   const [clientId, setClientId] = useState(searchParams.get('client') || '');
-  const [segment, setSegment] = useState<Segment>('vencidas');
+  const [responseFilter, setResponseFilter] = useState<ResponseFilter>('');
+  const [segment, setSegment] = useState<Segment>('analise');
   const [sortDir, setSortDir] = useState<'ascending' | 'descending'>('ascending');
 
   const [selectedId, setSelectedId] = useState<string | null>(searchParams.get('item'));
   const [evidence, setEvidence] = useState<ClientActionEvidence[]>([]);
-  const [evidenceLoading, setEvidenceLoading] = useState(false);
+  const [checkpoints, setCheckpoints] = useState<AdminActionCheckpoint[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [savingStatus, setSavingStatus] = useState(false);
   const { prompt, promptDialog } = usePromptDialog();
+
+  const summaryOf = useCallback(
+    (itemId: string): ActionItemResponseSummary => summaries.get(itemId) || EMPTY_SUMMARY,
+    [summaries]
+  );
 
   const loadItems = useCallback(() => {
     setLoading(true);
@@ -123,6 +203,12 @@ export function ActionPlan() {
       .then(setItems)
       .catch((err) => setLoadError(errorMessage(err)))
       .finally(() => setLoading(false));
+    // O resumo da devolução é complementar: se falhar, a tela continua de pé com prazo,
+    // prioridade e declaração — só a fila de análise fica sem os sinais de arquivo/tópico.
+    AppointmentAdminService.listActionResponseSummary()
+      .then(setSummaries)
+      .catch((err) => console.warn('[ActionPlan] Falha ao carregar as respostas do cliente:', err))
+      .finally(() => setSummaryReady(true));
   }, []);
 
   useEffect(() => {
@@ -134,23 +220,34 @@ export function ActionPlan() {
 
   const clientsById = useMemo(() => new Map(clients.map((c) => [c.id, c])), [clients]);
 
-  const loadEvidence = useCallback((itemId: string) => {
-    setEvidenceLoading(true);
-    AppointmentAdminService.listActionItemEvidence([itemId])
-      .then(setEvidence)
-      .catch((err) => console.warn('[ActionPlan] Falha ao carregar evidências:', err))
-      .finally(() => setEvidenceLoading(false));
+  const loadDetail = useCallback((itemId: string) => {
+    setDetailLoading(true);
+    Promise.all([
+      AppointmentAdminService.listActionItemEvidence([itemId]),
+      AppointmentAdminService.listActionItemCheckpoints(itemId),
+    ])
+      .then(([rows, points]) => {
+        setEvidence(rows);
+        setCheckpoints(points);
+      })
+      .catch((err) => console.warn('[ActionPlan] Falha ao carregar o detalhe da pendência:', err))
+      .finally(() => setDetailLoading(false));
   }, []);
 
   useEffect(() => {
-    if (selectedId) loadEvidence(selectedId);
-    else setEvidence([]);
-  }, [selectedId, loadEvidence]);
+    if (selectedId) {
+      loadDetail(selectedId);
+    } else {
+      setEvidence([]);
+      setCheckpoints([]);
+    }
+  }, [selectedId, loadDetail]);
 
   const searchFiltered = useMemo(() => {
     const query = search.trim().toLowerCase();
     return items.filter((item) => {
       if (clientId && item.client_id !== clientId) return false;
+      if (!matchesResponse(item, responseFilter, summaries.get(item.id) || EMPTY_SUMMARY)) return false;
       if (!query) return true;
       return (
         item.title.toLowerCase().includes(query) ||
@@ -158,20 +255,22 @@ export function ActionPlan() {
         item.recommended_action.toLowerCase().includes(query)
       );
     });
-  }, [items, clientId, search]);
+  }, [items, clientId, responseFilter, search, summaries]);
 
   const counts = useMemo(() => {
-    const result: Record<Segment, number> = { vencidas: 0, abertas: 0, concluidas: 0 };
+    const result: Record<Segment, number> = { analise: 0, vencidas: 0, abertas: 0, concluidas: 0 };
     for (const item of searchFiltered) {
-      const s = segmentOf(item);
-      if (s) result[s] += 1;
+      const summary = summaries.get(item.id) || EMPTY_SUMMARY;
+      for (const key of SEGMENTS) {
+        if (inSegment(item, key, summary)) result[key] += 1;
+      }
     }
     return result;
-  }, [searchFiltered]);
+  }, [searchFiltered, summaries]);
 
   const segmentFiltered = useMemo(
-    () => searchFiltered.filter((item) => segmentOf(item) === segment),
-    [searchFiltered, segment]
+    () => searchFiltered.filter((item) => inSegment(item, segment, summaries.get(item.id) || EMPTY_SUMMARY)),
+    [searchFiltered, segment, summaries]
   );
 
   const sorted = useMemo(() => {
@@ -184,33 +283,55 @@ export function ActionPlan() {
     });
   }, [segmentFiltered, sortDir]);
 
-  const { page, totalPages, items: pagedItems, setPage } = usePagedList(sorted, `${clientId}|${search}|${segment}|${sortDir}`);
+  const { page, totalPages, items: pagedItems, setPage } = usePagedList(
+    sorted,
+    `${clientId}|${search}|${responseFilter}|${segment}|${sortDir}`
+  );
 
   const selectedItem = selectedId ? items.find((item) => item.id === selectedId) || null : null;
 
-  // Chegando por deep link (`?item=`, vindo do Painel), a lista atrás da gaveta precisa estar no
-  // segmento do item — senão a pessoa fecha o detalhe e não acha a linha, porque o padrão da tela
-  // é "vencidas" e a evidência costuma vir de item ainda no prazo. Semeadura **uma vez**: trocar
-  // de aba depois disso é escolha dela.
+  // Continuidade: a fila é `sorted` inteira, não a página. Anterior/Próxima atravessam a
+  // paginação, e a página segue o item aberto — senão a pessoa fecha o modal na pendência 11
+  // e a tabela atrás dela ainda está na página 1.
+  const queueIndex = selectedId ? sorted.findIndex((item) => item.id === selectedId) : -1;
+  const nextInQueue = queueIndex >= 0 && queueIndex < sorted.length - 1 ? sorted[queueIndex + 1] : null;
+  const prevInQueue = queueIndex > 0 ? sorted[queueIndex - 1] : null;
+
+  useEffect(() => {
+    if (queueIndex < 0) return;
+    setPage(Math.floor(queueIndex / PAGE_SIZE) + 1);
+  }, [queueIndex, setPage]);
+
+  // Chegando por deep link (`?item=`, vindo do Início), a lista atrás do modal precisa estar na
+  // aba do item — senão a pessoa fecha o detalhe e não acha a linha. Semeadura **uma vez**, e só
+  // depois do resumo, porque é ele que diz se o item está na fila de análise; trocar de aba
+  // depois disso é escolha dela.
   const deepLinkSeeded = useRef(false);
   useEffect(() => {
-    if (deepLinkSeeded.current || !selectedItem) return;
+    if (deepLinkSeeded.current || !selectedItem || !summaryReady) return;
     deepLinkSeeded.current = true;
-    const target = segmentOf(selectedItem);
+    const summary = summaries.get(selectedItem.id) || EMPTY_SUMMARY;
+    const target = SEGMENTS.find((key) => inSegment(selectedItem, key, summary));
     if (target) setSegment(target);
-  }, [selectedItem]);
+  }, [selectedItem, summaryReady, summaries]);
 
   const changeStatus = async (item: ClientActionItem, status: ClientActionItemStatus) => {
+    // O próximo da fila é decidido **antes** de recarregar: depois de resolver, o item sai da
+    // aba e o índice já não aponta para lugar nenhum.
+    const advanceTo = nextInQueue?.id ?? null;
     setSavingStatus(true);
     try {
       await AppointmentAdminService.setActionItemStatus(item.id, status);
       loadItems();
+      setSelectedId(advanceTo);
     } catch (err) {
       toast.error('Erro', errorMessage(err));
     } finally {
       setSavingStatus(false);
     }
   };
+
+  const filtering = !!search || !!clientId || !!responseFilter;
 
   return (
     <PageShell>
@@ -245,8 +366,18 @@ export function ActionPlan() {
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </Select>
+        <Select
+          value={responseFilter}
+          onChange={(e) => setResponseFilter(e.target.value as ResponseFilter)}
+          aria-label="Resposta do cliente"
+          className="w-auto"
+        >
+          {(Object.keys(RESPONSE_FILTER_LABELS) as ResponseFilter[]).map((key) => (
+            <option key={key} value={key}>{RESPONSE_FILTER_LABELS[key]}</option>
+          ))}
+        </Select>
         <div className="inline-flex gap-0.5 rounded-md border border-default bg-surface-sunken p-0.5">
-          {(Object.keys(SEGMENT_LABELS) as Segment[]).map((key) => (
+          {SEGMENTS.map((key) => (
             <button
               key={key}
               type="button"
@@ -261,6 +392,14 @@ export function ActionPlan() {
           ))}
         </div>
       </div>
+
+      {segment === 'analise' && (
+        <p className="mb-3 text-sm text-navy-3">
+          O que o cliente devolveu e está esperando você: arquivo aguardando revisão, “já corrigiu”
+          declarado ou todos os tópicos marcados. Sai daqui quando você aprova, devolve, resolve ou
+          oculta — e o modal já abre a próxima.
+        </p>
+      )}
 
       {loadError ? (
         <div className="rounded-md border border-danger-soft-border bg-danger-soft p-4 text-sm text-danger-soft-ink">
@@ -293,14 +432,19 @@ export function ActionPlan() {
                   <TableCell colSpan={4} className="h-auto py-0">
                     <EmptyState
                       icon={<ClipboardList className="h-8 w-8" />}
-                      title={`Nenhuma pendência ${SEGMENT_LABELS[segment].toLowerCase()}`}
-                      description={search || clientId ? 'Nenhum resultado para os filtros atuais.' : undefined}
+                      title={
+                        segment === 'analise'
+                          ? 'Nada esperando sua análise'
+                          : `Nenhuma pendência ${SEGMENT_LABELS[segment].toLowerCase()}`
+                      }
+                      description={filtering ? 'Nenhum resultado para os filtros atuais.' : undefined}
                     />
                   </TableCell>
                 </TableRow>
               ) : (
                 pagedItems.map((item) => {
                   const overdue = isOverdue(item);
+                  const summary = summaryOf(item.id);
                   return (
                     <TableRow
                       key={item.id}
@@ -341,6 +485,22 @@ export function ActionPlan() {
                         ) : (
                           <span className="text-navy-3">—</span>
                         )}
+                        {(summary.pendingEvidence > 0 || summary.checkpointsTotal > 0) && (
+                          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs font-semibold text-navy-3">
+                            {summary.pendingEvidence > 0 && (
+                              <span className="inline-flex items-center gap-1 text-amber-strong">
+                                <Paperclip className="h-3 w-3" />
+                                {summary.pendingEvidence} para revisar
+                              </span>
+                            )}
+                            {summary.checkpointsTotal > 0 && (
+                              <span className="inline-flex items-center gap-1 tabular-nums">
+                                <CheckSquare className="h-3 w-3" />
+                                {summary.checkpointsDone}/{summary.checkpointsTotal} tópicos
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </TableCell>
                     </TableRow>
                   );
@@ -353,7 +513,7 @@ export function ActionPlan() {
             pageCount={totalPages}
             onPageChange={setPage}
             totalItems={sorted.length}
-            pageSize={10}
+            pageSize={PAGE_SIZE}
           />
         </TableContainer>
       )}
@@ -365,25 +525,50 @@ export function ActionPlan() {
         title={selectedItem?.title}
         footer={
           selectedItem && (
-            <div className="flex flex-wrap justify-end gap-2">
-              {selectedItem.status !== 'published' ? (
-                <Button size="sm" disabled={savingStatus} onClick={() => void changeStatus(selectedItem, 'published')}>
-                  {selectedItem.status === 'resolved' ? (
-                    <><RotateCcw className="mr-2 h-4 w-4" /> Reabrir</>
-                  ) : (
-                    <><Eye className="mr-2 h-4 w-4" /> Publicar</>
-                  )}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!prevInQueue}
+                  onClick={() => prevInQueue && setSelectedId(prevInQueue.id)}
+                  aria-label="Pendência anterior da fila"
+                >
+                  <ChevronLeft className="h-4 w-4" />
                 </Button>
-              ) : (
-                <>
-                  <Button variant="outline" size="sm" disabled={savingStatus} onClick={() => void changeStatus(selectedItem, 'hidden')}>
-                    <EyeOff className="mr-2 h-4 w-4" /> Ocultar
+                <span className="px-1 tabular-nums text-xs font-semibold text-navy-3" aria-live="polite">
+                  {queueIndex >= 0 ? `${queueIndex + 1} de ${sorted.length}` : 'fora da fila'}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!nextInQueue}
+                  onClick={() => nextInQueue && setSelectedId(nextInQueue.id)}
+                  aria-label="Próxima pendência da fila"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="flex flex-wrap justify-end gap-2">
+                {selectedItem.status !== 'published' ? (
+                  <Button size="sm" disabled={savingStatus} onClick={() => void changeStatus(selectedItem, 'published')}>
+                    {selectedItem.status === 'resolved' ? (
+                      <><RotateCcw className="mr-2 h-4 w-4" /> Reabrir</>
+                    ) : (
+                      <><Eye className="mr-2 h-4 w-4" /> Publicar</>
+                    )}
                   </Button>
-                  <Button size="sm" disabled={savingStatus} onClick={() => void changeStatus(selectedItem, 'resolved')}>
-                    <CheckCircle className="mr-2 h-4 w-4" /> Resolver
-                  </Button>
-                </>
-              )}
+                ) : (
+                  <>
+                    <Button variant="outline" size="sm" disabled={savingStatus} onClick={() => void changeStatus(selectedItem, 'hidden')}>
+                      <EyeOff className="mr-2 h-4 w-4" /> Ocultar
+                    </Button>
+                    <Button size="sm" disabled={savingStatus} onClick={() => void changeStatus(selectedItem, 'resolved')}>
+                      <CheckCircle className="mr-2 h-4 w-4" /> Resolver
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           )
         }
@@ -447,14 +632,54 @@ export function ActionPlan() {
               </div>
             )}
 
+            {/* PORT-05 — o que o cliente marcou tópico a tópico. Sem isto, "Providenciando" esconde
+                que dois dos três pontos já foram feitos, e é justamente o que muda a cobrança. */}
+            {checkpoints.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-navy-3">
+                  Tópicos marcados pelo cliente{' '}
+                  <span className="tabular-nums">
+                    ({checkpoints.filter((point) => point.done).length}/{checkpoints.length})
+                  </span>
+                </p>
+                <ul className="mt-1 space-y-1.5">
+                  {checkpoints.map((point) => (
+                    <li key={point.id} className="flex items-start gap-2">
+                      {point.done ? (
+                        <CheckSquare className="mt-0.5 h-4 w-4 shrink-0 text-success-soft-ink" aria-hidden />
+                      ) : (
+                        <Square className="mt-0.5 h-4 w-4 shrink-0 text-navy-3" aria-hidden />
+                      )}
+                      <span className={point.done ? 'text-navy' : 'text-navy-2'}>
+                        {point.text}
+                        {point.done && point.doneByName && (
+                          <span className="ml-1 text-xs text-navy-3">
+                            — {point.doneByName}
+                            {point.doneAt ? ` · ${formatDateBR(point.doneAt)}` : ''}
+                          </span>
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             <div>
               <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-navy-3">Evidência</p>
-              {evidenceLoading ? (
+              {detailLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin text-navy-3" />
               ) : evidence.length === 0 ? (
                 <p className="text-xs text-navy-3">Nenhuma evidência enviada.</p>
               ) : (
-                <EvidenceReview evidence={evidence} onReviewed={() => loadEvidence(selectedItem.id)} prompt={prompt} />
+                <EvidenceReview
+                  evidence={evidence}
+                  onReviewed={() => {
+                    loadDetail(selectedItem.id);
+                    loadItems(); // a revisão muda o resumo: o item pode sair da fila de análise
+                  }}
+                  prompt={prompt}
+                />
               )}
             </div>
           </div>

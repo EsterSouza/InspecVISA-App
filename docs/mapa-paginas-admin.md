@@ -21,14 +21,17 @@ HANDOFF.md dizia "não publicado" quando já estava no ar).
 | Biblioteca | `/legislations` | BookOpen |
 | Agendamentos | `/schedules` | Calendar |
 | Solicitações | `/requests` | Headset |
+| Plano de ação | `/plano-de-acao` | `src/pages/ActionPlan.tsx` | Plano de ação do admin (FE-08): lista + detalhe de todas as pendências publicadas no portal, lendo `client_action_items` direto (não a RPC da fila operacional). Quatro abas desde o **ACT-01 (27/08/2026)**: **Para analisar** (padrão) · Vencidas · Abertas · Concluídas — e elas **não são uma partição**: "Para analisar" é outra lente, então uma pendência vencida com arquivo novo aparece nas duas. Entra na fila de análise o que o cliente **entregou**: arquivo `pending`, declaração "já corrigiu" ou todos os tópicos marcados; "providenciando"/"ainda não fez" é cobrança e fica nas abas de prazo. Filtro novo **Resposta do cliente** (aguardando revisão / cada declaração / sem resposta) e, na linha, quantos arquivos faltam revisar e o progresso dos tópicos. Detalhe em **modal de 768px** mostra `situation`/`recommended_action` inteiros, **os tópicos que o cliente marcou** (PORT-05), permite publicar/ocultar/resolver e revisar a evidência **com miniatura da imagem** — sem abrir relatório nem inspeção. Aprovar aceita o arquivo sem fechar a pendência; "Aprovar e resolver" é o que marca `resolved`. O modal tem **Anterior/Próxima e "N de M"** sobre a fila inteira (atravessa a paginação, e a tabela segue), e resolver/ocultar **avança sozinho** para a próxima em vez de fechar. | Consultora, na sidebar (**Plano de ação**), ao sentar para analisar o que os clientes devolveram; ou clicando num item do bloco "Planos de ação vencidos" **ou de "Evidências aguardando revisão"** do Início (os dois levam `?item=` **e** `?client=`, então a lista abre filtrada na unidade). Também pelo card "Plano de Ação" da ficha do cliente (`?client=`). Chegando por `?item=`, a aba é semeada uma vez com a do item. | `AppointmentAdminService.listAllActionItems/listActionResponseSummary/listActionItemEvidence/listActionItemCheckpoints/setActionItemStatus`, `ClientService.getClients()` (nome do cliente). |
 | Inspeções | `/inspections` | ClipboardCheck |
 | Sincronização | `/sync` | Activity |
 | Configurações | `/settings` | Settings |
 
 Rotas que existem mas não têm item próprio na sidebar (chegam por navegação interna, não pelo
 menu): `/clients/:id`, `/new`, `/execute`, `/summary`, `/templates/new`, `/templates/:id`,
-`/templates/:id/edit`, `/templates/import`, `/access-denied`, `/plano-de-acao`, `/painel`
-(redirect para `/`, preservado por link salvo — ver FE-14 abaixo).
+`/templates/:id/edit`, `/templates/import`, `/access-denied`, `/painel`
+(redirect para `/`, preservado por link salvo — ver FE-14 abaixo). O `/plano-de-acao` saiu desta
+lista no ACT-01 (27/08/2026): ele ganhou item próprio na sidebar, porque a fila de análise não
+pode depender de a consultora clicar num bloco do Início.
 
 ## As duas telas que mais se confundem entre si
 
