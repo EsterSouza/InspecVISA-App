@@ -3,7 +3,7 @@
 -- ============================================================================
 -- COND-08 — o contexto congelado e as respostas de roteamento atravessando o
 -- bundle de sincronização.
--- Migration: supabase/migrations/20260827100000_cond08_routing_answers_sync.sql
+-- Migration: supabase/migrations/20260827114431_cond08_routing_answers_sync.sql
 --
 -- O que esta suíte prova, e que só o banco pode provar:
 --
@@ -85,7 +85,7 @@ create table public.client_action_evidence (
 grant select, insert, update on all tables in schema public to authenticated, service_role;
 
 \ir ../migrations/20260812112448_automatic_action_plan_custom_items.sql
-\ir ../migrations/20260827100000_cond08_routing_answers_sync.sql
+\ir ../migrations/20260827114431_cond08_routing_answers_sync.sql
 
 select set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', false);
 

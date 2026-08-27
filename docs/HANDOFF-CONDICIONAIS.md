@@ -1020,7 +1020,7 @@ Dexie: com ela lá, mudar resposta de roteamento no meio do mato recalcula a ár
 | `src/components/inspection/RoutingQuestionsBlock.tsx` | a pergunta de campo, com "não foi possível determinar" e a autoria da última resposta |
 | `src/components/inspection/ExcludedByRulePanel.tsx` | "Fora do roteiro por condição (N)" — nasce fechado, lista o motivo e marca o que tem resposta preservada |
 | `src/utils/routingAnswersSync.ts` | a ponte entre o merge por pergunta e o merge de registro do `RepositoryService` |
-| `supabase/migrations/20260827100000_cond08_routing_answers_sync.sql` | três colunas JSONB em `inspections` + `sync_inspection_bundle` levando as quatro chaves |
+| `supabase/migrations/20260827114431_cond08_routing_answers_sync.sql` | três colunas JSONB em `inspections` + `sync_inspection_bundle` levando as quatro chaves |
 | `supabase/tests/cond08_routing_answers_sync.test.sql` | 5 blocos de caso, fixture próprio |
 | `src/__tests__/domain/applicabilityExecution.test.ts` | 27 casos |
 | `src/__tests__/components/AdaptiveExecution.test.tsx` | 9 casos |
@@ -1076,15 +1076,20 @@ anterior teve 2 falhas por *timeout* de worker do vitest, não reproduzidas). Su
 limpo · `npm run build` limpo · `npm run lint` limpo · `npm run check:ui` P0/P1 = 0 ·
 `npm run check:contraste` 47 pares nos dois temas.
 
-**A migration ainda NÃO foi aplicada.** A Ester autorizou em 27/08, mas esta sessão **não tem o MCP
-do Supabase** (só o `designmd` está no `.mcp.json`), e aplicar por fora do MCP sujaria o ledger —
-exatamente o que o INFRA-02 reconciliou em 04/08. Fica para uma sessão com o MCP: `apply_migration`,
-e depois **renomear o arquivo local para a versão que o ledger gravar**.
+**A migration foi aplicada em produção em 27/08/2026**, autorizada pela Ester no mesmo dia, via MCP
+do Supabase (`apply_migration`) — que registra no ledger sozinho. O ledger gravou a versão
+`20260827114431`, e o arquivo local foi renomeado para ela.
 
-Nada trava por causa disso: o `mapToPostgres` só envia as três chaves **quando há valor**
-(`applicabilityColumns`), e inspeção sem regra não tem nenhuma — então o app novo sincroniza contra
-o banco de hoje sem erro. O que a migration habilita é a convergência entre aparelhos, necessária
-**antes de publicar a primeira revisão** (COND-10).
+Conferido depois de aplicar: as três colunas existem como `jsonb`, anuláveis e sem *default*;
+**nenhuma** das 42 inspeções tem valor em qualquer uma delas (o que era esperado — a migration não
+faz *backfill*); `has_function_privilege` de `sync_inspection_bundle` verdadeiro para `authenticated`
+e `service_role`, falso para `anon`; `anon` continua sem `select` em `inspections`; os três gatilhos
+de `inspections` intactos; `get_advisors(security)` não aponta nenhum objeto tocado. O corpo da
+função no banco confere com o do arquivo (mesmo *hash* ignorando comentários).
+
+O que a migration habilita é a convergência entre aparelhos, necessária **antes de publicar a
+primeira revisão** (COND-10). Nada dependia dela para o app rodar: o `mapToPostgres` só envia as três
+chaves **quando há valor** (`applicabilityColumns`), e inspeção sem regra não tem nenhuma.
 
 **Ficou deliberadamente de fora:**
 
@@ -1101,9 +1106,8 @@ o banco de hoje sem erro. O que a migration habilita é a convergência entre ap
 
 **Riscos conhecidos, registrados:**
 
-1. **A migration pendente.** Descrita acima; está no cabeçalho do arquivo e em
-   `docs/migrations-status.md`. Publicar revisão de condições antes de aplicá-la faria a resposta de
-   roteamento não sair do aparelho.
+1. ~~**A migration pendente.**~~ **Resolvido em 27/08/2026**: aplicada via MCP, ledger
+   `20260827114431`. Ver acima e `docs/migrations-status.md`.
 2. **A validação estrutural em SQL não conhece `routing_answers`.** As colunas são JSONB livre. Quem
    valida forma de resposta é o app (`parseRoutingAnswer`); o bundle só recusa o que não é objeto.
 3. **Empate de relógio entre aparelhos dessincronizados.** O desempate é determinístico, mas é pelo

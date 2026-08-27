@@ -263,10 +263,10 @@ para select/insert/update/delete, `get_advisors(security)` sem apontar os objeto
 **Reversão** (no cabeçalho do arquivo): derrubar os dois gatilhos, a coluna, a tabela e as três
 funções. Segura enquanto nada do app escrever na coluna — a fiação é do `COND-05`/`COND-08`.
 
-## `cond08_routing_answers_sync` — **escrita, testada, ainda NÃO aplicada**
+## `cond08_routing_answers_sync` — **aplicada em 27/08/2026**
 
 Convergência da execução adaptativa (`COND-08`, ver [HANDOFF-CONDICIONAIS.md](HANDOFF-CONDICIONAIS.md)).
-Arquivo `supabase/migrations/20260827100000_cond08_routing_answers_sync.sql`.
+Arquivo `supabase/migrations/20260827114431_cond08_routing_answers_sync.sql`.
 
 **O que faz.** Três colunas JSONB anuláveis em `public.inspections` — `applicability_context`,
 `routing_answers`, `routing_answers_meta` — e um `create or replace` de `sync_inspection_bundle`
@@ -278,16 +278,28 @@ COND-04 (lista fixa de colunas). Sem isso, duas consultoras na mesma inspeção 
 linhas, e nulo significa o mesmo de sempre: inspeção sem regra, sempre aplicável. Não mexe em RLS,
 policy, grant nem gatilho.
 
-**Ordem de implantação.** O app novo **não** depende dela para continuar sincronizando: o
+**Aplicada em produção em 27/08/2026**, autorizada pela Ester no mesmo dia, via MCP do Supabase
+(`apply_migration`). O ledger gravou a versão `20260827114431` e o arquivo local foi renomeado para
+ela. **Conferido depois de aplicar:** as três colunas existem como `jsonb`, anuláveis e sem
+*default*; nenhuma das 42 inspeções tem valor em qualquer uma delas (não há *backfill*);
+`has_function_privilege('authenticated'|'service_role', 'public.sync_inspection_bundle(jsonb)',
+'execute')` verdadeiro e `anon` falso; `has_table_privilege('anon', 'public.inspections', 'select')`
+falso; os três gatilhos de `inspections` intactos; `get_advisors(security)` sem apontar nenhum
+objeto tocado; o corpo da função no banco com o mesmo *hash* do arquivo, ignorando comentários.
+
+**Ordem de implantação.** O app novo **não** dependia dela para continuar sincronizando: o
 `mapToPostgres` só envia as três chaves quando há valor, e inspeção sem regra não tem nenhuma
 (`applicabilityColumns`, `src/services/inspectionService.ts`) — coluna que não existe derrubaria o
 upsert inteiro da inspeção, e é por isso que a omissão existe. O que a migration habilita é a
 **convergência**: sem ela, publicar a primeira revisão de condições faria a resposta de roteamento
 morrer no aparelho de quem respondeu. **Aplicar antes de publicar a primeira revisão** (COND-10).
 
-**Antes de aplicar, conferir a definição viva de `sync_inspection_bundle`** em produção contra o
-corpo copiado aqui (veio de `20260812112448_automatic_action_plan_custom_items.sql`). Se a função no
-banco tiver sido alterada por fora, o `create or replace` desta migration desfaria a alteração.
+**Sobre o `create or replace` da função:** o corpo veio de
+`20260812112448_automatic_action_plan_custom_items.sql`, que é a única outra migration do repositório
+que define `sync_inspection_bundle` — nenhuma migration posterior a redefine, e o ledger não tem
+nada aplicado por fora desde a reconciliação do INFRA-02. Uma alteração feita direto no editor SQL,
+porém, teria sido desfeita sem aviso: o `create or replace` foi aplicado **sem** comparar antes com
+a definição viva.
 
 **Testada** em Postgres 16 limpo: `supabase/tests/cond08_routing_answers_sync.test.sql` prova que as
 colunas nascem nulas, que o bundle leva as quatro chaves, que um app **antigo** (payload sem as

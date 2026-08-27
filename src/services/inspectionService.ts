@@ -213,7 +213,7 @@ export function mapFromPostgres(row: InspectionRow): Inspection {
  * COND-08 — as colunas de aplicabilidade, só quando há valor.
  *
  * Omitir é o que torna o app novo compatível com um banco que ainda não recebeu
- * `20260827100000_cond08_routing_answers_sync.sql`: enviar coluna inexistente
+ * `20260827114431_cond08_routing_answers_sync.sql`: enviar coluna inexistente
  * derruba o upsert inteiro da inspeção, e nenhuma inspeção de hoje tem contexto
  * congelado ou resposta de roteamento para enviar.
  *
