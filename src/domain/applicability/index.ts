@@ -93,3 +93,27 @@ export {
   valueTypeForSource,
 } from './authoring';
 export type { AuthoringGuard, AuthoringSources, CloneIdMap, MakeId } from './authoring';
+
+// ── COND-07 · testar o roteiro sem inspeção real, e o gate antes de publicar ──
+export {
+  GATE_LABELS,
+  describeIssueLocation,
+  gateFromIssues,
+  publishGate,
+  simulateTemplate,
+  simulationInputs,
+} from './simulate';
+export type {
+  GateGroup,
+  LabeledItem,
+  LabeledSection,
+  LabeledTemplate,
+  PublishGate,
+  SimulatedItem,
+  SimulatedSection,
+  SimulationCounts,
+  SimulationInput,
+  SimulationInputs,
+  SimulationResult,
+  SimulationScenario,
+} from './simulate';

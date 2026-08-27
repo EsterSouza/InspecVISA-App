@@ -39,6 +39,7 @@ export type ValidationCode =
   | 'unknown_option'
   | 'retired_question'
   | 'impossible_condition'
+  | 'unreachable_branch'
   | 'cycle'
   // ── COND-05 · perguntas de roteamento ──────────────────────
   | 'question_without_options'
@@ -324,6 +325,8 @@ function validateRule(rule: ApplicabilityRule, scope: RuleScope): ValidationIssu
 
   if (rule.expression.combinator === 'all') {
     issues.push(...detectImpossible(rule, conditions, sourceTypes, base));
+  } else {
+    issues.push(...detectTautology(rule, conditions, sourceTypes, base));
   }
 
   return issues;
@@ -424,18 +427,117 @@ function detectImpossible(
       const type = types[a];
       if (!type || types[b] !== type) continue;
       if (left.source !== right.source || left.field !== right.field) continue;
-      if (contradicts(left, right, type) || contradicts(right, left, type)) {
+      if (!contradicts(left, right, type) && !contradicts(right, left, type)) continue;
+
+      // O mesmo par de condições significa coisas opostas conforme o ramo. Num
+      // grupo TODAS que nunca é verdadeiro: o ramo "se" nunca acontece (o alvo
+      // some para sempre), e o ramo "senão" acontece sempre (a regra não decide
+      // nada). As duas coisas reprovam publicação, com o motivo certo cada uma.
+      if (rule.branch === 'else') {
         issues.push(
-          issue('impossible_condition', 'error', false, `Na regra "${rule.id}", duas condições sobre "${left.field}" nunca podem ser verdadeiras ao mesmo tempo — o alvo nunca seria aplicável.`, {
+          issue('unreachable_branch', 'error', false, `Na regra "${rule.id}", duas condições sobre "${left.field}" nunca podem ser verdadeiras ao mesmo tempo, e a regra está no ramo "senão" — o alvo apareceria em toda inspeção. Regra que não decide nada é "Sempre aplicável" escrito de forma difícil: apague a regra.`, {
             ...base,
             field: left.field,
           })
         );
+        continue;
       }
+
+      issues.push(
+        issue('impossible_condition', 'error', false, `Na regra "${rule.id}", duas condições sobre "${left.field}" nunca podem ser verdadeiras ao mesmo tempo — o alvo nunca seria aplicável.`, {
+          ...base,
+          field: left.field,
+        })
+      );
     }
   }
 
   return issues;
+}
+
+/**
+ * Ramo inalcançável num grupo QUALQUER: duas condições sobre a mesma fonte que
+ * cobrem todos os valores possíveis. O grupo nunca é falso, então **um dos dois
+ * ramos nunca acontece** — e o alvo, ou aparece sempre, ou não aparece nunca.
+ *
+ * "Nunca aparece" é o caso grave: um requisito sanitário que some de toda
+ * inspeção sem ninguém perceber é exatamente o que o contrato § 6.7 proíbe.
+ *
+ * Como em `detectImpossible`, o que se detecta são os pares que aparecem de
+ * verdade num editor visual. Não é um SAT solver.
+ */
+function detectTautology(
+  rule: ApplicabilityRule,
+  conditions: Condition[],
+  types: (ValueType | null)[],
+  base: Partial<ValidationIssue>
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+
+  for (let a = 0; a < conditions.length; a += 1) {
+    for (let b = a + 1; b < conditions.length; b += 1) {
+      const left = conditions[a];
+      const right = conditions[b];
+      const type = types[a];
+      if (!type || types[b] !== type) continue;
+      if (left.source !== right.source || left.field !== right.field) continue;
+      if (!covers(left, right, type) && !covers(right, left, type)) continue;
+
+      const desfecho =
+        rule.branch === 'else'
+          ? 'o alvo nunca seria aplicável, em nenhuma inspeção'
+          : 'o alvo apareceria em toda inspeção';
+      issues.push(
+        issue('unreachable_branch', 'error', false, `Na regra "${rule.id}", duas condições sobre "${left.field}" cobrem todos os valores possíveis — a condição nunca é falsa, então ${desfecho}. Um dos dois ramos nunca acontece.`, {
+          ...base,
+          field: left.field,
+        })
+      );
+    }
+  }
+
+  return issues;
+}
+
+/**
+ * `left` OU `right` cobrem todo o domínio da fonte. Espelho de `contradicts`:
+ * lá o par nunca vale junto, aqui o par sempre vale de um lado ou do outro.
+ */
+function covers(left: Condition, right: Condition, type: ValueType): boolean {
+  const leftValues = asArray(left.value).map((v) => normalizeText(v));
+  const rightValues = asArray(right.value).map((v) => normalizeText(v));
+  const sameValue = leftValues.length === 1 && rightValues.length === 1 && leftValues[0] === rightValues[0];
+  const sameSet =
+    leftValues.length > 0 &&
+    leftValues.length === rightValues.length &&
+    leftValues.every((value) => rightValues.includes(value));
+
+  // `existe` OU `não existe`: os dois nunca devolvem indeterminado, então este
+  // par é tautologia de verdade — cobre inclusive o dado ausente.
+  if (left.operator === 'exists' && right.operator === 'not_exists') return true;
+
+  if (left.operator === 'equals' && right.operator === 'not_equals') return sameValue;
+  if (left.operator === 'contains' && right.operator === 'not_contains') return sameValue;
+  if (left.operator === 'in_list' && right.operator === 'not_in_list') return sameSet;
+
+  // Booleano só tem dois valores: "= Sim" OU "= Não" esgota o domínio.
+  if (type === 'boolean' && left.operator === 'equals' && right.operator === 'equals') {
+    return typeof left.value === 'boolean' && typeof right.value === 'boolean' && left.value !== right.value;
+  }
+
+  // Faixas que se sobrepõem: (>= a) OU (<= b) com a <= b não deixa buraco. Com
+  // os dois lados estritos, o valor exato da fronteira escapa dos dois — e aí
+  // não é tautologia.
+  const lowerBound = left.operator === 'greater' || left.operator === 'greater_or_equal';
+  const upperBound = right.operator === 'less' || right.operator === 'less_or_equal';
+  if (lowerBound && upperBound) {
+    const order = compareScalar(type, left.value, right.value);
+    if (order === null) return false;
+    const bothStrict = left.operator === 'greater' && right.operator === 'less';
+    return order < 0 || (order === 0 && !bothStrict);
+  }
+
+  return false;
 }
 
 function contradicts(left: Condition, right: Condition, type: ValueType): boolean {

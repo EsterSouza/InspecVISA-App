@@ -23,11 +23,12 @@ import {
   ApplicabilityValidationError,
 } from '../../services/applicabilityRevisionService';
 import { TemplateService } from '../../services/templateService';
-import { canRemoveOption, canRetireQuestion, validateTemplateRules } from '../../domain/applicability';
+import { canRemoveOption, canRetireQuestion, gateFromIssues, validateTemplateRules } from '../../domain/applicability';
 import type {
   ApplicabilityRule,
   AuthoringGuard,
   ConditionalSection,
+  PublishGate,
   RoutingQuestion,
   ValidationIssue,
 } from '../../domain/applicability';
@@ -50,6 +51,12 @@ export interface ApplicabilityDraft {
   erro: string | null;
   /** Problemas ao vivo, para a tela avisar antes da hora de publicar. */
   problemas: ValidationIssue[];
+  /**
+   * COND-07 — o gate: o que reprova a publicação, agrupado por causa. Sai da
+   * mesma validação de `problemas`, com o mesmo corte que o serviço aplica
+   * antes do banco. É o que desabilita o botão **antes** de a pessoa tentar.
+   */
+  gate: PublishGate;
   regraDe: (target: RuleTarget) => ApplicabilityRule | undefined;
   definirRegra: (target: RuleTarget, rule: ApplicabilityRule | null) => void;
   definirPerguntas: (questions: RoutingQuestion[]) => void;
@@ -128,6 +135,8 @@ export function useApplicabilityDraft(
     [sections, rules, routingQuestions]
   );
 
+  const gate = useMemo(() => gateFromIssues(problemas), [problemas]);
+
   const regraDe = useCallback((target: RuleTarget) => porAlvo.get(chaveDoAlvo(target)), [porAlvo]);
 
   /** `null` volta o alvo para "Sempre aplicável" — some a regra, não fica regra vazia. */
@@ -194,6 +203,7 @@ export function useApplicabilityDraft(
     sujo,
     erro,
     problemas,
+    gate,
     regraDe,
     definirRegra,
     definirPerguntas,

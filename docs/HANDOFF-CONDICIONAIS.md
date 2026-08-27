@@ -10,8 +10,8 @@
 
 ## Onde estamos
 
-**COND-01 a COND-06 entregues** (COND-01/02 em 16/08/2026; COND-03 em 18/08/2026; COND-04 em
-19/08/2026; COND-05 em 20/08/2026; COND-06 em 27/08/2026), com as **4 decisões de produto tomadas** pela Ester
+**COND-01 a COND-07 entregues** (COND-01/02 em 16/08/2026; COND-03 em 18/08/2026; COND-04 em
+19/08/2026; COND-05 em 20/08/2026; COND-06 e COND-07 em 27/08/2026), com as **4 decisões de produto tomadas** pela Ester
 ([contrato § 10](contrato-aplicabilidade.md)) — inclusive a de que existe **uma árvore só**, com o
 papel virando filtro de exibição. O motor declarativo existe e é testado isoladamente em
 `src/domain/applicability/`. O COND-03 fez a execução parar de manter duas árvores, congelou a
@@ -25,9 +25,13 @@ roteamento tem tipo, momento (wizard × campo), opção estável e obrigatorieda
 o **contexto congelado** e com o vínculo da revisão publicada; e o wizard já pergunta o que dá para
 saber antes da visita. O COND-06 abriu a porta: o editor de roteiro ganhou o construtor de
 condições, o painel de perguntas de roteamento e as travas do ciclo de vida — **a primeira revisão
-já pode ser criada e publicada pela tela**. O que continua faltando é o outro lado: a execução
-ainda não consulta o motor (`COND-08`), então publicar condição hoje muda o que a revisão
-**guarda**, não ainda o que a inspeção **mostra**. Próximo é o `COND-07`.
+já pode ser criada e publicada pela tela**. O COND-07 fechou o lado da autoria: dá para **testar o
+roteiro inteiro sem criar cliente nem inspeção**, com o cenário editável e a justificativa de cada
+decisão em tela, e a publicação passou a ser **bloqueada de verdade** — o botão só habilita com o
+gate limpo, e a lista de bloqueios diz a causa e a seção onde ela mora. O que continua faltando é o
+outro lado: a execução ainda não consulta o motor (`COND-08`), então publicar condição hoje muda o
+que a revisão **guarda**, não ainda o que a inspeção **mostra**. Próximo é o `COND-08` — o card mais
+arriscado da série.
 
 | Card | O que é | Modelo | Esforço | Depois de |
 |---|---|---|---|---|
@@ -37,7 +41,7 @@ ainda não consulta o motor (`COND-08`), então publicar condição hoje muda o 
 | ~~**COND-04**~~ ✅ | Persistência, revisão, RLS e compatibilidade · `checklist_template_revisions` (rascunho × publicada) | Opus 5 | alto | COND-03 |
 | ~~**COND-05**~~ ✅ | Perguntas de roteamento e contexto congelado · `domain/applicability/routing.ts`, `context.ts`, wizard | Opus 5 | médio-alto | COND-04 |
 | ~~**COND-06**~~ ✅ | Editor visual **com o ciclo de vida junto** · `domain/applicability/authoring.ts`, `components/templates/` | Opus 5 | alto | COND-05 |
-| **COND-07** | Simulador e gate de publicação | Sonnet 5 | médio-alto | COND-06 |
+| ~~**COND-07**~~ ✅ | Simulador e gate de publicação · `domain/applicability/simulate.ts`, `components/templates/ApplicabilitySimulator.tsx` | Opus 5 | médio-alto | COND-06 |
 | **COND-08** | Execução adaptativa offline e colaborativa | Opus 5 | **muito alto** | COND-03 · COND-05 · COND-07 |
 | **COND-09** | Score, progresso, summary, PDF, referências e plano de ação | Opus 5 | **muito alto** | COND-08 |
 | **COND-10** | Piloto em Estética + flag por roteiro e rollback | Opus 5 | alto | COND-09 |
@@ -919,6 +923,79 @@ criar inspeção); a execução consultar o motor (`COND-08`); e o **importador 
 condicional**, como o card determina — importa item, a regra é configurada depois.
 
 **Desbloqueia:** `COND-07`.
+
+### COND-07 · 27/08/2026 · Opus 5
+
+**Simulador e gate de publicação.** O card tinha um aceite de uma frase — "a Ester consegue testar
+um roteiro inteiro sem criar cliente nem inspeção real" — e uma lista de sete causas que o gate
+tinha de bloquear. Seis já existiam no validador do COND-02. A sétima, **ramo inalcançável**, não
+existia: foi escrita agora.
+
+**O que passou a existir:**
+
+| Onde | O quê |
+|---|---|
+| `domain/applicability/simulate.ts` | `simulateTemplate` (cenário → seção a seção, com contagem), `simulationInputs` (o que perguntar), `publishGate`/`gateFromIssues` (bloqueio × aviso, agrupado por causa), `describeIssueLocation` (id → nome na tela) |
+| `domain/applicability/validate.ts` | código novo `unreachable_branch` + `detectTautology`/`covers` |
+| `components/templates/ApplicabilitySimulator.tsx` | o painel: cenário editável e resultado com justificativa |
+| `components/templates/useApplicabilityDraft.ts` | expõe `gate`, da mesma validação que já rodava |
+| `pages/admin/TemplateEditor.tsx` | simulador entre as perguntas e a publicação; botão de publicar **desabilitado** enquanto houver bloqueio |
+
+**Decisões deste card:**
+
+1. **O gate desabilita, não avisa.** Antes o erro aparecia em âmbar e o botão continuava clicável —
+   a recusa vinha do servidor, depois de salvar. Agora o botão só habilita com o gate limpo, e a
+   recusa do serviço fica sendo o que ela deve ser: a última linha, não a primeira.
+2. **A lista de bloqueios é agrupada por causa.** Uma opção renomeada errado rende dez linhas
+   iguais; o que se conserta é a causa, uma vez. Daí `GATE_LABELS` e `GateGroup`.
+3. **O id vira nome.** O validador é puro e só fala `a regra "w8vmofv"` — foi o que apareceu na
+   primeira vez que usei o gate no navegador, e é inútil para quem está consertando.
+   `describeIssueLocation` traduz `targetId`/`questionId` para «Seção» e «exigência» **fora** do
+   validador, que continua sem depender de texto de tela.
+4. **O simulador não esconde nada.** Item fora por regra continua na lista, com o motivo. Esconder
+   ali seria repetir exatamente o problema que a feature veio resolver.
+5. **Item aposentado não entra na simulação.** O simulador responde "o que apareceria numa inspeção
+   **nova**", e inspeção nova nunca vê item aposentado (`getEffectiveTemplate`, decisão 21).
+6. **O simulador nasce fechado.** O editor já é longo; o painel abre no clique e o estado do cenário
+   morre com a tela — simular não cria inspeção, não toca no rascunho e não publica.
+
+**Ramo inalcançável, o que é.** Um par de condições sobre a mesma fonte que **cobre todos os
+valores possíveis** num grupo QUALQUER (`= X` ou `≠ X`; `preenchido` ou `vazio`; booleano `= Sim` ou
+`= Não`; `≥ a` ou `≤ b` com `a ≤ b`). A condição nunca é falsa, então um dos dois ramos nunca
+acontece — e o alvo ou aparece sempre, ou **nunca aparece em nenhuma inspeção**. O segundo caso é o
+grave: requisito sanitário que some sem ninguém perceber é o que o contrato § 6.7 proíbe. O espelho
+disso num grupo TODAS contraditório com `branch: 'else'` também virou `unreachable_branch` — a
+mensagem antiga (`impossible_condition`, "o alvo nunca seria aplicável") estava **errada** para o
+ramo alternativo, onde o efeito é o oposto. Como em `detectImpossible`, o que se detecta são os
+pares que aparecem de verdade num editor visual: **não é um SAT solver**, e está escrito no código.
+`> 5 ou < 5` de propósito **não** acusa — o valor 5 escapa dos dois lados.
+
+**Conferido no navegador**, com a Ester logada, sem gravar nada: a condição criada em memória
+("Exibida quando Realiza procedimento invasivo? é igual a Sim") produziu *23 aplicáveis · 0 fora por
+regra · 5 pendentes* sem resposta, virou *23 · 5 · 0* ao responder "Não", e a seção explicou
+*"Não aplicável por regra porque «Realiza procedimento invasivo?» é igual a Sim (respondido: Não)"*;
+os 5 itens herdaram com *"porque a seção «Instrumentos e materiais» não é aplicável"*. Apagando o
+valor da condição, o botão de publicar ficou **desabilitado** com o título *"Publicação bloqueada: 1
+problema(s) nas condições"* e a lista mostrou *Valor de comparação inválido · 1* seguido de
+*↳ Seção «Instrumentos e materiais»*. Sem rolagem lateral em 375px nem no desktop. **Zero requisição
+de escrita** — `checklist_template_revisions` continua vazia.
+
+**Testes:** 55 casos novos (42 de domínio, 13 de componente). Suíte inteira **702 → 758, todos
+verdes**, 0 regressão. `npx tsc -b` limpo · `npm run build` limpo · `npm run lint` limpo ·
+`npm run check:contraste` sem reprovação.
+
+**Achado fora do escopo, corrigido:** o bloco de aviso do COND-06 usava `text-amber-strong` sobre
+`bg-amber-soft` — **2,87:1, reprova AA**. O par certo é `text-amber-soft-ink` (5,10:1), que é o que
+o resto do app usa (76 ocorrências contra 9). O `check:contraste` não pegou porque confere uma lista
+fixa de pares. Corrigido no bloco que este card reescreveu; **as outras 8 ocorrências continuam
+lá** e valem uma varredura própria.
+
+**Ficou deliberadamente de fora:** a execução consultar o motor (`COND-08`) — o simulador prevê o
+que a inspeção mostraria, mas a inspeção ainda não consulta a revisão; salvar cenário de simulação
+como caso de teste do roteiro (não pedido, e exigiria tabela nova); e o `impossible_condition` para
+grupo QUALQUER (contradição ali não impede nada — o outro ramo resolve).
+
+**Desbloqueia:** `COND-08`.
 
 ## Relacionados
 

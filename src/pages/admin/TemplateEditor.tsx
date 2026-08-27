@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Save, Plus, Trash2, ArrowUp, ArrowDown,
@@ -24,7 +24,8 @@ import type { RawImportItem } from '../../services/templateService';
 import { useApplicabilityDraft } from '../../components/templates/useApplicabilityDraft';
 import { ApplicabilityFieldset } from '../../components/templates/ApplicabilityFieldset';
 import { RoutingQuestionsPanel } from '../../components/templates/RoutingQuestionsPanel';
-import { cloneSectionForDuplicate, rulesOrphanedBy } from '../../domain/applicability';
+import { ApplicabilitySimulator } from '../../components/templates/ApplicabilitySimulator';
+import { cloneSectionForDuplicate, describeIssueLocation, rulesOrphanedBy } from '../../domain/applicability';
 import type { ValidationIssue } from '../../domain/applicability';
 
 interface EditingItem {
@@ -92,6 +93,14 @@ export function TemplateEditor() {
   const [publishError, setPublishError] = useState<string | null>(null);
   const [publishOk, setPublishOk] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+
+  // COND-07 — o simulador responde "o que apareceria numa inspeção nova?", e
+  // inspeção nova nunca vê item aposentado (decisão 21, `getEffectiveTemplate`).
+  // Simular com ele dentro faria o simulador mentir para mais.
+  const arvoreParaSimular = useMemo(
+    () => sections.map(section => ({ ...section, items: section.items.filter(item => !item.retiredAt) })),
+    [sections]
+  );
 
   useEffect(() => {
     if (isEditing && id) {
@@ -557,6 +566,13 @@ export function TemplateEditor() {
               makeId={generateId}
             />
 
+            {/* ── COND-07 · testar antes de publicar ─────────── */}
+            <ApplicabilitySimulator
+              sections={arvoreParaSimular}
+              rules={condicoes.rules}
+              questions={condicoes.routingQuestions}
+            />
+
             <Card className="p-6 space-y-4 overflow-visible">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0">
@@ -577,10 +593,16 @@ export function TemplateEditor() {
                     )}
                   </div>
                 </div>
+                {/* COND-07 — o gate desabilita antes de tentar, e diz por quê. */}
                 <Button
                   variant="secondary"
                   onClick={handlePublish}
-                  disabled={isPublishing || isSaving}
+                  disabled={isPublishing || isSaving || !condicoes.gate.ready}
+                  title={
+                    condicoes.gate.ready
+                      ? undefined
+                      : `Publicação bloqueada: ${condicoes.gate.blockers.length} problema(s) nas condições.`
+                  }
                   className="shrink-0"
                 >
                   {isPublishing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
@@ -621,13 +643,63 @@ export function TemplateEditor() {
                 </div>
               )}
 
-              {/* Aviso ao vivo: o que já está errado antes mesmo de tentar publicar. */}
-              {publishIssues.length === 0 && condicoes.problemas.some(p => p.severity === 'error') && (
-                <p className="flex items-start gap-2 rounded-xl bg-amber-soft border border-amber-soft-border p-3 text-xs font-medium text-amber-strong">
-                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-                  {condicoes.problemas.filter(p => p.severity === 'error').length} problema(s) nas condições
-                  vão impedir a publicação. Dá para salvar assim mesmo e resolver depois.
-                </p>
+              {/*
+                COND-07 · o gate. Não é aviso: enquanto houver bloqueio, o botão está
+                desabilitado. A lista vem agrupada por causa porque uma opção renomeada
+                errado costuma render dez linhas iguais — e o que se conserta é a causa.
+              */}
+              {publishIssues.length === 0 && !condicoes.gate.ready && (
+                <div className="rounded-xl border border-amber-soft-border bg-amber-soft p-4">
+                  <p className="flex items-start gap-2 text-sm font-bold text-amber-soft-ink">
+                    <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
+                    Publicação bloqueada — {condicoes.gate.blockers.length}{' '}
+                    {condicoes.gate.blockers.length === 1 ? 'problema impede' : 'problemas impedem'}{' '}
+                    congelar estas condições.
+                  </p>
+                  <ul className="mt-2 space-y-2">
+                    {condicoes.gate.groups.map(grupo => (
+                      <li key={grupo.code}>
+                        <p className="text-xs font-bold text-amber-soft-ink">
+                          {grupo.label} · {grupo.issues.length}
+                        </p>
+                        <ul className="mt-0.5 space-y-0.5">
+                          {grupo.issues.map((problema, i) => {
+                            const onde = describeIssueLocation(problema, {
+                              sections,
+                              routingQuestions: condicoes.routingQuestions,
+                            });
+                            return (
+                              <li key={`${grupo.code}-${i}`} className="text-xs text-amber-soft-ink">
+                                • {problema.message}
+                                {onde && <span className="block pl-3 font-semibold">↳ {onde}</span>}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-xs text-amber-soft-ink">
+                    Dá para salvar o rascunho assim mesmo e resolver depois — o que não dá é publicar.
+                  </p>
+                </div>
+              )}
+
+              {/* Aviso não reprova nada: fica visível mesmo com o gate liberado. */}
+              {condicoes.gate.warnings.length > 0 && (
+                <div className="rounded-xl border border-default bg-surface-sunken p-4">
+                  <p className="flex items-start gap-2 text-xs font-bold text-navy-2">
+                    <Info className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
+                    {condicoes.gate.warnings.length}{' '}
+                    {condicoes.gate.warnings.length === 1 ? 'observação' : 'observações'} — não impedem
+                    publicar.
+                  </p>
+                  <ul className="mt-1.5 space-y-0.5">
+                    {condicoes.gate.warnings.map((problema, i) => (
+                      <li key={`aviso-${i}`} className="text-xs text-navy-3">• {problema.message}</li>
+                    ))}
+                  </ul>
+                </div>
               )}
             </Card>
           </>
