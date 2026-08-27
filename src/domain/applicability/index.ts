@@ -72,3 +72,24 @@ export type {
 
 export { validateTemplateRules } from './validate';
 export type { ValidationCode, ValidationIssue } from './validate';
+
+// ── COND-06 · o que o editor precisa para não deixar referência órfã ──
+export {
+  FONTE_DESCONHECIDA,
+  canRemoveOption,
+  canRetireQuestion,
+  cloneSectionForDuplicate,
+  cloneTemplateForDuplicate,
+  describeCondition,
+  describeRule,
+  operatorFitsSource,
+  operatorTakesList,
+  operatorTakesValue,
+  operatorsForSource,
+  rulesOrphanedBy,
+  rulesTargeting,
+  rulesUsingOption,
+  rulesUsingQuestion,
+  valueTypeForSource,
+} from './authoring';
+export type { AuthoringGuard, AuthoringSources, CloneIdMap, MakeId } from './authoring';
