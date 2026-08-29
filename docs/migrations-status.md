@@ -352,3 +352,35 @@ do PORT-05.
 `alter table public.clients drop column has_evidence_support`. Segura enquanto a versão anterior do
 app estiver no ar — ela não lê a coluna, e o front novo trata a ausência de `accepts_file_evidence`
 caindo em `accepts_evidence`.
+
+---
+
+## `agd02_client_milestones` — **aplicada em 29/08/2026**
+
+**AGD-02.** Tabela nova `public.client_milestones` (marco avulso por unidade, sem recorrência, sem
+categoria, exclusão física) e quatro RPCs `security definer` — `admin_create_client_milestone`,
+`admin_update_client_milestone`, `admin_set_client_milestone_done`, `admin_delete_client_milestone`
+— todas resolvendo o `tenant_id` a partir do `client_id` (criar) ou do próprio marco (editar/
+concluir/excluir), nunca de um valor vindo do navegador. Mesmo padrão de RLS do
+`client_action_checkpoints`: staff do tenant lê direto, escrita só por RPC, sem policy de insert/
+update/delete.
+
+**Tabela nova, zero linhas.** Nenhuma linha existente foi lida, alterada ou apagada; não mexe em
+nenhuma tabela, função, policy ou gatilho pré-existente.
+
+**Aplicada em produção em 29/08/2026**, autorizada pela Ester no mesmo dia, via MCP do Supabase
+(`apply_migration`). O ledger gravou a versão `20260829093956` e o arquivo local foi renomeado
+para `supabase/migrations/20260829093956_agd02_client_milestones.sql` (o teste
+`supabase/tests/client_milestones.test.sql` e `docs/HANDOFF.md` já apontam para o nome novo).
+
+**Conferido depois de aplicar:** RLS ligada; `has_table_privilege('anon', …)` falso para select/
+insert/update/delete; `authenticated` só com select na tabela; as quatro RPCs com execute para
+`authenticated` e sem para `anon`; `get_advisors(security)` sem apontar `client_milestones`.
+
+**Testada** em Postgres 16 limpo, fixture próprio (não encadeia a cadeia PORT-*, só precisa de
+`clients` + os dois helpers de tenant): RLS/grants, título e data obrigatórios, fluxo completo
+(criar → editar → concluir → reabrir → excluir físico) e a trava entre tenants (cliente alheio ao
+criar; marco alheio ao editar/concluir/excluir).
+
+**Reversão:** derrubar as quatro funções e a tabela `client_milestones`. Segura enquanto a versão
+anterior do app estiver no ar — ela não lê nem escreve na tabela.

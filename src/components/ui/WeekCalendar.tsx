@@ -3,6 +3,8 @@ import { cn } from '../../lib/utils';
 import { Badge } from './Badge';
 import { CalendarLegend } from './CalendarLegend';
 import {
+  MILESTONE_DOT_CLASSES,
+  MILESTONE_LABEL,
   STATE_BADGE_VARIANT,
   STATE_EVENT_CLASSES,
   STATE_LABELS,
@@ -41,6 +43,19 @@ export interface WeekCalendarWeek {
   events: WeekCalendarEvent[];
 }
 
+/**
+ * Evento de dia inteiro (AGD-02: marco e entrega de pasta sanitária) — sem hora, então não
+ * entra na grade horária. Aparece numa faixa de chips própria, entre o cabeçalho de dias e a
+ * grade — cor fixa (rosa), fora do vocabulário de estado do compromisso.
+ */
+export interface WeekCalendarAllDayItem {
+  id: string;
+  dayIndex: number; // 0 = segunda ... 4 = sexta
+  title: string;
+  icon?: React.ReactNode;
+  onClick?: () => void;
+}
+
 export interface WeekCalendarProps {
   week: WeekCalendarWeek;
   onPrevWeek?: () => void;
@@ -52,6 +67,8 @@ export interface WeekCalendarProps {
    * Sem a prop, a grade continua só de leitura (é o caso do portal).
    */
   onSelectSlot?: (dayIndex: number, hour: number) => void;
+  /** Sem a prop (o caso do portal), a faixa de dia inteiro não existe. */
+  allDayItems?: WeekCalendarAllDayItem[];
   emptyMessage?: string;
   className?: string;
 }
@@ -74,11 +91,14 @@ export function WeekCalendar({
   hasPrevWeek = true,
   hasNextWeek = true,
   onSelectSlot,
+  allDayItems,
   emptyMessage = 'Sem compromisso.',
   className,
 }: WeekCalendarProps) {
   const eventsByDay = (dayIndex: number) =>
     week.events.filter((e) => e.dayIndex === dayIndex).sort((a, b) => a.startHour - b.startHour);
+  const allDayByDay = (dayIndex: number) => allDayItems?.filter((item) => item.dayIndex === dayIndex) ?? [];
+  const hasAllDayItems = (allDayItems?.length ?? 0) > 0;
 
   // A régua padrão é 09h-17h (pedido da Ester em 16/08/2026: intervalo mais
   // estreito, sem sábado, pra sobrar mais espaço vertical por compromisso),
@@ -140,6 +160,31 @@ export function WeekCalendar({
             </div>
           ))}
         </div>
+
+        {hasAllDayItems && (
+          <div className="grid min-w-[660px] grid-cols-[52px_repeat(5,minmax(0,1fr))] border-b border-default bg-surface-sunken/40">
+            <div />
+            {week.days.map((day, dayIndex) => (
+              <div
+                key={`allday-${day.label}-${day.dayNumber}`}
+                className="flex flex-wrap items-start gap-1 border-l border-default p-1"
+              >
+                {allDayByDay(dayIndex).map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={item.onClick}
+                    title={item.title}
+                    className="flex max-w-full items-center gap-1 truncate rounded-md border border-pink-soft-border bg-pink-soft px-1.5 py-0.5 text-[10px] font-semibold text-pink-soft-ink hover:shadow-sm"
+                  >
+                    {item.icon && <span aria-hidden="true">{item.icon}</span>}
+                    <span className="truncate">{item.title}</span>
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="grid min-w-[660px] grid-cols-[52px_repeat(5,minmax(0,1fr))]">
           <div aria-hidden="true" className="grid auto-rows-[64px]">
@@ -214,14 +259,30 @@ export function WeekCalendar({
       <div className="divide-y divide-default min-[721px]:hidden">
         {week.days.map((day, dayIndex) => {
           const dayEvents = eventsByDay(dayIndex);
+          const dayAllDay = allDayByDay(dayIndex);
           return (
             <div key={`${day.label}-${day.dayNumber}`}>
               <div className="flex items-baseline gap-2 bg-surface-sunken px-4 py-2">
                 <h4 className="text-sm font-bold text-navy">{day.label} {day.dayNumber}</h4>
                 {day.isToday && <Badge variant="default">Hoje</Badge>}
               </div>
+              {dayAllDay.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 border-t border-default px-4 py-2">
+                  {dayAllDay.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={item.onClick}
+                      className="flex items-center gap-1.5 rounded-md border border-pink-soft-border bg-pink-soft px-2 py-1 text-xs font-semibold text-pink-soft-ink"
+                    >
+                      {item.icon && <span aria-hidden="true">{item.icon}</span>}
+                      {item.title}
+                    </button>
+                  ))}
+                </div>
+              )}
               {dayEvents.length === 0 ? (
-                <p className="px-4 py-3 text-sm text-navy-3">{emptyMessage}</p>
+                dayAllDay.length === 0 && <p className="px-4 py-3 text-sm text-navy-3">{emptyMessage}</p>
               ) : (
                 dayEvents.map((event) => {
                   const state = event.state || 'padrao';
@@ -256,7 +317,9 @@ export function WeekCalendar({
         })}
       </div>
 
-      <CalendarLegend />
+      <CalendarLegend
+        extraItems={hasAllDayItems ? [{ key: 'milestone', label: MILESTONE_LABEL, dotClassName: MILESTONE_DOT_CLASSES }] : undefined}
+      />
     </div>
   );
 }

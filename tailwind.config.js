@@ -86,6 +86,15 @@ export default {
           'soft-ink': token('danger-soft-ink'),
           'soft-border': token('danger-soft-border'),
         },
+        // Rosa dos marcos da agenda (AGD-02) — categoria de evento (não estado
+        // semântico como amber/success/danger), pedido explícito da Ester para
+        // diferenciar "outros pontos" e entrega de pasta sanitária da visita.
+        pink: {
+          DEFAULT: token('pink'),
+          soft: token('pink-soft'),
+          'soft-ink': token('pink-soft-ink'),
+          'soft-border': token('pink-soft-border'),
+        },
         // Superfície — --surface* (FE-21: de-para de cor, Artefato D)
         surface: {
           DEFAULT: token('surface'),

@@ -80,6 +80,14 @@
     --danger-soft-ink:      140 29 23;
     --danger-soft-border:   240 199 194;
 
+    /* Rosa dos marcos da agenda (AGD-02) — categoria de evento, não estado semântico.
+       Pedido explícito da Ester para diferenciar "outros pontos"/entrega de pasta do
+       compromisso de visita, que já usa verde/âmbar/navy tracejado. */
+    --pink:                 190 24 93;
+    --pink-soft:            251 207 232;
+    --pink-soft-ink:        157 23 77;
+    --pink-soft-border:     244 195 222;
+
     --surface:              255 255 255;
     --surface-sunken:       228 236 246;
     --surface-hover:        244 248 252;
@@ -141,6 +149,10 @@
     --danger-soft:          110 37 31;
     --danger-soft-ink:      255 154 144;
     --danger-soft-border:   140 56 48;
+    --pink:                 244 114 182;
+    --pink-soft:            100 24 68;
+    --pink-soft-ink:        249 168 212;
+    --pink-soft-border:     140 40 95;
     --surface:              14 36 64;
     --surface-sunken:       5 15 31;
     --surface-hover:        20 41 74;

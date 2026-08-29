@@ -13,18 +13,21 @@ import { Label } from '../components/ui/Label';
 import { Input } from '../components/ui/Input';
 import { Textarea } from '../components/ui/Textarea';
 import { Checkbox } from '../components/ui/Checkbox';
-import { Calendar, Clock, Plus, Trash2, CheckCircle, AlertCircle, User, Play, Edit2, Link2, ExternalLink, AlertTriangle } from 'lucide-react';
+import { Calendar, Clock, Plus, Trash2, CheckCircle, AlertCircle, User, Play, Edit2, Link2, ExternalLink, AlertTriangle, Flag, FolderOpen } from 'lucide-react';
 import { ScheduleService } from '../services/scheduleService';
 import { ClientService } from '../services/clientService';
+import { ClientMilestoneService, type ClientMilestone } from '../services/clientMilestoneService';
 import { getLocalActor } from '../utils/localActor';
 import { AppointmentRequestsPanel } from '../components/schedules/AppointmentRequestsPanel';
+import { MilestoneModal } from '../components/schedules/MilestoneModal';
+import { Modal } from '../components/ui/Modal';
 import { AppointmentAdminService, normalizeOptionalHttpsUrl } from '../services/appointmentAdminService';
 import { toDateKey } from '../utils/date';
-import { WeekCalendar, type WeekCalendarEvent, type WeekCalendarEventState, type WeekCalendarWeek } from '../components/ui/WeekCalendar';
+import { WeekCalendar, type WeekCalendarAllDayItem, type WeekCalendarEvent, type WeekCalendarEventState, type WeekCalendarWeek } from '../components/ui/WeekCalendar';
 import { MonthCalendar, type MonthCalendarEvent } from '../components/ui/MonthCalendar';
 import { APPOINTMENT_TYPE_RULES } from '../utils/appointmentType';
 import { addDays, formatWeekPeriod, mondayOf } from '../utils/weekCalendarDates';
-import { addMonths, firstOfMonth } from '../utils/monthCalendarDates';
+import { addMonths, firstOfMonth, formatDayLong } from '../utils/monthCalendarDates';
 import { useConfirmDialog } from '../components/ui/ConfirmDialog';
 import { CopyLinkButton } from '../components/client/CopyLinkButton';
 import { toast } from '../store/useToastStore';
@@ -100,6 +103,14 @@ export function Schedules() {
   const [weekStart, setWeekStart] = useState(() => mondayOf(new Date()));
   const [calendarMonth, setCalendarMonth] = useState(() => firstOfMonth(new Date()));
 
+  // AGD-02 — "outros pontos" da agenda.
+  const [milestones, setMilestones] = useState<ClientMilestone[]>([]);
+  const [milestoneModalOpen, setMilestoneModalOpen] = useState(false);
+  const [editingMilestone, setEditingMilestone] = useState<ClientMilestone | null>(null);
+  const [milestoneDefaultDate, setMilestoneDefaultDate] = useState<Date | undefined>(undefined);
+  // Clicar num dia/horário vago pergunta o quê: visita ou marco — os dois nascem do mesmo clique.
+  const [daySelector, setDaySelector] = useState<{ date: Date; hour?: number } | null>(null);
+
   // Form State
   const [selectedClientId, setSelectedClientId] = useState('');
   const [clientSearch, setClientSearch] = useState('');
@@ -166,6 +177,31 @@ export function Schedules() {
   useEffect(() => {
     return ScheduleService.subscribeToChanges(loadData);
   }, []);
+
+  // AGD-02 — o range visível cobre a grade do mês/semana em exibição, com folga de uma
+  // semana pros dois lados (a grade de mês mostra dias do mês vizinho), e sempre inclui a
+  // janela usada pela seção "Próximos marcos" (60 dias atrás, 180 à frente) — assim ela não
+  // fica vazia só porque a pessoa está olhando um mês distante no calendário.
+  const earliestDate = (...dates: Date[]) => new Date(Math.min(...dates.map((d) => d.getTime())));
+  const latestDate = (...dates: Date[]) => new Date(Math.max(...dates.map((d) => d.getTime())));
+  const milestoneRangeStart = toDateKey(
+    earliestDate(addDays(firstOfMonth(calendarMonth), -7), addDays(weekStart, -7), addDays(new Date(), -60))
+  );
+  const milestoneRangeEnd = toDateKey(
+    latestDate(addDays(firstOfMonth(addMonths(calendarMonth, 1)), 7), addDays(weekStart, 11), addDays(new Date(), 180))
+  );
+
+  const refreshMilestones = async () => {
+    try {
+      setMilestones(await ClientMilestoneService.listForRange(milestoneRangeStart, milestoneRangeEnd));
+    } catch (err) {
+      console.error('Error loading client milestones:', err);
+    }
+  };
+
+  useEffect(() => {
+    refreshMilestones();
+  }, [milestoneRangeStart, milestoneRangeEnd]);
 
   // Briefing pode ter sido confirmado sem cliente (lead que ainda não é cliente).
   // Editando esse agendamento, não força escolher um cliente só para mexer em
@@ -352,6 +388,30 @@ export function Schedules() {
     setIsModalOpen(true);
   };
 
+  const openNewMilestone = (day?: Date) => {
+    setEditingMilestone(null);
+    setMilestoneDefaultDate(day);
+    setMilestoneModalOpen(true);
+  };
+
+  const openEditMilestone = (milestone: ClientMilestone) => {
+    setEditingMilestone(milestone);
+    setMilestoneDefaultDate(undefined);
+    setMilestoneModalOpen(true);
+  };
+
+  const chooseSchedule = () => {
+    const target = daySelector;
+    setDaySelector(null);
+    if (target) openNewSchedule(target.date, target.hour);
+  };
+
+  const chooseMilestone = () => {
+    const target = daySelector;
+    setDaySelector(null);
+    if (target) openNewMilestone(target.date);
+  };
+
   /**
    * Abre o formulário de nova visita. Vindo de um clique no calendário, já
    * chega com o dia (e, na grade da semana, a hora) preenchidos — continua
@@ -444,6 +504,97 @@ export function Schedules() {
     events: weekEvents,
   };
 
+  // AGD-02 — "outros pontos" (client_milestones) e entrega da pasta sanitária personalizada
+  // (clients.personalized_sanitary_folder_expected_delivery_date, mesma condição do
+  // buildServiceDateItems do portal: só quando a data existe e a pasta ainda não tem link).
+  // Os dois viram evento de dia inteiro, visualmente distintos (rosa) da visita agendada.
+  const folderDeliveryItems = clients
+    .filter((c) => c.personalizedSanitaryFolderExpectedDeliveryDate && !c.personalizedSanitaryFolderUrl)
+    .map((c) => ({
+      key: `folder-${c.id}`,
+      clientId: c.id,
+      clientName: c.name,
+      date: c.personalizedSanitaryFolderExpectedDeliveryDate!.split('T')[0],
+    }));
+
+  const milestoneMonthEvents: MonthCalendarEvent[] = [
+    ...milestones.map((m) => ({
+      id: `milestone-${m.id}`,
+      date: new Date(`${m.milestoneDate}T00:00:00`),
+      title: clients.find((c) => c.id === m.clientId)?.name || m.title,
+      subtitle: m.title,
+      kind: 'milestone' as const,
+      icon: <Flag className="h-3 w-3" aria-hidden="true" />,
+      onClick: () => openEditMilestone(m),
+    })),
+    ...folderDeliveryItems.map((item) => ({
+      id: item.key,
+      date: new Date(`${item.date}T00:00:00`),
+      title: item.clientName,
+      subtitle: 'Entrega da pasta sanitária',
+      kind: 'milestone' as const,
+      icon: <FolderOpen className="h-3 w-3" aria-hidden="true" />,
+      onClick: () => navigate(`/clients/${item.clientId}?aba=portal`),
+    })),
+  ];
+
+  const milestoneWeekAllDayItems: WeekCalendarAllDayItem[] = [
+    ...milestones
+      .map((m) => {
+        const dayIndex = weekDays.findIndex((d) => toDateKey(d) === m.milestoneDate);
+        if (dayIndex === -1) return null;
+        const clientName = clients.find((c) => c.id === m.clientId)?.name;
+        const item: WeekCalendarAllDayItem = {
+          id: `milestone-${m.id}`,
+          dayIndex,
+          title: clientName ? `${clientName}: ${m.title}` : m.title,
+          icon: <Flag className="h-3 w-3" aria-hidden="true" />,
+          onClick: () => openEditMilestone(m),
+        };
+        return item;
+      })
+      .filter((item): item is WeekCalendarAllDayItem => item !== null),
+    ...folderDeliveryItems
+      .map((item) => {
+        const dayIndex = weekDays.findIndex((d) => toDateKey(d) === item.date);
+        if (dayIndex === -1) return null;
+        const allDayItem: WeekCalendarAllDayItem = {
+          id: item.key,
+          dayIndex,
+          title: `${item.clientName}: Entrega da pasta`,
+          icon: <FolderOpen className="h-3 w-3" aria-hidden="true" />,
+          onClick: () => navigate(`/clients/${item.clientId}?aba=portal`),
+        };
+        return allDayItem;
+      })
+      .filter((item): item is WeekCalendarAllDayItem => item !== null),
+  ];
+
+  // "Lista" não é grade própria (ausência de Mês/Semana); esta seção fica sempre visível,
+  // como "Próximas Visitas" — não é a data da inspeção, é a que a pessoa marcou.
+  const upcomingMilestoneRows = [
+    ...milestones
+      .filter((m) => !m.doneAt && m.milestoneDate >= todayKey)
+      .map((m) => ({
+        key: `milestone-${m.id}`,
+        date: m.milestoneDate,
+        clientName: clients.find((c) => c.id === m.clientId)?.name || 'Cliente',
+        title: m.title,
+        icon: <Flag className="h-4 w-4" aria-hidden="true" />,
+        onClick: () => openEditMilestone(m),
+      })),
+    ...folderDeliveryItems
+      .filter((item) => item.date >= todayKey)
+      .map((item) => ({
+        key: item.key,
+        date: item.date,
+        clientName: item.clientName,
+        title: 'Entrega da pasta sanitária personalizada',
+        icon: <FolderOpen className="h-4 w-4" aria-hidden="true" />,
+        onClick: () => navigate(`/clients/${item.clientId}?aba=portal`),
+      })),
+  ].sort((a, b) => a.date.localeCompare(b.date));
+
   const loadingFirstPage = loading && schedules.length === 0;
 
   return (
@@ -452,10 +603,16 @@ export function Schedules() {
         title="Agendamentos"
         actions={
           activeTab === 'agenda' && (
-            <Button onClick={() => openNewSchedule()}>
-              <Plus className="mr-2 h-4 w-4" />
-              Agendar Visita
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => openNewMilestone()}>
+                <Flag className="mr-2 h-4 w-4" />
+                Novo marco
+              </Button>
+              <Button onClick={() => openNewSchedule()}>
+                <Plus className="mr-2 h-4 w-4" />
+                Agendar Visita
+              </Button>
+            </div>
           )
         }
       />
@@ -590,11 +747,11 @@ export function Schedules() {
           {agendaView === 'mes' && (
             <MonthCalendar
               month={calendarMonth}
-              events={monthEvents}
+              events={[...monthEvents, ...milestoneMonthEvents]}
               onPrevMonth={() => setCalendarMonth((m) => addMonths(m, -1))}
               onNextMonth={() => setCalendarMonth((m) => addMonths(m, 1))}
               onToday={() => setCalendarMonth(firstOfMonth(new Date()))}
-              onSelectDay={(day) => openNewSchedule(day)}
+              onSelectDay={(day) => setDaySelector({ date: day })}
               emptyMessage="Sem visita agendada."
             />
           )}
@@ -602,13 +759,46 @@ export function Schedules() {
           {agendaView === 'semana' && (
             <WeekCalendar
               week={currentWeek}
+              allDayItems={milestoneWeekAllDayItems}
               onPrevWeek={() => setWeekStart((d) => addDays(d, -7))}
               onNextWeek={() => setWeekStart((d) => addDays(d, 7))}
-              onSelectSlot={(dayIndex, hour) => openNewSchedule(weekDays[dayIndex], hour)}
+              onSelectSlot={(dayIndex, hour) => setDaySelector({ date: weekDays[dayIndex], hour })}
               emptyMessage="Sem visita agendada."
             />
           )}
         </section>
+
+        {upcomingMilestoneRows.length > 0 && (
+          <section>
+            <h2 className="text-lg font-semibold text-navy mb-4 flex items-center">
+              <Flag className="mr-2 h-5 w-5 text-primary-600" />
+              Próximos marcos
+            </h2>
+            <div className="space-y-2">
+              {upcomingMilestoneRows.map((row) => (
+                <button
+                  key={row.key}
+                  type="button"
+                  onClick={row.onClick}
+                  className="flex w-full items-center justify-between gap-3 rounded-lg border border-pink-soft-border bg-pink-soft px-3 py-2.5 text-left hover:shadow-sm"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface text-pink">
+                      {row.icon}
+                    </span>
+                    <span className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-pink-soft-ink">{row.clientName}</p>
+                      <p className="truncate text-xs text-pink-soft-ink/80">{row.title}</p>
+                    </span>
+                  </div>
+                  <span className="shrink-0 text-xs font-bold tabular-nums text-pink-soft-ink">
+                    {new Date(`${row.date}T00:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section>
           <h2 className="text-lg font-semibold text-navy mb-4 flex items-center">
@@ -905,6 +1095,40 @@ export function Schedules() {
         </div>
       )}
       {confirmDialog}
+
+      <Modal
+        isOpen={!!daySelector}
+        onClose={() => setDaySelector(null)}
+        title={daySelector ? `Novo em ${formatDayLong(daySelector.date)}` : ''}
+      >
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={chooseSchedule}
+            className="flex flex-col items-center gap-2 rounded-xl border border-default p-4 text-center hover:border-primary-600 hover:bg-primary-50"
+          >
+            <Calendar className="h-6 w-6 text-primary-600" aria-hidden="true" />
+            <span className="text-sm font-bold text-navy">Agendar visita</span>
+          </button>
+          <button
+            type="button"
+            onClick={chooseMilestone}
+            className="flex flex-col items-center gap-2 rounded-xl border border-pink-soft-border bg-pink-soft/50 p-4 text-center hover:bg-pink-soft"
+          >
+            <Flag className="h-6 w-6 text-pink" aria-hidden="true" />
+            <span className="text-sm font-bold text-pink-soft-ink">Novo marco</span>
+          </button>
+        </div>
+      </Modal>
+
+      <MilestoneModal
+        isOpen={milestoneModalOpen}
+        onClose={() => setMilestoneModalOpen(false)}
+        milestone={editingMilestone}
+        clients={clients}
+        defaultDate={milestoneDefaultDate}
+        onSaved={refreshMilestones}
+      />
     </PageShell>
   );
 }

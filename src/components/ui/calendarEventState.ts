@@ -37,3 +37,14 @@ export const STATE_DOT_CLASSES: Record<CalendarEventState, string> = {
   atencao: 'border-amber bg-amber-soft',
   padrao: 'border-primary-700 bg-primary-50',
 };
+
+/**
+ * Marco (AGD-02) — "outros pontos" e entrega de pasta sanitária. Não é um quinto estado do
+ * compromisso: é outra categoria de evento (sem hora, sem confirmação), por isso fica fora do
+ * `CalendarEventState`, com cor fixa (rosa, pedido da Ester para diferenciar de longe).
+ */
+export const MILESTONE_LABEL = 'Marco';
+export const MILESTONE_EVENT_CLASSES =
+  'border-pink-soft-border border-l-pink bg-pink-soft text-pink-soft-ink';
+export const MILESTONE_DOT_CLASSES = 'border-pink bg-pink-soft';
+export const MILESTONE_BADGE_CLASSES = 'bg-pink-soft text-pink-soft-ink';

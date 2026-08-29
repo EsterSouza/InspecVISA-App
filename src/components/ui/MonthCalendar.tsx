@@ -3,6 +3,10 @@ import { cn } from '../../lib/utils';
 import { Badge } from './Badge';
 import { CalendarLegend } from './CalendarLegend';
 import {
+  MILESTONE_BADGE_CLASSES,
+  MILESTONE_DOT_CLASSES,
+  MILESTONE_EVENT_CLASSES,
+  MILESTONE_LABEL,
   STATE_BADGE_VARIANT,
   STATE_DOT_CLASSES,
   STATE_EVENT_CLASSES,
@@ -29,6 +33,13 @@ export interface MonthCalendarEvent {
   title: string;
   subtitle?: string;
   state?: CalendarEventState;
+  /**
+   * `'milestone'` (AGD-02) é evento de dia inteiro fora do vocabulário de estado do
+   * compromisso — cor fixa (rosa), sem hora, sem confirmação. Padrão `'appointment'`.
+   */
+  kind?: 'appointment' | 'milestone';
+  /** Ícone pequeno antes do título — hoje só usado por `kind: 'milestone'`. */
+  icon?: React.ReactNode;
   onClick?: () => void;
 }
 
@@ -79,6 +90,7 @@ export function MonthCalendar({
 
   const selectedDay = days.find((day) => toDateKey(day) === selectedKey) ?? firstOfMonth(month);
   const selectedEvents = eventsOfDay(selectedDay);
+  const hasMilestones = events.some((event) => event.kind === 'milestone');
 
   // A grade não tem sábado nem domingo. Compromisso que caia num deles não
   // pode sumir em silêncio: sai numa linha abaixo da grade, clicável como os
@@ -166,18 +178,26 @@ export function MonthCalendar({
                 </div>
 
                 {shown.map((event) => {
+                  const isMilestone = event.kind === 'milestone';
                   const state = event.state || 'padrao';
                   return (
                     <button
                       key={event.id}
                       type="button"
                       onClick={event.onClick}
-                      aria-label={`${event.title}, ${formatDayLong(day)}${event.time ? `, ${event.time}` : ''}, ${STATE_LABELS[state]}`}
+                      aria-label={
+                        isMilestone
+                          ? `${MILESTONE_LABEL}: ${event.title}, ${formatDayLong(day)}`
+                          : `${event.title}, ${formatDayLong(day)}${event.time ? `, ${event.time}` : ''}, ${STATE_LABELS[state]}`
+                      }
                       className={cn(
                         'overflow-hidden rounded-md border border-l-[3px] px-1.5 py-1 text-left text-[11px] leading-tight transition-shadow hover:shadow-md',
-                        STATE_EVENT_CLASSES[state]
+                        isMilestone ? MILESTONE_EVENT_CLASSES : STATE_EVENT_CLASSES[state]
                       )}
                     >
+                      {isMilestone && event.icon && (
+                        <span className="mr-1 inline-flex align-middle" aria-hidden="true">{event.icon}</span>
+                      )}
                       {event.time && <span className="mr-1 font-bold tabular-nums">{event.time}</span>}
                       <span className="font-semibold">{event.title}</span>
                     </button>
@@ -264,7 +284,11 @@ export function MonthCalendar({
                       key={event.id}
                       className={cn(
                         'h-1.5 w-1.5 rounded-full border',
-                        isSelected ? 'border-inverse-ink bg-inverse-ink' : STATE_DOT_CLASSES[event.state || 'padrao']
+                        isSelected
+                          ? 'border-inverse-ink bg-inverse-ink'
+                          : event.kind === 'milestone'
+                            ? MILESTONE_DOT_CLASSES
+                            : STATE_DOT_CLASSES[event.state || 'padrao']
                       )}
                     />
                   ))}
@@ -282,6 +306,7 @@ export function MonthCalendar({
             <p className="px-4 py-3 text-sm text-navy-3">{emptyMessage}</p>
           ) : (
             selectedEvents.map((event) => {
+              const isMilestone = event.kind === 'milestone';
               const state = event.state || 'padrao';
               return (
                 <button
@@ -290,12 +315,16 @@ export function MonthCalendar({
                   onClick={event.onClick}
                   className="flex w-full items-start gap-3 border-t border-default px-4 py-3 text-left hover:bg-surface-hover"
                 >
-                  <span className="w-[52px] shrink-0 text-xs tabular-nums text-navy-3">{event.time}</span>
+                  <span className="w-[52px] shrink-0 text-xs tabular-nums text-navy-3">{!isMilestone && event.time}</span>
                   <span className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-navy">{event.title}</p>
                     {event.subtitle && <p className="truncate text-xs text-navy-3">{event.subtitle}</p>}
                   </span>
-                  <Badge variant={STATE_BADGE_VARIANT[state]}>{STATE_LABELS[state]}</Badge>
+                  {isMilestone ? (
+                    <Badge className={MILESTONE_BADGE_CLASSES}>{MILESTONE_LABEL}</Badge>
+                  ) : (
+                    <Badge variant={STATE_BADGE_VARIANT[state]}>{STATE_LABELS[state]}</Badge>
+                  )}
                 </button>
               );
             })
@@ -320,7 +349,12 @@ export function MonthCalendar({
               key={event.id}
               type="button"
               onClick={event.onClick}
-              className="rounded-md border border-default bg-surface px-2 py-1 text-xs text-navy-2 hover:bg-surface-hover"
+              className={cn(
+                'rounded-md border px-2 py-1 text-xs hover:bg-surface-hover',
+                event.kind === 'milestone'
+                  ? 'border-pink-soft-border bg-pink-soft text-pink-soft-ink'
+                  : 'border-default bg-surface text-navy-2'
+              )}
             >
               <span className="font-semibold capitalize">
                 {event.date.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric' })}
@@ -331,7 +365,9 @@ export function MonthCalendar({
         </div>
       )}
 
-      <CalendarLegend />
+      <CalendarLegend
+        extraItems={hasMilestones ? [{ key: 'milestone', label: MILESTONE_LABEL, dotClassName: MILESTONE_DOT_CLASSES }] : undefined}
+      />
     </div>
   );
 }

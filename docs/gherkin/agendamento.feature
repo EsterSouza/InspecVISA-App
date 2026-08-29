@@ -33,4 +33,38 @@ Funcionalidade: Agendamento e calendário
     Então o estado aparece por cor de fundo, estilo de borda e palavra na legenda
     E o nome acessível do evento carrega dia, horário e estado por extenso
 
-  # Garantido por: src/components/ui/WeekCalendar.tsx, PortalAppointments.test.tsx, Schedules.tsx.
+  # AGD-02: marco (client_milestones) e entrega de pasta sanitária — evento de dia inteiro,
+  # categoria própria (rosa), fora do vocabulário de estado do compromisso. Só na agenda do admin.
+  Cenário: Marco aparece na grade sem virar um quinto estado de compromisso
+    Dado um marco cadastrado para uma unidade numa data
+    Quando abro a agenda do admin em "Mês" ou "Semana"
+    Então o marco aparece como evento de dia inteiro, sem hora, em rosa
+    E a legenda mostra "Marco" só quando existe algum na grade exibida
+    E clicar no marco abre o modal de edição, não o formulário de visita
+
+  Cenário: Entrega da pasta sanitária personalizada não tem modal próprio
+    Dado um cliente com previsão de entrega da pasta sanitária cadastrada e sem link publicado
+    Quando abro a agenda do admin
+    Então a previsão aparece como marco na grade, na cor do marco
+    E clicar nela navega para a ficha do cliente, aba Portal — onde o campo já é editado
+
+  Cenário: Marco em fim de semana não some
+    Dado um marco cadastrado para um sábado ou domingo
+    Quando abro a visão de Mês, que só mostra segunda a sexta
+    Então o marco aparece na linha "No fim de semana" abaixo da grade
+    E aparece sempre na seção "Próximos marcos", que não depende da visão de Mês/Semana
+
+  Cenário: O portal do cliente nunca vê marco
+    Dado o mesmo WeekCalendar usado pelo portal (PortalAppointments)
+    Então ele não recebe a prop de itens de dia inteiro
+    E a grade do portal continua mostrando só as visitas agendadas
+
+  Cenário: Clicar num dia vago pergunta visita ou marco
+    Dado a agenda do admin em "Mês" ou "Semana"
+    Quando clico num dia (ou horário) sem compromisso
+    Então um seletor pergunta "Agendar visita" ou "Novo marco"
+    E qualquer uma das duas opções já chega com o dia clicado preenchido
+
+  # Garantido por: src/components/ui/WeekCalendar.tsx, src/components/ui/MonthCalendar.tsx,
+  # src/components/schedules/MilestoneModal.tsx, src/services/clientMilestoneService.ts,
+  # supabase/tests/client_milestones.test.sql, PortalAppointments.test.tsx, Schedules.tsx.

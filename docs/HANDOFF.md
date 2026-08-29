@@ -3434,6 +3434,83 @@ religar devolvendo o envio, e os grants intactos depois do `create or replace`. 
 novos no `PortalActionPlan.test.tsx` (aviso no lugar do upload, botão de declaração vivo, e pendência
 resolvida sem o aviso). 814 testes JS, `npm run build` OK.
 
+## AGD-02 — Marcos na agenda do admin ✅ concluído 29/08/2026 · aplicado em produção
+
+**O que faltava.** A agenda (`/schedules`) só lê `schedules` — vistoria marcada. A Ester queria ver,
+na mesma grade, dois tipos de lembrete que não são visita: a previsão de entrega da pasta sanitária
+personalizada (já existia em `clients.personalized_sanitary_folder_expected_delivery_date`, só
+aparecia como texto na ficha do cliente) e "outros pontos" — um marco avulso qualquer, por unidade,
+sem recorrência e sem categoria, que ela mesma cria.
+
+**Decisão dela.** Os marcos entram **dentro** da grade de Mês/Semana como evento de dia inteiro —
+não uma lista separada, não um quinto estado do compromisso (que já tem confirmado/a-confirmar/
+atenção/padrão). Cor fixa **rosa**, pedido explícito dela para diferenciar de longe da visita.
+
+### Implementação
+
+- Tabela nova `client_milestones` (id, tenant_id, client_id, title, note?, milestone_date, done_at?,
+  created_by, created_at/updated_at) — RLS com o mesmo padrão de `client_action_checkpoints`: staff
+  do tenant lê direto (`private.my_tenant_ids()` + `is_tenant_staff()`), **sem** policy de escrita.
+- Quatro RPCs `security definer`, `search_path = ''`, só para `authenticated` (nunca `anon`):
+  `admin_create_client_milestone`, `admin_update_client_milestone`,
+  `admin_set_client_milestone_done`, `admin_delete_client_milestone`. Todas resolvem o `tenant_id`
+  a partir do `client_id` (criar) ou do próprio marco (editar/concluir/excluir) — nunca de um valor
+  vindo do navegador. Exclusão é **física**: não há histórico a preservar, é lembrete pontual.
+- `src/services/clientMilestoneService.ts` — a leitura (`listForRange`) vai direto na tabela, sem
+  RPC própria, porque a RLS já filtra por tenant.
+- Token de cor novo no design system: `--pink`/`--pink-soft`/`--pink-soft-ink`/`--pink-soft-border`
+  (`src/index.css`, `tailwind.config.js`), conferido nos dois temas por `npm run check:contraste`
+  (51 pares, nenhum reprovado). Categoria de evento, não estado semântico — por isso vive fora do
+  `CalendarEventState` (`calendarEventState.ts`, `MILESTONE_*`).
+- `MonthCalendar`: `MonthCalendarEvent` ganhou `kind?: 'appointment' | 'milestone'` e `icon?`; com
+  `kind: 'milestone'` o evento usa as classes fixas do rosa, sem hora, em vez de `STATE_*`.
+- `WeekCalendar`: prop nova `allDayItems?: WeekCalendarAllDayItem[]` — faixa de chips entre o
+  cabeçalho de dias e a grade de horas (marco não tem hora, não cabe na grade horária). Ambos os
+  componentes são compartilhados com o portal (`PortalAppointments.tsx`); tudo atrás de props
+  opcionais, e o portal continua sem passar nenhuma delas — `PortalAppointments.test.tsx` (13
+  testes) seguiu verde depois da mudança, é a prova de que não vazou.
+- `CalendarLegend`: prop opcional `extraItems?`, só usada quando a grade realmente tem marco.
+- `MilestoneModal.tsx` (novo, em `components/schedules/`): cliente, título, data, nota, concluir/
+  reabrir, excluir — usa o `Modal` (`<dialog>`) e os primitivos de formulário do FE-24.
+- `Schedules.tsx`: carrega `client_milestones` do range visível (mês/semana em exibição, com folga
+  de uma semana, e sempre incluindo a janela de "Próximos marcos") + monta os itens de entrega de
+  pasta a partir dos clientes já carregados (mesma condição do `buildServiceDateItems` do portal:
+  data existe e a pasta ainda não tem link). Botão "Novo marco" no cabeçalho, ao lado de "Agendar
+  Visita"; seção nova "Próximos marcos" (sempre visível, como "Próximas Visitas"); clique no marco
+  abre o `MilestoneModal`, clique na entrega de pasta navega para `/clients/:id?aba=portal` (a aba
+  Portal já edita o campo — não existe modal próprio para ele, não é registro independente).
+- **Clicar num dia/horário vago também oferece marco**, não só visita (pedido da Ester depois de
+  ver a primeira versão): `onSelectDay`/`onSelectSlot` abrem um seletor pequeno — "Agendar visita"
+  ou "Novo marco" — em vez de ir direto para o formulário de visita. Escolher qualquer um já leva o
+  dia clicado; a hora (na semana) só é aproveitada pela visita, marco não tem hora.
+
+### Limite conhecido, registrado no gherkin
+
+`MonthCalendar` só mostra segunda a sexta (pedido antigo da Ester, "sem fim de semana"). Marco em
+sábado/domingo não aparece na grade do mês — aparece na linha "No fim de semana" (já existente,
+usada pela visita) e sempre na visão Lista/"Próximos marcos". Decisão: não forçar a data para um dia
+útil.
+
+### Aplicação em produção
+
+Autorizada pela Ester em 29/08/2026, via MCP do Supabase (`apply_migration`). O ledger gravou a
+versão `20260829093956` e o arquivo local foi renomeado para
+`supabase/migrations/20260829093956_agd02_client_milestones.sql` (o teste SQL e este handoff já
+apontam para o nome novo). Ver `docs/migrations-status.md` para o registro de aplicação.
+
+**Prova.** `supabase/tests/client_milestones.test.sql` (novo, fixture próprio em Postgres 16 —
+não depende da cadeia PORT-*): RLS ligada, `anon` sem alcance nenhum na tabela nem nas RPCs, staff
+lê direto e escreve só pela RPC, título/data obrigatórios, fluxo completo (criar → editar → concluir
+→ reabrir → excluir físico) e a trava entre tenants (criar num cliente alheio, editar/concluir/
+excluir um marco alheio) — todas as 6 suítes desse arquivo passaram isoladas em Postgres 16 limpo.
+814 testes JS (nenhuma regressão), `npm run build` e `npx eslint src` OK.
+
+**Prova de ponta a ponta em produção**, com a conta real da Ester: criar marco pelo botão do
+cabeçalho e pelo seletor de dia vago, chip rosa aparecendo na grade do mês (inclusive na linha "No
+fim de semana", com marco num sábado), legenda "Marco" só aparecendo com marco na tela, editar,
+excluir com o `ConfirmDialog`, e a grade/legenda atualizando sozinhas depois — dado de teste
+apagado ao final.
+
 **Aplicado em produção em 29/08/2026**, autorizado pela Ester no mesmo dia, por
 `apply_migration` do MCP. O ledger gravou `20260829085041` e o arquivo local foi renomeado para
 essa versão. **Conferido depois de aplicar:** os 31 clientes com `has_evidence_support = true`;

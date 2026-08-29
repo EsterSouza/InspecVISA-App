@@ -62,10 +62,12 @@ const TEXTO = [
   ['primary-800', 'surface'], ['primary-900', 'surface'], ['primary-700', 'canvas'],
   ['primary-700', 'primary-50'], ['primary-700', 'primary-100'], ['accent-ink', 'primary-100'],
   ['amber-soft-ink', 'amber-soft'], ['success-soft-ink', 'success-soft'], ['danger-soft-ink', 'danger-soft'],
+  ['pink-soft-ink', 'pink-soft'],
   ['secondary-700', 'secondary-100'], ['secondary-700', 'secondary-50'],
-  ['danger', 'surface'], ['success', 'surface'], ['secondary', 'surface'],
+  ['danger', 'surface'], ['success', 'surface'], ['secondary', 'surface'], ['pink', 'surface'],
   ['inverse-ink', 'inverse'],
   ['amber-soft-ink', 'surface'], ['success-soft-ink', 'surface'], ['danger-soft-ink', 'surface'],
+  ['pink-soft-ink', 'surface'],
 ];
 
 const GRAFICO = [
@@ -78,7 +80,7 @@ const GRAFICO = [
 ];
 
 const SUPERFICIE = [
-  ['amber-soft', 'surface'], ['success-soft', 'surface'], ['danger-soft', 'surface'],
+  ['amber-soft', 'surface'], ['success-soft', 'surface'], ['danger-soft', 'surface'], ['pink-soft', 'surface'],
   ['primary-50', 'surface'], ['secondary-100', 'surface'],
   // O cartão contra a página fica em 1,05 (claro) e 1,14 (escuro): quem delimita o
   // cartão é o traço, não a diferença de fundo. Por isso mede-se o traço.
