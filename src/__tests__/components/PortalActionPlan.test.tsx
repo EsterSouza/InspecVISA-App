@@ -32,6 +32,7 @@ function actionItem(overrides: Partial<ClientPortalActionItem> = {}): ClientPort
     evidence_by_name: null,
     evidence_by_role: null,
     accepts_evidence: true,
+    accepts_file_evidence: true,
     ...overrides,
   };
 }
@@ -177,11 +178,35 @@ describe('P360-011 - evidência no plano de ação do cliente', () => {
   test('item que não aceita evidência não oferece envio', () => {
     render(
       <PortalActionPlan
-        items={[actionItem({ accepts_evidence: false })]}
+        items={[actionItem({ accepts_evidence: false, accepts_file_evidence: false })]}
         onSubmitEvidence={vi.fn()}
       />
     );
     expect(screen.queryByRole('button', { name: /Enviar evidência/ })).not.toBeInTheDocument();
+  });
+
+  // PORT-06 — contrato só de vistoria: o arquivo sai, a autodeclaração fica.
+  test('cliente de vistoria não vê upload, mas vê o aviso e continua declarando', () => {
+    render(
+      <PortalActionPlan
+        items={[actionItem({ accepts_file_evidence: false })]}
+        onSubmitEvidence={vi.fn()}
+        onDeclareStatus={vi.fn()}
+      />
+    );
+    expect(screen.queryByRole('button', { name: /Enviar evidência/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/não inclui envio de evidências/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Já corrigi/ })).toBeInTheDocument();
+  });
+
+  test('pendência resolvida não recebe o aviso de plano sem evidência', () => {
+    render(
+      <PortalActionPlan
+        items={[actionItem({ status: 'resolved', resolved_at: '2026-05-02', accepts_evidence: false, accepts_file_evidence: false })]}
+        onSubmitEvidence={vi.fn()}
+      />
+    );
+    expect(screen.queryByText(/não inclui envio de evidências/)).not.toBeInTheDocument();
   });
 
   test('envia o arquivo com uma chave de idempotência e o comentário do cliente', async () => {

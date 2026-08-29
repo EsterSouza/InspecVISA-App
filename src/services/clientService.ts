@@ -28,6 +28,7 @@ export interface ClientRow {
   personalized_sanitary_folder_expected_delivery_date: string | null;
   has_audit_service: boolean | null;
   has_online_followup: boolean | null;
+  has_evidence_support: boolean | null;
   created_at: string;
   updated_at: string | null;
   tenant_id: string;
@@ -56,6 +57,9 @@ export function mapFromPostgres(row: ClientRow): Client {
     personalizedSanitaryFolderExpectedDeliveryDate: row.personalized_sanitary_folder_expected_delivery_date || undefined,
     hasAuditService: Boolean(row.has_audit_service),
     hasOnlineFollowup: Boolean(row.has_online_followup),
+    // PORT-06 — a coluna é `not null default true`, mas uma linha vinda de cache antigo (ou de
+    // um PostgREST anterior à migration) chega sem o campo. Só `false` explícito desliga.
+    hasEvidenceSupport: row.has_evidence_support !== false,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at || row.created_at),
     tenantId: row.tenant_id,
@@ -89,6 +93,9 @@ export function mapToPostgres(client: Client) {
     personalized_sanitary_folder_expected_delivery_date: client.personalizedSanitaryFolderExpectedDeliveryDate?.trim() || null,
     has_audit_service: !!client.hasAuditService,
     has_online_followup: !!client.hasOnlineFollowup,
+    // Ao contrário dos dois acima, o default aqui é LIGADO: o formulário de criação não passa
+    // este campo, e `!!undefined` faria todo cliente novo nascer sem envio de evidência.
+    has_evidence_support: client.hasEvidenceSupport !== false,
     deleted_at: client.deletedAt ? client.deletedAt.toISOString() : null,
     updated_at: client.updatedAt.toISOString(),
     created_at: client.createdAt.toISOString(),

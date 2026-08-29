@@ -22,6 +22,15 @@ Funcionalidade: Portal do cliente
     Quando abro o filtro de unidade
     Então os chips de unidade dão lugar a um seletor
 
+  # PORT-06: o que o contrato inclui, não uma trava temporária da Central de acesso.
+  Cenário: Plano de ação sem envio de evidência no contrato só de vistoria
+    Dado uma unidade sem revisão de evidência contratada
+    Quando o cliente abre o Plano de ação pela conta
+    Então a pendência aparece inteira, sem o envio de arquivo
+    E o aviso explica que o plano não inclui envio de evidências
+    E declarar a situação e marcar os tópicos continuam disponíveis
+    # Detalhado em plano-de-acao.feature; aqui fica o caminho pela navegação da conta.
+
   # PORT-02: qualquer token de visita da unidade serve como link permanente dela.
   Cenário: Link público por unidade, sem login
     Dado uma unidade com visita registrada

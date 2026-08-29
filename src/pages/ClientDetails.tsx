@@ -568,7 +568,12 @@ export function ClientDetails() {
             </dl>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => { reset(client); setIsModalOpen(true); }}>
+            <Button variant="outline" size="sm" onClick={() => {
+              // PORT-06: cliente de cache antigo vem sem o campo, e `undefined` desmarcaria a
+              // caixa — salvar depois tiraria o envio de evidência sem ninguém pedir.
+              reset({ ...client, hasEvidenceSupport: client.hasEvidenceSupport !== false });
+              setIsModalOpen(true);
+            }}>
               <Edit2 className="mr-2 h-4 w-4" /> Editar
             </Button>
             <Button variant="outline" size="sm" className="text-danger hover:text-danger-soft-ink hover:bg-danger-soft" onClick={handleDelete}>
@@ -1121,6 +1126,16 @@ export function ClientDetails() {
               {...register('hasOnlineFollowup')}
               label="Cliente tem acompanhamento online contratado"
             />
+            <div>
+              <Checkbox
+                {...register('hasEvidenceSupport')}
+                label="Consultoria revisa evidências de correção"
+              />
+              <p className="ml-6 mt-1 text-xs text-navy-3">
+                Desmarque no contrato só de vistoria. O cliente continua vendo o plano de ação e
+                marcando o que já resolveu, mas sem anexar arquivo.
+              </p>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

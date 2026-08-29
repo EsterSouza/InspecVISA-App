@@ -3364,6 +3364,91 @@ associado ao campo — o que o P360-014 pediu), `npm run build` OK.
 
 ---
 
+## PORT-06 — Cliente de vistoria: plano de ação sem envio de evidência ✅ concluído 29/08/2026 · aplicado em produção
+
+**O que estava errado.** Parte dos contratos da Ester é só vistoria: ela entrega o relatório e o
+plano de ação, e não acompanha a correção depois. O portal, porém, oferecia o upload de evidência
+para todo mundo — então esse cliente mandava a prova para uma caixa que ninguém abre. Pior do que
+não ter o botão é ter um botão que não leva a nada, e ela não tinha como sinalizar isso no produto.
+
+**Decisão dela, registrada.** É um campo no cadastro do cliente, no mesmo box de "auditoria
+contratada" e "acompanhamento online contratado" — não um tipo de plano novo, e **não** a Central de
+acesso do portal (PORT-01). A Central tranca uma função temporariamente, por atraso ou decisão do
+momento, e destranca depois; aqui é o que o contrato estruturalmente inclui.
+
+**Só o arquivo sai.** Declarar a situação ("Já corrigi" · "Estou providenciando" · "Ainda não fiz")
+e marcar os tópicos da ação continuam liberados: são autodeclaração, não geram trabalho de revisão e
+são a única forma de esse cliente registrar andamento. Por isso entrou um campo **novo** por item —
+`accepts_file_evidence` — em vez de reaproveitar `accepts_evidence`, que segue governando status e
+tópicos, sem mudança de comportamento.
+
+### Implementação
+
+- `clients.has_evidence_support boolean not null default true`. Default ligado: ninguém perde o
+  upload por causa da migration.
+- A trava de escrita mora num lugar só, `private.register_action_evidence`, por onde passam **os
+  dois** caminhos de envio — `client_portal_submit_evidence` (conta) e `public_report_submit_evidence`
+  (link do relatório). Devolve `sem_suporte_evidencia` antes de qualquer insert. Duas cópias da
+  mesma regra divergiriam com o tempo; foi assim que o PORT-02 já tinha resolvido a autoria.
+- `create or replace` nas duas RPCs de leitura, cada item ganhando `accepts_file_evidence`. Em
+  `client_portal_action_items` o join com `clients` já existia; em `public_report_action_items` o
+  link é de uma visita, logo de uma unidade só — a flag é resolvida uma vez, antes do `select`.
+- Edge Function `client-action-evidence` **não mudou**: ela já repassa `registered.error` como 403
+  sem interpretar o texto.
+- Front: `Client.hasEvidenceSupport`, mapeamento nos dois sentidos, 3ª caixa no box "Marcos do
+  cronograma do contrato" e o ramo novo do `PortalActionPlan` (`EvidenceUnsupportedNotice`, aviso
+  permanente e neutro, sem cor de alerta — não é pendência a liberar).
+
+### As duas armadilhas do mapeamento, e por que o default é ao contrário
+
+`mapToPostgres` usa `!!client.hasAuditService` nos dois flags vizinhos, que trata `undefined` como
+`false`. Copiar isso aqui faria **todo cliente novo nascer sem suporte** — o formulário de criação
+não passa o campo. O default deste é o oposto: `client.hasEvidenceSupport !== false`. Pelo mesmo
+motivo o `reset(client)` do modal de edição normaliza o campo: um cliente vindo do cache do Dexie
+chega sem ele, a caixa apareceria desmarcada, e salvar tiraria o envio sem ninguém pedir.
+
+No `clientPortalService`, `accepts_file_evidence` cai em `accepts_evidence` quando ausente: com a
+RPC ainda na versão anterior, o comportamento fica o de antes do card em vez de sumir com o envio de
+todo mundo durante a virada (é o mesmo cuidado que o PORT-05 tomou com `checkpoints`).
+
+### Lacuna pré-existente que este card **não** fecha
+
+`public_report_submit_evidence` (link, sem login) não checa nenhuma trava de conta do PORT-01 — nem
+o gate `action_plan`. Colocar a checagem nova dentro de `register_action_evidence` fecha essa porta
+de brinde **para o flag novo**, mas a lacuna do PORT-01 nesse caminho continua aberta e fora deste
+card.
+
+### O defeito que quase foi para produção
+
+O `create or replace` da `public_report_action_items` saiu **sem** o `grant execute ... to
+authenticated`. O link do relatório continuaria abrindo para o cliente e quebraria só para quem
+está logado no admin — o cliente Supabase é único, e com sessão de staff a RPC pública chega como
+`authenticated`. As suítes anteriores checam esse grant **antes** desta migration, então nenhuma
+delas pegaria. A suíte do card passou a reafirmar os grants das duas leituras depois da reescrita,
+e a asserção foi conferida revogando o grant de propósito num banco de teste.
+
+**Prova.** `supabase/tests/client_evidence_support_flag.test.sql` (novo, encadeado na suíte do
+PORT-05): default ligado, `accepts_file_evidence` correto nas duas RPCs de leitura, envio recusado
+nos dois caminhos sem gravar linha, declaração e tópico ainda funcionando com a flag desligada, e
+religar devolvendo o envio, e os grants intactos depois do `create or replace`. Testes de componente
+novos no `PortalActionPlan.test.tsx` (aviso no lugar do upload, botão de declaração vivo, e pendência
+resolvida sem o aviso). 814 testes JS, `npm run build` OK.
+
+**Aplicado em produção em 29/08/2026**, autorizado pela Ester no mesmo dia, por
+`apply_migration` do MCP. O ledger gravou `20260829085041` e o arquivo local foi renomeado para
+essa versão. **Conferido depois de aplicar:** os 31 clientes com `has_evidence_support = true`;
+`anon` e `authenticated` executando as duas leituras; nenhum dos dois alcançando
+`private.register_action_evidence`; `service_role` com os dois envios; e a RPC do link devolvendo
+`accepts_file_evidence` de verdade num cliente real. **Antes de aplicar**, o `md5(prosrc)` das três
+funções em produção era idêntico ao das versões do repositório — nada tinha sido alterado por fora
+para o `create or replace` desfazer.
+
+**Primeiro cliente marcado como só vistoria: Priscilla Faca**, a pedido da Ester, no mesmo dia.
+Ela ainda não tem item de plano de ação publicado, então a mudança só passa a aparecer na primeira
+publicação.
+
+---
+
 # Bloco 5 — Dívida técnica
 
 ## SEC-01 — Endurecer o que a revisão do P360-015 encontrou ✅ concluído em 08/08/2026

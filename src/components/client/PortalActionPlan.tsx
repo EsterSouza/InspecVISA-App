@@ -6,6 +6,7 @@ import {
   CheckSquare,
   ClipboardList,
   Clock3,
+  Info,
   ListChecks,
   Loader2,
   MessageSquare,
@@ -653,6 +654,22 @@ function DeclaredState({ item }: { item: ClientPortalActionItem }) {
   );
 }
 
+/**
+ * PORT-06 — o lugar do upload no contrato só de vistoria. Permanente e neutro de propósito:
+ * não é pendência a liberar como as travas da Central de acesso, é o que o plano inclui.
+ */
+function EvidenceUnsupportedNotice({ canDeclare }: { canDeclare: boolean }) {
+  return (
+    <div className="mt-2.5 flex items-start gap-2 rounded-lg border border-default bg-surface-sunken px-2.5 py-2 text-xs text-navy-2">
+      <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+      <p>
+        Este plano não inclui envio de evidências.
+        {canDeclare ? ' Use a resposta acima para registrar o que já foi feito.' : ''}
+      </p>
+    </div>
+  );
+}
+
 function EvidenceState({ item }: { item: ClientPortalActionItem }) {
   if (!item.evidence_status) return null;
   const status = item.evidence_status;
@@ -780,13 +797,17 @@ function ActionItemCard({
         />
       )}
 
-      {onSubmitEvidence && item.accepts_evidence && (
+      {onSubmitEvidence && item.accepts_file_evidence && (
         <EvidenceUpload
           item={item}
           author={author}
           onAuthorChange={onAuthorChange}
           onSubmitEvidence={onSubmitEvidence}
         />
+      )}
+
+      {onSubmitEvidence && item.status === 'published' && !item.accepts_file_evidence && (
+        <EvidenceUnsupportedNotice canDeclare={Boolean(onDeclareStatus && item.accepts_evidence)} />
       )}
     </li>
   );

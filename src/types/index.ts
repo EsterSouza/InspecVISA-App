@@ -52,6 +52,12 @@ export interface Client extends SyncBase {
   personalizedSanitaryFolderExpectedDeliveryDate?: string;
   hasAuditService?: boolean;
   hasOnlineFollowup?: boolean;
+  /**
+   * PORT-06 — o contrato inclui a revisão de evidência pela consultoria. Falso é o cliente de
+   * vistoria: o plano de ação continua inteiro no portal, mas sem envio de arquivo. Ausente
+   * vale como verdadeiro, que é o default da coluna.
+   */
+  hasEvidenceSupport?: boolean;
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date | null;

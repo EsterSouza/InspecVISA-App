@@ -309,3 +309,46 @@ continua sem executar a função. As 22 suítes rodaram juntas: 22/22 OK.
 **Reversão** (no cabeçalho do arquivo): derrubar as três colunas e reaplicar a versão anterior da
 função. Segura enquanto a versão anterior do app estiver no ar — ela não lê nem escreve nenhuma das
 três.
+
+---
+
+## `client_evidence_support_flag` — **aplicada em 29/08/2026**
+
+**PORT-06.** Acrescenta `clients.has_evidence_support boolean not null default true` e reescreve
+três funções para respeitá-la: `private.register_action_evidence` (a trava de escrita, por onde
+passam os dois caminhos de envio) e as duas leituras do plano de ação,
+`public.client_portal_action_items` e `public.public_report_action_items`, que passam a devolver
+`accepts_file_evidence` por item.
+
+**Aditiva e sem backfill.** A coluna nasce `true` nas 31 linhas: nenhum cliente perde o envio de
+evidência por causa da migration. Nenhuma linha é lida, alterada ou apagada; RLS, policies e
+gatilhos não são tocados.
+
+**Aplicada em produção em 29/08/2026**, autorizada pela Ester no mesmo dia, via MCP do Supabase
+(`apply_migration`). O ledger gravou a versão `20260829085041` e o arquivo local foi renomeado
+para ela (o teste `supabase/tests/client_evidence_support_flag.test.sql` e o
+`docs/gherkin/plano-de-acao.feature` apontam para o nome novo).
+
+**Antes de aplicar:** o `md5(prosrc)` das três funções em produção era idêntico ao das versões do
+repositório (PORT-02 e PORT-05) — nada tinha sido alterado direto no editor SQL para o
+`create or replace` desfazer em silêncio.
+
+**Conferido depois de aplicar:** coluna `not null` com todas as 31 linhas em `true`;
+`has_function_privilege` de `anon` **e** `authenticated` verdadeiro nas duas leituras (o cliente
+Supabase é único: com sessão de staff a RPC pública chega como `authenticated`); os dois falsos em
+`private.register_action_evidence`; `service_role` mantendo os dois envios; e a RPC do link
+devolvendo `accepts_file_evidence` num cliente real.
+
+**Um defeito foi barrado antes da aplicação:** a primeira versão do arquivo perdeu o
+`grant execute on public.public_report_action_items(uuid) to authenticated` na reescrita — o link do
+relatório quebraria só para quem estivesse logado no admin. As suítes anteriores checam esse grant
+**antes** desta migration, então nenhuma delas pegaria; a suíte do card passou a reafirmar os
+grants depois do `create or replace`.
+
+**Testada** em Postgres 16 limpo pela suíte `client_evidence_support_flag.test.sql`, encadeada na
+do PORT-05.
+
+**Reversão:** `create or replace` das três funções nas versões do PORT-02/PORT-05 e
+`alter table public.clients drop column has_evidence_support`. Segura enquanto a versão anterior do
+app estiver no ar — ela não lê a coluna, e o front novo trata a ausência de `accepts_file_evidence`
+caindo em `accepts_evidence`.

@@ -195,6 +195,11 @@ export interface ClientPortalActionItem {
    */
   checkpoints: ClientPortalActionCheckpoint[];
   accepts_evidence: boolean;
+  /**
+   * PORT-06 — se o ARQUIVO é aceito. Falso no contrato só de vistoria: `accepts_evidence`
+   * continua verdadeiro ali, porque declarar situação e marcar tópicos seguem liberados.
+   */
+  accepts_file_evidence: boolean;
 }
 
 /** Um tópico da ação corretiva, do jeito que o cliente o vê. A chave interna não vem. */
@@ -403,6 +408,10 @@ export const clientPortalService = {
     return ((data?.items ?? []) as ClientPortalActionItem[]).map((item) => ({
       ...item,
       checkpoints: item.checkpoints ?? [],
+      // `accepts_file_evidence` é do PORT-06. Com a RPC ainda na versão anterior o campo não
+      // vem, e cair em `accepts_evidence` mantém o comportamento de antes do card em vez de
+      // tirar o envio de todo mundo durante a virada.
+      accepts_file_evidence: item.accepts_file_evidence ?? item.accepts_evidence,
     }));
   },
 
@@ -530,6 +539,8 @@ export const clientPortalService = {
       last_detected_on: null,
       checkpoints: [],
       ...item,
+      // Mesmo cuidado da leitura pela conta: RPC antiga não traz o campo do PORT-06.
+      accepts_file_evidence: item.accepts_file_evidence ?? item.accepts_evidence,
     })) as ClientPortalActionItem[];
     return { unitName, items };
   },

@@ -48,6 +48,7 @@ function actionItem(overrides: Partial<ClientPortalActionItem> = {}): ClientPort
     evidence_by_role: null,
     checkpoints: [],
     accepts_evidence: true,
+    accepts_file_evidence: true,
     ...overrides,
   };
 }

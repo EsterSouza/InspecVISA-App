@@ -123,9 +123,33 @@ Funcionalidade: Plano de ação projetado para o cliente
     # Mesma família do que `getRecurringItemIdsForClient` já resolve por
     # `normalizeRequirementText`; `ClientEvidenceService.byItemForClient` casa só por id.
 
+  # PORT-06 (29/08/2026): contrato só de vistoria, sem acompanhamento pós-plano.
+  Cenário: Cliente de vistoria não envia arquivo, mas continua respondendo
+    Dado um cliente com "Consultoria revisa evidências de correção" desmarcado na ficha
+    Quando ele abre uma pendência publicada, pela conta do portal ou pelo link do relatório
+    Então o envio de arquivo não aparece, e no lugar dele fica um aviso permanente
+    Mas ele continua declarando "Já corrigi" / "Estou providenciando" / "Ainda não fiz"
+    E continua marcando os tópicos da ação corretiva
+    E o plano de ação continua inteiro, com situação, ação recomendada e prazo
+
+  Cenário: O envio recusado não grava nada, nos dois caminhos
+    Dado o mesmo cliente de vistoria
+    Quando um envio de evidência chega pela conta do portal ou pelo link do relatório
+    Então o servidor recusa com `sem_suporte_evidencia`
+    E nenhuma linha entra em `client_action_evidence`
+    # A trava mora em `private.register_action_evidence`, por onde os dois caminhos passam:
+    # duas cópias da mesma regra divergiriam com o tempo.
+
+  Cenário: Religar o suporte devolve o envio
+    Dado um cliente de vistoria que passou a ter acompanhamento contratado
+    Quando a consultora remarca a caixa na ficha do cliente
+    Então o envio de evidência volta a aparecer e a ser aceito, sem migrar nada
+
   # Garantido por: src/utils/clientActionPlan.ts (+ .test.ts),
   # supabase/migrations/20260807102311_client_action_items.sql (RPC de leitura),
   # supabase/migrations/20260817084903_action_item_deadline_survives_recurrence.sql
   # (a regra de prazo reincidente, igual à de `resolveRecurringDueDate`),
   # supabase/migrations/20260807184950_client_action_evidence.sql (revisão da evidência),
   # src/services/clientEvidenceService.ts e src/utils/pdfGenerator.ts (a prova no relatório).
+  # PORT-06: supabase/migrations/20260829085041_client_evidence_support_flag.sql
+  # e src/components/client/PortalActionPlan.tsx (EvidenceUnsupportedNotice).
