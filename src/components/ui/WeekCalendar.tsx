@@ -161,31 +161,6 @@ export function WeekCalendar({
           ))}
         </div>
 
-        {hasAllDayItems && (
-          <div className="grid min-w-[660px] grid-cols-[52px_repeat(5,minmax(0,1fr))] border-b border-default bg-surface-sunken/40">
-            <div />
-            {week.days.map((day, dayIndex) => (
-              <div
-                key={`allday-${day.label}-${day.dayNumber}`}
-                className="flex flex-wrap items-start gap-1 border-l border-default p-1"
-              >
-                {allDayByDay(dayIndex).map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={item.onClick}
-                    title={item.title}
-                    className="flex max-w-full items-center gap-1 truncate rounded-md border border-pink-soft-border bg-pink-soft px-1.5 py-0.5 text-[10px] font-semibold text-pink-soft-ink hover:shadow-sm"
-                  >
-                    {item.icon && <span aria-hidden="true">{item.icon}</span>}
-                    <span className="truncate">{item.title}</span>
-                  </button>
-                ))}
-              </div>
-            ))}
-          </div>
-        )}
-
         <div className="grid min-w-[660px] grid-cols-[52px_repeat(5,minmax(0,1fr))]">
           <div aria-hidden="true" className="grid auto-rows-[64px]">
             {HOURS.map((hour, idx) => (
@@ -249,6 +224,29 @@ export function WeekCalendar({
                   </button>
                 );
               })}
+              {/* Marco/entrega (AGD-02): sem hora, então não ganha linha própria — só um sinal
+                  no primeiro horário do dia (pedido da Ester, 29/08/2026), sem cobrir o botão
+                  "+ Agendar" nem o compromisso que porventura já ocupe essa hora. */}
+              {allDayByDay(dayIndex).length > 0 && (
+                <div
+                  style={{ gridColumn: 1, gridRow: 1 }}
+                  className="pointer-events-none relative z-[2] flex flex-wrap justify-end gap-1 p-1"
+                >
+                  {allDayByDay(dayIndex).map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={item.onClick}
+                      title={item.title}
+                      disabled={!item.onClick}
+                      className="pointer-events-auto flex max-w-[90%] items-center gap-1 truncate rounded-full border border-pink-soft-border bg-pink-soft px-1.5 py-0.5 text-[10px] font-semibold text-pink-soft-ink shadow-sm hover:shadow disabled:cursor-default"
+                    >
+                      {item.icon && <span aria-hidden="true">{item.icon}</span>}
+                      <span className="truncate">{item.title}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>

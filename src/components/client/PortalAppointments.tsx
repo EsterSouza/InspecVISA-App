@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { CalendarCheck, CalendarClock, CalendarDays, CalendarOff, FileText, FolderOpen, Image, Paperclip, Video } from 'lucide-react';
+import { CalendarCheck, CalendarClock, CalendarDays, CalendarOff, FileText, Flag, FolderOpen, Image, Paperclip, Video } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { ClientPortalUnit, ClientPortalVisit } from '../../services/clientPortalService';
 import { formatDateBR, parseDateParts } from '../../utils/clientPortalFormat';
 import { toDateKey } from '../../utils/date';
-import { WeekCalendar, type WeekCalendarEvent, type WeekCalendarEventState, type WeekCalendarWeek } from '../ui/WeekCalendar';
+import { WeekCalendar, type WeekCalendarAllDayItem, type WeekCalendarEvent, type WeekCalendarEventState, type WeekCalendarWeek } from '../ui/WeekCalendar';
+import { MILESTONE_BADGE_CLASSES } from '../ui/calendarEventState';
 import { addDays, formatWeekPeriod, mondayOf } from '../../utils/weekCalendarDates';
 import { APPOINTMENT_STATUS_LABELS } from '../../utils/appointmentType';
 
@@ -24,9 +25,10 @@ interface ServiceDateItem {
   key: string;
   date: string;
   label: string;
+  note?: string | null;
   unitName: string;
   city: string | null;
-  icon: 'due' | 'delivered' | 'folder';
+  icon: 'due' | 'delivered' | 'folder' | 'milestone';
   publicToken?: string;
 }
 
@@ -67,6 +69,20 @@ function buildServiceDateItems(visits: PortalAppointmentVisit[], units: ClientPo
         unitName: unit.client_name,
         city: unit.city,
         icon: 'folder',
+      });
+    }
+
+    // AGD-02b — só os marcos que a consultora marcou como visíveis chegam até aqui
+    // (client_portal_overview já filtra); nunca bloqueiam agendar visita nesse dia.
+    for (const milestone of unit.milestones || []) {
+      items.push({
+        key: `milestone-${milestone.id}`,
+        date: milestone.milestone_date,
+        label: milestone.title,
+        note: milestone.note,
+        unitName: unit.client_name,
+        city: unit.city,
+        icon: 'milestone',
       });
     }
   }
@@ -168,6 +184,22 @@ export function PortalAppointments({
       return event;
     })
     .filter((e): e is WeekCalendarEvent => e !== null);
+  // AGD-02b — marco visível vira sinalização no primeiro horário do dia, igual na agenda do
+  // admin. Sem hora, então não entra em `events`; nunca impede escolher aquele dia para visita.
+  const milestoneAllDayItems: WeekCalendarAllDayItem[] = serviceDateItems
+    .filter((item) => item.icon === 'milestone')
+    .map((item) => {
+      const dayIndex = weekDays.findIndex((d) => toDateKey(d) === item.date);
+      if (dayIndex === -1) return null;
+      const allDayItem: WeekCalendarAllDayItem = {
+        id: item.key,
+        dayIndex,
+        title: item.label,
+        icon: <Flag className="h-3 w-3" aria-hidden="true" />,
+      };
+      return allDayItem;
+    })
+    .filter((item): item is WeekCalendarAllDayItem => item !== null);
   const currentWeek: WeekCalendarWeek = {
     periodLabel: formatWeekPeriod(weekStart),
     days: weekDays.map((d, i) => ({
@@ -228,6 +260,7 @@ export function PortalAppointments({
         {agendaView === 'semana' && (
           <WeekCalendar
             week={currentWeek}
+            allDayItems={milestoneAllDayItems}
             onPrevWeek={() => setWeekStart((d) => addDays(d, -7))}
             onNextWeek={() => setWeekStart((d) => addDays(d, 7))}
             emptyMessage="Sem compromisso."
@@ -250,10 +283,15 @@ export function PortalAppointments({
             {agendaRows.map((row) => {
               if (row.kind === 'milestone') {
                 const item = row.item;
-                const Icon = item.icon === 'delivered' ? CalendarCheck : item.icon === 'folder' ? FolderOpen : CalendarClock;
+                const isMilestone = item.icon === 'milestone';
+                const Icon = item.icon === 'delivered' ? CalendarCheck : item.icon === 'folder' ? FolderOpen : isMilestone ? Flag : CalendarClock;
                 const content = (
                   <div className="flex items-center gap-3 px-4 py-3 sm:px-5">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-surface-sunken text-navy-3">
+                    <div
+                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${
+                        isMilestone ? MILESTONE_BADGE_CLASSES : 'bg-surface-sunken text-navy-3'
+                      }`}
+                    >
                       <Icon className="h-5 w-5" />
                     </div>
                     <div className="min-w-0 flex-1">
@@ -262,6 +300,7 @@ export function PortalAppointments({
                         {formatDateBR(item.date)} · {item.unitName}
                         {item.city ? ` · ${item.city}` : ''}
                       </p>
+                      {isMilestone && item.note && <p className="truncate text-xs text-navy-3">{item.note}</p>}
                     </div>
                   </div>
                 );

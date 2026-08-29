@@ -8,6 +8,7 @@ import { Field } from '../ui/Field';
 import { Input } from '../ui/Input';
 import { Textarea } from '../ui/Textarea';
 import { Button } from '../ui/Button';
+import { Checkbox } from '../ui/Checkbox';
 import { useConfirmDialog } from '../ui/ConfirmDialog';
 import { toDateKey } from '../../utils/date';
 import { getLocalActor } from '../../utils/localActor';
@@ -48,6 +49,7 @@ export function MilestoneModal({
   const [title, setTitle] = useState('');
   const [milestoneDate, setMilestoneDate] = useState('');
   const [note, setNote] = useState('');
+  const [visibleToClient, setVisibleToClient] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -58,6 +60,7 @@ export function MilestoneModal({
       setTitle(milestone.title);
       setMilestoneDate(milestone.milestoneDate);
       setNote(milestone.note || '');
+      setVisibleToClient(milestone.visibleToClient);
     } else {
       const preselected = defaultClientId ? clients.find((c) => c.id === defaultClientId) : undefined;
       setClientId(preselected?.id || '');
@@ -65,6 +68,7 @@ export function MilestoneModal({
       setTitle('');
       setMilestoneDate(defaultDate ? toDateKey(defaultDate) : '');
       setNote('');
+      setVisibleToClient(false);
     }
   }, [isOpen, milestone, defaultClientId, defaultDate, clients]);
 
@@ -88,6 +92,7 @@ export function MilestoneModal({
           title: title.trim(),
           milestoneDate,
           note: note.trim() || null,
+          visibleToClient,
         });
         toast.success('Marco atualizado.');
       } else {
@@ -97,6 +102,7 @@ export function MilestoneModal({
           milestoneDate,
           note: note.trim() || null,
           createdBy: getLocalActor().name,
+          visibleToClient,
         });
         toast.success('Marco criado.');
       }
@@ -215,6 +221,14 @@ export function MilestoneModal({
               placeholder="Detalhe do que precisa acontecer nesta data..."
             />
           </Field>
+
+          <Checkbox
+            checked={visibleToClient}
+            onChange={(e) => setVisibleToClient(e.target.checked)}
+            label="Mostrar para o cliente"
+            hint="Aparece na agenda do portal dele. Desligado, é lembrete só seu."
+            className="rounded-xl border border-default bg-surface-sunken p-3"
+          />
 
           {isEditing && milestone.doneAt && (
             <p className="text-xs font-semibold text-success">

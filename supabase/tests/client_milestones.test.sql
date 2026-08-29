@@ -2,7 +2,8 @@
 
 -- ============================================================================
 -- AGD-02 — "outros pontos" da agenda (client_milestones).
--- Migration: supabase/migrations/20260829150000_agd02_client_milestones.sql
+-- Migrations: supabase/migrations/20260829093956_agd02_client_milestones.sql
+--             supabase/migrations/20260829160000_agd02_milestone_visible_to_client.sql
 --
 -- Fixture próprio (Postgres puro, sem o schema do Supabase), no padrão das demais suítes
 -- independentes (COND-04, CDT-08): cria os papéis, o schema `private` com os dois helpers
@@ -62,6 +63,7 @@ insert into public.clients (id, tenant_id, name) values
   ('20000000-0000-4000-8000-000000000001', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'Unidade B');
 
 \ir ../migrations/20260829093956_agd02_client_milestones.sql
+\ir ../migrations/20260829160000_agd02_milestone_visible_to_client.sql
 
 -- ─── Permissões ───────────────────────────────────────────────────────────────
 do $$
@@ -78,8 +80,8 @@ begin
     raise exception 'anon alcanca a tabela de marcos direto';
   end if;
 
-  if has_function_privilege('anon', 'public.admin_create_client_milestone(uuid,text,date,text,text)'::regprocedure, 'execute')
-     or has_function_privilege('anon', 'public.admin_update_client_milestone(uuid,text,date,text)'::regprocedure, 'execute')
+  if has_function_privilege('anon', 'public.admin_create_client_milestone(uuid,text,date,text,text,boolean)'::regprocedure, 'execute')
+     or has_function_privilege('anon', 'public.admin_update_client_milestone(uuid,text,date,text,boolean)'::regprocedure, 'execute')
      or has_function_privilege('anon', 'public.admin_set_client_milestone_done(uuid,boolean)'::regprocedure, 'execute')
      or has_function_privilege('anon', 'public.admin_delete_client_milestone(uuid)'::regprocedure, 'execute') then
     raise exception 'anon executa RPC de marco';
@@ -95,8 +97,8 @@ begin
     raise exception 'staff escreve direto na tabela de marcos';
   end if;
 
-  if not has_function_privilege('authenticated', 'public.admin_create_client_milestone(uuid,text,date,text,text)'::regprocedure, 'execute')
-     or not has_function_privilege('authenticated', 'public.admin_update_client_milestone(uuid,text,date,text)'::regprocedure, 'execute')
+  if not has_function_privilege('authenticated', 'public.admin_create_client_milestone(uuid,text,date,text,text,boolean)'::regprocedure, 'execute')
+     or not has_function_privilege('authenticated', 'public.admin_update_client_milestone(uuid,text,date,text,boolean)'::regprocedure, 'execute')
      or not has_function_privilege('authenticated', 'public.admin_set_client_milestone_done(uuid,boolean)'::regprocedure, 'execute')
      or not has_function_privilege('authenticated', 'public.admin_delete_client_milestone(uuid)'::regprocedure, 'execute') then
     raise exception 'staff perdeu execute nas RPCs de marco';
@@ -169,15 +171,30 @@ begin
   if v_row.done_at is not null then
     raise exception 'marco nasceu concluido';
   end if;
+  -- AGD-02b: sem passar o parâmetro novo, nasce interno — o cliente não pode ver por acidente.
+  if v_row.visible_to_client is distinct from false then
+    raise exception 'marco nasceu visivel para o cliente sem pedir: %', v_row;
+  end if;
 
   perform public.admin_update_client_milestone(
-    v_id, 'Renovar alvara sanitario (2a via)', '2026-09-15', null
+    v_id, 'Renovar alvara sanitario (2a via)', '2026-09-15', null, true
   );
   select * into v_row from public.client_milestones where id = v_id;
   if v_row.title <> 'Renovar alvara sanitario (2a via)'
      or v_row.milestone_date <> '2026-09-15'
-     or v_row.note is not null then
+     or v_row.note is not null
+     or v_row.visible_to_client is distinct from true then
     raise exception 'edicao nao aplicou: %', v_row;
+  end if;
+
+  -- Editar sem marcar o parâmetro de volta para true desliga a visibilidade — o campo
+  -- reflete exatamente o que o formulário mandou, não é "só liga".
+  perform public.admin_update_client_milestone(
+    v_id, 'Renovar alvara sanitario (2a via)', '2026-09-15', null, false
+  );
+  select * into v_row from public.client_milestones where id = v_id;
+  if v_row.visible_to_client is distinct from false then
+    raise exception 'edicao nao desligou a visibilidade: %', v_row;
   end if;
 
   perform public.admin_set_client_milestone_done(v_id, true);
@@ -197,6 +214,30 @@ begin
   if exists (select 1 from public.client_milestones where id = v_id) then
     raise exception 'exclusao nao removeu a linha (deveria ser fisica)';
   end if;
+end;
+$$;
+
+-- ─── Criar já visível para o cliente ────────────────────────────────────────────
+do $$
+declare
+  v_result jsonb;
+  v_id uuid;
+  v_visible boolean;
+begin
+  v_result := public.admin_create_client_milestone(
+    '10000000-0000-4000-8000-000000000001',
+    'Obra na area externa',
+    '2026-09-25',
+    null,
+    'Ester Caiafa',
+    true
+  );
+  v_id := (v_result ->> 'id')::uuid;
+  select visible_to_client into v_visible from public.client_milestones where id = v_id;
+  if v_visible is distinct from true then
+    raise exception 'admin_create nao respeitou p_visible_to_client = true';
+  end if;
+  perform public.admin_delete_client_milestone(v_id);
 end;
 $$;
 

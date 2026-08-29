@@ -16,6 +16,8 @@ export interface ClientMilestone {
   milestoneDate: string;
   doneAt: string | null;
   createdBy: string | null;
+  /** AGD-02b — só true faz o marco aparecer na agenda do portal do cliente. Default false. */
+  visibleToClient: boolean;
 }
 
 interface ClientMilestoneRow {
@@ -26,6 +28,7 @@ interface ClientMilestoneRow {
   milestone_date: string;
   done_at: string | null;
   created_by: string | null;
+  visible_to_client: boolean;
 }
 
 function fromRow(row: ClientMilestoneRow): ClientMilestone {
@@ -37,6 +40,7 @@ function fromRow(row: ClientMilestoneRow): ClientMilestone {
     milestoneDate: row.milestone_date,
     doneAt: row.done_at,
     createdBy: row.created_by,
+    visibleToClient: row.visible_to_client,
   };
 }
 
@@ -45,7 +49,7 @@ export const ClientMilestoneService = {
   async listForRange(startDate: string, endDate: string): Promise<ClientMilestone[]> {
     const { data, error } = await supabase
       .from('client_milestones')
-      .select('id, client_id, title, note, milestone_date, done_at, created_by')
+      .select('id, client_id, title, note, milestone_date, done_at, created_by, visible_to_client')
       .gte('milestone_date', startDate)
       .lte('milestone_date', endDate)
       .order('milestone_date', { ascending: true });
@@ -59,6 +63,7 @@ export const ClientMilestoneService = {
     milestoneDate: string;
     note?: string | null;
     createdBy?: string | null;
+    visibleToClient?: boolean;
   }): Promise<string> {
     const { data, error } = await supabase.rpc('admin_create_client_milestone', {
       p_client_id: params.clientId,
@@ -66,17 +71,22 @@ export const ClientMilestoneService = {
       p_milestone_date: params.milestoneDate,
       p_note: params.note || null,
       p_created_by: params.createdBy || null,
+      p_visible_to_client: params.visibleToClient ?? false,
     });
     if (error) throw error;
     return (data as { id: string }).id;
   },
 
-  async update(id: string, params: { title: string; milestoneDate: string; note?: string | null }): Promise<void> {
+  async update(
+    id: string,
+    params: { title: string; milestoneDate: string; note?: string | null; visibleToClient: boolean }
+  ): Promise<void> {
     const { error } = await supabase.rpc('admin_update_client_milestone', {
       p_id: id,
       p_title: params.title,
       p_milestone_date: params.milestoneDate,
       p_note: params.note || null,
+      p_visible_to_client: params.visibleToClient,
     });
     if (error) throw error;
   },

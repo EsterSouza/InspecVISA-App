@@ -88,6 +88,15 @@ export interface ClientPortalVisit {
   created_at: string;
 }
 
+/** AGD-02b — "outros pontos" que a consultora marcou como visíveis para o cliente. */
+export interface ClientPortalMilestone {
+  id: string;
+  title: string;
+  note: string | null;
+  milestone_date: string;
+  done_at: string | null;
+}
+
 export interface ClientPortalUnit {
   client_id: string;
   client_name: string;
@@ -98,6 +107,7 @@ export interface ClientPortalUnit {
   personalized_sanitary_folder_expected_delivery_date?: string | null;
   has_audit_service?: boolean;
   has_online_followup?: boolean;
+  milestones?: ClientPortalMilestone[];
   visits: ClientPortalVisit[];
 }
 
