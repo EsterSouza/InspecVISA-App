@@ -384,3 +384,51 @@ criar; marco alheio ao editar/concluir/excluir).
 
 **Reversão:** derrubar as quatro funções e a tabela `client_milestones`. Segura enquanto a versão
 anterior do app estiver no ar — ela não lê nem escreve na tabela.
+
+---
+
+## `agd02_milestone_visible_to_client` + `agd02_milestone_client_overview` — **aplicadas em 29/08/2026**
+
+**AGD-02b.** A Ester pediu, ainda testando o AGD-02: o marco tem que poder aparecer para o cliente,
+e nunca pode travar o agendamento de uma visita naquele dia. Duas migrations, aplicadas juntas mas
+separadas por domínio (a segunda mexe em `client_portal_overview`, que exige
+`client_portal_accounts` no `%rowtype` — juntar as duas quebrava a suíte independente de
+`client_milestones.test.sql`, que não tem essa tabela no fixture):
+
+1. **`agd02_milestone_visible_to_client`** — `client_milestones.visible_to_client boolean not null
+   default false`, e `admin_create_client_milestone`/`admin_update_client_milestone` reescritas com
+   o parâmetro novo (`drop function` antes do `create or replace`, já que mudar a lista de
+   parâmetros cria um *overload* em vez de substituir — conferido depois: 1 função para cada nome,
+   não 2). Continua igual: se ninguém marcar, o marco nasce interno.
+2. **`agd02_milestone_client_overview`** — `create or replace` de `client_portal_overview` (corpo
+   idêntico ao de `20260810200532_portal_service_dates`, a versão vigente — nenhuma migration entre
+   as duas a redefine) acrescentando `milestones` por unidade, só os `visible_to_client = true`.
+   Marco nunca entra na rotina de conflito de horário (`private.appointment_has_conflict`), que
+   nem sabe que esta tabela existe — é sinalização, não bloqueio.
+
+**Aditiva, tabela quase vazia.** `client_milestones` tinha 0 linhas reais em produção (só dado de
+teste, criado e apagado durante a verificação do AGD-02); a coluna nova nasce `false` para todo
+mundo, comportamento igual ao de antes da migration.
+
+**Aplicadas em produção em 29/08/2026**, autorizadas pela Ester no mesmo dia, via MCP do Supabase
+(`apply_migration`). O ledger gravou `20260829103752` e `20260829103816`; os arquivos locais foram
+renomeados para eles (os dois testes SQL e este documento já apontam para os nomes novos).
+
+**Conferido depois de aplicar:** `information_schema.columns` com `visible_to_client boolean not
+null default false`; 1 função só para cada um dos dois nomes (`admin_create_client_milestone`,
+`admin_update_client_milestone` — a `drop function` funcionou, não sobrou o *overload* de 5
+parâmetros); `has_function_privilege` de `anon` falso e `authenticated` verdadeiro nas duas RPCs;
+`client_portal_overview` com `anon` **e** `authenticated` verdadeiro (igual já era); 0 linhas na
+tabela; `get_advisors(security)` sem apontar `client_milestones` nem `client_portal_overview`.
+
+**Testada** em Postgres 16 limpo: `client_milestones.test.sql` (RLS/grants/CRUD, agora com o campo
+novo — nasce `false`, `admin_update` liga e desliga) e a suíte nova
+`agd02_milestone_client_visibility.test.sql`, encadeada em `portal_service_dates.test.sql` (fixture
+que já tem `client_portal_accounts`): só o marco `visible_to_client = true` aparece no
+`client_portal_overview`, o interno não vaza, e ligar/desligar depois reflete na hora.
+
+**Reversão:** `create or replace` de `client_portal_overview` na versão de `20260810200532`;
+`create or replace` das duas RPCs sem o parâmetro novo (ou `drop function` das versões de 6/5
+parâmetros e recriar as de 20260829093956); `alter table client_milestones drop column
+visible_to_client`. Segura enquanto a versão anterior do app estiver no ar — ela não lê o campo
+nem a chave `milestones` do overview.

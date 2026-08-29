@@ -3,8 +3,8 @@
 -- ============================================================================
 -- AGD-02b — o portal só vê o marco marcado como visível.
 -- Migrations: supabase/migrations/20260829093956_agd02_client_milestones.sql
---             supabase/migrations/20260829160000_agd02_milestone_visible_to_client.sql
---             supabase/migrations/20260829161000_agd02_milestone_client_overview.sql
+--             supabase/migrations/20260829103752_agd02_milestone_visible_to_client.sql
+--             supabase/migrations/20260829103816_agd02_milestone_client_overview.sql
 --
 -- Encadeia no fixture mais próximo do que este card toca de fato: `client_portal_overview` é
 -- redefinida em `portal_service_dates.test.sql` (fixture próprio, não a cadeia PORT-*), e é
@@ -38,8 +38,8 @@ grant execute on function private.my_tenant_ids() to authenticated;
 grant execute on function private.is_tenant_staff(uuid) to authenticated;
 
 \ir ../migrations/20260829093956_agd02_client_milestones.sql
-\ir ../migrations/20260829160000_agd02_milestone_visible_to_client.sql
-\ir ../migrations/20260829161000_agd02_milestone_client_overview.sql
+\ir ../migrations/20260829103752_agd02_milestone_visible_to_client.sql
+\ir ../migrations/20260829103816_agd02_milestone_client_overview.sql
 
 -- Unidade A ('10000000-0000-4000-8000-000000000003') já existe no fixture do PORT service dates,
 -- na conta de portal_token '10000000-0000-4000-8000-000000000002'.

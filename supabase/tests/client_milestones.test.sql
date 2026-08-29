@@ -3,7 +3,7 @@
 -- ============================================================================
 -- AGD-02 — "outros pontos" da agenda (client_milestones).
 -- Migrations: supabase/migrations/20260829093956_agd02_client_milestones.sql
---             supabase/migrations/20260829160000_agd02_milestone_visible_to_client.sql
+--             supabase/migrations/20260829103752_agd02_milestone_visible_to_client.sql
 --
 -- Fixture próprio (Postgres puro, sem o schema do Supabase), no padrão das demais suítes
 -- independentes (COND-04, CDT-08): cria os papéis, o schema `private` com os dois helpers
@@ -63,7 +63,7 @@ insert into public.clients (id, tenant_id, name) values
   ('20000000-0000-4000-8000-000000000001', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'Unidade B');
 
 \ir ../migrations/20260829093956_agd02_client_milestones.sql
-\ir ../migrations/20260829160000_agd02_milestone_visible_to_client.sql
+\ir ../migrations/20260829103752_agd02_milestone_visible_to_client.sql
 
 -- ─── Permissões ───────────────────────────────────────────────────────────────
 do $$
