@@ -111,15 +111,24 @@ export function assertInspectionAppointment(value: unknown, action: string): voi
   }
 }
 
+/**
+ * Piso de 45 minutos, para todo tipo de compromisso (AGD-03, 29/08/2026). Pedido da Ester: nada
+ * de 15 ou 30 minutos — compromisso curto demais não cabe no deslocamento nem na conversa, e o
+ * briefing de 15 min de 18/08 varreu a manhã inteira da agenda. Treinamento fica em 60 porque o
+ * passo dele é de 30 em 30; 60 é o primeiro múltiplo acima do piso.
+ */
+export const MIN_APPOINTMENT_MINUTES = 45;
+
 export function isAllowedAppointmentDuration(type: AppointmentType, minutes: number): boolean {
   if (!Number.isInteger(minutes)) return false;
+  if (minutes < MIN_APPOINTMENT_MINUTES) return false;
   // Auditoria acompanha a inspeção (PORT-07): uma fiscalização presencial não cabe em 90 min.
-  if (type === 'inspection' || type === 'audit') return minutes >= 15 && minutes <= 720;
-  if (type === 'training') return minutes >= 30 && minutes <= 480 && minutes % 30 === 0;
-  if (type === 'other') return minutes >= 15 && minutes <= 480 && minutes % 15 === 0;
+  if (type === 'inspection' || type === 'audit') return minutes <= 720;
+  if (type === 'training') return minutes >= 60 && minutes <= 480 && minutes % 30 === 0;
+  if (type === 'other') return minutes <= 480 && minutes % 15 === 0;
   if (type === 'briefing') return minutes === 45 || minutes === 60;
-  // follow_up_meeting, results_meeting, document_guidance, audit, online_followup
-  return minutes === 30 || minutes === 60 || minutes === 90;
+  // follow_up_meeting, results_meeting, document_guidance, online_followup
+  return minutes === 45 || minutes === 60 || minutes === 90;
 }
 
 export function assertAppointmentDuration(type: AppointmentType, minutes: number): void {

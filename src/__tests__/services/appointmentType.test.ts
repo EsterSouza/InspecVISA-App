@@ -105,14 +105,35 @@ describe('P360-004 - dominio de compromissos', () => {
   });
 
   test('valida duracoes pelo tipo sem transformar reuniao curta em janela de quatro horas', () => {
-    expect([30, 60, 90].every((minutes) =>
+    expect([45, 60, 90].every((minutes) =>
       isAllowedAppointmentDuration('follow_up_meeting', minutes))).toBe(true);
-    expect(isAllowedAppointmentDuration('document_guidance', 45)).toBe(false);
+    expect(isAllowedAppointmentDuration('document_guidance', 75)).toBe(false);
     expect(isAllowedAppointmentDuration('training', 240)).toBe(true);
     expect(isAllowedAppointmentDuration('training', 245)).toBe(false);
     expect(isAllowedAppointmentDuration('inspection', 90)).toBe(true);
     expect(() => assertAppointmentDuration('results_meeting', 120))
       .toThrow('Duração inválida');
+  });
+
+  test('AGD-03 — nenhum tipo de compromisso aceita menos de 45 minutos', () => {
+    // Pedido da Ester: nada de 15 ou 30 minutos, em tipo nenhum.
+    for (const tipo of APPOINTMENT_TYPES) {
+      expect(isAllowedAppointmentDuration(tipo, 15), `${tipo} aceitou 15 min`).toBe(false);
+      expect(isAllowedAppointmentDuration(tipo, 30), `${tipo} aceitou 30 min`).toBe(false);
+      expect(isAllowedAppointmentDuration(tipo, 44), `${tipo} aceitou 44 min`).toBe(false);
+    }
+
+    // 45 é o piso e passa em todo tipo, menos treinamento — que anda de 30 em 30 e começa em 60.
+    for (const tipo of APPOINTMENT_TYPES.filter((t) => t !== 'training')) {
+      expect(isAllowedAppointmentDuration(tipo, 45), `${tipo} recusou o piso de 45 min`).toBe(true);
+    }
+    expect(isAllowedAppointmentDuration('training', 45)).toBe(false);
+    expect(isAllowedAppointmentDuration('training', 60)).toBe(true);
+
+    // Os tetos não mudaram junto com o piso.
+    expect(isAllowedAppointmentDuration('inspection', 720)).toBe(true);
+    expect(isAllowedAppointmentDuration('audit', 721)).toBe(false);
+    expect(isAllowedAppointmentDuration('other', 480)).toBe(true);
   });
 
   test('PORT-07 — auditoria e uma inspecao com outro nome, com a faixa de duracao dela', () => {
@@ -140,6 +161,7 @@ describe('P360-004 - dominio de compromissos', () => {
       isAllowedAppointmentDuration('briefing', minutes))).toBe(true);
     expect(isAllowedAppointmentDuration('briefing', 30)).toBe(false);
     expect(isAllowedAppointmentDuration('briefing', 20)).toBe(false);
+    expect(isAllowedAppointmentDuration('briefing', 90)).toBe(false);
     expect(() => assertInspectionAppointment('briefing', 'iniciar uma inspeção'))
       .toThrow('Somente compromissos de inspeção');
   });

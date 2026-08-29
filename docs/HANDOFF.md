@@ -3627,6 +3627,69 @@ cartão da pasta no link público da REDE SÊNIOR FREGUESIA (que não tem a past
 
 ---
 
+## AGD-03 — Piso de 45 minutos para todo compromisso ✅ concluído 29/08/2026 · aplicado em produção
+
+**O pedido, textual.** "Não deve existir nenhum tipo de agendamento com duração de 15 ou 30 min.
+Tudo tem que ser a partir de 45min."
+
+**Por que importa mais do que parece.** Compromisso curto demais não cabe no deslocamento nem na
+conversa — e a agenda pune duas vezes: o briefing de **15 minutos** de 18/08/2026 varreu a manhã
+inteira, porque a margem de conflito é medida em volta do compromisso, não proporcional a ele.
+
+**As faixas depois do card.**
+
+| Tipo | Antes | Depois |
+| --- | --- | --- |
+| Inspeção, Auditoria | 15 a 720 | **45 a 720** |
+| Reunião de acompanhamento, de resultados, Orientação documental, Acompanhamento online | 30 / 60 / 90 | **45 / 60 / 90** |
+| Treinamento | 30 a 480, passo 30 | **60 a 480, passo 30** |
+| Outro compromisso | 15 a 480, passo 15 | **45 a 480, passo 15** |
+| Briefing | 15 / 30 / 45 / 60 (a lista da tela já era 45/60) | **45 / 60** |
+
+Treinamento fica em 60 e não em 45 porque o passo dele é de 30 em 30: 60 é o primeiro múltiplo
+acima do piso. Se um treinamento de 45 minutos fizer sentido um dia, é uma linha.
+
+**Onde a regra mora — os três lugares que precisam concordar.** Isto é o que o card ensina:
+
+1. `isAllowedAppointmentDuration` e `publicAppointmentDurations` (TypeScript — a validação e a
+   lista que a tela mostra; um teste novo cruza as duas, porque oferecer 30 min para o servidor
+   recusar é pior do que não oferecer);
+2. `private.resolve_appointment_duration_minutes` — porta de entrada das RPCs do portal;
+3. os checks `appointment_requests_duration_minutes_check` e `schedules_duration_minutes_check`,
+   que valem para **qualquer** escrita, inclusive o `insert` direto do admin, que não passa por RPC
+   nenhuma.
+
+O piso vem **antes** das faixas dentro do resolvedor, de propósito: quem tentou marcar 30 minutos
+precisa ler sobre 30 minutos, não "duração de inspeção fora do limite de 15 a 720", que não
+explicava nada.
+
+**Os dois checks entraram `not valid`, e isso foi escolha.** Produção tem duas linhas anteriores ao
+piso: um briefing de 15 minutos **já cancelado** (o caso real de 18/08) e uma reunião de 30 minutos
+do **tenant de homologação do E2E**. `not valid` deixa o passado como está e cobra o piso de toda
+escrita nova, que é o que o pedido quer — validar exigiria reescrever registro de compromisso que
+realmente aconteceu daquele jeito. Consequência aceita e documentada: um `UPDATE` nessas duas
+linhas passa a falhar; as duas estão encerradas e nenhuma tela edita compromisso cancelado.
+
+**O que o card não toca.** `admin_create_appointment_blocks` continua aceitando de 15 a 720
+minutos: bloqueio de agenda não é compromisso, e reservar 15 minutos da própria agenda segue
+legítimo.
+
+**Prova.** `supabase/tests/agd03_piso_de_45_minutos.test.sql` (novo, encadeado no PORT-07): os 9
+tipos recusando 15, 30 e 44 minutos; 45 aceito em todos menos treinamento; treinamento recusando 45
+e aceitando 60; os tetos intactos; a mensagem de recusa citando o piso; os dois checks marcados
+`not valid` de fato (`pg_constraint.convalidated`); a linha de 30 minutos gravada **antes** da
+migration sobrevivendo; escrita nova de 30 minutos recusada nas duas tabelas; e o caminho do
+cliente pela RPC recusando 30 e aceitando 45. **As 27 suítes SQL passaram**, uma por banco em
+Postgres 16 — inclusive `public_briefing_only`, que continua verde porque testa o estado do banco
+na migration dela, anterior a esta. 823 testes JS, `npm run build` e `npx eslint src` OK.
+
+**Aplicado em produção em 29/08/2026**, por `apply_migration` do MCP. O ledger gravou
+`20260829110510` e o arquivo local foi renomeado para essa versão. **Conferido depois:** os dois
+checks com `convalidated = false`, as 3 linhas antigas intactas, o resolvedor devolvendo 45 para
+reunião e 60 para treinamento, `anon` sem alcance nele. Ver `docs/migrations-status.md`.
+
+---
+
 # Bloco 5 — Dívida técnica
 
 ## SEC-01 — Endurecer o que a revisão do P360-015 encontrou ✅ concluído em 08/08/2026

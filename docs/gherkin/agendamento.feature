@@ -82,6 +82,35 @@ Funcionalidade: Agendamento e calendário
     Mas editar uma visita existente não oferece trocar a finalidade
     # Trocar o tipo de uma inspeção em andamento mexeria com relatório e plano já vinculados.
 
+  # AGD-03: piso de 45 minutos, pedido da Ester em 29/08/2026.
+  Cenário: Nenhum compromisso mais curto que 45 minutos
+    Dado qualquer tipo de compromisso — inspeção, auditoria, reunião, orientação, treinamento,
+      acompanhamento online, outro ou briefing
+    Quando alguém tenta marcar 15, 30 ou 44 minutos
+    Então a tela não oferece essa duração
+    E o servidor recusa dizendo que menos de 45 minutos não é permitido
+    E a recusa fala do piso, não da faixa do tipo
+    # Compromisso curto não cabe no deslocamento nem na conversa, e a margem de conflito é medida
+    # em volta dele: o briefing de 15 min de 18/08/2026 varreu a manhã inteira da agenda.
+
+  Cenário: As faixas de duração depois do piso
+    Dado o piso de 45 minutos
+    Então inspeção e auditoria aceitam de 45 a 720 minutos
+    E reunião, orientação documental e acompanhamento online aceitam 45, 60 ou 90
+    E treinamento aceita de 60 a 480, em passos de 30 — 60 é o primeiro múltiplo acima do piso
+    E outro compromisso aceita de 45 a 480, em passos de 15
+    E briefing aceita 45 ou 60
+    Mas bloqueio de agenda continua aceitando 15 minutos, porque não é compromisso
+
+  Cenário: O que já estava marcado antes do piso não é reescrito
+    Dado um briefing de 15 minutos já cancelado, gravado antes da regra
+    Quando o piso entra em vigor
+    Então o registro continua como está, com os 15 minutos que realmente aconteceram
+    Mas nenhuma escrita nova consegue repetir aquela duração
+    # Os checks de duração entraram `not valid`: cobram o futuro sem validar o passado.
+
   # Garantido por: src/components/ui/WeekCalendar.tsx, src/components/ui/MonthCalendar.tsx,
   # src/components/schedules/MilestoneModal.tsx, src/services/clientMilestoneService.ts,
-  # supabase/tests/client_milestones.test.sql, PortalAppointments.test.tsx, Schedules.tsx.
+  # supabase/tests/client_milestones.test.sql, PortalAppointments.test.tsx, Schedules.tsx,
+  # src/utils/appointmentType.ts, src/utils/publicAppointmentForm.ts,
+  # supabase/tests/agd03_piso_de_45_minutos.test.sql.

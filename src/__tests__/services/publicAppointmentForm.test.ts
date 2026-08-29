@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest';
+import { APPOINTMENT_TYPES, isAllowedAppointmentDuration } from '../../utils/appointmentType';
 import {
   appointmentTypeOptionsFor,
   buildAppointmentNotes,
@@ -43,18 +44,33 @@ describe('public appointment form rules', () => {
 
   test('PORT-07 — auditoria herda as duracoes da inspecao', () => {
     expect(publicAppointmentDurations('audit')).toEqual(publicAppointmentDurations('inspection'));
-    expect(publicAppointmentDurations('online_followup')).toEqual([30, 60, 90]);
+    expect(publicAppointmentDurations('online_followup')).toEqual([45, 60, 90]);
   });
 
-  test('meetings and guidance offer only 30, 60 or 90 minutes', () => {
-    expect(publicAppointmentDurations('follow_up_meeting')).toEqual([30, 60, 90]);
-    expect(publicAppointmentDurations('results_meeting')).toEqual([30, 60, 90]);
-    expect(publicAppointmentDurations('document_guidance')).toEqual([30, 60, 90]);
+  test('meetings and guidance offer only 45, 60 or 90 minutes', () => {
+    expect(publicAppointmentDurations('follow_up_meeting')).toEqual([45, 60, 90]);
+    expect(publicAppointmentDurations('results_meeting')).toEqual([45, 60, 90]);
+    expect(publicAppointmentDurations('document_guidance')).toEqual([45, 60, 90]);
   });
 
   test('training has configurable durations allowed by the domain', () => {
     expect(publicAppointmentDurations('training')).toContain(480);
-    expect(defaultPublicAppointmentDuration('training')).toBe(30);
+    expect(defaultPublicAppointmentDuration('training')).toBe(60);
+  });
+
+  test('AGD-03 — nenhuma lista de duração oferece menos de 45 minutos', () => {
+    // A tela e a regra têm de concordar: oferecer 30 min para o servidor recusar é pior do que
+    // não oferecer. Por isso o teste cruza as duas.
+    for (const tipo of APPOINTMENT_TYPES) {
+      const opcoes = publicAppointmentDurations(tipo);
+      expect(Math.min(...opcoes), `${tipo} oferece menos de 45 min`).toBeGreaterThanOrEqual(45);
+      for (const minutos of opcoes) {
+        expect(
+          isAllowedAppointmentDuration(tipo, minutos),
+          `${tipo} oferece ${minutos} min, que a regra recusa`
+        ).toBe(true);
+      }
+    }
   });
 
   test('objective and observations remain distinguishable in the persisted note', () => {

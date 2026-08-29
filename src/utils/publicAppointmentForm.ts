@@ -49,13 +49,17 @@ export function appointmentTypeOptionsFor(
   return options;
 }
 
+/**
+ * AGD-03 — nenhuma lista oferece menos de 45 minutos. A regra de verdade é
+ * `isAllowedAppointmentDuration`; aqui é só o que a tela mostra, e as duas têm de concordar.
+ */
 export function publicAppointmentDurations(type: AppointmentType): number[] {
   // Auditoria acompanha a inspeção desde o PORT-07 — mesma visita, mesma faixa de duração.
   if (type === 'inspection' || type === 'audit') return [60, 90, 120, 180, 240, 360, 480, 720];
-  if (type === 'training') return [30, 60, 90, 120, 180, 240, 360, 480];
-  if (type === 'other') return [15, 30, 45, 60, 90, 120, 180, 240, 360, 480];
+  if (type === 'training') return [60, 90, 120, 180, 240, 360, 480];
+  if (type === 'other') return [45, 60, 90, 120, 180, 240, 360, 480];
   if (type === 'briefing') return [45, 60];
-  return [30, 60, 90];
+  return [45, 60, 90];
 }
 
 export function defaultPublicAppointmentDuration(type: AppointmentType): number {

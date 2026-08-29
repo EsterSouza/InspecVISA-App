@@ -472,3 +472,37 @@ funções nas versões de `20260819114225`, `20260815203122` e `20260808105015`;
 checks com `audit` de volta no grupo de 30/60/90. Só faça o último depois de conferir que nenhuma
 auditoria foi gravada com duração fora dessa faixa — o `add constraint` valida as linhas
 existentes e falharia.
+
+---
+
+## `agd03_piso_de_45_minutos` — **aplicada em 29/08/2026**
+
+Ledger: `20260829110510`. Arquivo local renomeado para
+`supabase/migrations/20260829110510_agd03_piso_de_45_minutos.sql` (a suíte SQL já aponta para o
+nome novo). Aplicada via MCP do Supabase (`apply_migration`).
+
+**O que ela faz.** Piso de 45 minutos para todo tipo de compromisso, em dois dos três lugares onde
+a regra mora (o terceiro é o TypeScript): `private.resolve_appointment_duration_minutes` e os
+checks de `appointment_requests` e `schedules`. As faixas viram: inspeção/auditoria 45–720;
+reunião, orientação e acompanhamento online 45/60/90; treinamento 60–480 passo 30; outro 45–480
+passo 15; briefing 45/60. O piso é verificado **antes** das faixas, para a mensagem de recusa falar
+do piso e não de um limite que não explica nada.
+
+**Os dois checks entraram `not valid`, e isso foi escolha.** Produção tinha três linhas abaixo de
+45 minutos: um briefing de 15 min **já cancelado** (o caso real de 18/08/2026, presente nas duas
+tabelas) e uma reunião de 30 min do **tenant de homologação do E2E**. Validar exigiria reescrever
+registro de compromisso que aconteceu daquele jeito; `not valid` deixa o passado como está e cobra
+o piso de toda escrita nova. **Consequência aceita:** um `UPDATE` nessas linhas passa a falhar —
+as duas estão encerradas e nenhuma tela edita compromisso cancelado. Se um dia for preciso mexer
+numa delas, corrija a duração no mesmo `update`.
+
+**Não toca** `admin_create_appointment_blocks`, que segue de 15 a 720 minutos: bloqueio de agenda
+não é compromisso.
+
+**Conferido depois de aplicar:** os dois checks com `convalidated = false`; as 3 linhas antigas
+intactas; `resolve_appointment_duration_minutes` devolvendo 45 para reunião e 60 para treinamento;
+`anon` sem alcance no resolvedor.
+
+**Reversão:** `create or replace` do resolvedor na versão de `20260829104352` e recriar os dois
+checks sem o `duration_minutes >= 45` (e com as faixas antigas: 15–720, 30/60/90, 30–480, 15–480,
+15/30/45/60). Aí pode voltar a ser `valid`, porque a faixa antiga cobre as linhas existentes.
