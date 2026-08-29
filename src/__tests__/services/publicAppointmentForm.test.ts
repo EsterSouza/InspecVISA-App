@@ -23,6 +23,29 @@ describe('public appointment form rules', () => {
     ]);
   });
 
+  test('PORT-07 — auditoria e acompanhamento online so entram na lista com o contrato', () => {
+    // Sem contrato, a lista é a de sempre — nada de opção que o servidor vai recusar.
+    expect(appointmentTypeOptionsFor(true).map((option) => option.value)).not.toContain('audit');
+    expect(appointmentTypeOptionsFor(true, { has_audit_service: false }).map((o) => o.value))
+      .not.toContain('audit');
+
+    // Com a auditoria contratada, ela aparece logo depois da inspeção: é a mesma visita.
+    expect(appointmentTypeOptionsFor(true, { has_audit_service: true }).map((o) => o.value))
+      .toEqual(['inspection', 'audit', 'follow_up_meeting', 'results_meeting', 'document_guidance', 'training', 'other']);
+
+    expect(appointmentTypeOptionsFor(true, { has_online_followup: true }).map((o) => o.value))
+      .toContain('online_followup');
+
+    // O canal público continua só com briefing, contrato nenhum muda isso.
+    expect(appointmentTypeOptionsFor(false, { has_audit_service: true }).map((o) => o.value))
+      .toEqual(['briefing']);
+  });
+
+  test('PORT-07 — auditoria herda as duracoes da inspecao', () => {
+    expect(publicAppointmentDurations('audit')).toEqual(publicAppointmentDurations('inspection'));
+    expect(publicAppointmentDurations('online_followup')).toEqual([30, 60, 90]);
+  });
+
   test('meetings and guidance offer only 30, 60 or 90 minutes', () => {
     expect(publicAppointmentDurations('follow_up_meeting')).toEqual([30, 60, 90]);
     expect(publicAppointmentDurations('results_meeting')).toEqual([30, 60, 90]);

@@ -150,7 +150,13 @@ export function Clients() {
     e.stopPropagation();
     setEditingClient(client);
     // `state` era texto livre; normaliza para a sigla do select sem perder o valor antigo.
-    reset({ ...client, state: toUF(client.state) || client.state });
+    // `hasEvidenceSupport` ausente (linha de cache anterior ao PORT-06) vale como ligado — sem
+    // isto a caixa abriria desmarcada e salvar tiraria o envio de evidência sem ninguém pedir.
+    reset({
+      ...client,
+      state: toUF(client.state) || client.state,
+      hasEvidenceSupport: client.hasEvidenceSupport !== false,
+    });
     setClientContacts(
       client.contacts?.length
         ? client.contacts
@@ -650,6 +656,50 @@ export function Clients() {
               </Select>
             </Field>
           </div>
+
+          {/*
+            PORT-07 — as três marcações nascem desmarcadas e são perguntadas aqui, no cadastro.
+            Antes elas só existiam na tela de detalhe do cliente, então um cliente novo herdava
+            um contrato que ninguém tinha escolhido. Cada uma libera algo concreto no portal;
+            o detalhe do cliente continua sendo o lugar de mexer nelas depois.
+          */}
+          <fieldset className="space-y-3 rounded-2xl border border-default bg-surface-sunken/70 p-4">
+            <legend className="px-1 text-xs font-bold uppercase tracking-wider text-navy-2">
+              O que o contrato inclui
+            </legend>
+            <div>
+              <Checkbox
+                {...register('hasPersonalizedSanitaryFolder')}
+                label="Pasta sanitária personalizada"
+              />
+              <p className="ml-6 mt-1 text-xs text-navy-3">
+                Libera a pasta no Drive pelo portal e o pedido de elaboração de documentos.
+              </p>
+            </div>
+            <div>
+              <Checkbox {...register('hasAuditService')} label="Auditoria" />
+              <p className="ml-6 mt-1 text-xs text-navy-3">
+                Fiscalização recorrente, com relatório e plano de ação. O cliente passa a poder
+                agendá-la pelo portal.
+              </p>
+            </div>
+            <div>
+              <Checkbox {...register('hasOnlineFollowup')} label="Acompanhamento online" />
+              <p className="ml-6 mt-1 text-xs text-navy-3">
+                Encontros periódicos à distância, agendáveis pelo portal.
+              </p>
+            </div>
+            <div>
+              <Checkbox
+                {...register('hasEvidenceSupport')}
+                label="Revisão de evidências de correção"
+              />
+              <p className="ml-6 mt-1 text-xs text-navy-3">
+                Deixe desmarcado no contrato só de vistoria. O cliente continua vendo o plano de
+                ação e marcando o que já resolveu, mas sem anexar arquivo.
+              </p>
+            </div>
+          </fieldset>
 
           <div className="pt-6 border-t flex justify-end gap-3">
             <Button variant="outline" type="button" onClick={() => setIsModalOpen(false)}>Cancelar</Button>

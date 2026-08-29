@@ -115,6 +115,24 @@ describe('P360-004 - dominio de compromissos', () => {
       .toThrow('Duração inválida');
   });
 
+  test('PORT-07 — auditoria e uma inspecao com outro nome, com a faixa de duracao dela', () => {
+    // Se isto voltar a ser falso, a auditoria deixa de abrir roteiro, relatorio e plano de acao.
+    expect(APPOINTMENT_TYPE_RULES.audit.isInspection).toBe(true);
+    expect(APPOINTMENT_TYPE_RULES.audit.showsReportDueDate).toBe(true);
+    expect(APPOINTMENT_TYPE_RULES.audit.usesSanitaryTimeline).toBe(true);
+    expect(() => assertInspectionAppointment('audit', 'iniciar uma inspeção')).not.toThrow();
+
+    // Uma fiscalizacao presencial nao cabe na faixa de reuniao.
+    expect(isAllowedAppointmentDuration('audit', 180)).toBe(true);
+    expect(isAllowedAppointmentDuration('audit', 720)).toBe(true);
+    expect(isAllowedAppointmentDuration('audit', 721)).toBe(false);
+
+    // Acompanhamento online continua sendo reuniao.
+    expect(APPOINTMENT_TYPE_RULES.online_followup.isInspection).toBe(false);
+    expect(isAllowedAppointmentDuration('online_followup', 180)).toBe(false);
+    expect(isAllowedAppointmentDuration('online_followup', 90)).toBe(true);
+  });
+
   test('briefing e um compromisso nao sanitario, de 45 a 60 minutos', () => {
     expect(APPOINTMENT_TYPE_RULES.briefing.isInspection).toBe(false);
     expect(APPOINTMENT_TYPE_RULES.briefing.usesSanitaryTimeline).toBe(false);

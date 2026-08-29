@@ -93,9 +93,10 @@ export function mapToPostgres(client: Client) {
     personalized_sanitary_folder_expected_delivery_date: client.personalizedSanitaryFolderExpectedDeliveryDate?.trim() || null,
     has_audit_service: !!client.hasAuditService,
     has_online_followup: !!client.hasOnlineFollowup,
-    // Ao contrário dos dois acima, o default aqui é LIGADO: o formulário de criação não passa
-    // este campo, e `!!undefined` faria todo cliente novo nascer sem envio de evidência.
-    has_evidence_support: client.hasEvidenceSupport !== false,
+    // PORT-07 — as três marcações de contrato nascem desmarcadas e o formulário de criação
+    // pergunta as três. Até o PORT-06 esta aqui era `!== false` (nascia ligada), o que decidia
+    // por quem cadastra em vez de perguntar.
+    has_evidence_support: !!client.hasEvidenceSupport,
     deleted_at: client.deletedAt ? client.deletedAt.toISOString() : null,
     updated_at: client.updatedAt.toISOString(),
     created_at: client.createdAt.toISOString(),

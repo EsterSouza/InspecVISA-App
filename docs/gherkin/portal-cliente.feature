@@ -51,5 +51,30 @@ Funcionalidade: Portal do cliente
     Então a evidência fica pendente de revisão da consultora
     E o arquivo vai para um bucket privado, acessível só por URL assinada
 
+  # PORT-07: o que a unidade não contratou continua à vista, apagado.
+  Cenário: Serviço não contratado aparece apagado, em vez de sumir
+    Dado uma unidade sem pasta sanitária personalizada no contrato
+    Quando o cliente abre o portal
+    Então o botão da pasta aparece cinza, sem link, com cadeado
+    E diz "Serviço de pasta personalizada não contratado"
+    Mas a unidade que contratou a pasta e ainda não tem o link recebe outra frase
+    # Dizer "não contratado" a quem pagou seria o pior erro possível aqui.
+
+  Cenário: Pedir elaboração de documento depende da pasta contratada
+    Dado uma unidade sem pasta sanitária personalizada no contrato
+    Quando o cliente abre uma nova solicitação para aquela unidade
+    Então a categoria "Documentação" não é oferecida
+    E a tela explica que ela faz parte da pasta sanitária personalizada
+    E as outras sete categorias continuam disponíveis
+    E o servidor recusa a categoria mesmo que o pedido chegue por fora do formulário
+
+  Cenário: Agendar auditoria só com auditoria no contrato
+    Dado uma conta com uma unidade com auditoria contratada e outra sem
+    Quando o cliente escolhe a finalidade no agendamento
+    Então "Auditoria" aparece na lista, porque alguma unidade a tem
+    Mas a unidade sem auditoria fica desabilitada no seletor de unidade
+    E o servidor recusa a auditoria daquela unidade de qualquer forma
+
   # Garantido por: src/components/client/*, PortalActionPlan.test.tsx,
-  # PortalQuickActions.test.tsx, PortalAppointments.test.tsx.
+  # PortalQuickActions.test.tsx, PortalAppointments.test.tsx,
+  # PortalServiceRequests.test.tsx, supabase/tests/port07_servicos_contratados.test.sql.

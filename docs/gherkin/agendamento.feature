@@ -65,6 +65,23 @@ Funcionalidade: Agendamento e calendário
     Então um seletor pergunta "Agendar visita" ou "Novo marco"
     E qualquer uma das duas opções já chega com o dia clicado preenchido
 
+  # PORT-07: a auditoria é uma inspeção com outro nome.
+  Cenário: Auditoria abre roteiro, relatório e plano de ação
+    Dado um compromisso com finalidade "Auditoria"
+    Então ele vale como inspeção: dá para executar o roteiro e publicar relatório e fotos
+    E aceita duração de 15 a 720 minutos, como a inspeção — não 30/60/90 de reunião
+    E o marco "Relatório" do cronograma do contrato conta com ele
+    Mas a cota de uma inspeção por mês não se aplica a ele
+    # A auditoria é mensal por contrato; a cota é da inspeção avulsa.
+
+  Cenário: Finalidade no formulário de visita do admin
+    Dado o formulário de nova visita, que antes gravava "inspeção" fixo
+    Quando escolho um cliente com auditoria marcada no contrato
+    Então "Auditoria" aparece como finalidade
+    E some quando o cliente escolhido não a tem no contrato
+    Mas editar uma visita existente não oferece trocar a finalidade
+    # Trocar o tipo de uma inspeção em andamento mexeria com relatório e plano já vinculados.
+
   # Garantido por: src/components/ui/WeekCalendar.tsx, src/components/ui/MonthCalendar.tsx,
   # src/components/schedules/MilestoneModal.tsx, src/services/clientMilestoneService.ts,
   # supabase/tests/client_milestones.test.sql, PortalAppointments.test.tsx, Schedules.tsx.

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { Client, Schedule } from '../types';
 import { formatDateTime, generateId } from '../utils/imageUtils';
@@ -25,7 +25,7 @@ import { AppointmentAdminService, normalizeOptionalHttpsUrl } from '../services/
 import { toDateKey } from '../utils/date';
 import { WeekCalendar, type WeekCalendarAllDayItem, type WeekCalendarEvent, type WeekCalendarEventState, type WeekCalendarWeek } from '../components/ui/WeekCalendar';
 import { MonthCalendar, type MonthCalendarEvent } from '../components/ui/MonthCalendar';
-import { APPOINTMENT_TYPE_RULES } from '../utils/appointmentType';
+import { APPOINTMENT_TYPE_RULES, type AppointmentType } from '../utils/appointmentType';
 import { addDays, formatWeekPeriod, mondayOf } from '../utils/weekCalendarDates';
 import { addMonths, firstOfMonth, formatDayLong } from '../utils/monthCalendarDates';
 import { useConfirmDialog } from '../components/ui/ConfirmDialog';
@@ -120,6 +120,9 @@ export function Schedules() {
   const [attendanceMode, setAttendanceMode] = useState<'presencial' | 'online'>('presencial');
   const [meetingUrl, setMeetingUrl] = useState('');
   const [selectedConsultants, setSelectedConsultants] = useState<string[]>(defaultConsultants);
+  // PORT-07 — só na criação. Editar mantém a finalidade que a visita já tem: trocar o tipo de
+  // uma inspeção em andamento mexeria com relatório e plano de ação já vinculados.
+  const [appointmentType, setAppointmentType] = useState<AppointmentType>('inspection');
   const [repeatMonthly, setRepeatMonthly] = useState(false);
   const [repeatCount, setRepeatCount] = useState(2);
   const toggleConsultant = (name: string) =>
@@ -208,6 +211,22 @@ export function Schedules() {
   // data/horário/observações.
   const editingSchedule = isEditing ? schedules.find((s) => s.id === editingId) : undefined;
   const clientOptionalForEdit = isEditing && editingSchedule?.appointmentType === 'briefing';
+
+  /**
+   * PORT-07 — auditoria e acompanhamento online são serviços de contrato: só aparecem para o
+   * cliente que tem a marcação no cadastro. É a mesma regra do portal, para as duas pontas
+   * dizerem a mesma coisa sobre o que aquele contrato inclui.
+   */
+  const availableTypes = useMemo<AppointmentType[]>(() => {
+    const types: AppointmentType[] = ['inspection'];
+    if (selectedClient?.hasAuditService) types.push('audit');
+    if (selectedClient?.hasOnlineFollowup) types.push('online_followup');
+    return types;
+  }, [selectedClient?.hasAuditService, selectedClient?.hasOnlineFollowup]);
+  useEffect(() => {
+    // Trocar de cliente não pode deixar escolhida uma finalidade que ele não contratou.
+    if (!availableTypes.includes(appointmentType)) setAppointmentType('inspection');
+  }, [availableTypes, appointmentType]);
 
   const handleSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -313,7 +332,7 @@ export function Schedules() {
             clientId: selectedClientId,
             scheduledAt: occurrenceAt,
             status: 'pending',
-            appointmentType: 'inspection',
+            appointmentType,
             durationMinutes: 60,
             notes: notes,
             attendanceMode,
@@ -334,6 +353,7 @@ export function Schedules() {
             scheduleId: newSchedule.id,
             date: occurrenceDate,
             time: scheduledTime,
+            appointmentType,
             attendanceMode,
             municipality: place.municipality,
             district: place.district,
@@ -433,6 +453,7 @@ export function Schedules() {
     setAttendanceMode('presencial');
     setMeetingUrl('');
     setSelectedConsultants(defaultConsultants());
+    setAppointmentType('inspection');
     setRepeatMonthly(false);
     setRepeatCount(2);
     setIsEditing(false);
@@ -895,7 +916,7 @@ export function Schedules() {
           <Card role="dialog" aria-modal="true" aria-labelledby="schedule-modal-title" className="w-full max-w-lg shadow-2xl">
             <CardContent className="p-6">
               <h3 id="schedule-modal-title" className="text-xl font-bold text-navy mb-6">
-                {isEditing ? 'Editar Agendamento' : 'Agendar Nova Inspeção'}
+                {isEditing ? 'Editar Agendamento' : 'Agendar Nova Visita'}
               </h3>
               <form onSubmit={handleSchedule} className="space-y-4">
                 <div className="space-y-2">
@@ -946,6 +967,42 @@ export function Schedules() {
                     </div>
                   )}
                 </div>
+
+                {/*
+                  PORT-07 — a finalidade só aparece na criação; editar mantém a que a visita já
+                  tem. Auditoria e acompanhamento online entram na lista conforme o contrato da
+                  unidade, marcado na tela do cliente.
+                */}
+                {!isEditing && (
+                  <div className="space-y-2">
+                    <span id="schedule-type-label" className="text-sm font-medium text-navy-2">
+                      Finalidade <span className="text-danger">*</span>
+                    </span>
+                    <div className="grid gap-2" role="group" aria-labelledby="schedule-type-label">
+                      {availableTypes.map((type) => (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => setAppointmentType(type)}
+                          aria-pressed={appointmentType === type}
+                          className={`h-11 rounded-xl border px-3 text-sm font-bold ${
+                            appointmentType === type
+                              ? 'border-primary-600 bg-primary-50 text-primary-700'
+                              : 'border-default text-navy-2'
+                          }`}
+                        >
+                          {APPOINTMENT_TYPE_RULES[type].label}
+                        </button>
+                      ))}
+                    </div>
+                    {selectedClient && availableTypes.length === 1 && (
+                      <p className="text-xs text-navy-3">
+                        Auditoria e acompanhamento online aparecem aqui quando estiverem marcados
+                        no contrato desta unidade, na tela do cliente.
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">

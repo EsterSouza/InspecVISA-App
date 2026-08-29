@@ -4,12 +4,12 @@ import type { ComponentProps } from 'react';
 import { describe, expect, test, vi } from 'vitest';
 import { PortalQuickActions } from '../../components/client/PortalQuickActions';
 
-const unit = (id: string, name: string, url: string | null) => ({
+const unit = (id: string, name: string, url: string | null, contracted = true) => ({
   client_id: id,
   client_name: name,
   city: null,
   state: null,
-  has_personalized_sanitary_folder: true,
+  has_personalized_sanitary_folder: contracted,
   personalized_sanitary_folder_url: url,
   visits: [],
 });
@@ -65,7 +65,9 @@ describe('P360-003 - PortalQuickActions', () => {
       units: [unit('unit-a', 'Unidade A', 'javascript:alert(1)')],
     });
     expect(screen.queryByText(/Abrir pasta principal completa/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/Pasta Sanitária Personalizada/)).not.toBeInTheDocument();
+    // Contratada com link inválido não vira "não contratado": o cliente pagou por ela.
+    expect(screen.queryByRole('link', { name: /Pasta Sanitária Personalizada/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/link ainda não disponível/i)).toBeInTheDocument();
     expect(screen.queryByText(/tutorial do portal/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Falar com a consultoria/)).not.toBeInTheDocument();
     expect(screen.getByText('Agendar horário com as consultoras')).toBeInTheDocument();
@@ -91,5 +93,22 @@ describe('P360-003 - PortalQuickActions', () => {
     expect(onAudit).toHaveBeenNthCalledWith(4, 'schedule_cta_clicked', { source: 'quick_actions' });
     expect(onAudit).toHaveBeenNthCalledWith(5, 'support_whatsapp_clicked');
     expect(JSON.stringify(onAudit.mock.calls)).not.toContain('https://');
+  });
+
+  test('PORT-07 — serviço não contratado aparece apagado, em vez de sumir', () => {
+    const onAudit = renderActions({
+      units: [unit('unit-a', 'Unidade A', null, false)],
+    });
+
+    const aviso = screen.getByText('Serviço de pasta personalizada não contratado');
+    expect(aviso).toBeInTheDocument();
+    // Apagado de verdade: não é link, não leva a lugar nenhum e se anuncia como desabilitado.
+    expect(aviso.closest('a')).toBeNull();
+    expect(aviso.closest('[aria-disabled="true"]')).not.toBeNull();
+    expect(screen.queryByText(/link ainda não disponível/i)).not.toBeInTheDocument();
+
+    // O que não é da pasta continua funcionando normalmente.
+    expect(screen.getByText('Agendar horário com as consultoras')).toBeInTheDocument();
+    expect(onAudit).not.toHaveBeenCalled();
   });
 });

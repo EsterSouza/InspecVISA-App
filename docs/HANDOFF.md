@@ -3434,6 +3434,19 @@ religar devolvendo o envio, e os grants intactos depois do `create or replace`. 
 novos no `PortalActionPlan.test.tsx` (aviso no lugar do upload, botão de declaração vivo, e pendência
 resolvida sem o aviso). 814 testes JS, `npm run build` OK.
 
+**Aplicado em produção em 29/08/2026**, autorizado pela Ester no mesmo dia, por
+`apply_migration` do MCP. O ledger gravou `20260829085041` e o arquivo local foi renomeado para
+essa versão. **Conferido depois de aplicar:** os 31 clientes com `has_evidence_support = true`;
+`anon` e `authenticated` executando as duas leituras; nenhum dos dois alcançando
+`private.register_action_evidence`; `service_role` com os dois envios; e a RPC do link devolvendo
+`accepts_file_evidence` de verdade num cliente real. **Antes de aplicar**, o `md5(prosrc)` das três
+funções em produção era idêntico ao das versões do repositório — nada tinha sido alterado por fora
+para o `create or replace` desfazer.
+
+**Primeiro cliente marcado como só vistoria: Priscilla Faca**, a pedido da Ester, no mesmo dia.
+Ela ainda não tem item de plano de ação publicado, então a mudança só passa a aparecer na primeira
+publicação.
+
 ## AGD-02 — Marcos na agenda do admin ✅ concluído 29/08/2026 · aplicado em produção
 
 **O que faltava.** A agenda (`/schedules`) só lê `schedules` — vistoria marcada. A Ester queria ver,
@@ -3511,18 +3524,87 @@ fim de semana", com marco num sábado), legenda "Marco" só aparecendo com marco
 excluir com o `ConfirmDialog`, e a grade/legenda atualizando sozinhas depois — dado de teste
 apagado ao final.
 
-**Aplicado em produção em 29/08/2026**, autorizado pela Ester no mesmo dia, por
-`apply_migration` do MCP. O ledger gravou `20260829085041` e o arquivo local foi renomeado para
-essa versão. **Conferido depois de aplicar:** os 31 clientes com `has_evidence_support = true`;
-`anon` e `authenticated` executando as duas leituras; nenhum dos dois alcançando
-`private.register_action_evidence`; `service_role` com os dois envios; e a RPC do link devolvendo
-`accepts_file_evidence` de verdade num cliente real. **Antes de aplicar**, o `md5(prosrc)` das três
-funções em produção era idêntico ao das versões do repositório — nada tinha sido alterado por fora
-para o `create or replace` desfazer.
+## PORT-07 — Serviços contratados: as marcações passam a liberar alguma coisa ✅ concluído 29/08/2026
 
-**Primeiro cliente marcado como só vistoria: Priscilla Faca**, a pedido da Ester, no mesmo dia.
-Ela ainda não tem item de plano de ação publicado, então a mudança só passa a aparecer na primeira
-publicação.
+**O que a Ester notou.** "Quando eu marco as outras funções de cliente, elas liberam o quê? Acho
+que não fazem nada." Estava certa em duas das três. `has_personalized_sanitary_folder` já valia
+(escondia o botão da pasta no portal), mas `has_audit_service` e `has_online_followup` só
+acrescentavam uma linha ao "Cronograma do contrato" da página pública da visita — e essa linha
+nunca preenchia, porque **nenhuma tela criava compromisso desses tipos**: o formulário de visita do
+admin gravava `inspection` fixo e as listas de finalidade do portal não ofereciam os dois. Em
+produção, 84 compromissos: 83 inspeções e 1 briefing, zero auditoria ou acompanhamento online. Os 3
+clientes com a caixa marcada viam "Auditoria — Sem data prevista" para sempre.
+
+**As quatro decisões dela.**
+
+1. **A pasta não contratada some do portal?** Não. O botão continua à vista, apagado, escrito
+   "Serviço de pasta personalizada não contratado". Sumir fazia parecer que o app não tinha aquilo;
+   apagado, o cliente vê o que existe e sabe o que pedir. Não é a trava vermelha da Central de
+   acesso (PORT-01), que é pendência a liberar — é o que o contrato inclui.
+2. **A pasta também libera pedir documento novo.** A categoria "Documentação" das solicitações
+   ("Contratos, POPs, manuais, registros e formulários") passa a existir só para a unidade que tem
+   a pasta contratada.
+3. **Auditoria é uma inspeção com outro nome.** Resposta dela, textual: a auditoria mensal da Rede
+   Sênior é uma fiscalização completa, com relatório e plano de ação novos. O nome existe para
+   separar a visita recorrente do contrato da inspeção avulsa.
+4. **As marcações nascem desmarcadas e o app pergunta.** As três (mais a do PORT-06) entram no
+   formulário de **criação** de cliente, num bloco "O que o contrato inclui". Antes elas só existiam
+   na tela de detalhe, então cliente novo herdava um contrato que ninguém escolheu.
+
+**Quem vê a opção de agendar.** Só a unidade com a marcação. Foi a escolha dela entre "só quem tem
+a marcação" e "todo cliente do portal" — é o que faz a caixa significar alguma coisa. Vale nas duas
+pontas: a finalidade some da lista **e** a RPC recusa. Esconder o botão é cortesia; a trava é a
+recusa de escrita.
+
+**O que "auditoria = inspeção" mudou, em concreto.**
+
+- `APPOINTMENT_TYPE_RULES.audit` passou a `isInspection: true` (com `showsReportDueDate` e
+  `usesSanitaryTimeline`). É isso que libera executar roteiro, publicar relatório, fotos e plano de
+  ação — antes `assertInspectionAppointment` barrava.
+- A duração saiu da faixa de reunião (30/60/90) para a da inspeção (15 a 720 min). **Em três
+  lugares**, que precisavam concordar: `isAllowedAppointmentDuration`, a
+  `private.resolve_appointment_duration_minutes` e os **checks de banco** em `appointment_requests`
+  e `schedules`. Mexer só na função deixaria a RPC aceitar 180 min e o `insert` ser recusado pelo
+  check — foi exatamente o que a suíte SQL pegou na primeira rodada.
+- O marco "Relatório" do cronograma filtrava a palavra `'inspection'` literal
+  ([ContractTimeline.tsx](../src/components/portal/ContractTimeline.tsx)). Sem corrigir, a auditoria
+  entregaria relatório e o cronograma diria que não havia nada previsto. Agora usa a regra do tipo,
+  atrás de um type guard: `normalizeAppointmentType` **lança** em valor desconhecido, e uma exceção
+  ali derrubaria o cronograma inteiro do cliente por causa de uma visita estranha.
+- **A cota de uma inspeção por mês continua literal em `'inspection'`**, de propósito. A auditoria é
+  mensal por contrato e esbarraria nela todo mês. Vale no servidor e no `PublicSchedule`.
+
+**Onde a trava mora (servidor).**
+
+| Regra | Função | Resposta |
+| --- | --- | --- |
+| Agendar auditoria sem contrato | `public.client_portal_create_appointment` | exceção "auditoria nao faz parte do contrato desta unidade" |
+| Agendar acompanhamento online sem contrato | a mesma | exceção equivalente |
+| Pedir elaboração de documento sem a pasta | `public.client_portal_create_service_request` | `{"error": "...pasta sanitaria personalizada..."}` |
+
+**Formulário de visita do admin.** Ganhou o seletor de finalidade — antes gravava `inspection`
+fixo. Só na **criação**: editar mantém a finalidade que a visita já tem, porque trocar o tipo de uma
+inspeção em andamento mexeria com relatório e plano de ação já vinculados. As opções seguem a mesma
+regra do portal (a marcação do cadastro é o que libera), com uma linha dizendo onde marcar.
+
+**O default invertido.** `has_evidence_support` nasceu no PORT-06 com default `true` justamente
+porque desmarcada ela bloqueia o envio de evidência. A Ester pediu que as quatro nascessem
+desmarcadas e que o app perguntasse. Seguido: `set default false` + as caixas no formulário de
+criação + `mapToPostgres` com `!!` em vez de `!== false`. Linha existente não muda — `set default`
+não reescreve o que já está gravado, e os 26 clientes ativos seguem com a revisão ligada. Na edição,
+`hasEvidenceSupport` ausente (cache anterior ao PORT-06) continua valendo como ligado nos dois
+formulários, senão abrir e salvar tiraria o envio sem ninguém pedir.
+
+**Prova.** `supabase/tests/port07_servicos_contratados.test.sql` (novo, encadeado na suíte do
+P360-012, que por baixo já traz o fixture de agenda): grants das duas RPCs para `anon` e
+`authenticated` depois do `create or replace` — asserção conferida revogando o grant de propósito
+num banco de teste —, resolvedor de duração fora do alcance do navegador, cliente novo nascendo com
+as quatro marcações desligadas, linha existente intacta, auditoria e acompanhamento online
+recusados sem contrato e sem gravar solicitação, auditoria de 180 min aceita com contrato, segunda
+auditoria no mesmo mês passando pela cota da inspeção, acompanhamento online ainda recusando 180
+min, e a categoria "Documentação" recusada/liberada pela pasta sem derrubar as outras sete. Testes
+de componente novos em `PortalServiceRequests.test.tsx`, `PortalQuickActions.test.tsx`,
+`ContractTimeline.test.tsx`, `appointmentType.test.ts` e `publicAppointmentForm.test.ts`.
 
 ---
 

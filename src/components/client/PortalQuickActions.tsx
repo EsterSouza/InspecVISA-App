@@ -1,4 +1,4 @@
-import { CalendarPlus, ExternalLink, FileText, FolderOpen, MessageCircle } from 'lucide-react';
+import { CalendarPlus, ExternalLink, FileText, FolderOpen, Lock, MessageCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { ClientPortalAuditEventType } from '../../types';
 import type { ClientPortalUnit } from '../../services/clientPortalService';
@@ -28,6 +28,13 @@ function whatsappUrl(value: string | null | undefined): string | null {
   return number.length >= 10 && number.length <= 15 ? `https://wa.me/${number}` : null;
 }
 
+/**
+ * PORT-07 — o serviço que a unidade não contratou continua à vista, apagado. Some do portal
+ * fazia parecer que o app não tinha aquilo; assim o cliente vê o que existe e sabe o que pedir
+ * à consultoria. Não é a trava vermelha da Central de acesso, que é pendência a liberar.
+ */
+const unavailableActionClassName = 'inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-default bg-surface-sunken px-4 py-2.5 text-sm font-semibold text-navy-2 shadow-sm sm:w-auto';
+
 const actionClassName = 'inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-semibold shadow-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-700 sm:w-auto';
 
 export function PortalQuickActions({
@@ -48,6 +55,9 @@ export function PortalQuickActions({
     const url = unit.has_personalized_sanitary_folder ? validHttpsUrl(unit.personalized_sanitary_folder_url) : null;
     return url ? [{ unit, url }] : [];
   });
+  // Contratada mas ainda sem link é outra coisa de não contratada — e dizer "não contratado"
+  // para quem pagou seria o pior dos erros aqui.
+  const contractedFolderUnits = units.filter((unit) => unit.has_personalized_sanitary_folder);
 
   return (
     <section aria-labelledby="portal-quick-actions" className="mb-6 rounded-xl border border-primary-100 bg-primary-50/60 p-4 shadow-sm sm:p-5">
@@ -66,7 +76,7 @@ export function PortalQuickActions({
             <FolderOpen className="h-4 w-4" /> Abrir pasta principal completa <ExternalLink className="h-3.5 w-3.5" />
           </a>
         )}
-        {folderUnits.length > 0 && (
+        {folderUnits.length > 0 ? (
           <Link
             to="/cliente/pastas"
             onClick={() => onAudit('sanitary_folders_page_opened', { unit_count: folderUnits.length })}
@@ -77,6 +87,13 @@ export function PortalQuickActions({
               ? `Abrir Pasta Sanitária Personalizada — ${folderUnits[0].unit.client_name}`
               : `Pastas sanitárias personalizadas (${folderUnits.length} unidades)`}
           </Link>
+        ) : (
+          <span className={unavailableActionClassName} aria-disabled="true">
+            <Lock className="h-4 w-4" aria-hidden="true" />
+            {contractedFolderUnits.length > 0
+              ? 'Pasta sanitária personalizada — link ainda não disponível'
+              : 'Serviço de pasta personalizada não contratado'}
+          </span>
         )}
         {tutorialUrl && (
           <a

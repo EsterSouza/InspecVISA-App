@@ -4,9 +4,11 @@ import { describe, expect, test, vi } from 'vitest';
 import { PortalServiceRequests } from '../../components/client/PortalServiceRequests';
 import type { ClientPortalServiceRequest } from '../../services/clientPortalService';
 
+// PORT-07 — a pasta sanitária personalizada é o que libera a categoria "Documentação"; a
+// unidade Barra fica sem ela de propósito, para o teste da trava ter as duas pontas.
 const UNITS = [
-  { client_id: 'unit-1', client_name: 'Unidade Centro' },
-  { client_id: 'unit-2', client_name: 'Unidade Barra' },
+  { client_id: 'unit-1', client_name: 'Unidade Centro', has_personalized_sanitary_folder: true },
+  { client_id: 'unit-2', client_name: 'Unidade Barra', has_personalized_sanitary_folder: false },
 ];
 
 function request(overrides: Partial<ClientPortalServiceRequest> = {}): ClientPortalServiceRequest {
@@ -199,5 +201,45 @@ describe('P360-012 - PortalServiceRequests', () => {
     await user.click(screen.getByText(/Histórico · 2 registro/));
     expect(screen.getByText('Envie o contrato social.')).toBeInTheDocument();
     expect(screen.getByText('Ester')).toBeInTheDocument();
+  });
+
+  test('PORT-07 — sem a pasta contratada, a unidade não pede elaboração de documento', async () => {
+    const user = userEvent.setup();
+    render(<PortalServiceRequests requests={[]} units={UNITS} onCreate={vi.fn()} />);
+    await user.click(screen.getByRole('button', { name: /Nova solicitação/i }));
+
+    // Unidade Barra não tem a pasta: a categoria some e a tela diz por quê.
+    await user.selectOptions(screen.getByLabelText(/^Unidade/), 'unit-2');
+    expect(
+      screen.queryByRole('option', { name: 'Documentação' })
+    ).not.toBeInTheDocument();
+    expect(screen.getByText(/faz parte da pasta sanitária personalizada/i)).toBeInTheDocument();
+
+    // As outras categorias não caem junto — a trava é só da elaboração de documento.
+    expect(screen.getByRole('option', { name: 'Licenciamento e alvará' })).toBeInTheDocument();
+
+    // E a unidade que tem a pasta continua com a categoria.
+    await user.selectOptions(screen.getByLabelText(/^Unidade/), 'unit-1');
+    expect(screen.getByRole('option', { name: 'Documentação' })).toBeInTheDocument();
+  });
+
+  test('PORT-07 — trocar para uma unidade sem a pasta limpa "Documentação" já escolhida', async () => {
+    const user = userEvent.setup();
+    const onCreate = vi.fn();
+    render(<PortalServiceRequests requests={[]} units={UNITS} onCreate={onCreate} />);
+    await user.click(screen.getByRole('button', { name: /Nova solicitação/i }));
+
+    await user.selectOptions(screen.getByLabelText(/^Unidade/), 'unit-1');
+    await user.selectOptions(screen.getByLabelText(/^Categoria/), 'documentacao');
+    await user.selectOptions(screen.getByLabelText(/^Unidade/), 'unit-2');
+
+    // Sem isto o formulário mandaria "documentacao" para uma unidade sem a pasta, e o servidor
+    // devolveria o erro depois de tudo digitado.
+    await user.type(screen.getByLabelText(/^Assunto/), 'Modelo de POP');
+    await user.type(screen.getByLabelText(/^O que você precisa/), 'Preciso do modelo de POP de limpeza.');
+    await user.click(screen.getByRole('button', { name: /Registrar solicitação/i }));
+
+    expect(screen.getByText(/Escolha a categoria/i)).toBeInTheDocument();
+    expect(onCreate).not.toHaveBeenCalled();
   });
 });

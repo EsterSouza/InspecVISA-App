@@ -69,12 +69,17 @@ export const APPOINTMENT_TYPE_RULES: Record<AppointmentType, {
     showsReportDueDate: false,
     usesSanitaryTimeline: false,
   },
+  /**
+   * PORT-07 — a auditoria mensal é uma fiscalização completa: roteiro, relatório e plano de
+   * ação novos. É uma inspeção com outro nome, e o nome existe para separar a visita
+   * contratada por recorrência da inspeção avulsa no cronograma e na agenda.
+   */
   audit: {
     label: 'Auditoria',
-    isInspection: false,
-    requiresServiceAddress: false,
-    showsReportDueDate: false,
-    usesSanitaryTimeline: false,
+    isInspection: true,
+    requiresServiceAddress: true,
+    showsReportDueDate: true,
+    usesSanitaryTimeline: true,
   },
   online_followup: {
     label: 'Acompanhamento online',
@@ -108,7 +113,8 @@ export function assertInspectionAppointment(value: unknown, action: string): voi
 
 export function isAllowedAppointmentDuration(type: AppointmentType, minutes: number): boolean {
   if (!Number.isInteger(minutes)) return false;
-  if (type === 'inspection') return minutes >= 15 && minutes <= 720;
+  // Auditoria acompanha a inspeção (PORT-07): uma fiscalização presencial não cabe em 90 min.
+  if (type === 'inspection' || type === 'audit') return minutes >= 15 && minutes <= 720;
   if (type === 'training') return minutes >= 30 && minutes <= 480 && minutes % 30 === 0;
   if (type === 'other') return minutes >= 15 && minutes <= 480 && minutes % 15 === 0;
   if (type === 'briefing') return minutes === 45 || minutes === 60;

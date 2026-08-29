@@ -35,7 +35,7 @@ import { Textarea } from '../components/ui/Textarea';
 import { formatProtocol } from '../utils/protocol';
 import { isAppointmentAtLeast24hAhead } from '../utils/appointmentLeadTime';
 import { toDateKey } from '../utils/date';
-import { isInspectionAppointment, APPOINTMENT_TYPE_RULES } from '../utils/appointmentType';
+import { APPOINTMENT_TYPE_RULES } from '../utils/appointmentType';
 import {
   appointmentTypeOptionsFor,
   buildAppointmentNotes,
@@ -181,21 +181,43 @@ export function PublicSchedule() {
   const errorRef = useRef<HTMLDivElement>(null);
 
   const portalMode = !!portalToken && portalUnits.length > 0;
-  const inspection = isInspectionAppointment(appointmentType);
+  // A cota de uma por mês é da inspeção avulsa. A auditoria também vale como inspeção no
+  // resto do app, mas é mensal por contrato — não pode esbarrar na cota (PORT-07).
+  const monthlyQuotaApplies = appointmentType === 'inspection';
   const selectedUnit = useMemo(
     () => portalUnits.find((unit) => unit.client_id === selectedClientId) || null,
     [portalUnits, selectedClientId]
   );
   const selectedMonth = selectedDay ? monthKey(selectedDay) : monthKey(monthStartKey(calendarMonth));
   const selectedUnitAllowsInPerson = !portalMode || isRioState(selectedUnit?.state);
+  /**
+   * PORT-07 — a finalidade é escolhida na etapa 1, antes da unidade. A opção aparece se ALGUMA
+   * unidade do acesso tem o serviço; quem não tem é barrado no seletor de unidade, logo abaixo.
+   */
+  const contractedAcrossUnits = useMemo(
+    () => ({
+      has_audit_service: portalUnits.some((unit) => unit.has_audit_service),
+      has_online_followup: portalUnits.some((unit) => unit.has_online_followup),
+    }),
+    [portalUnits]
+  );
+  const unitHasContractedType = (unit: ClientPortalUnit): boolean => {
+    if (appointmentType === 'audit') return !!unit.has_audit_service;
+    if (appointmentType === 'online_followup') return !!unit.has_online_followup;
+    return true;
+  };
+  const contractedTypeLabel = appointmentType === 'audit' ? 'auditoria' : 'acompanhamento online';
+  const selectedUnitLacksContract = !!selectedUnit && !unitHasContractedType(selectedUnit);
   const unitBlockedInSelectedMonth = useMemo(() => {
-    if (!portalMode || !inspection) return new Set<string>();
+    // A cota é da inspeção avulsa. A auditoria é mensal por contrato e esbarraria nela todo
+    // mês, então fica de fora mesmo valendo como inspeção no resto do app (PORT-07).
+    if (!portalMode || appointmentType !== 'inspection') return new Set<string>();
     return new Set(
       portalUnits
         .filter((unit) => unit.visits.some((visit) => isActiveVisit(visit) && monthKey(visit.requested_date!) === selectedMonth))
         .map((unit) => unit.client_id)
     );
-  }, [portalMode, portalUnits, inspection, selectedMonth]);
+  }, [portalMode, portalUnits, appointmentType, selectedMonth]);
   const selectedUnitBlockedInMonth = !!selectedClientId && unitBlockedInSelectedMonth.has(selectedClientId);
   const dayAvailability = useMemo(() => new Map(days.map((day) => [day.day, day])), [days]);
   const visibleTimes = useMemo(() => times.filter((time) => isAppointmentAtLeast24hAhead(time.starts_at)), [times]);
@@ -338,13 +360,13 @@ export function PublicSchedule() {
   // Rascunho de sessão pode trazer finalidade ou duração que este modo não permite.
   useEffect(() => {
     if (portalChecking) return;
-    const allowed = appointmentTypeOptionsFor(portalMode);
+    const allowed = appointmentTypeOptionsFor(portalMode, contractedAcrossUnits);
     if (!allowed.some((option) => option.value === appointmentType)) {
       chooseType(allowed[0].value);
     } else if (!publicAppointmentDurations(appointmentType).includes(durationMinutes)) {
       setDurationMinutes(defaultPublicAppointmentDuration(appointmentType));
     }
-  }, [portalChecking, portalMode, appointmentType, durationMinutes]);
+  }, [portalChecking, portalMode, contractedAcrossUnits, appointmentType, durationMinutes]);
 
   const selectDay = (day: string) => {
     setSelectedDay(day);
@@ -358,11 +380,16 @@ export function PublicSchedule() {
     if (!selectedTime) return 'Escolha um horário disponível.';
     if (portalMode) {
       if (!selectedClientId) return 'Selecione a unidade.';
-      if (inspection && selectedUnitBlockedInMonth) {
+      if (monthlyQuotaApplies && selectedUnitBlockedInMonth) {
         return 'Esta unidade já possui uma inspeção solicitada neste mês.';
       }
       if (attendanceMode === 'presencial' && !selectedUnitAllowsInPerson) {
         return 'Atendimentos presenciais são permitidos apenas para unidades cadastradas no RJ.';
+      }
+      // PORT-07 — o servidor recusa igual; isto é só para não deixar o cliente digitar tudo
+      // e levar o erro no envio.
+      if (selectedUnitLacksContract) {
+        return `Esta unidade não tem ${contractedTypeLabel} no contrato. Fale com a consultoria.`;
       }
     } else if (!unitName.trim()) {
       return 'Informe o nome da unidade ou empresa.';
@@ -513,7 +540,7 @@ export function PublicSchedule() {
     );
   }
 
-  const typeOptions = appointmentTypeOptionsFor(portalMode);
+  const typeOptions = appointmentTypeOptionsFor(portalMode, contractedAcrossUnits);
   const errorBanner = submitError ? (
     <div
       ref={errorRef}
@@ -860,7 +887,7 @@ export function PublicSchedule() {
                   label="Unidade"
                   htmlFor="unit"
                   required
-                  hint={inspection && selectedUnitBlockedInMonth ? 'A cota de uma por mês vale só para inspeção.' : undefined}
+                  hint={monthlyQuotaApplies && selectedUnitBlockedInMonth ? 'A cota de uma por mês vale só para inspeção.' : undefined}
                 >
                   <Select
                     value={selectedClientId}
@@ -877,10 +904,11 @@ export function PublicSchedule() {
                       <option
                         key={unit.client_id}
                         value={unit.client_id}
-                        disabled={inspection && unitBlockedInSelectedMonth.has(unit.client_id)}
+                        disabled={!unitHasContractedType(unit) || (monthlyQuotaApplies && unitBlockedInSelectedMonth.has(unit.client_id))}
                       >
                         {unit.client_name}
-                        {inspection && unitBlockedInSelectedMonth.has(unit.client_id) ? ' — inspeção já solicitada neste mês' : ''}
+                        {!unitHasContractedType(unit) ? ` — sem ${contractedTypeLabel} no contrato` : ''}
+                        {monthlyQuotaApplies && unitBlockedInSelectedMonth.has(unit.client_id) ? ' — inspeção já solicitada neste mês' : ''}
                       </option>
                     ))}
                   </Select>

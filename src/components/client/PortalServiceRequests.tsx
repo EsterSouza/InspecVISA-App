@@ -58,9 +58,16 @@ export type ReplyServiceRequestHandler = (params: {
   byRole: string;
 }) => Promise<void>;
 
+/** PORT-07 — a marcação de contrato entra aqui porque decide quais categorias são oferecidas. */
+type ServiceRequestUnit = {
+  client_id: string;
+  client_name: string;
+  has_personalized_sanitary_folder?: boolean;
+};
+
 interface PortalServiceRequestsProps {
   requests: ClientPortalServiceRequest[];
-  units: { client_id: string; client_name: string }[];
+  units: ServiceRequestUnit[];
   loading?: boolean;
   error?: boolean;
   onCreate?: CreateServiceRequestHandler;
@@ -77,7 +84,7 @@ function NewRequestForm({
   onCreate,
   onDone,
 }: {
-  units: { client_id: string; client_name: string }[];
+  units: ServiceRequestUnit[];
   author: { byName: string; byRole: string };
   onAuthorChange: (author: { byName: string; byRole: string }) => void;
   onCreate: CreateServiceRequestHandler;
@@ -144,13 +151,35 @@ function NewRequestForm({
     }
   };
 
+  const selectedUnit = units.find((unit) => unit.client_id === clientId);
+  /**
+   * PORT-07 — pedir a elaboração de um documento (POP, manual, registro) é o serviço da pasta
+   * sanitária personalizada. Sem ela no contrato da unidade a categoria não é oferecida, e o
+   * servidor recusa do mesmo jeito. As outras sete seguem abertas a qualquer unidade.
+   */
+  const documentacaoBlocked = !!selectedUnit && !selectedUnit.has_personalized_sanitary_folder;
+  const availableCategories = SERVICE_REQUEST_CATEGORIES.filter(
+    (item) => item.value !== 'documentacao' || !documentacaoBlocked
+  );
   const selectedCategory = SERVICE_REQUEST_CATEGORIES.find((item) => item.value === category);
 
   return (
     <form onSubmit={handleSubmit} className="mt-3 space-y-3 rounded-lg border border-default bg-surface-sunken p-3">
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Unidade" htmlFor="service-request-unit" required>
-          <Select size="sm" value={clientId} onChange={(e) => setClientId(e.target.value)}>
+          <Select
+            size="sm"
+            value={clientId}
+            onChange={(e) => {
+              const id = e.target.value;
+              setClientId(id);
+              // Trocar para uma unidade sem a pasta não pode deixar "Documentação" escolhida.
+              const unit = units.find((item) => item.client_id === id);
+              if (category === 'documentacao' && unit && !unit.has_personalized_sanitary_folder) {
+                setCategory('');
+              }
+            }}
+          >
             <option value="">Selecione</option>
             {units.map((unit) => (
               <option key={unit.client_id} value={unit.client_id}>
@@ -164,7 +193,12 @@ function NewRequestForm({
           label="Categoria"
           htmlFor="service-request-category"
           required
-          hint={selectedCategory?.hint}
+          hint={
+            selectedCategory?.hint
+            || (documentacaoBlocked
+              ? 'A elaboração de documentos faz parte da pasta sanitária personalizada, que não está no contrato desta unidade.'
+              : undefined)
+          }
         >
           <Select
             size="sm"
@@ -172,7 +206,7 @@ function NewRequestForm({
             onChange={(e) => setCategory(e.target.value as ServiceRequestCategory)}
           >
             <option value="">Selecione</option>
-            {SERVICE_REQUEST_CATEGORIES.map((item) => (
+            {availableCategories.map((item) => (
               <option key={item.value} value={item.value}>
                 {item.label}
               </option>

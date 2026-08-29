@@ -639,7 +639,12 @@ export function PublicAppointmentStatus() {
         </Card>
       )}
 
-      {status.has_personalized_sanitary_folder && status.personalized_sanitary_folder_url && (
+      {/*
+        PORT-07 — o cartão aparece sempre. Sem o serviço no contrato ele fica apagado, com o
+        botão inerte: o cliente enxerga o que a consultoria oferece em vez de nunca saber que
+        existe. Contratada e ainda sem link é um terceiro estado, e diz isso.
+      */}
+      {status.has_personalized_sanitary_folder && status.personalized_sanitary_folder_url ? (
         <Card className="mb-6 border-success-soft-border bg-success-soft/60 p-4 sm:p-5">
           <h2 className="font-title text-base font-semibold text-navy">Pasta sanitária personalizada</h2>
           <p className="mt-1 text-sm text-navy-2">
@@ -654,6 +659,22 @@ export function PublicAppointmentStatus() {
             <FolderOpen className="h-4 w-4" aria-hidden="true" />
             Abrir a pasta no Drive
           </a>
+        </Card>
+      ) : (
+        <Card className="mb-6 p-4 sm:p-5">
+          <h2 className="font-title text-base font-semibold text-navy">Pasta sanitária personalizada</h2>
+          <p className="mt-1 text-sm text-navy-2">
+            Seus documentos organizados, sempre atualizados, na nuvem.
+          </p>
+          <span
+            aria-disabled="true"
+            className="mt-4 flex min-h-11 w-full cursor-not-allowed items-center justify-center gap-2 rounded-md border border-default bg-surface-sunken px-4 py-3 text-sm font-semibold text-navy-2"
+          >
+            <Lock className="h-4 w-4" aria-hidden="true" />
+            {status.has_personalized_sanitary_folder
+              ? 'Pasta ainda não disponível'
+              : 'Serviço de pasta personalizada não contratado'}
+          </span>
         </Card>
       )}
 

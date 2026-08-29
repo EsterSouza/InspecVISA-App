@@ -1,12 +1,22 @@
 import type { ReactNode } from 'react';
 import { CalendarCheck, CalendarClock, FileText, FolderOpen, Headphones, ShieldCheck } from 'lucide-react';
 import type { ClientPortalUnit, ClientPortalVisit } from '../../services/clientPortalService';
+import { isAppointmentType, isInspectionAppointment } from '../../utils/appointmentType';
 
 function formatDateBR(value: string | null | undefined): string | null {
   if (!value) return null;
   const [y, m, d] = value.split('T')[0].split('-');
   if (!y || !m || !d) return null;
   return `${d}/${m}/${y}`;
+}
+
+/**
+ * Vale como inspeção para efeito de relatório: hoje `inspection` e `audit` (PORT-07). Passa
+ * pelo type guard antes porque `normalizeAppointmentType` lança em valor desconhecido — e uma
+ * exceção aqui derrubaria o cronograma inteiro do cliente por causa de uma visita estranha.
+ */
+function producesReport(type: string | null | undefined): boolean {
+  return isAppointmentType(type) && isInspectionAppointment(type);
 }
 
 const ACTIVE_STATUSES = new Set(['requested', 'confirmed', 'rescheduled']);
@@ -58,10 +68,14 @@ function buildMilestones(unit: ClientPortalUnit): MilestoneRow[] {
   });
 
   // Relatório — acompanha a inspeção. Sem timestamp de entrega: mostra estado, não data fictícia.
+  // A auditoria também gera relatório (PORT-07), então o filtro é pela regra do tipo, não pela
+  // palavra 'inspection' — senão a auditoria entrega relatório e o cronograma não conta.
   const inspectionWithDueDate = [...visits]
-    .filter((v) => v.appointment_type === 'inspection' && v.report_due_at)
+    .filter((v) => producesReport(v.appointment_type) && v.report_due_at)
     .sort((a, b) => (a.requested_date || '') < (b.requested_date || '') ? 1 : -1)[0];
-  const anyReportDelivered = visits.some((v) => v.appointment_type === 'inspection' && (v.report_count || 0) > 0);
+  const anyReportDelivered = visits.some(
+    (v) => producesReport(v.appointment_type) && (v.report_count || 0) > 0
+  );
   if (inspectionWithDueDate || anyReportDelivered) {
     milestones.push({
       key: 'report',

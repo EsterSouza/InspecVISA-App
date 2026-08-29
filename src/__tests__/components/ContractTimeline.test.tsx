@@ -74,6 +74,28 @@ describe('ContractTimeline — P360-008', () => {
     expect(screen.getAllByText('Sem data prevista').length).toBeGreaterThanOrEqual(1);
   });
 
+  test('PORT-07 — auditoria gera relatorio, e o marco do relatorio conta com ela', () => {
+    render(
+      <ContractTimeline
+        unit={unit({
+          has_audit_service: true,
+          visits: [visit({
+            appointment_type: 'audit',
+            status: 'confirmed',
+            requested_date: '2026-09-10',
+            report_due_at: '2026-09-20',
+          })],
+        })}
+      />
+    );
+
+    // Antes o marco do relatório filtrava a palavra 'inspection' e a auditoria ficava de fora:
+    // a visita entregava relatório e o cronograma dizia que não havia nada previsto.
+    expect(screen.getByText('Relatório')).toBeInTheDocument();
+    expect(screen.getByText(/Previsto: 20\/09\/2026/)).toBeInTheDocument();
+    expect(screen.getByText(/Previsto: 10\/09\/2026/)).toBeInTheDocument();
+  });
+
   test('cliente sem nenhum marco extra nao renderiza nada alem de inspecao/relatorio', () => {
     render(<ContractTimeline unit={unit()} />);
     expect(screen.queryByText('Auditoria')).not.toBeInTheDocument();

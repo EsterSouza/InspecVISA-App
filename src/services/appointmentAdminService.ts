@@ -446,6 +446,8 @@ export const AppointmentAdminService = {
     scheduleId: string;
     date: string;
     time: string;
+    /** PORT-07 — a finalidade escolhida no formulário. Ausente segue sendo inspeção. */
+    appointmentType?: AppointmentType;
     attendanceMode: 'presencial' | 'online';
     municipality?: string;
     district?: string;
@@ -475,7 +477,7 @@ export const AppointmentAdminService = {
       requested_period: startsAt.getHours() < 12 ? 'manha' : 'tarde',
       requested_starts_at: startsAt.toISOString(),
       requested_ends_at: endsAt.toISOString(),
-      appointment_type: 'inspection',
+      appointment_type: params.appointmentType || 'inspection',
       duration_minutes: 60,
       consultant_names: params.consultantNames?.length ? params.consultantNames : null,
       meeting_url: params.attendanceMode === 'online'
