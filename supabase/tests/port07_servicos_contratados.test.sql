@@ -14,7 +14,7 @@
 alter table public.clients
   add column if not exists has_evidence_support boolean not null default true;
 
-\ir ../migrations/20260829120000_port07_servicos_contratados.sql
+\ir ../migrations/20260829104352_port07_servicos_contratados.sql
 
 -- ─── Permissões ───────────────────────────────────────────────────────────────
 --

@@ -3524,7 +3524,7 @@ fim de semana", com marco num sábado), legenda "Marco" só aparecendo com marco
 excluir com o `ConfirmDialog`, e a grade/legenda atualizando sozinhas depois — dado de teste
 apagado ao final.
 
-## PORT-07 — Serviços contratados: as marcações passam a liberar alguma coisa ✅ concluído 29/08/2026
+## PORT-07 — Serviços contratados: as marcações passam a liberar alguma coisa ✅ concluído 29/08/2026 · aplicado em produção
 
 **O que a Ester notou.** "Quando eu marco as outras funções de cliente, elas liberam o quê? Acho
 que não fazem nada." Estava certa em duas das três. `has_personalized_sanitary_folder` já valia
@@ -3604,7 +3604,26 @@ recusados sem contrato e sem gravar solicitação, auditoria de 180 min aceita c
 auditoria no mesmo mês passando pela cota da inspeção, acompanhamento online ainda recusando 180
 min, e a categoria "Documentação" recusada/liberada pela pasta sem derrubar as outras sete. Testes
 de componente novos em `PortalServiceRequests.test.tsx`, `PortalQuickActions.test.tsx`,
-`ContractTimeline.test.tsx`, `appointmentType.test.ts` e `publicAppointmentForm.test.ts`.
+`ContractTimeline.test.tsx`, `appointmentType.test.ts` e `publicAppointmentForm.test.ts`. 821
+testes JS, `npm run build`, `npx eslint src` e `npm run check:contraste` OK.
+
+**Aplicado em produção em 29/08/2026**, autorizado pela Ester, por `apply_migration` do MCP. O
+ledger gravou `20260829104352` e o arquivo local foi renomeado para essa versão. **Antes de
+aplicar**, o md5 do `prosrc` normalizado (comentários fora, espaços colapsados) das três funções em
+produção batia com o do repositório — nada tinha sido alterado por fora para o `create or replace`
+desfazer. A comparação byte a byte acusaria diferença: o `prosrc` em produção vem sem os
+comentários do arquivo. **Conferido depois:** default `false`, os 25 clientes com revisão de
+evidência intactos, os dois checks com `audit` junto de `inspection`, `anon` e `authenticated` nas
+duas RPCs, `anon` sem alcance no resolvedor de duração. Ver `docs/migrations-status.md`.
+
+**Auditoria ligada nas 14 unidades da rede** (as 13 "REDE SÊNIOR/SENIOR" mais a "SAENS PENA
+SÊNIOR"), a pedido da Ester, no mesmo dia. Antes só 3 tinham a marcação.
+
+**Verificado no navegador**, com a conta real dela: o bloco "O que o contrato inclui" no formulário
+de novo cliente, com as quatro caixas desmarcadas; a finalidade "Auditoria" aparecendo no
+formulário de visita ao escolher a REDE SÊNIOR BARRA e não aparecendo sem cliente escolhido; e o
+cartão da pasta no link público da REDE SÊNIOR FREGUESIA (que não tem a pasta) com o botão inerte —
+`aria-disabled`, sem `<a>`, `cursor: not-allowed`, contraste medido de **6,4:1** a 14px.
 
 ---
 

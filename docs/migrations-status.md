@@ -432,3 +432,43 @@ que já tem `client_portal_accounts`): só o marco `visible_to_client = true` ap
 parâmetros e recriar as de 20260829093956); `alter table client_milestones drop column
 visible_to_client`. Segura enquanto a versão anterior do app estiver no ar — ela não lê o campo
 nem a chave `milestones` do overview.
+
+---
+
+## `port07_servicos_contratados` — **aplicada em 29/08/2026**
+
+Ledger: `20260829104352`. Arquivo local renomeado para
+`supabase/migrations/20260829104352_port07_servicos_contratados.sql` (a suíte SQL já aponta para o
+nome novo). Aplicada via MCP do Supabase (`apply_migration`), com autorização da Ester.
+
+**O que ela faz.** Quatro coisas, todas amarradas às marcações de contrato em `clients`:
+
+1. `has_evidence_support` passa a nascer **desmarcada** (`set default false`). Linha existente não
+   muda — `set default` não reescreve o que já está gravado.
+2. `private.resolve_appointment_duration_minutes`: a auditoria sai da faixa de reunião (30/60/90)
+   e passa para a da inspeção (15 a 720 min).
+3. Os **checks de duração** de `appointment_requests` e `schedules` recebem a mesma regra. Sem
+   isto a RPC aceitaria 180 min e o `insert` seria recusado pelo check — foi o que a suíte pegou.
+4. `client_portal_create_appointment` recusa `audit`/`online_followup` sem a marcação da unidade;
+   `client_portal_create_service_request` recusa a categoria `documentacao` sem a pasta sanitária
+   personalizada.
+
+**Antes de aplicar** conferi que as três funções em produção eram as do repositório, comparando o
+md5 de `prosrc` normalizado (comentários removidos, espaços colapsados): as três bateram. O
+`prosrc` em produção vem sem os comentários do arquivo, então a comparação byte a byte acusa
+diferença de tamanho que não é deriva — normalizar é o que responde a pergunta.
+
+**Conferido depois de aplicar:** `column_default` de `has_evidence_support` = `false`; os 25
+clientes que tinham a revisão de evidência continuam com ela (o 26º é a Priscilla Faca, do
+PORT-06); os dois checks já listando `audit` junto de `inspection`; `anon` **e** `authenticated`
+executando as duas RPCs do portal; `anon` sem alcance no resolvedor de duração.
+
+**Dado de produção mexido no mesmo dia, a pedido da Ester:** `has_audit_service = true` nas 14
+unidades da rede — as 13 "REDE SÊNIOR/SENIOR" mais a "SAENS PENA SÊNIOR". Antes só 3 tinham. É o
+que faz a auditoria aparecer como finalidade para elas, no portal e no formulário do admin.
+
+**Reversão:** `alter column has_evidence_support set default true`; `create or replace` das três
+funções nas versões de `20260819114225`, `20260815203122` e `20260808105015`; e recriar os dois
+checks com `audit` de volta no grupo de 30/60/90. Só faça o último depois de conferir que nenhuma
+auditoria foi gravada com duração fora dessa faixa — o `add constraint` valida as linhas
+existentes e falharia.
