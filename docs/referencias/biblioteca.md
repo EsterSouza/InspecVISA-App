@@ -91,7 +91,7 @@ Consequências práticas:
   puderam ser removidos.
 - Corrigir uma URL na biblioteca corrige todos os itens que citam aquela norma, de uma vez.
 - O teste `src/__tests__/data/legislationLibrary.test.ts` trava o invariante: **todo item legal,
-  nos 6 roteiros-base e nos 5 suplementos regionais, resolve uma URL**.
+  nos 6 roteiros-base e nos 6 suplementos regionais, resolve uma URL**.
 
 ## Método da verificação
 
@@ -434,3 +434,26 @@ correspondentes (0 inspeções usam esse roteiro hoje, sem impacto em relatório
 O texto oficial da Portaria IVISA-RIO 002/2020 está em
 `vigilanciasanitaria.prefeitura.rio/wp-content/uploads/sites/84/2023/03/Portaria-N-I-VISA-Rio-002-11.11.2020.pdf`
 — vale trocar a URL do verbete, que hoje aponta para a página de listagem.
+
+## Curadoria do Pará e de Parauapebas (31/08/2026)
+
+Duas normas novas, para o suplemento de serviço de saúde de Parauapebas/PA
+(`src/data/estetica/suplemento-para-parauapebas.ts`), pacote `@visa/legislacao` v1.0.10:
+
+| Ato | Alcance | Onde entra |
+| --- | --- | --- |
+| **Lei Complementar nº 8/2016 - Parauapebas** | PA · Parauapebas | Alvará Sanitário municipal (art. 36), responsabilidade técnica única (art. 23, § 4º), radiação não ionizante (art. 28), obra e reforma (art. 27), deveres gerais (art. 21) |
+| **Decreto Estadual PA nº 3.614/2023** | PA | validade de um ano da licença sanitária estadual — a mesma regra do art. 36 municipal |
+
+Os dois verbetes levam `researchNotes` com o resumo artigo a artigo do que foi lido, para que uma
+curadoria futura não releia as 38 páginas do Código Sanitário. Consultar com
+`npx tsx src/cli.ts --uf PA --municipio "Parauapebas"` a partir de `C:\Saasisa-legislacao`.
+
+**O licenciamento em Parauapebas é municipal.** O Código Sanitário trata consultório privado como
+estabelecimento de serviço de saúde (art. 19, I) e o Alvará é ato privativo do órgão sanitário
+municipal (arts. 13, I e 14). O decreto estadual não cria licenciamento paralelo — só fixa a
+validade. Não confundir com o arranjo do Rio, onde a licença estadual e a municipal convivem.
+
+**O dist do pacote é versionado e o consumo é por tarball de tag** — o npm não roda o `prepare`
+nesse formato. Toda mudança em `src/library.ts` exige `npm run build` e commit do `dist` antes da
+tag, senão a versão nova instala com a biblioteca velha e nada chega ao InspecVISA.

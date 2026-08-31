@@ -282,5 +282,52 @@ describe('checklist integrity — todos os roteiros de src/data', () => {
       expect(allItems(effective).find(item => item.id === 'rj-est-001')).toBeTruthy();
       assertNoNearDuplicates(effective);
     });
+
+    const parauapebasClient = { id: 'test-est-pbs', name: 'Consultório Parauapebas', category: 'estetica', state: 'Pará', city: 'Parauapebas' } as Client;
+    const maraba1Client = { id: 'test-est-maraba', name: 'Consultório Marabá', category: 'estetica', state: 'PA', city: 'Marabá' } as Client;
+
+    test('aplica o suplemento de Parauapebas só ao município e substitui os itens federais apontados', () => {
+      const effective = getEffectiveTemplate(clinica, parauapebasClient, undefined, true);
+      const items = allItems(effective);
+      const outroMunicipio = allItems(getEffectiveTemplate(clinica, maraba1Client, undefined, true));
+
+      ['est-001', 'est-003', 'est-010', 'est-014', 'est-073', 'est-085', 'est-086'].forEach(id => {
+        expect(items.find(item => item.id === id), `${id} deveria ter sido substituído`).toBeUndefined();
+      });
+      ['pbs-est-001', 'pbs-est-002', 'pbs-est-003', 'pbs-est-004', 'pbs-est-005', 'pbs-est-020',
+       'pbs-est-030', 'pbs-est-031', 'pbs-est-040', 'pbs-est-050', 'pbs-est-051', 'pbs-est-060',
+       'pbs-est-061'].forEach(id => {
+        expect(items.filter(item => item.id === id), `${id} deveria entrar uma única vez`).toHaveLength(1);
+      });
+
+      // 114 do roteiro-base − 7 substituídos + 13 do suplemento.
+      expect(items).toHaveLength(120);
+      items.forEach(item => {
+        expect(item.description.endsWith('?'), `item ${item.id} não está em forma de pergunta`).toBe(true);
+      });
+      assertNoNearDuplicates(effective);
+
+      // Outro município do Pará continua com o roteiro federal puro.
+      expect(outroMunicipio.find(item => item.id === 'est-001')).toBeTruthy();
+      expect(outroMunicipio.find(item => item.id === 'pbs-est-001')).toBeUndefined();
+    });
+
+    test('aplica o suplemento de Parauapebas ao roteiro seedado com UUID do Supabase', () => {
+      const effective = getEffectiveTemplate(comIdsDoBanco(clinica), parauapebasClient, undefined, true);
+
+      expect(allItems(effective)).toHaveLength(120);
+      expect(allItems(effective).find(item => item.id === 'pbs-est-001')).toBeTruthy();
+      assertNoNearDuplicates(effective);
+    });
+
+    test('todo item do suplemento de Parauapebas resolve URL de legislação', () => {
+      const effective = getEffectiveTemplate(clinica, parauapebasClient, undefined, true);
+
+      allItems(effective)
+        .filter(item => item.id.startsWith('pbs-est-'))
+        .forEach(item => {
+          expect(legislationUrlForItem(item), `item ${item.id} sem URL de legislação`).toBeTruthy();
+        });
+    });
   });
 });

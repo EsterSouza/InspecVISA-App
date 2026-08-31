@@ -131,6 +131,16 @@ describe('regra 2 — predicado de UF/município dos suplementos regionais', () 
       },
       clienteQueCasa: cliente('RJ', 'Rio de Janeiro'),
     },
+    ' (+ Suplemento Parauapebas/PA)': {
+      expressao: {
+        combinator: 'all',
+        conditions: [
+          { source: 'context', field: 'uf', operator: 'equals', value: 'PA' },
+          { source: 'context', field: 'municipio', operator: 'contains', value: 'parauapebas' },
+        ],
+      },
+      clienteQueCasa: cliente('PA', 'Parauapebas'),
+    },
     ' (+ Suplemento São Paulo Capital)': {
       expressao: {
         combinator: 'all',
@@ -176,6 +186,9 @@ describe('regra 2 — predicado de UF/município dos suplementos regionais', () 
     cliente('GO', 'Goiânia'),
     cliente('Goias', 'Anápolis'),
     cliente('BA', 'Salvador'),
+    cliente('PA', 'Parauapebas'),
+    cliente('Pará', 'parauapebas '),
+    cliente('PA', 'Marabá'),
   ];
 
   test.each(supplementRegistry.map((entry, index) => [index, entry.nameSuffix] as const))(

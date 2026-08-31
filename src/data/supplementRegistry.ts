@@ -13,6 +13,7 @@ import { templateIlpiBeloHorizonteSupplement } from './Roteiro_ILPI_BH';
 import { templateIlpiRioDeJaneiroSupplement } from './Roteiro_ILPI_RJ';
 import { suplementoEsteticaRj } from './estetica/suplemento-rj';
 import { suplementoEsteticaSpCapital } from './estetica/suplemento-sp-capital';
+import { suplementoSaudeParauapebas } from './estetica/suplemento-para-parauapebas';
 import { suplementoAlimentosRioDeJaneiro } from './alimentos/suplemento-rio-de-janeiro';
 import { isRioState, toUF } from '../utils/state';
 
@@ -30,6 +31,10 @@ function isBeloHorizonteClient(client: Client): boolean {
 
 function isSaoPauloCapitalClient(client: Client): boolean {
   return toUF(client.state) === 'SP' && normalizeLocation(client.city) === 'sao paulo';
+}
+
+function isParauapebasClient(client: Client): boolean {
+  return toUF(client.state) === 'PA' && normalizeLocation(client.city).includes('parauapebas');
 }
 
 function isRioDeJaneiroCapitalClient(client: Client): boolean {
@@ -75,6 +80,11 @@ export const supplementRegistry: SupplementRegistryEntry[] = [
     supplement: suplementoAlimentosRioDeJaneiro,
     appliesTo: (template, client) => isAlimentosFederalTemplate(template) && isRioDeJaneiroCapitalClient(client),
     nameSuffix: ' (+ Suplemento Alimentos — Rio de Janeiro)',
+  },
+  {
+    supplement: suplementoSaudeParauapebas,
+    appliesTo: (template, client) => isEsteticaClinicaTemplate(template) && isParauapebasClient(client),
+    nameSuffix: ' (+ Suplemento Parauapebas/PA)',
   },
   {
     supplement: suplementoEsteticaSpCapital,
