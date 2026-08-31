@@ -54,6 +54,8 @@ describe('texto de não conformidade some ao marcar CUMPRE e volta ao desmarcar'
       result: 'not_complies',
       situationDescription: 'Mofo na parede',
       correctiveAction: 'Pintar a parede',
+      responsible: 'Equipe de Manutenção',
+      deadline: '7_dias',
     });
 
     const { rerender } = render(
@@ -86,10 +88,12 @@ describe('texto de não conformidade some ao marcar CUMPRE e volta ao desmarcar'
     expect(onUpdateDetails).toHaveBeenCalledWith(item.id, {
       situationDescription: '',
       correctiveAction: '',
+      responsible: '',
+      deadline: '',
     });
 
     // Simula o pai aplicando a limpeza.
-    response = { ...response, situationDescription: '', correctiveAction: '' };
+    response = { ...response, situationDescription: '', correctiveAction: '', responsible: '', deadline: '' };
     rerender(
       <ChecklistItem
         item={item}
@@ -121,6 +125,8 @@ describe('texto de não conformidade some ao marcar CUMPRE e volta ao desmarcar'
     expect(onUpdateDetails).toHaveBeenCalledWith(item.id, {
       situationDescription: 'Mofo na parede',
       correctiveAction: 'Pintar a parede',
+      responsible: 'Equipe de Manutenção',
+      deadline: '7_dias',
     });
   });
 

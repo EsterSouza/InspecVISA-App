@@ -307,27 +307,47 @@ export const ChecklistItem = memo(function ChecklistItem({
   const previousResult = useRef(response?.result);
   // Texto de uma NC que virou CUMPRE (ou outro resultado) na mesma visita: some
   // da tela e do relatório (senão o PDF lista a antiga "situação encontrada"
-  // como se fosse sugestão de melhoria) e volta se ela apertar NÃO CUMPRE de
-  // novo por engano. Só dura enquanto o item segue montado na tela.
-  const stashedNCTextRef = useRef<{ situationDescription: string; correctiveAction: string } | null>(null);
+  // como se fosse sugestão de melhoria, com responsável e prazo de uma pendência
+  // que não existe mais) e volta se ela apertar NÃO CUMPRE de novo por engano.
+  // Só dura enquanto o item segue montado na tela.
+  const stashedNCTextRef = useRef<{
+    situationDescription: string;
+    correctiveAction: string;
+    responsible: string;
+    deadline: string;
+  } | null>(null);
   useEffect(() => {
     const prev = previousResult.current;
     const curr = response?.result;
     if (curr === 'not_complies' && prev !== 'not_complies') {
-      if (stashedNCTextRef.current && !response?.situationDescription && !response?.correctiveAction) {
+      if (
+        stashedNCTextRef.current
+        && !response?.situationDescription && !response?.correctiveAction
+        && !response?.responsible && !response?.deadline
+      ) {
         onUpdateDetails(item.id, { ...stashedNCTextRef.current });
       }
       stashedNCTextRef.current = null;
     } else if (prev === 'not_complies' && curr && curr !== 'not_complies') {
       const situationDescription = response?.situationDescription || '';
       const correctiveAction = response?.correctiveAction || '';
-      if (situationDescription || correctiveAction) {
-        stashedNCTextRef.current = { situationDescription, correctiveAction };
-        onUpdateDetails(item.id, { situationDescription: '', correctiveAction: '' });
+      const responsible = response?.responsible || '';
+      const deadline = response?.deadline || '';
+      if (situationDescription || correctiveAction || responsible || deadline) {
+        stashedNCTextRef.current = { situationDescription, correctiveAction, responsible, deadline };
+        onUpdateDetails(item.id, { situationDescription: '', correctiveAction: '', responsible: '', deadline: '' });
       }
     }
     previousResult.current = curr;
-  }, [response?.result, response?.situationDescription, response?.correctiveAction, item.id, onUpdateDetails]);
+  }, [
+    response?.result,
+    response?.situationDescription,
+    response?.correctiveAction,
+    response?.responsible,
+    response?.deadline,
+    item.id,
+    onUpdateDetails,
+  ]);
 
   // Sugestões do próprio histórico deste item: busca preguiçosa, só quando a
   // consultora abre a seção de observações — evita consultar o Dexie pra cada
