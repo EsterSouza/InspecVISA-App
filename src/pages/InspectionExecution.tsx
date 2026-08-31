@@ -255,6 +255,7 @@ export function InspectionExecution() {
   const loadData = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
+    setRemoteHydrated(false);
     try {
       const { inspectionId } = location.state || {};
       const id = inspectionId || currentInspection?.id;
@@ -422,6 +423,10 @@ export function InspectionExecution() {
           // Don't reset loading here — Phase 1 already showed data
         } finally {
           setLoading(false); // ensure loading clears even on first-ever load path
+          // Libera o autosave: reconciliou (ou desistiu, offline/erro) — dado
+          // local deixou de ser potencialmente mais velho que o servidor sem
+          // que ninguém tenha verificado.
+          setRemoteHydrated(true);
         }
       })();
 
@@ -798,6 +803,14 @@ export function InspectionExecution() {
   // A primeira seção nasce aberta — uma vez só. Antes isto rodava a cada
   // recálculo de `visibleSections`, e reabria a seção que ela tinha acabado de
   // recolher.
+  // O autosave (linha ~854) sobrescreve a inspeção INTEIRA no servidor, sem
+  // checar timestamp remoto. A Fase 1 do loadData mostra o Dexie local (que
+  // pode estar atrasado em relação a outro aparelho) antes de `loading` virar
+  // false — sem esta trava, um autosave disparado nessa janela grava esse
+  // estado velho por cima do que o celular já tinha salvo (calculadora de
+  // dimensionamento some, por exemplo). Só libera depois que a Fase 2
+  // reconciliou com o servidor (ou desistiu, ex.: offline).
+  const [remoteHydrated, setRemoteHydrated] = useState(false);
   const sectionsSeeded = useRef(false);
   useEffect(() => {
     if (sectionsSeeded.current || visibleSections.length === 0) return;
@@ -853,7 +866,7 @@ export function InspectionExecution() {
 
   // ─── AUTO-SAVE: immediate Dexie + debounced Supabase ─────────────────────
   useEffect(() => {
-    if (loading || !currentInspection) return;
+    if (loading || !currentInspection || !remoteHydrated) return;
 
     // Debounced remote save
     const timer = setTimeout(async () => {
@@ -862,13 +875,13 @@ export function InspectionExecution() {
         await InspectionService.updateInspection(currentInspection.id, currentInspection);
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus('idle'), 2000);
-      } catch (err) { 
-        console.error('Remote save error', err); 
-        setSaveStatus('idle'); 
+      } catch (err) {
+        console.error('Remote save error', err);
+        setSaveStatus('idle');
       }
     }, 3000);
     return () => clearTimeout(timer);
-  }, [currentInspection, loading]);
+  }, [currentInspection, loading, remoteHydrated]);
 
   // Carimba quem fez a última modificação na inspeção. Atualizar o
   // currentInspection dispara o auto-save acima (que persiste last_edited_by).
