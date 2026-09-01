@@ -295,13 +295,18 @@ describe('checklist integrity — todos os roteiros de src/data', () => {
         expect(items.find(item => item.id === id), `${id} deveria ter sido substituído`).toBeUndefined();
       });
       ['pbs-est-001', 'pbs-est-002', 'pbs-est-003', 'pbs-est-004', 'pbs-est-005', 'pbs-est-020',
-       'pbs-est-030', 'pbs-est-031', 'pbs-est-040', 'pbs-est-050', 'pbs-est-051', 'pbs-est-060',
+       'pbs-est-031', 'pbs-est-040', 'pbs-est-050', 'pbs-est-051', 'pbs-est-060',
        'pbs-est-061'].forEach(id => {
         expect(items.filter(item => item.id === id), `${id} deveria entrar uma única vez`).toHaveLength(1);
       });
 
-      // 114 do roteiro-base − 7 substituídos + 13 do suplemento.
-      expect(items).toHaveLength(120);
+      // 114 do roteiro-base − 7 substituídos + 12 do suplemento.
+      expect(items).toHaveLength(119);
+
+      // O art. 28 do Código Sanitário municipal não virou item: o caput fala em
+      // radiação não ionizante, mas os incisos (CNEN, envoltório radioprotetor)
+      // são de radiodiagnóstico e não se cumprem com laser de fotobiomodulação.
+      expect(items.find(item => item.id === 'pbs-est-030')).toBeUndefined();
       items.forEach(item => {
         expect(item.description.endsWith('?'), `item ${item.id} não está em forma de pergunta`).toBe(true);
       });
@@ -315,7 +320,7 @@ describe('checklist integrity — todos os roteiros de src/data', () => {
     test('aplica o suplemento de Parauapebas ao roteiro seedado com UUID do Supabase', () => {
       const effective = getEffectiveTemplate(comIdsDoBanco(clinica), parauapebasClient, undefined, true);
 
-      expect(allItems(effective)).toHaveLength(120);
+      expect(allItems(effective)).toHaveLength(119);
       expect(allItems(effective).find(item => item.id === 'pbs-est-001')).toBeTruthy();
       assertNoNearDuplicates(effective);
     });

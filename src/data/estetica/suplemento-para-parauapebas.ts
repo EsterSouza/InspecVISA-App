@@ -10,6 +10,15 @@ import type { ChecklistSupplement } from '../../types';
  * entra como a regra estadual de validade da licença — a mesma de um ano do
  * art. 36 municipal —, e não como licenciamento paralelo.
  *
+ * O art. 28 do Código Sanitário municipal ficou **de fora**. O caput fala em
+ * "radiações ionizante e não ionizante", o que à primeira leitura alcançaria o
+ * laser de fotobiomodulação, mas os incisos amarram o artigo ao radiodiagnóstico:
+ * obedecer às normas da CNEN (II) e dispor de envoltórios radioprotetores (III)
+ * não tem como ser cumprido com um laser terapêutico. Cobrar cadastro e
+ * autorização desse equipamento com base nesse artigo produzia achado falso. A
+ * regularização Anvisa do equipamento continua sendo cobrada pelo roteiro-base
+ * (est-063), junto com manutenção e calibração.
+ *
  * Quatro itens existem por causa do arranjo de consultório **sublocado dentro de
  * outra clínica**, que é a situação da unidade que originou este suplemento:
  * responsabilidade técnica única (art. 23, § 4º), contrato da sala e dos apoios
@@ -99,15 +108,6 @@ export const suplementoSaudeParauapebas: ChecklistSupplement = {
       targetSectionId: 'sec-est-07',
       targetSectionTitle: 'Equipamentos e Produtos',
       items: [
-        {
-          id: 'pbs-est-030',
-          sectionId: 'sec-est-07',
-          order: 1,
-          description: 'Os equipamentos emissores de radiação não ionizante, como os de laserterapia e fotobiomodulação, estão cadastrados e autorizados pelo órgão sanitário competente, com responsável técnico definido para o uso e a guarda?',
-          legislation: 'Lei Complementar nº 8/2016 - Parauapebas, art. 28',
-          weight: 10,
-          isCritical: true,
-        },
         {
           id: 'pbs-est-031',
           sectionId: 'sec-est-07',

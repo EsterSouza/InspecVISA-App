@@ -442,12 +442,19 @@ Duas normas novas, para o suplemento de serviço de saúde de Parauapebas/PA
 
 | Ato | Alcance | Onde entra |
 | --- | --- | --- |
-| **Lei Complementar nº 8/2016 - Parauapebas** | PA · Parauapebas | Alvará Sanitário municipal (art. 36), responsabilidade técnica única (art. 23, § 4º), radiação não ionizante (art. 28), obra e reforma (art. 27), deveres gerais (art. 21) |
+| **Lei Complementar nº 8/2016 - Parauapebas** | PA · Parauapebas | Alvará Sanitário municipal (art. 36), responsabilidade técnica única (art. 23, § 4º), obra e reforma (art. 27), deveres gerais (art. 21) |
 | **Decreto Estadual PA nº 3.614/2023** | PA | validade de um ano da licença sanitária estadual — a mesma regra do art. 36 municipal |
 
 Os dois verbetes levam `researchNotes` com o resumo artigo a artigo do que foi lido, para que uma
 curadoria futura não releia as 38 páginas do Código Sanitário. Consultar com
 `npx tsx src/cli.ts --uf PA --municipio "Parauapebas"` a partir de `C:\Saasisa-legislacao`.
+
+**O art. 28 não serve para cobrar cadastro de laser** (decisão da Ester, 01/09/2026). O caput fala
+em "radiações ionizante e não ionizante", mas os incisos amarram o artigo ao radiodiagnóstico:
+obedecer às normas da CNEN (II) e dispor de envoltórios radioprotetores (III) não se cumpre com um
+laser de fotobiomodulação. O item chegou a existir no suplemento, como crítico, e foi retirado — a
+regularização do equipamento continua vindo da RDC Anvisa nº 751/2022, pelo roteiro-base. A
+`researchNotes` do verbete registra a ressalva.
 
 **O licenciamento em Parauapebas é municipal.** O Código Sanitário trata consultório privado como
 estabelecimento de serviço de saúde (art. 19, I) e o Alvará é ato privativo do órgão sanitário
