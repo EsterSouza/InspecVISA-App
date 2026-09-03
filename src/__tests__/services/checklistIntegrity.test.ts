@@ -214,10 +214,13 @@ describe('checklist integrity — todos os roteiros de src/data', () => {
     const saoPauloCapitalClient = { id: 'test-est-sp-capital', name: 'Clínica SP Capital', category: 'estetica', state: 'São Paulo', city: 'São Paulo' } as Client;
     const guarulhosClient = { id: 'test-est-guarulhos', name: 'Clínica Guarulhos', category: 'estetica', state: 'SP', city: 'Guarulhos' } as Client;
 
-    test('mantém somente os dois roteiros-base de estética e preserva os aliases legados', () => {
+    test('mantém os roteiros-base da categoria estética e preserva os aliases legados', () => {
+      // O roteiro de serviços de saúde entra aqui porque `ClientCategory` ainda
+      // não tem 'saude' — ver o cabeçalho de src/data/saude/roteiro-servicos-saude.ts.
       expect(templates.filter(t => t.category === 'estetica').map(t => t.id)).toEqual([
         'tpl-estetica-clinica-v1',
         'tpl-estetica-embelezamento-v1',
+        'tpl-saude-servicos-v1',
       ]);
       expect(getTemplateById('tpl-estetica-v1')?.id).toBe('tpl-estetica-clinica-v1');
       expect(getTemplateById('tpl-estetica')?.id).toBe('tpl-estetica-clinica-v1');

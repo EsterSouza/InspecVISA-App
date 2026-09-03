@@ -11,6 +11,7 @@ import { getExtraSections } from './templates_alimentos_segmentos';
 import { isAlimentosFederalTemplate, supplementRegistry } from './supplementRegistry';
 import { templateEsteticaClinica } from './estetica/roteiro-clinica';
 import { templateEsteticaEmbelezamento } from './estetica/roteiro-embelezamento';
+import { templateServicosSaude } from './saude/roteiro-servicos-saude';
 import { buildRequirementIndex, normalizeRequirementText } from '../utils/itemIdentity';
 
 
@@ -23,6 +24,7 @@ import { buildRequirementIndex, normalizeRequirementText } from '../utils/itemId
 export const templates: ChecklistTemplate[] = [
   templateEsteticaClinica,
   templateEsteticaEmbelezamento,
+  templateServicosSaude,
   {
     id: 'tpl-ilpi-federal-v1',
     name: 'Roteiro de Inspeção — ILPI (Base Federal)',

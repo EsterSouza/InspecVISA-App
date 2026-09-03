@@ -14,6 +14,7 @@ import { templateIlpiRioDeJaneiroSupplement } from './Roteiro_ILPI_RJ';
 import { suplementoEsteticaRj } from './estetica/suplemento-rj';
 import { suplementoEsteticaSpCapital } from './estetica/suplemento-sp-capital';
 import { suplementoSaudeParauapebas } from './estetica/suplemento-para-parauapebas';
+import { suplementoPetropolis } from './saude/suplemento-petropolis';
 import { suplementoAlimentosRioDeJaneiro } from './alimentos/suplemento-rio-de-janeiro';
 import { isRioState, toUF } from '../utils/state';
 
@@ -35,6 +36,10 @@ function isSaoPauloCapitalClient(client: Client): boolean {
 
 function isParauapebasClient(client: Client): boolean {
   return toUF(client.state) === 'PA' && normalizeLocation(client.city).includes('parauapebas');
+}
+
+function isPetropolisClient(client: Client): boolean {
+  return toUF(client.state) === 'RJ' && normalizeLocation(client.city).includes('petropolis');
 }
 
 function isRioDeJaneiroCapitalClient(client: Client): boolean {
@@ -59,6 +64,11 @@ function isEsteticaClinicaTemplate(template: ChecklistTemplate): boolean {
     || template.name === 'Roteiro de Inspeção — Clínica de Estética e Saúde';
 }
 
+function isServicosSaudeTemplate(template: ChecklistTemplate): boolean {
+  return template.id === 'tpl-saude-servicos-v1'
+    || template.name === 'Roteiro de Inspeção — Serviços de Saúde (Base Federal)';
+}
+
 export function isAlimentosFederalTemplate(template: ChecklistTemplate): boolean {
   if (template.id === 'tpl-alimentos-federal-v1') return true;
   if (template.name === 'Roteiro de Inspeção — Serviços de Alimentação (Nacional)') return true;
@@ -76,6 +86,16 @@ export interface SupplementRegistryEntry {
 }
 
 export const supplementRegistry: SupplementRegistryEntry[] = [
+  // Único suplemento que serve a dois roteiros: a Lei nº 5.834/2001 de Petrópolis
+  // alcança consultório e clínica médica (art. 2º, XXVII) e instituto e salão de
+  // beleza (art. 2º, XXX) — a mesma base municipal para os dois segmentos.
+  {
+    supplement: suplementoPetropolis,
+    appliesTo: (template, client) =>
+      (isEsteticaClinicaTemplate(template) || isServicosSaudeTemplate(template))
+      && isPetropolisClient(client),
+    nameSuffix: ' (+ Suplemento Petrópolis/RJ)',
+  },
   {
     supplement: suplementoAlimentosRioDeJaneiro,
     appliesTo: (template, client) => isAlimentosFederalTemplate(template) && isRioDeJaneiroCapitalClient(client),
@@ -92,8 +112,14 @@ export const supplementRegistry: SupplementRegistryEntry[] = [
     nameSuffix: ' (+ Suplemento São Paulo Capital)',
   },
   {
+    // Petrópolis fica de fora: o suplemento municipal substitui o MESMO item de
+    // licença (est-001), e os dois juntos deixariam o roteiro com dois itens de
+    // licença. A exclusão também corrige um alcance velho — o item deste
+    // suplemento cita o Decreto Rio nº 57.501/2026, que é do MUNICÍPIO do Rio de
+    // Janeiro e nunca valeu no interior do estado.
     supplement: suplementoEsteticaRj,
-    appliesTo: (template, client) => isEsteticaClinicaTemplate(template) && isRioState(client.state),
+    appliesTo: (template, client) =>
+      isEsteticaClinicaTemplate(template) && isRioState(client.state) && !isPetropolisClient(client),
     nameSuffix: ' (+ Suplemento RJ)',
   },
   {

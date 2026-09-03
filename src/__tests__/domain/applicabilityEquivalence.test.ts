@@ -120,8 +120,12 @@ describe('regra 1 e 6 — seções extras por tipo de estabelecimento e itens s�
 // continua sendo composição, e é trabalho do COND-03.
 // ════════════════════════════════════════════════════════════
 describe('regra 2 — predicado de UF/município dos suplementos regionais', () => {
+  // Chaveado pelo ID do suplemento, e não pelo `nameSuffix`: dois suplementos
+  // diferentes usam o sufixo ' (+ Suplemento RJ)' (estética e ILPI) e, desde que
+  // o de estética passou a excluir Petrópolis, eles deixaram de ter o mesmo
+  // predicado. Pelo sufixo, um dos dois seria testado contra a regra do outro.
   const PREDICADOS: Record<string, { expressao: ConditionGroup; clienteQueCasa: Client }> = {
-    ' (+ Suplemento Alimentos — Rio de Janeiro)': {
+    'sup-alimentos-rio-v2': {
       expressao: {
         combinator: 'all',
         conditions: [
@@ -131,7 +135,7 @@ describe('regra 2 — predicado de UF/município dos suplementos regionais', () 
       },
       clienteQueCasa: cliente('RJ', 'Rio de Janeiro'),
     },
-    ' (+ Suplemento Parauapebas/PA)': {
+    'sup-saude-parauapebas-v1': {
       expressao: {
         combinator: 'all',
         conditions: [
@@ -141,7 +145,7 @@ describe('regra 2 — predicado de UF/município dos suplementos regionais', () 
       },
       clienteQueCasa: cliente('PA', 'Parauapebas'),
     },
-    ' (+ Suplemento São Paulo Capital)': {
+    'sup-estetica-sp-capital-v1': {
       expressao: {
         combinator: 'all',
         conditions: [
@@ -151,15 +155,37 @@ describe('regra 2 — predicado de UF/município dos suplementos regionais', () 
       },
       clienteQueCasa: cliente('SP', 'São Paulo'),
     },
-    ' (+ Suplemento RJ)': {
+    'sup-petropolis-rj-v1': {
+      expressao: {
+        combinator: 'all',
+        conditions: [
+          { source: 'context', field: 'uf', operator: 'equals', value: 'RJ' },
+          { source: 'context', field: 'municipio', operator: 'contains', value: 'petropolis' },
+        ],
+      },
+      clienteQueCasa: cliente('RJ', 'Petrópolis'),
+    },
+    // Estética RJ perdeu Petrópolis quando o suplemento municipal passou a
+    // substituir o mesmo item de licença — ver supplementRegistry.ts.
+    'sup-estetica-rj-v1': {
+      expressao: {
+        combinator: 'all',
+        conditions: [
+          { source: 'context', field: 'uf', operator: 'equals', value: 'RJ' },
+          { source: 'context', field: 'municipio', operator: 'not_contains', value: 'petropolis' },
+        ],
+      },
+      clienteQueCasa: cliente('RJ', 'Niterói'),
+    },
+    'sup-ilpi-rj-v1': {
       expressao: { combinator: 'all', conditions: [{ source: 'context', field: 'uf', operator: 'equals', value: 'RJ' }] },
       clienteQueCasa: cliente('RJ', 'Niterói'),
     },
-    ' (+ Suplemento GO)': {
+    'tpl-ilpi-goias-supplement-v1': {
       expressao: { combinator: 'all', conditions: [{ source: 'context', field: 'uf', operator: 'equals', value: 'GO' }] },
       clienteQueCasa: cliente('GO', 'Goiânia'),
     },
-    ' (+ Suplemento BH)': {
+    'sup-ilpi-bh-v1': {
       expressao: {
         combinator: 'all',
         conditions: [
@@ -183,6 +209,9 @@ describe('regra 2 — predicado de UF/município dos suplementos regionais', () 
     cliente('MG', 'Contagem'),
     cliente('RJ', 'Rio de Janeiro'),
     cliente('Rio de Janeiro', 'Niterói'),
+    cliente('RJ', 'Petrópolis'),
+    cliente('Rio de Janeiro', 'petropolis '),
+    cliente('RJ', 'Teresópolis'),
     cliente('GO', 'Goiânia'),
     cliente('Goias', 'Anápolis'),
     cliente('BA', 'Salvador'),
@@ -195,13 +224,13 @@ describe('regra 2 — predicado de UF/município dos suplementos regionais', () 
     'suplemento %s%s: o motor reproduz appliesTo em toda a matriz de clientes',
     (index) => {
       const entry = supplementRegistry[index];
-      const predicado = PREDICADOS[entry.nameSuffix];
-      expect(predicado, `sem tradução declarativa para ${entry.nameSuffix}`).toBeDefined();
+      const predicado = PREDICADOS[entry.supplement.id];
+      expect(predicado, `sem tradução declarativa para ${entry.supplement.id}`).toBeDefined();
 
       // Qual roteiro-base este suplemento aceita — a parte "de composição" do
       // predicado, que o motor não decide (COND-03).
       const base = BASES.find((template) => entry.appliesTo(template, predicado.clienteQueCasa));
-      expect(base, `nenhum roteiro-base casou com ${entry.nameSuffix}`).toBeDefined();
+      expect(base, `nenhum roteiro-base casou com ${entry.supplement.id}`).toBeDefined();
 
       const template: ConditionalTemplate = {
         sections: [{ id: 'sup', title: entry.supplement.name, items: [{ id: 'sup-item' }] }],
@@ -210,7 +239,7 @@ describe('regra 2 — predicado de UF/município dos suplementos regionais', () 
 
       for (const client of CLIENTES) {
         const motor = aplicavel(template, { uf: toUF(client.state), municipio: client.city });
-        expect(motor.secao('sup'), `${entry.nameSuffix} · ${client.state}/${client.city}`).toBe(entry.appliesTo(base as ChecklistTemplate, client));
+        expect(motor.secao('sup'), `${entry.supplement.id} · ${client.state}/${client.city}`).toBe(entry.appliesTo(base as ChecklistTemplate, client));
       }
     }
   );
