@@ -149,6 +149,16 @@ export interface ChecklistItem {
   legislation?: string;
   legislationUrl?: string;
   legislationId?: string; // Novo campo para link com a biblioteca central
+
+  // Orientação de campo: o que a consultora precisa saber para RESPONDER a
+  // pergunta, e não a pergunta em si — dimensionamento numérico, endereço exato
+  // na norma, CNAEs aplicáveis. Fica ao lado de `description` justamente para
+  // não reescrevê-la: mudar a pergunta no lugar troca o sentido de respostas já
+  // gravadas (REF-05), e cravar um número nela estreita um requisito que vale
+  // para vários ambientes. Não entra no score — o MARP lê só `weight` e
+  // `isCritical`.
+  guidance?: string;
+
   weight: number;
   isCritical: boolean;
   isRJOnly?: boolean;

@@ -1682,6 +1682,13 @@ export async function generatePDF(
         onContinue: continueNonCompliancePage,
       });
 
+      // A orientação do roteiro é o critério objetivo do requisito — dimensão,
+      // endereço na norma, enquadramento. Vem antes da situação encontrada
+      // porque é contra ela que a situação é medida.
+      if (item.guidance) {
+        y = drawLabeledBlock('Critério da norma', item.guidance, y, mutedColor, continueItem);
+      }
+
       if (response.situationDescription) {
         y = drawLabeledBlock('Situação encontrada', response.situationDescription, y, [153, 27, 27], continueItem);
       }

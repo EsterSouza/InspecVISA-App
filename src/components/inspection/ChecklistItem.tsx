@@ -353,6 +353,9 @@ export const ChecklistItem = memo(function ChecklistItem({
   // consultora abre a seção de observações — evita consultar o Dexie pra cada
   // um dos 100+ itens da tela toda de uma vez.
   const [suggestions, setSuggestions] = useState<FieldSuggestions | null>(null);
+  // A orientação nasce fechada: no celular, aberta por padrão, ela empurraria os
+  // botões de resposta para fora da tela — que é o que ela toca primeiro.
+  const [showGuidance, setShowGuidance] = useState(false);
   const [showAllSituationSuggestions, setShowAllSituationSuggestions] = useState(false);
   const [showAllActionSuggestions, setShowAllActionSuggestions] = useState(false);
   useEffect(() => {
@@ -510,6 +513,35 @@ export const ChecklistItem = memo(function ChecklistItem({
               {item.id.startsWith('extra|') ? (response?.customDescription || item.description) : item.description}
             </p>
           </div>
+
+          {/* Orientação de campo: os números do dimensionamento, o endereço na
+              norma, os CNAEs. Fica fora da pergunta de propósito — ver o
+              comentário de `guidance` em src/types/index.ts. */}
+          {item.guidance && (
+            <div className="pl-[17px] lg:pl-0">
+              <button
+                type="button"
+                onClick={() => setShowGuidance(v => !v)}
+                aria-expanded={showGuidance}
+                aria-controls={`guidance-${item.id}`}
+                className="-my-2.5 inline-flex min-h-11 items-center gap-1 text-[11.5px] font-semibold text-primary-700"
+              >
+                Como avaliar
+                <ChevronDown
+                  className={cn('h-3 w-3 transition-transform', showGuidance && 'rotate-180')}
+                  aria-hidden="true"
+                />
+              </button>
+              {showGuidance && (
+                <p
+                  id={`guidance-${item.id}`}
+                  className="mt-1 whitespace-pre-line rounded-lg border-l-2 border-primary-300 bg-surface-sunken px-3 py-2 text-[13px] leading-[1.55] text-navy-2"
+                >
+                  {item.guidance}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Celular: selos e base legal descem para a linha de baixo, recuados
               para alinhar sob o texto (a largura do número + o gap). */}

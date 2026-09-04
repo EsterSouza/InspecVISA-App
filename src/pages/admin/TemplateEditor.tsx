@@ -36,6 +36,7 @@ interface EditingItem {
   weight: number;
   isCritical: boolean;
   requirementType: 'legal' | 'good_practice';
+  guidance: string;
   retiredAt: string | null;
   order: number;
   /** Undefined = item novo. Serve só para saber se a pergunta mudou desde o carregamento. */
@@ -134,6 +135,7 @@ export function TemplateEditor() {
           weight: it.weight || 1,
           isCritical: it.isCritical || false,
           requirementType: it.requirementType || 'legal',
+          guidance: it.guidance || '',
           retiredAt: it.retiredAt || null,
           order: it.order,
         })),
@@ -235,6 +237,7 @@ export function TemplateEditor() {
               weight: it.weight,
               isCritical: it.isCritical,
               requirementType: it.requirementType,
+              guidance: it.guidance.trim() || undefined,
             });
           });
         });
@@ -392,6 +395,7 @@ export function TemplateEditor() {
       weight: 1,
       isCritical: false,
       requirementType: 'legal',
+      guidance: '',
       retiredAt: null,
       order: 0,
     };
@@ -951,6 +955,24 @@ export function TemplateEditor() {
                         aparecer sob esta pergunta nova. Ao salvar, você confirma a mudança.
                       </p>
                     )}
+                </div>
+
+                <div>
+                  <Label htmlFor="campo-orientacao">Orientação de campo</Label>
+                  <Textarea
+                    id="campo-orientacao"
+                    className="mt-1.5"
+                    rows={4}
+                    value={selectedItem.guidance}
+                    onChange={(e) => updateItem(selectedSection.id, selectedItem.id, 'guidance', e.target.value)}
+                    placeholder="Ex: Consultório indiferenciado: 7,5 m² com dimensão mínima de 2,2 m (RDC 50/2002, Parte II, item 3, Unidade Funcional 1)."
+                  />
+                  <p className="mt-1.5 text-xs text-navy-3">
+                    O que a consultora precisa saber para responder: números de dimensionamento,
+                    endereço exato na norma, enquadramentos aplicáveis. Aparece recolhida na
+                    execução e vira <b>Critério da norma</b> no relatório. Mudar aqui não altera a
+                    pergunta nem o sentido de resposta já gravada.
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

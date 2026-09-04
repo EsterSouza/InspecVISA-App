@@ -13,6 +13,7 @@ export interface RawImportItem {
   weight?: number;
   isCritical?: boolean;
   requirementType?: 'legal' | 'good_practice';
+  guidance?: string;
 }
 
 /**
@@ -42,6 +43,8 @@ interface ItemRow {
   weight: number | null;
   is_critical: boolean | null;
   requirement_type: 'legal' | 'good_practice' | null;
+  /** Orientação de campo — números, endereço na norma, CNAEs. Nunca é a pergunta. */
+  guidance: string | null;
   /** Decisão 21 (FE-17b): item aposentado sai das próximas inspeções, não das em andamento. */
   retired_at: string | null;
   order: number;
@@ -67,6 +70,7 @@ interface ItemInput {
   is_critical?: boolean;
   requirementType?: string;
   requirement_type?: string;
+  guidance?: string | null;
   retiredAt?: string | null;
   retired_at?: string | null;
   order?: number;
@@ -91,6 +95,7 @@ type ItemInsert = {
   weight: number;
   is_critical: boolean;
   requirement_type: string;
+  guidance: string | null;
   retired_at?: string | null;
   order: number;
 };
@@ -215,6 +220,7 @@ export const TemplateService = {
                weight: i.weight,
                isCritical: i.is_critical,
                requirementType: i.requirement_type,
+               guidance: i.guidance ?? undefined,
                retiredAt: i.retired_at,
                order: i.order
             }))
@@ -296,6 +302,7 @@ export const TemplateService = {
             weight: i.weight,
             isCritical: i.is_critical,
             requirementType: i.requirement_type,
+            guidance: i.guidance ?? undefined,
             retiredAt: i.retired_at,
             order: i.order
           }))
@@ -354,6 +361,7 @@ export const TemplateService = {
           weight: item.weight || 1,
           is_critical: item.isCritical || false,
           requirement_type: item.requirementType || 'legal',
+          guidance: item.guidance || null,
           order: itemsToInsert.filter(it => it.section_id === section.id).length + 1
         });
       }
@@ -475,6 +483,7 @@ export const TemplateService = {
             weight: item.weight || 1,
             is_critical: item.isCritical || item.is_critical || false,
             requirement_type: item.requirementType || item.requirement_type || 'legal',
+            guidance: item.guidance ?? null,
             retired_at: item.retiredAt ?? item.retired_at ?? null,
             order: item.order ?? (iIdx + 1)
           });
@@ -557,7 +566,8 @@ export const TemplateService = {
           legislationUrl: it.legislationUrl,
           weight: it.weight,
           isCritical: it.isCritical,
-          requirementType: it.requirementType
+          requirementType: it.requirementType,
+          guidance: it.guidance
         }))
       );
 
