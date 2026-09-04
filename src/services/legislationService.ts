@@ -59,7 +59,22 @@ export function isLegislationApplicable(
   );
 }
 
-const LEGISLATION_QUERY_TIMEOUT_MS = 2500;
+// A lista é interativa: se o servidor demorar, a tela cai para a biblioteca local
+// em vez de ficar em branco. Mas 2,5s era apertado demais — a tabela tem 135
+// linhas e leva mais de um segundo só no servidor, então o fallback disparava em
+// rede normal e a tela passava a mostrar verbete com id `default-N`, que não
+// existe no banco e não pode ser editado.
+const LEGISLATION_QUERY_TIMEOUT_MS = 8000;
+
+// A sincronização é em massa e o usuário está esperando com o botão travado:
+// aqui cair para a biblioteca local não ajuda em nada, então o limite é largo.
+const LEGISLATION_SEED_TIMEOUT_MS = 20000;
+
+/** Campos que a curadoria sobrescreve sempre — são os que decidem se há o que gravar. */
+function mesmoValor(a: unknown, b: unknown): boolean {
+  if (Array.isArray(a) || Array.isArray(b)) return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+  return (a ?? null) === (b ?? null);
+}
 
 // A biblioteca curada vive em src/data/legislationLibrary.ts (REF-02). Aqui ela
 // vira apenas o fallback local usado quando o Supabase não responde.
@@ -134,11 +149,14 @@ export const LegislationService = {
    * curadoria que o pacote existe para centralizar.
    */
   async seedStandardLegislations(): Promise<{ inseridas: number; atualizadas: number }> {
+    // `uf`, `municipio`, `segments`, `status` e `replaced_by` entram no select
+    // porque são justamente os campos que a curadoria sobrescreve: sem eles não
+    // dá para saber se a linha já está igual, e a única saída seria gravar todas.
     const { data: existing = [], error: listError } = await withTimeout(
       supabase
         .from('legislations')
-        .select('id,name,authority,summary,url,abnt,research_notes'),
-      LEGISLATION_QUERY_TIMEOUT_MS,
+        .select('id,name,authority,summary,url,abnt,research_notes,uf,municipio,segments,status,replaced_by'),
+      LEGISLATION_SEED_TIMEOUT_MS,
       'SeedLegislationsList'
     );
     if (listError) throw listError;
@@ -151,17 +169,27 @@ export const LegislationService = {
       if (error) throw error;
     }
 
-    let atualizadas = 0;
+    // Só grava o que de fato mudou. Antes o laço rodava um UPDATE por verbete,
+    // em série, TODA vez — 135 idas ao servidor mesmo quando nada tinha mudado.
+    // Do navegador isso passava de um minuto, entupia o pool de conexões do host
+    // (6 por vez em HTTP/1.1) e derrubava por timeout as outras chamadas da
+    // página: a própria lista de legislações, os roteiros do admin e as
+    // configurações. A tela parecia travada, e o erro que aparecia era o da
+    // requisição vizinha, não o da sincronização.
+    const pendentes: { id: string; patch: Record<string, unknown> }[] = [];
     for (const curada of DEFAULT_LEGISLATIONS) {
       const atual = porNome.get(curada.name);
       if (!atual) continue;
 
-      const patch = {
+      const patch: Record<string, unknown> = {
+        // Autoria, ementa, URL, ABNT e notas só preenchem o que está vazio: são
+        // editáveis no admin e uma correção feita lá não pode ser desfeita aqui.
         authority: atual.authority || curada.authority,
         summary: atual.summary || curada.summary,
         url: atual.url || curada.url,
         abnt: atual.abnt || curada.abnt,
         research_notes: atual.research_notes || curada.research_notes,
+        // Vigência, alcance e segmento vêm sempre da biblioteca.
         uf: curada.uf,
         municipio: curada.municipio,
         segments: curada.segments,
@@ -169,10 +197,20 @@ export const LegislationService = {
         replaced_by: curada.replaced_by,
       };
 
-      const { error } = await supabase.from('legislations').update(patch).eq('id', atual.id);
-      if (error) throw error;
-      atualizadas++;
+      const linha = atual as unknown as Record<string, unknown>;
+      if (Object.entries(patch).every(([campo, valor]) => mesmoValor(linha[campo], valor))) continue;
+      pendentes.push({ id: String(atual.id), patch });
     }
+
+    // Em blocos, para um bump grande do pacote não voltar a ser uma fila de 135.
+    for (let i = 0; i < pendentes.length; i += 8) {
+      const bloco = pendentes.slice(i, i + 8);
+      const resultados = await Promise.all(
+        bloco.map(({ id, patch }) => supabase.from('legislations').update(patch).eq('id', id))
+      );
+      for (const { error } of resultados) if (error) throw error;
+    }
+    const atualizadas = pendentes.length;
 
     cachedLegislations = null;
     return { inseridas: inserir.length, atualizadas };
