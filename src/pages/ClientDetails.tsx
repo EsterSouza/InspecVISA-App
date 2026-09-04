@@ -24,6 +24,7 @@ import { useForm } from 'react-hook-form';
 import { db } from '../db/database';
 import { type AppointmentAttachment, type AppointmentRequest, type Client, type ClientContact, type ClientPortalAuditEvent, type Inspection, type InspectionScore, type Schedule, FOOD_SEGMENT_LABELS } from '../types';
 import { calculateScore, calculateAreaScores, type InspectionAreaScores } from '../utils/scoring';
+import { applicableTemplate } from '../utils/applicableResults';
 import { formatDateTime } from '../utils/imageUtils';
 import { ClientService } from '../services/clientService';
 import { InspectionService } from '../services/inspectionService';
@@ -130,7 +131,12 @@ export function ClientDetails() {
           rawInspections.map(async (insp) => {
             const responses = allResponses.filter((r) => r.inspectionId === insp.id);
             const template = await db.templates.get(insp.templateId); // Keep templates in Dexie
-            const sections = template?.sections || [];
+            // COND-09 - a nota do historico usa o mesmo conjunto do relatorio: o
+            // que saiu por regra nao entra no denominador aqui tambem, senao a
+            // lista mostra um numero e o relatorio outro.
+            const sections = template
+              ? applicableTemplate(template, insp, responses).sections
+              : [];
             const score = calculateScore(responses, sections);
             const areaScores = calculateAreaScores(responses, sections);
             return { ...insp, score, areaScores };

@@ -1482,7 +1482,12 @@ export function InspectionExecution() {
     .length;
   // A nota que o cabeçalho compacto do celular mostra é a mesma do painel do
   // desktop — a `MobileScoreBar` foi absorvida por ele, não duplicada.
-  const score = effectiveTemplate ? calculateScore(responses, effectiveTemplate.sections) : null;
+  // COND-09 - a nota corre sobre os APLICAVEIS, nao sobre a arvore congelada
+  // inteira: item que saiu por regra tem a resposta preservada no historico, mas
+  // nao entra no denominador (contrato 6.1). `applicability.sections` e a mesma
+  // arvore que o resumo, o PDF e o plano de acao recebem -- papel so recorta a
+  // exibicao (`visibleSections`), nunca o resultado.
+  const score = effectiveTemplate ? calculateScore(responses, applicability.sections) : null;
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas pb-safe lg:pb-0">

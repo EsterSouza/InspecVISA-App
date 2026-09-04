@@ -143,3 +143,12 @@ export type {
   RoutingAnswersMeta,
   RoutingAnswersState,
 } from './execution';
+
+// ── COND-09 · os resultados sobre o conjunto de aplicáveis ──
+export { resolveResultsTree } from './results';
+export type {
+  ResultsCounts,
+  ResultsSource,
+  ResultsTree,
+  ResultsTreeInput,
+} from './results';

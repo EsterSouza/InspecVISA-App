@@ -33,9 +33,13 @@ circuito**: a execução consulta o motor, local e sem rede; a pergunta de campo
 que sai do roteiro vai para uma lista com o motivo, sem apagar resposta; retirar item já respondido
 pede confirmação com número; pendência de condição segura o encerramento e "não foi possível
 determinar" o libera; e as respostas de roteamento convergem **por pergunta** entre dois aparelhos.
-Como nenhum roteiro tem revisão publicada em produção, **nada mudou de comportamento ainda** — sem
-regra = sempre aplicável. Próximo é o `COND-09` — score, progresso, resumo, PDF, referências e plano
-de ação sobre o conjunto de aplicáveis, que é o que fecha a invariante das cinco superfícies.
+**O COND-09 fechou a invariante das cinco superfícies**: nota, progresso, resumo, PDF, página de
+referências e plano de ação passaram todos a correr sobre o **conjunto de aplicáveis**, e a garantia
+é estrutural — `resolveResultsTree` devolve o próprio roteiro já sem o que saiu por regra, então não
+existe consumidor capaz de reincluir um item excluído. Como nenhum roteiro tem revisão publicada em
+produção, **nada mudou de comportamento ainda** — sem regra = sempre aplicável, e os relatórios já
+entregues seguem idênticos. Próximo e último é o `COND-10` — o piloto em Estética, que é a primeira
+escrita em produção.
 
 | Card | O que é | Modelo | Esforço | Depois de |
 |---|---|---|---|---|
@@ -47,7 +51,7 @@ de ação sobre o conjunto de aplicáveis, que é o que fecha a invariante das c
 | ~~**COND-06**~~ ✅ | Editor visual **com o ciclo de vida junto** · `domain/applicability/authoring.ts`, `components/templates/` | Opus 5 | alto | COND-05 |
 | ~~**COND-07**~~ ✅ | Simulador e gate de publicação · `domain/applicability/simulate.ts`, `components/templates/ApplicabilitySimulator.tsx` | Opus 5 | médio-alto | COND-06 |
 | ~~**COND-08**~~ ✅ | Execução adaptativa offline e colaborativa · `domain/applicability/execution.ts`, `RoutingQuestionsBlock`, `ExcludedByRulePanel` | Opus 5 | **muito alto** | COND-03 · COND-05 · COND-07 |
-| **COND-09** | Score, progresso, summary, PDF, referências e plano de ação | Opus 5 | **muito alto** | COND-08 |
+| ~~**COND-09**~~ ✅ | Score, progresso, summary, PDF, referências e plano de ação · `domain/applicability/results.ts`, `utils/applicableResults.ts` | Opus 5 | **muito alto** | COND-08 |
 | **COND-10** | Piloto em Estética + flag por roteiro e rollback | Opus 5 | alto | COND-09 |
 
 **Sequência com o frontend:** o `COND-08` e o `FE-23` mexem no mesmo arquivo
@@ -1093,10 +1097,9 @@ chaves **quando há valor** (`applicabilityColumns`), e inspeção sem regra nã
 
 **Ficou deliberadamente de fora:**
 
-- **Score, progresso, resumo, PDF e plano de ação sobre o conjunto de aplicáveis** — é o `COND-09`, e
-  o card manda não misturar. Hoje `calculateScore` ainda roda sobre a árvore completa: item fora por
-  regra **com resposta** entraria na nota. Sem revisão publicada em produção isso é inerte, mas é a
-  primeira coisa que o COND-09 tem de fechar, e está na lista de modos de falha da seção 9.
+- ~~**Score, progresso, resumo, PDF e plano de ação sobre o conjunto de aplicáveis**~~ — era o
+  `COND-09`, **fechado em 03/09/2026** (registro abaixo). `calculateScore` rodava sobre a árvore
+  completa: item fora por regra **com resposta** entrava na nota.
 - **O `reportTemplateSnapshot` no Supabase.** Continua fora (decisão do COND-04).
 - **A árvore de seções e itens entre aparelhos.** Quem abre a inspeção num aparelho que nunca a teve
   compõe do roteiro-mestre (comportamento do COND-03). Este card garantiu a convergência das
@@ -1114,6 +1117,71 @@ chaves **quando há valor** (`applicabilityColumns`), e inspeção sem regra nã
    valor, não por quem tem razão. Na prática o carimbo tem precisão de milissegundo.
 
 **Desbloqueia:** `COND-09`.
+
+### COND-09 · Score, progresso, resumo, PDF, referências e plano de ação — 03/09/2026
+
+**Fechado.** A invariante das cinco superfícies passou a ser garantida por **construção**, não por
+disciplina. A escolha de projeto que decide tudo: `resolveResultsTree`
+([results.ts](../src/domain/applicability/results.ts)) não devolve uma lista de ids aplicáveis para
+cada consumidor filtrar — devolve **o próprio roteiro já recortado**. Quem recebe esse roteiro não
+tem como reincluir um item que saiu por regra, porque ele não está mais lá. Foi assim que os cinco
+consumidores convergiram sem cinco filtros paralelos, que é exatamente o modo de falha da seção 9.
+
+**Onde o recorte acontece — um lugar por superfície, todos na mesma árvore:**
+
+| Superfície | Antes | Agora |
+|---|---|---|
+| Nota da execução | `calculateScore(responses, effectiveTemplate.sections)` — árvore congelada **inteira** | `applicability.sections` |
+| Resumo, PDF, referências, plano de ação | `displayTemplate` = roteiro do relatório sem recorte | `results.template`, um `useMemo` só em `InspectionSummary` |
+| Nota no histórico do cliente | roteiro do Dexie inteiro | `applicableTemplate(...)` |
+| Progresso da execução | já corria sobre `visibleSections` | inalterado — era o único que já estava certo |
+
+O resumo ganhou um `results` no lugar do `displayTemplate`, e `displayTemplate` virou
+`results?.template`. Nota, respostas do relatório, NCs, PDF, `citedLegislations` e
+`buildClientActionItems` **já liam todos desse mesmo objeto** — então recortá-lo uma vez corrigiu as
+cinco pontas de uma vez, sem tocar em nenhuma delas.
+
+**A ponte com o app** mora em [applicableResults.ts](../src/utils/applicableResults.ts) e só traduz:
+`Inspection` → `ResultsSource`, `InspectionResponse[]` → os dois conjuntos de ids. Nenhuma decisão de
+aplicabilidade lá dentro (regra inegociável 8). A régua de "respondido" é a mesma do
+`calculateScore` — `result` presente, diferente de `not_evaluated`, na **última** resposta do item.
+
+**Duas contagens novas**, porque "80 de 82 aplicáveis" precisa de um denominador que não existia:
+`naArvore` (aplicáveis **mais** pendentes de condição — pendente não sai da tela, contrato § 6.4) e
+`respondidos`. O cartão de resultado mostra "Requisitos respondidos X de Y" sempre, e as linhas de
+"fora por regra" e "aguardando definição" **só quando são maiores que zero** — repetir "0 fora por
+regra" em toda inspeção sem condicional é ruído, não informação.
+
+**Referências e portal, as duas pontas que faltavam no plano original:** `citedLegislations` já
+filtrava por item avaliado, mas não por item aplicável — norma citada só por seção que saiu
+aparecia na página de referências de um relatório que não avaliou aquilo. Resolvido pelo recorte. E
+nenhum rótulo do motor pode vazar para o portal: o payload de `buildClientActionItems` não tem campo
+de estado, e há teste que varre o JSON publicado procurando o jargão.
+
+**Aceite verificado** em [applicabilityResults.test.ts](../src/__tests__/domain/applicabilityResults.test.ts),
+17 testes. O central monta os cinco conjuntos a partir dos consumidores **reais** e compara:
+execução = score = resumo = PDF = plano de ação. Os outros trancam a preservação (§ 6.1), o
+pendente que não some (§ 6.4), o `not_evaluated` fora do numerador, o item reavaliado contando pela
+última resposta, e a propriedade que sustenta o rollback do COND-10: **roteiro sem regra atravessa
+inteiro**, com `calculateScore` idêntico ao de antes do card.
+
+**Ficou deliberadamente de fora:**
+
+- **A fonte do roteiro no histórico do cliente.** `ClientDetails` continua lendo o roteiro-mestre do
+  Dexie, não o `reportTemplateSnapshot`. O recorte de aplicáveis foi aplicado, mas a divergência de
+  fonte é anterior a este projeto (REF-06) e sai do escopo do card.
+- **Publicar revisão em produção.** É o `COND-10`. Nada aqui foi exercitado com regra viva, porque
+  não existe regra viva — a suíte cobre o comportamento, a produção ainda não.
+
+**Riscos conhecidos, registrados:**
+
+1. **O recorte roda a cada `useMemo` do resumo.** É `evaluateApplicability` sobre a árvore inteira a
+   cada mudança de resposta. Em 139 itens é irrelevante; num roteiro de milhares valeria medir.
+2. **Relatório concluído reavalia as regras na abertura.** Determinístico, porque contexto, respostas
+   de roteamento e regras estão todos congelados na inspeção e no snapshot — mas depende de os três
+   continuarem viajando juntos. Quebrar isso quebra a imutabilidade do relatório entregue.
+
+**Desbloqueia:** `COND-10`.
 
 ## Relacionados
 

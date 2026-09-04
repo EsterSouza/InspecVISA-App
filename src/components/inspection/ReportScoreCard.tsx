@@ -4,6 +4,7 @@ import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 import { calculateAreaScores, classificationBadgeClasses, classificationInk, classificationLabel } from '../../utils/scoring';
 import type { PreviousVisitScore } from '../../utils/previousVisitScore';
+import type { ResultsCounts } from '../../domain/applicability';
 import type { ChecklistTemplate, InspectionResponse } from '../../types';
 
 function DeltaChip({ current, previous, size = 'sm' }: { current: number; previous: number; size?: 'sm' | 'lg' }) {
@@ -26,12 +27,14 @@ function DeltaChip({ current, previous, size = 'sm' }: { current: number; previo
  * as duas visitas terminaram. A diferença continua em pontos percentuais, e a
  * linha some se o roteiro tiver mudado entre as duas (decisão 29).
  */
-export function ReportScoreCard({ template, responses, previousVisit, isIlpi, recurringCount }: {
+export function ReportScoreCard({ template, responses, previousVisit, isIlpi, recurringCount, counts }: {
   template: ChecklistTemplate;
   responses: InspectionResponse[];
   previousVisit: PreviousVisitScore | null;
   isIlpi: boolean;
   recurringCount: number;
+  /** COND-09 - as contagens da arvore de aplicaveis. Ausente em quem ainda nao passa por ela. */
+  counts?: ResultsCounts;
 }) {
   const areas = calculateAreaScores(responses, template.sections);
   const score = areas.global;
@@ -88,6 +91,33 @@ export function ReportScoreCard({ template, responses, previousVisit, isIlpi, re
               )}
             </div>
           </>
+        )}
+        {counts && (
+          <div className="flex items-center justify-between border-b border-default px-5 py-2">
+            <span className="text-sm text-navy-2">Requisitos respondidos</span>
+            <span className="font-semibold tabular-nums text-navy">
+              {counts.respondidos} de {counts.naArvore}
+            </span>
+          </div>
+        )}
+        {/* COND-09 - so aparece quando o motor realmente tirou algo: repetir
+            "0 fora por regra" em toda inspecao sem condicional e ruido. */}
+        {counts && counts.foraPorRegra > 0 && (
+          <div className="flex items-center justify-between border-b border-default px-5 py-2">
+            <span className="text-sm text-navy-2">
+              Fora do roteiro por não se aplicar
+              {counts.foraComResposta > 0 && (
+                <span className="text-navy-3"> · {counts.foraComResposta} com resposta guardada</span>
+              )}
+            </span>
+            <span className="font-semibold tabular-nums text-navy">{counts.foraPorRegra}</span>
+          </div>
+        )}
+        {counts && counts.pendentes > 0 && (
+          <div className="flex items-center justify-between border-b border-default px-5 py-2">
+            <span className="text-sm text-navy-2">Aguardando uma definição para valer</span>
+            <span className="font-semibold tabular-nums text-navy">{counts.pendentes}</span>
+          </div>
         )}
         <div className="flex items-center justify-between border-b border-default px-5 py-2">
           <span className="text-sm text-navy-2">Não conformidades críticas</span>

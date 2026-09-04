@@ -31,6 +31,7 @@ import { InspectionIntegrityPanel } from '../components/inspection/InspectionInt
 import { belongsToActiveTenant, filterByActiveTenant } from '../utils/localScope';
 import { buildRecoveryTemplate } from '../utils/templateRecovery';
 import { resolveReportTemplate } from '../utils/reportTemplate';
+import { applicableResults } from '../utils/applicableResults';
 import { withClientLocation } from '../utils/inspectionLocation';
 import { composeChecklistTemplate } from '../utils/customItems';
 import { toast } from '../store/useToastStore';
@@ -230,11 +231,22 @@ export function InspectionSummary() {
     loadData();
   }, [hydratePhotosInBackground, location.state?.inspectionId, navigate]);
 
-  const displayTemplate = useMemo(() => {
+  // COND-09 · o recorte de aplicaveis acontece UMA vez, aqui. Nota, respostas do
+  // relatorio, PDF, pagina de referencias e plano de acao leem todos desta mesma
+  // arvore -- e o que faz os cinco conjuntos serem identicos por construcao, em
+  // vez de por disciplina. Roteiro sem regra atravessa inteiro, entao relatorio
+  // ja entregue nao muda.
+  const results = useMemo(() => {
     if (!currentInspection) return null;
     const baseTemplate = template || buildRecoveryTemplate(currentInspection, responses);
-    return composeChecklistTemplate(baseTemplate, responses);
+    return applicableResults(
+      composeChecklistTemplate(baseTemplate, responses),
+      currentInspection,
+      responses,
+    );
   }, [currentInspection, responses, template]);
+
+  const displayTemplate = results?.template ?? null;
 
   const scoreArea = useMemo(() => {
     if (!currentInspection || !displayTemplate) return null;
@@ -959,6 +971,7 @@ export function InspectionSummary() {
             )}
           <ReportScoreCard
             template={displayTemplate}
+            counts={results?.counts}
             responses={reportResponses}
             previousVisit={previousVisit}
             isIlpi={displayTemplate.category === 'ilpi'}
