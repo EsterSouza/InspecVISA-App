@@ -152,3 +152,13 @@ export type {
   ResultsTree,
   ResultsTreeInput,
 } from './results';
+
+// ── COND-10 · a flag do piloto e o caminho de rollback ──
+export {
+  APPLICABILITY_PILOT,
+  applicabilityEnabled,
+  entryAllowsRevision,
+  gateByPilot,
+  pilotEntryFor,
+} from './pilot';
+export type { PilotEntry } from './pilot';

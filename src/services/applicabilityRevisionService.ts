@@ -16,7 +16,7 @@
 
 import { supabase } from '../lib/supabase';
 import { getActiveTenantId } from '../utils/localScope';
-import { validateTemplateRules } from '../domain/applicability';
+import { applicabilityEnabled, validateTemplateRules } from '../domain/applicability';
 import type {
   ApplicabilityRule,
   ConditionalTemplate,
@@ -100,11 +100,16 @@ export function freezeRevisionIntoTemplate(
   template: ChecklistTemplate,
   revision?: ApplicabilityRevision | null
 ): ChecklistTemplate {
+  // COND-10 - roteiro fora do piloto congela VAZIO, mesmo que tenha revisao
+  // publicada. O motor nunca entra em campo por acidente; e o rollback nao
+  // precisa limpar snapshot nenhum, porque nada foi escrito.
+  const autorizada = applicabilityEnabled(template.id, revision?.revision) ? revision : null;
   return {
     ...template,
-    applicabilityRevisionId: revision?.id ?? null,
-    rules: revision?.rules ?? [],
-    routingQuestions: revision?.routingQuestions ?? [],
+    applicabilityRevisionId: autorizada?.id ?? null,
+    applicabilityRevision: autorizada?.revision ?? null,
+    rules: autorizada?.rules ?? [],
+    routingQuestions: autorizada?.routingQuestions ?? [],
   };
 }
 

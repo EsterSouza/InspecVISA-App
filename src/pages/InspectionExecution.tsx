@@ -16,6 +16,7 @@ import {
   answerChangeImpact,
   executionQuestions,
   pendingBlockers,
+  gateByPilot,
   resolveExecutionTree,
   stampRoutingAnswer,
 } from '../domain/applicability';
@@ -494,16 +495,24 @@ export function InspectionExecution() {
     [responses],
   );
 
+  // COND-10 - a arvore que o MOTOR le. Fora do piloto ela vem sem regra e sem
+  // pergunta, mesmo que o snapshot congelado no Dexie carregue as duas: e assim
+  // que o rollback alcanca inspecao ja congelada, sem apagar resposta nenhuma.
+  const arvoreDoMotor = useMemo(
+    () => (effectiveTemplate ? gateByPilot(effectiveTemplate) : undefined),
+    [effectiveTemplate],
+  );
+
   const applicability = useMemo(
     () => resolveExecutionTree({
-      sections: effectiveTemplate?.sections || [],
-      rules: effectiveTemplate?.rules,
-      routingQuestions: effectiveTemplate?.routingQuestions,
+      sections: arvoreDoMotor?.sections || [],
+      rules: arvoreDoMotor?.rules,
+      routingQuestions: arvoreDoMotor?.routingQuestions,
       context: currentInspection?.applicabilityContext,
       answers: currentInspection?.routingAnswers,
       answeredItemIds,
     }),
-    [effectiveTemplate, currentInspection?.applicabilityContext, currentInspection?.routingAnswers, answeredItemIds],
+    [arvoreDoMotor, currentInspection?.applicabilityContext, currentInspection?.routingAnswers, answeredItemIds],
   );
 
   // A ordem importa: aplicabilidade decide o ROTEIRO, papel recorta a EXIBIÇÃO
@@ -519,11 +528,11 @@ export function InspectionExecution() {
   // esconde — por isso o alvo tem de estar visível para ela ficar lá.
   const fieldQuestions = useMemo(
     () => executionQuestions(
-      { rules: effectiveTemplate?.rules, routingQuestions: effectiveTemplate?.routingQuestions },
+      { rules: arvoreDoMotor?.rules, routingQuestions: arvoreDoMotor?.routingQuestions },
       currentInspection?.routingAnswers,
       currentInspection?.routingAnswersMeta,
     ),
-    [effectiveTemplate, currentInspection?.routingAnswers, currentInspection?.routingAnswersMeta],
+    [arvoreDoMotor, currentInspection?.routingAnswers, currentInspection?.routingAnswersMeta],
   );
 
   const questionsBySection = useMemo(() => {

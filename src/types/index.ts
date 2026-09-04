@@ -105,6 +105,9 @@ export interface ChecklistTemplate {
   // No roteiro-mestre vivo eles não existem — a revisão de lá mora em
   // `checklist_template_revisions`, e é o COND-06 quem a edita.
   applicabilityRevisionId?: string | null;
+  // COND-10 - o NUMERO da revisao congelada, para a flag do piloto poder prender
+  // o motor a uma revisao especifica sem consultar o banco (pilot.ts).
+  applicabilityRevision?: number | null;
   rules?: ApplicabilityRule[];
   routingQuestions?: RoutingQuestion[];
 }

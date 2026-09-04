@@ -38,8 +38,15 @@ referências e plano de ação passaram todos a correr sobre o **conjunto de apl
 é estrutural — `resolveResultsTree` devolve o próprio roteiro já sem o que saiu por regra, então não
 existe consumidor capaz de reincluir um item excluído. Como nenhum roteiro tem revisão publicada em
 produção, **nada mudou de comportamento ainda** — sem regra = sempre aplicável, e os relatórios já
-entregues seguem idênticos. Próximo e último é o `COND-10` — o piloto em Estética, que é a primeira
-escrita em produção.
+entregues seguem idênticos.
+
+**O COND-10 escreveu o piloto e a chave que o liga.** Quatro árvores no roteiro de Clínica de
+Estética e Saúde, cada uma com a justificativa sanitária ao lado da regra; uma flag por roteiro e
+revisão (`src/domain/applicability/pilot.ts`) que, vazia, devolve o produto ao comportamento de
+antes do projeto; e um script que traduz os alvos do catálogo para os ids do banco e grava um
+**rascunho**. O que ainda **não** aconteceu, e por isso o card não está fechado: a escrita em
+produção, a publicação da revisão pela consultora no editor e a inspeção de ponta a ponta com regra
+viva. Publicar em produção exige autorização explícita da Ester (regra 1).
 
 | Card | O que é | Modelo | Esforço | Depois de |
 |---|---|---|---|---|
@@ -52,7 +59,7 @@ escrita em produção.
 | ~~**COND-07**~~ ✅ | Simulador e gate de publicação · `domain/applicability/simulate.ts`, `components/templates/ApplicabilitySimulator.tsx` | Opus 5 | médio-alto | COND-06 |
 | ~~**COND-08**~~ ✅ | Execução adaptativa offline e colaborativa · `domain/applicability/execution.ts`, `RoutingQuestionsBlock`, `ExcludedByRulePanel` | Opus 5 | **muito alto** | COND-03 · COND-05 · COND-07 |
 | ~~**COND-09**~~ ✅ | Score, progresso, summary, PDF, referências e plano de ação · `domain/applicability/results.ts`, `utils/applicableResults.ts` | Opus 5 | **muito alto** | COND-08 |
-| **COND-10** | Piloto em Estética + flag por roteiro e rollback | Opus 5 | alto | COND-09 |
+| **COND-10** ⏳ | Piloto em Estética + flag por roteiro e rollback · `domain/applicability/pilot.ts`, `data/estetica/condicionais-piloto.ts`, `scripts/cond10-seed-piloto.ts` — **código pronto**, falta a escrita em produção, a publicação e o ciclo de ponta a ponta | Opus 5 | alto | COND-09 |
 
 **Sequência com o frontend:** o `COND-08` e o `FE-23` mexem no mesmo arquivo
 (`InspectionExecution.tsx`, 1.322 linhas). Fazer os dois em paralelo é conflito garantido. Decisão:
@@ -1182,6 +1189,100 @@ inteiro**, com `calculateScore` idêntico ao de antes do card.
    continuarem viajando juntos. Quebrar isso quebra a imutabilidade do relatório entregue.
 
 **Desbloqueia:** `COND-10`.
+
+### COND-10 · Piloto em Estética, flag por roteiro e rollback — 03/09/2026
+
+**Opus 5 · alto** · **entregue até onde não depende de produção**
+
+O motor está pronto desde o COND-09, e é justamente por isso que ligá-lo é a parte perigosa: ligado,
+ele muda o que a consultora vê em campo e o que entra no relatório do cliente. Este card escreveu as
+duas coisas que faltavam — **as árvores do piloto** e **a chave que as liga e desliga**.
+
+**A chave: `src/domain/applicability/pilot.ts`.** `APPLICABILITY_PILOT` é uma lista de roteiros
+autorizados; `gateByPilot(template)` devolve o roteiro **sem regras e sem perguntas** quando ele não
+está na lista. **Lista vazia = motor desligado no produto inteiro**, que é exatamente o
+comportamento de antes do projeto. A flag mora em código, e não numa tabela, por três razões
+escritas no cabeçalho do arquivo: a execução decide **offline** (§ 6.5) e uma flag no banco faria a
+consultora sem sinal não saber se o motor está ligado; rollback tem de ser **auditável**, e esvaziar
+a lista é um commit com autor, data e motivo, enquanto um `update` numa linha de configuração não
+deixa rastro; e é **um tenant só**, então flag por tenant não compra nada — o que protege é o gate
+de publicação (COND-07) e o alcance estreito do piloto.
+
+**Onde o gate é aplicado — três pontos, e só três:** `applicableResults` (a ponte dos resultados),
+o memo `arvoreDoMotor` da execução, e `freezeRevisionIntoTemplate` mais o `NewInspection`, que
+deixam de buscar revisão publicada para roteiro fora do piloto. Ele **não** foi posto dentro de
+`resolveResultsTree`: a camada pura faz o que lhe mandam, quem decide se o motor roda é o app. Essa
+separação é o que mantém a suíte do COND-09 independente do conteúdo da lista — esvaziar
+`APPLICABILITY_PILOT` num rollback não pode deixar teste vermelho, ou o rollback deixa de ser
+frictionless.
+
+**As quatro árvores: `src/data/estetica/condicionais-piloto.ts`.** Quatro, não cem. Cada uma
+**substitui uma condicional que hoje está escrita dentro do texto do item** ("Quando processa
+produtos para saúde…", "Quando abrangido pela RDC Anvisa nº 36/2013…") — hoje a consultora lê o
+"quando", decide de cabeça e marca "não se aplica" à mão, o que não deixa rastro, não sai do
+denominador e não aparece no relatório. É esse trabalho manual que o motor assume. A justificativa
+sanitária de cada árvore mora **no próprio objeto**, ao lado da regra: regra e razão não podem
+divergir.
+
+| Árvore | Pergunta | Alvos | Norma |
+|---|---|---|---|
+| Processa artigos reutilizáveis no local | `q-processa-artigos` (sim/não, obrigatória) | 11 **itens** | RDC 15/2012 |
+| Usa roupas ou toalhas reutilizáveis | `q-roupas-reutilizaveis` (sim/não) | 1 **seção** (`sec-est-10`, 4 itens) | RDC 6/2012 |
+| Abrangência da RDC 36/2013 | `q-abrangencia-rdc36` (escolha, obrigatória) | 2 itens, um deles crítico | RDC 36/2013 |
+| Realiza procedimento cirúrgico | `q-procedimento-cirurgico` (sim/não) | 1 item | RDC 36/2013, anexo |
+
+**O detalhe que decide a forma da primeira árvore:** o `est-045` — descarte de produto de uso único
+proibido de reprocessamento — fica **fora** dela. Quem só usa descartável é exatamente quem precisa
+ser cobrado por não reprocessá-lo (RE 2.605/2006). Como seção não aplicável **arrasta todos os itens
+dela** (§ 5.4), salvar o `est-045` obriga a regra a ser item a item, e não na seção — onze regras em
+vez de uma. A árvore de roupas, onde os quatro itens saem juntos, é regra de seção. O teste afirma a
+exceção: com `q-processa-artigos` = não, o `est-045` continua aplicável.
+
+**Um cuidado de ciclo:** a pergunta `q-roupas-reutilizaveis` não tem `sectionId`. Pergunta que decide
+o destino de uma seção não pode morar dentro dela, ou ela some junto com a resposta.
+
+**O achado que teria deixado o piloto inerte.** `tpl-estetica-clinica-v1` **não existe** em
+`checklist_templates`. O roteiro vivo em produção é `0c55f120-81e9-45d7-8ef5-04437d22a9a3` — o id do
+catálogo empacotado nunca chegou ao banco. Uma flag que só conhecesse o id do catálogo estaria
+ligada em teste e desligada em campo, sem erro nenhum. É o mesmo descasamento que já mordeu o
+`replacesItemId` dos suplementos. Por isso `PilotEntry.templateIds` é uma **lista**, com os dois ids.
+
+O mesmo descasamento vale para os alvos: as regras nomeiam `est-036` e `sec-est-10`, o banco usa
+UUID, e a regra referencia por id **sem FK** (COND-04) — id errado não dá erro, vira regra que nunca
+casa, em silêncio. `scripts/cond10-seed-piloto.ts` traduz pela **descrição normalizada**, do mesmo
+jeito que `applySupplement`, e **para** se algum dos 15 alvos não mapear. A simulação contra
+produção passa: 12 seções, 114 itens, 15 alvos traduzidos.
+
+**O script grava rascunho, e só.** Rascunho não entra em inspeção nenhuma — só revisão **publicada**
+entra, e publicar é decisão da consultora, na tela do editor, depois de passar pelo simulador
+(COND-07). Ele não publica, não apaga revisão publicada e não toca em inspeção, resposta ou
+relatório. `--apply` exige `--tenant`, porque não se adivinha o tenant de uma escrita em produção.
+
+**ROLLBACK.** Esvaziar `APPLICABILITY_PILOT` e publicar o app. A partir do próximo carregamento:
+todo requisito volta a ser aplicável em toda tela; nota, resumo, PDF, referências e plano de ação
+voltam ao roteiro inteiro; **nenhuma resposta é apagada** — nem a de requisito que estava fora por
+regra, que volta a aparecer com o que já tinha sido respondido; e a revisão publicada continua no
+banco, intacta, pronta para religar. Sem migration, sem `update` em produção, sem reprocessar
+inspeção. O `gateByPilot` alcança inclusive **inspeção já congelada**, porque roda na leitura do
+snapshot, não na gravação dele. Relatório já concluído não muda, porque lê o snapshot dele.
+
+**Testes** — `src/__tests__/domain/applicabilityPilot.test.ts`, 23 casos sobre o roteiro **real**
+(`templateEsteticaClinica`), não sobre fixture: o gate de publicação limpo nas quatro árvores; a
+simulação de cada perfil (11 itens fora com o `est-045` preservado; 4 fora por roupa; 2 por RDC 36;
+1 por cirurgia; 18 pendentes enquanto ninguém responde); a flag reconhecendo **o id do banco**, não
+só o do catálogo; e o rollback devolvendo o roteiro inteiro com as respostas de volta.
+
+**O que este card NÃO fez, e que é o que falta para fechá-lo:**
+
+- **A escrita em produção.** `npx tsx scripts/cond10-seed-piloto.ts --apply --tenant <uuid>` não foi
+  rodado. Simulação sim, escrita não — produção exige autorização explícita (regra 1).
+- **A publicação da revisão.** É da consultora, em Admin → Roteiros → Clínica de Estética e Saúde →
+  Condições, depois de simular os quatro perfis e conferir o que sai em cada um.
+- **O ciclo de ponta a ponta com regra viva**: inspeção de teste online, offline, trocar de resposta,
+  resumo, PDF, plano de ação publicado, conferência manual. É o aceite do card, e depende dos dois
+  itens acima.
+
+**Desbloqueia:** o uso do motor em campo, e depois dele a expansão para ILPI, alimentos e os demais.
 
 ## Relacionados
 

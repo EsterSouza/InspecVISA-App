@@ -12,7 +12,7 @@
 // cinco conjuntos serem idênticos por construção.
 // ============================================================
 
-import { resolveResultsTree } from '../domain/applicability';
+import { gateByPilot, resolveResultsTree } from '../domain/applicability';
 import type { ResultsSource, ResultsTree } from '../domain/applicability';
 import { getLatestResponsesByItem } from './scoring';
 import type { ChecklistTemplate, InspectionResponse, Section } from '../types';
@@ -58,8 +58,13 @@ export function applicableResults(
   source: ResultsSource | null | undefined,
   responses: InspectionResponse[]
 ): ReportResultsTree {
+  // COND-10 - fora do piloto o motor nao e consultado, mesmo que a arvore
+  // congelada carregue regra. E aqui que o rollback alcanca inspecao JA
+  // congelada, sem tocar em nada gravado. O gate mora nesta ponte, e nao dentro
+  // de `resolveResultsTree`: a camada pura faz o que lhe mandam, quem decide se
+  // o motor roda e o app.
   return resolveResultsTree<Section, ChecklistTemplate>({
-    template,
+    template: gateByPilot(template),
     source: source || undefined,
     answeredItemIds: answeredItemIdsFrom(responses),
     evaluatedItemIds: evaluatedItemIdsFrom(responses),

@@ -26,6 +26,7 @@ import { toDateKey } from '../utils/date';
 import { useConfirmDialog } from '../components/ui/ConfirmDialog';
 import { toast } from '../store/useToastStore';
 import { ApplicabilityRevisionService, freezeRevisionIntoTemplate } from '../services/applicabilityRevisionService';
+import { applicabilityEnabled } from '../domain/applicability';
 import type { ApplicabilityRevision } from '../services/applicabilityRevisionService';
 import { missingRequiredQuestions, routingQuestionsFor } from '../domain/applicability';
 import type { RoutingAnswer, RoutingAnswers } from '../domain/applicability';
@@ -246,8 +247,17 @@ export function NewInspection() {
       return;
     }
     let active = true;
+    // COND-10 - roteiro fora do piloto nem consulta a revisao: sem isso o wizard
+    // faria a pergunta de roteamento de um motor que nao vai rodar.
+    if (!applicabilityEnabled(selectedTemplate.id)) {
+      setRevision(null);
+      return;
+    }
     void ApplicabilityRevisionService.getPublishedRevision(selectedTemplate.id)
-      .then((publicada) => { if (active) setRevision(publicada); })
+      .then((publicada) => {
+        // A entrada do piloto pode prender uma revisao especifica.
+        if (active) setRevision(applicabilityEnabled(selectedTemplate.id, publicada?.revision) ? publicada : null);
+      })
       .catch((err) => {
         console.warn('[NewInspection] Revisão de condições indisponível; a inspeção segue sem regra:', err);
         if (active) setRevision(null);

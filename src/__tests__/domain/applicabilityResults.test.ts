@@ -22,7 +22,7 @@
 import { describe, expect, test } from 'vitest';
 import { resolveResultsTree } from '../../domain/applicability';
 import type { ApplicabilityRule } from '../../domain/applicability';
-import { applicableResults, evaluatedItemIdsFrom } from '../../utils/applicableResults';
+import { answeredItemIdsFrom, evaluatedItemIdsFrom } from '../../utils/applicableResults';
 import { calculateScore, getLatestResponsesByItem } from '../../utils/scoring';
 import { citedLegislations } from '../../utils/legislationRefs';
 import { buildClientActionItems } from '../../utils/clientActionPlan';
@@ -96,6 +96,27 @@ const RESPOSTAS = [ok('i1'), nc('i2'), nc('i3'), ok('i4')];
 
 const NAO_PROCESSA = { routingAnswers: { 'q-processa': false } } as unknown as Inspection;
 const PROCESSA = { routingAnswers: { 'q-processa': true } } as unknown as Inspection;
+
+/**
+ * O mesmo que `applicableResults` faz no app, porém sem o gate do piloto.
+ *
+ * O gate (COND-10) mora em `applicableResults`, e é testado em
+ * `applicabilityPilot.test.ts`. Esta suíte descreve a CAMADA DE RESULTADOS, que
+ * roda igual em qualquer roteiro — chamar a camada pura direto é o que mantém as
+ * duas coisas independentes: esvaziar `APPLICABILITY_PILOT` num rollback não
+ * pode deixar este arquivo vermelho.
+ */
+const applicableResults = (
+  template: ChecklistTemplate,
+  source: Inspection | undefined,
+  responses: InspectionResponse[]
+) =>
+  resolveResultsTree<Section, ChecklistTemplate>({
+    template,
+    source: source || undefined,
+    answeredItemIds: answeredItemIdsFrom(responses),
+    evaluatedItemIds: evaluatedItemIdsFrom(responses),
+  });
 
 const idsDe = (template: ChecklistTemplate) =>
   template.sections.flatMap((s) => s.items.map((i) => i.id));
