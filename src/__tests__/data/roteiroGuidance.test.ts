@@ -18,6 +18,7 @@
 // ============================================================
 
 import { describe, expect, test } from 'vitest';
+import { templateEsteticaClinica } from '../../data/estetica/roteiro-clinica';
 import { templateServicosSaude } from '../../data/saude/roteiro-servicos-saude';
 import type { ChecklistItem } from '../../types';
 
@@ -64,12 +65,14 @@ describe('guidance · não mexe no score', () => {
       'sau-011': { weight: 10, isCritical: true },
       'sau-025': { weight: 10, isCritical: true },
       'sau-026': { weight: 10, isCritical: true },
+      'sau-027': { weight: 10, isCritical: true },
       'sau-029': { weight: 10, isCritical: true },
       'sau-031': { weight: 10, isCritical: true },
       'sau-032': { weight: 10, isCritical: true },
       'sau-033': { weight: 10, isCritical: true },
       'sau-034': { weight: 10, isCritical: true },
       'sau-035': { weight: 5, isCritical: false },
+      'sau-036': { weight: 10, isCritical: true },
       'sau-037': { weight: 10, isCritical: true },
       'sau-041': { weight: 5, isCritical: false },
       'sau-042': { weight: 5, isCritical: false },
@@ -136,5 +139,94 @@ describe('guidance · atravessa o congelamento do relatório', () => {
       .flatMap(s => s.items)
       .find(i => i.id === 'sau-031');
     expect(depois?.guidance).toBe(original.guidance);
+  });
+});
+
+// ============================================================
+// O mesmo campo no roteiro de estética, que é o mais usado da consultoria e
+// estava sem nenhuma orientação. Os 12 itens abaixo receberam a leitura de
+// norma já conferida contra o PDF da RDC 50 — e `est-023` carrega a biblioteca
+// de revestimentos inteira, porque este roteiro não tem o item separado de
+// revestimento que o de saúde tem.
+// ============================================================
+
+const ITENS_EST: ChecklistItem[] = templateEsteticaClinica.sections.flatMap(secao => secao.items);
+
+function itemEst(id: string): ChecklistItem {
+  const achado = ITENS_EST.find(i => i.id === id);
+  if (!achado) throw new Error(`item ${id} não existe no roteiro de estética`);
+  return achado;
+}
+
+describe('guidance · roteiro de estética', () => {
+  const PESOS: Record<string, { weight: number; isCritical: boolean }> = {
+    'est-002': { weight: 10, isCritical: true },
+    'est-010': { weight: 10, isCritical: true },
+    'est-023': { weight: 10, isCritical: true },
+    'est-024': { weight: 10, isCritical: true },
+    'est-026': { weight: 10, isCritical: true },
+    'est-027': { weight: 10, isCritical: true },
+    'est-028': { weight: 10, isCritical: true },
+    'est-029': { weight: 10, isCritical: true },
+    'est-030': { weight: 10, isCritical: true },
+    'est-032': { weight: 2, isCritical: false },
+    'est-036': { weight: 10, isCritical: true },
+    'est-038': { weight: 10, isCritical: true },
+  };
+
+  test('os itens orientados são exatamente os previstos, e nenhum mudou de peso', () => {
+    const comOrientacao = ITENS_EST.filter(i => i.guidance).map(i => i.id).sort();
+    expect(comOrientacao).toEqual(Object.keys(PESOS).sort());
+    for (const [id, esperados] of Object.entries(PESOS)) {
+      const i = itemEst(id);
+      expect({ weight: i.weight, isCritical: i.isCritical }, id).toEqual(esperados);
+    }
+  });
+
+  test('a orientação nunca vira pergunta, e nunca vem vazia', () => {
+    for (const i of ITENS_EST) {
+      if (i.guidance === undefined) continue;
+      expect(i.guidance.trim(), i.id).not.toBe('');
+      expect(i.description.trim(), i.id).not.toBe(i.guidance.trim());
+    }
+  });
+
+  test('est-023 carrega a régua dos 4% com o endereço e os grupos da ABNT', () => {
+    // O critério de área crítica é objetivo — absorção de água — e é o que
+    // decide na ficha técnica do produto. Sem os grupos, a consultora volta a
+    // depender de "parece liso e lavável".
+    const g = itemEst('est-023').guidance!;
+    expect(g).toMatch(/Parte III, item 6\.2/);
+    expect(g).toMatch(/não superior a 4%/);
+    for (const grupo of ['BIa', 'BIb', 'BIIa', 'BIII']) expect(g, grupo).toContain(grupo);
+    expect(g).toMatch(/rejunte/);
+    expect(g).toMatch(/meia-cana não é exigência dela/);
+    expect(g).toMatch(/forro falso removível proibido/);
+  });
+
+  test('est-027 separa os três sanitários que se confundem', () => {
+    const g = itemEst('est-027').guidance!;
+    expect(g).toMatch(/ginecologia, proctologia e urologia/);
+    expect(g).toMatch(/adicional ao do público, não o substitui/);
+    expect(g).toMatch(/1,50 m de DIÂMETRO/);
+  });
+
+  test('est-036 checa o escopo da RDC 15 antes de cobrar o art. 44', () => {
+    const g = itemEst('est-036').guidance!;
+    expect(g).toMatch(/art\. 3º, parágrafo único/);
+    expect(g).toMatch(/consultório individualizado/);
+  });
+
+  test('mobiliário: mesma pergunta nos dois roteiros, mesma orientação', () => {
+    // est-024 e sau-027 têm a description idêntica. Se um dia divergirem, a
+    // consultora recebe duas respostas diferentes para a mesma pergunta.
+    expect(itemEst('est-024').description).toBe(item('sau-027').description);
+    expect(itemEst('est-024').guidance).toBe(item('sau-027').guidance);
+  });
+
+  test('sobrevive ao clone JSON que congela o roteiro na inspeção', () => {
+    const congelado = JSON.parse(JSON.stringify(templateEsteticaClinica)) as typeof templateEsteticaClinica;
+    const depois = congelado.sections.flatMap(s => s.items).find(i => i.id === 'est-023');
+    expect(depois?.guidance).toBe(itemEst('est-023').guidance);
   });
 });
