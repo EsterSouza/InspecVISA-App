@@ -1284,6 +1284,64 @@ só o do catálogo; e o rollback devolvendo o roteiro inteiro com as respostas d
 
 **Desbloqueia:** o uso do motor em campo, e depois dele a expansão para ILPI, alimentos e os demais.
 
+### COND-10 · segundo roteiro do piloto: Serviços de Saúde — 03/09/2026
+
+Escrito para a vistoria **pré-operacional** de 04/09/2026 (consultório de ginecologia em obra,
+Itaipava/Petrópolis), que é a primeira a usar o roteiro de Serviços de Saúde e o caso que mais
+precisa do motor: numa unidade que não abriu, dezenas de requisitos são registro, comprovante ou
+observação de prática assistencial que ainda não existem.
+
+**O critério de corte, que vale para as seis árvores.** Sai o que só pode ser comprovado por um
+serviço em operação — registro, comprovante, laudo, observação de prática. Fica tudo que é projeto,
+ambiente, dimensão, fluxo ou documento que precisa estar pronto **antes** de abrir: licença, CNPJ e
+CNAE, RT, PBA, PGRSS, POPs, manual de rotinas, termo de consentimento, PMOC, abrigo de resíduos,
+acessibilidade e a seção inteira de Infraestrutura Física. Pré-operacional não é passe livre — a
+vistoria existe justamente para antecipar o que a VISA vai exigir no licenciamento, e o teste afirma
+o que FICA, não só o que sai.
+
+| Árvore | Alvos |
+|---|---|
+| A unidade já está em funcionamento | 26 itens |
+| Processa artigos reutilizáveis no local | 14 itens |
+| Usa roupas, campos ou toalhas reutilizáveis | 1 seção (4 itens) |
+| Abrangência da RDC 36/2013 | 4 itens |
+| Possui trabalhadores contratados | 5 itens |
+| Utiliza substância sujeita a controle especial | 3 itens |
+
+No perfil real de amanhã, 55 dos 139 requisitos saem e 84 ficam — sem tocar em nenhum item de
+infraestrutura nem de documentação de abertura.
+
+**Achado de motor: o alvo repetido some calado.** `evaluate.ts` monta um `Map<'item:sau-074',
+regra>` e o último `set` vence. Duas árvores disputando o mesmo item e uma delas simplesmente deixa
+de existir — sem erro, sem log. O validador tem o `duplicate_rule_target`, mas pegar no gate é
+tarde: a saída fácil vira "tira o alvo de uma das duas", o que empobrece a regra.
+`combinarPorAlvo` (`domain/applicability/compose.ts`) funde as regras do mesmo alvo somando as
+condições em `all` — sempre `all`, porque cada condição a mais é mais uma razão para o requisito
+sair, e fundir em `any` faria uma árvore nova ressuscitar requisito que outra tinha tirado. Grupo
+`any` disputando alvo levanta erro em vez de inventar expressão parecida, porque `ConditionGroup`
+é de um nível só. É o que deixa o `sau-074` dizer a coisa certa: identificação segura do paciente é
+avaliada quando a unidade está em funcionamento **e** é abrangida pela RDC 36/2013.
+
+**Achado de produção: o roteiro de saúde não estava no banco.** Ele nasceu só no catálogo
+empacotado, e o seletor de `NewInspection` mostra catálogo e banco juntos — o empacotado entra
+quando nenhum roteiro do banco tem o mesmo nome. Ou seja: ele aparecia na tela e parecia pronto,
+mas uma inspeção criada sobre ele gravaria cada resposta com o id do catálogo (`sau-001`), que não
+existe em `checklist_items` e não tem FK que reclame. É exatamente o que já deixou seis inspeções
+concluídas dependendo de um roteiro que depois sumiu (`NewInspection.tsx:137`).
+`scripts/seed-roteiro-saude.ts` grava as três tabelas preservando ordem, peso, criticidade, tipo e
+as duas colunas de legislação.
+
+**O piloto passou a casar por NOME, além do id.** Id de catálogo e id de banco são coisas
+diferentes, e um roteiro pode entrar no banco **depois** de a árvore ser escrita — foi o caso deste.
+`PilotEntry.templateNames` fecha essa família de falha de uma vez: é a mesma chave que o seletor já
+usa. Roteiro arquivado carrega `[ARQUIVADO]` no nome e por isso nunca casa, que é o desejado.
+
+**Testes** — `src/__tests__/domain/applicabilityPilotSaude.test.ts`, 24 casos sobre o roteiro real:
+gate limpo, todo alvo existente, nenhum alvo repetido, a fusão do `sau-074` nos dois sentidos, os 26
+que saem quando a unidade não abriu, os 15 que **não podem** sair, a seção de infraestrutura
+inteira sobrevivendo, o `sau-058` e o `sau-059` preservados para quem terceiriza ou só usa
+descartável, o `sau-024` preservado para quem trabalha sozinha, e o casamento por nome.
+
 ## Relacionados
 
 - [contrato-aplicabilidade.md](contrato-aplicabilidade.md) — o contrato normativo (COND-01).

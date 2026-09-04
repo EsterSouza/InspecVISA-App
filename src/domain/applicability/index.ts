@@ -162,3 +162,6 @@ export {
   pilotEntryFor,
 } from './pilot';
 export type { PilotEntry } from './pilot';
+
+// COND-10 — montagem de árvore sem alvo repetido (o Map do evaluate é um por alvo).
+export { combinarPorAlvo, itensQuando, quando, secaoQuando } from './compose';

@@ -172,10 +172,15 @@ describe('COND-10 · o que cada árvore tira, e o que ela deixa', () => {
 });
 
 describe('COND-10 · a flag', () => {
-  test('o piloto é um roteiro só, e é o de estética', () => {
-    expect(APPLICABILITY_PILOT).toHaveLength(1);
+  test('o piloto é curto e nomeado: estética primeiro, saúde depois', () => {
+    // Dois roteiros, não "todos". Cada entrada carrega a justificativa escrita,
+    // que é o que o card exige — e é o que impede a lista de crescer no braço.
+    expect(APPLICABILITY_PILOT).toHaveLength(2);
     expect(APPLICABILITY_PILOT[0].templateIds).toContain(PILOT_TEMPLATE_ID);
     expect(pilotEntryFor(PILOT_TEMPLATE_ID)?.justificativa).toContain('suplementos regionais');
+    for (const entrada of APPLICABILITY_PILOT) {
+      expect(entrada.justificativa.length).toBeGreaterThan(80);
+    }
   });
 
   test('a flag conhece o id do BANCO, não só o do catálogo', () => {
@@ -189,9 +194,21 @@ describe('COND-10 · a flag', () => {
 
   test('roteiro fora do piloto tem o motor desligado', () => {
     expect(applicabilityEnabled('tpl-ilpi-federal-v1')).toBe(false);
-    expect(applicabilityEnabled('tpl-saude-servicos-v1')).toBe(false);
+    expect(applicabilityEnabled('tpl-alimentos-federal-v1')).toBe(false);
     expect(applicabilityEnabled(undefined)).toBe(false);
     expect(applicabilityEnabled(PILOT_TEMPLATE_ID)).toBe(true);
+  });
+
+  test('id desconhecido com NOME de roteiro do piloto liga assim mesmo', () => {
+    // O roteiro de Serviços de Saúde entrou no banco depois desta lista: sem o
+    // casamento por nome ele nasceria com o motor desligado em produção, que é o
+    // mesmo tipo de descasamento silencioso do `replacesItemId`.
+    expect(applicabilityEnabled('uuid-que-ninguem-conhece')).toBe(false);
+    expect(applicabilityEnabled(
+      'uuid-que-ninguem-conhece',
+      null,
+      'Roteiro de Inspeção — Serviços de Saúde (Base Federal)'
+    )).toBe(true);
   });
 
   test('entrada presa a uma revisão só liga naquela revisão', () => {
@@ -213,7 +230,9 @@ describe('COND-10 · a flag', () => {
   });
 
   test('gateByPilot esvazia as regras de roteiro fora do piloto', () => {
-    const foraDoPiloto = { ...COM_PILOTO, id: 'tpl-ilpi-federal-v1' } as ChecklistTemplate;
+    // O nome precisa mudar junto com o id: desde que o gate casa por nome, um
+    // roteiro com o nome do piloto continua no piloto, e é isso que se quer.
+    const foraDoPiloto = { ...COM_PILOTO, id: 'tpl-ilpi-federal-v1', name: 'Roteiro de ILPI' } as ChecklistTemplate;
     const passado = gateByPilot(foraDoPiloto);
     expect(passado.rules).toEqual([]);
     expect(passado.routingQuestions).toEqual([]);
@@ -226,7 +245,7 @@ describe('COND-10 · a flag', () => {
   });
 
   test('roteiro sem regra atravessa o gate sem cópia', () => {
-    const semRegra = { ...templateEsteticaClinica } as ChecklistTemplate;
+    const semRegra = { ...templateEsteticaClinica, rules: undefined, routingQuestions: undefined } as ChecklistTemplate;
     expect(gateByPilot(semRegra)).toBe(semRegra);
   });
 });
@@ -264,7 +283,7 @@ describe('COND-10 · o rollback', () => {
 
   test('desligando o piloto, TODO requisito volta e nenhuma resposta se perdeu', () => {
     // Rollback é exatamente isto: o roteiro deixa de estar na lista do piloto.
-    const comoSeForaDoPiloto = { ...COM_PILOTO, id: 'tpl-fora-do-piloto' } as ChecklistTemplate;
+    const comoSeForaDoPiloto = { ...COM_PILOTO, id: 'tpl-fora-do-piloto', name: 'Roteiro qualquer' } as ChecklistTemplate;
     const { template, counts } = applicableResults(comoSeForaDoPiloto, INSPECAO, RESPOSTAS);
 
     expect(idsDe(template)).toEqual(TODOS_OS_ITENS);

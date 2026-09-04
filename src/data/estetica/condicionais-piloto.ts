@@ -21,7 +21,8 @@
 // `src/domain/applicability/pilot.ts`.
 // ============================================================
 
-import type { ApplicabilityRule, ConditionValue, RoutingQuestion } from '../../domain/applicability';
+import { combinarPorAlvo, itensQuando, secaoQuando } from '../../domain/applicability/compose';
+import type { ApplicabilityRule, RoutingQuestion } from '../../domain/applicability';
 
 export interface PilotBranch {
   /** Nome curto da árvore, para a nota da revisão e para o simulador. */
@@ -32,22 +33,6 @@ export interface PilotBranch {
   ressalva?: string;
   question: RoutingQuestion;
   rules: ApplicabilityRule[];
-}
-
-/** Açúcar para não repetir a mesma expressão quinze vezes. */
-function quando(questionId: string, value: ConditionValue) {
-  return {
-    combinator: 'all' as const,
-    conditions: [{ source: 'question' as const, field: questionId, operator: 'equals' as const, value }],
-  };
-}
-
-function itensQuando(prefixo: string, questionId: string, value: ConditionValue, itemIds: string[]): ApplicabilityRule[] {
-  return itemIds.map((id) => ({
-    id: `${prefixo}-${id}`,
-    target: { type: 'item' as const, id },
-    expression: quando(questionId, value),
-  }));
 }
 
 // ─── 1 · Processamento de artigos no próprio local ───────────────────────────
@@ -103,13 +88,7 @@ const ROUPAS_REUTILIZAVEIS: PilotBranch = {
       + 'exclusivamente descartáveis.',
     // Sem `sectionId`: a pergunta que decide a seção não pode morar dentro dela.
   },
-  rules: [
-    {
-      id: 'piloto-roupas-sec-est-10',
-      target: { type: 'section', id: 'sec-est-10' },
-      expression: quando('q-roupas-reutilizaveis', true),
-    },
-  ],
+  rules: [secaoQuando('piloto-roupas', 'q-roupas-reutilizaveis', true, 'sec-est-10')],
 };
 
 // ─── 3 · Abrangência da RDC 36/2013 ──────────────────────────────────────────
@@ -187,7 +166,7 @@ export const PILOT_ROUTING_QUESTIONS: RoutingQuestion[] =
   PILOT_BRANCHES.map((branch) => branch.question);
 
 export const PILOT_RULES: ApplicabilityRule[] =
-  PILOT_BRANCHES.flatMap((branch) => branch.rules);
+  combinarPorAlvo(PILOT_BRANCHES.flatMap((branch) => branch.rules));
 
 /** A nota que acompanha a revisão no banco — é o que a consultora lê antes de publicar. */
 export function pilotRevisionNotes(): string {

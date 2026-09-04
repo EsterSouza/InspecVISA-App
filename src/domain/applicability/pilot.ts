@@ -49,6 +49,18 @@ export interface PilotEntry {
    */
   templateIds: string[];
   /**
+   * Nomes autorizados, comparados sem acento, sem caixa e sem espaço sobrando.
+   *
+   * Existe porque id de catálogo e id de banco não são a mesma coisa, e porque
+   * um roteiro pode entrar no banco DEPOIS desta lista ser escrita — foi o caso
+   * do roteiro de Serviços de Saúde, que na véspera da primeira vistoria ainda
+   * só existia empacotado. O nome é o que o seletor de NewInspection já usa para
+   * decidir se o roteiro do catálogo aparece ou não, então é a chave que
+   * atravessa os dois mundos. Roteiro arquivado carrega o prefixo `[ARQUIVADO]`
+   * no nome e por isso nunca casa aqui, que é o comportamento desejado.
+   */
+  templateNames?: string[];
+  /**
    * Revisão publicada autorizada. Ausente = qualquer revisão publicada daquele
    * roteiro. Preencher quando quiser prender o piloto a uma revisão específica
    * e impedir que a próxima publicação entre em campo sozinha.
@@ -74,17 +86,46 @@ export const APPLICABILITY_PILOT: readonly PilotEntry[] = [
       'tpl-estetica-clinica-v1',                // catálogo empacotado (src/data)
       '0c55f120-81e9-45d7-8ef5-04437d22a9a3',   // "Roteiro de Inspeção — Clínica de Estética e Saúde" em produção
     ],
+    templateNames: ['Roteiro de Inspeção — Clínica de Estética e Saúde'],
     justificativa:
       'Roteiro com maior volume de visitas, três suplementos regionais em produção e quatro '
       + 'condicionais já escritas no texto dos itens. As árvores do piloto estão em '
       + 'src/data/estetica/condicionais-piloto.ts, uma justificativa sanitária por árvore.',
   },
+  {
+    // O id de produção sai em branco de propósito: o roteiro entrou no banco
+    // depois desta lista, e o nome já basta para o gate. Preencher o UUID aqui
+    // é opcional, e só ajuda quem for ler o histórico.
+    templateIds: ['tpl-saude-servicos-v1'],
+    templateNames: ['Roteiro de Inspeção — Serviços de Saúde (Base Federal)'],
+    justificativa:
+      'Roteiro de serviço de saúde propriamente dito, estreado na vistoria PRÉ-OPERACIONAL de '
+      + '04/09/2026 (consultório de ginecologia em obra, Itaipava/Petrópolis). É o caso que mais '
+      + 'precisa do motor: numa unidade que ainda não abriu, dezenas de requisitos são registro, '
+      + 'comprovante ou observação de prática assistencial que não existem — e hoje viram "não se '
+      + 'aplica" marcado à mão, um a um, sem rastro e sem sair do denominador. As árvores estão em '
+      + 'src/data/saude/condicionais-piloto-saude.ts.',
+  },
 ];
 
-/** A entrada do piloto para um roteiro, se ele estiver no piloto. */
-export function pilotEntryFor(templateId?: string | null): PilotEntry | undefined {
-  if (!templateId) return undefined;
-  return APPLICABILITY_PILOT.find((entry) => entry.templateIds.includes(templateId));
+/** Sem acento, sem caixa, sem espaço duplicado — a mesma régua dos dois lados. */
+function normalizarNome(valor?: string | null): string {
+  return (valor || '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+/** A entrada do piloto para um roteiro, se ele estiver no piloto — por id OU por nome. */
+export function pilotEntryFor(templateId?: string | null, templateName?: string | null): PilotEntry | undefined {
+  const nome = normalizarNome(templateName);
+  return APPLICABILITY_PILOT.find((entry) => {
+    if (templateId && entry.templateIds.includes(templateId)) return true;
+    if (!nome) return false;
+    return (entry.templateNames || []).some((autorizado) => normalizarNome(autorizado) === nome);
+  });
 }
 
 /**
@@ -106,8 +147,12 @@ export function entryAllowsRevision(entry: PilotEntry, revision?: number | null)
  * aquela inspeção** — é o que impede uma publicação nova de entrar em campo sem
  * passar pelo piloto de novo.
  */
-export function applicabilityEnabled(templateId?: string | null, revision?: number | null): boolean {
-  const entry = pilotEntryFor(templateId);
+export function applicabilityEnabled(
+  templateId?: string | null,
+  revision?: number | null,
+  templateName?: string | null
+): boolean {
+  const entry = pilotEntryFor(templateId, templateName);
   return entry ? entryAllowsRevision(entry, revision) : false;
 }
 
@@ -119,10 +164,10 @@ export function applicabilityEnabled(templateId?: string | null, revision?: numb
  * alcançar inspeção **já congelada**, sem tocar em nada gravado: a regra
  * continua no banco e no snapshot, apenas deixa de ser consultada.
  */
-export function gateByPilot<T extends ConditionalTemplate & { id?: string; applicabilityRevision?: number | null }>(
-  template: T
-): T {
-  if (applicabilityEnabled(template.id, template.applicabilityRevision)) return template;
+export function gateByPilot<
+  T extends ConditionalTemplate & { id?: string; name?: string; applicabilityRevision?: number | null }
+>(template: T): T {
+  if (applicabilityEnabled(template.id, template.applicabilityRevision, template.name)) return template;
   if (!template.rules?.length && !template.routingQuestions?.length) return template;
   return { ...template, rules: [], routingQuestions: [] };
 }
