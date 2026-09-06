@@ -17,6 +17,9 @@ import type { ChecklistSupplement } from '../../types';
 // quem decide a aplicação é o predicado do supplementRegistry, não este campo
 // (nenhum código o lê — conferido em 03/09/2026).
 //
+// A adição em "Compartilhamento de Espaço" só alcança o roteiro de estética,
+// que é onde a seção existe; no de saúde ela é ignorada sem erro.
+//
 // O item de licença usa `replacesItemId: 'est-001'`. No roteiro de saúde o id
 // 'est-001' não existe, mas `applySupplement` resolve o equivalente pelo TEXTO
 // normalizado do item — e `sau-001` foi escrito com a descrição idêntica à do
@@ -147,6 +150,42 @@ export const suplementoPetropolis: ChecklistSupplement = {
           weight: 2,
           isCritical: false,
           requirementType: 'good_practice',
+        },
+      ],
+    },
+    {
+      // A seção só existe no roteiro de estética. No de saúde `applySupplement`
+      // não acha o alvo e ignora esta adição em silêncio — que é o
+      // comportamento certo, e não um esquecimento.
+      targetSectionId: 'sec-est-13',
+      targetSectionTitle: 'Compartilhamento de Espaço',
+      items: [
+        {
+          id: 'petro-012',
+          sectionId: 'sec-est-13',
+          order: 2,
+          description: 'Cada pessoa jurídica que atende no mesmo local possui licença sanitária e taxa de inspeção próprias, já que o Município as considera estabelecimentos distintos?',
+          legislation: 'Lei Municipal nº 5.834/2001 - Petrópolis, art. 12, parágrafo único, I, e art. 13',
+          guidance:
+            'Petrópolis fechou esta porta, e no sentido oposto ao do município do Rio. O art. 12, '
+            + 'parágrafo único, I, da Lei nº 5.834/2001 diz que se consideram estabelecimentos DISTINTOS '
+            + '"os que embora no mesmo local, ainda que com atividade idêntica, pertençam a diferentes '
+            + 'pessoas físicas ou jurídicas". O art. 13 completa: contribuinte da taxa é toda e qualquer '
+            + 'pessoa física ou jurídica que exerça as atividades do anexo, e o § 5º manda emitir o '
+            + 'certificado de licença ao contribuinte que comprovar as condições legais. Somando os dois: '
+            + 'aqui não existe a outorga de uso que o Decreto Rio nº 57.501/2026 criou na capital, em que '
+            + 'o ocupante fica desobrigado e quem cede responde por ele. Em Petrópolis cada CNPJ que '
+            + 'atende no espaço se licencia e paga a sua taxa. A definição está no capítulo da taxa, e é '
+            + 'de lá que se tira a consequência prática — vale conferir na Resolução da pasta prevista no '
+            + '§ 6º, que detalha os procedimentos de licença, revalidação, mudança de endereço e de '
+            + 'responsável técnico.',
+          requiredAction:
+            '- Levantar todas as pessoas jurídicas que atendem no local, inclusive as que ocupam sala por poucas horas na semana.\n'
+            + '- Requerer licença sanitária própria para cada uma na Vigilância Sanitária de Petrópolis.\n'
+            + '- Recolher a taxa de inspeção sanitária de cada estabelecimento, e refazer o recolhimento a cada mudança de ramo de atividade ou de endereço.',
+          weight: 10,
+          isCritical: true,
+          replacesItemId: 'est-117',
         },
       ],
     },

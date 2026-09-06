@@ -360,6 +360,35 @@ describe('checklist integrity — todos os roteiros de src/data', () => {
       expect(itensNiteroi.find(item => item.id === 'cw-rio-001')).toBeUndefined();
     });
 
+    test('Petrópolis responde a mesma pergunta no sentido oposto ao do Rio', () => {
+      // Lei Municipal 5.834/2001, art. 12, parágrafo único, I: no mesmo local,
+      // pessoas jurídicas diferentes são estabelecimentos DISTINTOS. Não há
+      // outorga de uso como na capital — cada CNPJ se licencia e paga a sua
+      // taxa. Os dois municípios substituem o mesmo item neutro, cada um com a
+      // sua resposta, e nunca ao mesmo tempo.
+      const petropolis = { id: 'test-est-petro', name: 'Consultório Petrópolis', category: 'estetica', state: 'RJ', city: 'Petrópolis' } as Client;
+      const items = allItems(getEffectiveTemplate(clinica, petropolis, undefined, true));
+
+      expect(items.find(item => item.id === 'est-117')).toBeUndefined();
+      expect(items.find(item => item.id === 'petro-012')).toBeTruthy();
+      expect(items.find(item => item.id === 'cw-rio-001')).toBeUndefined();
+      expect(items.filter(item => item.id === 'petro-012')).toHaveLength(1);
+      assertNoNearDuplicates(getEffectiveTemplate(clinica, petropolis, undefined, true));
+
+      // O roteiro de saúde não tem a seção; a adição é ignorada sem erro e sem
+      // deixar o item solto em outra seção.
+      const saude = getTemplateById('tpl-saude-servicos-v1') as ChecklistTemplate;
+      expect(allItems(getEffectiveTemplate(saude, petropolis, undefined, true)).find(item => item.id === 'petro-012')).toBeUndefined();
+
+      // O caminho real: a inspeção congela o roteiro que veio do banco, cujos
+      // ids são UUID. `replacesItemId: 'est-117'` só funciona ali porque a
+      // substituição casa pelo TEXTO do item, e é este o caso da consultoria em
+      // Petrópolis — não o do roteiro empacotado.
+      const doBanco = allItems(getEffectiveTemplate(comIdsDoBanco(clinica), petropolis, undefined, true));
+      expect(doBanco.find(item => item.id === 'petro-012')).toBeTruthy();
+      expect(doBanco.filter(item => /licença sanitária própria, ou está expressamente incluída/.test(item.description))).toHaveLength(0);
+    });
+
     test('todo item do suplemento de Parauapebas resolve URL de legislação', () => {
       const effective = getEffectiveTemplate(clinica, parauapebasClient, undefined, true);
 
