@@ -263,7 +263,7 @@ describe('COND-10 saúde · o que NÃO entrou nas árvores, e é deliberado', ()
 describe('COND-10 saúde · pendência e flag', () => {
   test('enquanto ninguém responde, o requisito fica PENDENTE — nunca escondido', () => {
     const pendentes = pendentesCom({});
-    expect(pendentes.length).toBe(55);
+    expect(pendentes.length).toBe(56);
     expect(foraCom({})).toEqual([]);
   });
 
@@ -286,7 +286,7 @@ describe('COND-10 saúde · pendência e flag', () => {
 
   test('dentro do piloto a árvore atravessa intacta', () => {
     const dentro = gateByPilot({ ...ARVORE, id: 'x', name: PILOT_SAUDE_TEMPLATE_NAME });
-    expect(dentro.rules).toHaveLength(52);
+    expect(dentro.rules).toHaveLength(53);
   });
 });
 

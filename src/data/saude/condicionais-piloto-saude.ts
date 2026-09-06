@@ -263,6 +263,33 @@ const CONTROLE_ESPECIAL: PilotBranchSaude = {
   rules: itensQuando('saude-c344', 'q-controle-especial', true, ['sau-087', 'sau-088', 'sau-089']),
 };
 
+// ─── 7 · Consultório de ginecologia, proctologia ou urologia ─────────────────
+
+const SANITARIO_ANEXO: PilotBranchSaude = {
+  nome: 'Consultório de ginecologia, proctologia ou urologia',
+  justificativa:
+    'A nota da tabela da Unidade Funcional 1 da RDC 50/2002 exige sanitário para pacientes ANEXO '
+    + 'ao consultório quando houver consultório de ginecologia, proctologia ou urologia. O sau-035 '
+    + 'já traz o "quando realiza" no próprio texto, e é a consultora que hoje decide de cabeça e '
+    + 'marca "não se aplica" — sem deixar rastro e sem sair do denominador. A árvore transforma '
+    + 'essa decisão numa pergunta respondida em campo.',
+  ressalva:
+    'O sanitário para o público (sau-036) e o acessível (sau-042) ficam FORA da árvore: o anexo é '
+    + 'adicional a eles. Responder "não" aqui não retira nenhum dos dois.',
+  question: {
+    id: 'q-consultorio-gineco-procto-uro',
+    text: 'A unidade tem consultório de ginecologia, proctologia ou urologia?',
+    type: 'boolean',
+    askAt: 'execution',
+    required: true,
+    sectionId: 'sec-sau-03',
+    helpText:
+      'O gatilho é o TIPO de consultório, e não o procedimento: responda "sim" mesmo que o exame '
+      + 'seja realizado em outra sala.',
+  },
+  rules: itensQuando('saude-sanitario-anexo', 'q-consultorio-gineco-procto-uro', true, ['sau-035']),
+};
+
 export const PILOT_BRANCHES_SAUDE: readonly PilotBranchSaude[] = [
   EM_FUNCIONAMENTO,
   PROCESSA_ARTIGOS,
@@ -270,6 +297,7 @@ export const PILOT_BRANCHES_SAUDE: readonly PilotBranchSaude[] = [
   ABRANGENCIA_RDC36,
   POSSUI_EMPREGADOS,
   CONTROLE_ESPECIAL,
+  SANITARIO_ANEXO,
 ];
 
 /** Id do roteiro no CATÁLOGO empacotado. Em produção o id é UUID — o piloto casa por NOME. */

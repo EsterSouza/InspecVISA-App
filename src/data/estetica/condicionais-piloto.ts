@@ -145,11 +145,41 @@ const PROCEDIMENTO_CIRURGICO: PilotBranch = {
   rules: itensQuando('piloto-cirurgico', 'q-procedimento-cirurgico', true, ['est-060']),
 };
 
+// ─── 5 · Consultório de ginecologia, proctologia ou urologia ─────────────────
+
+const SANITARIO_ANEXO: PilotBranch = {
+  nome: 'Consultório de ginecologia, proctologia ou urologia',
+  justificativa:
+    'A nota da tabela da Unidade Funcional 1 da RDC 50/2002 exige sanitário para pacientes ANEXO '
+    + 'ao consultório quando houver consultório de ginecologia, proctologia ou urologia — e só '
+    + 'nesses casos. É requisito de SALA, e não de ato: vale mesmo que o exame seja feito em outro '
+    + 'ambiente, e não vale para a clínica de estética que não tem nenhuma dessas especialidades. '
+    + 'Sem a árvore, o est-115 aparece para todo mundo e é marcado "não se aplica" à mão na '
+    + 'maioria das inspeções — exatamente o trabalho manual que o motor assume.',
+  ressalva:
+    'O sanitário para o público e o sanitário acessível continuam avaliados no est-027, fora da '
+    + 'árvore: o anexo é ADICIONAL a eles e nunca os substitui. Responder "não" aqui não dispensa '
+    + 'nenhum dos dois.',
+  question: {
+    id: 'q-consultorio-gineco-procto-uro',
+    text: 'A unidade tem consultório de ginecologia, proctologia ou urologia?',
+    type: 'boolean',
+    askAt: 'execution',
+    required: true,
+    sectionId: 'sec-est-03',
+    helpText:
+      'O gatilho é o TIPO de consultório, e não o procedimento: responda "sim" mesmo que o exame '
+      + 'seja realizado em outra sala.',
+  },
+  rules: itensQuando('piloto-sanitario-anexo', 'q-consultorio-gineco-procto-uro', true, ['est-115']),
+};
+
 export const PILOT_BRANCHES: readonly PilotBranch[] = [
   PROCESSA_ARTIGOS,
   ROUPAS_REUTILIZAVEIS,
   ABRANGENCIA_RDC36,
   PROCEDIMENTO_CIRURGICO,
+  SANITARIO_ANEXO,
 ];
 
 /** Id do roteiro no CATÁLOGO empacotado. Em produção o id é UUID — ver pilot.ts. */

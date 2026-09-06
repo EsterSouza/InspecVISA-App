@@ -819,6 +819,24 @@ export const ChecklistItem = memo(function ChecklistItem({
               </Label>
               <VoiceDictationButton onTranscript={(text) => setLocalAction((prev) => (prev ? `${prev} ${text}` : text))} />
             </div>
+            {isNotCompliant && item.requiredAction && (
+              <button
+                type="button"
+                onClick={() => {
+                  // Acrescenta em vez de substituir: ela pode ter escrito algo antes,
+                  // e um botão que apaga texto dela não seria clicado uma segunda vez.
+                  const atual = actionValue.trim();
+                  const novo = atual ? `${atual}\n${item.requiredAction}` : item.requiredAction!;
+                  setLocalAction(novo);
+                  onUpdateDetails(item.id, { correctiveAction: novo });
+                }}
+                title={item.requiredAction}
+                className="flex w-full items-baseline gap-2 rounded-md border border-primary-300 bg-primary-50 px-2.5 py-2 text-left hover:bg-primary-100 [@media(pointer:coarse)]:min-h-11"
+              >
+                <span className="shrink-0 text-xs font-semibold text-primary-800">Pela norma</span>
+                <span className="truncate text-xs text-navy-2">{item.requiredAction.replace(/\s*\n\s*/g, ' ')}</span>
+              </button>
+            )}
             {isNotCompliant && (
               <div className="flex gap-1.5 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] lg:flex-wrap lg:overflow-visible [&::-webkit-scrollbar]:hidden">
                 {VERBOS_DE_ATALHO.map((verb) => (

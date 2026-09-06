@@ -84,7 +84,7 @@ describe('COND-10 · as árvores do piloto contra o roteiro real', () => {
   });
 
   test('cada árvore tem justificativa sanitária escrita', () => {
-    expect(PILOT_BRANCHES).toHaveLength(4);
+    expect(PILOT_BRANCHES).toHaveLength(5);
     for (const branch of PILOT_BRANCHES) {
       expect(branch.nome.length).toBeGreaterThan(8);
       expect(branch.justificativa.length).toBeGreaterThan(200);
@@ -167,7 +167,7 @@ describe('COND-10 · o que cada árvore tira, e o que ela deixa', () => {
       s.items.filter((i) => i.decision.state === 'nao_aplicavel_por_regra')
     );
     expect(escondidos).toEqual([]);
-    expect(resultado.itemCounts.pendente_de_condicao).toBe(18);
+    expect(resultado.itemCounts.pendente_de_condicao).toBe(19);
   });
 });
 

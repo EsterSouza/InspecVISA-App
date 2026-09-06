@@ -14,6 +14,7 @@ export interface RawImportItem {
   isCritical?: boolean;
   requirementType?: 'legal' | 'good_practice';
   guidance?: string;
+  requiredAction?: string;
 }
 
 /**
@@ -45,6 +46,8 @@ interface ItemRow {
   requirement_type: 'legal' | 'good_practice' | null;
   /** Orientação de campo — números, endereço na norma, CNAEs. Nunca é a pergunta. */
   guidance: string | null;
+  /** Ação corretiva pela norma, em tópicos. Preenche o plano de ação com um clique. */
+  required_action: string | null;
   /** Decisão 21 (FE-17b): item aposentado sai das próximas inspeções, não das em andamento. */
   retired_at: string | null;
   order: number;
@@ -71,6 +74,8 @@ interface ItemInput {
   requirementType?: string;
   requirement_type?: string;
   guidance?: string | null;
+  requiredAction?: string | null;
+  required_action?: string | null;
   retiredAt?: string | null;
   retired_at?: string | null;
   order?: number;
@@ -96,6 +101,7 @@ type ItemInsert = {
   is_critical: boolean;
   requirement_type: string;
   guidance: string | null;
+  required_action: string | null;
   retired_at?: string | null;
   order: number;
 };
@@ -221,6 +227,7 @@ export const TemplateService = {
                isCritical: i.is_critical,
                requirementType: i.requirement_type,
                guidance: i.guidance ?? undefined,
+               requiredAction: i.required_action ?? undefined,
                retiredAt: i.retired_at,
                order: i.order
             }))
@@ -303,6 +310,7 @@ export const TemplateService = {
             isCritical: i.is_critical,
             requirementType: i.requirement_type,
             guidance: i.guidance ?? undefined,
+            requiredAction: i.required_action ?? undefined,
             retiredAt: i.retired_at,
             order: i.order
           }))
@@ -362,6 +370,7 @@ export const TemplateService = {
           is_critical: item.isCritical || false,
           requirement_type: item.requirementType || 'legal',
           guidance: item.guidance || null,
+          required_action: item.requiredAction || null,
           order: itemsToInsert.filter(it => it.section_id === section.id).length + 1
         });
       }
@@ -484,6 +493,7 @@ export const TemplateService = {
             is_critical: item.isCritical || item.is_critical || false,
             requirement_type: item.requirementType || item.requirement_type || 'legal',
             guidance: item.guidance ?? null,
+            required_action: item.requiredAction ?? item.required_action ?? null,
             retired_at: item.retiredAt ?? item.retired_at ?? null,
             order: item.order ?? (iIdx + 1)
           });

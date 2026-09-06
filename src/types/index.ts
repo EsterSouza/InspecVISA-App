@@ -159,6 +159,15 @@ export interface ChecklistItem {
   // `isCritical`.
   guidance?: string;
 
+  // A ação corretiva que a NORMA exige, já escrita — em tópicos, para virar
+  // tarefa no portal do cliente (`parseCheckpoints`). Existe porque em vistoria
+  // pré-obra praticamente todo item sai não conforme pelo mesmo motivo: a obra
+  // ainda não foi feita. O texto é a própria `description` no imperativo, com os
+  // números que `guidance` já conferiu — não é a situação encontrada, que é
+  // sempre do local. Na tela ela CLICA para trazer, e edita: preencher sozinho
+  // faria o item parecer respondido sem ninguém ter olhado.
+  requiredAction?: string;
+
   weight: number;
   isCritical: boolean;
   isRJOnly?: boolean;

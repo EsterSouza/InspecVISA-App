@@ -54,7 +54,7 @@ function assertNoNearDuplicates(template: ChecklistTemplate, threshold = 0.75) {
 }
 
 const EXPECTED_ITEM_COUNTS: Record<string, number> = {
-  'tpl-estetica-clinica-v1': 114,
+  'tpl-estetica-clinica-v1': 115,
   'tpl-estetica-embelezamento-v1': 28,
   // REF-05 (06/08/2026): 97 → 106. Dez itens existiam só no banco e foram trazidos para o
   // código; os cuidadores voltaram a ser quatro itens, um por grau de dependência mais a
@@ -246,7 +246,7 @@ describe('checklist integrity — todos os roteiros de src/data', () => {
       expect(capitalItems.find(item => item.id === 'sp-est-004')).toBeTruthy();
       expect(capitalItems.find(item => item.id === 'sp-est-005')).toBeTruthy();
       expect(effectiveCapital.sections.find(section => section.id === 'sec-int-13')?.items).toHaveLength(5);
-      expect(capitalItems).toHaveLength(126);
+      expect(capitalItems).toHaveLength(127);
       capitalItems.forEach(item => {
         expect(item.description.endsWith('?'), `item ${item.id} não está em forma de pergunta`).toBe(true);
       });
@@ -264,7 +264,7 @@ describe('checklist integrity — todos os roteiros de src/data', () => {
       // O item federal substituído não sobrevive só porque mudou de id: `replacesItemId`
       // aponta para 'est-001' e no banco o mesmo requisito é UUID. Enquanto isso casava
       // só por id, os dois ficavam lado a lado — 130 itens em vez de 122.
-      expect(items).toHaveLength(126);
+      expect(items).toHaveLength(127);
       assertNoNearDuplicates(effective);
     });
 
@@ -303,8 +303,8 @@ describe('checklist integrity — todos os roteiros de src/data', () => {
         expect(items.filter(item => item.id === id), `${id} deveria entrar uma única vez`).toHaveLength(1);
       });
 
-      // 114 do roteiro-base − 7 substituídos + 12 do suplemento.
-      expect(items).toHaveLength(119);
+      // 115 do roteiro-base − 7 substituídos + 12 do suplemento.
+      expect(items).toHaveLength(120);
 
       // O art. 28 do Código Sanitário municipal não virou item: o caput fala em
       // radiação não ionizante, mas os incisos (CNEN, envoltório radioprotetor)
@@ -323,7 +323,7 @@ describe('checklist integrity — todos os roteiros de src/data', () => {
     test('aplica o suplemento de Parauapebas ao roteiro seedado com UUID do Supabase', () => {
       const effective = getEffectiveTemplate(comIdsDoBanco(clinica), parauapebasClient, undefined, true);
 
-      expect(allItems(effective)).toHaveLength(119);
+      expect(allItems(effective)).toHaveLength(120);
       expect(allItems(effective).find(item => item.id === 'pbs-est-001')).toBeTruthy();
       assertNoNearDuplicates(effective);
     });

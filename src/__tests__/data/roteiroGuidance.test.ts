@@ -172,6 +172,7 @@ describe('guidance · roteiro de estética', () => {
     'est-032': { weight: 2, isCritical: false },
     'est-036': { weight: 10, isCritical: true },
     'est-038': { weight: 10, isCritical: true },
+    'est-115': { weight: 5, isCritical: false },
   };
 
   test('os itens orientados são exatamente os previstos, e nenhum mudou de peso', () => {
@@ -228,5 +229,63 @@ describe('guidance · roteiro de estética', () => {
     const congelado = JSON.parse(JSON.stringify(templateEsteticaClinica)) as typeof templateEsteticaClinica;
     const depois = congelado.sections.flatMap(s => s.items).find(i => i.id === 'est-023');
     expect(depois?.guidance).toBe(itemEst('est-023').guidance);
+  });
+});
+
+// ============================================================
+// `requiredAction` — a ação corretiva que a norma exige, já escrita.
+//
+// Nasceu da vistoria pré-obra: quando a obra ainda não foi feita, praticamente
+// todo item sai não conforme pelo mesmo motivo, e reescrever à mão o que a norma
+// pede, 115 vezes, é o trabalho que o campo elimina. Na tela ela clica em
+// "Pela norma" e edita — não é preenchimento automático.
+// ============================================================
+
+describe('requiredAction · a ação pela norma', () => {
+  test('todo item do roteiro de estética tem ação escrita', () => {
+    const sem = ITENS_EST.filter(i => !i.requiredAction).map(i => i.id);
+    expect(sem, `sem ação pela norma: ${sem.join(', ')}`).toEqual([]);
+  });
+
+  test('a ação vem em tópicos — é o que vira tarefa no portal do cliente', () => {
+    // `parseCheckpoints` só cria tarefa a partir de marcador. Ação escrita em
+    // parágrafo corrido chega ao cliente como um bloco único de "fiz / não fiz".
+    for (const i of ITENS_EST) {
+      if (!i.requiredAction) continue;
+      expect(i.requiredAction.startsWith('- '), i.id).toBe(true);
+    }
+  });
+
+  test('a ação nunca é a pergunta nem a orientação', () => {
+    for (const i of [...ITENS_EST, ...ITENS]) {
+      if (!i.requiredAction) continue;
+      expect(i.requiredAction.trim(), i.id).not.toBe('');
+      expect(i.requiredAction.trim(), i.id).not.toBe(i.description.trim());
+      if (i.guidance) expect(i.requiredAction.trim(), i.id).not.toBe(i.guidance.trim());
+    }
+  });
+
+  test('est-023 manda conferir a absorção, e não "usar material adequado"', () => {
+    const a = itemEst('est-023').requiredAction!;
+    expect(a).toMatch(/não superior a 4%/);
+    expect(a).toMatch(/ficha técnica/);
+    expect(a).toMatch(/rejunte/);
+  });
+
+  test('est-115 existe e cobra o sanitário anexo sem dispensar os outros dois', () => {
+    // A consultora apontou a falta: o gatilho é o TIPO de consultório, e o anexo
+    // é adicional ao sanitário do público, nunca substituto dele.
+    const item = itemEst('est-115');
+    expect(item.description).toMatch(/ginecológico, urológico ou proctológico/);
+    expect(item.guidance).toMatch(/adicional ao sanitário para público, não o substitui/);
+    expect(item.requiredAction).toMatch(/não o substitui/);
+    expect({ weight: item.weight, isCritical: item.isCritical }).toEqual({ weight: 5, isCritical: false });
+  });
+
+  test('a ação não entra no score — peso e criticidade seguem os mesmos', () => {
+    // Mesma trava do `guidance`: o MARP lê só `weight` e `isCritical`.
+    const criticos = ITENS_EST.filter(i => i.isCritical).length;
+    const peso = ITENS_EST.reduce((soma, i) => soma + i.weight, 0);
+    expect({ criticos, peso }).toEqual({ criticos: 69, peso: 797 });
   });
 });

@@ -37,6 +37,7 @@ interface EditingItem {
   isCritical: boolean;
   requirementType: 'legal' | 'good_practice';
   guidance: string;
+  requiredAction: string;
   retiredAt: string | null;
   order: number;
   /** Undefined = item novo. Serve só para saber se a pergunta mudou desde o carregamento. */
@@ -136,6 +137,7 @@ export function TemplateEditor() {
           isCritical: it.isCritical || false,
           requirementType: it.requirementType || 'legal',
           guidance: it.guidance || '',
+          requiredAction: it.requiredAction || '',
           retiredAt: it.retiredAt || null,
           order: it.order,
         })),
@@ -238,6 +240,7 @@ export function TemplateEditor() {
               isCritical: it.isCritical,
               requirementType: it.requirementType,
               guidance: it.guidance.trim() || undefined,
+              requiredAction: it.requiredAction.trim() || undefined,
             });
           });
         });
@@ -396,6 +399,7 @@ export function TemplateEditor() {
       isCritical: false,
       requirementType: 'legal',
       guidance: '',
+      requiredAction: '',
       retiredAt: null,
       order: 0,
     };
@@ -972,6 +976,24 @@ export function TemplateEditor() {
                     endereço exato na norma, enquadramentos aplicáveis. Aparece recolhida na
                     execução e vira <b>Critério da norma</b> no relatório. Mudar aqui não altera a
                     pergunta nem o sentido de resposta já gravada.
+                  </p>
+                </div>
+
+                <div>
+                  <Label htmlFor="campo-acao-norma">Ação pela norma</Label>
+                  <Textarea
+                    id="campo-acao-norma"
+                    className="mt-1.5"
+                    rows={4}
+                    value={selectedItem.requiredAction}
+                    onChange={(e) => updateItem(selectedSection.id, selectedItem.id, 'requiredAction', e.target.value)}
+                    placeholder={'- Providenciar lavatório exclusivo para higiene das mãos na sala de procedimentos.'}
+                  />
+                  <p className="mt-1.5 text-xs text-navy-3">
+                    O que a norma exige, no imperativo. Na inspeção vira o botão
+                    <b> Pela norma</b>, que preenche <b>O que precisa ser feito</b> com um clique —
+                    a consultora edita depois. Escreva <b>um traço por tarefa</b>: cada tópico vira
+                    uma tarefa separada para o cliente no portal.
                   </p>
                 </div>
 
