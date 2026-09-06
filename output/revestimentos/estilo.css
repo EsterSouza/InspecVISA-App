@@ -86,9 +86,8 @@ figcaption{font-size:13px;color:var(--tinta-2);margin-top:8px}
 .photo img{max-height:230px;object-fit:cover;width:100%}
 .hero+figure:not(.photo){display:none}
 
-.planta-figura{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:22px}
-.planta-figura img{min-width:520px;border-radius:var(--raio);border:1px solid var(--linha)}
-@media (min-width:720px){.planta-figura img{min-width:0;width:100%}}
+.planta-figura{margin-bottom:22px}
+.planta-figura img{width:100%;display:block;border-radius:var(--raio);border:1px solid var(--linha)}
 
 /* Ambientes */
 .area-grid{display:grid;gap:12px;margin:20px 0 26px}

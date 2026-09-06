@@ -121,6 +121,54 @@ PLANTA='''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 460" role="im
 </g>
 </g></svg>'''
 (ROOT/'assets'/'ambientes.svg').write_text(PLANTA,encoding='utf-8')
+# A mesma planta, empilhada. No celular a versao larga so cabia com rolagem
+# lateral, e a coluna de area critica ficava fora da tela: quem abria pelo
+# telefone via duas das tres classes e nao sabia que faltava uma.
+PLANTA_CEL='''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 686" role="img" aria-labelledby="pvtitulo pvdesc" class="planta">
+<title id="pvtitulo">Planta esquemática de um serviço de saúde com as três classes de ambiente</title>
+<desc id="pvdesc">Recepção e sala administrativa como área não crítica; consultório e sala de exame como área semicrítica; sala de procedimentos e expurgo como área crítica. A classificação vem do que se faz na sala, não do tamanho dela.</desc>
+<g font-family="Segoe UI, sans-serif">
+<rect width="380" height="686" rx="12" fill="#f5f2ec"/>
+<g fill="#243d43" font-size="15" font-weight="600">
+<text x="18" y="26">O que a sala faz decide a classe,</text>
+<text x="18" y="48">não o tamanho nem o nome na porta</text>
+</g>
+<g stroke="#243d43" stroke-width="2">
+<rect x="18" y="66" width="344" height="166" fill="#e8eef0"/>
+<rect x="18" y="244" width="344" height="152" fill="#ece6d7"/>
+<rect x="18" y="408" width="344" height="232" fill="#f0e1d9"/>
+</g>
+<g font-size="13" font-weight="700" letter-spacing="0.06em">
+<text x="34" y="92" fill="#3f6070">NÃO CRÍTICA</text>
+<text x="34" y="270" fill="#7a6533">SEMICRÍTICA</text>
+<text x="34" y="434" fill="#8f4f30">CRÍTICA</text>
+</g>
+<g fill="#243d43" font-size="17" font-weight="600">
+<text x="34" y="120">Recepção e espera</text>
+<text x="34" y="190">Sala administrativa</text>
+<text x="34" y="298">Consultório e sala de exame</text>
+<text x="34" y="462">Sala de procedimentos</text>
+<text x="34" y="560">Expurgo e processamento</text>
+</g>
+<g fill="#4a6068" font-size="15">
+<text x="34" y="144">Sem procedimento e sem</text>
+<text x="34" y="164">paciente em atendimento</text>
+<text x="34" y="214">Uso exclusivo da equipe</text>
+<text x="34" y="322">Paciente presente, exame</text>
+<text x="34" y="342">sem invadir pele ou mucosa</text>
+<text x="34" y="366">A sala muda de classe se o</text>
+<text x="34" y="386">procedimento mudar</text>
+<text x="34" y="486">Procedimento de risco, com</text>
+<text x="34" y="506">ou sem paciente na sala</text>
+<text x="34" y="528">Piso, parede e teto laváveis</text>
+<text x="34" y="584">Artigo contaminado</text>
+<text x="34" y="604">circula aqui</text>
+<text x="34" y="626">Encontros fechados</text>
+</g>
+<text x="18" y="668" font-size="13" fill="#4a6068">Esquema sem escala.</text>
+</g></svg>'''
+(ROOT/'assets'/'ambientes-celular.svg').write_text(PLANTA_CEL,encoding='utf-8')
+
 
 # A prancha em PNG tem 2,7 MB e o PDF a embutia duas vezes: 6,7 MB dos 8,5 MB do
 # arquivo, pesado demais para mandar por WhatsApp. Duas cópias em JPEG resolvem: a
@@ -149,7 +197,10 @@ pagina.barra()
 parts.append('<figure class="photo"><img src="assets/materiais.jpg" alt="Amostras ilustrativas de porcelanato, epóxi, vinílico, pintura, granito, quartzo, inox e estofado"><figcaption>Biblioteca visual: porcelanato · epóxi · vinílico · pintura / granito · quartzo · inox · estofado. Imagem gerada por IA, ilustrativa; não representa produtos certificados nem detalhes de execução aprovados.</figcaption></figure>')
 parts.append('<section id="areas"><h2>Primeiro, entenda o seu ambiente</h2>'
  +'<p>A RDC 50 não classifica material: classifica ambiente. O que a sala faz decide o que ela exige do piso, da parede e do teto. Comece aqui.</p>'
- +'<figure class="planta-figura"><img src="assets/ambientes.svg" alt="Planta esquemática: recepção e sala administrativa como área não crítica, consultório e sala de exame como semicrítica, sala de procedimentos e expurgo como crítica"><figcaption>Esquema sem escala. A mesma sala muda de classe quando muda o procedimento realizado nela.</figcaption></figure>'
+ +'<figure class="planta-figura"><picture>'
+ +'<source media="(min-width:720px)" srcset="assets/ambientes.svg">'
+ +'<img src="assets/ambientes-celular.svg" alt="Planta esquemática: recepção e sala administrativa como área não crítica, consultório e sala de exame como semicrítica, sala de procedimentos e expurgo como crítica">'
+ +'</picture><figcaption>Esquema sem escala. A mesma sala muda de classe quando muda o procedimento realizado nela.</figcaption></figure>'
  +'<div class="area-grid">'+''.join(f'<div class="area"><span>0{i+1}</span><h3>{E(t)}</h3><p>{E(d)}</p><p class="example">{E(ex)}</p></div>' for i,(t,d,ex) in enumerate(AREAS))+'</div>'+''.join(f'<h3>{E(t)}</h3><p>{E(d)}</p>' for t,d in CONTEXT)+'<p class="ref">'+refhtml('R50','Parte III, 6.2 A.2')+' · '+refhtml('ESTETICA','Introdução e seção 2.7')+'</p></section>')
 parts.append('<section id="glossario"><h2>Palavras que você vai encontrar</h2><div class="glossary">'+''.join(f'<details><summary>{E(t)}</summary><p>{E(d)}</p></details>' for t,d in GLOSSARY)+'</div></section>')
 parts.append('<section id="custos"><h2>Quanto pode custar?</h2><p>'+E(COST_NOTE)+'</p>')
@@ -287,7 +338,7 @@ if PUB.exists():shutil.rmtree(PUB)
 (PUB/'assets').mkdir(parents=True)
 for nome in ['index.html','estilo.css','consulta.js','ficha.js']:shutil.copy2(ROOT/nome,PUB/nome)
 for pasta in sorted(FICHA_DIR.iterdir()):shutil.copytree(pasta,PUB/pasta.name)
-for nome in ['materiais.jpg','encontros.svg','ambientes.svg','treinavisa.png']:shutil.copy2(ROOT/'assets'/nome,PUB/'assets'/nome)
+for nome in ['materiais.jpg','encontros.svg','ambientes.svg','ambientes-celular.svg','treinavisa.png']:shutil.copy2(ROOT/'assets'/nome,PUB/'assets'/nome)
 
 # A página servida em /biblioteca é uma cópia desta pasta dentro de public/. Sem
 # esta linha o site no ar fica numa edição velha em silêncio, e ninguém percebe.

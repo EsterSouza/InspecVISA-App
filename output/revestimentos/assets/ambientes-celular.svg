@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 686" role="img" aria-labelledby="pvtitulo pvdesc" class="planta">
+<title id="pvtitulo">Planta esquemática de um serviço de saúde com as três classes de ambiente</title>
+<desc id="pvdesc">Recepção e sala administrativa como área não crítica; consultório e sala de exame como área semicrítica; sala de procedimentos e expurgo como área crítica. A classificação vem do que se faz na sala, não do tamanho dela.</desc>
+<g font-family="Segoe UI, sans-serif">
+<rect width="380" height="686" rx="12" fill="#f5f2ec"/>
+<g fill="#243d43" font-size="15" font-weight="600">
+<text x="18" y="26">O que a sala faz decide a classe,</text>
+<text x="18" y="48">não o tamanho nem o nome na porta</text>
+</g>
+<g stroke="#243d43" stroke-width="2">
+<rect x="18" y="66" width="344" height="166" fill="#e8eef0"/>
+<rect x="18" y="244" width="344" height="152" fill="#ece6d7"/>
+<rect x="18" y="408" width="344" height="232" fill="#f0e1d9"/>
+</g>
+<g font-size="13" font-weight="700" letter-spacing="0.06em">
+<text x="34" y="92" fill="#3f6070">NÃO CRÍTICA</text>
+<text x="34" y="270" fill="#7a6533">SEMICRÍTICA</text>
+<text x="34" y="434" fill="#8f4f30">CRÍTICA</text>
+</g>
+<g fill="#243d43" font-size="17" font-weight="600">
+<text x="34" y="120">Recepção e espera</text>
+<text x="34" y="190">Sala administrativa</text>
+<text x="34" y="298">Consultório e sala de exame</text>
+<text x="34" y="462">Sala de procedimentos</text>
+<text x="34" y="560">Expurgo e processamento</text>
+</g>
+<g fill="#4a6068" font-size="15">
+<text x="34" y="144">Sem procedimento e sem</text>
+<text x="34" y="164">paciente em atendimento</text>
+<text x="34" y="214">Uso exclusivo da equipe</text>
+<text x="34" y="322">Paciente presente, exame</text>
+<text x="34" y="342">sem invadir pele ou mucosa</text>
+<text x="34" y="366">A sala muda de classe se o</text>
+<text x="34" y="386">procedimento mudar</text>
+<text x="34" y="486">Procedimento de risco, com</text>
+<text x="34" y="506">ou sem paciente na sala</text>
+<text x="34" y="528">Piso, parede e teto laváveis</text>
+<text x="34" y="584">Artigo contaminado</text>
+<text x="34" y="604">circula aqui</text>
+<text x="34" y="626">Encontros fechados</text>
+</g>
+<text x="18" y="668" font-size="13" fill="#4a6068">Esquema sem escala.</text>
+</g></svg>

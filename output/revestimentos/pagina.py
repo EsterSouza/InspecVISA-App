@@ -60,7 +60,7 @@ def cabeca(titulo,descricao,url,pre='',ld=None,extra=''):
   partes.append('<script type="application/ld+json">'+json.dumps(bloco,ensure_ascii=False)+'</script>')
  partes.append(medicao())
  partes.append(extra)
- partes.append(f'<link rel="stylesheet" href="{pre}estilo.css?v=12"></head><body>')
+ partes.append(f'<link rel="stylesheet" href="{pre}estilo.css?v=13"></head><body>')
  return ''.join(partes)
 
 ATALHOS=[('#areas','Ambientes'),('#glossario','Termos'),('#custos','Custos'),
