@@ -205,19 +205,13 @@ parts.append('<section id="areas"><h2>Primeiro, entenda o seu ambiente</h2>'
 parts.append('<section id="glossario"><h2>Palavras que você vai encontrar</h2><div class="glossary">'+''.join(f'<details><summary>{E(t)}</summary><p>{E(d)}</p></details>' for t,d in GLOSSARY)+'</div></section>')
 parts.append('<section id="custos"><h2>Quanto pode custar?</h2><p>'+E(COST_NOTE)+'</p>')
 parts.append('<div class="tools estado"><label>Escolha o seu estado<select id="uf">'+''.join(f'<option value="{u}"{" selected" if u==UF_PADRAO else ""}>{E(n)}</option>' for u,n in UFS)+'</select></label></div>')
-parts.append('<p class="ref">'+E(COST_SCALE)+' Fonte de todos os valores: <a href="'+COST_URL+'" target="_blank" rel="noopener">tabela SINAPI da Caixa</a>, referência de '+mesano(REFERENCIA)+', emitida em '+mesano(EMISSAO)+', sem desoneração e sem BDI.</p>')
-for group in dict.fromkeys(x['group'] for x in COSTS):
- linha=[(i,v) for i,v in enumerate(COSTS) if v['group']==group]
- topo=max(valor(v) for _,v in linha)
- parts.append('<h3>'+E(group)+'</h3>')
- for i,x in linha:
-  parts.append(f'<div class="cost" data-cost="{i}"><div><b>{E(x["name"])}</b><strong data-preco>{money(valor(x))}/{x["unit"]}</strong></div><div class="bar" data-barra style="width:{valor(x)/topo*100:.1f}%"></div><p>{E(x["scope"])} <span class="composicao">Composição {E(" + ".join(x["parts"]))}.</span></p></div>')
+parts.append('<p class="ref">Fonte de todos os valores: <a href="'+COST_URL+'" target="_blank" rel="noopener">tabela SINAPI da Caixa</a>, referência de '+mesano(REFERENCIA)+', emitida em '+mesano(EMISSAO)+', sem desoneração e sem BDI.</p>')
 parts.append(f'<h3>Fichas sem preço verificado</h3><p>São {len(SEM_PRECO)} das {len(MATERIALS)} fichas, e trocar de estado não muda isso: a SINAPI simplesmente não tem esses serviços. A biblioteca não inventa valor para eles; diz o motivo e o que pedir na cotação.</p><div class="glossary">'+''.join(f'<details id="lacuna-{m["id"]}"><summary>{E(m["id"]+" · "+m["name"])}</summary><p>{E(SEM_PRECO[m["id"]][0])}</p>'+(f'<p class="ref" data-comparar="{m["id"]}"></p>' if SEM_PRECO[m["id"]][1] else '')+f'<p class="ref"><a href="#{m["id"]}">Abrir a ficha {m["id"]}</a></p></details>' for m in MATERIALS if m['id'] in SEM_PRECO)+'</div>')
 grupos=[]
 for cat in dict.fromkeys(o['category'] for o in CALC):
  grupos.append(f'<optgroup label="{E(cat)}">'+''.join(f'<option value="{i}">{E((o["id"]+" · " if o["id"] else "")+o["name"])}</option>' for i,o in enumerate(CALC) if o['category']==cat)+'</optgroup>')
 parts.append('<div class="calculator"><h3>Calcule uma referência para o seu espaço</h3><p>Todas as fichas estão na lista, com o preço do estado escolhido acima. Onde a SINAPI não tem o serviço, a calculadora diz o motivo e deixa você usar o valor da sua própria cotação. Para paredes, informe a área das paredes, não a do piso.</p><div class="tools"><label>Ficha da biblioteca<select id="calc-material">'+''.join(grupos)+'</select></label><label>Preço a usar<select id="calc-price"></select></label></div><div class="tools" id="calc-own-row" hidden><label>Valor da sua cotação, em reais por <span id="calc-own-unit">m²</span><input id="calc-own" type="text" inputmode="decimal" autocomplete="off" placeholder="Ex.: 180"></label></div><div class="tools"><label>Como informar a medida<select id="calc-mode"><option value="area">Área em m²</option><option value="dimensions">Comprimento × largura</option><option value="linear">Comprimento em metros lineares</option><option value="unit">Quantidade de peças</option></select></label><label id="calc-quantity-label"><span id="calc-unit-label">Área (m²)</span><input id="calc-quantity" type="text" inputmode="decimal" autocomplete="off" placeholder="Ex.: 20"></label><label id="calc-length-label" hidden>Comprimento (m)<input id="calc-length" type="text" inputmode="decimal" autocomplete="off" placeholder="Ex.: 4"></label><label id="calc-width-label" hidden>Largura (m)<input id="calc-width" type="text" inputmode="decimal" autocomplete="off" placeholder="Ex.: 5"></label></div><div id="calc-result" role="status" aria-live="polite">Informe as medidas para calcular.</div><p id="calc-scope"></p><p class="ref">O cálculo multiplica a sua medida pelo preço escolhido. Não acrescenta perdas de corte, conserto da base, remoção do que existe hoje nem BDI, e não diz se o material serve para o seu ambiente: isso está na ficha. Para rodapé, informe o comprimento efetivo, descontando as portas.</p></div>')
-parts.append('<p>Compare sempre dentro do mesmo grupo e do mesmo escopo. O mais barato da lista pode ser justamente o que a ficha desaconselha para o seu ambiente, e o mais caro pode não resolver o seu problema. O preço entra na decisão depois do critério, não antes.</p></section>')
+parts.append('<p>O preço de cada ficha aparece na própria ficha e em <a href="#comparar">Comparar lado a lado</a>, sempre no estado escolhido aqui. Compare dentro do mesmo escopo: o mais barato pode ser justamente o que a ficha desaconselha para o seu ambiente, e o mais caro pode não resolver o seu problema. O preço entra na decisão depois do critério, não antes.</p></section>')
 parts.append('<section class="intro">'+''.join(f'<div><h2>{E(t)}</h2><p>{E(p)}</p></div>' for t,p in INTRO)+'</section>')
 parts.append('<section id="criterios"><h2>O que a norma exige</h2><p>Abra cada critério para consultar o alcance e o dispositivo exato.</p>')
 for rid,title,txt,device,source,kind in RULES:parts.append(f'<details id="regra-{rid}"><summary>{E(title)}</summary><p>{E(txt)}</p><p class="ref">{refhtml(source,device)}</p></details>')
@@ -237,7 +231,7 @@ for m in MATERIALS:
  for key,label in FIELDS:parts.append(f'<div><h4>{label}</h4><p>{E(m[key])}</p></div>')
  parts.append('</div>')
  if m['id'] in SEM_PRECO:parts.append(f'<p class="ref">Preço: sem referência na SINAPI. <a href="#lacuna-{m["id"]}">Ver o motivo</a></p>')
- else:parts.append(f'<p class="ref" data-preco-ficha="{m["id"]}">Preço: <a href="#custos">ver em Quanto pode custar</a></p>')
+ else:parts.append(f'<p class="ref" data-preco-ficha="{m["id"]}">Preço: <a href="{SLUG[m["id"]]}/">ver na página desta ficha</a></p>')
  parts.append('<div class="rulelinks">'+''.join(f'<a href="#regra-{rid}">{E(rulemap[rid][1])}</a>' for rid in m['rules'])+'</div>'
  +f'<p class="ref"><a class="abrir-ficha" href="{SLUG[m["id"]]}/">Abrir a página desta ficha</a></p>'
  +'</details></article>')
@@ -251,7 +245,7 @@ parts.append('</main>'+pagina.rodape('','2.3',DATE)
 +'<script id="compara-data" type="application/json">'+json.dumps(COMPARA,ensure_ascii=False)+'</script>'
 +'<script id="calc-data" type="application/json">'+json.dumps(CALC,ensure_ascii=False)+'</script>'
 +'<script id="preco-data" type="application/json">'+json.dumps({'precos':PRECOS,'ufs':UFS,'padrao':UF_PADRAO,'referencia':mesano(REFERENCIA),'url':COST_URL},ensure_ascii=False)+'</script>'
-+'<script src="consulta.js?v=11"></script></body></html>')
++'<script src="consulta.js?v=12"></script></body></html>')
 (ROOT/'index.html').write_text('\n'.join(parts),encoding='utf-8')
 # Uma página por ficha. A capa responde "o que existe"; a ficha responde a busca
 # de quem já sabe o nome do material e quer saber se pode usar no consultório.

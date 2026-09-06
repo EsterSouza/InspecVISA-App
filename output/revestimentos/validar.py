@@ -36,8 +36,12 @@ comPreco={i for x in COSTS for i in x['ids']}
 for m in MATERIALS:
  assert (m['id'] in comPreco)!=(m['id'] in SEM_PRECO),m['id']
  assert (SEM_PRECO[m['id']][0] if m['id'] in SEM_PRECO else m['name']) in web
+# O codigo da composicao precisa estar legivel, nao so dentro do JSON: e ele que
+# permite conferir o valor na tabela da Caixa. Saiu da capa junto com os cartoes
+# e passou a viver na pagina de cada ficha.
+paginas_txt=' '.join(f.read_text(encoding='utf-8') for f in (root/'publicar').glob('*/index.html'))
 for x in COSTS:
- for codigo in x['parts']:assert codigo in web and codigo in md,codigo
+ for codigo in x['parts']:assert codigo in md and codigo in paginas_txt,codigo
 # Todo estado precisa ter valor para toda composição citada: o seletor não pode
 # oferecer uma UF que devolve tela em branco.
 for codigo,valores in PRECOS.items():

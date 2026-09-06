@@ -56,12 +56,12 @@ function aplicarEstado(){
   const x=costData[Number(card.dataset.cost)];
   const preco=card.querySelector('[data-preco]'),barra=card.querySelector('[data-barra]');
   preco.textContent=x.value===null?'sem preço neste estado':`${brl.format(x.value)}/${x.unit}`;
-  barra.style.width=x.value===null?'0%':(x.value/teto[x.group]*100).toFixed(1)+'%';
+  if(barra)barra.style.width=x.value===null?'0%':(x.value/teto[x.group]*100).toFixed(1)+'%';
  }
  for(const alvo of document.querySelectorAll('[data-preco-ficha]')){
   const refs=costData.filter(x=>x.ids.includes(alvo.dataset.precoFicha)&&x.value!==null);
   alvo.textContent='Preço: '+(refs.length?lista(refs):'sem preço neste estado');
-  const link=document.createElement('a');link.href='#custos';link.textContent='Comparar e calcular';
+  const link=document.createElement('a');link.href='#custos';link.textContent='Calcular para o meu espaço';
   alvo.append(' · ',link);
  }
  for(const alvo of document.querySelectorAll('[data-comparar]')){
