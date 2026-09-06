@@ -12,6 +12,7 @@ function legacyCategory(inspection: Inspection): ClientCategory | undefined {
 import { ILPIStaffCalculator } from '../components/inspection/ILPIStaffCalculator';
 import { isRioState } from '../utils/state';
 import { contextFromInspection } from '../utils/inspectionContext';
+import { aplicarAtualizacao, compararRoteiro, temAtualizacao } from '../utils/atualizacaoDoRoteiro';
 import {
   answerChangeImpact,
   executionQuestions,
@@ -474,6 +475,23 @@ export function InspectionExecution() {
     catch (err) { console.error('composeCanonicalTemplate error:', err); return template; }
   }, [currentInspection, template]);
 
+  // COND-03 · a árvore VIVA, só para comparar. A inspeção continua lendo a
+  // congelada; esta existe para a tela poder dizer "o roteiro mudou desde que
+  // você começou" e oferecer a atualização — nunca para aplicá-la sozinha.
+  const arvoreViva = useMemo(() => {
+    if (!currentInspection || !template) return null;
+    const ctx = { ...currentInspection, category: currentInspection.clientCategory || legacyCategory(currentInspection) } as unknown as Client;
+    try { return composeCanonicalTemplate(template, ctx, currentInspection.createdAt); }
+    catch { return null; }
+  }, [currentInspection, template]);
+
+  const atualizacaoDoRoteiro = useMemo(() => {
+    if (!currentInspection || currentInspection.status !== 'in_progress') return null;
+    if (!frozenBase || !arvoreViva || frozenBase === arvoreViva) return null;
+    const diff = compararRoteiro(frozenBase, arvoreViva);
+    return temAtualizacao(diff) ? diff : null;
+  }, [arvoreViva, currentInspection, frozenBase]);
+
   // A árvore completa da inspeção = revisão congelada + itens ad-hoc das respostas.
   const effectiveTemplate = useMemo(() => {
     if (!currentInspection) return null;
@@ -552,6 +570,32 @@ export function InspectionExecution() {
   // ILPI: a calculadora de dimensionamento mora na seção "Recursos Humanos".
   const isIlpiInspection = (currentInspection?.clientCategory === 'ilpi')
     || (effectiveTemplate?.category === 'ilpi');
+
+  const atualizarRoteiroDaInspecao = useCallback(async () => {
+    if (!currentInspection || !frozenBase || !arvoreViva || !atualizacaoDoRoteiro) return;
+    const { itensNovos, itensComTextoNovo, secoesNovas } = atualizacaoDoRoteiro;
+    const ok = await confirm({
+      title: 'Atualizar o roteiro desta inspeção?',
+      description:
+        'As respostas já dadas continuam como estão. Item que você já respondeu nunca sai, mesmo que tenha saído do roteiro. As condições desta inspeção também não mudam.',
+      consequences: [
+        ...(itensNovos.length ? [`Entram ${itensNovos.length} requisito(s) novo(s)`] : []),
+        ...secoesNovas.map((titulo) => `Entra a seção «${titulo}»`),
+        ...(itensComTextoNovo.length ? [`${itensComTextoNovo.length} requisito(s) ganham texto novo — orientação e ação pela norma`] : []),
+      ],
+      confirmLabel: 'Atualizar',
+      tone: 'default',
+    });
+    if (!ok) return;
+
+    const idsComResposta = new Set(
+      responses.filter((response) => !response.deletedAt).map((response) => response.itemId)
+    );
+    setCurrentInspection({
+      ...currentInspection,
+      reportTemplateSnapshot: aplicarAtualizacao(frozenBase, arvoreViva, idsComResposta),
+    });
+  }, [arvoreViva, atualizacaoDoRoteiro, confirm, currentInspection, frozenBase, responses, setCurrentInspection]);
 
   // COND-03 · Lazy freeze. Inspeção EM ANDAMENTO criada antes deste recurso não
   // tem revisão congelada — na primeira abertura, persiste a árvore canônica como
@@ -1767,6 +1811,35 @@ export function InspectionExecution() {
               </button>
             ))}
           </div>
+
+          {/* COND-03 · o roteiro mudou depois que esta inspeção começou. A tela
+              avisa e oferece; quem decide é a consultora, porque atualizar no
+              meio de uma vistoria é decisão dela e não do sistema. */}
+          {atualizacaoDoRoteiro && (
+            <div className="mx-3 mt-3 rounded-md border border-primary-300 bg-primary-50 p-3 text-sm text-navy-2 lg:mx-0">
+              <strong className="text-primary-800">O roteiro mudou depois que esta inspeção começou.</strong>
+              <p className="mt-1">
+                {[
+                  atualizacaoDoRoteiro.itensNovos.length
+                    ? `${atualizacaoDoRoteiro.itensNovos.length} requisito(s) novo(s)`
+                    : null,
+                  atualizacaoDoRoteiro.itensComTextoNovo.length
+                    ? `${atualizacaoDoRoteiro.itensComTextoNovo.length} com orientação ou ação pela norma nova`
+                    : null,
+                ].filter(Boolean).join(' · ')}
+                . Suas respostas não mudam, e item já respondido não sai.
+              </p>
+              <button
+                type="button"
+                onClick={() => { void atualizarRoteiroDaInspecao(); }}
+                className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-primary-700 bg-surface px-3 py-2 font-semibold text-primary-800 hover:bg-primary-100"
+                style={{ minHeight: 44 }}
+              >
+                <RefreshCw size={16} aria-hidden="true" />
+                Atualizar o roteiro desta inspeção
+              </button>
+            </div>
+          )}
 
           {/* COND-08 · erro de condição NUNCA esconde requisito (regra inegociável
               10): quando a revisão não pôde ser lida ou tem regra quebrada, a
