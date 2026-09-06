@@ -61,7 +61,7 @@ section{margin-bottom:44px}
 .logo{display:block;width:108px;height:34px;overflow:hidden;position:relative}
 .logo img{position:absolute;width:108px;height:108px;top:-38px;left:0;max-width:none}
 .atalhos{display:none}
-.menu{margin-left:auto;position:relative}
+.menu{position:relative}
 .menu summary{list-style:none;display:flex;align-items:center;justify-content:center;
  width:44px;height:44px;cursor:pointer;border-radius:8px;border:1px solid var(--linha);
  background:var(--carta)}
@@ -75,7 +75,7 @@ section{margin-bottom:44px}
 .menu[open] summary span{background:transparent}
 .menu[open] summary span::before{top:0;transform:rotate(45deg)}
 .menu[open] summary span::after{top:0;transform:rotate(-45deg)}
-.menu nav{position:absolute;right:0;top:calc(100% + 10px);z-index:50;min-width:220px;
+.menu nav{position:absolute;left:0;top:calc(100% + 10px);z-index:50;min-width:220px;
  background:var(--carta);border:1px solid var(--linha);border-radius:var(--raio);
  box-shadow:0 12px 28px rgba(36,61,67,.16);padding:6px 14px}
 .menu nav a{display:block;padding:13px 0;text-decoration:none;font-size:16px;
