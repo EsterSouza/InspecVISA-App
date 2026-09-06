@@ -39,9 +39,11 @@
       "headers": { "Location": "https://inspecvisa.consultorasanitaria.com.br/$1" }
     },
     { "src": "/biblioteca", "status": 308, "headers": { "Location": "/biblioteca/" } },
+    { "src": "/biblioteca/([^/.]+)", "status": 308, "headers": { "Location": "/biblioteca/$1/" } },
     { "handle": "filesystem" },
     { "src": "/assets/(.*)", "status": 404 },
     { "src": "/biblioteca/", "dest": "/biblioteca/index.html" },
+    { "src": "/biblioteca/([^/.]+)/", "dest": "/biblioteca/$1/index.html" },
     { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
