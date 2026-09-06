@@ -5,7 +5,7 @@ from pypdf import PdfReader
 from conteudo import MATERIALS,RULES
 from complementos import COSTS,SEM_PRECO,MARCA,UF_PADRAO
 from precos import PRECOS,UFS
-import fitz, fichas
+import fitz, fichas, pagina
 # O texto publicado é o de fichas.py, o mesmo que gerar.py aplica.
 fichas.aplicar(MATERIALS)
 root=Path(__file__).resolve().parent
@@ -78,7 +78,7 @@ for pag in paginas:
 # Esta conferencia acusa a foto que ficou pelo caminho.
 fonte=root/'assets'/'fichas'
 web_fotos=root/'assets'/'fotos'
-validos={'ambiente-critica','ambiente-semicritica','ambiente-nao-critica'}|{m['id'].lower() for m in MATERIALS}
+validos=pagina.FOTOS_FIXAS|{m['id'].lower() for m in MATERIALS}
 if fonte.is_dir():
  for f in fonte.iterdir():
   if f.suffix.lower() not in ('.png','.jpg','.jpeg','.webp'):continue

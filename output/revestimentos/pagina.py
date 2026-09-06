@@ -13,6 +13,9 @@ E=html.escape
 
 # Os identificadores saíram dos projetos da consultora (lp-farmacia,
 # lp-pasta-ilpi): o padrão dela é gtag e fbq diretos, sem contêiner do GTM.
+# Fotos que nao pertencem a uma ficha. As demais sao nomeadas pelo id da ficha
+# em minusculas. A convencao inteira esta em assets/fichas/LEIA-ME.txt.
+FOTOS_FIXAS={'planta','planta-celular','ambiente-critica','ambiente-semicritica','ambiente-nao-critica'}
 MEDICAO=dict(clarity='y109t0glph',pixel='1573989199955202',ads='AW-16927894187')
 
 def slug(texto):
@@ -60,7 +63,7 @@ def cabeca(titulo,descricao,url,pre='',ld=None,extra=''):
   partes.append('<script type="application/ld+json">'+json.dumps(bloco,ensure_ascii=False)+'</script>')
  partes.append(medicao())
  partes.append(extra)
- partes.append(f'<link rel="stylesheet" href="{pre}estilo.css?v=14"></head><body>')
+ partes.append(f'<link rel="stylesheet" href="{pre}estilo.css?v=16"></head><body>')
  return ''.join(partes)
 
 ATALHOS=[('#areas','Ambientes'),('#glossario','Termos'),('#custos','Custos'),

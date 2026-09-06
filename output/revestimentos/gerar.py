@@ -101,7 +101,7 @@ AREA_FOTO={'Área crítica':'ambiente-critica','Área semicrítica':'ambiente-se
 # Foto com nome fora da convencao seria ignorada em silencio, e o trabalho de
 # gerar a imagem se perderia sem ninguem notar. O gerador avisa na saida; o
 # validar.py trava.
-NOMES_VALIDOS={'ambiente-critica','ambiente-semicritica','ambiente-nao-critica','planta','planta-celular'}|{m['id'].lower() for m in MATERIALS}
+NOMES_VALIDOS=pagina.FOTOS_FIXAS|{m['id'].lower() for m in MATERIALS}
 SOBRANDO=[f.name for f in FOTOS_ORIG.iterdir()
  if f.suffix.lower() in ('.png','.jpg','.jpeg','.webp') and f.stem.lower() not in NOMES_VALIDOS]
 if SOBRANDO:
@@ -263,7 +263,7 @@ cats=list(dict.fromkeys(m['category'] for m in MATERIALS))
 parts.extend(f'<option>{E(c)}</option>' for c in cats)
 parts.append('</select></label><button id="limpar" type="button">Limpar filtros</button></div><p id="contagem" role="status" aria-live="polite"></p><div id="fichas">')
 for m in MATERIALS:
- parts.append(f'<article id="{m["id"]}" data-category="{E(m["category"])}"><details class="material"><summary><span class="swatch" style="background-image:{"none" if tile(m)<0 else "url(assets/materiais.jpg)"};background-position:{(tile(m)%4)*100/3}% {(tile(m)//4)*100}%" aria-hidden="true"></span><span class="material-heading"><span><p class="category">{E(m["category"])} · {m["id"]}</p><h3>{E(m["name"])}</h3></span><span class="status">{E(m["status"])}</span></span><span class="expand">Abrir ficha +</span></summary><div class="fields">')
+ parts.append(f'<article id="{m["id"]}" data-category="{E(m["category"])}"><details class="material"><summary><span class="swatch" style="background-image:{("url("+foto(m["id"].lower())+")") if foto(m["id"].lower()) else ("none" if tile(m)<0 else "url(assets/materiais.jpg)")};background-size:{"cover" if foto(m["id"].lower()) else "400% 200%"};background-position:{"center" if foto(m["id"].lower()) else str((tile(m)%4)*100/3)+"% "+str((tile(m)//4)*100)+"%"}" aria-hidden="true"></span><span class="material-heading"><span><p class="category">{E(m["category"])} · {m["id"]}</p><h3>{E(m["name"])}</h3></span><span class="status">{E(m["status"])}</span></span><span class="expand">Abrir ficha +</span></summary><div class="fields">')
  for key,label in FIELDS:parts.append(f'<div><h4>{label}</h4><p>{E(m[key])}</p></div>')
  parts.append('</div>')
  if m['id'] in SEM_PRECO:parts.append(f'<p class="ref">Preço: sem referência na SINAPI. <a href="#lacuna-{m["id"]}">Ver o motivo</a></p>')
@@ -332,7 +332,11 @@ for m in MATERIALS:
  f'<a href="../index.html#consulta">{E(m["category"])}</a></nav>',
  f'<article class="ficha-pagina"><p class="selo">{E(m["category"])} · Ficha {m["id"]}</p>',
  f'<h1>{E(m["name"])}</h1><p class="status-linha">{E(m["status"])}</p>']
- if tile(m)>=0:
+ propria=foto(m['id'].lower())
+ if propria:
+  pg.append(f'<img class="foto-ficha" src="../{propria}" alt="{E(m["name"],quote=True)}, imagem ilustrativa em serviço de saúde" loading="lazy">'
+  '<p class="ref">Imagem ilustrativa. Confirme o produto e o acabamento com o fornecedor.</p>')
+ elif tile(m)>=0:
   pg.append(f'<div class="amostra" style="background-image:url(../assets/materiais.jpg);'
   f'background-position:{(tile(m)%4)*100/3}% {(tile(m)//4)*100}%" role="img" '
   f'aria-label="Textura ilustrativa da família {E(m["category"].lower(),quote=True)}"></div>'
