@@ -22,6 +22,11 @@ import { useSettingsStore } from '../store/useSettingsStore';
 import { useConfirmDialog } from '../components/ui/ConfirmDialog';
 import { toast } from '../store/useToastStore';
 import { rawErrorMessage } from '../utils/errors';
+import {
+  atualizarRoteiros,
+  levantarInspecoesDesatualizadas,
+  type InspecaoDesatualizada,
+} from '../services/atualizacaoRoteiroEmLote';
 
 function attachClientData(list: Inspection[], clients: Client[]) {
   const clientMap = new Map<string, Client>(clients.map(client => [client.id, client]));
@@ -52,6 +57,10 @@ export function Inspections() {
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [deletedInspections, setDeletedInspections] = useState<Inspection[]>([]);
   const [loading, setLoading] = useState(true);
+  // COND-03 · quantas vistorias em andamento ficaram para trás do roteiro. O
+  // levantamento é local (Dexie) e não abre inspeção nenhuma.
+  const [roteirosDesatualizados, setRoteirosDesatualizados] = useState<InspecaoDesatualizada[]>([]);
+  const [atualizandoRoteiros, setAtualizandoRoteiros] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'in_progress' | 'completed'>('all');
@@ -124,7 +133,53 @@ export function Inspections() {
     return refresh;
   }, []);
 
+  const conferirRoteiros = useCallback(async () => {
+    try {
+      setRoteirosDesatualizados(await levantarInspecoesDesatualizadas());
+    } catch (err) {
+      // Roteiro desatualizado é conveniência: falhar aqui não pode atrapalhar a
+      // lista, que é o que ela veio ver.
+      console.warn('[Inspections] Não foi possível conferir os roteiros:', err);
+    }
+  }, []);
+
+  const atualizarTodosOsRoteiros = useCallback(async () => {
+    const alvos = roteirosDesatualizados;
+    if (!alvos.length) return;
+
+    const itens = alvos.reduce((soma, alvo) => soma + alvo.itensNovos, 0);
+    const textos = alvos.reduce((soma, alvo) => soma + alvo.textosNovos, 0);
+    const ok = await confirm({
+      title: `Atualizar o roteiro de ${alvos.length} vistoria(s) em andamento?`,
+      description:
+        'As respostas já dadas continuam como estão. Requisito que você já respondeu nunca sai, mesmo que tenha saído do roteiro. As condições de cada vistoria também não mudam.',
+      consequences: [
+        ...(itens ? [`Entram ${itens} requisito(s) novo(s), somando todas`] : []),
+        ...(textos ? [`${textos} requisito(s) ganham orientação ou ação pela norma`] : []),
+        ...alvos.slice(0, 5).map((alvo) => `«${alvo.cliente}» · ${alvo.itensNovos} novo(s), ${alvo.textosNovos} com texto novo`),
+        ...(alvos.length > 5 ? [`… e mais ${alvos.length - 5} vistoria(s)`] : []),
+      ],
+      confirmLabel: 'Atualizar todas',
+      tone: 'default',
+    });
+    if (!ok) return;
+
+    setAtualizandoRoteiros(true);
+    try {
+      const gravadas = await atualizarRoteiros(alvos);
+      toast.success(`${gravadas} vistoria(s) com o roteiro atualizado.`);
+      setRoteirosDesatualizados([]);
+      await loadInspections();
+    } catch (err) {
+      toast.error(rawErrorMessage(err) || 'Não foi possível atualizar os roteiros.');
+    } finally {
+      setAtualizandoRoteiros(false);
+    }
+  }, [confirm, loadInspections, roteirosDesatualizados]);
+
   useEffect(() => { void loadInspections(); }, [loadInspections]);
+
+  useEffect(() => { void conferirRoteiros(); }, [conferirRoteiros, inspections]);
 
   useEffect(() => { void refreshTrashInBackground(); }, [refreshTrashInBackground]);
 
@@ -204,6 +259,41 @@ export function Inspections() {
           </Button>
         }
       />
+
+      {/* COND-03 · o roteiro congela na criação da vistoria, de propósito. Quando
+          o mestre muda, quem decide se a vistoria em andamento acompanha é ela —
+          e decide para todas de uma vez, senão a atualização não acontece. */}
+      {roteirosDesatualizados.length > 0 && (
+        <div className="mb-6 rounded-md border border-primary-300 bg-primary-50 p-4">
+          <strong className="text-primary-800">
+            {roteirosDesatualizados.length === 1
+              ? '1 vistoria em andamento está com o roteiro desatualizado.'
+              : `${roteirosDesatualizados.length} vistorias em andamento estão com o roteiro desatualizado.`}
+          </strong>
+          <p className="mt-1 text-sm text-navy-2">
+            O roteiro mudou depois que elas começaram — requisito novo, orientação ou ação pela norma já
+            escrita. Suas respostas não mudam, e requisito já respondido não sai.
+          </p>
+          <ul className="mt-2 space-y-0.5 text-sm text-navy-3">
+            {roteirosDesatualizados.slice(0, 4).map(alvo => (
+              <li key={alvo.inspecao.id}>
+                {alvo.cliente} — {alvo.itensNovos} requisito(s) novo(s), {alvo.textosNovos} com texto novo
+              </li>
+            ))}
+            {roteirosDesatualizados.length > 4 && (
+              <li>… e mais {roteirosDesatualizados.length - 4} vistoria(s)</li>
+            )}
+          </ul>
+          <Button
+            className="mt-3 gap-2"
+            disabled={atualizandoRoteiros}
+            onClick={() => { void atualizarTodosOsRoteiros(); }}
+          >
+            <RotateCcw className="h-4 w-4" />
+            {atualizandoRoteiros ? 'Atualizando…' : 'Atualizar todas'}
+          </Button>
+        </div>
+      )}
 
       <div className="mb-6 flex flex-wrap items-center justify-end gap-3">
         <div className="inline-flex gap-0.5 rounded-md border border-default bg-surface-sunken p-0.5">

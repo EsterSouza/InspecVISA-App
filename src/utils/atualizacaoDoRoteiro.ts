@@ -1,4 +1,4 @@
-import type { ChecklistItem, ChecklistTemplate, Section } from '../types';
+import type { ChecklistItem, ChecklistTemplate, Client, ClientCategory, Inspection, Section } from '../types';
 
 // ============================================================
 // Atualizar a revisão congelada de uma inspeção EM ANDAMENTO.
@@ -19,6 +19,17 @@ import type { ChecklistItem, ChecklistTemplate, Section } from '../types';
 //     atualização mexe em item e texto, não em condição — item novo entra
 //     visível, que é o lado seguro da regra inegociável 10.
 // ============================================================
+
+/**
+ * O contexto que `composeCanonicalTemplate` lê para aplicar suplemento regional:
+ * UF, município e categoria vêm de dentro da própria inspeção, nunca do cadastro
+ * vivo do cliente — a vistoria não muda de município porque alguém corrigiu a
+ * ficha depois.
+ */
+export function contextoDaInspecao(inspection: Inspection): Client {
+  const categoriaLegada = (inspection as Inspection & { category?: ClientCategory }).category;
+  return { ...inspection, category: inspection.clientCategory || categoriaLegada } as unknown as Client;
+}
 
 export type AtualizacaoDoRoteiro = {
   itensNovos: ChecklistItem[];

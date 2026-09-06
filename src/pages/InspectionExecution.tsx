@@ -12,7 +12,7 @@ function legacyCategory(inspection: Inspection): ClientCategory | undefined {
 import { ILPIStaffCalculator } from '../components/inspection/ILPIStaffCalculator';
 import { isRioState } from '../utils/state';
 import { contextFromInspection } from '../utils/inspectionContext';
-import { aplicarAtualizacao, compararRoteiro, temAtualizacao } from '../utils/atualizacaoDoRoteiro';
+import { aplicarAtualizacao, compararRoteiro, contextoDaInspecao, temAtualizacao } from '../utils/atualizacaoDoRoteiro';
 import {
   answerChangeImpact,
   executionQuestions,
@@ -480,8 +480,7 @@ export function InspectionExecution() {
   // você começou" e oferecer a atualização — nunca para aplicá-la sozinha.
   const arvoreViva = useMemo(() => {
     if (!currentInspection || !template) return null;
-    const ctx = { ...currentInspection, category: currentInspection.clientCategory || legacyCategory(currentInspection) } as unknown as Client;
-    try { return composeCanonicalTemplate(template, ctx, currentInspection.createdAt); }
+    try { return composeCanonicalTemplate(template, contextoDaInspecao(currentInspection), currentInspection.createdAt); }
     catch { return null; }
   }, [currentInspection, template]);
 
