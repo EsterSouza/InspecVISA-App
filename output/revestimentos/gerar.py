@@ -9,7 +9,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.colors import HexColor
 from reportlab.lib.utils import ImageReader
 from conteudo import DATE,SOURCES,RULES,INTRO,MATERIALS,END
-from complementos import AREAS,CONTEXT,GLOSSARY,COSTS,COST_NOTE,COST_SCALE,COST_URL,SEM_PRECO,UNIDADE,UF_PADRAO,MARCA
+from complementos import AREAS,CONTEXT,GLOSSARY,COSTS,COST_NOTE,COST_SCALE,COST_URL,SEM_PRECO,UNIDADE,UF_PADRAO,MARCA,PUBLICACAO
 from precos import PRECOS,UFS,REFERENCIA,EMISSAO
 import fichas
 # O texto das fichas vive em fichas.py, escrito para quem cuida do serviço de saúde
@@ -59,15 +59,28 @@ DIAGRAM='''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 260" role="i
 (ROOT/'assets'/'encontros.svg').write_text(DIAGRAM,encoding='utf-8')
 
 # A prancha em PNG tem 2,7 MB e o PDF a embutia duas vezes: 6,7 MB dos 8,5 MB do
-# arquivo, pesado demais para mandar por WhatsApp. Duas copias em JPEG resolvem: a
-# de 250 kB para a pagina, em rede movel, e a de impressao para o PDF, que sai a
-# 228 dpi na capa. O PNG fica so como original editavel.
+# arquivo, pesado demais para mandar por WhatsApp. Duas cópias em JPEG resolvem: a
+# de 250 kB para a página, em rede móvel, e a de impressão para o PDF, que sai a
+# 228 dpi na capa. O PNG fica só como original editável.
 from PIL import Image
 _prancha=Image.open(ROOT/'assets'/'materiais.png').convert('RGB')
 _prancha.save(ROOT/'assets'/'materiais.jpg',quality=82,optimize=True,progressive=True)
 _prancha.save(ROOT/'assets'/'materiais-impressao.jpg',quality=92,optimize=True)
 
-parts=['<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Revestimentos em serviços de saúde | TreinaVISA</title><link rel="stylesheet" href="estilo.css?v=6"></head><body>',
+parts=['<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
++'<title>Revestimentos em serviços de saúde | TreinaVISA</title>'
++'<meta name="description" content="'+E(PUBLICACAO['descricao'])+'">'
++'<meta name="author" content="'+E(MARCA['autora'])+'">'
++'<link rel="canonical" href="'+PUBLICACAO['url']+'">'
++'<meta property="og:type" content="article"><meta property="og:locale" content="pt_BR">'
++'<meta property="og:site_name" content="'+E(MARCA['marca'])+'">'
++'<meta property="og:title" content="Revestimentos em serviços de saúde">'
++'<meta property="og:description" content="'+E(PUBLICACAO['descricao'])+'">'
++'<meta property="og:url" content="'+PUBLICACAO['url']+'">'
++'<meta property="og:image" content="'+PUBLICACAO['url']+'assets/materiais.jpg">'
++'<meta name="twitter:card" content="summary_large_image">'
++'<script type="application/ld+json">'+json.dumps({'@context':'https://schema.org','@type':'TechArticle','headline':'Revestimentos em serviços de saúde','description':PUBLICACAO['descricao'],'inLanguage':'pt-BR','url':PUBLICACAO['url'],'image':PUBLICACAO['url']+'assets/materiais.jpg','datePublished':'2026-09-06','author':{'@type':'Person','name':MARCA['autora'],'jobTitle':MARCA['credencial'],'url':MARCA['site']},'publisher':{'@type':'Organization','name':MARCA['marca'],'url':MARCA['site']},'license':MARCA['direitos']},ensure_ascii=False)+'</script>'
++'<link rel="stylesheet" href="estilo.css?v=7"></head><body>',
 '<!-- THESIS: Atlas técnico que associa material, ambiente e evidência. OWN-WORLD: papel branco, tinta ardósia e ocre, tipografia legível e diagramas exatos. STORY: compreender critérios, localizar fichas e comparar sistemas. FIRST VIEWPORT: título à esquerda, índice à direita, busca acessível após diagrama. FORM: atlas técnico, candidato 3, seed 5be35a14; escolha de cores delegada pela usuária. FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance -->',
 '<a class="skip" href="#consulta">Ir para as fichas</a><div class="shell"><header><div class="logo"><img src="assets/treinavisa.png" alt="TreinaVISA"></div><p class="assinatura">Elaborado por '+E(MARCA['autora'])+'<br>'+E(MARCA['credencial'])+'</p></header><main><section class="hero"><div><h1>Revestimentos em<br>serviços de saúde</h1><p class="lead">Uma biblioteca para escolher, especificar e inspecionar superfícies com clareza.</p><p>RDC 50/2002 e normas complementares<br>Edição de '+DATE+'</p></div><nav aria-label="Índice"><a href="#areas">Qual é o meu ambiente?</a><a href="#glossario">Entenda os termos</a><a href="#custos">Compare os custos</a><a href="#criterios">Entenda os critérios</a><a href="#consulta">Consulte os materiais</a><a href="#pratica">Da escolha à inspeção</a><a href="#fontes">Fontes e limites</a></nav></section><figure><img src="assets/encontros.svg" alt="Esquemas de peça e rejunte, rodapé alinhado e emenda de manta"><figcaption>Encontros que merecem atenção. Esquemas ilustrativos, sem escala; não substituem detalhes de projeto.</figcaption></figure>']
 parts.append('<figure class="photo"><img src="assets/materiais.jpg" alt="Amostras ilustrativas de porcelanato, epóxi, vinílico, pintura, granito, quartzo, inox e estofado"><figcaption>Biblioteca visual: porcelanato · epóxi · vinílico · pintura / granito · quartzo · inox · estofado. Imagem gerada por IA, ilustrativa; não representa produtos certificados nem detalhes de execução aprovados.</figcaption></figure>')
@@ -106,14 +119,17 @@ parts.append('</div><p id="vazio" hidden>Nenhuma ficha encontrada. Tente outro t
 parts.extend(f'<h3>{E(t)}</h3><p>{E(p)}</p>' for t,p in END)
 parts.append('</section><section id="fontes"><h2>Referências e alcance da revisão</h2><p>Fontes consultadas em '+DATE+'. Os dispositivos são indicados nos critérios. A publicação não tem caráter oficial da Anvisa.</p>')
 for key,s in SOURCES.items():parts.append(f'<div class="source"><h3>{refhtml(key,s["title"])}</h3><p>{E(s["status"])}</p></div>')
-parts.append('</section></main><footer><p class="credito"><b>Biblioteca de revestimentos em serviços de saúde</b><br>Edição 2.2 · '+DATE+' · '+E(MARCA['marca'])+'</p>'
+parts.append('</section><aside class="cta"><h2>'+E(PUBLICACAO['ctaTitulo'])+'</h2><p>'+E(PUBLICACAO['ctaTexto'])+'</p>'
++'<p class="acao"><a href="'+PUBLICACAO['whatsapp']+'" rel="noopener">'+E(PUBLICACAO['whatsappRotulo'])+'</a></p>'
++'<p class="ref">'+E(MARCA['autora'])+', '+E(MARCA['credencial'].lower())+'. <a href="'+MARCA['site']+'">'+E(MARCA['siteRotulo'])+'</a></p></aside>')
+parts.append('</main><footer><p class="credito"><b>Biblioteca de revestimentos em serviços de saúde</b><br>Edição 2.2 · '+DATE+' · '+E(MARCA['marca'])+'</p>'
 +'<p>Elaborado por <b>'+E(MARCA['autora'])+'</b>, '+E(MARCA['credencial'].lower())+'.<br><a href="'+MARCA['site']+'">'+E(MARCA['siteRotulo'])+'</a> · <a href="'+MARCA['instagram']+'">'+E(MARCA['instagramRotulo'])+'</a></p>'
 +'<p>© '+MARCA['ano']+' '+E(MARCA['titular'])+' · CNPJ '+E(MARCA['cnpj'])+'<br>'+E(MARCA['endereco'])+'</p>'
 +'<p>'+E(MARCA['direitos'])+'</p><p>'+E(MARCA['isencao'])+'</p><p><a href="#">Voltar ao início</a></p></footer></div>'
 +'<script id="cost-data" type="application/json">'+json.dumps(COSTS_JSON,ensure_ascii=False)+'</script>'
 +'<script id="calc-data" type="application/json">'+json.dumps(CALC,ensure_ascii=False)+'</script>'
 +'<script id="preco-data" type="application/json">'+json.dumps({'precos':PRECOS,'ufs':UFS,'padrao':UF_PADRAO,'referencia':REFERENCIA,'url':COST_URL},ensure_ascii=False)+'</script>'
-+'<script src="consulta.js?v=7"></script></body></html>')
++'<script src="consulta.js?v=8"></script></body></html>')
 (ROOT/'index.html').write_text('\n'.join(parts),encoding='utf-8')
 
 # publicar/ e exatamente o que sobe para a internet: a pagina, o estilo, o script
@@ -123,6 +139,13 @@ if PUB.exists():shutil.rmtree(PUB)
 (PUB/'assets').mkdir(parents=True)
 for nome in ['index.html','estilo.css','consulta.js']:shutil.copy2(ROOT/nome,PUB/nome)
 for nome in ['materiais.jpg','encontros.svg','treinavisa.png']:shutil.copy2(ROOT/'assets'/nome,PUB/'assets'/nome)
+
+# A página servida em /biblioteca é uma cópia desta pasta dentro de public/. Sem
+# esta linha o site no ar fica numa edição velha em silêncio, e ninguém percebe.
+APP=ROOT.parent.parent/'public'/'biblioteca'
+if APP.parent.is_dir():
+ if APP.exists():shutil.rmtree(APP)
+ shutil.copytree(PUB,APP)
 
 md=['# Revestimentos em serviços de saúde',f"{MARCA['marca']} · Edição 2.2 · {DATE}",
 f"Elaborado por {MARCA['autora']}, {MARCA['credencial'].lower()}. {MARCA['siteRotulo']} · {MARCA['instagramRotulo']}",
@@ -279,7 +302,9 @@ for offset in range(0,len(SOURCES),3):
 flow=start('Autoria e direitos','autoria')
 flow.extend([p('Elaborado por '+MARCA['autora'],h3),p(MARCA['credencial']+'. '+MARCA['siteRotulo']+' · '+MARCA['instagramRotulo']),Spacer(1,10),
  p('Titularidade',h3),p(MARCA['titular']+', CNPJ '+MARCA['cnpj']+'. '+MARCA['endereco']+'.'),p(MARCA['direitos']),Spacer(1,10),
- p('Alcance',h3),p(MARCA['isencao'])])
+ p('Alcance',h3),p(MARCA['isencao']),Spacer(1,10),
+# A página aberta é a versão viva: o preço da SINAPI muda todo mês e o PDF não.
+ p('Onde esta a versao atualizada',h3),p('A pagina '+PUBLICACAO['url']+' traz os 27 estados e a referencia do mes. Para falar sobre um projeto: '+MARCA['siteRotulo']+'.')])
 finish(flow)
 c.save()
 print(json.dumps({'materials':len(MATERIALS),'rules':len(RULES),'pages':PAGE,'pdf':str(ROOT/'revestimentos.pdf')},ensure_ascii=False))

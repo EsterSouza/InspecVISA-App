@@ -63,4 +63,8 @@ O JSON mudou de forma na parte de custo. Cada item de `costs` deixou de guardar 
 
 A entrega em rede é a pasta `publicar/`, montada pelo `gerar.py`: index.html, estilo.css, consulta.js e três imagens. O PDF, o Markdown e o JSON ficam fora dela de propósito, e a página não tem link para nenhum deles. Se algum dia a página for hospedada, é essa pasta que sobe.
 
+A biblioteca deixou de ser só preparação: a pasta `publicar/` é copiada pelo `gerar.py` para `public/biblioteca/` e vai ao ar como página estática em `/biblioteca/`, aberta, sem login, com um item "Revestimentos" no menu da equipe. Isso não altera o aplicativo: nenhuma rota React, nenhum dado de cliente, nenhuma consulta ao Supabase. O que existe são três amarras, descritas em LEIA-ME.md: a rota no `vercel.json`, as duas exclusões do service worker no `vite.config.ts` e o `external` do item de menu. Quem mexer em qualquer uma delas sem as outras derruba a página em silêncio, e o `validar.py` só pega a divergência entre as duas cópias do arquivo.
+
+A leitura continua valendo para o item 1 daqui: reaproveitar `biblioteca.json` dentro do aplicativo é outro trabalho, com navegação e controle de acesso do próprio app. A página em `/biblioteca/` é conteúdo público de marca, não módulo do produto.
+
 Três correções normativas entraram nesta edição e importam para quem reaproveitar as regras: A.2 fala em procedimentos de risco com ou sem pacientes; C.1 manda seguir o manual do Ministério da Saúde de processamento de artigos e superfícies, 2ª edição de 1994, ou o que vier a substituí-lo; C.3 qualifica a exigência de forro especialmente nas salas de procedimentos cirúrgicos ou similares. Quem já tiver copiado o texto anterior das regras precisa recopiar.

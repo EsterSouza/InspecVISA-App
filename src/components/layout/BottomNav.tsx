@@ -38,6 +38,19 @@ function MoreDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
               <div className="space-y-1">
                 {items.map((item) => {
                   const Icon = item.icon;
+                  if (item.external) {
+                    return (
+                      <a
+                        key={item.to}
+                        href={item.to}
+                        onClick={onClose}
+                        className="flex h-11 w-full items-center gap-3 rounded-md px-3 text-sm font-semibold text-navy-2 transition-colors hover:bg-surface-hover"
+                      >
+                        <Icon className="h-4 w-4 shrink-0" />
+                        {item.label}
+                      </a>
+                    );
+                  }
                   return (
                     <NavLink
                       key={item.to}

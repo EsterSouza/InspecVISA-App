@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /portal/
+Disallow: /cliente/
+Disallow: /execute
+Disallow: /summary
+
+Sitemap: https://inspecvisa.consultorasanitaria.com.br/sitemap.xml

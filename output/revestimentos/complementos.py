@@ -93,3 +93,15 @@ MARCA=dict(
  endereco='Av. Embaixador Abelardo Bueno, 01, Edifício Lagoa 1, sala 153-D, Barra Olímpica, Rio de Janeiro',
  direitos='Conteúdo de propriedade intelectual da TreinaVISA. A consulta é livre. Reprodução, adaptação, redistribuição ou uso comercial dependem de autorização por escrito.',
  isencao='Publicação de orientação técnica. Não tem caráter oficial da Anvisa nem de qualquer vigilância sanitária, e não substitui projeto, laudo ou decisão da autoridade sanitária local.')
+
+# A página aberta em inspecvisa.consultorasanitaria.com.br/biblioteca existe para
+# ser achada na busca por quem está com obra na mão. Daí a descrição, o endereço
+# canônico e o convite no fim: a biblioteca dá o critério e a ordem de grandeza,
+# o projeto de verdade depende do ambiente, da rotina e da vigilância local.
+PUBLICACAO=dict(
+ url='https://inspecvisa.consultorasanitaria.com.br/biblioteca/',
+ descricao='O que a RDC 50 exige de piso, parede, teto, rodapé e bancada em serviço de saúde, escrito para quem cuida do serviço e não é da área de obra. Com preço de obra da SINAPI nos 27 estados e calculadora de referência.',
+ ctaTitulo='Quer conferir o seu projeto antes da obra?',
+ ctaTexto='Esta biblioteca dá o critério e a ordem de grandeza. O seu caso tem ambiente, atividade, rotina de limpeza e exigência da vigilância local, e é aí que o erro custa caro: revestimento errado costuma aparecer só na inspeção, com a obra pronta. Se quiser, eu olho o projeto antes de a obra começar.',
+ whatsapp='https://wa.me/5521993397315?text=Oi%2C%20Ester.%20Vim%20pela%20biblioteca%20de%20revestimentos%20e%20queria%20falar%20sobre%20o%20meu%20projeto.',
+ whatsappRotulo='Falar comigo no WhatsApp')

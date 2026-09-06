@@ -12,7 +12,8 @@ Abra index.html para consulta local. A biblioteca funciona sem instalação, com
 - **Trocar de estado não fecha nenhuma lacuna.** Foi conferido composição por composição: manta vinílica soldada, rejunte isolado, tinta epóxi de parede, porcelanato de parede interna, bancada de quartzo, rodapé em meia-cana e mobiliário não existem no catálogo da SINAPI em estado nenhum; laminado, carpete e divisória removível existem, mas sem custo publicado em nenhum dos 27 estados em 07/2026. Não é lacuna do Rio: é lacuna do país. O texto das lacunas passou a dizer isso, sem citar valor de estado nenhum.
 - **Menos texto dentro das fichas.** O parágrafo sobre a natureza da recomendação aparecia 29 vezes, uma por ficha; agora aparece uma vez, na abertura da biblioteca. A explicação de preço dentro da ficha virou uma linha só, que leva para "Quanto pode custar". A nota sobre a escala das barras saiu das cinco repetições e ficou uma.
 - **Autoria e direitos.** Assinatura no cabeçalho da página, bloco completo no rodapé e uma página final no PDF, com titularidade, CNPJ, endereço, site, Instagram e a isenção: é orientação técnica, não tem caráter oficial da Anvisa nem de vigilância sanitária, e não substitui projeto, laudo ou decisão da autoridade local.
-- **Pasta publicar/.** O botão de baixar o PDF saiu da página. `python gerar.py` monta `publicar/` com os seis arquivos que vão para a rede: index.html, estilo.css, consulta.js e três imagens, 448 kB no total. Sem PDF, sem zip, sem Markdown e sem JSON junto.
+- **Pasta publicar/ e a página no ar.** O botão de baixar o PDF saiu da página. `python gerar.py` monta `publicar/` com os seis arquivos que vão para a rede: index.html, estilo.css, consulta.js e três imagens, 448 kB no total. Sem PDF, sem zip, sem Markdown e sem JSON junto. O mesmo comando copia essa pasta para `public/biblioteca/` do aplicativo, que é o que o Vercel serve em `inspecvisa.consultorasanitaria.com.br/biblioteca/`. O `validar.py` falha se as duas cópias divergirem.
+- **Convite no fim da página.** Um bloco antes do rodapé leva ao WhatsApp profissional, com a mensagem já escrita. A página dá o critério e a ordem de grandeza; o projeto de verdade depende do ambiente, da rotina de limpeza e da vigilância local, e é isso que o convite diz. O head ganhou descrição, endereço canônico, Open Graph e um JSON-LD de TechArticle com autoria e titularidade, para a página ser achada na busca e abrir bonita quando alguém compartilhar o link.
 - **PDF de 8,5 MB para 1,2 MB.** A prancha fotográfica em PNG tem 2,7 MB e o PDF a embutia duas vezes, o que respondia por 6,7 MB do arquivo: pesado demais para mandar por WhatsApp. O gerador passou a fazer duas cópias em JPEG a partir do mesmo PNG, uma de 250 kB e progressiva para a página, em rede móvel, e uma de impressão para o PDF, que sai a 228 dpi na capa. O PNG fica só como original editável. Conferido no recorte da capa: sem artefato visível.
 - **Três correções da segunda auditoria da RDC 50** (adiante).
 
@@ -47,6 +48,16 @@ Execute `python gerar.py` nesta pasta e depois `python validar.py`. Os scripts a
 1. Baixe o pacote do mês no canal de downloads da Caixa e salve em `qa/SINAPI-AAAA-MM.zip`.
 2. Aponte `PACOTE` em extrair_precos.py para o arquivo novo e rode `python extrair_precos.py`. Ele lê a aba CSD, sem desoneração, e escreve precos.py com referência, data de emissão e os 27 estados.
 3. Rode `python gerar.py` e `python validar.py`. A validação falha se alguma composição citada ficar sem preço em algum estado.
+
+Depois de trocar o mês, o `gerar.py` já deixa `public/biblioteca/` atualizada; falta commitar e subir, porque é o git que alimenta o deploy.
+
+## Como a página chega ao ar
+
+`public/biblioteca/` é servida como arquivo estático, sem passar pelo React. Três peças sustentam isso e nenhuma pode ser mexida sozinha:
+
+- `vercel.json`: `/biblioteca` redireciona para `/biblioteca/` e essa rota entrega o `index.html` da pasta. O redirecionamento não é firula: sem a barra final, os caminhos relativos das imagens escapariam para a raiz do site, onde existe uma regra que responde 404 para `/assets/`.
+- `vite.config.ts`: a pasta fica fora do precache do service worker (`globIgnores`) e fora do fallback de navegação (`navigateFallbackDenylist`). Sem o segundo, o service worker responderia `/biblioteca/` com o index.html do InspecVISA e a página simplesmente não abriria.
+- `navConfig.ts`: o item "Revestimentos" do menu é marcado como `external`, então Sidebar e BottomNav renderizam um link de verdade. Um `NavLink` faria o router procurar a rota dentro do React, não achar e cair no catch-all.
 
 O código da composição na planilha vem dentro de uma fórmula HYPERLINK: lido com data_only ele volta zero. Por isso o extrator abre a planilha duas vezes, uma para as fórmulas e outra para os valores, e pega o último número da fórmula. Se a Caixa mudar o formato, é aqui que quebra.
 

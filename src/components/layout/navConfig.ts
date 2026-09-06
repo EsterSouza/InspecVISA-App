@@ -7,6 +7,7 @@ import {
   FileText,
   Headset,
   Home,
+  Layers,
   Settings,
   Users,
   type LucideIcon,
@@ -16,6 +17,12 @@ export interface NavItem {
   to: string;
   icon: LucideIcon;
   label: string;
+  /**
+   * Página estática servida fora do SPA (hoje só `/biblioteca`). Precisa de uma
+   * navegação de verdade: um `NavLink` faria o router procurar a rota dentro do
+   * React, não achar e cair no catch-all, sem nunca pedir o arquivo ao servidor.
+   */
+  external?: boolean;
 }
 
 export interface NavGroup {
@@ -47,6 +54,7 @@ export const STAFF_NAV_GROUPS: NavGroup[] = [
     items: [
       { to: '/templates', icon: FileText, label: 'Roteiros' },
       { to: '/legislations', icon: BookOpen, label: 'Biblioteca' },
+      { to: '/biblioteca/', icon: Layers, label: 'Revestimentos', external: true },
     ],
   },
   {

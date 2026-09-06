@@ -84,7 +84,19 @@ export function Sidebar() {
             <div className="space-y-1">
               {group.items.map((item) => {
                 const Icon = item.icon;
-                const link = (
+                const link = item.external ? (
+                  <a
+                    key={item.to}
+                    href={item.to}
+                    aria-label={item.label}
+                    className={`group flex h-10 w-full items-center gap-3 rounded-md text-sm font-semibold text-navy-2 transition-colors hover:bg-surface-hover hover:text-navy ${
+                      collapsed ? 'justify-center px-0' : 'px-3'
+                    }`}
+                  >
+                    <Icon className="h-4 w-4 shrink-0 text-navy-3 group-hover:text-navy-2" />
+                    {!collapsed && <span className="truncate">{item.label}</span>}
+                  </a>
+                ) : (
                   <NavLink
                     key={item.to}
                     to={item.to}

@@ -89,6 +89,13 @@ export default defineConfig({
         // glob. Um PNG/SVG novo em `public/` (screenshot, imagem de trabalho) não
         // deve inflar o precache do service worker em silêncio.
         globPatterns: ['**/*.{js,css,html,woff2}'],
+        // A biblioteca de revestimentos em `public/biblioteca` é uma página
+        // estática própria, gerada fora do build. Fica fora do precache para não
+        // inflá-lo, e fora do fallback de navegação: sem o denylist, o service
+        // worker responderia `/biblioteca` com o index.html do aplicativo e a
+        // página simplesmente não abriria.
+        globIgnores: ['biblioteca/**'],
+        navigateFallbackDenylist: [/^\/biblioteca/],
         maximumFileSizeToCacheInBytes: 4000000,
         runtimeCaching: [
           {

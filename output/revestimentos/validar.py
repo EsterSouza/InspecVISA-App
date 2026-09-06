@@ -51,6 +51,12 @@ for campo in ['titular','cnpj','autora']:
 # A página publicada não distribui o PDF nem o Markdown: eles ficam locais.
 for arquivo in ['revestimentos.pdf','biblioteca.md','biblioteca.json']:
  assert arquivo not in web,arquivo
+# A página servida em /biblioteca precisa ser a mesma que acabou de ser gerada.
+# Sem esta conferência, uma cópia esquecida deixa o site no ar numa edição velha.
+publicada=root.parent.parent/'public'/'biblioteca'/'index.html'
+assert publicada.is_file(),'public/biblioteca/index.html não existe: rode gerar.py'
+assert publicada.read_bytes()==(root/'publicar'/'index.html').read_bytes(),'public/biblioteca está desatualizada'
+
 for start in range(0,len(pages),4):
  board=Image.new('RGB',(1100,1610),'#b7bdc5');draw=ImageDraw.Draw(board)
  for i,path in enumerate(pages[start:start+4]):

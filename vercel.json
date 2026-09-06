@@ -40,6 +40,8 @@
     },
     { "handle": "filesystem" },
     { "src": "/assets/(.*)", "status": 404 },
+    { "src": "/biblioteca", "status": 308, "headers": { "Location": "/biblioteca/" } },
+    { "src": "/biblioteca/", "dest": "/biblioteca/index.html" },
     { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
