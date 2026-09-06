@@ -150,6 +150,8 @@ const COMPARA=JSON.parse(dados.textContent);
 const escolhas=[...document.querySelectorAll('.comparar-escolha')];
 const LINHAS=[['Superfície','category'],['Indicação editorial','status'],['Onde pode ser usado','use'],
  ['Quando evitar','limit'],['O que olhar depois de pronto','inspect']];
+// Os quatro ambientes vem prontos do gerador, na ordem de areas.py.
+const AMBIENTES=['Não crítica','Semicrítica','Crítica','Área molhada'];
 function precoDe(o){
  const estado=uf?uf.value:precoData.padrao;
  const vs=o.refs.map(i=>valorRef(costData[i],estado)).filter(v=>v!==null);
@@ -165,10 +167,16 @@ function desenhar(){
  html+='<table class="comparacao"><thead><tr><th scope="col">Comparando</th>';
  sel.forEach(o=>{html+='<th scope="col"><a href="'+o.slug+'/">'+o.id+' · '+o.name+'</a></th>';});
  html+='</tr></thead><tbody>';
- LINHAS.forEach(function(par){
+ LINHAS.forEach(function(par,idx){
   html+='<tr><th scope="row">'+par[0]+'</th>';
   sel.forEach(o=>{html+='<td data-col="'+o.id+' · '+o.name+'">'+String(o[par[1]]).replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</td>';});
   html+='</tr>';
+  // A resposta por ambiente vem logo depois do selo: e o que se compara primeiro.
+  if(idx===1)AMBIENTES.forEach(function(nome,i){
+   html+='<tr><th scope="row">'+nome+'</th>';
+   sel.forEach(o=>{html+='<td data-col="'+o.id+'" class="onde-'+o.ondeCod[i]+'">'+(o.onde[i]||'—')+'</td>';});
+   html+='</tr>';
+  });
  });
  html+='<tr><th scope="row">Quanto pode custar</th>';
  sel.forEach(o=>{html+='<td data-col="'+o.id+'">'+precoDe(o)+'</td>';});

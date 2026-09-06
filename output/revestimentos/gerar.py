@@ -10,6 +10,8 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.colors import HexColor
 from reportlab.lib.utils import ImageReader
 from conteudo import DATE,SOURCES,RULES,INTRO,MATERIALS,END
+from areas import AMBIENTES,ESTADOS,ONDE
+from conteudo import SELOS,TIPOS
 from complementos import AREAS,CONTEXT,GLOSSARY,COSTS,COST_NOTE,COST_SCALE,COST_URL,SEM_PRECO,UNIDADE,UF_PADRAO,MARCA,PUBLICACAO
 from precos import PRECOS,UFS,REFERENCIA,EMISSAO
 import fichas
@@ -38,6 +40,21 @@ def tile(m):
 
 ROOT=Path(__file__).resolve().parent
 E=html.escape
+CLASSE={'sim':'ok','talvez':'cond','nao':'nao'}
+# A pergunta que a Ester ouve no consultorio e "posso usar isso na minha sala?".
+# A matriz responde nos quatro ambientes de uma vez, antes de qualquer texto.
+def onde_html(mid,titulo='h3',base=''):
+ linha=ONDE[mid]
+ itens=[]
+ for i,(chave,nome,exemplo) in enumerate(AMBIENTES):
+  estado=linha[i]
+  rotulo,_=ESTADOS[estado] if estado else ('Não se aplica','')
+  itens.append(f'<li class="onde-{CLASSE.get(estado,"na")}">'
+   f'<span class="onde-amb">{E(nome)}</span><span class="onde-est">{E(rotulo)}</span></li>')
+ return (f'<div class="onde"><{titulo}>Onde pode ser usado</{titulo}>'
+  '<ul class="onde-lista">'+''.join(itens)+'</ul>'
+  f'<p class="onde-porque">{E(linha[4])}</p>'
+  f'<p class="ref"><a href="{base}#como-ler">O que significa cada resposta</a></p></div>')
 rulemap={r[0]:r for r in RULES}
 # Cada ficha aponta para as referências de preço que existem e, quando não existe
 # nenhuma, para o motivo. É o que a calculadora usa para nunca inventar um valor.
@@ -52,13 +69,18 @@ ISO='2026-09-06'
 SLUG={m['id']:pagina.slug(m['name']) for m in MATERIALS}
 COMPARA=[dict(id=m['id'],name=m['name'],category=m['category'],status=m['status'],slug=SLUG[m['id']],
  use=m['use'],limit=m['limit'],inspect=m['inspect'],unit=UNIDADE[m['category']],
+ onde=[(ESTADOS[e][0] if e else 'Não se aplica') for e in ONDE[m['id']][:4]],
+ ondeCod=[CLASSE.get(e,'na') for e in ONDE[m['id']][:4]],ondePorque=ONDE[m['id']][4],
  refs=[i for i,x in enumerate(COSTS) if m['id'] in x['ids']],
  gap=SEM_PRECO[m['id']][0] if m['id'] in SEM_PRECO else '',
  rules=[rulemap[r][1] for r in m['rules']]) for m in MATERIALS]
 assert len(set(SLUG.values()))==len(SLUG),'dois materiais com o mesmo endereço'
 COSTS_JSON=[dict(x,value=valor(x)) for x in COSTS]
 LACUNAS={k:dict(motivo=v[0],comparar=[CHAVE[c] for c in v[1]]) for k,v in SEM_PRECO.items()}
-DATA=dict(version='2.3.0',brand=MARCA,areaClasses=AREAS,context=CONTEXT,glossary=GLOSSARY,costs=COSTS_JSON,costNote=COST_NOTE,costUrl=COST_URL,priceReference=REFERENCIA,priceIssued=EMISSAO,defaultState=UF_PADRAO,states=UFS,prices=PRECOS,priceGaps=LACUNAS,unitByCategory=UNIDADE,calculator=CALC,reviewedAt='2026-09-06',title='Revestimentos em serviços de saúde',intro=INTRO,rules=[dict(zip(['id','title','text','device','source','kind'],r)) for r in RULES],materials=MATERIALS,closing=END,sources=SOURCES)
+DATA=dict(version='2.3.0',brand=MARCA,areaClasses=AREAS,context=CONTEXT,glossary=GLOSSARY,costs=COSTS_JSON,costNote=COST_NOTE,costUrl=COST_URL,priceReference=REFERENCIA,priceIssued=EMISSAO,defaultState=UF_PADRAO,states=UFS,prices=PRECOS,priceGaps=LACUNAS,unitByCategory=UNIDADE,calculator=CALC,reviewedAt='2026-09-06',title='Revestimentos em serviços de saúde',intro=INTRO,rules=[dict(zip(['id','title','text','device','source','kind'],r)) for r in RULES],materials=MATERIALS,closing=END,sources=SOURCES,
+ environments=[dict(id=k,name=t,example=x) for k,t,x in AMBIENTES],
+ environmentStates=[dict(id=k,label=t,meaning=d) for k,(t,d) in ESTADOS.items()],
+ environmentMatrix={k:dict(zip([a[0] for a in AMBIENTES],v[:4]),why=v[4]) for k,v in ONDE.items()})
 (ROOT/'biblioteca.json').write_text(json.dumps(DATA,ensure_ascii=False,indent=2),encoding='utf-8')
 def refs(m):
  result=[]
@@ -278,7 +300,24 @@ for cat in dict.fromkeys(o['category'] for o in CALC):
  grupos.append(f'<optgroup label="{E(cat)}">'+''.join(f'<option value="{i}">{E((o["id"]+" · " if o["id"] else "")+o["name"])}</option>' for i,o in enumerate(CALC) if o['category']==cat)+'</optgroup>')
 parts.append('<div class="calculator"><h3>Calcule uma referência para o seu espaço</h3><p>Todas as fichas estão na lista, com o preço do estado escolhido acima. Onde a SINAPI não tem o serviço, a calculadora diz o motivo e deixa você usar o valor da sua própria cotação. Para paredes, informe a área das paredes, não a do piso.</p><div class="tools"><label>Ficha da biblioteca<select id="calc-material">'+''.join(grupos)+'</select></label><label>Preço a usar<select id="calc-price"></select></label></div><div class="tools" id="calc-own-row" hidden><label>Valor da sua cotação, em reais por <span id="calc-own-unit">m²</span><input id="calc-own" type="text" inputmode="decimal" autocomplete="off" placeholder="Ex.: 180"></label></div><div class="tools"><label>Como informar a medida<select id="calc-mode"><option value="area">Área em m²</option><option value="dimensions">Comprimento × largura</option><option value="linear">Comprimento em metros lineares</option><option value="unit">Quantidade de peças</option></select></label><label id="calc-quantity-label"><span id="calc-unit-label">Área (m²)</span><input id="calc-quantity" type="text" inputmode="decimal" autocomplete="off" placeholder="Ex.: 20"></label><label id="calc-length-label" hidden>Comprimento (m)<input id="calc-length" type="text" inputmode="decimal" autocomplete="off" placeholder="Ex.: 4"></label><label id="calc-width-label" hidden>Largura (m)<input id="calc-width" type="text" inputmode="decimal" autocomplete="off" placeholder="Ex.: 5"></label></div><div id="calc-result" role="status" aria-live="polite">Informe as medidas para calcular.</div><p id="calc-scope"></p><p class="ref">O cálculo multiplica a sua medida pelo preço escolhido. Não acrescenta perdas de corte, conserto da base, remoção do que existe hoje nem BDI, e não diz se o material serve para o seu ambiente: isso está na ficha. Para rodapé, informe o comprimento efetivo, descontando as portas.</p></div>')
 parts.append('<p>O preço de cada ficha aparece na própria ficha e em <a href="#comparar">Comparar lado a lado</a>, sempre no estado escolhido aqui. Compare dentro do mesmo escopo: o mais barato pode ser justamente o que a ficha desaconselha para o seu ambiente, e o mais caro pode não resolver o seu problema. O preço entra na decisão depois do critério, não antes.</p></section>')
-parts.append('<section class="intro">'+''.join(f'<div><h2>{E(t)}</h2><p>{E(p)}</p></div>' for t,p in INTRO)+'</section>')
+PROSA={t for t,_ in INTRO}-{'Como ler as fichas','Três tipos de informação'}
+conta={s:sum(1 for m in MATERIALS if m['status']==s) for s,_ in SELOS}
+esquema=('<div id="como-ler" class="esquema"><h2>Como ler as fichas</h2>'
+ '<p>Cada ficha abre com um selo, uma matriz de ambientes e o motivo. São três leituras, nesta ordem.</p>'
+ '<h3>1. O selo diz que tipo de resposta é</h3><div class="esq-grade">'
+ +''.join(f'<div class="esq selo-{i+1}"><b>{E(t)}</b><span class="esq-conta">{conta[t]} de {len(MATERIALS)} fichas</span><p>{E(d)}</p></div>' for i,(t,d) in enumerate(SELOS))
+ +'</div><h3>2. A matriz diz em que ambiente cabe</h3><div class="esq-grade">'
+ +''.join(f'<div class="esq onde-{CLASSE[k]}"><b>{E(rot)}</b><p>{E(sig)}</p></div>' for k,(rot,sig) in ESTADOS.items())
+ +'</div><p class="ref">Os quatro ambientes: '
+ +' · '.join(f'<b>{E(nome)}</b>, {E(ex.rstrip("."))}' for _,nome,ex in AMBIENTES)
+ +'. A RDC 50 não proíbe material por nome, ela exige propriedade: “não atende” quer dizer que o material, '
+ 'pela natureza dele, não entrega o que aquele ambiente pede.</p>'
+ '<h3>3. Cada linha da ficha tem um peso diferente</h3><div class="esq-grade">'
+ +''.join(f'<div class="esq tipo-{i+1}"><b>{E(t)}</b><p>{E(d)}</p></div>' for i,(t,d) in enumerate(TIPOS))
+ +'</div></div>')
+parts.append('<section class="intro">'
+ +''.join(f'<div><h2>{E(t)}</h2><p>{E(p)}</p></div>' for t,p in INTRO if t in PROSA)
+ +esquema+'</section>')
 parts.append('<section id="criterios"><h2>O que a norma exige</h2><p>Abra cada critério para consultar o alcance e o dispositivo exato.</p>')
 for rid,title,txt,device,source,kind in RULES:parts.append(f'<details id="regra-{rid}"><summary>{E(title)}</summary><p>{E(txt)}</p><p class="ref">{refhtml(source,device)}</p></details>')
 opcoes=''.join('<optgroup label="'+E(cat)+'">'+''.join(f'<option value="{i}">{E(o["id"]+" · "+o["name"])}</option>' for i,o in enumerate(COMPARA) if o['category']==cat)+'</optgroup>' for cat in dict.fromkeys(o['category'] for o in COMPARA))
@@ -293,7 +332,7 @@ cats=list(dict.fromkeys(m['category'] for m in MATERIALS))
 parts.extend(f'<option>{E(c)}</option>' for c in cats)
 parts.append('</select></label><button id="limpar" type="button">Limpar filtros</button></div><p id="contagem" role="status" aria-live="polite"></p><div id="fichas">')
 for m in MATERIALS:
- parts.append(f'<article id="{m["id"]}" data-category="{E(m["category"])}"><details class="material"><summary><span class="swatch" style="background-image:{("url("+foto(variantes(m["id"].lower())[0],mini=True)+")") if variantes(m["id"].lower())[0] else ("none" if tile(m)<0 else "url(assets/materiais.jpg)")};background-size:{"cover" if variantes(m["id"].lower())[0] else "400% 200%"};background-position:{"center" if variantes(m["id"].lower())[0] else str((tile(m)%4)*100/3)+"% "+str((tile(m)//4)*100)+"%"}" aria-hidden="true"></span><span class="material-heading"><span><p class="category">{E(m["category"])} · {m["id"]}</p><h3>{E(m["name"])}</h3></span><span class="status">{E(m["status"])}</span></span><span class="expand">Abrir ficha +</span></summary><div class="fields">')
+ parts.append(f'<article id="{m["id"]}" data-category="{E(m["category"])}"><details class="material"><summary><span class="swatch" style="background-image:{("url("+foto(variantes(m["id"].lower())[0],mini=True)+")") if variantes(m["id"].lower())[0] else ("none" if tile(m)<0 else "url(assets/materiais.jpg)")};background-size:{"cover" if variantes(m["id"].lower())[0] else "400% 200%"};background-position:{"center" if variantes(m["id"].lower())[0] else str((tile(m)%4)*100/3)+"% "+str((tile(m)//4)*100)+"%"}" aria-hidden="true"></span><span class="material-heading"><span><p class="category">{E(m["category"])} · {m["id"]}</p><h3>{E(m["name"])}</h3></span><span class="status">{E(m["status"])}</span></span><span class="expand">Abrir ficha +</span></summary>'+onde_html(m['id'],'h4')+'<div class="fields">')
  for key,label in FIELDS:parts.append(f'<div><h4>{label}</h4><p>{E(m[key])}</p></div>')
  parts.append('</div>')
  if m['id'] in SEM_PRECO:parts.append(f'<p class="ref">Preço: sem referência na SINAPI. <a href="#lacuna-{m["id"]}">Ver o motivo</a></p>')
@@ -311,7 +350,7 @@ parts.append('</main>'+pagina.rodape('','2.3',DATE)
 +'<script id="compara-data" type="application/json">'+json.dumps(COMPARA,ensure_ascii=False)+'</script>'
 +'<script id="calc-data" type="application/json">'+json.dumps(CALC,ensure_ascii=False)+'</script>'
 +'<script id="preco-data" type="application/json">'+json.dumps({'precos':PRECOS,'ufs':UFS,'padrao':UF_PADRAO,'referencia':mesano(REFERENCIA),'url':COST_URL},ensure_ascii=False)+'</script>'
-+'<script src="consulta.js?v=14"></script></body></html>')
++'<script src="consulta.js?v=16"></script></body></html>')
 (ROOT/'index.html').write_text('\n'.join(parts),encoding='utf-8')
 # Uma página por ficha. A capa responde "o que existe"; a ficha responde a busca
 # de quem já sabe o nome do material e quer saber se pode usar no consultório.
@@ -361,7 +400,8 @@ for m in MATERIALS:
  f'<nav class="trilha" aria-label="Trilha"><a href="../index.html">Biblioteca de revestimentos</a> · '
  f'<a href="../index.html#consulta">{E(m["category"])}</a></nav>',
  f'<article class="ficha-pagina"><p class="selo">{E(m["category"])} · Ficha {m["id"]}</p>',
- f'<h1>{E(m["name"])}</h1><p class="status-linha">{E(m["status"])}</p>']
+ f'<h1>{E(m["name"])}</h1><p class="status-linha">{E(m["status"])}</p>',
+ onde_html(m['id'],base='../index.html')]
  capa,outras=variantes(m['id'].lower())
  if capa:
   pg.append(f'<img class="foto-ficha" src="../{foto(capa)}" alt="{E(m["name"],quote=True)}, imagem ilustrativa em serviço de saúde">')
@@ -446,11 +486,24 @@ f'Os valores abaixo são de {UFNOME[UF_PADRAO]}. A versão em página tem os 27 
 md.append('### Fichas sem preço verificado')
 md.extend(f'**{m["id"]} · {m["name"]}.** {SEM_PRECO[m["id"]][0]}' for m in MATERIALS if m['id'] in SEM_PRECO)
 for t,p in INTRO:md.extend(['## '+t,p])
+tabela=['| Ficha | ' + ' | '.join(n for _,n,_ in AMBIENTES) + ' | Por quê |',
+ '|---|' + '---|'*(len(AMBIENTES)+1)]
+for m in MATERIALS:
+ linha=ONDE[m['id']]
+ tabela.append('| **' + m['id'] + '** ' + m['name'] + ' | '
+  + ' | '.join((ESTADOS[e][0] if e else 'Não se aplica') for e in linha[:4])
+  + ' | ' + linha[4] + ' |')
+md.extend(['## Onde cada ficha pode ser usada',
+ 'Estados: ' + ' · '.join(f'**{r}**, {d.lower().rstrip(".")}' for r,d in ESTADOS.values()) + '.',
+ 'Ambientes: ' + ' · '.join(f'**{n}**, {x.lower().rstrip(".")}' for _,n,x in AMBIENTES) + '.',
+ chr(10).join(tabela)])
 md.append('## Critérios normativos')
 for rid,title,txt,device,source,kind in RULES:md.extend(['### '+title,txt,f'**{kind}.** [{source}: {device}]({SOURCES[source]["url"]})'])
 md.append('Especificação e inspeção são recomendações técnicas; desempenho é comprovação do fabricante; as obrigações estão nos critérios ligados a cada ficha.')
 for m in MATERIALS:
- md.extend(['## '+m['id']+' · '+m['name'],m['category']+' · '+m['status']])
+ md.extend(['## '+m['id']+' · '+m['name'],m['category']+' · '+m['status'],
+ 'Onde pode ser usado: '+' · '.join(f'{n}: '+(ESTADOS[e][0] if e else 'não se aplica')
+  for (_,n,_),e in zip(AMBIENTES,ONDE[m['id']][:4]))+'. '+ONDE[m['id']][4]])
  for k,l in FIELDS:md.append(f'**{l}:** {m[k]}')
  if m['id'] in SEM_PRECO:md.append('**Preço:** sem referência na SINAPI, ver Custos de referência.')
  else:md.append('**Preço:** '+'; '.join(f'{x["name"]}, {money(valor(x))}/{x["unit"]}' for x in COSTS if m['id'] in x['ids'])+f' (em {UFNOME[UF_PADRAO]}).')

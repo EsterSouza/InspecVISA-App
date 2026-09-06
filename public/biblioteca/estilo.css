@@ -122,6 +122,47 @@ figcaption{font-size:13px;color:var(--tinta-2);margin-top:8px}
 .area p{font-size:15px;margin-bottom:10px}
 .example{border-top:1px solid rgba(0,0,0,.14);padding-top:10px;margin-bottom:0}
 
+/* Onde pode ser usado: a matriz de quatro ambientes que abre cada ficha.
+   Duas colunas no celular, quatro a partir de 720px. A cor e a borda dizem a
+   resposta; o texto tambem diz, para quem nao distingue as cores. */
+.onde{margin:16px 0 4px;padding:16px;background:var(--carta);
+ border:1px solid var(--linha);border-radius:var(--raio)}
+.onde h3,.onde h4{font-family:var(--serifa);font-size:17px;margin:0 0 12px}
+.onde-lista{list-style:none;padding:0;margin:0;display:grid;gap:8px;
+ grid-template-columns:repeat(2,minmax(0,1fr))}
+.onde-lista li{padding:10px 12px;border-radius:8px;border-left:4px solid var(--linha);
+ background:var(--verde);min-width:0}
+.onde-amb{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.04em;
+ color:var(--tinta-2)}
+.onde-est{display:block;font-size:15px;font-weight:700;margin-top:2px;line-height:1.25}
+.onde-lista li.onde-ok,.esq.onde-ok{background:#dfeade;border-left-color:#3f6f4d}
+.onde-lista li.onde-cond,.esq.onde-cond{background:#f4e7d0;border-left-color:#9a6c1f}
+.onde-lista li.onde-nao,.esq.onde-nao{background:#f4ded7;border-left-color:#9d4227}
+.onde-lista li.onde-na,.esq.onde-na{background:#ebe8e1;border-left-color:#9d968a}
+.comparacao .onde-ok{background:#dfeade}
+.comparacao .onde-cond{background:#f4e7d0}
+.comparacao .onde-nao{background:#f4ded7}
+.comparacao .onde-na{background:#ebe8e1}
+.onde-porque{font-size:15px;margin:12px 0 0}
+.onde .ref{margin:8px 0 0}
+
+/* Como ler as fichas: tres esquemas no lugar de tres paragrafos. */
+.esquema{margin-top:8px}
+.esquema h3{font-size:17px;margin:24px 0 10px}
+.esq-grade{display:grid;gap:10px}
+.esq{padding:14px 16px;border-radius:8px;background:var(--verde);
+ border-left:4px solid var(--verde-linha)}
+.esq b{display:block;font-family:var(--serifa);font-size:17px;font-weight:600}
+.esq p{font-size:15px;margin:6px 0 0}
+.esq-conta{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.04em;
+ color:var(--tinta-2);margin-top:2px}
+.selo-1{background:#dfeade;border-left-color:#3f6f4d}
+.selo-2{background:#f4ded7;border-left-color:#9d4227}
+.selo-3{background:#f4e7d0;border-left-color:#9a6c1f}
+.tipo-1{border-left-color:#3f5b6f}
+.tipo-2{border-left-color:#7d8a6a}
+.tipo-3{border-left-color:#8a7a5a}
+
 /* Blocos que abrem */
 .glossary details,#criterios details{border-bottom:1px solid var(--linha);padding:14px 0}
 summary{cursor:pointer;font-weight:600;font-size:16px;min-height:28px}
@@ -252,6 +293,8 @@ footer{border-top:1px solid var(--linha);padding:26px 0 36px;font-size:15px;colo
  .menu{display:none}
  .atalhos{display:flex;gap:18px;margin-left:auto;font-size:14px}
  .indice{display:grid;margin-bottom:8px}
+ .onde-lista{grid-template-columns:repeat(4,minmax(0,1fr))}
+ .esq-grade{grid-template-columns:repeat(3,minmax(0,1fr))}
  .comparados,.comparados-rot{display:none}
  .comparacao{min-width:520px}
  .comparacao thead{display:table-header-group}

@@ -3,6 +3,7 @@ import json,re,hashlib
 from PIL import Image,ImageDraw
 from pypdf import PdfReader
 from conteudo import MATERIALS,RULES
+from areas import AMBIENTES,ESTADOS,ONDE
 from complementos import COSTS,SEM_PRECO,MARCA,UF_PADRAO
 from precos import PRECOS,UFS
 import fitz, fichas, pagina
@@ -18,6 +19,18 @@ for m in MATERIALS:
  for field in ['description','use','limit','spec','proof','inspect']:
   assert m[field] in md
 for r in RULES:assert r[1] in text
+# A matriz de ambientes e o que responde "posso usar na minha sala?". Sem ficha
+# de fora, sem estado invalido e com a legenda ancorada onde a ficha aponta.
+assert set(ONDE)=={m['id'] for m in MATERIALS},'ficha sem linha em areas.py'
+assert 'id="como-ler"' in web,'legenda da matriz fora da capa'
+for m in MATERIALS:
+ linha=ONDE[m['id']]
+ assert len(linha)==5 and linha[4].strip(),m['id']
+ for e in linha[:4]:assert e in ESTADOS or e is None,(m['id'],e)
+ ficha=(root/'publicar'/pagina.slug(m['name'])/'index.html').read_text(encoding='utf-8')
+ assert 'class="onde"' in ficha,m['id']
+ for _,nome,_ in AMBIENTES:assert nome in ficha,(m['id'],nome)
+ assert linha[4] in ficha and linha[4] in md,m['id']
 assert '—' not in md
 links=sum(len(p.get('/Annots',[])) for p in pdf.pages)
 assert links>30
