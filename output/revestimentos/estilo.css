@@ -144,6 +144,9 @@ figcaption{font-size:13px;color:var(--tinta-2);margin-top:8px}
 .comparacao .onde-nao{background:#f4ded7}
 .comparacao .onde-na{background:#ebe8e1}
 .onde-porque{font-size:15px;margin:12px 0 0}
+.leituras{display:grid;gap:14px;margin:14px 0 0}
+.leituras b{font-family:var(--serifa);font-size:17px;font-weight:600}
+.leituras p{font-size:15px;margin:5px 0 0}
 .onde .ref{margin:8px 0 0}
 
 /* Como ler as fichas: tres esquemas no lugar de tres paragrafos. */
@@ -295,6 +298,7 @@ footer{border-top:1px solid var(--linha);padding:26px 0 36px;font-size:15px;colo
  .indice{display:grid;margin-bottom:8px}
  .onde-lista{grid-template-columns:repeat(4,minmax(0,1fr))}
  .esq-grade{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .leituras{grid-template-columns:repeat(3,minmax(0,1fr))}
  .comparados,.comparados-rot{display:none}
  .comparacao{min-width:520px}
  .comparacao thead{display:table-header-group}

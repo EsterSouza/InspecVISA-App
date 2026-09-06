@@ -11,7 +11,7 @@ from reportlab.lib.colors import HexColor
 from reportlab.lib.utils import ImageReader
 from conteudo import DATE,SOURCES,RULES,INTRO,MATERIALS,END
 from areas import AMBIENTES,ESTADOS,ONDE
-from conteudo import SELOS,TIPOS
+from conteudo import SELOS,TIPOS,LEITURAS
 from complementos import AREAS,CONTEXT,GLOSSARY,COSTS,COST_NOTE,COST_SCALE,COST_URL,SEM_PRECO,UNIDADE,UF_PADRAO,MARCA,PUBLICACAO
 from precos import PRECOS,UFS,REFERENCIA,EMISSAO
 import fichas
@@ -344,6 +344,10 @@ parts.append('</div><p id="vazio" hidden>Nenhuma ficha encontrada. Tente outro t
 parts.extend(f'<h3>{E(t)}</h3><p>{E(p)}</p>' for t,p in END)
 parts.append('</section><section id="fontes"><h2>Referências e alcance da revisão</h2><p>Fontes consultadas em '+DATE+'. Os dispositivos são indicados nos critérios. A publicação não tem caráter oficial da Anvisa.</p>')
 for key,s in SOURCES.items():parts.append(f'<div class="source"><h3>{refhtml(key,s["title"])}</h3><p>{E(s["status"])}</p></div>')
+parts.append('<h3>Onde continuar a pesquisa</h3><p>Não são fonte normativa: são o passo seguinte, '
+ 'quando a pergunta deixa de ser o revestimento e passa a ser o ambiente inteiro.</p><div class="leituras">'
+ +''.join(f'<div><b><a href="{u}" target="_blank" rel="noopener">{E(t)}</a></b><p>{E(d)}</p></div>' for t,u,d in LEITURAS)
+ +'</div>')
 parts.append('</section>'+pagina.convite())
 parts.append('</main>'+pagina.rodape('','2.3',DATE)
 +'<script id="cost-data" type="application/json">'+json.dumps(COSTS_JSON,ensure_ascii=False)+'</script>'
@@ -511,6 +515,8 @@ for m in MATERIALS:
 for t,p in END:md.extend(['## '+t,p])
 md.append('## Referências e alcance da revisão')
 for k,s in SOURCES.items():md.extend([f'### [{k}: {s["title"]}]({s["url"]})',s['status']])
+md.append('### Onde continuar a pesquisa')
+for t,u,d in LEITURAS:md.append(f'- [{t}]({u}): {d}')
 (ROOT/'biblioteca.md').write_text('\n\n'.join(md)+'\n',encoding='utf-8')
 
 # A4 próprio para impressão. Cada ficha é mantida inteira; dois materiais por página.
