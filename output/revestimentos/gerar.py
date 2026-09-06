@@ -86,24 +86,54 @@ if ENTRADA.is_dir():
  for f in ENTRADA.iterdir():
   if f.suffix.lower() in ('.png','.jpg','.jpeg','.webp'):shutil.copy2(f,FOTOS_ORIG/f.name)
 LIMITE={'planta':(1600,90),'planta-celular':(1000,90)}
-def foto(nome):
- """Devolve o caminho web da foto, otimizada, ou '' se ela ainda nao existe."""
- orig=next((f for f in FOTOS_ORIG.iterdir() if f.stem.lower()==nome and f.suffix.lower() in ('.png','.jpg','.jpeg','.webp')),None)
+EXT=('.png','.jpg','.jpeg','.webp')
+def _origem(nome):
+ return next((f for f in FOTOS_ORIG.iterdir() if f.stem.lower()==nome and f.suffix.lower() in EXT),None)
+def foto(nome,mini=False):
+ """Caminho web da foto, otimizada, ou '' se ela ainda nao existe.
+
+ mini=True devolve uma copia de 160px para a miniatura da lista. Sem isso a capa
+ baixaria a foto inteira de cada ficha, umas 200 kB por vez, para desenhar um
+ quadrado de 56 por 66 pixels."""
+ orig=_origem(nome)
  if not orig:return ''
- largura,qualidade=LIMITE.get(nome,(1200,82))
- saida=FOTOS_WEB/(nome+'.jpg')
+ largura,qualidade=(160,78) if mini else LIMITE.get(nome,(1200,82))
+ saida=FOTOS_WEB/(nome+('-mini.jpg' if mini else '.jpg'))
  if not saida.exists() or saida.stat().st_mtime<orig.stat().st_mtime:
   im=Image.open(orig).convert('RGB')
+  if mini:
+   lado=min(im.size);e=(im.width-lado)//2;t=(im.height-lado)//2
+   im=im.crop((e,t,e+lado,t+lado))
   if im.width>largura:im=im.resize((largura,round(im.height*largura/im.width)),Image.LANCZOS)
-  im.save(saida,'JPEG',quality=qualidade,optimize=True,progressive=True)
- return 'assets/fotos/'+nome+'.jpg'
+  im.save(saida,'JPEG',quality=qualidade,optimize=True,progressive=not mini)
+ return 'assets/fotos/'+saida.name
+def variantes(mid):
+ """As fotos de uma ficha: a principal e as variantes nomeadas.
+
+ Uma ficha como a P08 reune laminado, madeira e carpete, que nao se parecem em
+ nada: uma foto so mostra um terco do assunto. O arquivo p08-tudo.png e a capa
+ e cada p08-<coisa>.png entra legendado embaixo."""
+ achados=[f.stem.lower() for f in FOTOS_ORIG.iterdir()
+  if f.suffix.lower() in EXT and (f.stem.lower()==mid or f.stem.lower().startswith(mid+'-'))]
+ if not achados:return '',[]
+ capa=next((x for x in (mid,mid+'-tudo') if x in achados),sorted(achados)[0])
+ nome_ficha=next(m['name'].lower() for m in MATERIALS if m['id'].lower()==mid)
+ def ordem(x):
+  rotulo=x[len(mid)+1:]
+  pos=nome_ficha.find(rotulo)
+  return (pos if pos>=0 else 99,rotulo)
+ outras=sorted((x for x in achados if x!=capa and x!=mid+'-tudo'),key=ordem)
+ return capa,[(x,x[len(mid)+1:].replace('-',' ').capitalize()) for x in outras]
 AREA_FOTO={'Área crítica':'ambiente-critica','Área semicrítica':'ambiente-semicritica','Área não crítica':'ambiente-nao-critica'}
 # Foto com nome fora da convencao seria ignorada em silencio, e o trabalho de
 # gerar a imagem se perderia sem ninguem notar. O gerador avisa na saida; o
 # validar.py trava.
 NOMES_VALIDOS=pagina.FOTOS_FIXAS|{m['id'].lower() for m in MATERIALS}
+IDS={m['id'].lower() for m in MATERIALS}
+def nome_ok(stem):
+ return stem in NOMES_VALIDOS or (stem.split('-')[0] in IDS and '-' in stem)
 SOBRANDO=[f.name for f in FOTOS_ORIG.iterdir()
- if f.suffix.lower() in ('.png','.jpg','.jpeg','.webp') and f.stem.lower() not in NOMES_VALIDOS]
+ if f.suffix.lower() in ('.png','.jpg','.jpeg','.webp') and not nome_ok(f.stem.lower())]
 if SOBRANDO:
  print('AVISO: foto com nome fora da convencao, nao entra em pagina nenhuma:')
  for n in SOBRANDO:print('  -',n)
@@ -263,7 +293,7 @@ cats=list(dict.fromkeys(m['category'] for m in MATERIALS))
 parts.extend(f'<option>{E(c)}</option>' for c in cats)
 parts.append('</select></label><button id="limpar" type="button">Limpar filtros</button></div><p id="contagem" role="status" aria-live="polite"></p><div id="fichas">')
 for m in MATERIALS:
- parts.append(f'<article id="{m["id"]}" data-category="{E(m["category"])}"><details class="material"><summary><span class="swatch" style="background-image:{("url("+foto(m["id"].lower())+")") if foto(m["id"].lower()) else ("none" if tile(m)<0 else "url(assets/materiais.jpg)")};background-size:{"cover" if foto(m["id"].lower()) else "400% 200%"};background-position:{"center" if foto(m["id"].lower()) else str((tile(m)%4)*100/3)+"% "+str((tile(m)//4)*100)+"%"}" aria-hidden="true"></span><span class="material-heading"><span><p class="category">{E(m["category"])} · {m["id"]}</p><h3>{E(m["name"])}</h3></span><span class="status">{E(m["status"])}</span></span><span class="expand">Abrir ficha +</span></summary><div class="fields">')
+ parts.append(f'<article id="{m["id"]}" data-category="{E(m["category"])}"><details class="material"><summary><span class="swatch" style="background-image:{("url("+foto(variantes(m["id"].lower())[0],mini=True)+")") if variantes(m["id"].lower())[0] else ("none" if tile(m)<0 else "url(assets/materiais.jpg)")};background-size:{"cover" if variantes(m["id"].lower())[0] else "400% 200%"};background-position:{"center" if variantes(m["id"].lower())[0] else str((tile(m)%4)*100/3)+"% "+str((tile(m)//4)*100)+"%"}" aria-hidden="true"></span><span class="material-heading"><span><p class="category">{E(m["category"])} · {m["id"]}</p><h3>{E(m["name"])}</h3></span><span class="status">{E(m["status"])}</span></span><span class="expand">Abrir ficha +</span></summary><div class="fields">')
  for key,label in FIELDS:parts.append(f'<div><h4>{label}</h4><p>{E(m[key])}</p></div>')
  parts.append('</div>')
  if m['id'] in SEM_PRECO:parts.append(f'<p class="ref">Preço: sem referência na SINAPI. <a href="#lacuna-{m["id"]}">Ver o motivo</a></p>')
@@ -332,10 +362,14 @@ for m in MATERIALS:
  f'<a href="../index.html#consulta">{E(m["category"])}</a></nav>',
  f'<article class="ficha-pagina"><p class="selo">{E(m["category"])} · Ficha {m["id"]}</p>',
  f'<h1>{E(m["name"])}</h1><p class="status-linha">{E(m["status"])}</p>']
- propria=foto(m['id'].lower())
- if propria:
-  pg.append(f'<img class="foto-ficha" src="../{propria}" alt="{E(m["name"],quote=True)}, imagem ilustrativa em serviço de saúde" loading="lazy">'
-  '<p class="ref">Imagem ilustrativa. Confirme o produto e o acabamento com o fornecedor.</p>')
+ capa,outras=variantes(m['id'].lower())
+ if capa:
+  pg.append(f'<img class="foto-ficha" src="../{foto(capa)}" alt="{E(m["name"],quote=True)}, imagem ilustrativa em serviço de saúde">')
+  if outras:
+   pg.append('<div class="galeria">'+''.join(
+    f'<figure><img src="../{foto(x)}" alt="{E(rot,quote=True)}, {E(m["name"].lower(),quote=True)}" loading="lazy">'
+    f'<figcaption>{E(rot)}</figcaption></figure>' for x,rot in outras)+'</div>')
+  pg.append('<p class="ref">Imagens ilustrativas. Confirme o produto e o acabamento com o fornecedor.</p>')
  elif tile(m)>=0:
   pg.append(f'<div class="amostra" style="background-image:url(../assets/materiais.jpg);'
   f'background-position:{(tile(m)%4)*100/3}% {(tile(m)//4)*100}%" role="img" '

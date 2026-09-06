@@ -82,8 +82,11 @@ validos=pagina.FOTOS_FIXAS|{m['id'].lower() for m in MATERIALS}
 if fonte.is_dir():
  for f in fonte.iterdir():
   if f.suffix.lower() not in ('.png','.jpg','.jpeg','.webp'):continue
-  assert f.stem.lower() in validos,f'foto com nome fora da convencao: {f.name} (ver assets/fichas/LEIA-ME.txt)'
-  saida=web_fotos/(f.stem.lower()+'.jpg')
+  stem=f.stem.lower()
+  ids={m['id'].lower() for m in MATERIALS}
+  ok=stem in validos or (stem.split('-')[0] in ids and '-' in stem)
+  assert ok,f'foto com nome fora da convencao: {f.name} (ver assets/fichas/LEIA-ME.txt)'
+  saida=web_fotos/(stem+'.jpg')
   assert saida.is_file(),'foto nao otimizada: '+f.name
   assert saida.stat().st_size<400_000,f'{saida.name} tem {saida.stat().st_size//1024} kB, pesado demais para a pagina'
   assert (root/'publicar'/'assets'/'fotos'/saida.name).is_file(),'foto nao publicada: '+saida.name

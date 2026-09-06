@@ -36,4 +36,11 @@ minusculas:
   r03.png  Rodape sobreposto                   m02.png  Armario com nucleo de MDF
                                                m03.png  Tecido, madeira crua, palha
 
+Ficha que reune materiais diferentes pode ter varias fotos. O nome leva o id,
+um hifen e a coisa fotografada, e o "-tudo" e a foto de capa:
+  p08-tudo.png       capa da ficha, com os tres juntos
+  p08-laminado.png   entram legendadas embaixo, na ordem do nome da ficha
+  p08-madeira.png
+  p08-carpete.png
+
 Ficha sem foto continua funcionando: fica com a amostra de textura de hoje.
