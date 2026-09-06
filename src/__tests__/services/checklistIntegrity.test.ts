@@ -54,7 +54,7 @@ function assertNoNearDuplicates(template: ChecklistTemplate, threshold = 0.75) {
 }
 
 const EXPECTED_ITEM_COUNTS: Record<string, number> = {
-  'tpl-estetica-clinica-v1': 115,
+  'tpl-estetica-clinica-v1': 122,
   'tpl-estetica-embelezamento-v1': 28,
   // REF-05 (06/08/2026): 97 → 106. Dez itens existiam só no banco e foram trazidos para o
   // código; os cuidadores voltaram a ser quatro itens, um por grau de dependência mais a
@@ -246,7 +246,7 @@ describe('checklist integrity — todos os roteiros de src/data', () => {
       expect(capitalItems.find(item => item.id === 'sp-est-004')).toBeTruthy();
       expect(capitalItems.find(item => item.id === 'sp-est-005')).toBeTruthy();
       expect(effectiveCapital.sections.find(section => section.id === 'sec-int-13')?.items).toHaveLength(5);
-      expect(capitalItems).toHaveLength(127);
+      expect(capitalItems).toHaveLength(134);
       capitalItems.forEach(item => {
         expect(item.description.endsWith('?'), `item ${item.id} não está em forma de pergunta`).toBe(true);
       });
@@ -264,7 +264,7 @@ describe('checklist integrity — todos os roteiros de src/data', () => {
       // O item federal substituído não sobrevive só porque mudou de id: `replacesItemId`
       // aponta para 'est-001' e no banco o mesmo requisito é UUID. Enquanto isso casava
       // só por id, os dois ficavam lado a lado — 130 itens em vez de 122.
-      expect(items).toHaveLength(127);
+      expect(items).toHaveLength(134);
       assertNoNearDuplicates(effective);
     });
 
@@ -303,8 +303,8 @@ describe('checklist integrity — todos os roteiros de src/data', () => {
         expect(items.filter(item => item.id === id), `${id} deveria entrar uma única vez`).toHaveLength(1);
       });
 
-      // 115 do roteiro-base − 7 substituídos + 12 do suplemento.
-      expect(items).toHaveLength(120);
+      // 122 do roteiro-base − 7 substituídos + 12 do suplemento.
+      expect(items).toHaveLength(127);
 
       // O art. 28 do Código Sanitário municipal não virou item: o caput fala em
       // radiação não ionizante, mas os incisos (CNEN, envoltório radioprotetor)
@@ -323,9 +323,41 @@ describe('checklist integrity — todos os roteiros de src/data', () => {
     test('aplica o suplemento de Parauapebas ao roteiro seedado com UUID do Supabase', () => {
       const effective = getEffectiveTemplate(comIdsDoBanco(clinica), parauapebasClient, undefined, true);
 
-      expect(allItems(effective)).toHaveLength(120);
+      expect(allItems(effective)).toHaveLength(127);
       expect(allItems(effective).find(item => item.id === 'pbs-est-001')).toBeTruthy();
       assertNoNearDuplicates(effective);
+    });
+
+    test('o compartilhamento do município do Rio troca a pergunta neutra pela regra do decreto', () => {
+      // O item est-117 do roteiro-base é neutro de propósito: o licenciamento é
+      // municipal e cada cidade resolve sublocação de um jeito. O município do
+      // Rio resolveu — Decreto Rio nº 57.501/2026 — e é o único que tem
+      // suplemento próprio para isso.
+      const rioCapital = { id: 'test-est-rio-capital', name: 'Clínica Rio', category: 'estetica', state: 'RJ', city: 'Rio de Janeiro' } as Client;
+      const items = allItems(getEffectiveTemplate(clinica, rioCapital, undefined, true));
+
+      expect(items.find(item => item.id === 'est-117')).toBeUndefined();
+      expect(items.find(item => item.id === 'cw-rio-001')).toBeTruthy();
+      expect(items.find(item => item.id === 'cw-rio-002')).toBeTruthy();
+      expect(items.find(item => item.id === 'cw-rio-003')).toBeTruthy();
+
+      // Os outros seis itens da seção continuam: o decreto acrescenta e
+      // substitui um, não reescreve o bloco.
+      ['est-116', 'est-118', 'est-119', 'est-120', 'est-121', 'est-122']
+        .forEach(id => expect(items.find(item => item.id === id), id).toBeTruthy());
+
+      items.forEach(item => {
+        expect(item.description.endsWith('?'), `item ${item.id} não está em forma de pergunta`).toBe(true);
+      });
+      assertNoNearDuplicates(getEffectiveTemplate(clinica, rioCapital, undefined, true));
+
+      // O alcance é o MUNICÍPIO. Niterói e Petrópolis ficam com a pergunta
+      // neutra — o IVISA-RIO não licencia lá. É a correção de rumo do
+      // `suplemento-rj.ts`, que arrasta este mesmo decreto para o estado todo.
+      const niteroi = { id: 'test-est-niteroi', name: 'Clínica Niterói', category: 'estetica', state: 'RJ', city: 'Niterói' } as Client;
+      const itensNiteroi = allItems(getEffectiveTemplate(clinica, niteroi, undefined, true));
+      expect(itensNiteroi.find(item => item.id === 'est-117')).toBeTruthy();
+      expect(itensNiteroi.find(item => item.id === 'cw-rio-001')).toBeUndefined();
     });
 
     test('todo item do suplemento de Parauapebas resolve URL de legislação', () => {

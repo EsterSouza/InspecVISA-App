@@ -173,6 +173,16 @@ describe('guidance · roteiro de estética', () => {
     'est-036': { weight: 10, isCritical: true },
     'est-038': { weight: 10, isCritical: true },
     'est-115': { weight: 5, isCritical: false },
+    // Secao 13, compartilhamento de espaco: nasceu inteira com orientacao,
+    // porque nao ha norma federal de cowork e o item sem leitura de norma
+    // viraria opiniao.
+    'est-116': { weight: 10, isCritical: true },
+    'est-117': { weight: 10, isCritical: true },
+    'est-118': { weight: 5, isCritical: false },
+    'est-119': { weight: 10, isCritical: true },
+    'est-120': { weight: 10, isCritical: true },
+    'est-121': { weight: 10, isCritical: true },
+    'est-122': { weight: 10, isCritical: true },
   };
 
   test('os itens orientados são exatamente os previstos, e nenhum mudou de peso', () => {
@@ -286,6 +296,54 @@ describe('requiredAction · a ação pela norma', () => {
     // Mesma trava do `guidance`: o MARP lê só `weight` e `isCritical`.
     const criticos = ITENS_EST.filter(i => i.isCritical).length;
     const peso = ITENS_EST.reduce((soma, i) => soma + i.weight, 0);
-    expect({ criticos, peso }).toEqual({ criticos: 69, peso: 797 });
+    expect({ criticos, peso }).toEqual({ criticos: 75, peso: 862 });
+  });
+});
+
+// ============================================================
+// A seção de compartilhamento de espaço. Não existe norma federal de cowork em
+// serviço de saúde: o bloco monta a exigência a partir do que já se cobra de
+// qualquer serviço (RDC 63/2011, 222/2018, 15/2012) e deixa o licenciamento
+// como pergunta neutra, porque quem responde é o município.
+// ============================================================
+describe('sec-est-13 · compartilhamento de espaço', () => {
+  const SECAO = templateEsteticaClinica.sections.find(s => s.id === 'sec-est-13');
+  const ITENS = SECAO?.items ?? [];
+
+  test('a seção existe com os sete itens, todos em forma de pergunta', () => {
+    expect(SECAO?.title).toBe('Compartilhamento de Espaço');
+    expect(ITENS.map(i => i.id)).toEqual([
+      'est-116', 'est-117', 'est-118', 'est-119', 'est-120', 'est-121', 'est-122',
+    ]);
+    for (const i of ITENS) expect(i.description.trim().endsWith('?'), i.id).toBe(true);
+  });
+
+  test('o CNAE de locação vem com as duas subclasses, e a escolha fica com o contador', () => {
+    const g = itemEst('est-118').guidance!;
+    expect(g).toContain('68.10-2/02');
+    expect(g).toContain('68.22-6/00');
+    expect(g).toMatch(/escolha entre elas é do contador/);
+  });
+
+  test('o licenciamento fica neutro e nomeia a outorga do Rio só como exemplo', () => {
+    // O suplemento municipal é que traz a regra concreta — ver
+    // suplemento-compartilhamento-rio-capital.ts, que substitui este item.
+    const g = itemEst('est-117').guidance!;
+    expect(g).toMatch(/licenciamento sanitário é municipal/);
+    expect(g).toContain('Decreto Rio nº 57.501/2026');
+    expect(g).toMatch(/a pergunta aqui é neutra/);
+  });
+
+  test('o ponto legal em aberto é declarado, não afirmado', () => {
+    // Processar instrumental de outra PJ pode caracterizar processamento para
+    // terceiros. Não foi possível confirmar, então o item manda perguntar à
+    // VISA local em vez de inventar exigência.
+    const item = itemEst('est-120');
+    expect(item.guidance).toMatch(/confirmar o enquadramento com a vigilância sanitária local/i);
+    expect(item.requiredAction).toMatch(/Confirmar com a vigilância sanitária local/);
+  });
+
+  test('a responsabilidade do gerador de resíduo não se transfere por contrato', () => {
+    expect(itemEst('est-121').guidance).toMatch(/não se transfere por contrato/);
   });
 });

@@ -13,6 +13,7 @@ import { templateIlpiBeloHorizonteSupplement } from './Roteiro_ILPI_BH';
 import { templateIlpiRioDeJaneiroSupplement } from './Roteiro_ILPI_RJ';
 import { suplementoEsteticaRj } from './estetica/suplemento-rj';
 import { suplementoEsteticaSpCapital } from './estetica/suplemento-sp-capital';
+import { suplementoCompartilhamentoRioCapital } from './estetica/suplemento-compartilhamento-rio-capital';
 import { suplementoSaudeParauapebas } from './estetica/suplemento-para-parauapebas';
 import { suplementoPetropolis } from './saude/suplemento-petropolis';
 import { suplementoAlimentosRioDeJaneiro } from './alimentos/suplemento-rio-de-janeiro';
@@ -110,6 +111,18 @@ export const supplementRegistry: SupplementRegistryEntry[] = [
     supplement: suplementoEsteticaSpCapital,
     appliesTo: (template, client) => isEsteticaClinicaTemplate(template) && isSaoPauloCapitalClient(client),
     nameSuffix: ' (+ Suplemento São Paulo Capital)',
+  },
+  {
+    // O único suplemento deste arquivo cujo alcance é o MUNICÍPIO, e não o estado.
+    // O Decreto Rio nº 57.501/2026 é municipal: os arts. 7º e 8º e o art. 9º, § 8º
+    // resolvem sublocação, autônomo no espaço de terceiro e coworking com uma
+    // regra concreta que não vale no interior do estado. Convive com o
+    // `suplementoEsteticaRj` porque tocam itens diferentes: aquele substitui o
+    // est-001 (licença do estabelecimento), este o est-117 (licença de quem ocupa).
+    supplement: suplementoCompartilhamentoRioCapital,
+    appliesTo: (template, client) =>
+      isEsteticaClinicaTemplate(template) && isRioDeJaneiroCapitalClient(client),
+    nameSuffix: ' (+ Compartilhamento — Município do Rio)',
   },
   {
     // Petrópolis fica de fora: o suplemento municipal substitui o MESMO item de

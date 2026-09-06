@@ -174,12 +174,46 @@ const SANITARIO_ANEXO: PilotBranch = {
   rules: itensQuando('piloto-sanitario-anexo', 'q-consultorio-gineco-procto-uro', true, ['est-115']),
 };
 
+// ─── 6 · Mais de um CNPJ no mesmo espaço ─────────────────────────────────────
+
+const COMPARTILHA_ESPACO: PilotBranch = {
+  nome: 'Mais de um CNPJ no mesmo espaço',
+  justificativa:
+    'Não existe norma federal sobre cowork em serviço de saúde, e é justamente por isso que a '
+    + 'seção precisa existir: o arranjo é cada vez mais comum e as obrigações continuam sendo as '
+    + 'de sempre, só que agora é preciso dizer de QUEM elas são. Contrato, licenciamento de cada '
+    + 'ocupante, CNAE de locação, responsável técnico, uso do que é compartilhado, PGRSS e guarda '
+    + 'de prontuário — sete requisitos que só fazem sentido quando há mais de uma pessoa jurídica '
+    + 'no mesmo endereço, e que numa clínica de ocupação exclusiva seriam sete linhas vazias no '
+    + 'relatório. A regra vai na SEÇÃO porque os sete entram e saem juntos.',
+  ressalva:
+    'A pergunta é uma só para os dois lados do arranjo, quem subloca e quem ocupa sala de '
+    + 'terceiro, porque quase todo requisito da seção vale para ambos e duas perguntas obrigariam '
+    + 'a fundir regras em "any", que o motor não expressa. Cada item traz no texto o lado a que se '
+    + 'aplica. O est-120 deixa registrado um ponto ainda em aberto: se processar instrumental de '
+    + 'outra pessoa jurídica caracteriza processamento para terceiros é enquadramento a confirmar '
+    + 'com a vigilância local, e por isso o item pede a consulta em vez de afirmar a exigência.',
+  question: {
+    id: 'q-compartilha-espaco',
+    text: 'Há mais de um CNPJ prestando serviço no mesmo espaço físico (sublocação, cessão de sala ou cowork)?',
+    type: 'boolean',
+    askAt: 'execution',
+    required: true,
+    helpText:
+      'Responda "sim" tanto quando o serviço subloca ou cede sala a outros, quanto quando ele '
+      + 'próprio ocupa sala de terceiro. "Não" é o espaço ocupado por um único CNPJ.',
+    // Sem `sectionId`: a pergunta que decide a seção não pode morar dentro dela.
+  },
+  rules: [secaoQuando('piloto-compartilha', 'q-compartilha-espaco', true, 'sec-est-13')],
+};
+
 export const PILOT_BRANCHES: readonly PilotBranch[] = [
   PROCESSA_ARTIGOS,
   ROUPAS_REUTILIZAVEIS,
   ABRANGENCIA_RDC36,
   PROCEDIMENTO_CIRURGICO,
   SANITARIO_ANEXO,
+  COMPARTILHA_ESPACO,
 ];
 
 /** Id do roteiro no CATÁLOGO empacotado. Em produção o id é UUID — ver pilot.ts. */

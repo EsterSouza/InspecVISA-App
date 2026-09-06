@@ -135,6 +135,19 @@ describe('regra 2 — predicado de UF/município dos suplementos regionais', () 
       },
       clienteQueCasa: cliente('RJ', 'Rio de Janeiro'),
     },
+    // Mesmo recorte municipal do suplemento de alimentos do Rio, sobre outro
+    // roteiro-base: o Decreto Rio 57.501 e o IVISA-RIO valem no municipio, nao
+    // no estado.
+    'sup-compartilhamento-rio-capital-v1': {
+      expressao: {
+        combinator: 'all',
+        conditions: [
+          { source: 'context', field: 'uf', operator: 'equals', value: 'RJ' },
+          { source: 'context', field: 'municipio', operator: 'equals', value: 'rio de janeiro' },
+        ],
+      },
+      clienteQueCasa: cliente('RJ', 'Rio de Janeiro'),
+    },
     'sup-saude-parauapebas-v1': {
       expressao: {
         combinator: 'all',
