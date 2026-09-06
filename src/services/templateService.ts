@@ -577,7 +577,8 @@ export const TemplateService = {
           weight: it.weight,
           isCritical: it.isCritical,
           requirementType: it.requirementType,
-          guidance: it.guidance
+          guidance: it.guidance,
+          requiredAction: it.requiredAction
         }))
       );
 
