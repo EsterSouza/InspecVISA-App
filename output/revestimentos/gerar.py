@@ -12,6 +12,7 @@ from conteudo import DATE,SOURCES,RULES,INTRO,MATERIALS,END
 from complementos import AREAS,CONTEXT,GLOSSARY,COSTS,COST_NOTE,COST_SCALE,COST_URL,SEM_PRECO,UNIDADE,UF_PADRAO,MARCA,PUBLICACAO
 from precos import PRECOS,UFS,REFERENCIA,EMISSAO
 import fichas
+import pagina
 # O texto das fichas vive em fichas.py, escrito para quem cuida do serviço de saúde
 # e não é da área de obra. Aqui ele substitui o texto técnico de conteudo.py.
 fichas.aplicar(MATERIALS)
@@ -46,9 +47,17 @@ CALC=[dict(id=m['id'],name=m['name'],category=m['category'],status=m['status'],u
  compare=[CHAVE[k] for k in SEM_PRECO[m['id']][1]] if m['id'] in SEM_PRECO else []) for m in MATERIALS]
 CALC+=[dict(id='',name=x['name'],category='Outras referências',status='',unit=x['unit'],refs=[i],gap='',compare=[]) for i,x in enumerate(COSTS) if not x['ids']]
 # Os formatos estáticos mostram um estado só; a página troca ao vivo.
+ISO='2026-09-06'
+SLUG={m['id']:pagina.slug(m['name']) for m in MATERIALS}
+COMPARA=[dict(id=m['id'],name=m['name'],category=m['category'],status=m['status'],slug=SLUG[m['id']],
+ use=m['use'],limit=m['limit'],inspect=m['inspect'],unit=UNIDADE[m['category']],
+ refs=[i for i,x in enumerate(COSTS) if m['id'] in x['ids']],
+ gap=SEM_PRECO[m['id']][0] if m['id'] in SEM_PRECO else '',
+ rules=[rulemap[r][1] for r in m['rules']]) for m in MATERIALS]
+assert len(set(SLUG.values()))==len(SLUG),'dois materiais com o mesmo endereço'
 COSTS_JSON=[dict(x,value=valor(x)) for x in COSTS]
 LACUNAS={k:dict(motivo=v[0],comparar=[CHAVE[c] for c in v[1]]) for k,v in SEM_PRECO.items()}
-DATA=dict(version='2.2.0',brand=MARCA,areaClasses=AREAS,context=CONTEXT,glossary=GLOSSARY,costs=COSTS_JSON,costNote=COST_NOTE,costUrl=COST_URL,priceReference=REFERENCIA,priceIssued=EMISSAO,defaultState=UF_PADRAO,states=UFS,prices=PRECOS,priceGaps=LACUNAS,unitByCategory=UNIDADE,calculator=CALC,reviewedAt='2026-09-06',title='Revestimentos em serviços de saúde',intro=INTRO,rules=[dict(zip(['id','title','text','device','source','kind'],r)) for r in RULES],materials=MATERIALS,closing=END,sources=SOURCES)
+DATA=dict(version='2.3.0',brand=MARCA,areaClasses=AREAS,context=CONTEXT,glossary=GLOSSARY,costs=COSTS_JSON,costNote=COST_NOTE,costUrl=COST_URL,priceReference=REFERENCIA,priceIssued=EMISSAO,defaultState=UF_PADRAO,states=UFS,prices=PRECOS,priceGaps=LACUNAS,unitByCategory=UNIDADE,calculator=CALC,reviewedAt='2026-09-06',title='Revestimentos em serviços de saúde',intro=INTRO,rules=[dict(zip(['id','title','text','device','source','kind'],r)) for r in RULES],materials=MATERIALS,closing=END,sources=SOURCES)
 (ROOT/'biblioteca.json').write_text(json.dumps(DATA,ensure_ascii=False,indent=2),encoding='utf-8')
 def refs(m):
  result=[]
@@ -63,6 +72,56 @@ FIELDS=[('description','O que é'),('use','Onde pode ser usado'),('limit','Quand
 DIAGRAM='''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 260" role="img" aria-labelledby="dtitle ddesc"><title id="dtitle">Três encontros que merecem atenção</title><desc id="ddesc">Esquemas sem escala: peça e rejunte são verificados separadamente; rodapé alinhado à parede; emenda fechada no sistema de manta.</desc><g font-family="Segoe UI, sans-serif" fill="#26354a"><rect width="760" height="260" fill="#edf1f4"/><g stroke="#26354a" stroke-width="2" fill="#c5d4df"><path d="M28 102h85v50H28zM127 102h85v50h-85z"/><path d="M294 52h30v118h120v30H294z"/><path d="M552 135h72v20h-72zM634 135h88v20h-88z"/></g><path d="M113 102h14v50h-14zM324 152h14v18h-14zM624 135h10v20h-10z" fill="#987032"/><g font-size="15"><text x="28" y="36">Peça + rejunte</text><text x="294" y="36">Piso + parede</text><text x="552" y="36">Manta + emenda</text><text x="28" y="190">Duas verificações</text><text x="294" y="228">Canto acessível à limpeza</text><text x="552" y="190">Fechamento do sistema</text></g><g stroke="#987032" stroke-width="1.5" fill="none"><path d="M120 98V68h65M342 159h75v-45M629 130V84h60"/></g><g font-size="12"><text x="140" y="61">junta</text><text x="371" y="107">alinhamento</text><text x="653" y="77">solda</text></g></g></svg>'''
 (ROOT/'assets'/'encontros.svg').write_text(DIAGRAM,encoding='utf-8')
 
+PLANTA='''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 460" role="img" aria-labelledby="ptitulo pdesc" class="planta">
+<title id="ptitulo">Planta esquemática de um serviço de saúde com as três classes de ambiente</title>
+<desc id="pdesc">Recepção e sala administrativa como área não crítica; consultório e sala de exame como área semicrítica; sala de procedimentos e expurgo como área crítica. A classificação vem do que se faz na sala, não do tamanho dela.</desc>
+<g font-family="Segoe UI, sans-serif">
+<rect width="720" height="460" rx="14" fill="#f5f2ec"/>
+<g stroke="#243d43" stroke-width="2.5" fill="none"><rect x="26" y="60" width="668" height="330" rx="6"/></g>
+<g stroke="#243d43" stroke-width="2">
+<rect x="26" y="60" width="250" height="150" fill="#e8eef0"/>
+<rect x="26" y="210" width="250" height="180" fill="#e8eef0"/>
+<rect x="276" y="60" width="200" height="330" fill="#ece6d7"/>
+<rect x="476" y="60" width="218" height="180" fill="#f0e1d9"/>
+<rect x="476" y="240" width="218" height="150" fill="#f0e1d9"/>
+</g>
+<g fill="#243d43" font-size="17" font-weight="600">
+<text x="46" y="92">Recepção e espera</text>
+<text x="46" y="242">Sala administrativa</text>
+<text x="296" y="92">Consultório</text>
+<text x="296" y="118">e sala de exame</text>
+<text x="496" y="92">Sala de</text>
+<text x="496" y="114">procedimentos</text>
+<text x="496" y="272">Expurgo e</text>
+<text x="496" y="294">processamento</text>
+</g>
+<g fill="#4a6068" font-size="14">
+<text x="46" y="116">Sem procedimento</text>
+<text x="46" y="136">e sem paciente em</text>
+<text x="46" y="156">atendimento</text>
+<text x="46" y="266">Uso exclusivo</text>
+<text x="46" y="286">da equipe</text>
+<text x="296" y="146">Paciente presente,</text>
+<text x="296" y="166">exame sem invadir</text>
+<text x="296" y="186">pele ou mucosa</text>
+<text x="496" y="140">Procedimento de</text>
+<text x="496" y="160">risco, com ou sem</text>
+<text x="496" y="180">paciente na sala</text>
+<text x="496" y="320">Artigo contaminado</text>
+<text x="496" y="340">circula aqui</text>
+</g>
+<g font-size="13" font-weight="700" letter-spacing="0.06em">
+<text x="46" y="370" fill="#3f6070">NÃO CRÍTICA</text>
+<text x="296" y="370" fill="#7a6533">SEMICRÍTICA</text>
+<text x="496" y="370" fill="#8f4f30">CRÍTICA</text>
+</g>
+<g font-size="15" fill="#243d43">
+<text x="26" y="36" font-weight="600">O que a sala faz decide a classe, não o tamanho nem o nome na porta</text>
+<text x="26" y="428" fill="#4a6068">Esquema sem escala. A mesma sala muda de classe quando muda o procedimento realizado nela.</text>
+</g>
+</g></svg>'''
+(ROOT/'assets'/'ambientes.svg').write_text(PLANTA,encoding='utf-8')
+
 # A prancha em PNG tem 2,7 MB e o PDF a embutia duas vezes: 6,7 MB dos 8,5 MB do
 # arquivo, pesado demais para mandar por WhatsApp. Duas cópias em JPEG resolvem: a
 # de 250 kB para a página, em rede móvel, e a de impressão para o PDF, que sai a
@@ -72,35 +131,26 @@ _prancha=Image.open(ROOT/'assets'/'materiais.png').convert('RGB')
 _prancha.save(ROOT/'assets'/'materiais.jpg',quality=82,optimize=True,progressive=True)
 _prancha.save(ROOT/'assets'/'materiais-impressao.jpg',quality=92,optimize=True)
 
-parts=['<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-+'<title>Revestimentos em serviços de saúde | TreinaVISA</title>'
-+'<meta name="description" content="'+E(PUBLICACAO['descricao'])+'">'
-+'<meta name="author" content="'+E(MARCA['autora'])+'">'
-+'<link rel="canonical" href="'+PUBLICACAO['url']+'">'
-+'<meta property="og:type" content="article"><meta property="og:locale" content="pt_BR">'
-+'<meta property="og:site_name" content="'+E(MARCA['marca'])+'">'
-+'<meta property="og:title" content="Revestimentos em serviços de saúde">'
-+'<meta property="og:description" content="'+E(PUBLICACAO['descricao'])+'">'
-+'<meta property="og:url" content="'+PUBLICACAO['url']+'">'
-+'<meta property="og:image" content="'+PUBLICACAO['url']+'assets/materiais.jpg">'
-+'<meta name="twitter:card" content="summary_large_image">'
-+'<script type="application/ld+json">'+json.dumps({'@context':'https://schema.org','@type':'TechArticle','headline':'Revestimentos em serviços de saúde','description':PUBLICACAO['descricao'],'inLanguage':'pt-BR','url':PUBLICACAO['url'],'image':PUBLICACAO['url']+'assets/materiais.jpg','datePublished':'2026-09-06','author':{'@type':'Person','name':MARCA['autora'],'jobTitle':MARCA['credencial'],'url':MARCA['site']},'publisher':{'@type':'Organization','name':MARCA['marca'],'url':MARCA['site']},'license':MARCA['direitos']},ensure_ascii=False)+'</script>'
-+'<link rel="stylesheet" href="estilo.css?v=11"></head><body>',
-'<!-- THESIS: Atlas técnico que associa material, ambiente e evidência. OWN-WORLD: papel branco, tinta ardósia e ocre, tipografia legível e diagramas exatos. STORY: compreender critérios, localizar fichas e comparar sistemas. FIRST VIEWPORT: título à esquerda, índice à direita, busca acessível após diagrama. FORM: atlas técnico, candidato 3, seed 5be35a14; escolha de cores delegada pela usuária. FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance -->',
-'<a class="skip" href="#consulta">Ir para as fichas</a>'
-+'<header class="topo"><div class="shell barra"><a class="marca" href="#topo" aria-label="Início da página"><span class="logo"><img src="assets/treinavisa.png" alt="TreinaVISA"></span></a>'
-+'<nav class="atalhos" aria-label="Seções"><a href="#areas">Ambientes</a><a href="#glossario">Termos</a><a href="#custos">Custos</a><a href="#criterios">Critérios</a><a href="#consulta">Materiais</a><a href="#pratica">Inspeção</a></nav>'
-+'<a class="zap" href="'+PUBLICACAO['whatsapp']+'" target="_blank" rel="noopener">'+E(PUBLICACAO['whatsappRotulo'])+'</a></div></header>'
+LD_SITE=[dict({'@context':'https://schema.org','@type':'TechArticle'},**{
+ 'headline':'Revestimentos em serviços de saúde','description':PUBLICACAO['descricao'],
+ 'inLanguage':'pt-BR','url':PUBLICACAO['url'],'image':PUBLICACAO['url']+'assets/materiais.jpg',
+ 'datePublished':'2026-09-06','author':{'@type':'Person','name':MARCA['autora'],'jobTitle':MARCA['credencial'],'url':MARCA['site']},
+ 'publisher':{'@type':'Organization','name':MARCA['marca'],'url':MARCA['site']},'license':MARCA['direitos']})]
+parts=[pagina.cabeca('Revestimentos em serviços de saúde | TreinaVISA',PUBLICACAO['descricao'],PUBLICACAO['url'],'',LD_SITE),
+pagina.barra()
 +'<div class="shell"><main id="topo"><section class="hero"><div>'
-+'<p class="selo">RDC 50/2002 e normas complementares · Edição 2.2</p>'
++'<p class="selo">RDC 50/2002 e normas complementares · Edição 2.3</p>'
 +'<h1>Revestimentos em<br>serviços de saúde</h1>'
 +'<p class="lead">Uma biblioteca para escolher, especificar e inspecionar superfícies com clareza.</p>'
 +'<p class="autoria">Elaborado por <b>'+E(MARCA['autora'])+'</b>, '+E(MARCA['credencial'].lower())+'.<span> <a href="'+MARCA['site']+'" target="_blank" rel="noopener">'+E(MARCA['siteRotulo'])+'</a> · <a href="'+MARCA['instagram']+'" target="_blank" rel="noopener">'+E(MARCA['instagramRotulo'])+'</a></span></p>'
-+'<p class="acoes"><a class="zap" href="'+PUBLICACAO['whatsapp']+'" target="_blank" rel="noopener">'+E(PUBLICACAO['whatsappRotulo'])+'</a><a class="secundario" href="#consulta">Ver as 29 fichas</a></p>'
-+'</div><nav class="indice" aria-label="Índice"><a href="#areas">Qual é o meu ambiente?</a><a href="#glossario">Entenda os termos</a><a href="#custos">Compare os custos</a><a href="#criterios">Entenda os critérios</a><a href="#consulta">Consulte os materiais</a><a href="#pratica">Da escolha à inspeção</a><a href="#fontes">Fontes e limites</a></nav></section>'
++'<p class="acoes">'+pagina.zap(PUBLICACAO['whatsappRotulo'])+'<a class="secundario" href="#consulta">Ver as 29 fichas</a></p>'
++'</div><nav class="indice" aria-label="Índice">'+''.join(f'<a href="{h}">{E(t)}</a>' for h,t in pagina.INDICE)+'</nav></section>'
 +'<figure><img src="assets/encontros.svg" alt="Esquemas de peça e rejunte, rodapé alinhado e emenda de manta"><figcaption>Encontros que merecem atenção. Esquemas ilustrativos, sem escala; não substituem detalhes de projeto.</figcaption></figure>']
 parts.append('<figure class="photo"><img src="assets/materiais.jpg" alt="Amostras ilustrativas de porcelanato, epóxi, vinílico, pintura, granito, quartzo, inox e estofado"><figcaption>Biblioteca visual: porcelanato · epóxi · vinílico · pintura / granito · quartzo · inox · estofado. Imagem gerada por IA, ilustrativa; não representa produtos certificados nem detalhes de execução aprovados.</figcaption></figure>')
-parts.append('<section id="areas"><h2>Primeiro, entenda o seu ambiente</h2><div class="area-grid">'+''.join(f'<div class="area"><span>0{i+1}</span><h3>{E(t)}</h3><p>{E(d)}</p><p class="example">{E(ex)}</p></div>' for i,(t,d,ex) in enumerate(AREAS))+'</div>'+''.join(f'<h3>{E(t)}</h3><p>{E(d)}</p>' for t,d in CONTEXT)+'<p class="ref">'+refhtml('R50','Parte III, 6.2 A.2')+' · '+refhtml('ESTETICA','Introdução e seção 2.7')+'</p></section>')
+parts.append('<section id="areas"><h2>Primeiro, entenda o seu ambiente</h2>'
+ +'<p>A RDC 50 não classifica material: classifica ambiente. O que a sala faz decide o que ela exige do piso, da parede e do teto. Comece aqui.</p>'
+ +'<figure class="planta-figura"><img src="assets/ambientes.svg" alt="Planta esquemática: recepção e sala administrativa como área não crítica, consultório e sala de exame como semicrítica, sala de procedimentos e expurgo como crítica"><figcaption>Esquema sem escala. A mesma sala muda de classe quando muda o procedimento realizado nela.</figcaption></figure>'
+ +'<div class="area-grid">'+''.join(f'<div class="area"><span>0{i+1}</span><h3>{E(t)}</h3><p>{E(d)}</p><p class="example">{E(ex)}</p></div>' for i,(t,d,ex) in enumerate(AREAS))+'</div>'+''.join(f'<h3>{E(t)}</h3><p>{E(d)}</p>' for t,d in CONTEXT)+'<p class="ref">'+refhtml('R50','Parte III, 6.2 A.2')+' · '+refhtml('ESTETICA','Introdução e seção 2.7')+'</p></section>')
 parts.append('<section id="glossario"><h2>Palavras que você vai encontrar</h2><div class="glossary">'+''.join(f'<details><summary>{E(t)}</summary><p>{E(d)}</p></details>' for t,d in GLOSSARY)+'</div></section>')
 parts.append('<section id="custos"><h2>Quanto pode custar?</h2><p>'+E(COST_NOTE)+'</p>')
 parts.append('<div class="tools estado"><label>Escolha o seu estado<select id="uf">'+''.join(f'<option value="{u}"{" selected" if u==UF_PADRAO else ""}>{E(n)}</option>' for u,n in UFS)+'</select></label></div>')
@@ -120,7 +170,14 @@ parts.append('<p>Compare sempre dentro do mesmo grupo e do mesmo escopo. O mais 
 parts.append('<section class="intro">'+''.join(f'<div><h2>{E(t)}</h2><p>{E(p)}</p></div>' for t,p in INTRO)+'</section>')
 parts.append('<section id="criterios"><h2>O que a norma exige</h2><p>Abra cada critério para consultar o alcance e o dispositivo exato.</p>')
 for rid,title,txt,device,source,kind in RULES:parts.append(f'<details id="regra-{rid}"><summary>{E(title)}</summary><p>{E(txt)}</p><p class="ref">{refhtml(source,device)}</p></details>')
-parts.append('</section><section id="consulta"><h2>Biblioteca de materiais</h2><p>O filtro localiza fichas. A indicação de uso não é uma aprovação de produto: especificação e inspeção são recomendações técnicas, desempenho é comprovação do fabricante, e as obrigações estão nos critérios ligados ao pé de cada ficha.</p><div class="tools"><label>Buscar material ou cuidado<input id="busca" type="search" placeholder="Ex.: epóxi, juntas, umidade"></label><label>Superfície<select id="categoria"><option value="">Todas as superfícies</option>')
+opcoes=''.join('<optgroup label="'+E(cat)+'">'+''.join(f'<option value="{i}">{E(o["id"]+" · "+o["name"])}</option>' for i,o in enumerate(COMPARA) if o['category']==cat)+'</optgroup>' for cat in dict.fromkeys(o['category'] for o in COMPARA))
+parts.append('</section><section id="comparar"><h2>Comparar lado a lado</h2>'
++'<p>A pergunta de quem está decidindo raramente é "o que é porcelanato": é "porcelanato ou vinílico na minha sala de procedimento". Escolha até três e veja onde cada um serve, quando evitar, quanto custa no seu estado e o que a norma cobra.</p>'
++'<div class="tools">'
++''.join(f'<label>Material {k+1}{"" if k<2 else " (opcional)"}<select class="comparar-escolha" data-slot="{k}"><option value="">Nenhum</option>'+opcoes+'</select></label>' for k in range(3))
++'</div><div id="comparador" class="tabela-rolagem"></div>'
++'<p class="ref">'+E(pagina.DOIS_PROFISSIONAIS)+'</p></section>'
++'<section id="consulta"><h2>Biblioteca de materiais</h2><p>O filtro localiza fichas. A indicação de uso não é uma aprovação de produto: especificação e inspeção são recomendações técnicas, desempenho é comprovação do fabricante, e as obrigações estão nos critérios ligados ao pé de cada ficha.</p><div class="tools"><label>Buscar material ou cuidado<input id="busca" type="search" placeholder="Ex.: epóxi, juntas, umidade"></label><label>Superfície<select id="categoria"><option value="">Todas as superfícies</option>')
 cats=list(dict.fromkeys(m['category'] for m in MATERIALS))
 parts.extend(f'<option>{E(c)}</option>' for c in cats)
 parts.append('</select></label><button id="limpar" type="button">Limpar filtros</button></div><p id="contagem" role="status" aria-live="polite"></p><div id="fichas">')
@@ -130,45 +187,128 @@ for m in MATERIALS:
  parts.append('</div>')
  if m['id'] in SEM_PRECO:parts.append(f'<p class="ref">Preço: sem referência na SINAPI. <a href="#lacuna-{m["id"]}">Ver o motivo</a></p>')
  else:parts.append(f'<p class="ref" data-preco-ficha="{m["id"]}">Preço: <a href="#custos">ver em Quanto pode custar</a></p>')
- parts.append('<div class="rulelinks">'+''.join(f'<a href="#regra-{rid}">{E(rulemap[rid][1])}</a>' for rid in m['rules'])+'</div></details></article>')
+ parts.append('<div class="rulelinks">'+''.join(f'<a href="#regra-{rid}">{E(rulemap[rid][1])}</a>' for rid in m['rules'])+'</div>'
+ +f'<p class="ref"><a class="abrir-ficha" href="{SLUG[m["id"]]}/">Abrir a página desta ficha</a></p>'
+ +'</details></article>')
 parts.append('</div><p id="vazio" hidden>Nenhuma ficha encontrada. Tente outro termo ou limpe os filtros.</p></section><section id="pratica"><h2>Da escolha à inspeção</h2><figure><img src="assets/encontros.svg" alt="Peça e rejunte, rodapé alinhado e emenda de manta"><figcaption>Esquemas sem escala. O detalhe de execução depende do sistema especificado.</figcaption></figure>')
 parts.extend(f'<h3>{E(t)}</h3><p>{E(p)}</p>' for t,p in END)
 parts.append('</section><section id="fontes"><h2>Referências e alcance da revisão</h2><p>Fontes consultadas em '+DATE+'. Os dispositivos são indicados nos critérios. A publicação não tem caráter oficial da Anvisa.</p>')
 for key,s in SOURCES.items():parts.append(f'<div class="source"><h3>{refhtml(key,s["title"])}</h3><p>{E(s["status"])}</p></div>')
-parts.append('</section><aside class="cta"><h2>'+E(PUBLICACAO['ctaTitulo'])+'</h2><p>'+E(PUBLICACAO['ctaTexto'])+'</p>'
-+'<p class="acao"><a href="'+PUBLICACAO['whatsapp']+'" target="_blank" rel="noopener">'+E(PUBLICACAO['whatsappRotulo'])+'</a></p>'
-+'<p class="ref">'+E(MARCA['autora'])+', '+E(MARCA['credencial'].lower())+'. <a href="'+MARCA['site']+'" target="_blank" rel="noopener">'+E(MARCA['siteRotulo'])+'</a></p></aside>')
-parts.append('</main><footer><div class="rodape">'
-+'<div><p class="credito"><b>Biblioteca de revestimentos em serviços de saúde</b><br>Edição 2.2 · '+DATE+' · '+E(MARCA['marca'])+'</p>'
-+'<p>'+E(MARCA['direitos'])+'</p><p>'+E(MARCA['isencao'])+'</p></div>'
-+'<div><h3>Seções</h3><nav aria-label="Seções, rodapé"><a href="#areas">Qual é o meu ambiente?</a><a href="#glossario">Entenda os termos</a><a href="#custos">Compare os custos</a><a href="#criterios">Entenda os critérios</a><a href="#consulta">Consulte os materiais</a><a href="#pratica">Da escolha à inspeção</a><a href="#fontes">Fontes e limites</a></nav></div>'
-+'<div><h3>Quem escreveu</h3><p>'+E(MARCA['autora'])+', '+E(MARCA['credencial'].lower())+'.</p>'
-+'<p><a href="'+MARCA['site']+'" target="_blank" rel="noopener">'+E(MARCA['siteRotulo'])+'</a> · <a href="'+MARCA['instagram']+'" target="_blank" rel="noopener">'+E(MARCA['instagramRotulo'])+'</a></p>'
-+'<p><a class="zap" href="'+PUBLICACAO['whatsapp']+'" target="_blank" rel="noopener">'+E(PUBLICACAO['whatsappRotulo'])+'</a></p>'
-+'<p class="ref">© '+MARCA['ano']+' '+E(MARCA['titular'])+' · CNPJ '+E(MARCA['cnpj'])+'. '+E(MARCA['endereco'])+'.</p></div>'
-+'</div></footer></div>'
+parts.append('</section>'+pagina.convite())
+parts.append('</main>'+pagina.rodape('','2.3',DATE)
 +'<script id="cost-data" type="application/json">'+json.dumps(COSTS_JSON,ensure_ascii=False)+'</script>'
++'<script id="compara-data" type="application/json">'+json.dumps(COMPARA,ensure_ascii=False)+'</script>'
 +'<script id="calc-data" type="application/json">'+json.dumps(CALC,ensure_ascii=False)+'</script>'
 +'<script id="preco-data" type="application/json">'+json.dumps({'precos':PRECOS,'ufs':UFS,'padrao':UF_PADRAO,'referencia':mesano(REFERENCIA),'url':COST_URL},ensure_ascii=False)+'</script>'
-+'<script src="consulta.js?v=10"></script></body></html>')
++'<script src="consulta.js?v=11"></script></body></html>')
 (ROOT/'index.html').write_text('\n'.join(parts),encoding='utf-8')
+# Uma página por ficha. A capa responde "o que existe"; a ficha responde a busca
+# de quem já sabe o nome do material e quer saber se pode usar no consultório.
+# São 29 endereços indexáveis em vez de um, e cada um abre no assunto certo.
+FICHA_DIR=ROOT/'fichas'
+if FICHA_DIR.exists():shutil.rmtree(FICHA_DIR)
+def campos_ficha(m):
+ return ''.join(f'<div><h4>{label}</h4><p>{E(m[key])}</p></div>' for key,label in FIELDS)
+def preco_ficha(m):
+ if m['id'] in SEM_PRECO:
+  motivo=SEM_PRECO[m['id']][0]
+  comparar=[COSTS[CHAVE[k]] for k in SEM_PRECO[m['id']][1]]
+  extra=('<p class="ref" data-comparar-ficha>'+' · '.join(E(c['name']) for c in comparar)+'</p>') if comparar else ''
+  return ('<h2>Quanto pode custar</h2><p>'+E(motivo)+'</p>'+extra
+  +'<p class="ref">Peça a cotação por escrito, com medidas, produto e escopo. '
+  '<a href="../index.html#custos">Ver a tabela completa e a calculadora</a></p>')
+ refs=[i for i,x in enumerate(COSTS) if m['id'] in x['ids']]
+ linhas=''.join(f'<div class="cost" data-cost="{i}"><div><b>{E(COSTS[i]["name"])}</b>'
+ f'<strong data-preco>{money(valor(COSTS[i]))}/{COSTS[i]["unit"]}</strong></div>'
+ f'<p>{E(COSTS[i]["scope"])} <span class="composicao">Composição {E(" + ".join(COSTS[i]["parts"]))}.</span></p></div>' for i in refs)
+ return ('<h2>Quanto pode custar</h2>'
+ '<div class="tools estado"><label>Escolha o seu estado<select id="uf">'
+ +''.join(f'<option value="{u}"{" selected" if u==UF_PADRAO else ""}>{E(n)}</option>' for u,n in UFS)
+ +'</select></label></div>'+linhas
+ +f'<p class="ref">Custo de serviço da <a href="{COST_URL}" target="_blank" rel="noopener">tabela SINAPI da Caixa</a>, '
+ f'referência de {mesano(REFERENCIA)}, sem desoneração e sem BDI: a proposta que você receber costuma vir acima disso. '
+ '<a href="../index.html#custos">Comparar com os outros materiais e calcular</a></p>')
+for m in MATERIALS:
+ sl=SLUG[m['id']]
+ url=PUBLICACAO['url']+sl+'/'
+ titulo=f"{m['name']} em serviço de saúde | TreinaVISA"
+ desc=pagina.primeira_frase(m['description'])+f". {m['status']} segundo a RDC 50 e normas complementares."
+ ld=[dict({'@context':'https://schema.org','@type':'TechArticle'},**{
+  'headline':m['name'],'description':desc,'inLanguage':'pt-BR','url':url,
+  'image':PUBLICACAO['url']+'assets/materiais.jpg','datePublished':'2026-09-06',
+  'author':{'@type':'Person','name':MARCA['autora'],'jobTitle':MARCA['credencial'],'url':MARCA['site']},
+  'publisher':{'@type':'Organization','name':MARCA['marca'],'url':MARCA['site']},
+  'isPartOf':{'@type':'CreativeWork','name':'Biblioteca de revestimentos em serviços de saúde','url':PUBLICACAO['url']},
+  'license':MARCA['direitos']}),
+ {'@context':'https://schema.org','@type':'BreadcrumbList','itemListElement':[
+  {'@type':'ListItem','position':1,'name':'Biblioteca de revestimentos','item':PUBLICACAO['url']},
+  {'@type':'ListItem','position':2,'name':m['category'],'item':PUBLICACAO['url']+'#consulta'},
+  {'@type':'ListItem','position':3,'name':m['name'],'item':url}]}]
+ irmas=[o for o in MATERIALS if o['category']==m['category'] and o['id']!=m['id']]
+ pg=[pagina.cabeca(titulo,desc,url,'../',ld),pagina.barra('../',ancora=False),
+ '<div class="shell"><main id="conteudo">',
+ f'<nav class="trilha" aria-label="Trilha"><a href="../index.html">Biblioteca de revestimentos</a> · '
+ f'<a href="../index.html#consulta">{E(m["category"])}</a></nav>',
+ f'<article class="ficha-pagina"><p class="selo">{E(m["category"])} · Ficha {m["id"]}</p>',
+ f'<h1>{E(m["name"])}</h1><p class="status-linha">{E(m["status"])}</p>']
+ if tile(m)>=0:
+  pg.append(f'<div class="amostra" style="background-image:url(../assets/materiais.jpg);'
+  f'background-position:{(tile(m)%4)*100/3}% {(tile(m)//4)*100}%" role="img" '
+  f'aria-label="Textura ilustrativa da família {E(m["category"].lower(),quote=True)}"></div>'
+  '<p class="ref">Textura ilustrativa da família. Confirme o produto e o acabamento com o fornecedor.</p>')
+ pg.append('<div class="fields">'+campos_ficha(m)+'</div>')
+ pg.append('<p class="acoes-ficha">'+pagina.compartilhar(url,m['name'])+pagina.zap('Agendar uma vistoria','zap')+'</p></article>')
+ pg.append('<section class="bloco">'+preco_ficha(m)+'</section>')
+ pg.append('<section class="bloco"><h2>O que a norma exige aqui</h2>')
+ for rid in m['rules']:
+  r=rulemap[rid]
+  pg.append(f'<h3>{E(r[1])}</h3><p>{E(r[2])}</p><p class="ref">{refhtml(r[4],r[3])}</p>')
+ for key in m['extra']:
+  pg.append(f'<p class="ref">{refhtml(key,SOURCES[key]["title"])}</p>')
+ pg.append('<p class="ref aviso">'+E(pagina.DOIS_PROFISSIONAIS)+'</p></section>')
+ if irmas:
+  pg.append('<section class="bloco"><h2>Outras opções de '+E(m['category'].lower())+'</h2><div class="irmas">'
+  +''.join(f'<a href="../{SLUG[o["id"]]}/"><b>{E(o["name"])}</b><span>{E(o["status"])}</span></a>' for o in irmas)
+  +'</div><p class="ref"><a href="../index.html#consulta">Ver as 29 fichas da biblioteca</a></p></section>')
+ pg.append(pagina.convite())
+ pg.append('</main>'+pagina.rodape('../','2.3',DATE)
+ +'<script id="preco-data" type="application/json">'+json.dumps({'precos':PRECOS,'ufs':UFS,'padrao':UF_PADRAO,'referencia':mesano(REFERENCIA),'url':COST_URL},ensure_ascii=False)+'</script>'
+ +'<script id="cost-data" type="application/json">'+json.dumps(COSTS_JSON,ensure_ascii=False)+'</script>'
+ +'<script src="../ficha.js?v=1"></script></body></html>')
+ destino=FICHA_DIR/sl
+ destino.mkdir(parents=True)
+ (destino/'index.html').write_text('\n'.join(pg),encoding='utf-8')
+
 
 # publicar/ e exatamente o que sobe para a internet: a pagina, o estilo, o script
 # e as imagens. PDF, Markdown, JSON e os fontes em Python ficam so aqui.
 PUB=ROOT/'publicar'
 if PUB.exists():shutil.rmtree(PUB)
 (PUB/'assets').mkdir(parents=True)
-for nome in ['index.html','estilo.css','consulta.js']:shutil.copy2(ROOT/nome,PUB/nome)
-for nome in ['materiais.jpg','encontros.svg','treinavisa.png']:shutil.copy2(ROOT/'assets'/nome,PUB/'assets'/nome)
+for nome in ['index.html','estilo.css','consulta.js','ficha.js']:shutil.copy2(ROOT/nome,PUB/nome)
+for pasta in sorted(FICHA_DIR.iterdir()):shutil.copytree(pasta,PUB/pasta.name)
+for nome in ['materiais.jpg','encontros.svg','ambientes.svg','treinavisa.png']:shutil.copy2(ROOT/'assets'/nome,PUB/'assets'/nome)
 
 # A página servida em /biblioteca é uma cópia desta pasta dentro de public/. Sem
 # esta linha o site no ar fica numa edição velha em silêncio, e ninguém percebe.
+# O mapa do site e escrito aqui porque e o gerador quem sabe os enderecos das
+# fichas. Sem ele o Google acha a capa e descobre as 29 paginas so pelos links.
+MAPA=ROOT.parent.parent/'public'/'sitemap.xml'
+if MAPA.parent.is_dir():
+ urls=[(PUBLICACAO['url'],'monthly','1.0')]+[(PUBLICACAO['url']+SLUG[m['id']]+'/','monthly','0.8') for m in MATERIALS]
+ urls.append(('https://inspecvisa.consultorasanitaria.com.br/agendar','monthly','0.6'))
+ mapa=['<?xml version="1.0" encoding="UTF-8"?>','<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+ for u,freq,pri in urls:
+  mapa.append(f'  <url><loc>{u}</loc><lastmod>{ISO}</lastmod><changefreq>{freq}</changefreq><priority>{pri}</priority></url>')
+ mapa.append('</urlset>')
+ MAPA.write_text(chr(10).join(mapa)+chr(10),encoding='utf-8')
+
 APP=ROOT.parent.parent/'public'/'biblioteca'
 if APP.parent.is_dir():
  if APP.exists():shutil.rmtree(APP)
  shutil.copytree(PUB,APP)
 
-md=['# Revestimentos em serviços de saúde',f"{MARCA['marca']} · Edição 2.2 · {DATE}",
+md=['# Revestimentos em serviços de saúde',f"{MARCA['marca']} · Edição 2.3 · {DATE}",
 f"Elaborado por {MARCA['autora']}, {MARCA['credencial'].lower()}. {MARCA['siteRotulo']} · {MARCA['instagramRotulo']}",
 f"© {MARCA['ano']} {MARCA['titular']}, CNPJ {MARCA['cnpj']}. {MARCA['direitos']}",'![Encontros entre superfícies](assets/encontros.svg)','Esquemas ilustrativos, sem escala. Peça e rejunte são verificados separadamente; rodapé alinhado; emenda fechada no sistema de manta.']
 md.extend(['## Entenda o ambiente']+[f'### {t}\n\n{d}\n\n{ex}' for t,d,ex in AREAS])
@@ -220,7 +360,7 @@ def chrome():
  PAGE+=1
  c.setFillColor(INK);c.setFont('Bold',9);c.drawString(42,809,'TreinaVISA  /  Biblioteca de revestimentos')
  c.setStrokeColor(HexColor('#ced6dd'));c.line(42,797,553,797)
- c.setFillColor(MUTE);c.setFont('Body',8);c.drawString(42,28,'Edição 2.2 · '+DATE+' · '+MARCA['marca']);c.drawRightString(553,28,str(PAGE))
+ c.setFillColor(MUTE);c.setFont('Body',8);c.drawString(42,28,'Edição 2.3 · '+DATE+' · '+MARCA['marca']);c.drawRightString(553,28,str(PAGE))
 def start(title,anchor=None):
  chrome()
  if anchor:c.bookmarkPage(anchor);c.addOutlineEntry(title,anchor,0)
@@ -258,7 +398,7 @@ c.drawImage(str(ROOT/'assets'/'materiais-impressao.jpg'),42,169,511,190,mask='au
 c.setFont('Body',9);c.setFillColor(MUTE);c.drawString(42,150,'Amostras ilustrativas geradas por IA. Não representam produtos certificados.')
 c.setFont('Bold',12);c.setFillColor(INK);c.drawString(42,105,'RDC 50/2002 e normas complementares')
 c.setFont('Body',10);c.drawString(42,86,'Elaborado por '+MARCA['autora']+' · '+MARCA['credencial'])
-c.drawString(42,71,MARCA['marca']+' · Edição 2.2 · '+DATE)
+c.drawString(42,71,MARCA['marca']+' · Edição 2.3 · '+DATE)
 c.setFont('Body',8);c.setFillColor(MUTE);c.drawString(42,56,'© '+MARCA['ano']+' '+MARCA['titular']+' · CNPJ '+MARCA['cnpj']+' · '+MARCA['siteRotulo']+' · '+MARCA['instagramRotulo']);c.showPage()
 flow=start('Qual é o meu ambiente?','areas')
 for t,d,ex in AREAS:flow.extend([p(t,h3),p(d),p(ex,small),Spacer(1,12)])

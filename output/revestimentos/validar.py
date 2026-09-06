@@ -53,6 +53,22 @@ for arquivo in ['revestimentos.pdf','biblioteca.md','biblioteca.json']:
  assert arquivo not in web,arquivo
 # A página servida em /biblioteca precisa ser a mesma que acabou de ser gerada.
 # Sem esta conferência, uma cópia esquecida deixa o site no ar numa edição velha.
+# Cada ficha tem página própria, e a capa aponta para todas: 29 endereços
+# indexáveis. Um slug repetido ou um link solto some sem erro nenhum.
+paginas=sorted((root/'publicar').glob('*/index.html'))
+assert len(paginas)==len(MATERIALS),f'{len(paginas)} páginas de ficha para {len(MATERIALS)} fichas'
+for pag in paginas:
+ texto=pag.read_text(encoding='utf-8')
+ assert '<h1>' in texto and 'BreadcrumbList' in texto,pag.parent.name
+ assert 'clarity.ms' in texto and 'fbevents' in texto,'medição faltando em '+pag.parent.name
+ assert f'href="../index.html' in texto,'sem volta para a capa em '+pag.parent.name
+ assert f'/biblioteca/{pag.parent.name}/' in texto,'canônico errado em '+pag.parent.name
+for pag in paginas:
+ assert f'{pag.parent.name}/' in web,'a capa não liga a ficha '+pag.parent.name
+mapa=(root.parent.parent/'public'/'sitemap.xml').read_text(encoding='utf-8')
+for pag in paginas:
+ assert f'/biblioteca/{pag.parent.name}/' in mapa,'fora do sitemap: '+pag.parent.name
+
 publicada=root.parent.parent/'public'/'biblioteca'/'index.html'
 assert publicada.is_file(),'public/biblioteca/index.html não existe: rode gerar.py'
 assert publicada.read_bytes()==(root/'publicar'/'index.html').read_bytes(),'public/biblioteca está desatualizada'

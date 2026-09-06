@@ -68,3 +68,15 @@ A biblioteca deixou de ser só preparação: a pasta `publicar/` é copiada pelo
 A leitura continua valendo para o item 1 daqui: reaproveitar `biblioteca.json` dentro do aplicativo é outro trabalho, com navegação e controle de acesso do próprio app. A página em `/biblioteca/` é conteúdo público de marca, não módulo do produto.
 
 Três correções normativas entraram nesta edição e importam para quem reaproveitar as regras: A.2 fala em procedimentos de risco com ou sem pacientes; C.1 manda seguir o manual do Ministério da Saúde de processamento de artigos e superfícies, 2ª edição de 1994, ou o que vier a substituí-lo; C.3 qualifica a exigência de forro especialmente nas salas de procedimentos cirúrgicos ou similares. Quem já tiver copiado o texto anterior das regras precisa recopiar.
+
+## Atualização da edição 2.3
+
+O JSON está em `2.3.0`. O conteúdo das fichas não mudou; mudou a forma de publicação, e três coisas importam para quem for reaproveitar.
+
+A biblioteca deixou de ser uma página só. `publicar/` agora tem, além dos arquivos da capa, uma pasta por ficha com `index.html` dentro, nomeada pelo slug do nome da ficha. O slug é derivado do nome, não é campo do JSON: quem precisar do endereço de uma ficha tem que aplicar a mesma normalização (NFKD, sem acento, não alfanumérico vira hífen, minúsculas) ou vai gerar link quebrado. O `gerar.py` falha se dois nomes colidirem no mesmo slug.
+
+`public/sitemap.xml` passou a ser gerado pelo `gerar.py`, não escrito à mão. Se o aplicativo um dia precisar listar rotas próprias no sitemap, elas têm que entrar nesse gerador, senão a próxima regeneração da biblioteca as apaga. Hoje ele escreve a capa, as 29 fichas e `/agendar`.
+
+A medição da página estática é independente da do aplicativo: Clarity, Pixel da Meta e gtag do Google Ads, direto no HTML, sem GTM. Não há GA4. Se a biblioteca for embutida no aplicativo, essa medição não vai junto — o app tem a dele, e duplicar o Pixel na mesma sessão conta o mesmo evento duas vezes.
+
+A nota dos dois profissionais (`pagina.DOIS_PROFISSIONAIS`) é decisão de produto, não texto de enfeite: a biblioteca não diz o que a vigilância local exige, porque isso depende de avaliação do caso, e diz explicitamente que o projeto pede a consultora sanitária e o arquiteto ou engenheiro. Quem reaproveitar o conteúdo dentro do aplicativo mantém essa nota; sem ela a biblioteca parece prometer aprovação.

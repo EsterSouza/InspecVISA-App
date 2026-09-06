@@ -20,3 +20,12 @@ A edição 2.2 fechou virando site. A biblioteca era um documento longo com uma 
 
 Duas decisões pequenas com efeito grande: as datas mostradas ao leitor passaram a ser mês e ano, sem dia, porque dia exato em publicação envelhece rápido e não ajuda ninguém; e todo link para fora abre em guia nova, para quem chegou pela busca não perder a biblioteca ao consultar a norma.
 
+Edição 2.3: a folha de estilo foi reescrita do celular para cima. A anterior era desktop com remendos, e dava para ver: fonte pequena demais no telefone, botão de 32px, duas colunas espremidas onde cabia uma. Agora a camada base é o telefone — corpo de 17px, alvo de toque entre 44 e 52px, uma coluna, nada que dependa de hover — e as duas consultas de largura, 720px e 1040px, só acrescentam. Nenhuma regra escrita para o celular é desfeita mais adiante; essa é a diferença entre uma versão de celular e uma adaptação.
+
+Na barra fixa o botão de vistoria tem dois rótulos: "Vistoria" no telefone e "Agendar uma vistoria" a partir de 720px, no mesmo elemento, trocados por CSS. É o único jeito de manter o botão sempre à vista sem espremer a logo.
+
+A capa deixou de ser a única página. Cada ficha ganhou endereço próprio, com trilha, preço nos 27 estados, o critério que a sustenta, as fichas irmãs da família e um botão de compartilhar. A ficha na capa continua existindo: são as duas leituras, a de quem está percorrendo a biblioteca e a de quem caiu ali pela busca.
+
+O comparador é a seção nova entre os ambientes e a biblioteca: três seletores e uma tabela de sete linhas que rola dentro da própria caixa. A ordem da página passou a ser entender o ambiente, comparar, consultar a ficha — que é a ordem em que a pergunta chega.
+
+A abertura dos ambientes ganhou uma planta esquemática em SVG. Texto que define "área crítica" é texto para quem já sabe o que é; uma planta com recepção, consultório e sala de procedimentos lado a lado, cada uma com a sua cor e o seu rótulo, resolve em três segundos. O esquema carrega a própria legenda: o que a sala faz decide a classe, não o tamanho nem o nome na porta.

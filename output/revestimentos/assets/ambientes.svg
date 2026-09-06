@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 460" role="img" aria-labelledby="ptitulo pdesc" class="planta">
+<title id="ptitulo">Planta esquemática de um serviço de saúde com as três classes de ambiente</title>
+<desc id="pdesc">Recepção e sala administrativa como área não crítica; consultório e sala de exame como área semicrítica; sala de procedimentos e expurgo como área crítica. A classificação vem do que se faz na sala, não do tamanho dela.</desc>
+<g font-family="Segoe UI, sans-serif">
+<rect width="720" height="460" rx="14" fill="#f5f2ec"/>
+<g stroke="#243d43" stroke-width="2.5" fill="none"><rect x="26" y="60" width="668" height="330" rx="6"/></g>
+<g stroke="#243d43" stroke-width="2">
+<rect x="26" y="60" width="250" height="150" fill="#e8eef0"/>
+<rect x="26" y="210" width="250" height="180" fill="#e8eef0"/>
+<rect x="276" y="60" width="200" height="330" fill="#ece6d7"/>
+<rect x="476" y="60" width="218" height="180" fill="#f0e1d9"/>
+<rect x="476" y="240" width="218" height="150" fill="#f0e1d9"/>
+</g>
+<g fill="#243d43" font-size="17" font-weight="600">
+<text x="46" y="92">Recepção e espera</text>
+<text x="46" y="242">Sala administrativa</text>
+<text x="296" y="92">Consultório</text>
+<text x="296" y="118">e sala de exame</text>
+<text x="496" y="92">Sala de</text>
+<text x="496" y="114">procedimentos</text>
+<text x="496" y="272">Expurgo e</text>
+<text x="496" y="294">processamento</text>
+</g>
+<g fill="#4a6068" font-size="14">
+<text x="46" y="116">Sem procedimento</text>
+<text x="46" y="136">e sem paciente em</text>
+<text x="46" y="156">atendimento</text>
+<text x="46" y="266">Uso exclusivo</text>
+<text x="46" y="286">da equipe</text>
+<text x="296" y="146">Paciente presente,</text>
+<text x="296" y="166">exame sem invadir</text>
+<text x="296" y="186">pele ou mucosa</text>
+<text x="496" y="140">Procedimento de</text>
+<text x="496" y="160">risco, com ou sem</text>
+<text x="496" y="180">paciente na sala</text>
+<text x="496" y="320">Artigo contaminado</text>
+<text x="496" y="340">circula aqui</text>
+</g>
+<g font-size="13" font-weight="700" letter-spacing="0.06em">
+<text x="46" y="370" fill="#3f6070">NÃO CRÍTICA</text>
+<text x="296" y="370" fill="#7a6533">SEMICRÍTICA</text>
+<text x="496" y="370" fill="#8f4f30">CRÍTICA</text>
+</g>
+<g font-size="15" fill="#243d43">
+<text x="26" y="36" font-weight="600">O que a sala faz decide a classe, não o tamanho nem o nome na porta</text>
+<text x="26" y="428" fill="#4a6068">Esquema sem escala. A mesma sala muda de classe quando muda o procedimento realizado nela.</text>
+</g>
+</g></svg>

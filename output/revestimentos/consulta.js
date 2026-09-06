@@ -138,3 +138,64 @@ aplicarEstado();
 function externos(){document.querySelectorAll('a[href^="http"]:not([target])').forEach(function(a){a.target='_blank';a.rel='noopener';});}
 externos();
 document.addEventListener('click',externos,true);
+
+// Comparador lado a lado. A pergunta de quem decide e "este ou aquele", e a
+// resposta mora em quatro linhas: onde serve, quando evitar, quanto custa no
+// estado escolhido e o que a norma cobra.
+(function(){
+const alvo=document.getElementById('comparador');
+const dados=document.getElementById('compara-data');
+if(!alvo||!dados)return;
+const COMPARA=JSON.parse(dados.textContent);
+const escolhas=[...document.querySelectorAll('.comparar-escolha')];
+const LINHAS=[['Superfície','category'],['Indicação editorial','status'],['Onde pode ser usado','use'],
+ ['Quando evitar','limit'],['O que olhar depois de pronto','inspect']];
+function precoDe(o){
+ const estado=uf?uf.value:precoData.padrao;
+ const vs=o.refs.map(i=>valorRef(costData[i],estado)).filter(v=>v!==null);
+ if(!vs.length)return o.gap?'Sem referência na SINAPI. '+o.gap.split('. ')[0]+'.':'Sem referência na SINAPI.';
+ return vs.map(v=>brl.format(v)+'/'+o.unit).join(' · ')+' em '+nomeUF(estado);
+}
+function desenhar(){
+ const sel=escolhas.map(s=>s.value===''?null:COMPARA[Number(s.value)]).filter(Boolean);
+ if(sel.length<2){alvo.innerHTML='<p class="ref">Escolha dois materiais para ver a comparação.</p>';return;}
+ let html='<table class="comparacao"><thead><tr><th scope="col">Comparando</th>';
+ sel.forEach(o=>{html+='<th scope="col"><a href="'+o.slug+'/">'+o.id+' · '+o.name+'</a></th>';});
+ html+='</tr></thead><tbody>';
+ LINHAS.forEach(function(par){
+  html+='<tr><th scope="row">'+par[0]+'</th>';
+  sel.forEach(o=>{html+='<td>'+String(o[par[1]]).replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</td>';});
+  html+='</tr>';
+ });
+ html+='<tr><th scope="row">Quanto pode custar</th>';
+ sel.forEach(o=>{html+='<td>'+precoDe(o)+'</td>';});
+ html+='</tr><tr><th scope="row">O que a norma cobra</th>';
+ sel.forEach(o=>{html+='<td>'+(o.rules.join('; ')||'Sem critério ligado')+'</td>';});
+ html+='</tr></tbody></table>';
+ alvo.innerHTML=html;
+ marcar('comparar_materiais',{materiais:sel.map(o=>o.id).join('+')});
+}
+escolhas.forEach(function(s,k){
+ if(k<2)s.selectedIndex=k+1;
+ s.addEventListener('change',desenhar);
+});
+if(uf)uf.addEventListener('change',desenhar);
+desenhar();
+})();
+
+// Medicao: so os eventos que dizem se a pagina esta cumprindo o papel dela.
+function marcar(evento,dados){
+ try{if(window.gtag)window.gtag('event',evento,dados||{});}catch(e){}
+ try{if(window.clarity)window.clarity('event',evento);}catch(e){}
+}
+document.querySelectorAll('[data-vistoria]').forEach(function(a){
+ a.addEventListener('click',function(){
+  marcar('contato_whatsapp',{origem:location.pathname});
+  try{if(window.fbq)window.fbq('track','Contact');}catch(e){}
+ });
+});
+document.querySelectorAll('.material').forEach(function(d){
+ d.addEventListener('toggle',function(){if(d.open)marcar('abrir_ficha',{ficha:d.closest('article').id});});
+});
+if(uf)uf.addEventListener('change',function(){marcar('trocar_estado',{estado:uf.value});});
+

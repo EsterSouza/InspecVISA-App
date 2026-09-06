@@ -1,10 +1,23 @@
 # Biblioteca de revestimentos | TreinaVISA
 
-Edição 2.2, setembro de 2026. Para profissionais de saúde sem formação em arquitetura.
+Edição 2.3, setembro de 2026. Para profissionais de saúde sem formação em arquitetura.
 
 Elaborado por Ester Caiafa, enfermeira sanitarista e consultora sanitária. Conteúdo de propriedade intelectual da TreinaVISA, HUB TREINAVISA SERVIÇOS LTDA, CNPJ 53.297.694/0001-37. consultorasanitaria.com.br · @consultora.sanitaria.
 
-Abra index.html para consulta local. A biblioteca funciona sem instalação, com busca, filtros, seletor de estado e 29 fichas expansíveis. O PDF revestimentos.pdf fica só nesta pasta: é o arquivo de entrega e impressão A4 vertical, compartilhado à parte quando ela quiser. Nenhuma publicação ou integração no aplicativo foi executada.
+Abra index.html para consulta local. A biblioteca funciona sem instalação, com busca, filtros, comparador, seletor de estado e 29 fichas, que existem tanto abertas na capa quanto em página própria. O PDF revestimentos.pdf fica só nesta pasta: é o arquivo de entrega e impressão A4 vertical, compartilhado à parte quando ela quiser. Nenhuma publicação ou integração no aplicativo foi executada.
+
+## O que mudou na edição 2.3
+
+- **Uma página por ficha.** As 29 fichas continuam abrindo na capa, e agora cada uma também tem endereço próprio, `/biblioteca/porcelanato-tecnico-ou-esmaltado/` e assim por diante. A página tem título, descrição e canônico próprios, trilha de volta para a capa, o preço da ficha nos 27 estados, o critério que a sustenta, os links para as sete fichas irmãs da mesma família e JSON-LD de TechArticle e BreadcrumbList. É o que faz a biblioteca ser achada por "quanto custa piso vinílico em sala de procedimento" e não só por "revestimento RDC 50".
+- **Comparador lado a lado.** A pergunta de quem decide raramente é "o que é porcelanato": é "porcelanato ou vinílico na minha sala". A seção "Comparar" põe até três fichas em colunas e sete linhas: superfície, indicação editorial, onde pode ser usado, quando evitar, o que olhar depois de pronto, quanto pode custar no estado escolhido e o que a norma cobra. A tabela rola dentro da própria caixa; a página nunca rola de lado.
+- **Versão de celular de verdade.** O CSS foi reescrito de baixo para cima: a camada base é o celular, com corpo de 17px, alvo de toque de 44 a 52px, uma coluna e nada que dependa de passar o mouse. Só depois vêm `min-width:720px` e `min-width:1040px`. Nenhuma regra de celular é desfeita mais adiante, que era o defeito da adaptação anterior.
+- **Planta dos ambientes.** A seção "Primeiro, entenda o seu ambiente" abre com um esquema em SVG: recepção e administrativa como não crítica, consultório e sala de exame como semicrítica, sala de procedimentos e expurgo como crítica. Quem não é de obra entende "área crítica" olhando uma sala, não lendo a definição. O esquema diz na própria imagem que o que a sala faz decide a classe, não o tamanho nem o nome na porta.
+- **Os dois profissionais.** Onde antes ficaria um "veja a regra da sua cidade", a página agora diz o que é verdade: a aprovação depende da avaliação da vigilância local, e o projeto pede dois profissionais, a consultora sanitária e o arquiteto ou engenheiro. A biblioteca dá a base comum aos dois e não faz o papel de nenhum.
+- **Botão de compartilhar.** Cada ficha tem um botão que usa o compartilhamento nativo do celular e cai para a área de transferência no desktop. O texto compartilhado vai assinado, com o nome da ficha, a autoria e o endereço da página.
+- **Medição.** Clarity, Pixel da Meta e gtag do Google Ads, direto no HTML, sem GTM, seguindo a convenção já usada nas outras páginas da consultora. Os eventos próprios são `contato_whatsapp` (com `Contact` no Pixel), `abrir_ficha`, `trocar_estado`, `comparar_materiais` e `compartilhar_ficha`. Não há GA4 aqui: o `G-L1SR8V2ECY` que existe nos outros repositórios é da Ana, não da Ester.
+- **A pasta publicar/ cresceu.** Eram seis arquivos na edição 2.2; agora são 37, porque cada ficha leva o seu `index.html`. Continua sem PDF, sem zip, sem Markdown e sem JSON. O `validar.py` confere que `public/biblioteca/` é cópia fiel dela.
+- **Sitemap e robots.** `gerar.py` escreve `public/sitemap.xml` com 31 endereços: a capa, as 29 fichas e a página de agendamento. O `public/robots.txt` aponta o sitemap e mantém `/portal/`, `/cliente/`, `/execute` e `/summary` fora do índice.
+- **Atualização mensal agendada.** Existe uma tarefa agendada `sinapi-biblioteca-revestimentos`, dia 15 de cada mês às 9h, que abre uma sessão com o roteiro de troca do mês de referência. Ela não baixa arquivo de site de governo por conta própria: pede o pacote salvo em `qa/SINAPI-AAAA-MM.zip` e conduz o resto.
 
 ## O que mudou na edição 2.2
 
@@ -37,9 +50,11 @@ Links: `python conferir_links.py` percorre os endereços publicados nos três fo
 - complementos.py: classificação de áreas, glossário, referências de custo (COSTS), motivos das lacunas (SEM_PRECO), unidade por família (UNIDADE) e os dados de marca e autoria (MARCA).
 - precos.py: preço por estado, um dicionário por composição. **Gerado, não editar à mão.**
 - extrair_precos.py: lê a planilha oficial e reescreve precos.py. Rode só quando trocar o mês de referência, com o pacote novo em qa/.
-- gerar.py: regenera HTML, Markdown, JSON, PDF e a pasta publicar/; requer Python com reportlab, pypdf e Pillow, e as fontes Segoe UI do Windows.
-- estilo.css e consulta.js: apresentação, busca, seletor de estado e calculadora.
-- biblioteca.json: versão 2.2.0, marca, critérios, materiais, classificações, glossário, custos, preços por estado, lacunas, dados da calculadora e fontes.
+- pagina.py: as peças comuns a todas as páginas: cabeça do HTML com medição e Open Graph, barra fixa, botão de WhatsApp, convite, rodapé, gerador de slug e a nota dos dois profissionais. O módulo não pode se chamar site.py: `import site` acerta o módulo da biblioteca padrão do Python.
+- ficha.js: o que roda dentro da página de uma ficha: seletor de estado, botão de compartilhar e os eventos de medição.
+- gerar.py: regenera HTML, as 29 páginas de ficha, Markdown, JSON, PDF, a pasta publicar/ e o sitemap; requer Python com reportlab, pypdf e Pillow, e as fontes Segoe UI do Windows.
+- estilo.css e consulta.js: apresentação, busca, comparador, seletor de estado e calculadora. O CSS é escrito primeiro para o celular; as duas consultas de largura só acrescentam.
+- biblioteca.json: versão 2.3.0, marca, critérios, materiais, classificações, glossário, custos, preços por estado, lacunas, dados da calculadora e fontes.
 - INTEGRACAO.md: orientação para integração futura no repositório examinado.
 
 Execute `python gerar.py` nesta pasta e depois `python validar.py`. Os scripts atualizar.py, visual_pdf.py, acabamento.py e calculadora_build.py foram auxiliares de construção e não precisam ser executados novamente.
@@ -60,13 +75,17 @@ Depois de trocar o mês, o `gerar.py` já deixa `public/biblioteca/` atualizada;
 - `vite.config.ts`: a pasta fica fora do precache do service worker (`globIgnores`) e fora do fallback de navegação (`navigateFallbackDenylist`). Sem o segundo, o service worker responderia `/biblioteca/` com o index.html do InspecVISA e a página simplesmente não abriria.
 - `navConfig.ts`: o item "Revestimentos" do menu é marcado como `external`, então Sidebar e BottomNav renderizam um link de verdade. Um `NavLink` faria o router procurar a rota dentro do React, não achar e cair no catch-all.
 
+A ordem das regras no `vercel.json` importa: o redirecionamento de `/biblioteca` precisa vir **antes** de `{ "handle": "filesystem" }`. Depois dele o redirecionamento nunca dispara, porque o filesystem resolve o diretório sozinho, e aí `estilo.css` e `assets/materiais.jpg` são procurados na raiz do site. Foi exatamente assim que a página quebrou em produção uma vez: o HTML abria e nada mais carregava.
+
 O código da composição na planilha vem dentro de uma fórmula HYPERLINK: lido com data_only ele volta zero. Por isso o extrator abre a planilha duas vezes, uma para as fórmulas e outra para os valores, e pega o último número da fórmula. Se a Caixa mudar o formato, é aqui que quebra.
 
 ## Verificação
 
 `python validar.py` renderiza as 39 páginas do PDF, monta as pranchas de contato em qa e confere: título das 29 fichas nos três formatos, os seis campos editoriais no Markdown, critérios no PDF, ausência de travessão, texto selecionável, 67 links/anotações, preço nos 27 estados para todas as composições citadas, os dados de autoria no HTML e no PDF, a ausência de link para PDF, zip, Markdown e JSON na página, e a regra que sustenta a honestidade da calculadora: cada ficha tem preço verificado **ou** motivo escrito da falta, nunca os dois e nunca nenhum. As miniaturas são apagadas e refeitas a cada execução: página antiga guardada em disco já escondeu um PDF quebrado antes.
 
-No navegador, em 06/09/2026: busca, filtros, calculadora, troca de estado (Rio R$ 132,79/m² para São Paulo R$ 110,74/m² no porcelanato, com a barra acompanhando) e celular a 375 px sem rolagem horizontal, com cabeçalho, seletor, cartões de custo, ficha aberta e rodapé de autoria conferidos.
+Além disso: as 29 páginas de ficha existem, cada uma com H1, canônico próprio, JSON-LD de trilha, medição e volta para a capa; a capa liga todas; e todas estão no sitemap. Um slug repetido ou um link solto some sem erro nenhum, e é o que essas conferências pegam.
+
+No navegador, em 06/09/2026: busca, filtros, comparador com três colunas e preço do estado escolhido, calculadora, troca de estado (Rio R$ 132,79/m² para São Paulo R$ 110,74/m² no porcelanato, com a barra acompanhando) e celular a 375 px sem rolagem horizontal, com cabeçalho, seletor, cartões de custo, ficha aberta e rodapé de autoria conferidos.
 
 ## Alcance
 
