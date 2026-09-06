@@ -14,3 +14,7 @@ assets/materiais-impressao.jpg
 # Miniaturas de conferência e o pacote da SINAPI (26 MB). O pacote se baixa de
 # novo no canal de downloads da Caixa quando trocar o mês de referência.
 qa/
+
+# Fotos otimizadas pelo gerador a partir de assets/fichas/. O original fica
+# versionado; o JPEG de 1200px se refaz sozinho.
+assets/fotos/

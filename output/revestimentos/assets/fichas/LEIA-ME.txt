@@ -1,0 +1,34 @@
+Fotos da biblioteca de revestimentos
+====================================
+
+Salve aqui, ou em public/biblioteca/imagens geradas/, que o gerar.py recolhe
+de la sozinho antes de reconstruir a pasta publicada. PNG ou JPG grande esta
+otimo: o gerador reduz para 1200px e converte em JPEG progressivo, porque a
+pagina nao aguenta PNG de 1,7 MB.
+
+O NOME DO ARQUIVO diz onde a foto entra. Sem o nome certo ela e ignorada.
+
+Ambientes, na secao "Primeiro, entenda o seu ambiente":
+  ambiente-nao-critica.png    recepcao, espera ou sala administrativa
+  ambiente-semicritica.png    consultorio ou sala de exame
+  ambiente-critica.png        sala de procedimentos ou expurgo
+
+Fichas, uma foto no alto da pagina da ficha. O nome e o id da ficha em
+minusculas:
+  p01.png  Porcelanato tecnico ou esmaltado    w01.png  Porcelanato em parede
+  p02.png  Gres                                w02.png  Azulejo esmaltado
+  p03.png  Semi-gres                           w03.png  Tinta epoxi, PU, PVC
+  p04.png  Ceramica esmaltada                  w04.png  Drywall e placa cimenticia
+  p05.png  Pintura de piso em epoxi            w05.png  Divisoria removivel
+  p06.png  Vinilico em reguas ou placas        t01.png  Laje ou gesso continuo
+  p07.png  Manta vinilica soldada              t02.png  Gesso acartonado
+  p08.png  Laminado, madeira e carpete         t03.png  Forro modular
+  j01.png  Rejunte epoxi                       b01.png  Granito e pedras naturais
+  j02.png  Cimenticio com aditivo              b02.png  Quartzo industrializado
+  j03.png  Cimento sem aditivo                 b03.png  Aco inoxidavel
+  r01.png  Rodape alinhado a parede            b04.png  Madeira, MDF e laminados
+  r02.png  Rodape curvo ou meia-cana           m01.png  Maca, mocho e estofado
+  r03.png  Rodape sobreposto                   m02.png  Armario com nucleo de MDF
+                                               m03.png  Tecido, madeira crua, palha
+
+Ficha sem foto continua funcionando: fica com a amostra de textura de hoje.

@@ -73,6 +73,21 @@ mapa=(root.parent.parent/'public'/'sitemap.xml').read_text(encoding='utf-8')
 for pag in paginas:
  assert f'/biblioteca/{pag.parent.name}/' in mapa,'fora do sitemap: '+pag.parent.name
 
+# Foto de ambiente e de ficha entram pelo nome do arquivo. Nome fora da
+# convencao e ignorado sem erro: o gerador nao acha e a pagina sai sem a foto.
+# Esta conferencia acusa a foto que ficou pelo caminho.
+fonte=root/'assets'/'fichas'
+web_fotos=root/'assets'/'fotos'
+validos={'ambiente-critica','ambiente-semicritica','ambiente-nao-critica'}|{m['id'].lower() for m in MATERIALS}
+if fonte.is_dir():
+ for f in fonte.iterdir():
+  if f.suffix.lower() not in ('.png','.jpg','.jpeg','.webp'):continue
+  assert f.stem.lower() in validos,f'foto com nome fora da convencao: {f.name} (ver assets/fichas/LEIA-ME.txt)'
+  saida=web_fotos/(f.stem.lower()+'.jpg')
+  assert saida.is_file(),'foto nao otimizada: '+f.name
+  assert saida.stat().st_size<400_000,f'{saida.name} tem {saida.stat().st_size//1024} kB, pesado demais para a pagina'
+  assert (root/'publicar'/'assets'/'fotos'/saida.name).is_file(),'foto nao publicada: '+saida.name
+
 publicada=root.parent.parent/'public'/'biblioteca'/'index.html'
 assert publicada.is_file(),'public/biblioteca/index.html não existe: rode gerar.py'
 assert publicada.read_bytes()==(root/'publicar'/'index.html').read_bytes(),'public/biblioteca está desatualizada'

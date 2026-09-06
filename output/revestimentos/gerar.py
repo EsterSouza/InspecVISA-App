@@ -1,5 +1,6 @@
 from pathlib import Path
 import json, html, hashlib, shutil
+from PIL import Image
 from xml.sax.saxutils import escape
 from reportlab.pdfgen import canvas
 from reportlab.platypus import Paragraph, Frame, CondPageBreak, Spacer, Flowable
@@ -71,6 +72,40 @@ FIELDS=[('description','O que é'),('use','Onde pode ser usado'),('limit','Quand
 
 DIAGRAM='''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 260" role="img" aria-labelledby="dtitle ddesc"><title id="dtitle">Três encontros que merecem atenção</title><desc id="ddesc">Esquemas sem escala: peça e rejunte são verificados separadamente; rodapé alinhado à parede; emenda fechada no sistema de manta.</desc><g font-family="Segoe UI, sans-serif" fill="#26354a"><rect width="760" height="260" fill="#edf1f4"/><g stroke="#26354a" stroke-width="2" fill="#c5d4df"><path d="M28 102h85v50H28zM127 102h85v50h-85z"/><path d="M294 52h30v118h120v30H294z"/><path d="M552 135h72v20h-72zM634 135h88v20h-88z"/></g><path d="M113 102h14v50h-14zM324 152h14v18h-14zM624 135h10v20h-10z" fill="#987032"/><g font-size="15"><text x="28" y="36">Peça + rejunte</text><text x="294" y="36">Piso + parede</text><text x="552" y="36">Manta + emenda</text><text x="28" y="190">Duas verificações</text><text x="294" y="228">Canto acessível à limpeza</text><text x="552" y="190">Fechamento do sistema</text></g><g stroke="#987032" stroke-width="1.5" fill="none"><path d="M120 98V68h65M342 159h75v-45M629 130V84h60"/></g><g font-size="12"><text x="140" y="61">junta</text><text x="371" y="107">alinhamento</text><text x="653" y="77">solda</text></g></g></svg>'''
 (ROOT/'assets'/'encontros.svg').write_text(DIAGRAM,encoding='utf-8')
+
+# Fotos de ambiente e de ficha. A Ester salva em public/biblioteca/imagens
+# geradas/, que o gerador reconstroi do zero a cada execucao: por isso o que
+# estiver la e recolhido para assets/fichas/, que e a fonte versionada, antes de
+# qualquer rmtree. O nome do arquivo decide onde a foto entra; a convencao esta
+# em assets/fichas/LEIA-ME.txt.
+ENTRADA=ROOT.parent.parent/'public'/'biblioteca'/'imagens geradas'
+FOTOS_ORIG=ROOT/'assets'/'fichas'
+FOTOS_WEB=ROOT/'assets'/'fotos'
+FOTOS_ORIG.mkdir(parents=True,exist_ok=True);FOTOS_WEB.mkdir(parents=True,exist_ok=True)
+if ENTRADA.is_dir():
+ for f in ENTRADA.iterdir():
+  if f.suffix.lower() in ('.png','.jpg','.jpeg','.webp'):shutil.copy2(f,FOTOS_ORIG/f.name)
+def foto(nome):
+ """Devolve o caminho web da foto, otimizada, ou '' se ela ainda nao existe."""
+ orig=next((f for f in FOTOS_ORIG.iterdir() if f.stem.lower()==nome and f.suffix.lower() in ('.png','.jpg','.jpeg','.webp')),None)
+ if not orig:return ''
+ saida=FOTOS_WEB/(nome+'.jpg')
+ if not saida.exists() or saida.stat().st_mtime<orig.stat().st_mtime:
+  im=Image.open(orig).convert('RGB')
+  if im.width>1200:im=im.resize((1200,round(im.height*1200/im.width)),Image.LANCZOS)
+  im.save(saida,'JPEG',quality=82,optimize=True,progressive=True)
+ return 'assets/fotos/'+nome+'.jpg'
+AREA_FOTO={'Área crítica':'ambiente-critica','Área semicrítica':'ambiente-semicritica','Área não crítica':'ambiente-nao-critica'}
+# Foto com nome fora da convencao seria ignorada em silencio, e o trabalho de
+# gerar a imagem se perderia sem ninguem notar. O gerador avisa na saida; o
+# validar.py trava.
+NOMES_VALIDOS={'ambiente-critica','ambiente-semicritica','ambiente-nao-critica'}|{m['id'].lower() for m in MATERIALS}
+SOBRANDO=[f.name for f in FOTOS_ORIG.iterdir()
+ if f.suffix.lower() in ('.png','.jpg','.jpeg','.webp') and f.stem.lower() not in NOMES_VALIDOS]
+if SOBRANDO:
+ print('AVISO: foto com nome fora da convencao, nao entra em pagina nenhuma:')
+ for n in SOBRANDO:print('  -',n)
+ print('  renomeie conforme assets/fichas/LEIA-ME.txt')
 
 PLANTA='''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 460" role="img" aria-labelledby="ptitulo pdesc" class="planta">
 <title id="ptitulo">Planta esquemática de um serviço de saúde com as três classes de ambiente</title>
@@ -174,7 +209,6 @@ PLANTA_CEL='''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 686" role
 # arquivo, pesado demais para mandar por WhatsApp. Duas cópias em JPEG resolvem: a
 # de 250 kB para a página, em rede móvel, e a de impressão para o PDF, que sai a
 # 228 dpi na capa. O PNG fica só como original editável.
-from PIL import Image
 _prancha=Image.open(ROOT/'assets'/'materiais.png').convert('RGB')
 _prancha.save(ROOT/'assets'/'materiais.jpg',quality=82,optimize=True,progressive=True)
 _prancha.save(ROOT/'assets'/'materiais-impressao.jpg',quality=92,optimize=True)
@@ -201,7 +235,7 @@ parts.append('<section id="areas"><h2>Primeiro, entenda o seu ambiente</h2>'
  +'<source media="(min-width:720px)" srcset="assets/ambientes.svg">'
  +'<img src="assets/ambientes-celular.svg" alt="Planta esquemática: recepção e sala administrativa como área não crítica, consultório e sala de exame como semicrítica, sala de procedimentos e expurgo como crítica">'
  +'</picture><figcaption>Esquema sem escala. A mesma sala muda de classe quando muda o procedimento realizado nela.</figcaption></figure>'
- +'<div class="area-grid">'+''.join(f'<div class="area"><span>0{i+1}</span><h3>{E(t)}</h3><p>{E(d)}</p><p class="example">{E(ex)}</p></div>' for i,(t,d,ex) in enumerate(AREAS))+'</div>'+''.join(f'<h3>{E(t)}</h3><p>{E(d)}</p>' for t,d in CONTEXT)+'<p class="ref">'+refhtml('R50','Parte III, 6.2 A.2')+' · '+refhtml('ESTETICA','Introdução e seção 2.7')+'</p></section>')
+ +'<div class="area-grid">'+''.join(f'<div class="area">'+(f'<img class="area-foto" src="{foto(AREA_FOTO[t])}" alt="Exemplo de {E(t.lower())} em serviço de saúde" loading="lazy">' if foto(AREA_FOTO.get(t,"")) else '')+f'<span>0{i+1}</span><h3>{E(t)}</h3><p>{E(d)}</p><p class="example">{E(ex)}</p></div>' for i,(t,d,ex) in enumerate(AREAS))+'</div>'+''.join(f'<h3>{E(t)}</h3><p>{E(d)}</p>' for t,d in CONTEXT)+'<p class="ref">'+refhtml('R50','Parte III, 6.2 A.2')+' · '+refhtml('ESTETICA','Introdução e seção 2.7')+'</p></section>')
 parts.append('<section id="glossario"><h2>Palavras que você vai encontrar</h2><div class="glossary">'+''.join(f'<details><summary>{E(t)}</summary><p>{E(d)}</p></details>' for t,d in GLOSSARY)+'</div></section>')
 parts.append('<section id="custos"><h2>Quanto pode custar?</h2><p>'+E(COST_NOTE)+'</p>')
 parts.append('<div class="tools estado"><label>Escolha o seu estado<select id="uf">'+''.join(f'<option value="{u}"{" selected" if u==UF_PADRAO else ""}>{E(n)}</option>' for u,n in UFS)+'</select></label></div>')
@@ -333,6 +367,8 @@ if PUB.exists():shutil.rmtree(PUB)
 for nome in ['index.html','estilo.css','consulta.js','ficha.js']:shutil.copy2(ROOT/nome,PUB/nome)
 for pasta in sorted(FICHA_DIR.iterdir()):shutil.copytree(pasta,PUB/pasta.name)
 for nome in ['materiais.jpg','encontros.svg','ambientes.svg','ambientes-celular.svg','treinavisa.png']:shutil.copy2(ROOT/'assets'/nome,PUB/'assets'/nome)
+(PUB/'assets'/'fotos').mkdir(parents=True,exist_ok=True)
+for f in FOTOS_WEB.glob('*.jpg'):shutil.copy2(f,PUB/'assets'/'fotos'/f.name)
 
 # A página servida em /biblioteca é uma cópia desta pasta dentro de public/. Sem
 # esta linha o site no ar fica numa edição velha em silêncio, e ninguém percebe.
@@ -352,6 +388,11 @@ APP=ROOT.parent.parent/'public'/'biblioteca'
 if APP.parent.is_dir():
  if APP.exists():shutil.rmtree(APP)
  shutil.copytree(PUB,APP)
+ # A pasta de entrada e refeita depois do rmtree para o fluxo continuar: a
+ # Ester salva a foto ali e a proxima execucao recolhe. O LEIA-ME vai junto,
+ # com a convencao de nome que decide onde cada foto entra.
+ ENTRADA.mkdir(parents=True,exist_ok=True)
+ shutil.copy2(FOTOS_ORIG/'LEIA-ME.txt',ENTRADA/'LEIA-ME.txt')
 
 md=['# Revestimentos em serviços de saúde',f"{MARCA['marca']} · Edição 2.3 · {DATE}",
 f"Elaborado por {MARCA['autora']}, {MARCA['credencial'].lower()}. {MARCA['siteRotulo']} · {MARCA['instagramRotulo']}",

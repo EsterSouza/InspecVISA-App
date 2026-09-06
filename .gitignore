@@ -66,3 +66,8 @@ docs/prototipos/_publish/
 
 # MCP com token pessoal/pago — nao versionar (regra do HANDOFF-FRONTEND)
 .mcp.json
+
+# Caixa de entrada das fotos da biblioteca de revestimentos. O gerar.py recolhe
+# o que estiver aqui para output/revestimentos/assets/fichas/, que é a fonte
+# versionada, e refaz esta pasta a cada execução.
+public/biblioteca/imagens geradas/
