@@ -8,6 +8,11 @@ pagina nao aguenta PNG de 1,7 MB.
 
 O NOME DO ARQUIVO diz onde a foto entra. Sem o nome certo ela e ignorada.
 
+Planta geral, no alto da secao "Primeiro, entenda o seu ambiente". Quando
+existir, ela entra no lugar do esquema vetorial de hoje:
+  planta.png            versao larga, para computador e tablet
+  planta-celular.png    versao em pe, para o telefone
+
 Ambientes, na secao "Primeiro, entenda o seu ambiente":
   ambiente-nao-critica.png    recepcao, espera ou sala administrativa
   ambiente-semicritica.png    consultorio ou sala de exame

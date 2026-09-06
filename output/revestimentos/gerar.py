@@ -85,21 +85,23 @@ FOTOS_ORIG.mkdir(parents=True,exist_ok=True);FOTOS_WEB.mkdir(parents=True,exist_
 if ENTRADA.is_dir():
  for f in ENTRADA.iterdir():
   if f.suffix.lower() in ('.png','.jpg','.jpeg','.webp'):shutil.copy2(f,FOTOS_ORIG/f.name)
+LIMITE={'planta':(1600,90),'planta-celular':(1000,90)}
 def foto(nome):
  """Devolve o caminho web da foto, otimizada, ou '' se ela ainda nao existe."""
  orig=next((f for f in FOTOS_ORIG.iterdir() if f.stem.lower()==nome and f.suffix.lower() in ('.png','.jpg','.jpeg','.webp')),None)
  if not orig:return ''
+ largura,qualidade=LIMITE.get(nome,(1200,82))
  saida=FOTOS_WEB/(nome+'.jpg')
  if not saida.exists() or saida.stat().st_mtime<orig.stat().st_mtime:
   im=Image.open(orig).convert('RGB')
-  if im.width>1200:im=im.resize((1200,round(im.height*1200/im.width)),Image.LANCZOS)
-  im.save(saida,'JPEG',quality=82,optimize=True,progressive=True)
+  if im.width>largura:im=im.resize((largura,round(im.height*largura/im.width)),Image.LANCZOS)
+  im.save(saida,'JPEG',quality=qualidade,optimize=True,progressive=True)
  return 'assets/fotos/'+nome+'.jpg'
 AREA_FOTO={'Área crítica':'ambiente-critica','Área semicrítica':'ambiente-semicritica','Área não crítica':'ambiente-nao-critica'}
 # Foto com nome fora da convencao seria ignorada em silencio, e o trabalho de
 # gerar a imagem se perderia sem ninguem notar. O gerador avisa na saida; o
 # validar.py trava.
-NOMES_VALIDOS={'ambiente-critica','ambiente-semicritica','ambiente-nao-critica'}|{m['id'].lower() for m in MATERIALS}
+NOMES_VALIDOS={'ambiente-critica','ambiente-semicritica','ambiente-nao-critica','planta','planta-celular'}|{m['id'].lower() for m in MATERIALS}
 SOBRANDO=[f.name for f in FOTOS_ORIG.iterdir()
  if f.suffix.lower() in ('.png','.jpg','.jpeg','.webp') and f.stem.lower() not in NOMES_VALIDOS]
 if SOBRANDO:
@@ -232,9 +234,9 @@ parts.append('<figure class="photo"><img src="assets/materiais.jpg" alt="Amostra
 parts.append('<section id="areas"><h2>Primeiro, entenda o seu ambiente</h2>'
  +'<p>A RDC 50 não classifica material: classifica ambiente. O que a sala faz decide o que ela exige do piso, da parede e do teto. Comece aqui.</p>'
  +'<figure class="planta-figura"><picture>'
- +'<source media="(min-width:720px)" srcset="assets/ambientes.svg">'
- +'<img src="assets/ambientes-celular.svg" alt="Planta esquemática: recepção e sala administrativa como área não crítica, consultório e sala de exame como semicrítica, sala de procedimentos e expurgo como crítica">'
- +'</picture><figcaption>Esquema sem escala. A mesma sala muda de classe quando muda o procedimento realizado nela.</figcaption></figure>'
+ +f'<source media="(min-width:720px)" srcset="{foto("planta") or "assets/ambientes.svg"}">'
+ +f'<img src="{foto("planta-celular") or "assets/ambientes-celular.svg"}" alt="Planta de um serviço de saúde com as três classes de ambiente. Recepção e espera e sala administrativa são área não crítica: sem procedimento e sem paciente em atendimento. Consultório e sala de exame são área semicrítica: paciente presente, exame sem invadir pele ou mucosa. Sala de procedimentos e expurgo são área crítica: procedimento de risco, com ou sem paciente na sala, e circulação de artigo contaminado. O que a sala faz decide a classe, não o tamanho nem o nome na porta.">'
+ +'</picture>'+('' if foto('planta') else '<figcaption>Esquema sem escala. A mesma sala muda de classe quando muda o procedimento realizado nela.</figcaption>')+'</figure>'
  +'<div class="area-grid">'+''.join(f'<div class="area">'+(f'<img class="area-foto" src="{foto(AREA_FOTO[t])}" alt="Exemplo de {E(t.lower())} em serviço de saúde" loading="lazy">' if foto(AREA_FOTO.get(t,"")) else '')+f'<span>0{i+1}</span><h3>{E(t)}</h3><p>{E(d)}</p><p class="example">{E(ex)}</p></div>' for i,(t,d,ex) in enumerate(AREAS))+'</div>'+''.join(f'<h3>{E(t)}</h3><p>{E(d)}</p>' for t,d in CONTEXT)+'<p class="ref">'+refhtml('R50','Parte III, 6.2 A.2')+' · '+refhtml('ESTETICA','Introdução e seção 2.7')+'</p></section>')
 parts.append('<section id="glossario"><h2>Palavras que você vai encontrar</h2><div class="glossary">'+''.join(f'<details><summary>{E(t)}</summary><p>{E(d)}</p></details>' for t,d in GLOSSARY)+'</div></section>')
 parts.append('<section id="custos"><h2>Quanto pode custar?</h2><p>'+E(COST_NOTE)+'</p>')
