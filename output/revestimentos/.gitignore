@@ -1,0 +1,16 @@
+# Versionamos as fontes da biblioteca, não o que o gerador produz. Rode
+# `python gerar.py` para refazer tudo que está listado aqui.
+index.html
+biblioteca.md
+biblioteca.json
+revestimentos.pdf
+publicar/
+__pycache__/
+
+# Derivados da prancha: gerados a cada execução a partir de assets/materiais.png.
+assets/materiais.jpg
+assets/materiais-impressao.jpg
+
+# Miniaturas de conferência e o pacote da SINAPI (26 MB). O pacote se baixa de
+# novo no canal de downloads da Caixa quando trocar o mês de referência.
+qa/

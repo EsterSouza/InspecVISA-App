@@ -1,0 +1,62 @@
+from pathlib import Path
+import json,re,hashlib
+from PIL import Image,ImageDraw
+from pypdf import PdfReader
+from conteudo import MATERIALS,RULES
+from complementos import COSTS,SEM_PRECO,MARCA,UF_PADRAO
+from precos import PRECOS,UFS
+import fitz, fichas
+# O texto publicado é o de fichas.py, o mesmo que gerar.py aplica.
+fichas.aplicar(MATERIALS)
+root=Path(__file__).resolve().parent
+pdf=PdfReader(root/'revestimentos.pdf')
+text='\n'.join(p.extract_text() for p in pdf.pages)
+md=(root/'biblioteca.md').read_text(encoding='utf-8')
+web=(root/'index.html').read_text(encoding='utf-8')
+for m in MATERIALS:
+ assert m['name'] in text and m['name'] in md and m['name'] in web,m['id']
+ for field in ['description','use','limit','spec','proof','inspect']:
+  assert m[field] in md
+for r in RULES:assert r[1] in text
+assert '—' not in md
+links=sum(len(p.get('/Annots',[])) for p in pdf.pages)
+assert links>30
+# As miniaturas são refeitas a cada validação: página antiga guardada em disco
+# já escondeu um PDF quebrado antes.
+for old in (root/'qa').glob('pagina-*.png'):old.unlink()
+doc=fitz.open(root/'revestimentos.pdf')
+for i,page in enumerate(doc,1):
+ page.get_pixmap(dpi=110).save(root/'qa'/f'pagina-{i:02d}.png')
+doc.close()
+pages=sorted((root/'qa').glob('pagina-*.png'))
+assert len(pages)==len(pdf.pages)
+# Toda ficha precisa ter preço verificado ou o motivo escrito da falta, nunca as duas
+# coisas e nunca nenhuma: é o que impede a calculadora de inventar um valor.
+comPreco={i for x in COSTS for i in x['ids']}
+for m in MATERIALS:
+ assert (m['id'] in comPreco)!=(m['id'] in SEM_PRECO),m['id']
+ assert (SEM_PRECO[m['id']][0] if m['id'] in SEM_PRECO else m['name']) in web
+for x in COSTS:
+ for codigo in x['parts']:assert codigo in web and codigo in md,codigo
+# Todo estado precisa ter valor para toda composição citada: o seletor não pode
+# oferecer uma UF que devolve tela em branco.
+for codigo,valores in PRECOS.items():
+ assert len(valores)==len(UFS),(codigo,len(valores))
+ assert all(v>0 for v in valores.values()),codigo
+# Autoria e titularidade aparecem nos três formatos.
+for campo in ['titular','cnpj','autora','instagramRotulo','siteRotulo']:
+ assert MARCA[campo] in web,campo
+for campo in ['titular','cnpj','autora']:
+ assert MARCA[campo] in text,campo
+# A página publicada não distribui o PDF nem o Markdown: eles ficam locais.
+for arquivo in ['revestimentos.pdf','biblioteca.md','biblioteca.json']:
+ assert arquivo not in web,arquivo
+for start in range(0,len(pages),4):
+ board=Image.new('RGB',(1100,1610),'#b7bdc5');draw=ImageDraw.Draw(board)
+ for i,path in enumerate(pages[start:start+4]):
+  im=Image.open(path).convert('RGB');im.thumbnail((540,775))
+  x=(i%2)*550;y=(i//2)*805
+  board.paste(im,(x,y+23));draw.text((x+8,y+4),path.stem,fill='black')
+ board.save(root/'qa'/f'contato-{start//4+1}.jpg')
+(root/'qa'/'validacao.json').write_text(json.dumps(dict(pages=len(pdf.pages),materials=len(MATERIALS),rules=len(RULES),links=links,selectable_text=True,all_material_titles_in_three_formats=True),indent=2))
+print('OK:',len(pdf.pages),'páginas;',len(MATERIALS),'fichas;',links,'links/anotações')
