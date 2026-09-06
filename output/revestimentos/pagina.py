@@ -63,7 +63,7 @@ def cabeca(titulo,descricao,url,pre='',ld=None,extra=''):
   partes.append('<script type="application/ld+json">'+json.dumps(bloco,ensure_ascii=False)+'</script>')
  partes.append(medicao())
  partes.append(extra)
- partes.append(f'<link rel="stylesheet" href="{pre}estilo.css?v=18"></head><body>')
+ partes.append(f'<link rel="stylesheet" href="{pre}estilo.css?v=20"></head><body>')
  return ''.join(partes)
 
 ATALHOS=[('#areas','Ambientes'),('#glossario','Termos'),('#custos','Custos'),
@@ -88,7 +88,13 @@ def barra(pre='',ancora=True):
  return ('<a class="skip" href="#conteudo">Ir para o conteúdo</a>'
  f'<header class="topo"><div class="shell barra"><a class="marca" href="{pre or "#topo"}" aria-label="Biblioteca de revestimentos">'
  f'<span class="logo"><img src="{pre}assets/treinavisa.png" alt="TreinaVISA"></span></a>'
- f'<nav class="atalhos" aria-label="Seções">{links}</nav>'+zap()+'</div></header>')
+ f'<nav class="atalhos" aria-label="Seções">{links}</nav>'
+ # No celular os atalhos nao cabem na barra e o indice do hero empurrava a
+ # pagina inteira para baixo. Um <details> resolve os dois sem JavaScript:
+ # abre a lista sobre o conteudo e continua acessivel pelo teclado.
+ f'<details class="menu"><summary aria-label="Seções da biblioteca"><span></span></summary>'
+ f'<nav aria-label="Seções">{links}</nav></details>'
+ +zap()+'</div></header>')
 
 def convite():
  return ('<aside class="cta"><h2>'+E(PUBLICACAO['ctaTitulo'])+'</h2><p>'+E(PUBLICACAO['ctaTexto'])+'</p>'

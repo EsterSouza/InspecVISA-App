@@ -159,18 +159,21 @@ function precoDe(o){
 function desenhar(){
  const sel=escolhas.map(s=>s.value===''?null:COMPARA[Number(s.value)]).filter(Boolean);
  if(sel.length<2){alvo.innerHTML='<p class="ref">Escolha dois materiais para ver a comparação.</p>';return;}
- let html='<table class="comparacao"><thead><tr><th scope="col">Comparando</th>';
+ // No celular a tabela vira uma pilha de blocos e o cabecalho some, entao cada
+ // celula carrega o nome do material em data-col e os links saem numa lista.
+ let html='<p class="comparados-rot">Abrir a ficha de</p><ul class="comparados">'+sel.map(o=>'<li><a href="'+o.slug+'/">'+o.id+' · '+o.name+'</a></li>').join('')+'</ul>';
+ html+='<table class="comparacao"><thead><tr><th scope="col">Comparando</th>';
  sel.forEach(o=>{html+='<th scope="col"><a href="'+o.slug+'/">'+o.id+' · '+o.name+'</a></th>';});
  html+='</tr></thead><tbody>';
  LINHAS.forEach(function(par){
   html+='<tr><th scope="row">'+par[0]+'</th>';
-  sel.forEach(o=>{html+='<td>'+String(o[par[1]]).replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</td>';});
+  sel.forEach(o=>{html+='<td data-col="'+o.id+' · '+o.name+'">'+String(o[par[1]]).replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</td>';});
   html+='</tr>';
  });
  html+='<tr><th scope="row">Quanto pode custar</th>';
- sel.forEach(o=>{html+='<td>'+precoDe(o)+'</td>';});
+ sel.forEach(o=>{html+='<td data-col="'+o.id+'">'+precoDe(o)+'</td>';});
  html+='</tr><tr><th scope="row">O que a norma cobra</th>';
- sel.forEach(o=>{html+='<td>'+(o.rules.join('; ')||'Sem critério ligado')+'</td>';});
+ sel.forEach(o=>{html+='<td data-col="'+o.id+'">'+(o.rules.join('; ')||'Sem critério ligado')+'</td>';});
  html+='</tr></tbody></table>';
  alvo.innerHTML=html;
  marcar('comparar_materiais',{materiais:sel.map(o=>o.id).join('+')});

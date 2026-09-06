@@ -311,7 +311,7 @@ parts.append('</main>'+pagina.rodape('','2.3',DATE)
 +'<script id="compara-data" type="application/json">'+json.dumps(COMPARA,ensure_ascii=False)+'</script>'
 +'<script id="calc-data" type="application/json">'+json.dumps(CALC,ensure_ascii=False)+'</script>'
 +'<script id="preco-data" type="application/json">'+json.dumps({'precos':PRECOS,'ufs':UFS,'padrao':UF_PADRAO,'referencia':mesano(REFERENCIA),'url':COST_URL},ensure_ascii=False)+'</script>'
-+'<script src="consulta.js?v=12"></script></body></html>')
++'<script src="consulta.js?v=14"></script></body></html>')
 (ROOT/'index.html').write_text('\n'.join(parts),encoding='utf-8')
 # Uma página por ficha. A capa responde "o que existe"; a ficha responde a busca
 # de quem já sabe o nome do material e quer saber se pode usar no consultório.
