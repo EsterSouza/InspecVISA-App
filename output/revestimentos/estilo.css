@@ -6,11 +6,14 @@
 /* Terceira edição: preço por estado, assinatura no cabeçalho e rodapé de autoria. */
 .assinatura{margin:0;font-size:13px;line-height:1.45;color:var(--muted);text-align:right;max-width:260px}
 .composicao{color:var(--muted)}
-#custos .tools{max-width:420px;margin-bottom:22px}
+#custos .estado{max-width:420px;margin-bottom:22px}
+/* Na calculadora os dois campos da linha têm nomes longos: dividir meio a meio
+   trunca menos texto do que dar o dobro ao primeiro. */
+.calculator .tools label{flex:1}
 footer{line-height:1.6}
 footer p{margin:0 0 12px;max-width:780px}
 footer .credito{color:var(--ink);font-size:15px}
-@media(max-width:700px){.assinatura{font-size:11px;max-width:160px}#custos .tools{max-width:none}}
+@media(max-width:700px){.assinatura{font-size:11px;max-width:160px}#custos .estado{max-width:none}}
 /* Convite ao fim da página pública: a única peça de contato, invertida para
    destacar sem virar faixa de propaganda. */
 .cta{background:var(--ink);color:#eef3f1;border-radius:12px;padding:38px 40px;margin:0 0 64px}
@@ -24,3 +27,48 @@ footer .credito{color:var(--ink);font-size:15px}
 .cta a:focus-visible{outline:3px solid #f0e2d2}
 @media(max-width:700px){.cta{padding:26px 22px}.cta .acao a{display:block;text-align:center}}
 @media print{.cta{background:none;color:inherit;border:1px solid #999;padding:12pt}.cta h2{color:inherit}.cta .acao a{background:none;color:inherit;padding:0}.cta .ref{color:inherit}}
+
+/* Quarta edição: a biblioteca virou site. Barra fixa com atalhos e a chamada de
+   vistoria sempre à vista, hero com autoria e ações, rodapé em três colunas. */
+:root{scroll-padding-top:86px}
+header.topo{display:block;height:auto;padding:0}
+.topo{position:sticky;top:0;z-index:30;background:rgba(245,242,236,.94);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.barra{display:flex;align-items:center;gap:26px;height:68px}
+.barra .marca{display:block;flex-shrink:0}
+.barra .logo{display:block;width:138px;height:43px;overflow:hidden;position:relative}
+.barra .logo img{position:absolute;width:138px;height:138px;top:-48px;left:0}
+.atalhos{display:flex;gap:22px;font-size:14px;margin-left:auto}
+.atalhos a{white-space:nowrap;text-decoration:none;color:var(--ink);font-weight:600;padding:6px 0;border-bottom:2px solid transparent}
+.atalhos a:hover{border-bottom-color:var(--accent)}
+.zap{display:inline-block;background:var(--ink);color:#f6f3ee;padding:11px 20px;border-radius:6px;font-size:14px;font-weight:600;text-decoration:none;white-space:nowrap;flex-shrink:0}
+.zap:hover{background:#16292e;color:#fff}
+header.topo+.shell .hero{padding-top:52px}
+.selo{font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin-bottom:18px}
+.autoria{font-size:15px;color:var(--muted);margin-bottom:26px;max-width:560px}
+.autoria b{color:var(--ink)}
+.acoes{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.acoes .zap{padding:14px 26px;font-size:15px}
+.secundario{font-weight:600;font-size:15px}
+.indice{align-self:center;display:grid}
+.rodape{display:grid;grid-template-columns:2fr 1fr 1.4fr;gap:36px 48px;padding-top:8px}
+.rodape h3{font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink);margin-bottom:14px}
+.rodape nav{display:grid;gap:9px}
+.rodape nav a{text-decoration:none}
+.rodape nav a:hover{text-decoration:underline}
+.rodape .zap{margin:6px 0 10px}
+.rodape p{margin:0 0 12px}
+@media(max-width:980px){.atalhos{display:none}}
+@media(max-width:700px){
+ :root{scroll-padding-top:74px}
+ header.topo{height:auto}
+ .barra{height:60px;gap:14px}
+ .barra .logo{width:112px;height:35px}
+ .barra .logo img{width:112px;height:112px;top:-39px}
+ .zap{padding:10px 15px;font-size:13px;margin-left:auto}
+ header.topo+.shell .hero{padding-top:30px}
+ .acoes .zap{margin-left:0;width:100%;text-align:center}
+ .secundario{width:100%;text-align:center}
+ .rodape{grid-template-columns:1fr;gap:26px}
+}
+@media print{.topo,.acoes,.rodape nav{display:none}.rodape{display:block}}
+

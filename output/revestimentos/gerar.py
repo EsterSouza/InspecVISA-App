@@ -20,6 +20,11 @@ SOURCES['SINAPI']={'title':'SINAPI: tabela de preços de obra da Caixa','url':CO
 END[:]=[(t,p.replace('Os preços originais não foram confirmados em documentação oficial e não integram esta edição.','Os preços desta edição são referências localizadas, com escopo e fonte próprios, e não validam os preços do original.')) for t,p in END]
 def money(v):return ('R$ %.2f'%v).replace('.',',')
 UFNOME=dict(UFS)
+MESES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro']
+def mesano(x):
+ # A SINAPI publica dia exato; na leitura o que importa é o mês da referência.
+ partes=x.split('/')
+ return MESES[int(partes[-2])-1]+' de '+partes[-1]
 def cost_ref(uf):return f'SINAPI {UFNOME[uf]}, referência {REFERENCIA}, sem desoneração'
 # O valor de uma referência é a soma das composições que a formam, no estado
 # escolhido. Composição sem preço naquele estado derruba a referência inteira.
@@ -52,7 +57,7 @@ def refs(m):
   if item not in result: result.append(item)
  for key in m['extra']:result.append((key,SOURCES[key]['title']))
  return result
-def refhtml(key,device):return f'<a href="{E(SOURCES[key]["url"],quote=True)}">{E(key+": "+device)}</a>'
+def refhtml(key,device):return f'<a href="{E(SOURCES[key]["url"],quote=True)}" target="_blank" rel="noopener">{E(key+": "+device)}</a>'
 FIELDS=[('description','O que é'),('use','Onde pode ser usado'),('limit','Quando evitar'),('spec','Como pedir a instalação'),('proof','O que perguntar ao fornecedor'),('inspect','O que olhar depois de pronto')]
 
 DIAGRAM='''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 260" role="img" aria-labelledby="dtitle ddesc"><title id="dtitle">Três encontros que merecem atenção</title><desc id="ddesc">Esquemas sem escala: peça e rejunte são verificados separadamente; rodapé alinhado à parede; emenda fechada no sistema de manta.</desc><g font-family="Segoe UI, sans-serif" fill="#26354a"><rect width="760" height="260" fill="#edf1f4"/><g stroke="#26354a" stroke-width="2" fill="#c5d4df"><path d="M28 102h85v50H28zM127 102h85v50h-85z"/><path d="M294 52h30v118h120v30H294z"/><path d="M552 135h72v20h-72zM634 135h88v20h-88z"/></g><path d="M113 102h14v50h-14zM324 152h14v18h-14zM624 135h10v20h-10z" fill="#987032"/><g font-size="15"><text x="28" y="36">Peça + rejunte</text><text x="294" y="36">Piso + parede</text><text x="552" y="36">Manta + emenda</text><text x="28" y="190">Duas verificações</text><text x="294" y="228">Canto acessível à limpeza</text><text x="552" y="190">Fechamento do sistema</text></g><g stroke="#987032" stroke-width="1.5" fill="none"><path d="M120 98V68h65M342 159h75v-45M629 130V84h60"/></g><g font-size="12"><text x="140" y="61">junta</text><text x="371" y="107">alinhamento</text><text x="653" y="77">solda</text></g></g></svg>'''
@@ -80,15 +85,26 @@ parts=['<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name
 +'<meta property="og:image" content="'+PUBLICACAO['url']+'assets/materiais.jpg">'
 +'<meta name="twitter:card" content="summary_large_image">'
 +'<script type="application/ld+json">'+json.dumps({'@context':'https://schema.org','@type':'TechArticle','headline':'Revestimentos em serviços de saúde','description':PUBLICACAO['descricao'],'inLanguage':'pt-BR','url':PUBLICACAO['url'],'image':PUBLICACAO['url']+'assets/materiais.jpg','datePublished':'2026-09-06','author':{'@type':'Person','name':MARCA['autora'],'jobTitle':MARCA['credencial'],'url':MARCA['site']},'publisher':{'@type':'Organization','name':MARCA['marca'],'url':MARCA['site']},'license':MARCA['direitos']},ensure_ascii=False)+'</script>'
-+'<link rel="stylesheet" href="estilo.css?v=7"></head><body>',
++'<link rel="stylesheet" href="estilo.css?v=11"></head><body>',
 '<!-- THESIS: Atlas técnico que associa material, ambiente e evidência. OWN-WORLD: papel branco, tinta ardósia e ocre, tipografia legível e diagramas exatos. STORY: compreender critérios, localizar fichas e comparar sistemas. FIRST VIEWPORT: título à esquerda, índice à direita, busca acessível após diagrama. FORM: atlas técnico, candidato 3, seed 5be35a14; escolha de cores delegada pela usuária. FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance -->',
-'<a class="skip" href="#consulta">Ir para as fichas</a><div class="shell"><header><div class="logo"><img src="assets/treinavisa.png" alt="TreinaVISA"></div><p class="assinatura">Elaborado por '+E(MARCA['autora'])+'<br>'+E(MARCA['credencial'])+'</p></header><main><section class="hero"><div><h1>Revestimentos em<br>serviços de saúde</h1><p class="lead">Uma biblioteca para escolher, especificar e inspecionar superfícies com clareza.</p><p>RDC 50/2002 e normas complementares<br>Edição de '+DATE+'</p></div><nav aria-label="Índice"><a href="#areas">Qual é o meu ambiente?</a><a href="#glossario">Entenda os termos</a><a href="#custos">Compare os custos</a><a href="#criterios">Entenda os critérios</a><a href="#consulta">Consulte os materiais</a><a href="#pratica">Da escolha à inspeção</a><a href="#fontes">Fontes e limites</a></nav></section><figure><img src="assets/encontros.svg" alt="Esquemas de peça e rejunte, rodapé alinhado e emenda de manta"><figcaption>Encontros que merecem atenção. Esquemas ilustrativos, sem escala; não substituem detalhes de projeto.</figcaption></figure>']
+'<a class="skip" href="#consulta">Ir para as fichas</a>'
++'<header class="topo"><div class="shell barra"><a class="marca" href="#topo" aria-label="Início da página"><span class="logo"><img src="assets/treinavisa.png" alt="TreinaVISA"></span></a>'
++'<nav class="atalhos" aria-label="Seções"><a href="#areas">Ambientes</a><a href="#glossario">Termos</a><a href="#custos">Custos</a><a href="#criterios">Critérios</a><a href="#consulta">Materiais</a><a href="#pratica">Inspeção</a></nav>'
++'<a class="zap" href="'+PUBLICACAO['whatsapp']+'" target="_blank" rel="noopener">'+E(PUBLICACAO['whatsappRotulo'])+'</a></div></header>'
++'<div class="shell"><main id="topo"><section class="hero"><div>'
++'<p class="selo">RDC 50/2002 e normas complementares · Edição 2.2</p>'
++'<h1>Revestimentos em<br>serviços de saúde</h1>'
++'<p class="lead">Uma biblioteca para escolher, especificar e inspecionar superfícies com clareza.</p>'
++'<p class="autoria">Elaborado por <b>'+E(MARCA['autora'])+'</b>, '+E(MARCA['credencial'].lower())+'.<span> <a href="'+MARCA['site']+'" target="_blank" rel="noopener">'+E(MARCA['siteRotulo'])+'</a> · <a href="'+MARCA['instagram']+'" target="_blank" rel="noopener">'+E(MARCA['instagramRotulo'])+'</a></span></p>'
++'<p class="acoes"><a class="zap" href="'+PUBLICACAO['whatsapp']+'" target="_blank" rel="noopener">'+E(PUBLICACAO['whatsappRotulo'])+'</a><a class="secundario" href="#consulta">Ver as 29 fichas</a></p>'
++'</div><nav class="indice" aria-label="Índice"><a href="#areas">Qual é o meu ambiente?</a><a href="#glossario">Entenda os termos</a><a href="#custos">Compare os custos</a><a href="#criterios">Entenda os critérios</a><a href="#consulta">Consulte os materiais</a><a href="#pratica">Da escolha à inspeção</a><a href="#fontes">Fontes e limites</a></nav></section>'
++'<figure><img src="assets/encontros.svg" alt="Esquemas de peça e rejunte, rodapé alinhado e emenda de manta"><figcaption>Encontros que merecem atenção. Esquemas ilustrativos, sem escala; não substituem detalhes de projeto.</figcaption></figure>']
 parts.append('<figure class="photo"><img src="assets/materiais.jpg" alt="Amostras ilustrativas de porcelanato, epóxi, vinílico, pintura, granito, quartzo, inox e estofado"><figcaption>Biblioteca visual: porcelanato · epóxi · vinílico · pintura / granito · quartzo · inox · estofado. Imagem gerada por IA, ilustrativa; não representa produtos certificados nem detalhes de execução aprovados.</figcaption></figure>')
 parts.append('<section id="areas"><h2>Primeiro, entenda o seu ambiente</h2><div class="area-grid">'+''.join(f'<div class="area"><span>0{i+1}</span><h3>{E(t)}</h3><p>{E(d)}</p><p class="example">{E(ex)}</p></div>' for i,(t,d,ex) in enumerate(AREAS))+'</div>'+''.join(f'<h3>{E(t)}</h3><p>{E(d)}</p>' for t,d in CONTEXT)+'<p class="ref">'+refhtml('R50','Parte III, 6.2 A.2')+' · '+refhtml('ESTETICA','Introdução e seção 2.7')+'</p></section>')
 parts.append('<section id="glossario"><h2>Palavras que você vai encontrar</h2><div class="glossary">'+''.join(f'<details><summary>{E(t)}</summary><p>{E(d)}</p></details>' for t,d in GLOSSARY)+'</div></section>')
 parts.append('<section id="custos"><h2>Quanto pode custar?</h2><p>'+E(COST_NOTE)+'</p>')
-parts.append('<div class="tools"><label>Escolha o seu estado<select id="uf">'+''.join(f'<option value="{u}"{" selected" if u==UF_PADRAO else ""}>{E(n)}</option>' for u,n in UFS)+'</select></label></div>')
-parts.append('<p class="ref">'+E(COST_SCALE)+' Fonte de todos os valores: <a href="'+COST_URL+'">tabela SINAPI da Caixa</a>, referência '+REFERENCIA+', emitida em '+EMISSAO+', sem desoneração e sem BDI.</p>')
+parts.append('<div class="tools estado"><label>Escolha o seu estado<select id="uf">'+''.join(f'<option value="{u}"{" selected" if u==UF_PADRAO else ""}>{E(n)}</option>' for u,n in UFS)+'</select></label></div>')
+parts.append('<p class="ref">'+E(COST_SCALE)+' Fonte de todos os valores: <a href="'+COST_URL+'" target="_blank" rel="noopener">tabela SINAPI da Caixa</a>, referência de '+mesano(REFERENCIA)+', emitida em '+mesano(EMISSAO)+', sem desoneração e sem BDI.</p>')
 for group in dict.fromkeys(x['group'] for x in COSTS):
  linha=[(i,v) for i,v in enumerate(COSTS) if v['group']==group]
  topo=max(valor(v) for _,v in linha)
@@ -120,16 +136,21 @@ parts.extend(f'<h3>{E(t)}</h3><p>{E(p)}</p>' for t,p in END)
 parts.append('</section><section id="fontes"><h2>Referências e alcance da revisão</h2><p>Fontes consultadas em '+DATE+'. Os dispositivos são indicados nos critérios. A publicação não tem caráter oficial da Anvisa.</p>')
 for key,s in SOURCES.items():parts.append(f'<div class="source"><h3>{refhtml(key,s["title"])}</h3><p>{E(s["status"])}</p></div>')
 parts.append('</section><aside class="cta"><h2>'+E(PUBLICACAO['ctaTitulo'])+'</h2><p>'+E(PUBLICACAO['ctaTexto'])+'</p>'
-+'<p class="acao"><a href="'+PUBLICACAO['whatsapp']+'" rel="noopener">'+E(PUBLICACAO['whatsappRotulo'])+'</a></p>'
-+'<p class="ref">'+E(MARCA['autora'])+', '+E(MARCA['credencial'].lower())+'. <a href="'+MARCA['site']+'">'+E(MARCA['siteRotulo'])+'</a></p></aside>')
-parts.append('</main><footer><p class="credito"><b>Biblioteca de revestimentos em serviços de saúde</b><br>Edição 2.2 · '+DATE+' · '+E(MARCA['marca'])+'</p>'
-+'<p>Elaborado por <b>'+E(MARCA['autora'])+'</b>, '+E(MARCA['credencial'].lower())+'.<br><a href="'+MARCA['site']+'">'+E(MARCA['siteRotulo'])+'</a> · <a href="'+MARCA['instagram']+'">'+E(MARCA['instagramRotulo'])+'</a></p>'
-+'<p>© '+MARCA['ano']+' '+E(MARCA['titular'])+' · CNPJ '+E(MARCA['cnpj'])+'<br>'+E(MARCA['endereco'])+'</p>'
-+'<p>'+E(MARCA['direitos'])+'</p><p>'+E(MARCA['isencao'])+'</p><p><a href="#">Voltar ao início</a></p></footer></div>'
++'<p class="acao"><a href="'+PUBLICACAO['whatsapp']+'" target="_blank" rel="noopener">'+E(PUBLICACAO['whatsappRotulo'])+'</a></p>'
++'<p class="ref">'+E(MARCA['autora'])+', '+E(MARCA['credencial'].lower())+'. <a href="'+MARCA['site']+'" target="_blank" rel="noopener">'+E(MARCA['siteRotulo'])+'</a></p></aside>')
+parts.append('</main><footer><div class="rodape">'
++'<div><p class="credito"><b>Biblioteca de revestimentos em serviços de saúde</b><br>Edição 2.2 · '+DATE+' · '+E(MARCA['marca'])+'</p>'
++'<p>'+E(MARCA['direitos'])+'</p><p>'+E(MARCA['isencao'])+'</p></div>'
++'<div><h3>Seções</h3><nav aria-label="Seções, rodapé"><a href="#areas">Qual é o meu ambiente?</a><a href="#glossario">Entenda os termos</a><a href="#custos">Compare os custos</a><a href="#criterios">Entenda os critérios</a><a href="#consulta">Consulte os materiais</a><a href="#pratica">Da escolha à inspeção</a><a href="#fontes">Fontes e limites</a></nav></div>'
++'<div><h3>Quem escreveu</h3><p>'+E(MARCA['autora'])+', '+E(MARCA['credencial'].lower())+'.</p>'
++'<p><a href="'+MARCA['site']+'" target="_blank" rel="noopener">'+E(MARCA['siteRotulo'])+'</a> · <a href="'+MARCA['instagram']+'" target="_blank" rel="noopener">'+E(MARCA['instagramRotulo'])+'</a></p>'
++'<p><a class="zap" href="'+PUBLICACAO['whatsapp']+'" target="_blank" rel="noopener">'+E(PUBLICACAO['whatsappRotulo'])+'</a></p>'
++'<p class="ref">© '+MARCA['ano']+' '+E(MARCA['titular'])+' · CNPJ '+E(MARCA['cnpj'])+'. '+E(MARCA['endereco'])+'.</p></div>'
++'</div></footer></div>'
 +'<script id="cost-data" type="application/json">'+json.dumps(COSTS_JSON,ensure_ascii=False)+'</script>'
 +'<script id="calc-data" type="application/json">'+json.dumps(CALC,ensure_ascii=False)+'</script>'
-+'<script id="preco-data" type="application/json">'+json.dumps({'precos':PRECOS,'ufs':UFS,'padrao':UF_PADRAO,'referencia':REFERENCIA,'url':COST_URL},ensure_ascii=False)+'</script>'
-+'<script src="consulta.js?v=8"></script></body></html>')
++'<script id="preco-data" type="application/json">'+json.dumps({'precos':PRECOS,'ufs':UFS,'padrao':UF_PADRAO,'referencia':mesano(REFERENCIA),'url':COST_URL},ensure_ascii=False)+'</script>'
++'<script src="consulta.js?v=10"></script></body></html>')
 (ROOT/'index.html').write_text('\n'.join(parts),encoding='utf-8')
 
 # publicar/ e exatamente o que sobe para a internet: a pagina, o estilo, o script
@@ -154,7 +175,7 @@ md.extend(['## Entenda o ambiente']+[f'### {t}\n\n{d}\n\n{ex}' for t,d,ex in ARE
 md.extend([f'### {t}\n\n{d}' for t,d in CONTEXT])
 md.extend(['## Glossário']+[f'**{t}:** {d}' for t,d in GLOSSARY])
 md.extend(['## Custos de referência',COST_NOTE,
-f'Os valores abaixo são de {UFNOME[UF_PADRAO]}. A versão em página tem os 27 estados; aqui vai um só, porque o arquivo é estático. Fonte: [tabela SINAPI da Caixa]({COST_URL}), referência {REFERENCIA}, emitida em {EMISSAO}.',COST_SCALE]
+f'Os valores abaixo são de {UFNOME[UF_PADRAO]}. A versão em página tem os 27 estados; aqui vai um só, porque o arquivo é estático. Fonte: [tabela SINAPI da Caixa]({COST_URL}), referência de {mesano(REFERENCIA)}, emitida em {mesano(EMISSAO)}.',COST_SCALE]
 +[f'**{x["name"]}: {money(valor(x))}/{x["unit"]}.** {x["scope"]} Composição {" + ".join(x["parts"])}.' for x in COSTS])
 md.append('### Fichas sem preço verificado')
 md.extend(f'**{m["id"]} · {m["name"]}.** {SEM_PRECO[m["id"]][0]}' for m in MATERIALS if m['id'] in SEM_PRECO)
@@ -253,7 +274,7 @@ for off in range(0,len(GLOSSARY),7):
 flow=start('Quanto pode custar?','custos')
 flow.append(p(COST_NOTE))
 flow.append(rich(f'Valores de <b>{escape(UFNOME[UF_PADRAO])}</b>. A versão em página traz os 27 estados. {escape(COST_SCALE)}',small))
-flow.append(rich(f'<link href="{COST_URL}" color="#765420">{escape(cost_ref(UF_PADRAO))}</link>, emitida em {EMISSAO}, sem BDI.',small))
+flow.append(rich(f'<link href="{COST_URL}" color="#765420">{escape(cost_ref(UF_PADRAO))}</link>, emitida em {mesano(EMISSAO)}, sem BDI.',small))
 for group in dict.fromkeys(x['group'] for x in COSTS):
  flow.append(p(group,h3))
  for x in [v for v in COSTS if v['group']==group]:
@@ -304,7 +325,7 @@ flow.extend([p('Elaborado por '+MARCA['autora'],h3),p(MARCA['credencial']+'. '+M
  p('Titularidade',h3),p(MARCA['titular']+', CNPJ '+MARCA['cnpj']+'. '+MARCA['endereco']+'.'),p(MARCA['direitos']),Spacer(1,10),
  p('Alcance',h3),p(MARCA['isencao']),Spacer(1,10),
 # A página aberta é a versão viva: o preço da SINAPI muda todo mês e o PDF não.
- p('Onde esta a versao atualizada',h3),p('A pagina '+PUBLICACAO['url']+' traz os 27 estados e a referencia do mes. Para falar sobre um projeto: '+MARCA['siteRotulo']+'.')])
+ p('Onde está a versão atualizada',h3),p('A página '+PUBLICACAO['url']+' traz os 27 estados e a referência do mês. Para uma vistoria no imóvel junto com o projeto: '+MARCA['siteRotulo']+'.')])
 finish(flow)
 c.save()
 print(json.dumps({'materials':len(MATERIALS),'rules':len(RULES),'pages':PAGE,'pdf':str(ROOT/'revestimentos.pdf')},ensure_ascii=False))

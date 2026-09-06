@@ -33,7 +33,7 @@ const brl=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
 const MODOS={'m²':['area','dimensions'],'m linear':['linear'],'unidade':['unit']};
 const rotulo=unit=>unit==='unidade'?'peça':unit;
 const nomeUF=sigla=>(precoData.ufs.find(par=>par[0]===sigla)||[,sigla])[1];
-const fonte=()=>`SINAPI ${nomeUF(uf.value)}, referência ${precoData.referencia}, sem desoneração`;
+const fonte=()=>`SINAPI ${nomeUF(uf.value)}, referência de ${precoData.referencia}, sem desoneração`;
 // Ela digita 18,5 e não 18.5. O ponto só vale como milhar quando vem antes de
 // três dígitos, senão 20.5 viraria 205.
 const num=campo=>{const t=campo.value.trim();if(t==='')return NaN;return Number(t.includes(',')?t.replace(/\./g,'').replace(',','.'):t.replace(/\.(?=\d{3}\b)/g,''));};
@@ -132,3 +132,9 @@ try{
  if(salvo&&[...uf.options].some(o=>o.value===salvo))uf.value=salvo;
 }catch(e){}
 aplicarEstado();
+
+// Link para fora abre em guia nova, inclusive o que a calculadora cria depois de
+// a pagina carregar: quem chegou pela busca nao perde a biblioteca no caminho.
+function externos(){document.querySelectorAll('a[href^="http"]:not([target])').forEach(function(a){a.target='_blank';a.rel='noopener';});}
+externos();
+document.addEventListener('click',externos,true);

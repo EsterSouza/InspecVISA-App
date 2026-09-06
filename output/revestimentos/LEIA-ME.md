@@ -1,6 +1,6 @@
 # Biblioteca de revestimentos | TreinaVISA
 
-Edição 2.2, 06/09/2026. Para profissionais de saúde sem formação em arquitetura.
+Edição 2.2, setembro de 2026. Para profissionais de saúde sem formação em arquitetura.
 
 Elaborado por Ester Caiafa, enfermeira sanitarista e consultora sanitária. Conteúdo de propriedade intelectual da TreinaVISA, HUB TREINAVISA SERVIÇOS LTDA, CNPJ 53.297.694/0001-37. consultorasanitaria.com.br · @consultora.sanitaria.
 
@@ -13,7 +13,8 @@ Abra index.html para consulta local. A biblioteca funciona sem instalação, com
 - **Menos texto dentro das fichas.** O parágrafo sobre a natureza da recomendação aparecia 29 vezes, uma por ficha; agora aparece uma vez, na abertura da biblioteca. A explicação de preço dentro da ficha virou uma linha só, que leva para "Quanto pode custar". A nota sobre a escala das barras saiu das cinco repetições e ficou uma.
 - **Autoria e direitos.** Assinatura no cabeçalho da página, bloco completo no rodapé e uma página final no PDF, com titularidade, CNPJ, endereço, site, Instagram e a isenção: é orientação técnica, não tem caráter oficial da Anvisa nem de vigilância sanitária, e não substitui projeto, laudo ou decisão da autoridade local.
 - **Pasta publicar/ e a página no ar.** O botão de baixar o PDF saiu da página. `python gerar.py` monta `publicar/` com os seis arquivos que vão para a rede: index.html, estilo.css, consulta.js e três imagens, 448 kB no total. Sem PDF, sem zip, sem Markdown e sem JSON junto. O mesmo comando copia essa pasta para `public/biblioteca/` do aplicativo, que é o que o Vercel serve em `inspecvisa.consultorasanitaria.com.br/biblioteca/`. O `validar.py` falha se as duas cópias divergirem.
-- **Convite no fim da página.** Um bloco antes do rodapé leva ao WhatsApp profissional, com a mensagem já escrita. A página dá o critério e a ordem de grandeza; o projeto de verdade depende do ambiente, da rotina de limpeza e da vigilância local, e é isso que o convite diz. O head ganhou descrição, endereço canônico, Open Graph e um JSON-LD de TechArticle com autoria e titularidade, para a página ser achada na busca e abrir bonita quando alguém compartilhar o link.
+- **A página virou site.** Barra fixa no alto com a logo, os atalhos das seções e a chamada de vistoria sempre à vista; o hero abre com a autoria e dois botões; o rodapé ficou em três colunas, com identidade, seções e contato. As datas mostradas ao leitor passaram a ser mês e ano, sem dia. Todo link para fora abre em guia nova, para quem chegou pela busca não perder a biblioteca no caminho.
+- **Convite no fim da página.** Um bloco antes do rodapé leva ao WhatsApp profissional, com a mensagem já escrita. A oferta é a vistoria: a página dá o critério e a ordem de grandeza, e quem quiser saber se o imóvel passa na vigilância precisa de uma vistoria no imóvel junto com o projeto. O head ganhou descrição, endereço canônico, Open Graph e um JSON-LD de TechArticle com autoria e titularidade, para a página ser achada na busca e abrir bonita quando alguém compartilhar o link.
 - **PDF de 8,5 MB para 1,2 MB.** A prancha fotográfica em PNG tem 2,7 MB e o PDF a embutia duas vezes, o que respondia por 6,7 MB do arquivo: pesado demais para mandar por WhatsApp. O gerador passou a fazer duas cópias em JPEG a partir do mesmo PNG, uma de 250 kB e progressiva para a página, em rede móvel, e uma de impressão para o PDF, que sai a 228 dpi na capa. O PNG fica só como original editável. Conferido no recorte da capa: sem artefato visível.
 - **Três correções da segunda auditoria da RDC 50** (adiante).
 

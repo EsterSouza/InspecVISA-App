@@ -15,3 +15,8 @@ A autoria passou a ter forma própria: assinatura discreta no cabeçalho, ao lad
 Conferido a 375 px: sem rolagem horizontal, nenhum elemento transbordando, cabeçalho, seletor, cartões de custo, ficha aberta e rodapé legíveis.
 
 Proveniência dos rasters e prompt: LEIA-ME.md. Imagens ilustrativas não demonstram conformidade de produto.
+
+A edição 2.2 fechou virando site. A biblioteca era um documento longo com uma logo no alto; agora tem barra fixa com a logo, os atalhos das seis seções e a chamada de vistoria, que acompanha a rolagem inteira. O hero deixou de ser só título e subtítulo: abre com o selo da norma e da edição, fecha com a autoria assinada e dois botões, o de vistoria e o que leva direto às fichas. O rodapé, que era uma pilha de parágrafos, virou três colunas: identidade e direitos, seções, contato. Abaixo de 980 px os atalhos saem da barra e ficam só a logo e o botão, porque o hero traz o índice completo logo em seguida.
+
+Duas decisões pequenas com efeito grande: as datas mostradas ao leitor passaram a ser mês e ano, sem dia, porque dia exato em publicação envelhece rápido e não ajuda ninguém; e todo link para fora abre em guia nova, para quem chegou pela busca não perder a biblioteca ao consultar a norma.
+

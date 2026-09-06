@@ -101,7 +101,7 @@ MARCA=dict(
 PUBLICACAO=dict(
  url='https://inspecvisa.consultorasanitaria.com.br/biblioteca/',
  descricao='O que a RDC 50 exige de piso, parede, teto, rodapé e bancada em serviço de saúde, escrito para quem cuida do serviço e não é da área de obra. Com preço de obra da SINAPI nos 27 estados e calculadora de referência.',
- ctaTitulo='Quer conferir o seu projeto antes da obra?',
- ctaTexto='Esta biblioteca dá o critério e a ordem de grandeza. O seu caso tem ambiente, atividade, rotina de limpeza e exigência da vigilância local, e é aí que o erro custa caro: revestimento errado costuma aparecer só na inspeção, com a obra pronta. Se quiser, eu olho o projeto antes de a obra começar.',
- whatsapp='https://wa.me/5521993397315?text=Oi%2C%20Ester.%20Vim%20pela%20biblioteca%20de%20revestimentos%20e%20queria%20falar%20sobre%20o%20meu%20projeto.',
- whatsappRotulo='Falar comigo no WhatsApp')
+ ctaTitulo='O seu imóvel passa na vigilância sanitária?',
+ ctaTexto='Esta biblioteca dá o critério e a ordem de grandeza. Cada imóvel tem o seu ambiente, a sua atividade e a exigência da vigilância local, e é aí que o erro custa caro: revestimento fora do critério costuma aparecer só na inspeção, com a obra pronta. Se quiser, fazemos uma vistoria no imóvel junto com o projeto, para verificar se ele passa ou não pela aprovação da vigilância sanitária.',
+ whatsapp='https://wa.me/5521993397315?text=Oi%2C%20Ester.%20Vim%20pela%20biblioteca%20de%20revestimentos%20e%20queria%20uma%20vistoria%20no%20imovel%20junto%20com%20o%20projeto.',
+ whatsappRotulo='Agendar uma vistoria')
